@@ -21,8 +21,7 @@ from service.api.decorators import (
     default_rate_limit,
     default_limits,
     duo_route,
-    optional_require_session,
-    require_session,
+    session,
     rate_limit,
     limiter,
     shared_otp_limit_dependency,
@@ -175,7 +174,7 @@ async def post_resend_otp(
     request: Request,
     _default_limited: None = Depends(default_rate_limit('post_resend_otp')),
     _shared_limited: None = Depends(shared_otp_limit_dependency),
-    s: t.SessionInfo = Depends(require_session(
+    s: t.SessionInfo = Depends(session(
         expected_onboarding_status=None,
         expected_sign_in_status=False,
     )),
@@ -187,7 +186,7 @@ async def post_resend_otp(
 async def post_check_otp(
     request: Request,
     req: t.PostCheckOtp,
-    s: t.SessionInfo = Depends(require_session(
+    s: t.SessionInfo = Depends(session(
         expected_onboarding_status=None,
         expected_sign_in_status=False,
     )),
@@ -277,7 +276,7 @@ async def post_auth_apple_callback(
 @duo_route
 async def post_sign_out(
     request: Request,
-    s: t.SessionInfo = Depends(require_session(expected_onboarding_status=None)),
+    s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
     _default_limited: None = Depends(default_rate_limit('post_sign_out')),
 ) -> object:
     await person.post_sign_out(s)
@@ -287,7 +286,7 @@ async def post_sign_out(
 @duo_route
 async def post_check_session_token(
     request: Request,
-    s: t.SessionInfo = Depends(require_session(expected_onboarding_status=None)),
+    s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
     _default_limited: None = Depends(default_rate_limit('post_check_session_token')),
 ) -> object:
     return await person.post_check_session_token(s)
@@ -305,7 +304,7 @@ async def get_search_locations(
 async def patch_onboardee_info(
     request: Request,
     req: t.PatchOnboardeeInfo,
-    s: t.SessionInfo = Depends(require_session(expected_onboarding_status=False)),
+    s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
     _default_limited: None = Depends(default_rate_limit('patch_onboardee_info')),
     _account_limited: None = Depends(rate_limit(
         default_limits,
@@ -319,7 +318,7 @@ async def patch_onboardee_info(
 @duo_route
 async def post_finish_onboarding(
     request: Request,
-    s: t.SessionInfo = Depends(require_session(expected_onboarding_status=False)),
+    s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
     _default_limited: None = Depends(default_rate_limit('post_finish_onboarding')),
 ) -> object:
     return await person.post_finish_onboarding(s)
@@ -328,7 +327,7 @@ async def post_finish_onboarding(
 @duo_route
 async def get_next_questions(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_next_questions')),
 ) -> object:
     return await question.get_next_questions(
@@ -353,7 +352,7 @@ async def get_public_next_questions(
 async def post_answer(
     request: Request,
     req: t.PostAnswer,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_answer')),
 ) -> object:
     return await qanda.post_answer(req, s)
@@ -363,7 +362,7 @@ async def post_answer(
 async def delete_answer(
     request: Request,
     req: t.DeleteAnswer,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('delete_answer')),
 ) -> object:
     return await qanda.delete_answer(req, s)
@@ -372,7 +371,7 @@ async def delete_answer(
 @duo_route
 async def get_search(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_search')),
 ) -> object:
     n = request.query_params.get('n')
@@ -433,7 +432,7 @@ async def get_health(request: Request) -> object:
 async def get_prospect_profile(
     request: Request,
     prospect_handle: str,
-    s: Optional[t.SessionInfo] = Depends(optional_require_session()),
+    s: Optional[t.SessionInfo] = Depends(session(optional=True)),
     _default_limited: None = Depends(default_rate_limit('get_prospect_profile')),
 ) -> object:
     return await person.get_prospect_profile(s, prospect_handle)
@@ -443,7 +442,7 @@ async def get_prospect_profile(
 async def get_conversation_prospect(
     request: Request,
     prospect_uuid: str,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_conversation_prospect')),
 ) -> object:
     return await person.get_conversation_prospect(s, prospect_uuid)
@@ -454,7 +453,7 @@ async def post_skip_by_uuid(
     request: Request,
     prospect_uuid: str,
     req: t.PostSkip = Body(default_factory=t.PostSkip),
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_skip_by_uuid')),
 ) -> object:
     limit = "1 per 5 seconds; 20 per day"
@@ -487,7 +486,7 @@ async def post_skip_by_uuid(
 async def post_unskip_by_uuid(
     request: Request,
     prospect_uuid: str,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_unskip_by_uuid')),
 ) -> object:
     await person.post_unskip_by_uuid(s, prospect_uuid)
@@ -499,7 +498,7 @@ async def get_compare_personalities(
     request: Request,
     prospect_person_id: int,
     topic: str = FastApiPath(pattern='^(mbti|big5|attachment|politics|other)$'),
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_compare_personalities')),
 ) -> object:
     return await person.get_compare_personalities(s, prospect_person_id, topic)
@@ -509,7 +508,7 @@ async def get_compare_personalities(
 async def get_compare_answers(
     request: Request,
     prospect_person_id: int,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_compare_answers')),
 ) -> object:
     return await person.get_compare_answers(
@@ -526,7 +525,7 @@ async def get_compare_answers(
 async def post_inbox_info(
     request: Request,
     req: t.PostInboxInfo,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_inbox_info')),
 ) -> object:
     return await person.post_inbox_info(req, s)
@@ -535,7 +534,7 @@ async def post_inbox_info(
 @duo_route
 async def delete_account(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('delete_account')),
 ) -> object:
     return await person.delete_or_ban_account(s=s)
@@ -544,7 +543,7 @@ async def delete_account(
 @duo_route
 async def post_deactivate(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_deactivate')),
 ) -> object:
     await person.post_deactivate(s=s)
@@ -554,7 +553,7 @@ async def post_deactivate(
 @duo_route
 async def get_profile_info(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_profile_info')),
 ) -> object:
     return await person.get_profile_info(s)
@@ -564,7 +563,7 @@ async def get_profile_info(
 async def delete_profile_info(
     request: Request,
     req: t.DeleteProfileInfo,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('delete_profile_info')),
 ) -> object:
     await person.delete_profile_info(req, s)
@@ -575,7 +574,7 @@ async def delete_profile_info(
 async def patch_profile_info(
     request: Request,
     req: t.PatchProfileInfo,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('patch_profile_info')),
 ) -> object:
     return await person.patch_profile_info(req, s)
@@ -584,7 +583,7 @@ async def patch_profile_info(
 @duo_route
 async def get_search_filers(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_search_filers')),
 ) -> object:
     return await person.get_search_filters(s)
@@ -594,7 +593,7 @@ async def get_search_filers(
 async def post_search_filter(
     request: Request,
     req: t.PostSearchFilter,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_search_filter')),
 ) -> object:
     return await person.post_search_filter(req, s)
@@ -603,7 +602,7 @@ async def post_search_filter(
 @duo_route
 async def get_search_filter_questions(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(
         default_rate_limit('get_search_filter_questions')
     ),
@@ -620,7 +619,7 @@ async def get_search_filter_questions(
 async def post_search_filter_answer(
     request: Request,
     req: t.PostSearchFilterAnswer,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(
         default_rate_limit('post_search_filter_answer')
     ),
@@ -631,7 +630,7 @@ async def post_search_filter_answer(
 @duo_route
 async def get_search_clubs(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_search_clubs')),
 ) -> object:
     return await person.get_search_clubs(
@@ -672,7 +671,7 @@ async def get_club(
 async def post_join_club(
     request: Request,
     req: t.PostJoinClub,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_join_club')),
 ) -> object:
     return await person.post_join_club(req, s)
@@ -682,7 +681,7 @@ async def post_join_club(
 async def post_leave_club(
     request: Request,
     req: t.PostLeaveClub,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('post_leave_club')),
 ) -> object:
     await person.post_leave_club(req, s)
@@ -706,7 +705,7 @@ async def get_update_notifications(
 @duo_route
 async def get_feed(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit('get_feed')),
 ) -> object:
     valid_datetime = t.ValidDatetime.model_validate(
@@ -720,7 +719,7 @@ async def get_feed(
 async def post_verification_selfie(
     request: Request,
     req: t.PostVerificationSelfie,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(
         default_rate_limit('post_verification_selfie')
     ),
@@ -731,7 +730,7 @@ async def post_verification_selfie(
 @duo_route
 async def post_verify(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _ip_limited: None = Depends(rate_limit(
         "8 per day",
         scope="verify",
@@ -756,7 +755,7 @@ async def post_verify(
 @duo_route
 async def get_check_verification(
     _limited: None = Depends(default_rate_limit('get_check_verification')),
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_check_verification(s)
 
@@ -822,7 +821,7 @@ async def get_admin_delete_photo(
 @duo_route
 async def get_export_data_token(
     request: Request,
-    s: t.SessionInfo = Depends(require_session()),
+    s: t.SessionInfo = Depends(session()),
     _ip_limited: None = Depends(rate_limit(
         "3 per day",
         scope="export_data_token",

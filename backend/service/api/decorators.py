@@ -3,7 +3,7 @@ from dataclasses import is_dataclass, asdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from email.utils import format_datetime
-from typing import ParamSpec, cast
+from typing import Literal, ParamSpec, cast, overload
 from uuid import UUID
 from database import api_tx, check_connections_forever
 from duohash import sha512
@@ -414,7 +414,7 @@ AND
 #   @duo_route
 #   async def get_thing(
 #       _limited: None = Depends(default_rate_limit('get_thing')),
-#       s: duotypes.SessionInfo = Depends(require_session()),
+#       s: duotypes.SessionInfo = Depends(session()),
 #   ) -> object:
 #       async with api_tx() as tx:
 #           ...
@@ -442,7 +442,7 @@ def duo_route(func: Callable[_P, object]) -> Callable[_P, Awaitable[Response]]:
 
 
 class AuthError(Exception):
-    """Raised by `require_session` on missing/invalid auth. Rendered to the
+    """Raised by `session` on missing/invalid auth. Rendered to the
     same plain-text bodies + status codes the manual chain returned (rather
     than FastAPI's default JSON `{"detail": ...}`)."""
     def __init__(self, message: str, status_code: int) -> None:
@@ -462,120 +462,93 @@ async def _handle_rate_limit(request: Request, exc: RateLimitExceeded) -> Respon
     return _make_response(('Too Many Requests', 429))
 
 
-def require_session(
+@overload
+def session(
+    expected_onboarding_status: bool | None = ...,
+    expected_sign_in_status: bool | None = ...,
+    *,
+    optional: Literal[False] = False,
+) -> Callable[[Request], Awaitable[duotypes.SessionInfo]]: ...
+
+
+@overload
+def session(
+    expected_onboarding_status: bool | None = ...,
+    expected_sign_in_status: bool | None = ...,
+    *,
+    optional: Literal[True],
+) -> Callable[[Request], Awaitable[duotypes.SessionInfo | None]]: ...
+
+
+def session(
     expected_onboarding_status: bool | None = True,
     expected_sign_in_status: bool | None = True,
-) -> Callable[[Request], Awaitable[duotypes.SessionInfo]]:
+    *,
+    optional: bool = False,
+) -> Callable[[Request], Awaitable[duotypes.SessionInfo | None]]:
     """Async auth dependency factory. Resolves the bearer token to a
     `SessionInfo` (async sessioncache lookup, async DB fallback) and enforces
-    the expected onboarding/sign-in status, raising `AuthError` otherwise."""
-    async def dependency(request: Request) -> duotypes.SessionInfo:
-        auth_header = (request.headers.get('Authorization') or '').lower()
-        try:
-            bearer, session_token = auth_header.split()
-            if bearer != 'bearer':
-                raise ValueError
-        except Exception:
-            raise AuthError('Missing or malformed authorization header', 400)
+    the expected onboarding/sign-in status, raising `AuthError` otherwise.
 
-        session_token_hash = sha512(session_token)
-
-        # sessioncache is a fast, best-effort async Redis get/set. The
-        # session-row fallback uses the async DB.
-        session_info = await sessioncache.get_session(session_token_hash)
-
-        if session_info is None:
-            async with api_tx('READ COMMITTED') as tx:
-                await tx.execute(
-                    Q_GET_SESSION,
-                    dict(session_token_hash=session_token_hash))
-                row = await tx.fetchone()
-            if row:
-                session_info = duotypes.SessionInfo(
-                    email=row['email'],
-                    person_id=row['person_id'],
-                    person_uuid=row['person_uuid'],
-                    signed_in=row['signed_in'],
-                    session_token_hash=session_token_hash,
-                    pending_club_name=row['pending_club_name'],
-                )
-                await sessioncache.put_session(
-                    session_info,
-                    row['session_expiry_epoch'])
-
-        if session_info is None:
-            raise AuthError('Invalid session token', 401)
-
-        is_onboarded = session_info.person_id is not None
-        ok_onboarding = (
-            expected_onboarding_status is None
-            or expected_onboarding_status == is_onboarded)
-        ok_sign_in = (
-            expected_sign_in_status is None
-            or expected_sign_in_status == session_info.signed_in)
-        if not (ok_onboarding and ok_sign_in):
-            raise AuthError('Unauthorized', 401)
-
-        # Set for account-scoped rate limiting (see `limiter_account`), so an
-        # account-keyed limit can compose as another dependency.
-        request.state.normalized_email = normalize_email(session_info.email)
-        return session_info
-
-    return dependency
-
-
-def optional_require_session(
-    expected_onboarding_status: bool | None = True,
-    expected_sign_in_status: bool | None = True,
-) -> Callable[[Request], Awaitable[duotypes.SessionInfo | None]]:
-    """Optional async session dependency. Missing or invalid auth yields None."""
+    With `optional=True`, any `AuthError` (missing/malformed header, unknown
+    session, or status mismatch) yields `None` instead of propagating — the
+    overloads reflect this in the return type."""
     async def dependency(request: Request) -> duotypes.SessionInfo | None:
-        auth_header = (request.headers.get('Authorization') or '').lower()
         try:
-            bearer, session_token = auth_header.split()
-            if bearer != 'bearer':
-                raise ValueError
-        except Exception:
-            return None
+            auth_header = (request.headers.get('Authorization') or '').lower()
+            try:
+                bearer, session_token = auth_header.split()
+                if bearer != 'bearer':
+                    raise ValueError
+            except Exception:
+                raise AuthError('Missing or malformed authorization header', 400)
 
-        session_token_hash = sha512(session_token)
+            session_token_hash = sha512(session_token)
 
-        session_info = await sessioncache.get_session(session_token_hash)
+            # sessioncache is a fast, best-effort async Redis get/set. The
+            # session-row fallback uses the async DB.
+            session_info = await sessioncache.get_session(session_token_hash)
 
-        if session_info is None:
-            async with api_tx('READ COMMITTED') as tx:
-                await tx.execute(
-                    Q_GET_SESSION,
-                    dict(session_token_hash=session_token_hash))
-                row = await tx.fetchone()
-            if row:
-                session_info = duotypes.SessionInfo(
-                    email=row['email'],
-                    person_id=row['person_id'],
-                    person_uuid=row['person_uuid'],
-                    signed_in=row['signed_in'],
-                    session_token_hash=session_token_hash,
-                    pending_club_name=row['pending_club_name'],
-                )
-                await sessioncache.put_session(
-                    session_info,
-                    row['session_expiry_epoch'])
+            if session_info is None:
+                async with api_tx('READ COMMITTED') as tx:
+                    await tx.execute(
+                        Q_GET_SESSION,
+                        dict(session_token_hash=session_token_hash))
+                    row = await tx.fetchone()
+                if row:
+                    session_info = duotypes.SessionInfo(
+                        email=row['email'],
+                        person_id=row['person_id'],
+                        person_uuid=row['person_uuid'],
+                        signed_in=row['signed_in'],
+                        session_token_hash=session_token_hash,
+                        pending_club_name=row['pending_club_name'],
+                    )
+                    await sessioncache.put_session(
+                        session_info,
+                        row['session_expiry_epoch'])
 
-        if session_info is None:
-            return None
+            if session_info is None:
+                raise AuthError('Invalid session token', 401)
 
-        is_onboarded = session_info.person_id is not None
-        ok_onboarding = (
-            expected_onboarding_status is None
-            or expected_onboarding_status == is_onboarded)
-        ok_sign_in = (
-            expected_sign_in_status is None
-            or expected_sign_in_status == session_info.signed_in)
-        if not (ok_onboarding and ok_sign_in):
-            return None
+            is_onboarded = session_info.person_id is not None
+            ok_onboarding = (
+                expected_onboarding_status is None
+                or expected_onboarding_status == is_onboarded)
+            ok_sign_in = (
+                expected_sign_in_status is None
+                or expected_sign_in_status == session_info.signed_in)
+            if not (ok_onboarding and ok_sign_in):
+                raise AuthError('Unauthorized', 401)
 
-        request.state.normalized_email = normalize_email(session_info.email)
-        return session_info
+            # Set for account-scoped rate limiting (see `limiter_account`), so
+            # an account-keyed limit can compose as another dependency.
+            request.state.normalized_email = normalize_email(session_info.email)
+            return session_info
+        except AuthError:
+            if optional:
+                return None
+            raise
 
     return dependency
 
