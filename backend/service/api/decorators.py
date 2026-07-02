@@ -23,7 +23,7 @@ from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from pydantic import ValidationError
 
 from limits import parse_many
@@ -282,27 +282,56 @@ app.add_middleware(
 )
 
 
+class RequestEntityTooLarge(Exception):
+    """Raised while streaming a request body once it exceeds
+    `MAX_CONTENT_LENGTH`. Rendered to a plain-text 413 by its handler."""
+
+
 class MaxBodySizeMiddleware:
-    """Enforce Flask's old `MAX_CONTENT_LENGTH` via the Content-Length header."""
+    """Enforce Flask's old `MAX_CONTENT_LENGTH`.
+
+    The `Content-Length` header is only a hint: it can be absent (chunked
+    transfer encoding), or a lie. So we also tally the bytes as they actually
+    arrive and reject the request the moment the real total exceeds the limit,
+    before the whole payload is buffered."""
 
     def __init__(self, app: ASGIApp, max_size: int) -> None:
         self.app = app
         self.max_size = max_size
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope['type'] == 'http':
-            for name, value in scope.get('headers', []):
-                if name == b'content-length':
-                    try:
-                        too_large = int(value) > self.max_size
-                    except ValueError:
-                        too_large = False
-                    if too_large:
-                        response = Response(
-                            'Request entity too large', status_code=413)
-                        await response(scope, receive, send)
-                        return
-        await self.app(scope, receive, send)
+        if scope['type'] != 'http':
+            await self.app(scope, receive, send)
+            return
+
+        # Cheap early rejection when the client honestly advertises an
+        # oversized body, before we read a single chunk.
+        for name, value in scope.get('headers', []):
+            if name == b'content-length':
+                try:
+                    too_large = int(value) > self.max_size
+                except ValueError:
+                    too_large = False
+                if too_large:
+                    response = Response(
+                        'Request entity too large', status_code=413)
+                    await response(scope, receive, send)
+                    return
+
+        received = 0
+
+        async def counting_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message['type'] == 'http.request':
+                received += len(message.get('body', b''))
+                if received > self.max_size:
+                    # Raised inside the endpoint's body read; propagates up to
+                    # the exception handler below, which sends the 413.
+                    raise RequestEntityTooLarge
+            return message
+
+        await self.app(scope, counting_receive, send)
 
 
 app.add_middleware(MaxBodySizeMiddleware, max_size=constants.MAX_CONTENT_LENGTH)
@@ -473,6 +502,12 @@ class AuthError(Exception):
 @app.exception_handler(AuthError)
 async def _handle_auth_error(request: Request, exc: AuthError) -> Response:
     return _make_response((exc.message, exc.status_code))
+
+
+@app.exception_handler(RequestEntityTooLarge)
+async def _handle_too_large(
+    request: Request, exc: RequestEntityTooLarge) -> Response:
+    return _make_response(('Request entity too large', 413))
 
 
 @app.exception_handler(RateLimitExceeded)
