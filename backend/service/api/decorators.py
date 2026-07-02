@@ -20,7 +20,6 @@ import traceback
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -29,7 +28,7 @@ from pydantic import ValidationError
 
 from limits import parse_many
 from limits.storage import storage_from_string
-from limits.strategies import FixedWindowRateLimiter
+from limits.aio.strategies import FixedWindowRateLimiter
 
 from antiabuse.antispam.signupemail import normalize_email
 from functools import lru_cache, wraps
@@ -158,8 +157,10 @@ REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
 #
 # flask_limiter has no FastAPI equivalent, so we reimplement the slice of its
 # API the app uses directly on top of the `limits` library it wrapped: a
-# fixed-window strategy over a Redis store. `Limiter.check` is used inline (via
-# the `rate_limit`/`default_rate_limit` dependencies) to enforce a limit.
+# fixed-window strategy over a Redis store. We use `limits`' async storage
+# (the `async+redis://` scheme, backed by coredis) so `Limiter.check` awaits
+# the Redis round-trip on the event loop instead of blocking. It's used inline
+# (via the `rate_limit`/`default_rate_limit` dependencies) to enforce a limit.
 # ---------------------------------------------------------------------------
 
 class RateLimitExceeded(Exception):
@@ -185,7 +186,7 @@ class Limiter:
         self._default_exempt_when = default_limits_exempt_when
         self._strategy = FixedWindowRateLimiter(storage_from_string(storage_uri))
 
-    def _enforce(
+    async def _enforce(
         self,
         request: Request,
         limit_value: LimitValue,
@@ -201,10 +202,10 @@ class Limiter:
         key = key_func(request) if key_func else _get_remote_address(request)
 
         for item in parse_many(value):
-            if not self._strategy.hit(item, scope_str or '', key):
+            if not await self._strategy.hit(item, scope_str or '', key):
                 raise RateLimitExceeded()
 
-    def check(
+    async def check(
         self,
         request: Request,
         limit_value: LimitValue,
@@ -214,9 +215,9 @@ class Limiter:
     ) -> None:
         """Inline rate-limit check used from within a handler (replaces the old
         `with limiter.limit(...):` blocks). Raises `RateLimitExceeded`."""
-        self._enforce(request, limit_value, scope, key_func, exempt_when)
+        await self._enforce(request, limit_value, scope, key_func, exempt_when)
 
-    def check_default(self, request: Request, endpoint_name: str) -> None:
+    async def check_default(self, request: Request, endpoint_name: str) -> None:
         """Apply the global per-endpoint default limits, keyed on the remote
         address (flask_limiter applies these to every non-exempt view)."""
         if self._default_exempt_when is not None and self._default_exempt_when(request):
@@ -225,7 +226,7 @@ class Limiter:
         key = self._default_key_func(request)
         for value in self._default_limits:
             for item in parse_many(value):
-                if not self._strategy.hit(item, endpoint_name, key):
+                if not await self._strategy.hit(item, endpoint_name, key):
                     raise RateLimitExceeded()
 
 
@@ -241,7 +242,7 @@ auth_rate_limit = "40 per day"
 limiter = Limiter(
     _get_remote_address,
     default_limits=[default_limits],
-    storage_uri=f"redis://{REDIS_HOST}:{REDIS_PORT}",
+    storage_uri=f"async+redis://{REDIS_HOST}:{REDIS_PORT}",
     default_limits_exempt_when=_is_private_ip,
 )
 
@@ -575,15 +576,15 @@ def session(
 def default_rate_limit(
     endpoint_name: str | None = None,
 ) -> Callable[[Request], Awaitable[None]]:
-    """The global per-endpoint default limit, as a dependency. Our limiter is
-    sync (Redis-backed), so run its check off the event loop.
+    """The global per-endpoint default limit, as a dependency. The limiter is
+    async (backed by `limits.aio` over Redis), so its check is awaited directly.
 
     `endpoint_name` scopes the limit's bucket; when omitted it defaults to the
     matched route's name (the handler function's name), which is what every
     call site passed by hand before."""
     async def dependency(request: Request) -> None:
         name = endpoint_name or request.scope['route'].name
-        await run_in_threadpool(limiter.check_default, request, name)
+        await limiter.check_default(request, name)
     return dependency
 
 
@@ -595,8 +596,7 @@ def rate_limit(
 ) -> Callable[[Request], Awaitable[None]]:
     """A limiter.check(...) dependency for native FastAPI routes."""
     async def dependency(request: Request) -> None:
-        await run_in_threadpool(
-            limiter.check,
+        await limiter.check(
             request,
             limit_value,
             scope,

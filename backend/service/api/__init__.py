@@ -3,7 +3,6 @@ from typing import Optional, cast
 from urllib.parse import parse_qsl
 from fastapi import Body, Depends, Path as FastApiPath
 from starlette.requests import Request
-from starlette.concurrency import run_in_threadpool
 import duotypes as t
 from antiabuse.lodgereport import skip_by_uuid
 import location
@@ -375,15 +374,13 @@ async def get_search(
     scope = json.dumps([search_type, lowerClub])
 
     if search_type == 'uncached-search':
-        await run_in_threadpool(
-            limiter.check,
+        await limiter.check(
             request,
             limit,
             scope=scope,
             exempt_when=disable_ip_rate_limit,
         )
-        await run_in_threadpool(
-            limiter.check,
+        await limiter.check(
             request,
             limit,
             scope=scope,
@@ -438,14 +435,12 @@ async def post_skip_by_uuid(
     scope = "report"
 
     if req.report_reason:
-        await run_in_threadpool(
-            limiter.check,
+        await limiter.check(
             request,
             limit,
             scope=scope,
             exempt_when=disable_ip_rate_limit)
-        await run_in_threadpool(
-            limiter.check,
+        await limiter.check(
             request,
             limit,
             scope=scope,

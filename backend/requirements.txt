@@ -4,7 +4,7 @@ confusable-homoglyphs
 fastapi
 google-auth
 httpx
-limits
+limits[async-redis]
 lxml
 nltk
 numpy
