@@ -250,8 +250,8 @@ def _send_otp(email: str, otp: str) -> None:
         from_addr='noreply-otp@duolicious.app',
     )
 
-def _check_ip_blocked(remote_addr: Optional[str]) -> object:
-    if not remote_addr or firehol.matches(remote_addr):
+async def _check_ip_blocked(remote_addr: Optional[str]) -> object:
+    if not remote_addr or await firehol.matches(remote_addr):
         return 'IP address blocked', 460
     return None
 
@@ -309,7 +309,7 @@ async def post_request_otp(
     req: t.PostRequestOtp,
     remote_addr: Optional[str],
 ) -> object:
-    if blocked := _check_ip_blocked(remote_addr):
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     if not await check_and_update_bad_domains(req.email):
@@ -359,7 +359,7 @@ async def post_resend_otp(
     s: t.SessionInfo,
     remote_addr: Optional[str],
 ) -> object:
-    if blocked := _check_ip_blocked(remote_addr):
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     normalized = normalize_email(s.email)
@@ -390,7 +390,7 @@ async def post_check_otp(
     s: t.SessionInfo,
     remote_addr: Optional[str],
 ) -> object:
-    if blocked := _check_ip_blocked(remote_addr):
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     params = dict(
@@ -440,7 +440,7 @@ async def _sign_in_with_social(
     """
     Async counterpart to `_sign_in_with_social` for native FastAPI routes.
     """
-    if blocked := _check_ip_blocked(remote_addr):
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     session_token, session_token_hash = _new_session_token()

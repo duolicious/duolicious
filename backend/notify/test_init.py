@@ -1,8 +1,29 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from notify import enqueue_mobile_notification, _batcher
 import asyncio
 import json
+
+
+def _mock_async_client(json_payload: object) -> tuple[MagicMock, MagicMock]:
+    """Build a stand-in for `httpx.AsyncClient` and return (factory, client).
+
+    The factory replaces `httpx.AsyncClient`; every `async with` block yields
+    the same `client`, so `client.post` accumulates the calls across batches.
+    """
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json = MagicMock(return_value=json_payload)
+
+    client = MagicMock()
+    client.post = AsyncMock(return_value=response)
+
+    async_cm = MagicMock()
+    async_cm.__aenter__ = AsyncMock(return_value=client)
+    async_cm.__aexit__ = AsyncMock(return_value=False)
+
+    factory = MagicMock(return_value=async_cm)
+    return factory, client
 
 
 class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
@@ -20,10 +41,8 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
 
     async def test_enqueue_mobile_notification_success(self) -> None:
         # Set up the mock response to simulate a successful notification
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = \
-                json.dumps({'data': [{'status': 'ok'}]}).encode('utf-8')
-
+        factory, client = _mock_async_client({'data': [{'status': 'ok'}]})
+        with patch('notify.make_http_client', factory):
             # Enqueued back-to-back: the first flushes on its own (the consumer
             # was idle, so its window had already elapsed), then the next two
             # are batched together in the following window.
@@ -79,25 +98,23 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
             ]
         ).encode('utf-8')
 
-        self.assertEqual(len(mock_urlopen.call_args_list), 2)
+        self.assertEqual(len(client.post.call_args_list), 2)
 
-        request = mock_urlopen.call_args_list[0][0][0]
-        self.assertEqual(request.full_url, 'http://localhost')
-        self.assertEqual(request.data, expected_data_call_1)
-        self.assertEqual(request.headers['Content-type'], 'application/json')
+        call = client.post.call_args_list[0]
+        self.assertEqual(call.args[0], 'http://localhost')
+        self.assertEqual(call.kwargs['content'], expected_data_call_1)
+        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
-        request = mock_urlopen.call_args_list[1][0][0]
-        self.assertEqual(request.full_url, 'http://localhost')
-        self.assertEqual(request.data, expected_data_call_2)
-        self.assertEqual(request.headers['Content-type'], 'application/json')
+        call = client.post.call_args_list[1]
+        self.assertEqual(call.args[0], 'http://localhost')
+        self.assertEqual(call.kwargs['content'], expected_data_call_2)
+        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
 
     async def test_enqueue_mobile_notification_failure(self) -> None:
         # Set up the mock response to simulate a failed notification
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = \
-                json.dumps({'data': [{'status': 'error'}]}).encode('utf-8')
-
+        factory, client = _mock_async_client({'data': [{'status': 'error'}]})
+        with patch('notify.make_http_client', factory):
             # Call the _enqueue_mobile_notification function
             enqueue_mobile_notification(
                 token='my-token',
@@ -117,10 +134,10 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
             "priority": "high",
         }]).encode('utf-8')
 
-        request = mock_urlopen.call_args_list[0][0][0]
-        self.assertEqual(request.full_url, 'http://localhost')
-        self.assertEqual(request.data, expected_data)
-        self.assertEqual(request.headers['Content-type'], 'application/json')
+        call = client.post.call_args_list[0]
+        self.assertEqual(call.args[0], 'http://localhost')
+        self.assertEqual(call.kwargs['content'], expected_data)
+        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
 
 if __name__ == '__main__':

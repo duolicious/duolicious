@@ -20,7 +20,6 @@ from service.api.decorators import (
     client_ip,
     default_rate_limit,
     default_limits,
-    duo_route,
     session,
     rate_limit,
     limiter,
@@ -159,20 +158,18 @@ async def init_db() -> None:
     await migrate_unnormalized_emails()
 
 @app.post('/request-otp')
-@duo_route
 async def post_request_otp(
     request: Request,
     req: t.PostRequestOtp,
-    _default_limited: None = Depends(default_rate_limit('post_request_otp')),
+    _default_limited: None = Depends(default_rate_limit()),
     _shared_limited: None = Depends(shared_otp_limit_dependency),
 ) -> object:
     return await person.post_request_otp(req, client_ip(request))
 
 @app.post('/resend-otp')
-@duo_route
 async def post_resend_otp(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('post_resend_otp')),
+    _default_limited: None = Depends(default_rate_limit()),
     _shared_limited: None = Depends(shared_otp_limit_dependency),
     s: t.SessionInfo = Depends(session(
         expected_onboarding_status=None,
@@ -182,7 +179,6 @@ async def post_resend_otp(
     return await person.post_resend_otp(s, client_ip(request))
 
 @app.post('/check-otp')
-@duo_route
 async def post_check_otp(
     request: Request,
     req: t.PostCheckOtp,
@@ -190,7 +186,7 @@ async def post_check_otp(
         expected_onboarding_status=None,
         expected_sign_in_status=False,
     )),
-    _default_limited: None = Depends(default_rate_limit('post_check_otp')),
+    _default_limited: None = Depends(default_rate_limit()),
     _ip_limited: None = Depends(rate_limit(
         auth_rate_limit,
         scope='check_otp',
@@ -206,11 +202,10 @@ async def post_check_otp(
     return await person.post_check_otp(req, s, client_ip(request))
 
 @app.post('/sign-in-with-google')
-@duo_route
 async def post_sign_in_with_google(
     request: Request,
     req: t.PostSignInWithGoogle,
-    _default_limited: None = Depends(default_rate_limit('post_sign_in_with_google')),
+    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(rate_limit(
         auth_rate_limit,
         scope='social_sign_in',
@@ -224,11 +219,10 @@ async def post_sign_in_with_google(
     )
 
 @app.post('/sign-in-with-apple')
-@duo_route
 async def post_sign_in_with_apple(
     request: Request,
     req: t.PostSignInWithApple,
-    _default_limited: None = Depends(default_rate_limit('post_sign_in_with_apple')),
+    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(rate_limit(
         auth_rate_limit,
         scope='social_sign_in',
@@ -251,10 +245,9 @@ async def post_sign_in_with_apple(
 # callback *and* /sign-in-with-apple, and we want the per-day budget
 # to be "one sign-in = one slot" not "two slots".
 @app.post('/auth/apple/callback')
-@duo_route
 async def post_auth_apple_callback(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('post_auth_apple_callback')),
+    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(rate_limit(
         auth_rate_limit,
         scope='apple_oauth_callback',
@@ -273,39 +266,35 @@ async def post_auth_apple_callback(
     )
 
 @app.post('/sign-out')
-@duo_route
 async def post_sign_out(
     request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
-    _default_limited: None = Depends(default_rate_limit('post_sign_out')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_sign_out(s)
     return None
 
 @app.post('/check-session-token')
-@duo_route
 async def post_check_session_token(
     request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
-    _default_limited: None = Depends(default_rate_limit('post_check_session_token')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_check_session_token(s)
 
 @app.get('/search-locations')
-@duo_route
 async def get_search_locations(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('get_search_locations')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await location.get_search_locations(request.query_params.get('q'))
 
 @app.patch('/onboardee-info')
-@duo_route
 async def patch_onboardee_info(
     request: Request,
     req: t.PatchOnboardeeInfo,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
-    _default_limited: None = Depends(default_rate_limit('patch_onboardee_info')),
+    _default_limited: None = Depends(default_rate_limit()),
     _account_limited: None = Depends(rate_limit(
         default_limits,
         key_func=limiter_account,
@@ -315,20 +304,18 @@ async def patch_onboardee_info(
     return await person.patch_onboardee_info(req, s)
 
 @app.post('/finish-onboarding')
-@duo_route
 async def post_finish_onboarding(
     request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
-    _default_limited: None = Depends(default_rate_limit('post_finish_onboarding')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_finish_onboarding(s)
 
 @app.get('/next-questions')
-@duo_route
 async def get_next_questions(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_next_questions')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await question.get_next_questions(
         s=s,
@@ -337,10 +324,9 @@ async def get_next_questions(
     )
 
 @app.get('/public-next-questions')
-@duo_route
 async def get_public_next_questions(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('get_public_next_questions')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await question.get_public_next_questions(
         n=request.query_params.get('n', '10'),
@@ -348,31 +334,28 @@ async def get_public_next_questions(
     )
 
 @app.post('/answer')
-@duo_route
 async def post_answer(
     request: Request,
     req: t.PostAnswer,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_answer')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await qanda.post_answer(req, s)
 
 @app.delete('/answer')
-@duo_route
 async def delete_answer(
     request: Request,
     req: t.DeleteAnswer,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('delete_answer')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await qanda.delete_answer(req, s)
 
 @app.get('/search')
-@duo_route
 async def get_search(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_search')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     n = request.query_params.get('n')
     o = request.query_params.get('o')
@@ -411,10 +394,9 @@ async def get_search(
     return await search.get_search(s=s, n=n, o=o, club=club)
 
 @app.get('/public-search')
-@duo_route
 async def get_public_search(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('get_public_search')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await search.get_public_search(
         n=request.query_params.get('n'),
@@ -423,38 +405,34 @@ async def get_public_search(
     )
 
 @app.get('/health')
-@duo_route
 async def get_health(request: Request) -> object:
     return 'status: ok'
 
 @app.get('/prospect-profile/{prospect_handle}')
-@duo_route
 async def get_prospect_profile(
     request: Request,
     prospect_handle: str,
     s: Optional[t.SessionInfo] = Depends(session(optional=True)),
-    _default_limited: None = Depends(default_rate_limit('get_prospect_profile')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_prospect_profile(s, prospect_handle)
 
 @app.get('/conversation-prospect/{prospect_uuid}')
-@duo_route
 async def get_conversation_prospect(
     request: Request,
     prospect_uuid: str,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_conversation_prospect')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_conversation_prospect(s, prospect_uuid)
 
 @app.post('/skip/by-uuid/{prospect_uuid}')
-@duo_route
 async def post_skip_by_uuid(
     request: Request,
     prospect_uuid: str,
     req: t.PostSkip = Body(default_factory=t.PostSkip),
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_skip_by_uuid')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     limit = "1 per 5 seconds; 20 per day"
     scope = "report"
@@ -482,34 +460,31 @@ async def post_skip_by_uuid(
     return None
 
 @app.post('/unskip/by-uuid/{prospect_uuid}')
-@duo_route
 async def post_unskip_by_uuid(
     request: Request,
     prospect_uuid: str,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_unskip_by_uuid')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_unskip_by_uuid(s, prospect_uuid)
     return None
 
 @app.get('/compare-personalities/{prospect_person_id:int}/{topic}')
-@duo_route
 async def get_compare_personalities(
     request: Request,
     prospect_person_id: int,
     topic: str = FastApiPath(pattern='^(mbti|big5|attachment|politics|other)$'),
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_compare_personalities')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_compare_personalities(s, prospect_person_id, topic)
 
 @app.get('/compare-answers/{prospect_person_id:int}')
-@duo_route
 async def get_compare_answers(
     request: Request,
     prospect_person_id: int,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_compare_answers')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_compare_answers(
         s,
@@ -521,91 +496,80 @@ async def get_compare_answers(
     )
 
 @app.post('/inbox-info')
-@duo_route
 async def post_inbox_info(
     request: Request,
     req: t.PostInboxInfo,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_inbox_info')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_inbox_info(req, s)
 
 @app.delete('/account')
-@duo_route
 async def delete_account(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('delete_account')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.delete_or_ban_account(s=s)
 
 @app.post('/deactivate')
-@duo_route
 async def post_deactivate(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_deactivate')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_deactivate(s=s)
     return None
 
 @app.get('/profile-info')
-@duo_route
 async def get_profile_info(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_profile_info')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_profile_info(s)
 
 @app.delete('/profile-info')
-@duo_route
 async def delete_profile_info(
     request: Request,
     req: t.DeleteProfileInfo,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('delete_profile_info')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.delete_profile_info(req, s)
     return None
 
 @app.patch('/profile-info')
-@duo_route
 async def patch_profile_info(
     request: Request,
     req: t.PatchProfileInfo,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('patch_profile_info')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.patch_profile_info(req, s)
 
 @app.get('/search-filters')
-@duo_route
 async def get_search_filers(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_search_filers')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_search_filters(s)
 
 @app.post('/search-filter')
-@duo_route
 async def post_search_filter(
     request: Request,
     req: t.PostSearchFilter,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_search_filter')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_search_filter(req, s)
 
 @app.get('/search-filter-questions')
-@duo_route
 async def get_search_filter_questions(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(
-        default_rate_limit('get_search_filter_questions')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await question.get_search_filter_questions(
         s=s,
@@ -615,23 +579,19 @@ async def get_search_filter_questions(
     )
 
 @app.post('/search-filter-answer')
-@duo_route
 async def post_search_filter_answer(
     request: Request,
     req: t.PostSearchFilterAnswer,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(
-        default_rate_limit('post_search_filter_answer')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_search_filter_answer(req, s)
 
 @app.get('/search-clubs')
-@duo_route
 async def get_search_clubs(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_search_clubs')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_search_clubs(
         s=s,
@@ -639,12 +599,9 @@ async def get_search_clubs(
     )
 
 @app.get('/search-public-clubs')
-@duo_route
 async def get_search_public_clubs(
     request: Request,
-    _default_limited: None = Depends(
-        default_rate_limit('get_search_public_clubs')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_search_clubs(
         s=None,
@@ -653,11 +610,10 @@ async def get_search_public_clubs(
     )
 
 @app.get('/club/{name:path}')
-@duo_route
 async def get_club(
     request: Request,
     name: str,
-    _default_limited: None = Depends(default_rate_limit('get_club')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     result = await person.get_club(
         name=name,
@@ -667,33 +623,28 @@ async def get_club(
     return result
 
 @app.post('/join-club')
-@duo_route
 async def post_join_club(
     request: Request,
     req: t.PostJoinClub,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_join_club')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_join_club(req, s)
 
 @app.post('/leave-club')
-@duo_route
 async def post_leave_club(
     request: Request,
     req: t.PostLeaveClub,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('post_leave_club')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_leave_club(req, s)
     return None
 
 @app.get('/update-notifications')
-@duo_route
 async def get_update_notifications(
     request: Request,
-    _default_limited: None = Depends(
-        default_rate_limit('get_update_notifications')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_update_notifications(
         email=request.query_params.get('email', ''),
@@ -702,11 +653,10 @@ async def get_update_notifications(
     )
 
 @app.get('/feed')
-@duo_route
 async def get_feed(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit('get_feed')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     valid_datetime = t.ValidDatetime.model_validate(
         {'datetime': request.query_params.get('before')}
@@ -715,19 +665,15 @@ async def get_feed(
     return await search.get_feed(s=s, before=valid_datetime.datetime)
 
 @app.post('/verification-selfie')
-@duo_route
 async def post_verification_selfie(
     request: Request,
     req: t.PostVerificationSelfie,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(
-        default_rate_limit('post_verification_selfie')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_verification_selfie(req, s)
 
 @app.post('/verify')
-@duo_route
 async def post_verify(
     request: Request,
     s: t.SessionInfo = Depends(session()),
@@ -752,73 +698,61 @@ async def post_verify(
 # `@duo_route` keeps the same plain-value return convention. The building
 # blocks live in `service.api.decorators`.
 @app.get('/check-verification')
-@duo_route
 async def get_check_verification(
-    _limited: None = Depends(default_rate_limit('get_check_verification')),
+    _limited: None = Depends(default_rate_limit()),
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_check_verification(s)
 
 @app.get('/stats')
-@duo_route
 async def get_stats(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('get_stats')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_stats(
         ttl_hash=get_ttl_hash(seconds=60),
         club_name=request.query_params.get('club-name'))
 
 @app.get('/gender-stats')
-@duo_route
 async def get_gender_stats(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit('get_gender_stats')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_gender_stats(ttl_hash=get_ttl_hash(seconds=60))
 
 @app.get('/admin/ban-link/{token}')
-@duo_route
 async def get_admin_ban_link(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit('get_admin_ban_link')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_ban_link(token)
 
 @app.get('/admin/ban/{token}')
-@duo_route
 async def get_admin_ban(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit('get_admin_ban')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_ban(token)
 
 @app.get('/admin/delete-photo-link/{token}')
-@duo_route
 async def get_admin_delete_photo_link(
     request: Request,
     token: str,
-    _default_limited: None = Depends(
-        default_rate_limit('get_admin_delete_photo_link')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_delete_photo_link(token)
 
 @app.get('/admin/delete-photo/{token}')
-@duo_route
 async def get_admin_delete_photo(
     request: Request,
     token: str,
-    _default_limited: None = Depends(
-        default_rate_limit('get_admin_delete_photo')
-    ),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_delete_photo(token)
 
 @app.get('/export-data-token')
-@duo_route
 async def get_export_data_token(
     request: Request,
     s: t.SessionInfo = Depends(session()),
@@ -837,20 +771,18 @@ async def get_export_data_token(
     return await person.get_export_data_token(s=s)
 
 @app.get('/export-data/{token}')
-@duo_route
 async def get_export_data(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit('get_export_data')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_export_data(token=token)
 
 @app.post('/revenuecat')
-@duo_route
 async def post_revenuecat(
     request: Request,
     req: t.PostRevenuecat,
-    _default_limited: None = Depends(default_rate_limit('post_revenuecat')),
+    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_revenuecat(
         req, request.headers.get('Authorization', ''))

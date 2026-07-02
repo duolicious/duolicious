@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Optional
-import asyncio
 import json
-import urllib.request
 import os
 from batcher import Batcher
+from httpxclient import make_http_client
 
 # This should typically be: https://exp.host/--/api/v2/push/send?useFcmV1=true
 NOTIFICATION_API_URL = os.environ.get(
@@ -38,20 +37,15 @@ async def process_notification_batch(notifications: List[Notification]) -> None:
         'Content-type': 'application/json',
     }
 
-    req = urllib.request.Request(
-        url=NOTIFICATION_API_URL,
-        data=json.dumps(data).encode('utf-8'),
-        headers=headers,
-        method='POST',
-    )
+    async with make_http_client() as client:
+        response = await client.post(
+            NOTIFICATION_API_URL,
+            content=json.dumps(data).encode('utf-8'),
+            headers=headers,
+        )
+        response.raise_for_status()
 
-    def send() -> bytes:
-        with urllib.request.urlopen(req) as response:
-            return response.read()
-
-    response_data = await asyncio.to_thread(send)
-
-    parsed_data = json.loads(response_data.decode('utf-8'))
+    parsed_data = response.json()
 
     for notification, data in zip(notifications, parsed_data["data"]):
         if data["status"] != "ok":

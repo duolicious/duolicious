@@ -19,6 +19,7 @@ import time
 import traceback
 
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -441,6 +442,24 @@ def duo_route(func: Callable[_P, object]) -> Callable[_P, Awaitable[Response]]:
     return wrapper
 
 
+class DuoRoute(APIRoute):
+    """Route class that applies `duo_route` to every endpoint automatically,
+    so handlers keep the plain-value return convention without repeating the
+    decorator on each route. `duo_route` uses `@wraps`, so FastAPI still sees
+    the original signature (and route name) for dependency resolution."""
+    def __init__(
+        self,
+        path: str,
+        endpoint: Callable[_P, object],
+        **kwargs: object,
+    ) -> None:
+        super().__init__(path, duo_route(endpoint), **kwargs)  # type: ignore[arg-type]
+
+
+# Every route registered via `@app.<method>` now goes through `DuoRoute`.
+app.router.route_class = DuoRoute
+
+
 class AuthError(Exception):
     """Raised by `session` on missing/invalid auth. Rendered to the
     same plain-text bodies + status codes the manual chain returned (rather
@@ -554,12 +573,17 @@ def session(
 
 
 def default_rate_limit(
-    endpoint_name: str,
+    endpoint_name: str | None = None,
 ) -> Callable[[Request], Awaitable[None]]:
     """The global per-endpoint default limit, as a dependency. Our limiter is
-    sync (Redis-backed), so run its check off the event loop."""
+    sync (Redis-backed), so run its check off the event loop.
+
+    `endpoint_name` scopes the limit's bucket; when omitted it defaults to the
+    matched route's name (the handler function's name), which is what every
+    call site passed by hand before."""
     async def dependency(request: Request) -> None:
-        await run_in_threadpool(limiter.check_default, request, endpoint_name)
+        name = endpoint_name or request.scope['route'].name
+        await run_in_threadpool(limiter.check_default, request, name)
     return dependency
 
 
