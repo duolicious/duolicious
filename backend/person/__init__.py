@@ -239,11 +239,13 @@ async def _has_gold(person_id: int) -> bool:
     return row.get('has_gold', False)
 
 
-def _send_otp(email: str, otp: str) -> None:
+async def _send_otp(email: str, otp: str) -> None:
     if email.endswith('@example.com'):
         return
 
-    aws_smtp.send(
+    # smtp.send is blocking; keep it off the event loop.
+    await run_in_threadpool(
+        aws_smtp.send,
         subject="Sign in to Duolicious",
         body=otp_template(otp),
         to_addr=email,
@@ -351,7 +353,7 @@ async def post_request_otp(
         # caller which guardrail tripped.
         return 'Banned', 461
 
-    _send_otp(req.email, otp)
+    await _send_otp(req.email, otp)
 
     return dict(session_token=session_token)
 
@@ -382,7 +384,7 @@ async def post_resend_otp(
     if otp is None:
         return 'Banned', 461
 
-    _send_otp(s.email, otp)
+    await _send_otp(s.email, otp)
     return None
 
 async def post_check_otp(

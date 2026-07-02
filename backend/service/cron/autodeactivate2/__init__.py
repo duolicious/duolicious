@@ -22,7 +22,7 @@ AUTODEACTIVATE2_POLL_SECONDS = int(os.environ.get(
 
 print(f'Hello from cron module: {__name__}')
 
-def maybe_send_email(email: str) -> None:
+async def maybe_send_email(email: str) -> None:
     if email.lower().endswith('@example.com'):
         return
 
@@ -30,7 +30,9 @@ def maybe_send_email(email: str) -> None:
     body = emailtemplate()
 
     print('autodeactivate2: sending deactivation email to', email)
-    aws_smtp.send(
+    # smtp.send is blocking; keep it off the event loop.
+    await asyncio.to_thread(
+        aws_smtp.send,
         subject=subject,
         body=body,
         to_addr=email,
@@ -74,7 +76,7 @@ async def autodeactivate2_once() -> None:
             print(f'  - autodeactive2: deactivated {person}')
 
     for p in rows_deactivated:
-        maybe_send_email(row_str(p, 'email'))
+        await maybe_send_email(row_str(p, 'email'))
         send_mobile_notifications(row_str_list(p, 'push_tokens'))
 
 async def autodeactivate2_forever() -> None:
