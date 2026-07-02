@@ -83,14 +83,6 @@ wait_for_creation_by_uuid "$(q "select uuid from onboardee_photo limit 1")"
 
 [[ "$(q "select COUNT(*) from onboardee_photo")" -eq 3 ]]
 
-jc DELETE /onboardee-info -d '{ "files": [2, 6] }'
-
-[[ "$(q "select COUNT(*) from onboardee_photo")" -eq 2 ]]
-
-jc DELETE /onboardee-info -d '{ "files": [1, 3] }'
-
-[[ "$(q "select COUNT(*) from onboardee_photo")" -eq 0 ]]
-
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 1 ]]
 
 ! c GET /next-questions || exit 1

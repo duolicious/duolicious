@@ -1,4 +1,4 @@
-from database.asyncdatabase import api_tx
+from database import api_tx
 from service.cron.photocleaner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,

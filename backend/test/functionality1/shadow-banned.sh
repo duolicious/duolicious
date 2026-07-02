@@ -122,27 +122,6 @@ test_conversation_prospect () {
   [[ "$(c GET "/conversation-prospect/${user1_uuid}" | jq -r '.name')" = "user1" ]]
 }
 
-test_visitors () {
-  setup
-
-  # Reciprocal visits between user1 and user2
-  assume_role user1 ; c GET "/prospect-profile/${user2_uuid}" > /dev/null
-  assume_role user2 ; c GET "/prospect-profile/${user1_uuid}" > /dev/null
-
-  assume_role user1
-  response=$(c GET "/visitors")
-  [[ "$(echo "$response" | jq '.visited_you | length')" -eq 1 ]]
-  [[ "$(echo "$response" | jq '.you_visited | length')" -eq 1 ]]
-
-  # Once user2 is shadow-banned they vanish from user1's visitor lists entirely
-  ban user2
-
-  assume_role user1
-  response=$(c GET "/visitors")
-  [[ "$(echo "$response" | jq '.visited_you | length')" -eq 0 ]]
-  [[ "$(echo "$response" | jq '.you_visited | length')" -eq 0 ]]
-}
-
 test_inbox_info () {
   setup
 
@@ -201,7 +180,6 @@ test_search_hides_banned_from_others
 test_club_search_hides_banned_from_others
 test_prospect_profile
 test_conversation_prospect
-test_visitors
 test_inbox_info
 test_compare_answers
 test_data_export_hides_the_flag

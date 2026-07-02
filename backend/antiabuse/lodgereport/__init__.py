@@ -194,7 +194,7 @@ def _send_report_email(
         print(traceback.format_exc())
 
 
-def lodge_report(
+async def lodge_report(
     subject_uuid: str,
     object_uuid: str,
     reason: str,
@@ -207,10 +207,10 @@ def lodge_report(
         reason=reason,
     )
 
-    with api_tx() as tx:
-        last_messages = tx.execute(Q_LAST_MESSAGES, params=params).fetchall()
+    async with api_tx() as tx:
+        last_messages = await (await tx.execute(Q_LAST_MESSAGES, params=params)).fetchall()
 
-        report_obj = tx.execute(Q_MAKE_REPORT, params=params).fetchall()
+        report_obj = await (await tx.execute(Q_MAKE_REPORT, params=params)).fetchall()
 
     threading.Thread(
         target=_send_report_email,
@@ -254,7 +254,7 @@ def _should_shadow_ban(
     return bot_report_count >= SHADOW_BAN_REPORT_THRESHOLD
 
 
-def skip_by_uuid(subject_uuid: str, object_uuid: str, reason: str) -> None:
+async def skip_by_uuid(subject_uuid: str, object_uuid: str, reason: str) -> None:
     params = dict(
         subject_uuid=subject_uuid,
         object_uuid=object_uuid,
@@ -265,14 +265,14 @@ def skip_by_uuid(subject_uuid: str, object_uuid: str, reason: str) -> None:
 
     is_shadow_banned = False
 
-    with api_tx() as tx:
+    async with api_tx() as tx:
         is_automoded_bot = row_bool(
-            tx.require_one(Q_INSERT_SKIPPED, params=params),
+            await tx.require_one(Q_INSERT_SKIPPED, params=params),
             'is_automoded_bot',
         )
 
         if reason:
-            row = tx.require_one(
+            row = await tx.require_one(
                 Q_TRUSTWORTHY_REPORTS,
                 params=dict(
                     object_uuid=object_uuid,
@@ -292,10 +292,10 @@ def skip_by_uuid(subject_uuid: str, object_uuid: str, reason: str) -> None:
             )
 
             if is_shadow_banned:
-                tx.execute(Q_SHADOW_BAN, params=params)
+                await tx.execute(Q_SHADOW_BAN, params=params)
 
     if reason:
-        lodge_report(
+        await lodge_report(
             subject_uuid=subject_uuid,
             object_uuid=object_uuid,
             reason=reason,

@@ -1,5 +1,5 @@
 from async_lru_cache import AsyncLruCache
-from database.asyncdatabase import api_tx
+from database import api_tx
 from enum import Enum
 from dataclasses import dataclass
 from chatprotocol.outbound import MessageBlocked, Outbound

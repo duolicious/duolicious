@@ -217,7 +217,7 @@ async def maybe_redis_unsubscribe_online(
 
 
 
-def process_batch(jobs: list[UpdateLastJob]) -> None:
+async def process_batch(jobs: list[UpdateLastJob]) -> None:
     update_last_params_seq = [
         dict(person_uuid=job.session_username)
         for job in jobs
@@ -228,9 +228,9 @@ def process_batch(jobs: list[UpdateLastJob]) -> None:
         for job in jobs
     ]
 
-    with api_tx('read committed') as tx:
-        tx.executemany(Q_UPDATE_LAST, update_last_params_seq)
-        tx.executemany(Q_UPDATE_SESSION_LAST_ONLINE, session_params_seq)
+    async with api_tx('read committed') as tx:
+        await tx.executemany(Q_UPDATE_LAST, update_last_params_seq)
+        await tx.executemany(Q_UPDATE_SESSION_LAST_ONLINE, session_params_seq)
 
 
 def update_last_once(
@@ -304,5 +304,3 @@ _batcher = Batcher[UpdateLastJob](
     max_batch_size=1000,
     retry=False,
 )
-
-_batcher.start()

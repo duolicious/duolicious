@@ -30,7 +30,7 @@ ON CONFLICT (hash) DO UPDATE SET
 """
 
 
-def process_batch(batch: List[str]) -> None:
+async def process_batch(batch: List[str]) -> None:
     hash_counts = Counter(batch)
 
     params_seq = [
@@ -38,8 +38,8 @@ def process_batch(batch: List[str]) -> None:
         for hash, used_count in hash_counts.items()
     ]
 
-    with api_tx('read committed') as tx:
-        tx.executemany(Q_UPSERT_INTRO_HASH, params_seq)
+    async with api_tx('read committed') as tx:
+        await tx.executemany(Q_UPSERT_INTRO_HASH, params_seq)
 
 
 _batcher = Batcher[str](
@@ -49,9 +49,6 @@ _batcher = Batcher[str](
     max_batch_size=1000,
     retry=False,
 )
-
-
-_batcher.start()
 
 
 def upsert_intro_hash(hashed: str) -> None:

@@ -12,15 +12,14 @@ timeouts are owned (and logged) here.
 """
 
 import ipaddress
-import json
 import os
-import socket
 from datetime import datetime, timezone
 from typing import Union
-from urllib.error import URLError
 from urllib.parse import quote
-from urllib.request import urlopen
 
+import httpx
+
+from httpxclient import make_http_client
 from util import timed
 
 ListName = str
@@ -44,27 +43,25 @@ class FireholClient:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
 
-    def _get(self, path: str) -> object:
+    async def _get(self, path: str) -> object:
         url = f"{self.base_url}{path}"
         with timed("FireHOL request", _log):
             try:
-                with urlopen(url, timeout=FIREHOL_TIMEOUT) as resp:
-                    if resp.status != 200:
-                        return None
-                    return json.loads(resp.read().decode("utf-8"))
-            except (URLError, TimeoutError, OSError, ValueError) as e:
-                reason = getattr(e, "reason", e)
-                if isinstance(e, (socket.timeout, TimeoutError)) or isinstance(
-                    reason, (socket.timeout, TimeoutError)
-                ):
-                    _log(f"FireHOL request timed out, failing open: {url}")
-                else:
-                    _log(f"FireHOL request failed, failing open ({url}): {e}")
+                async with make_http_client(timeout=FIREHOL_TIMEOUT) as client:
+                    resp = await client.get(url)
+                if resp.status_code != 200:
+                    return None
+                return resp.json()
+            except httpx.TimeoutException:
+                _log(f"FireHOL request timed out, failing open: {url}")
+                return None
+            except (httpx.HTTPError, ValueError) as e:
+                _log(f"FireHOL request failed, failing open ({url}): {e}")
                 return None
 
-    def matches(self, ip: IPAddress) -> list[ListName]:
+    async def matches(self, ip: IPAddress) -> list[ListName]:
         """Return the FireHOL lists the address belongs to (or [])."""
-        response = self._get(f"/matches?ip={quote(str(ip))}")
+        response = await self._get(f"/matches?ip={quote(str(ip))}")
         if not isinstance(response, list):
             return []
         return response

@@ -35,7 +35,7 @@ Env vars:
 import os
 from typing import Optional
 
-from flask import redirect
+from starlette.responses import RedirectResponse
 
 from util import append_query
 
@@ -71,18 +71,18 @@ def handle_callback(
         return 'Invalid Apple sign-in state', 400
 
     if error:
-        return redirect(append_query(target_url, dict(
+        return RedirectResponse(append_query(target_url, dict(
             apple_error=error,
             apple_state=state,
-        )), code=302)
+        )), status_code=302)
 
     if not id_token:
-        return redirect(append_query(target_url, dict(
+        return RedirectResponse(append_query(target_url, dict(
             apple_error='missing_id_token',
             apple_state=state,
-        )), code=302)
+        )), status_code=302)
 
-    return redirect(append_query(target_url, dict(
+    return RedirectResponse(append_query(target_url, dict(
         apple_id_token=id_token,
         apple_state=state,
-    )), code=302)
+    )), status_code=302)

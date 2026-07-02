@@ -1,5 +1,5 @@
 from async_lru_cache import AsyncLruCache
-from database.asyncdatabase import api_tx
+from database import api_tx
 
 _Q_VERIFICATION_REQUIRED = f"""
 SELECT

@@ -1,3 +1,8 @@
+import asyncio
+import os
+import psycopg
+import random
+import traceback
 from types import TracebackType
 from typing import Protocol
 from collections.abc import Iterable
@@ -10,12 +15,6 @@ from database._row import (
     row_str_or_none,
     row_value,
 )
-import os
-import psycopg
-import random
-import threading
-import time
-import traceback
 
 DB_HOST = os.environ['DUO_DB_HOST']
 DB_PORT = os.environ['DUO_DB_PORT']
@@ -51,122 +50,94 @@ CursorQuery = str | bytes | psycopg.sql.SQL | psycopg.sql.Composed
 Row = psycopg.rows.DictRow
 
 
-class TransactionContext(Protocol):
-    def __enter__(self) -> object:
-        ...
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        ...
-
-
-class TxConnection(Protocol):
-    def transaction(self) -> TransactionContext:
-        ...
-
-
 class Tx(Protocol):
     @property
-    def connection(self) -> psycopg.Connection[psycopg.rows.DictRow]:
+    def connection(self) -> psycopg.AsyncConnection[Row]:
         ...
 
     @property
     def rowcount(self) -> int:
         ...
 
-    def execute(
+    async def execute(
         self,
         query: CursorQuery,
         params: psycopg.abc.Params | None = None,
     ) -> "Tx":
         ...
 
-    def require_one(
+    async def require_one(
         self,
         query: CursorQuery,
         params: psycopg.abc.Params | None = None,
     ) -> Row:
         ...
 
-    def executemany(
+    async def executemany(
         self,
         query: CursorQuery,
         params_seq: Iterable[psycopg.abc.Params],
-        *,
-        returning: bool = False,
     ) -> None:
         ...
 
-    def fetchone(self) -> Row | None:
+    async def fetchone(self) -> Row | None:
         ...
 
-    def fetchall(self) -> list[Row]:
+    async def fetchall(self) -> list[Row]:
         ...
 
-    def nextset(self) -> bool | None:
-        ...
-
-    def close(self) -> None:
+    async def close(self) -> None:
         ...
 
 
 class TxCursor:
-    def __init__(self, cur: psycopg.Cursor[Row]) -> None:
+    def __init__(self, cur: psycopg.AsyncCursor[Row]) -> None:
         self._cur = cur
 
     @property
-    def connection(self) -> psycopg.Connection[Row]:
+    def connection(self) -> psycopg.AsyncConnection[Row]:
         return self._cur.connection
 
     @property
     def rowcount(self) -> int:
         return self._cur.rowcount
 
-    def execute(
+    async def execute(
         self,
         query: CursorQuery,
         params: psycopg.abc.Params | None = None,
     ) -> Tx:
-        self._cur.execute(query, params)
+        await self._cur.execute(query, params)
         return self
 
-    def require_one(
+    async def require_one(
         self,
         query: CursorQuery,
         params: psycopg.abc.Params | None = None,
     ) -> Row:
-        self.execute(query, params)
-        return require_row(self.fetchone())
+        await self.execute(query, params)
+        return require_row(await self.fetchone())
 
-    def executemany(
+    async def executemany(
         self,
         query: CursorQuery,
         params_seq: Iterable[psycopg.abc.Params],
-        *,
-        returning: bool = False,
     ) -> None:
-        self._cur.executemany(query, params_seq, returning=returning)
+        await self._cur.executemany(query, params_seq)
 
-    def fetchone(self) -> Row | None:
-        return self._cur.fetchone()
+    async def fetchone(self) -> Row | None:
+        return await self._cur.fetchone()
 
-    def fetchall(self) -> list[Row]:
-        return self._cur.fetchall()
+    async def fetchall(self) -> list[Row]:
+        return await self._cur.fetchall()
 
-    def nextset(self) -> bool | None:
-        return self._cur.nextset()
-
-    def close(self) -> None:
-        self._cur.close()
+    async def close(self) -> None:
+        await self._cur.close()
 
 
-_api_conn: psycopg.Connection[Row] | None = None
+_api_conn: psycopg.AsyncConnection[Row] | None = None
 
-_api_conn_lock  = threading.Lock()
+_api_conn_lock = asyncio.Lock()
 
 class api_tx:
     def __init__(self, isolation_level: str = _default_transaction_isolation) -> None:
@@ -177,17 +148,17 @@ class api_tx:
 
         self.isolation_level = normalized_isolation_level
 
-        self.conn: psycopg.Connection[Row]
+        self.conn: psycopg.AsyncConnection[Row]
         self.cur: Tx
 
-    def __enter__(self) -> Tx:
-        _api_conn_lock.acquire()
+    async def __aenter__(self) -> Tx:
+        await _api_conn_lock.acquire()
 
         global _api_conn
         conn = _api_conn
         if conn is None or conn.closed:
             try:
-                conn = psycopg.Connection.connect(
+                conn = await psycopg.AsyncConnection.connect(
                     conninfo=_api_conninfo,
                     row_factory=psycopg.rows.dict_row,
                 )
@@ -202,7 +173,7 @@ class api_tx:
 
         if self.isolation_level != _default_transaction_isolation:
             try:
-                self.cur.execute(
+                await self.cur.execute(
                     f'SET TRANSACTION ISOLATION LEVEL {self.isolation_level}'
                 )
             except:
@@ -211,7 +182,7 @@ class api_tx:
                 raise
         return self.cur
 
-    def __exit__(
+    async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
@@ -219,35 +190,27 @@ class api_tx:
     ) -> None:
         try:
             if exc_type is None:
-                self.conn.commit()
+                await self.conn.commit()
             else:
-                self.conn.rollback()
+                await self.conn.rollback()
         except:
                 traceback.print_exception(exc_type, exc_val, exc_tb)
         finally:
             try:
-                self.cur.close()
+                await self.cur.close()
             except:
                 print(traceback.format_exc())
 
         _api_conn_lock.release()
 
-def fetchall_sets(tx: Tx) -> list[Row]:
-    result: list[Row] = []
-    while True:
-        result.extend(tx.fetchall())
-        nextset = tx.nextset()
-        if nextset is None:
-            break
-    return result
-
-def _check_api_connection_forever() -> None:
+async def _check_api_connection_forever() -> None:
     while True:
         try:
-            with api_tx() as tx:
-                tx.execute('SELECT 1')
+            async with api_tx() as tx:
+                await tx.execute('SELECT 1')
         except:
             print(traceback.format_exc())
-        time.sleep(random.randint(30, 90))
+        await asyncio.sleep(random.randint(30, 90))
 
-threading.Thread(target=_check_api_connection_forever,  daemon=True).start()
+async def check_connections_forever() -> None:
+    await _check_api_connection_forever()

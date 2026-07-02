@@ -1,8 +1,9 @@
-from database.asyncdatabase import api_tx
+from database import api_tx
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from botocore.exceptions import ClientError
 from service.cron.cronutil.sql import *
+import asyncboto
 import asyncio
 import boto3
 import io
@@ -73,9 +74,8 @@ async def delete_images_from_object_store(
             'Quiet': True
         }
 
-        # Use asyncio's run_in_executor to run synchronous boto3 call
-        response = await asyncio.to_thread(
-            s3_client.delete_objects,
+        response = await asyncboto.delete_objects(
+            s3_client,
             Bucket=R2_BUCKET_NAME,
             Delete=delete_request,
         )
@@ -125,9 +125,8 @@ async def delete_audio_from_object_store(
             'Quiet': True
         }
 
-        # Use asyncio's run_in_executor to run synchronous boto3 call
-        response = await asyncio.to_thread(
-            s3_client.delete_objects,
+        response = await asyncboto.delete_objects(
+            s3_client,
             Bucket=R2_AUDIO_BUCKET_NAME,
             Delete=delete_request,
         )

@@ -1,5 +1,5 @@
 from antiabuse.antiporn import predict_nsfw
-from database.asyncdatabase import api_tx
+from database import api_tx
 from service.cron.nsfwphotorunner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,

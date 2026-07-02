@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from database import Tx, asyncdatabase
+from database import Tx, api_tx
 from service.chat.chatutil import (
     LSERVER,
     fetch_has_gold,
@@ -130,7 +130,7 @@ async def get_conversation(
     )
 
 
-def process_store_mam_message_batch(tx: Tx, batch: list[StoreMamMessageJob]) -> None:
+async def process_store_mam_message_batch(tx: Tx, batch: list[StoreMamMessageJob]) -> None:
     params_seq = [
         dict(
             id=microseconds_to_mam_message_id(message.timestamp_microseconds),
@@ -144,7 +144,7 @@ def process_store_mam_message_batch(tx: Tx, batch: list[StoreMamMessageJob]) -> 
         for message in batch
     ]
 
-    tx.executemany(Q_INSERT_MESSAGE, params_seq)
+    await tx.executemany(Q_INSERT_MESSAGE, params_seq)
 
 
 async def _get_conversation(
@@ -161,7 +161,7 @@ async def _get_conversation(
         max=query.max,
     )
 
-    async with asyncdatabase.api_tx('read committed') as tx:
+    async with api_tx('read committed') as tx:
         await tx.execute(Q_SELECT_MESSAGE, params)
         rows = await tx.fetchall()
 
@@ -218,7 +218,7 @@ async def _maybe_read_receipt(viewer: str, partner: str) -> Outbound | None:
     if not await fetch_has_gold(viewer):
         return None
 
-    async with asyncdatabase.api_tx('read committed') as tx:
+    async with api_tx('read committed') as tx:
         await tx.execute(
             Q_SELECT_DISPLAYED_AT,
             dict(partner=partner, viewer_jid=f'{viewer}@{LSERVER}'),

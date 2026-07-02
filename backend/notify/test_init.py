@@ -1,30 +1,51 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from notify import enqueue_mobile_notification, _batcher
+import asyncio
 import json
-import time
 
-_batcher.set_flush_interval(1e-2)
-time.sleep(1.1) # Wait for the new flush interval to take effect
 
-class TestSendMobileNotification(unittest.TestCase):
+def _mock_async_client(json_payload: object) -> tuple[MagicMock, MagicMock]:
+    """Build a stand-in for `httpx.AsyncClient` and return (factory, client).
 
-    def test_enqueue_mobile_notification_success(self) -> None:
-        # Set up a sacrificial urlopen function to consume any retried
-        # notifications
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = \
-                json.dumps({'data': [{'status': 'ok'}]}).encode('utf-8')
+    The factory replaces `httpx.AsyncClient`; every `async with` block yields
+    the same `client`, so `client.post` accumulates the calls across batches.
+    """
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json = MagicMock(return_value=json_payload)
 
-            # Wait for retried notifications to be consumed
-            time.sleep(1e-1)
+    client = MagicMock()
+    client.post = AsyncMock(return_value=response)
 
+    async_cm = MagicMock()
+    async_cm.__aenter__ = AsyncMock(return_value=client)
+    async_cm.__aexit__ = AsyncMock(return_value=False)
+
+    factory = MagicMock(return_value=async_cm)
+    return factory, client
+
+
+class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
+
+    async def asyncSetUp(self) -> None:
+        _batcher.set_flush_interval(1e-2)
+        _batcher.start()
+        # Let the consumer spin up and go idle (its flush window elapses), so
+        # the first notification below flushes on its own.
+        await asyncio.sleep(1e-1)
+
+    async def asyncTearDown(self) -> None:
+        _batcher.stop()
+        await asyncio.sleep(5e-2)
+
+    async def test_enqueue_mobile_notification_success(self) -> None:
         # Set up the mock response to simulate a successful notification
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = \
-                json.dumps({'data': [{'status': 'ok'}]}).encode('utf-8')
-
-            # Call the _enqueue_mobile_notification function
+        factory, client = _mock_async_client({'data': [{'status': 'ok'}]})
+        with patch('notify.make_http_client', factory):
+            # Enqueued back-to-back: the first flushes on its own (the consumer
+            # was idle, so its window had already elapsed), then the next two
+            # are batched together in the following window.
             enqueue_mobile_notification(
                 token='my-token',
                 title='My title',
@@ -43,8 +64,8 @@ class TestSendMobileNotification(unittest.TestCase):
                 body='My body 3',
             )
 
-            # Wait for notification be sent
-            time.sleep(1e-1)
+            # Wait for notifications to be sent
+            await asyncio.sleep(2e-1)
 
         expected_data_call_1 = json.dumps(
             [
@@ -77,34 +98,23 @@ class TestSendMobileNotification(unittest.TestCase):
             ]
         ).encode('utf-8')
 
-        self.assertEqual(len(mock_urlopen.call_args_list), 2)
+        self.assertEqual(len(client.post.call_args_list), 2)
 
-        request = mock_urlopen.call_args_list[0][0][0]
-        self.assertEqual(request.full_url, 'http://localhost')
-        self.assertEqual(request.data, expected_data_call_1)
-        self.assertEqual(request.headers['Content-type'], 'application/json')
+        call = client.post.call_args_list[0]
+        self.assertEqual(call.args[0], 'http://localhost')
+        self.assertEqual(call.kwargs['content'], expected_data_call_1)
+        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
-        request = mock_urlopen.call_args_list[1][0][0]
-        self.assertEqual(request.full_url, 'http://localhost')
-        self.assertEqual(request.data, expected_data_call_2)
-        self.assertEqual(request.headers['Content-type'], 'application/json')
+        call = client.post.call_args_list[1]
+        self.assertEqual(call.args[0], 'http://localhost')
+        self.assertEqual(call.kwargs['content'], expected_data_call_2)
+        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
 
-    def test_enqueue_mobile_notification_failure(self) -> None:
-        # Set up a sacrificial urlopen function to consume any retried
-        # notifications
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = \
-                json.dumps({'data': [{'status': 'ok'}]}).encode('utf-8')
-
-            # Wait for retried notifications to be consumed
-            time.sleep(1e-1)
-
-        # Set up the mock response to simulate a successful notification
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.return_value.__enter__.return_value.read.return_value = \
-                json.dumps({'data': [{'status': 'error'}]}).encode('utf-8')
-
+    async def test_enqueue_mobile_notification_failure(self) -> None:
+        # Set up the mock response to simulate a failed notification
+        factory, client = _mock_async_client({'data': [{'status': 'error'}]})
+        with patch('notify.make_http_client', factory):
             # Call the _enqueue_mobile_notification function
             enqueue_mobile_notification(
                 token='my-token',
@@ -113,7 +123,7 @@ class TestSendMobileNotification(unittest.TestCase):
             )
 
             # Wait for notification be sent
-            time.sleep(1e-1)
+            await asyncio.sleep(2e-1)
 
         # Assert that the URL and data sent are correct
         expected_data = json.dumps([{
@@ -124,10 +134,10 @@ class TestSendMobileNotification(unittest.TestCase):
             "priority": "high",
         }]).encode('utf-8')
 
-        request = mock_urlopen.call_args_list[0][0][0]
-        self.assertEqual(request.full_url, 'http://localhost')
-        self.assertEqual(request.data, expected_data)
-        self.assertEqual(request.headers['Content-type'], 'application/json')
+        call = client.post.call_args_list[0]
+        self.assertEqual(call.args[0], 'http://localhost')
+        self.assertEqual(call.kwargs['content'], expected_data)
+        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
 
 if __name__ == '__main__':

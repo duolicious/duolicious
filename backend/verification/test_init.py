@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from verification import (
     Failure,
@@ -272,13 +273,13 @@ class TestGetMessages(unittest.TestCase):
     def test_get_messages_null_ethnicity(self) -> None:
         self.maxDiff = 99999
 
-        messages = get_messages(
+        messages = asyncio.run(get_messages(
             proof_uuid='u1',
             claimed_uuids=[],
             claimed_age=26,
             claimed_gender='Man',
             claimed_ethnicity=None,
-        )
+        ))
 
         self.assertEqual(
             messages,
@@ -354,13 +355,13 @@ You have been given one or more image(s) by a user attempting to verify their id
     def test_get_messages(self) -> None:
         self.maxDiff = 99999
 
-        messages = get_messages(
+        messages = asyncio.run(get_messages(
             proof_uuid='u1',
             claimed_uuids=['u2', 'u3'],
             claimed_age=26,
             claimed_gender='Man',
             claimed_ethnicity='White/Caucasian',
-        )
+        ))
 
         self.assertEqual(
             messages,

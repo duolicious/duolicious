@@ -58,6 +58,12 @@ c GET '/search?n=1&o=1'
 echo "Rate limit should apply independently to clubs"
 jc POST /join-club -d '{ "name": "Anime" }'
 jc POST /join-club -d '{ "name": "Manga" }'
+# The cached-search calls above (and these joins) run back-to-back with no
+# delay, so they can fill the current 1-second window of the global rate limit.
+# Drain it before the club-search burst so this exercises the per-club limit,
+# not the global one. (The per-request `sleep 0.1` only keeps us under the
+# global limit once the window starts clear.)
+sleep 1
 for x in {1..15}
 do
   c GET '/search?n=1&o=0&club=Anime'

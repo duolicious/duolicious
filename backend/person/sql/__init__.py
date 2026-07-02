@@ -1,7 +1,6 @@
 import constants
 from constants import MIN_CLUB_PAGE_MEMBERS, MAX_RELATED_CLUBS
 from commonsql import Q_IS_ALLOWED_CLUB_NAME, Q_COMPUTED_FLAIR
-from visitorsql import Q_VISITORS, Q_MARK_VISITORS_CHECKED
 
 MAX_CLUB_SEARCH_RESULTS = 20
 
@@ -330,25 +329,6 @@ LEFT JOIN
     existing_person
 ON
     valid_session.person_id = existing_person.id
-"""
-
-Q_DELETE_ONBOARDEE_PHOTO = """
-WITH deleted_uuid AS (
-    DELETE FROM
-        onboardee_photo
-    WHERE
-        email = %(email)s AND
-        position = %(position)s
-    RETURNING
-        uuid
-)
-INSERT INTO undeleted_photo (
-    uuid
-)
-SELECT
-    uuid
-FROM
-    deleted_uuid
 """
 
 Q_FINISH_ONBOARDING = f"""
@@ -1206,13 +1186,6 @@ FROM
     person
 WHERE
     id = %(person_id)s
-"""
-
-Q_DELETE_SKIPPED = """
-DELETE FROM skipped
-WHERE
-    subject_person_id = %(subject_person_id)s AND
-    object_person_id = %(object_person_id)s
 """
 
 Q_DELETE_SKIPPED_BY_UUID = """
@@ -2590,15 +2563,6 @@ ON
     verification_job.person_id = person.id
 WHERE
     person.id = %(person_id)s
-"""
-
-Q_DISMISS_DONATION = """
-UPDATE
-    person
-SET
-    last_nag_time = NOW()
-WHERE
-    id = %(person_id)s
 """
 
 Q_INSERT_EXPORT_DATA_TOKEN = """

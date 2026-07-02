@@ -1,8 +1,8 @@
 from database import api_tx
+from async_lru_cache import AsyncLruCache
 import json
 import os
 from typing import Optional
-from functools import lru_cache
 
 _locations_json_file = os.path.join(
         os.path.dirname(__file__), '..',
@@ -20,15 +20,15 @@ ORDER BY
 LIMIT 10
 """
 
-def init_db() -> None:
+async def init_db() -> None:
     with open(_locations_json_file) as f:
         locations = json.load(f)
 
-    with api_tx() as tx:
-        if tx.require_one("SELECT COUNT(*) FROM location")['count'] != 0:
+    async with api_tx() as tx:
+        if (await tx.require_one("SELECT COUNT(*) FROM location"))['count'] != 0:
             return
 
-        tx.executemany(
+        await tx.executemany(
             """
             INSERT INTO Location (
                 short_friendly,
@@ -51,8 +51,8 @@ def init_db() -> None:
             locations
         )
 
-@lru_cache(maxsize=26**3)
-def get_search_locations(q: Optional[str]) -> object:
+@AsyncLruCache(maxsize=26**3)
+async def get_search_locations(q: Optional[str]) -> object:
     if q is None:
         return []
 
@@ -66,6 +66,7 @@ def get_search_locations(q: Optional[str]) -> object:
         search_string=normalized_whitespace,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        tx.execute(Q_SEARCH_LOCATIONS, params)
-        return [row['long_friendly'] for row in tx.fetchall()]
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_SEARCH_LOCATIONS, params)
+        rows = await row_tx.fetchall()
+        return [row['long_friendly'] for row in rows]

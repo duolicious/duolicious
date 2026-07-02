@@ -2,11 +2,9 @@ blurhash
 boto3==1.35.99
 confusable-homoglyphs
 fastapi
-Flask
-flask-cors
-Flask-Limiter
 google-auth
-gunicorn
+httpx
+limits[async-redis]
 lxml
 nltk
 numpy

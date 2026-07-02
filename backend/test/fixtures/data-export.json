@@ -2,14 +2,14 @@
   "raw_data": {
     "person": [
       {
-        "id": 19,
+        "id": 230,
         "name": "user1",
-        "uuid": "7bef7f21-56b0-412f-918d-1cc838b8ed4e",
+        "uuid": "84e879bc-f8aa-471d-8859-8fa4ba3c724a",
         "about": "",
         "email": "user1@example.com",
         "flair": [],
         "roles": [],
-        "tiny_id": "1hR7d",
+        "tiny_id": "fCMIh",
         "unit_id": 1,
         "drugs_id": 1,
         "has_gold": true,
@@ -28,67 +28,67 @@
         "exercise_id": 1,
         "gender_name": "Other",
         "has_kids_id": 1,
-        "personality": "[0.04438907,0.04438907,-0.04438907,0.04438907,0.04438907,0.04438907,0,0.04438907,0.04438907,-0.04438907,-0.04438907,-0.04438907,-0.04438907,0.04438907,0,0.04438907,-0.04438907,-0.04438907,0.04438907,0.04438907,0.04438907,0,0.04438907,0.04438907,0.04438907,-0.04438907,0.04438907,0,-0.04438907,0,-0.04438907,0.04438907,0,0.04438907,-0.04438907,-0.04438907,0.04438907,0.04438907,0.04438907,0.04438907,0.04438907,0.04438907,-0.04438907,0.04438907,0.04438907,0.04438907,4.4389068e-07]",
+        "personality": "[-0.043844398,-0.043844398,0.043844398,-0.043844398,-0.043844398,-0.043844398,0,-0.043844398,-0.043844398,0.043844398,0.043844398,0.043844398,0.043844398,-0.043844398,0.043844398,-0.043844398,0.043844398,0.043844398,-0.043844398,0.043844398,-0.043844398,0,-0.043844398,-0.043844398,-0.043844398,-0.043844398,-0.043844398,0,0.043844398,0,0.043844398,-0.043844398,0,-0.043844398,0.043844398,0.043844398,-0.043844398,-0.043844398,-0.043844398,-0.043844398,-0.043844398,-0.043844398,-0.043844398,-0.043844398,0.043844398,-0.043844398,4.3844398e-07]",
         "religion_id": 1,
         "show_my_age": true,
         "title_color": "#000000",
         "chat_seconds": 0,
         "ethnicity_id": 1,
-        "sign_in_time": "2026-06-25T17:23:25.393304",
-        "sign_up_time": "2026-06-25T17:23:25.393304",
+        "sign_in_time": "2026-07-01T08:48:09.315834",
+        "sign_up_time": "2026-07-01T08:48:09.315834",
         "smoking_name": "Unanswered",
         "star_sign_id": 1,
         "verified_age": false,
         "absence_score": [
-          0,
-          0,
-          414,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          548,
-          50,
-          48,
-          22,
-          0,
-          0,
-          0,
-          56,
-          48,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          36,
-          0,
-          0,
-          76,
-          0,
-          76,
-          0,
-          0,
-          0,
-          154,
-          26,
-          0,
-          0,
-          0,
-          0,
-          0,
+          258,
+          252,
           0,
           122,
+          156,
+          110,
+          0,
+          300,
+          312,
           0,
           0,
-          0
+          0,
+          0,
+          422,
+          0,
+          62,
+          0,
+          0,
+          222,
+          0,
+          22,
+          0,
+          250,
+          236,
+          368,
+          82,
+          140,
+          0,
+          0,
+          0,
+          0,
+          308,
+          0,
+          204,
+          0,
+          0,
+          108,
+          98,
+          266,
+          122,
+          84,
+          66,
+          14,
+          230,
+          0,
+          220
         ],
         "count_answers": 1,
-        "date_of_birth": "1999-12-26",
+        "date_of_birth": "2000-01-01",
         "drinking_name": "Unanswered",
         "exercise_name": "Unanswered",
         "has_kids_name": "Unanswered",
@@ -101,63 +101,63 @@
         "looking_for_id": 1,
         "orientation_id": 1,
         "presence_score": [
-          278,
-          106,
           0,
+          0,
+          336,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          440,
+          62,
           48,
-          56,
+          72,
+          0,
+          40,
+          0,
+          156,
+          18,
+          0,
+          46,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
           116,
           0,
-          250,
-          220,
+          116,
           0,
           0,
           0,
-          0,
-          240,
-          0,
-          102,
-          0,
-          0,
-          268,
-          2,
-          32,
-          0,
-          232,
-          214,
           194,
-          0,
-          8,
-          0,
+          22,
           0,
           0,
           0,
-          258,
-          0,
-          106,
           0,
           0,
-          86,
-          52,
-          190,
-          48,
-          44,
-          28,
           0,
-          232,
-          166,
-          48
+          0,
+          0,
+          16,
+          0
         ],
         "public_profile": false,
         "star_sign_name": "Unanswered",
         "last_event_data": {},
         "last_event_name": "joined",
-        "last_event_time": "2026-06-25T17:23:25.393304",
+        "last_event_time": "2026-07-01T08:48:09.315834",
         "verified_gender": false,
         "wants_kids_name": "Unanswered",
         "background_color": "#ffffff",
         "browse_invisibly": false,
-        "last_online_time": "2026-06-25T17:23:25.393304",
+        "last_online_time": "2026-07-01T08:48:09.315834",
         "long_distance_id": 1,
         "looking_for_name": "Unanswered",
         "normalized_email": "user1@example.com",
@@ -167,6 +167,7 @@
         "long_distance_name": "Unanswered",
         "verified_ethnicity": false,
         "intros_notification": 2,
+        "show_my_looking_for": true,
         "verification_level_id": 1,
         "verification_required": false,
         "has_profile_picture_id": 1,
@@ -174,7 +175,7 @@
         "location_long_friendly": "New York, New York, United States",
         "relationship_status_id": 1,
         "chats_notification_name": "Immediately",
-        "last_visitor_check_time": "2026-06-25T17:23:25.393304",
+        "last_visitor_check_time": "2026-07-01T08:48:09.315834",
         "location_short_friendly": "New York, New York, United States",
         "verification_level_name": "No verification",
         "has_profile_picture_name": "Yes",
@@ -186,26 +187,26 @@
     ],
     "photo": [
       {
-        "person_id": 19,
+        "person_id": 230,
         "position": 1,
-        "uuid": "130075b8abf6fb9b57fa96542db08100f7cd661801ea109cf3c994ce9bc7662e",
-        "blurhash": "U2E{e8?tkj?@_1SigMskpHTIS0JP_3M}aRWU",
+        "uuid": "665bcbec0d701c3d18bf6782866c6f24fe49bb6cc2376039d6d910bd252c2160",
+        "blurhash": "U2E{hF?uEy~D~Ws+XRbJn4bpKLRW^+s9bWjx",
         "verified": false,
-        "nsfw_score": 0.052712794,
+        "nsfw_score": 0.0512985,
         "extra_exts": [],
-        "hash": "ee782c9ea14bc24acc2daea4220a4984",
-        "photo_url": "https://user-images.duolicious.app/original-130075b8abf6fb9b57fa96542db08100f7cd661801ea109cf3c994ce9bc7662e.jpg"
+        "hash": "e6911cf51e79b2bcd15a8b729c740133",
+        "photo_url": "https://user-images.duolicious.app/original-665bcbec0d701c3d18bf6782866c6f24fe49bb6cc2376039d6d910bd252c2160.jpg"
       },
       {
-        "person_id": 19,
+        "person_id": 230,
         "position": 2,
-        "uuid": "6e2e2bcd2dc0b5c37fd0b84b6236926cd0c7b1519ffb3490426c0475b23677af",
-        "blurhash": "U2E{kN~Cif_0^+$$xnrds*X9K6al_2#*IVWF",
+        "uuid": "58058c6a0e711b4c9c27affec87b70c9b46df9399f7d28464025517dc68f8895",
+        "blurhash": "U2Eyb[^lvg.S?urfXSS$xvt6ovwI_2aLt8Oq",
         "verified": false,
-        "nsfw_score": 0.053149026,
+        "nsfw_score": 0.051593237,
         "extra_exts": [],
-        "hash": "f9a8528aedcd3f66fb6e2401ba043392",
-        "photo_url": "https://user-images.duolicious.app/original-6e2e2bcd2dc0b5c37fd0b84b6236926cd0c7b1519ffb3490426c0475b23677af.jpg"
+        "hash": "13779a2d508c48cf7ff0a33bef59c739",
+        "photo_url": "https://user-images.duolicious.app/original-58058c6a0e711b4c9c27affec87b70c9b46df9399f7d28464025517dc68f8895.jpg"
       }
     ],
     "answer": [
@@ -213,13 +214,13 @@
         "id": 1,
         "question": "Would you date a robot if they had a great personality?",
         "answer": null,
-        "public_": false
+        "public_": true
       },
       {
         "id": 2,
         "question": "Should long-term partners know each others' phone passwords?",
-        "answer": true,
-        "public_": false
+        "answer": false,
+        "public_": true
       }
     ],
     "verification_job": null,
@@ -228,334 +229,6 @@
     "messaged": null,
     "mam_message": null,
     "presence_histogram": null
-  },
-  "inferred_personality_data": {
-    "name": "user1",
-    "person_id": "1hR7d",
-    "personality": [
-      {
-        "trait_name": "Agreeableness",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Captures an individual's range of social behaviors, from demonstrating empathy, cooperation, and consideration for others to expressing assertiveness and independence in social situations.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Anxious Attachment",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Measures the extent to which a person seeks reassurance and fears abandonment in close relationships. If a person scores low on this and the \"Avoidant Attachment\" scale, they're said to be \"securely\" attached. Secure attachment is associated with longer, more stable relationships.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Avoidant Attachment",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Measures the preference for emotional distance and self-reliance in relationships. If a person scores low on this and the \"Anxious Attachment\" scale, they're said to be \"securely\" attached. Secure attachment is associated with longer, more stable relationships.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Career Focus",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait reflects the importance you place on your career. Those scoring high value their career and tend to prioritize it, while those scoring low might prioritize other aspects of life over their career.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Conscientiousness",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Represents an individual's approach to organization, reliability, and goal-setting, encompassing both highly structured and responsible behavior as well as a more flexible and spontaneous approach.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Drug Friendliness",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures your openness to drug use. High scores could indicate a liberal attitude towards drugs or personal use, while low scores may represent a more conservative view or no personal use of drugs.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Emotional Openness in Relationships",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures how comfortable you are with expressing emotions in a relationship. High scores mean you are open to discussing your feelings, while low scores might indicate a more reserved emotional style.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Empathy",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait indicates how well you understand and share the feelings of others. High empathy means you easily connect with others' emotions, while low empathy might indicate a more logical, detached approach.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Emphasis on Boundaries",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait signifies a person's tendency to define, communicate, and respect personal limits and spaces. People who score high on this trait believe in the importance of setting clear personal boundaries in their relationships.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Environmentalism/Anthropocentrism",
-        "trait_min_label": "Environmentalism",
-        "trait_max_label": "Anthropocentrism",
-        "trait_description": "Measures prioritization of preserving the environment and non-human species versus human-centered resource utilization and economic development.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Equanimity",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait pertains to a person's ability to maintain calm and composure, especially during stressful situations. Individuals who score high on this trait are able to keep their cool and think clearly, regardless of the circumstances.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Equity/Meritocracy",
-        "trait_min_label": "Equity",
-        "trait_max_label": "Meritocracy",
-        "trait_description": "Measures a person's preference for a system that rewards individuals based on their abilities and achievements versus a system that prioritizes fairness and equal opportunities for everyone.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Family Focus",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait is about how much a person values family relationships and commitments. Individuals who score high on this trait often place their family as a top priority and enjoy spending quality time with their loved ones.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Fitness Focus",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait indicates the importance a person places on maintaining physical fitness and living a healthy lifestyle. Those with high scores for this trait are likely to enjoy activities like regular exercise, eating balanced meals, and living an overall active lifestyle.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Honesty",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait describes a person's tendency to speak the truth, behave transparently, and avoid deception. Individuals who score high on this trait value truthfulness and believe in being straightforward in their communications.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Humility",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait reflects a person's ability to remain modest and unpretentious, even in the face of success. Those who score high on this trait believe in acknowledging the role of others in their achievements and avoiding arrogance.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Independence",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Do you take charge of your own life and make decisions without leaning on others? This trait measures your self-reliance and ability to handle things on your own.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Individualism/Collectivism",
-        "trait_min_label": "Individualism",
-        "trait_max_label": "Collectivism",
-        "trait_description": "This trait measures a person's preference for individual rights and freedoms versus collective good and social cohesion.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Introversion/Extraversion",
-        "trait_min_label": "Introversion",
-        "trait_max_label": "Extraversion",
-        "trait_description": "Measures a person's preference for engaging with the world, ranging from drawing energy from social interactions and being action-oriented (Extraversion) to finding energy in solitude and focusing on thoughts and feelings (Introversion).",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Isolationism/Internationalism",
-        "trait_min_label": "Isolationism",
-        "trait_max_label": "Internationalism",
-        "trait_description": "This trait measures preference for national self-reliance and limited global engagement versus active participation in international affairs and cooperation.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Judging/Perceiving",
-        "trait_min_label": "Judging",
-        "trait_max_label": "Perceiving",
-        "trait_description": "This trait captures someone's approach to organizing and structuring their life, ranging from preferring a planned, orderly, and decisive lifestyle (Judging), to embracing spontaneity, flexibility, and adaptability (Perceiving).",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Libertarianism/Authoritarianism",
-        "trait_min_label": "Libertarianism",
-        "trait_max_label": "Authoritarianism",
-        "trait_description": "This trait measures the preference for individual liberties and minimal government intervention, versus strong central authority and extensive government control.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Love Focus",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "How central is love in your life? This trait captures the importance you place on romantic relationships and the effort you're willing to put into finding and maintaining them.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Loyalty",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait shows us how committed you are. When you make a promise, do you keep it?",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Maturity",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "A measure of how much a person takes responsibility for their actions, understands the world around them, and is ready to deal with complex issues. It is not about age, but about mindset and experience.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Neuroticism",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Depicts the diversity in how people experience and cope with emotions, spanning the range from calmness and emotional steadiness to sensitivity and emotional responsiveness.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Non-interventionism/Interventionism",
-        "trait_min_label": "Non-interventionism",
-        "trait_max_label": "Interventionism",
-        "trait_description": "Measures a person's preference for an active foreign policy with military and diplomatic interventions versus a non-interventionist approach that emphasizes diplomacy and trade.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Openness to Experience",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Represents a person's willingness to explore new ideas, activities, and experiences. People high in this trait tend to be imaginative, creative, and curious. Those lower might appreciate routine, predictability, and familiar surroundings.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Patience",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Measures your ability to stay calm and tolerant when facing challenges.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Persistence",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "Indicates how much you're willing to stick with tasks, goals or beliefs, even in the face of adversity. Those lower in this trait might be more flexible, adaptive, and ready to pivot when needed.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Playfulness",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures your tendency to seek joy, humor, and fun in life. High scores often enjoy spontaneity, games, and laughter. Those scoring lower might appreciate seriousness, focus, and quiet reflection.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Preference for Monogamy",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures your inclination towards having one partner at a time. A low score doesn't necessarily mean a preference for multiple partners simultaneously, but might reflect a desire for serial monogamy, or simply being open to different relationship structures.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Rationality",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait determines the extent to which you prefer using logical reasoning and objective analysis over emotional intuition. Both approaches have their advantages, and neither is inherently better or worse than the other.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Religiosity",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures the extent to which religious beliefs influence your life. It doesn't indicate which religion you follow, or how devout you are, just the importance religion holds for you. It includes both traditionally religious and spiritual orientations.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Security/Freedom",
-        "trait_min_label": "Security",
-        "trait_max_label": "Freedom",
-        "trait_description": "Measures how much a person values national security and public safety versus individual freedoms and civil liberties.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Self-acceptance",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures your level of acceptance and appreciation for who you are as an individual. It doesn't mean being complacent or avoiding personal growth, but rather denotes a healthy self-perception and an acceptance of one's strengths and weaknesses.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Self-esteem",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait signifies your overall subjective emotional evaluation of your own worth. High self-esteem doesn't mean arrogance but refers to a positive, balanced view of oneself. Low self-esteem doesn't necessarily indicate lack of confidence but may reflect humility or a more critical self-view.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Sensing/Intuition",
-        "trait_min_label": "Sensing",
-        "trait_max_label": "Intuition",
-        "trait_description": "This trait represents someone's preferred way of processing information, covering the spectrum from focusing on concrete, tangible details and experiences (Sensing), to exploring abstract concepts, patterns, and possibilities (Intuition).",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Sex Focus",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures how much a person prioritises sex over love",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Stability of Self-image",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait assesses how consistent a person's self-perception is. If you score high, you typically have a strong and steady sense of who you are, while a low score indicates that your self-image may change based on circumstances, moods, or new experiences.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Thinking/Feeling",
-        "trait_min_label": "Thinking",
-        "trait_max_label": "Feeling",
-        "trait_description": "This trait reflects a person's decision-making style, encompassing both logical, objective analysis and rationality (Thinking), as well as empathy, values, and consideration for others' emotions (Feeling).",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Thriftiness",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait reflects how careful you are with your resources, especially financial ones. High scorers tend to be frugal and prioritize saving, while low scorers may be more inclined to spend on experiences or items that bring them joy or satisfaction.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Thrill-seeking",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures a person's desire for excitement and adventure. If you score high, you're likely to enjoy taking risks and exploring new experiences. A lower score indicates a preference for routine, comfort, and safety.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Traditionalism about Love",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait gauges how much a person values traditional beliefs and practices about love and relationships. A high score indicates a preference for traditional courtship and relationship roles, while a low score might suggest an openness to modern or non-traditional expressions of love.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Trust",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait represents a person's propensity to trust others. A high scorer generally assumes that people are well-intentioned and reliable, while a low scorer tends to be more cautious and requires more evidence to trust others.",
-        "person_percentage": null
-      },
-      {
-        "trait_name": "Wholesomeness",
-        "trait_min_label": null,
-        "trait_max_label": null,
-        "trait_description": "This trait measures a person's inclination towards innocence, kindness, and a general appreciation for the simple things in life. High scorers are typically viewed as pure-hearted and genuine.",
-        "person_percentage": null
-      }
-    ]
   },
   "search_filters": {
     "answer": [],

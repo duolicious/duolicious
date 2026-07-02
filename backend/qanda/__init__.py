@@ -1,5 +1,5 @@
 import numpy
-from database import Tx, api_tx
+from database import Row, Tx, api_tx
 import duotypes as t
 from qanda import personality
 from qanda.question import Q_QUESTION_SCORE_VECTORS
@@ -88,8 +88,7 @@ SET answers = NULL
 WHERE session_token_hash = %(session_token_hash)s
 """
 
-
-def _set_answer(
+async def _set_answer(
     tx: Tx,
     person_id: int,
     question_id: int,
@@ -97,26 +96,25 @@ def _set_answer(
     public: bool | None,
     delete: bool,
 ) -> None:
-    """Insert/update (or delete) one answer and recompute the person's
-    personality vector on the application server. `tx` must be a writable
-    transaction. The old answer is read before being overwritten."""
-    question = tx.execute(
+    question_tx = await tx.execute(
         Q_QUESTION_SCORE_VECTORS,
         dict(question_ids=[question_id]),
-    ).fetchone()
+    )
+    question: Row | None = await question_tx.fetchone()
 
     if question is None:
         return
 
-    scores = tx.require_one(
+    scores = await tx.require_one(
         Q_GET_PERSONALITY_SCORES,
         dict(person_id=person_id),
     )
 
-    old = tx.execute(
+    old_tx = await tx.execute(
         Q_GET_ANSWER,
         dict(person_id=person_id, question_id=question_id),
-    ).fetchone()
+    )
+    old: Row | None = await old_tx.fetchone()
 
     presence = scores['presence_score']
     absence = scores['absence_score']
@@ -135,19 +133,19 @@ def _set_answer(
     vector = personality.personality_vector(presence, absence, count)
 
     if delete:
-        tx.execute(Q_DELETE_ANSWER, dict(
+        await tx.execute(Q_DELETE_ANSWER, dict(
             person_id=person_id,
             question_id=question_id,
         ))
     else:
-        tx.execute(Q_UPSERT_ANSWER, dict(
+        await tx.execute(Q_UPSERT_ANSWER, dict(
             person_id=person_id,
             question_id=question_id,
             answer=answer,
             public=public,
         ))
 
-    tx.execute(Q_SET_PERSONALITY, dict(
+    await tx.execute(Q_SET_PERSONALITY, dict(
         person_id=person_id,
         personality=personality.to_pgvector(vector),
         presence_score=numpy.asarray(presence).tolist(),
@@ -155,7 +153,7 @@ def _set_answer(
         count_answers=int(count),
     ))
 
-def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
+async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
     if s.person_id is None:
         return '', 500
 
@@ -165,50 +163,48 @@ def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
         add_no=1 if req.answer is False else 0,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        tx.execute(Q_ADD_YES_NO_COUNT, params_add_yes_no_count)
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(Q_ADD_YES_NO_COUNT, params_add_yes_no_count)
 
-    with api_tx() as tx:
-        _set_answer(
+    async with api_tx() as tx:
+        await _set_answer(
             tx, s.person_id, req.question_id, req.answer, req.public, delete=False)
     return None
 
-def delete_answer(req: t.DeleteAnswer, s: t.SessionInfo) -> object | None:
+async def delete_answer(req: t.DeleteAnswer, s: t.SessionInfo) -> object | None:
     if s.person_id is None:
         return '', 500
 
-    with api_tx() as tx:
-        _set_answer(
+    async with api_tx() as tx:
+        await _set_answer(
             tx, s.person_id, req.question_id, None, None, delete=True)
     return None
 
-def _flush_session_answers(tx: Tx, session_token_hash: str, person_id: int) -> None:
-    """
-    Move any answers stashed against this session (collected while the user was
-    unauthenticated) into the `answer` table for `person_id`, reusing the same
-    machinery as `/answer`. Existing answers are overwritten.
 
-    Runs on the caller's transaction `tx` so the flush — the per-question yes/no
-    counts, the answers, and clearing the stash — commits atomically with the
-    work that resolved the session to a person (consuming the OTP, or creating
-    the `person` row). A failure rolls everything back, leaving the stash intact
-    for a clean retry rather than double-counting question stats.
+async def _flush_session_answers(
+    tx: Tx,
+    session_token_hash: str,
+    person_id: int,
+) -> None:
     """
-    row = tx.execute(
+    Async counterpart to `_flush_session_answers` for native FastAPI routes.
+    """
+    row_tx = await tx.execute(
         Q_GET_SESSION_ANSWERS,
         dict(session_token_hash=session_token_hash),
-    ).fetchone()
+    )
+    row: Row | None = await row_tx.fetchone()
 
     answers = (row and row['answers']) or []
 
     for answer in answers:
-        tx.execute(Q_ADD_YES_NO_COUNT, dict(
+        await tx.execute(Q_ADD_YES_NO_COUNT, dict(
             question_id=answer['question_id'],
             add_yes=1 if answer['answer'] is True else 0,
             add_no=1 if answer['answer'] is False else 0,
         ))
 
-        _set_answer(
+        await _set_answer(
             tx,
             person_id,
             answer['question_id'],
@@ -217,7 +213,7 @@ def _flush_session_answers(tx: Tx, session_token_hash: str, person_id: int) -> N
             delete=False,
         )
 
-    tx.execute(
+    await tx.execute(
         Q_CLEAR_SESSION_ANSWERS,
         dict(session_token_hash=session_token_hash),
     )

@@ -1,4 +1,4 @@
-from database.asyncdatabase import api_tx
+from database import api_tx
 from service.cron.profilereporter.sql import (
     Q_DELETE_UNMODERATED_PERSON,
     Q_SELECT_UNMODERATED_PERSON_ABOUT,
@@ -29,7 +29,7 @@ async def report_profiles_once() -> None:
     for row in rows:
         if potential_minor(row['about']):
             print(f'{__name__} -', row['object_uuid'], 'reported')
-            skip_by_uuid(
+            await skip_by_uuid(
                 subject_uuid=row['subject_uuid'],
                 object_uuid=row['object_uuid'],
                 reason='Automatically lodged report: Child safety'

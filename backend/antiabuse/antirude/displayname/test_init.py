@@ -1,36 +1,36 @@
 import unittest
 from antiabuse.antirude.displayname import is_rude
 
-class TestIsRude(unittest.TestCase):
+class TestIsRude(unittest.IsolatedAsyncioTestCase):
 
-    def test_rude_strings(self) -> None:
+    async def test_rude_strings(self) -> None:
         self.assertTrue(
-                is_rude("You're a nigg"))
-
-        self.assertTrue(
-                is_rude("You're a 𝖓𝖎𝖌𝖌𝖊𝖗"))
+                await is_rude("You're a nigg"))
 
         self.assertTrue(
-                is_rude("ywnbaw is an acronym"))
+                await is_rude("You're a 𝖓𝖎𝖌𝖌𝖊𝖗"))
 
-    def test_non_rude_strings(self) -> None:
-        self.assertFalse(
-                is_rude("bot-reporter-of-sender-11"))
+        self.assertTrue(
+                await is_rude("ywnbaw is an acronym"))
 
+    async def test_non_rude_strings(self) -> None:
         self.assertFalse(
-                is_rude("go hug urself please"))
-
-        self.assertFalse(
-                is_rude("I respect you"))
+                await is_rude("bot-reporter-of-sender-11"))
 
         self.assertFalse(
-                is_rude("Who're you listening to?"))
+                await is_rude("go hug urself please"))
 
         self.assertFalse(
-                is_rude("Can u c my pfp?"))
+                await is_rude("I respect you"))
 
         self.assertFalse(
-                is_rude("I am therapist"))
+                await is_rude("Who're you listening to?"))
+
+        self.assertFalse(
+                await is_rude("Can u c my pfp?"))
+
+        self.assertFalse(
+                await is_rude("I am therapist"))
 
 
 if __name__ == '__main__':

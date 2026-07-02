@@ -10,13 +10,13 @@ from openai.types.shared_params.response_format_json_object import (
     ResponseFormatJSONObject,
 )
 from dataclasses import dataclass
-from typing import Literal, Iterator
+from typing import Literal
 import json
 import os
 import base64
-import urllib.request
 import traceback
 from pathlib import Path
+from httpxclient import make_http_client
 from verification.messages import *
 
 VERIFICATION_IMAGE_BASE_URL = os.getenv('DUO_VERIFICATION_IMAGE_BASE_URL')
@@ -105,27 +105,28 @@ def get_system_content(
     return content
 
 
-def get_user_content(
+async def get_user_content(
     proof_uuid: str,
     claimed_uuids: list[str],
 ) -> list[ChatCompletionContentPartTextParam | ChatCompletionContentPartImageParam]:
-    def go() -> Iterator[
+    content: list[
         ChatCompletionContentPartTextParam | ChatCompletionContentPartImageParam
-    ]:
-        for i, uuid in enumerate([proof_uuid] + claimed_uuids):
-            yield {
-              "type": "text",
-              "text": f"Image #{i + 1}:",
-            }
-            yield {
-                "type": "image_url",
-                "image_url": {
-                    "url": get_image_url(uuid),
-                    "detail": "high" if i == 0 else "low"
-                }
-            }
+    ] = []
 
-    return list(go())
+    for i, uuid in enumerate([proof_uuid] + claimed_uuids):
+        content.append({
+            "type": "text",
+            "text": f"Image #{i + 1}:",
+        })
+        content.append({
+            "type": "image_url",
+            "image_url": {
+                "url": await get_image_url(uuid),
+                "detail": "high" if i == 0 else "low"
+            }
+        })
+
+    return content
 
 
 @dataclass(frozen=True)
@@ -319,7 +320,7 @@ def process_response(
     )
 
 
-def get_image_url(uuid: str) -> str:
+async def get_image_url(uuid: str) -> str:
     if not VERIFICATION_IMAGE_BASE_URL:
         return f"https://user-images.duolicious.app/450-{uuid}.jpg"
 
@@ -328,15 +329,17 @@ def get_image_url(uuid: str) -> str:
     intermediate_image_url = f"{VERIFICATION_IMAGE_BASE_URL}/450-{uuid}.jpg"
     print(f'Fetching for verification: {intermediate_image_url}')
 
-    with urllib.request.urlopen(intermediate_image_url) as response:
-        data = response.read()
+    async with make_http_client() as client:
+        response = await client.get(intermediate_image_url)
+        response.raise_for_status()
+        data = response.content
 
     base64_encoded_str = base64.b64encode(data).decode('utf-8')
 
     return f"data:image/jpeg;base64,{base64_encoded_str}"
 
 
-def get_messages(
+async def get_messages(
     proof_uuid: str,
     claimed_uuids: list[str],
     claimed_age: int,
@@ -354,7 +357,7 @@ def get_messages(
     }
     user_message: ChatCompletionUserMessageParam = {
         "role": "user",
-        "content": get_user_content(
+        "content": await get_user_content(
             proof_uuid,
             claimed_uuids,
         )
@@ -394,7 +397,7 @@ async def real_verification_response(
             temperature=0.0,
             frequency_penalty=0.0,
             presence_penalty=0.0,
-            messages=get_messages(
+            messages=await get_messages(
                 proof_uuid=proof_uuid,
                 claimed_uuids=claimed_uuids,
                 claimed_age=claimed_age,

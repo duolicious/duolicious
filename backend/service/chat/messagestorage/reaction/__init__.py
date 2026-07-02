@@ -26,7 +26,7 @@ so no client can learn a message's `mam_id` until after its rows are committed.
 A missing target therefore means a genuinely absent or own-message reaction, not
 a not-yet-flushed one.
 """
-from database.asyncdatabase import api_tx
+from database import api_tx
 from service.chat.messagestorage.mam import sibling_mam_id
 
 

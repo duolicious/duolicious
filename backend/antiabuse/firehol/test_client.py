@@ -4,6 +4,7 @@ container. A tiny stub HTTP server stands in for the real container so these
 tests touch neither the network nor a subprocess.
 """
 
+import asyncio
 import json
 import threading
 import unittest
@@ -57,10 +58,13 @@ class FireholClientTests(unittest.TestCase):
         self.server.server_close()
 
     def test_matches_hit(self) -> None:
-        self.assertEqual(sorted(self.client.matches("1.2.3.4")), ["list_a", "list_b"])
+        self.assertEqual(
+            sorted(asyncio.run(self.client.matches("1.2.3.4"))),
+            ["list_a", "list_b"],
+        )
 
     def test_matches_miss(self) -> None:
-        self.assertEqual(self.client.matches("5.5.5.5"), [])
+        self.assertEqual(asyncio.run(self.client.matches("5.5.5.5")), [])
 
 
 class FireholClientFailOpenTests(unittest.TestCase):
@@ -71,7 +75,7 @@ class FireholClientFailOpenTests(unittest.TestCase):
         self.client = FireholClient("http://127.0.0.1:1")
 
     def test_matches_fails_open(self) -> None:
-        self.assertEqual(self.client.matches("1.2.3.4"), [])
+        self.assertEqual(asyncio.run(self.client.matches("1.2.3.4")), [])
 
 
 if __name__ == "__main__":

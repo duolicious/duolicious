@@ -67,7 +67,7 @@ def store_message(
     _store_message_batcher.enqueue(job, callback)
 
 
-def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
+async def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
     store_mam_message_jobs = [
             job.store_mam_message_job
             for job in batch]
@@ -80,10 +80,10 @@ def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
             job.messaged_job
             for job in batch]
 
-    with api_tx('read committed') as tx:
-        process_store_mam_message_batch(tx, store_mam_message_jobs)
-        process_upsert_conversation_batch(tx, upsert_conversation_jobs)
-        process_set_messaged_batch(tx, messaged_jobs)
+    async with api_tx('read committed') as tx:
+        await process_store_mam_message_batch(tx, store_mam_message_jobs)
+        await process_upsert_conversation_batch(tx, upsert_conversation_jobs)
+        await process_set_messaged_batch(tx, messaged_jobs)
 
 
 _store_message_batcher = Batcher[StoreMessageJob](
@@ -93,6 +93,3 @@ _store_message_batcher = Batcher[StoreMessageJob](
     max_batch_size=1000,
     retry=False,
 )
-
-
-_store_message_batcher.start()

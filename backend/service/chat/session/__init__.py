@@ -2,7 +2,7 @@ import base64
 import uuid
 from typing import List
 
-from database.asyncdatabase import api_tx
+from database import api_tx
 from duohash import sha512
 from chatprotocol.jid import LSERVER
 from chatprotocol.inbound import (

@@ -2,7 +2,7 @@ from constants import (
     MAX_LLM_PROMPT_FACTS,
     MIN_NOTABLE_TRAIT_SCORE,
 )
-from database.asyncdatabase import api_tx
+from database import api_tx
 from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
 from util import is_offpeak
 from util.coerce import (

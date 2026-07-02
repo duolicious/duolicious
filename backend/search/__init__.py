@@ -28,15 +28,19 @@ class ClubHttpArg:
     club: str | None
 
 
-def _quiz_search_results(tx: Tx, searcher_person_id: int) -> object:
+async def _quiz_search_results(
+    tx: Tx,
+    searcher_person_id: int,
+) -> object:
     params = dict(
         searcher_person_id=searcher_person_id,
     )
 
-    return tx.execute(Q_QUIZ_SEARCH, params).fetchall()
+    row_tx = await tx.execute(Q_QUIZ_SEARCH, params)
+    return await row_tx.fetchall()
 
 
-def _uncached_search_results(
+async def _uncached_search_results(
     tx: Tx,
     searcher_person_id: int,
     no: Tuple[int, int],
@@ -52,25 +56,29 @@ def _uncached_search_results(
     )
 
     try:
-        tx.execute(Q_UNCACHED_SEARCH_1, params)
-        tx.execute(Q_UNCACHED_SEARCH_2, params)
-        tx.execute(Q_CACHED_SEARCH, params)
-        return tx.fetchall()
+        await tx.execute(Q_UNCACHED_SEARCH_1, params)
+        await tx.execute(Q_UNCACHED_SEARCH_2, params)
+        row_tx = await tx.execute(Q_CACHED_SEARCH, params)
+        return await row_tx.fetchall()
     except psycopg.errors.QueryCanceled:
-        # The query probably timed-out because it was too specific
         return []
 
 
-def _cached_search_results(tx: Tx, searcher_person_id: int, no: Tuple[int, int]) -> object:
+async def _cached_search_results(
+    tx: Tx,
+    searcher_person_id: int,
+    no: Tuple[int, int],
+) -> object:
     n, o = no
 
     params = dict(
         searcher_person_id=searcher_person_id,
         n=n,
-        o=o
+        o=o,
     )
 
-    return tx.execute(Q_CACHED_SEARCH, params).fetchall()
+    row_tx = await tx.execute(Q_CACHED_SEARCH, params)
+    return await row_tx.fetchall()
 
 
 SearchType = Literal['quiz-search', 'uncached-search', 'cached-search']
@@ -95,7 +103,7 @@ def get_search_type(n: str | None, o: str | None) -> tuple[SearchType, Tuple[int
         return 'cached-search', no
 
 
-def get_search(
+async def get_search(
     s: t.SessionInfo,
     n: str | None,
     o: str | None,
@@ -115,23 +123,23 @@ def get_search(
         do_modify=club is not None,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
-        rows = tx.execute(Q_SEARCH_PREFERENCE, params).fetchall()
+        row_tx = await tx.execute(Q_SEARCH_PREFERENCE, params)
+        rows = await row_tx.fetchall()
 
         gender_preference = [row_int(row, 'gender_id') for row in rows]
 
-
         if search_type == 'quiz-search':
-            result = _quiz_search_results(
+            result = await _quiz_search_results(
                 tx=tx,
                 searcher_person_id=s.person_id)
 
         elif search_type == 'uncached-search':
             if no is None:
                 raise RuntimeError('uncached search requires pagination')
-            result = _uncached_search_results(
+            result = await _uncached_search_results(
                 tx=tx,
                 searcher_person_id=s.person_id,
                 no=no,
@@ -140,25 +148,25 @@ def get_search(
         elif search_type == 'cached-search':
             if no is None:
                 raise RuntimeError('cached search requires pagination')
-            result = _cached_search_results(
+            result = await _cached_search_results(
                 tx=tx,
-                searcher_person_id=s.person_id, no=no)
+                searcher_person_id=s.person_id,
+                no=no)
 
         else:
             raise Exception('Unexpected quiz type')
 
-    # Q_SEARCH_PREFERENCE clears `pending_club_name` for this person. Once the
-    # transaction has committed, drop the now-stale cached session so the
-    # cleared value is visible immediately on this device; other sessions of
-    # the same person age out within the cache TTL. Skip the call when there
-    # was nothing pending to clear.
     if s.pending_club_name is not None:
-        sessioncache.delete_session(s.session_token_hash)
+        await sessioncache.delete_session(s.session_token_hash)
 
     return result
 
 
-def get_public_search(n: str | None, o: str | None, answers: str | None = None) -> object:
+async def get_public_search(
+    n: str | None,
+    o: str | None,
+    answers: str | None = None,
+) -> object:
     n_: int = 10 if n is None else int(n)
     o_: int = 0 if o is None else int(o)
 
@@ -175,28 +183,22 @@ def get_public_search(n: str | None, o: str | None, answers: str | None = None) 
             req = t.PublicSearchRequest(answers=json.loads(answers), n=n_, o=o_)
         except (ValueError, ValidationError) as e:
             return str(e), 400
-        return _get_public_search_with_answers(req)
+        return await _get_public_search_with_answers(req)
 
-    public_search = _get_public_search()
+    public_search = await _get_public_search()
     if not isinstance(public_search, list):
         raise RuntimeError('public search cache returned a non-list value')
     return public_search[o_:o_ + n_]
 
 
-@redis_cache(ttl=60)
-def _get_public_search() -> Sequence[object]:
-    with api_tx('READ COMMITTED') as tx:
-        return tx.execute(Q_PUBLIC_SEARCH).fetchall()
-
-
-def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
-    with api_tx('READ COMMITTED') as tx:
+async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
+    async with api_tx('READ COMMITTED') as tx:
         questions = {
             row_int(q, 'id'): q
-            for q in tx.execute(
+            for q in await (await tx.execute(
                 Q_QUESTION_SCORE_VECTORS,
                 dict(question_ids=[a.question_id for a in req.answers]),
-            ).fetchall()
+            )).fetchall()
         }
 
         presence, absence, count = personality.accumulate(
@@ -208,23 +210,31 @@ def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
         searcher_personality = personality.to_pgvector(
             personality.personality_vector(presence, absence, count))
 
-        return tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
+        return await (await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
             searcher_personality=searcher_personality,
             n=req.n,
             o=req.o,
-        )).fetchall()
+        ))).fetchall()
 
 
-def get_feed(s: t.SessionInfo, before: datetime) -> object:
+@redis_cache(ttl=60)
+async def _get_public_search() -> Sequence[object]:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_PUBLIC_SEARCH)
+        return await row_tx.fetchall()
+
+
+async def get_feed(s: t.SessionInfo, before: datetime) -> object:
     params = dict(
         searcher_person_id=s.person_id,
         before=before,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        tx.execute('SET LOCAL jit = off')
-        tx.execute("SET LOCAL work_mem = '32MB'")
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL jit = off')
+        await tx.execute("SET LOCAL work_mem = '32MB'")
 
-        rows = tx.execute(Q_FEED, params).fetchall()
+        row_tx = await tx.execute(Q_FEED, params)
+        rows = await row_tx.fetchall()
 
     return [row['j'] for row in rows]

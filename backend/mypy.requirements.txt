@@ -1,14 +1,11 @@
-Flask
-Flask-Limiter
 Pillow
 PyYAML
 blurhash
 boto3==1.35.99
 confusable-homoglyphs
 fastapi
-flask-cors
 google-auth
-gunicorn
+limits[async-redis]
 lxml
 lxml-stubs
 mypy
@@ -26,7 +23,6 @@ regex
 types-Pillow
 types-Pygments
 types-colorama
-types-Flask-Cors
 types-PyYAML
 types-pyOpenSSL
 types-regex

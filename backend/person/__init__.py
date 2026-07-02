@@ -1,8 +1,11 @@
 import os
-from database import Tx, api_tx, fetchall_sets
+from database import Row, Tx, api_tx
 from collections.abc import Mapping, Sequence
 from typing import Optional, Tuple, Literal, cast
-from urlslug import assign_url_slug, reserve_onboardee_url_slug
+from urlslug import (
+    assign_url_slug,
+    reserve_onboardee_url_slug,
+)
 import duotypes as t
 import json
 import secrets
@@ -11,7 +14,8 @@ from duohash import sha512
 from PIL import Image
 import io
 import boto3
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncio
+import asyncboto
 from person.sql import *
 from search.sql import *
 from commonsql import *
@@ -22,20 +26,23 @@ from person.template import otp_template
 import traceback
 import re
 from smtp import aws_smtp
-from flask import request, send_file
+from starlette.responses import Response
+from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
 import psycopg
-from functools import lru_cache
 from antiabuse.antispam.signupemail import (
     check_and_update_bad_domains,
     normalize_email,
 )
-from antiabuse.lodgereport import (
-    skip_by_uuid,
-)
+import antiabuse.antirude.displayname
+import antiabuse.antirude.occupation
+import antiabuse.antirude.education
+import antiabuse.bannedphoto
 from antiabuse.firehol import firehol
+from fastapi.exceptions import RequestValidationError
 import blurhash
 import numpy
+from async_lru_cache import AsyncLruCache
 from datetime import datetime, timezone
 from urllib.parse import quote
 from duoaudio import put_audio_in_object_store
@@ -74,7 +81,7 @@ s3 = boto3.resource(
 
 bucket = s3.Bucket(R2_BUCKET_NAME)
 
-def init_db() -> None:
+async def init_db() -> None:
     pass
 
 @dataclass
@@ -190,68 +197,77 @@ def compute_blurhash(image: Image.Image, crop_size: CropSize | None = None) -> o
 
     return blurhash.encode(numpy.array(image.convert("RGB")))
 
-def put_image_in_object_store(
+async def put_image_in_object_store(
     uuid: str,
     base64_file: t.Base64File,
     crop_size: CropSize,
     sizes: list[Literal[None, 900, 450]] = [None, 900, 450],
 ) -> None:
-    key_img = [
-        (
-            f'{size if size else "original"}-{uuid}.jpg',
-            process_image_as_bytes(
-                base64_file=base64_file,
-                format='jpeg',
-                output_size=size,
-                crop_size=None if size is None else crop_size
+    def process() -> list[tuple[str, io.BytesIO]]:
+        key_img = [
+            (
+                f'{size if size else "original"}-{uuid}.jpg',
+                process_image_as_bytes(
+                    base64_file=base64_file,
+                    format='jpeg',
+                    output_size=size,
+                    crop_size=None if size is None else crop_size
+                )
             )
-        )
-        for size in sizes
-    ]
+            for size in sizes
+        ]
 
-    if base64_file.image.format == 'GIF' and None in sizes:
-        key_img.append((
-            f'{uuid}.gif',
-            process_image_as_bytes(base64_file=base64_file, format='raw')
-        ))
+        if base64_file.image.format == 'GIF' and None in sizes:
+            key_img.append((
+                f'{uuid}.gif',
+                process_image_as_bytes(base64_file=base64_file, format='raw')
+            ))
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {
-            executor.submit(bucket.put_object, Key=key, Body=img)
-            for key, img in key_img}
+        return key_img
 
-        for future in as_completed(futures):
-            future.result()
+    # Image processing is CPU-bound, so keep it off the event loop.
+    key_img = await run_in_threadpool(process)
 
-def _has_gold(person_id: int) -> bool:
-    with api_tx() as tx:
-        row = tx.require_one(Q_HAS_GOLD, dict(person_id=person_id))
+    await asyncio.gather(*[
+        asyncboto.put_object(bucket, Key=key, Body=img)
+        for key, img in key_img
+    ])
+
+async def _has_gold(person_id: int) -> bool:
+    async with api_tx() as tx:
+        row = await tx.require_one(Q_HAS_GOLD, dict(person_id=person_id))
     return row.get('has_gold', False)
 
 
-def _send_otp(email: str, otp: str) -> None:
+async def _send_otp(email: str, otp: str) -> None:
     if email.endswith('@example.com'):
         return
 
-    aws_smtp.send(
+    # smtp.send is blocking; keep it off the event loop.
+    await run_in_threadpool(
+        aws_smtp.send,
         subject="Sign in to Duolicious",
         body=otp_template(otp),
         to_addr=email,
         from_addr='noreply-otp@duolicious.app',
     )
 
-def _check_ip_blocked() -> object:
-    if not request.remote_addr or firehol.matches(request.remote_addr):
+async def _check_ip_blocked(remote_addr: Optional[str]) -> object:
+    if not remote_addr or await firehol.matches(remote_addr):
         return 'IP address blocked', 460
     return None
 
-def _check_banned(tx: Tx, normalized_email: str) -> object:
-    banned = tx.execute(Q_IS_BANNED, dict(
+async def _check_banned(tx: Tx, normalized_email: str, remote_addr: Optional[str]) -> object:
+    await tx.execute(Q_IS_BANNED, dict(
         normalized_email=normalized_email,
-        ip_address=request.remote_addr,
-    )).fetchone()
+        ip_address=remote_addr,
+    ))
+
+    banned = await tx.fetchone()
+
     if banned:
         return 'Banned', 461
+
     return None
 
 def _new_session_token() -> tuple[str, str]:
@@ -268,7 +284,7 @@ def _otp_from_rows(rows: Sequence[Mapping[str, object]]) -> str | None:
     except:
         return None
 
-def _handle_pending_club(
+async def _handle_pending_club(
     tx: Tx,
     person_id: int | None,
     pending_club_name: str | None,
@@ -280,9 +296,9 @@ def _handle_pending_club(
         do_modify=True,
     )
     if person_id is not None and pending_club_name is not None:
-        tx.execute(Q_JOIN_CLUB, club_params)
-        tx.execute(Q_UPSERT_SEARCH_PREFERENCE_CLUB, club_params)
-    return tx.require_one(Q_GET_SESSION_CLUBS, club_params)
+        await tx.execute(Q_JOIN_CLUB, club_params)
+        await tx.execute(Q_UPSERT_SEARCH_PREFERENCE_CLUB, club_params)
+    return await tx.require_one(Q_GET_SESSION_CLUBS, club_params)
 
 
 def _str_value(value: object, field_name: str) -> str:
@@ -291,11 +307,14 @@ def _str_value(value: object, field_name: str) -> str:
     return value
 
 
-def post_request_otp(req: t.PostRequestOtp) -> object:
-    if blocked := _check_ip_blocked():
+async def post_request_otp(
+    req: t.PostRequestOtp,
+    remote_addr: Optional[str],
+) -> object:
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
-    if not check_and_update_bad_domains(req.email):
+    if not await check_and_update_bad_domains(req.email):
         return 'Disposable email', 400
 
     session_token, session_token_hash = _new_session_token()
@@ -314,15 +333,16 @@ def post_request_otp(req: t.PostRequestOtp) -> object:
         pending_club_name=req.pending_club_name,
         is_dev=DUO_ENV == 'dev',
         session_token_hash=session_token_hash,
-        ip_address=request.remote_addr,
+        ip_address=remote_addr,
         answers=answers,
     )
 
-    with api_tx() as tx:
-        if banned := _check_banned(tx, normalized):
+    async with api_tx() as tx:
+        if banned := await _check_banned(tx, normalized, remote_addr):
             return banned
 
-        rows = tx.execute(Q_INSERT_DUO_SESSION, params).fetchall()
+        await tx.execute(Q_INSERT_DUO_SESSION, params)
+        rows = await tx.fetchall()
 
     otp = _otp_from_rows(rows)
     if otp is None:
@@ -333,12 +353,15 @@ def post_request_otp(req: t.PostRequestOtp) -> object:
         # caller which guardrail tripped.
         return 'Banned', 461
 
-    _send_otp(req.email, otp)
+    await _send_otp(req.email, otp)
 
     return dict(session_token=session_token)
 
-def post_resend_otp(s: t.SessionInfo) -> object:
-    if blocked := _check_ip_blocked():
+async def post_resend_otp(
+    s: t.SessionInfo,
+    remote_addr: Optional[str],
+) -> object:
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     normalized = normalize_email(s.email)
@@ -347,23 +370,29 @@ def post_resend_otp(s: t.SessionInfo) -> object:
         normalized_email=normalized,
         is_dev=DUO_ENV == 'dev',
         session_token_hash=s.session_token_hash,
-        ip_address=request.remote_addr,
+        ip_address=remote_addr,
     )
 
-    with api_tx() as tx:
-        if banned := _check_banned(tx, normalized):
+    async with api_tx() as tx:
+        if banned := await _check_banned(tx, normalized, remote_addr):
             return banned
-        rows = tx.execute(Q_UPDATE_OTP, params).fetchall()
+
+        await tx.execute(Q_UPDATE_OTP, params)
+        rows = await tx.fetchall()
 
     otp = _otp_from_rows(rows)
     if otp is None:
         return 'Banned', 461
 
-    _send_otp(s.email, otp)
+    await _send_otp(s.email, otp)
     return None
 
-def post_check_otp(req: t.PostCheckOtp, s: t.SessionInfo) -> object:
-    if blocked := _check_ip_blocked():
+async def post_check_otp(
+    req: t.PostCheckOtp,
+    s: t.SessionInfo,
+    remote_addr: Optional[str],
+) -> object:
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     params = dict(
@@ -372,24 +401,26 @@ def post_check_otp(req: t.PostCheckOtp, s: t.SessionInfo) -> object:
         pending_club_name=s.pending_club_name,
     )
 
-    with api_tx() as tx:
-        tx.execute(Q_MAYBE_DELETE_ONBOARDEE, params)
-        tx.execute(Q_MAYBE_SIGN_IN, params)
-        row = tx.fetchone()
+    async with api_tx() as tx:
+        await tx.execute(Q_MAYBE_DELETE_ONBOARDEE, params)
+        await tx.execute(Q_MAYBE_SIGN_IN, params)
+        row = await tx.fetchone()
 
         if not row:
             return 'Invalid OTP', 401
 
-        clubs = _handle_pending_club(tx, s.person_id, s.pending_club_name)
+        clubs = await _handle_pending_club(
+            tx, s.person_id, s.pending_club_name)
 
-        tx.execute(Q_UPDATE_LAST, dict(person_uuid=row['person_uuid']))
+        await tx.execute(Q_UPDATE_LAST, dict(person_uuid=row['person_uuid']))
 
         if row['person_id'] is not None:
-            _flush_session_answers(tx, s.session_token_hash, row['person_id'])
+            await _flush_session_answers(
+                tx, s.session_token_hash, row['person_id'])
 
-    sessioncache.delete_session(s.session_token_hash)
+    await sessioncache.delete_session(s.session_token_hash)
 
-    enforce_session_limit(row['person_id'], s.session_token_hash)
+    await enforce_session_limit(row['person_id'], s.session_token_hash)
 
     return dict(
         onboarded=row['person_id'] is not None,
@@ -397,54 +428,45 @@ def post_check_otp(req: t.PostCheckOtp, s: t.SessionInfo) -> object:
         **clubs,
     )
 
-def post_sign_out(s: t.SessionInfo) -> None:
-    sign_out([s.session_token_hash])
+async def post_sign_out(s: t.SessionInfo) -> None:
+    await sign_out([s.session_token_hash])
 
-def _sign_in_with_social(
+async def _sign_in_with_social(
     provider: str,
     sub: str,
     email: str,
     email_verified: bool,
     pending_club_name: Optional[str],
+    remote_addr: Optional[str],
 ) -> object:
     """
-    Shared logic for /sign-in-with-google and /sign-in-with-apple. The
-    caller is responsible for verifying the provider's JWT and passing
-    canonical claim values.
+    Async counterpart to `_sign_in_with_social` for native FastAPI routes.
     """
-    if blocked := _check_ip_blocked():
+    if blocked := await _check_ip_blocked(remote_addr):
         return blocked
 
     session_token, session_token_hash = _new_session_token()
     normalized = normalize_email(email)
 
-    with api_tx() as tx:
-        # 0. Banned-person guard (mirrors `_OTP_CTE`).
-        if banned := _check_banned(tx, normalized):
+    async with api_tx() as tx:
+        if banned := await _check_banned(tx, normalized, remote_addr):
             return banned
 
-        # 1. Resolve to an existing person via (provider, sub) first; on
-        #    miss, fall back to an email match against `person`.
-        row = tx.execute(Q_LOOKUP_SOCIAL_IDENTITY, dict(
+        row_tx = await tx.execute(Q_LOOKUP_SOCIAL_IDENTITY, dict(
             provider=provider,
             provider_sub=sub,
-        )).fetchone()
-        person_id = row['person_id'] if row else None
+        ))
+        row: Row | None = await row_tx.fetchone()
+        person_id: int | None = row['person_id'] if row else None
 
-        # Auto-link / collision check requires a verified email — without
-        # it we'd risk creating an onboardee that later crashes on
-        # `person.email`'s UNIQUE constraint at /finish-onboarding, and
-        # we'd risk handing someone else's account to an unverified
-        # claimant. Reject the whole sign-in up front. 409 (Conflict)
-        # lets the client distinguish this from a bad-token 401 and
-        # surface a clear "verify your email first" message.
         needs_email_match = person_id is None and email
 
         if needs_email_match and not email_verified:
-            existing = tx.execute(Q_LOOKUP_PERSON_BY_EMAIL, dict(
+            existing_tx = await tx.execute(Q_LOOKUP_PERSON_BY_EMAIL, dict(
                 normalized_email=normalized,
                 email=email,
-            )).fetchone()
+            ))
+            existing: Row | None = await existing_tx.fetchone()
             return (
                 'An account already exists for this email. Sign in '
                 'with the email link to confirm ownership, then try '
@@ -455,57 +477,45 @@ def _sign_in_with_social(
                 409,
             )
 
-        # Auto-link: a verified social email matches an existing person.
-        # Record the social identity so future sign-ins hit
-        # Q_LOOKUP_SOCIAL_IDENTITY directly.
-        email_match = tx.execute(Q_LOOKUP_PERSON_BY_EMAIL, dict(
-            normalized_email=normalized,
-            email=email,
-        )).fetchone() if needs_email_match else None
+        email_match: Row | None = None
+        if needs_email_match:
+            email_match_tx = await tx.execute(Q_LOOKUP_PERSON_BY_EMAIL, dict(
+                normalized_email=normalized,
+                email=email,
+            ))
+            email_match = await email_match_tx.fetchone()
 
         if email_match:
             person_id = email_match['person_id']
-            tx.execute(Q_INSERT_SOCIAL_IDENTITY, dict(
+            await tx.execute(Q_INSERT_SOCIAL_IDENTITY, dict(
                 provider=provider,
                 provider_sub=sub,
                 person_id=person_id,
                 email=email,
             ))
 
-        # 2. New user with no email? We can't proceed — Apple should always
-        #    include `email` in the identity token, but if it doesn't and
-        #    there's no existing link, we can't create an onboardee row
-        #    (the table is keyed by email).
         if person_id is None and not email:
             return 'Provider did not return an email', 400
 
-        # 3. New user: ensure an onboardee row, then carry the pending
-        #    social identity on the session so /finish-onboarding can
-        #    promote it to `social_identity` once the person row exists.
-        # The user picks their display name in the onboarding wizard;
-        # we deliberately don't seed it from the provider's `name` claim.
         pending_provider = None
         pending_sub = None
         if person_id is None:
-            tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
+            await tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
             pending_provider = provider
             pending_sub = sub
 
-        # 4. Mint the session — already signed in.
-        tx.execute(Q_INSERT_DUO_SESSION_SOCIAL, dict(
+        await tx.execute(Q_INSERT_DUO_SESSION_SOCIAL, dict(
             session_token_hash=session_token_hash,
             person_id=person_id,
             email=email,
             pending_club_name=pending_club_name,
-            ip_address=request.remote_addr,
+            ip_address=remote_addr,
             pending_social_provider=pending_provider,
             pending_social_sub=pending_sub,
         ))
 
-        # 5. For existing users, bump sign-in metadata + reactivation
-        #    club counts; for new users, return a stub profile.
         if person_id is not None:
-            profile = tx.require_one(Q_AFTER_SOCIAL_SIGN_IN, dict(
+            profile = await tx.require_one(Q_AFTER_SOCIAL_SIGN_IN, dict(
                 person_id=person_id,
             ))
         else:
@@ -519,13 +529,13 @@ def _sign_in_with_social(
                 name=None,
             )
 
-        # 6. Same pending-club-join handling as the OTP path.
-        clubs = _handle_pending_club(tx, person_id, pending_club_name)
+        clubs = await _handle_pending_club(
+            tx, person_id, pending_club_name)
 
         if profile.get('person_uuid'):
-            tx.execute(Q_UPDATE_LAST, dict(person_uuid=profile['person_uuid']))
+            await tx.execute(Q_UPDATE_LAST, dict(person_uuid=profile['person_uuid']))
 
-    enforce_session_limit(person_id, session_token_hash)
+    await enforce_session_limit(person_id, session_token_hash)
 
     return dict(
         session_token=session_token,
@@ -534,51 +544,56 @@ def _sign_in_with_social(
         **clubs,
     )
 
-def post_sign_in_with_google(
+async def post_sign_in_with_google(
     *,
     token: str,
     pending_club_name: Optional[str],
+    remote_addr: Optional[str],
 ) -> object:
     try:
         claims = verify_google_id_token(token)
     except SocialAuthError as e:
         return f'Invalid Google token: {e}', 401
 
-    return _sign_in_with_social(
+    return await _sign_in_with_social(
         provider='google',
         sub=claims.sub,
         email=claims.email,
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
+        remote_addr=remote_addr,
     )
 
-def post_sign_in_with_apple(
+async def post_sign_in_with_apple(
     *,
     token: str,
     nonce: str,
     pending_club_name: Optional[str],
+    remote_addr: Optional[str],
 ) -> object:
     try:
         claims = verify_apple_identity_token(token, expected_nonce=nonce)
     except SocialAuthError as e:
         return f'Invalid Apple token: {e}', 401
 
-    return _sign_in_with_social(
+    return await _sign_in_with_social(
         provider='apple',
         sub=claims.sub,
         email=claims.email,
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
+        remote_addr=remote_addr,
     )
 
-def post_check_session_token(s: t.SessionInfo) -> object:
+async def post_check_session_token(s: t.SessionInfo) -> object:
     params = dict(
         person_id=s.person_id,
         pending_club_name=s.pending_club_name,
     )
 
-    with api_tx() as tx:
-        row = tx.execute(Q_CHECK_SESSION_TOKEN, params).fetchone()
+    async with api_tx() as tx:
+        row_tx = await tx.execute(Q_CHECK_SESSION_TOKEN, params)
+        row = await row_tx.fetchone()
 
         if not row:
             return 'Invalid token', 401
@@ -588,7 +603,7 @@ def post_check_session_token(s: t.SessionInfo) -> object:
             pending_club_name=s.pending_club_name,
         )
 
-        clubs = tx.require_one(Q_GET_SESSION_CLUBS, club_params)
+        clubs = await tx.require_one(Q_GET_SESSION_CLUBS, club_params)
 
         return dict(
             person_id=s.person_id,
@@ -598,14 +613,57 @@ def post_check_session_token(s: t.SessionInfo) -> object:
             **clubs,
         )
 
-def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
+def _rejected(field: str, message: str, value: object) -> RequestValidationError:
+    # Byte-for-byte the 422 pydantic produced when these checks lived in the
+    # models' `value_error` validators, so existing clients see no change.
+    return RequestValidationError([dict(
+        type='value_error',
+        loc=('body', field),
+        msg=f'Value error, {message}',
+        input=value,
+        ctx={'error': {}},
+    )])
+
+
+async def _reject_rude_or_banned(field_name: str, req: object) -> None:
+    """Anti-abuse checks that need the async DB. They used to run inside the
+    (synchronous) pydantic validators for these fields; moved here so the DB can
+    be awaited (pydantic v2 validators can't be async). `check_exactly_one`
+    guarantees only the set field is inspected.
+
+    A field can legitimately be set to null (e.g. clearing occupation), so each
+    check is skipped when its value is None — matching the `if value is None:
+    return value` guards the original validators had."""
+    if field_name == 'name':
+        name = getattr(req, 'name')
+        if name is not None and await antiabuse.antirude.displayname.is_rude(name):
+            raise _rejected('name', 'Too rude', name)
+    elif field_name == 'occupation':
+        occupation = getattr(req, 'occupation')
+        if occupation is not None and await antiabuse.antirude.occupation.is_rude(occupation):
+            raise _rejected('occupation', 'Too rude', occupation)
+    elif field_name == 'education':
+        education = getattr(req, 'education')
+        if education is not None and await antiabuse.antirude.education.is_rude(education):
+            raise _rejected('education', 'Too rude', education)
+    elif field_name == 'base64_file':
+        base64_file = getattr(req, 'base64_file', None)
+        if base64_file is not None and await antiabuse.bannedphoto.is_banned_photo(
+                base64_file.md5_hash):
+            raise _rejected('base64_file', 'That pic breaks the rules 🙈', base64_file.md5_hash)
+
+
+async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
     [field_name] = req.__pydantic_fields_set__
     field_value = req.dict()[field_name]
 
+    await _reject_rude_or_banned(field_name, req)
+
     if field_name == 'name':
-        params = dict(
+        name = cast(str, field_value)
+        name_params = dict(
             email=s.email,
-            field_value=field_value
+            field_value=name,
         )
 
         q_set_onboardee_field = """
@@ -619,10 +677,9 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
                 name = EXCLUDED.name
             """
 
-        with api_tx() as tx:
-            tx.execute(q_set_onboardee_field, params)
-
-            return reserve_onboardee_url_slug(tx, s.email, field_value)
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, name_params)
+            return await reserve_onboardee_url_slug(tx, s.email, name)
     elif field_name == 'date_of_birth':
         params = dict(
             email=s.email,
@@ -640,8 +697,8 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
                 date_of_birth = EXCLUDED.date_of_birth
             """
 
-        with api_tx() as tx:
-            tx.execute(q_set_onboardee_field, params)
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, params)
     elif field_name == 'location':
         params = dict(
             email=s.email,
@@ -660,8 +717,8 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
             ON CONFLICT (email) DO UPDATE SET
                 coordinates = EXCLUDED.coordinates
             """
-        with api_tx() as tx:
-            tx.execute(q_set_onboardee_field, params)
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, params)
             if tx.rowcount != 1:
                 return 'Unknown location', 400
     elif field_name == 'gender':
@@ -683,8 +740,8 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
                 gender_id = EXCLUDED.gender_id
             """
 
-        with api_tx() as tx:
-            tx.execute(q_set_onboardee_field, params)
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, params)
     elif field_name == 'other_peoples_genders':
         params = dict(
             email=s.email,
@@ -705,8 +762,8 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
                 gender_id = EXCLUDED.gender_id
             """
 
-        with api_tx() as tx:
-            tx.execute(q_set_onboardee_field, params)
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, params)
     elif field_name == 'base64_file':
         base64_file = t.Base64File.model_validate(field_value)
 
@@ -774,11 +831,15 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
             SELECT 1
             """
 
-        with api_tx() as tx:
-            tx.execute(q_set_onboardee_field, params)
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, params)
 
         try:
-            put_image_in_object_store(uuid, base64_file, crop_size)
+            await put_image_in_object_store(
+                uuid,
+                base64_file,
+                crop_size,
+            )
         except Exception as e:
             print('Upload failed with exception:', e)
             return '', 500
@@ -788,89 +849,57 @@ def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
 
     return None
 
-def delete_onboardee_info(req: t.DeleteOnboardeeInfo, s: t.SessionInfo) -> None:
-    params = [
-        dict(email=s.email, position=position)
-        for position in req.files
-    ]
-
-    with api_tx() as tx:
-        tx.executemany(Q_DELETE_ONBOARDEE_PHOTO, params)
-
-def post_finish_onboarding(s: t.SessionInfo) -> object:
+async def post_finish_onboarding(s: t.SessionInfo) -> object:
     api_params = dict(
         email=s.email,
         normalized_email=normalize_email(s.email),
         pending_club_name=s.pending_club_name,
     )
 
-    with api_tx() as tx:
-        tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
-        row = tx.require_one(Q_FINISH_ONBOARDING, params=api_params)
+    async with api_tx() as tx:
+        await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
+        row = await tx.require_one(Q_FINISH_ONBOARDING, params=api_params)
 
         # If this user signed up via Google/Apple, drain the pending
         # provider identity from `duo_session` into `social_identity` now
         # that the new `person` row exists.
-        tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
+        await tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
             session_token_hash=s.session_token_hash,
             person_id=row['person_id'],
         ))
 
-        clubs = _handle_pending_club(tx, row['person_id'], s.pending_club_name)
+        clubs = await _handle_pending_club(
+            tx,
+            row['person_id'],
+            s.pending_club_name,
+        )
 
-        _flush_session_answers(tx, s.session_token_hash, row['person_id'])
+        await _flush_session_answers(
+            tx,
+            s.session_token_hash,
+            row['person_id'],
+        )
 
-    sessioncache.delete_session(s.session_token_hash)
+    await sessioncache.delete_session(s.session_token_hash)
 
     return dict(**row, **clubs)
 
-def get_me(
-    person_id_as_int: int | None = None,
-    person_id_as_str: str | None = None,
+async def get_prospect_profile(
+    s: Optional[t.SessionInfo],
+    prospect_handle: object,
 ) -> object:
-    if person_id_as_int is None and person_id_as_str is None:
-        raise ValueError('pass an arg, please')
-
-    params = dict(
-        person_id_as_int=person_id_as_int,
-        person_id_as_str=person_id_as_str,
-        prospect_person_id=None,
-        topic=None,
-    )
-
-    with api_tx('READ COMMITTED') as tx:
-        personality = tx.execute(Q_SELECT_PERSONALITY, params).fetchall()
-
-    try:
-        return {
-            'name': personality[0]['person_name'],
-            'person_id': personality[0]['person_id'],
-            'personality': [
-                {
-                    'trait_name': trait['trait_name'],
-                    'trait_min_label': trait['trait_min_label'],
-                    'trait_max_label': trait['trait_max_label'],
-                    'trait_description': trait['trait_description'],
-                    'person_percentage': trait['person_percentage'],
-                }
-                for trait in personality
-            ]
-        }
-    except:
-        return '', 404
-
-def get_prospect_profile(s: Optional[t.SessionInfo], prospect_handle: object) -> object:
     params = dict(
         person_id=s.person_id if s is not None else None,
         prospect_handle=prospect_handle,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        api_row = tx.execute(Q_SELECT_PROSPECT_PROFILE, params).fetchone()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_SELECT_PROSPECT_PROFILE, params)
+        api_row = await row_tx.fetchone()
         if not api_row:
             return '', 404
 
-        profile = api_row.get('j')
+        profile = cast(dict[str, object] | None, api_row.get('j'))
         if not profile:
             return '', 404
 
@@ -890,13 +919,16 @@ def get_prospect_profile(s: Optional[t.SessionInfo], prospect_handle: object) ->
 
     # Timeout in case someone with lots of messages hogs CPU time
     try:
-        with api_tx('READ COMMITTED') as tx:
-            tx.execute('SET LOCAL statement_timeout = 1000') # 1 second
-
-            message_stats = tx.execute(
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute('SET LOCAL statement_timeout = 1000') # 1 second
+            message_stats_tx = await tx.execute(
                 Q_MESSAGE_STATS,
                 dict(prospect_uuid=prospect_uuid),
-            ).fetchone()
+            )
+            message_stats = cast(
+                dict[str, object],
+                await message_stats_tx.fetchone(),
+            )
     except psycopg.errors.QueryCanceled:
         message_stats = dict(
             gets_reply_percentage=None,
@@ -907,13 +939,16 @@ def get_prospect_profile(s: Optional[t.SessionInfo], prospect_handle: object) ->
 
     if s.person_id is not None and s.person_uuid is not None and \
             prospect_id is not None and prospect_uuid is not None:
-        seconds_since_last_online = profile.get('seconds_since_last_online')
+        seconds_since_last_online = cast(
+            float | None,
+            profile.get('seconds_since_last_online'),
+        )
         prospect_online = (
             seconds_since_last_online is not None and
             seconds_since_last_online < VISITOR_ONLINE_TIMEOUT_SECONDS
         )
 
-        publish_visit(
+        await publish_visit(
             viewer_id=s.person_id,
             viewer_uuid=s.person_uuid,
             prospect_id=prospect_id,
@@ -923,15 +958,15 @@ def get_prospect_profile(s: Optional[t.SessionInfo], prospect_handle: object) ->
 
     return profile
 
-def get_conversation_prospect(s: t.SessionInfo, prospect_uuid: str) -> object:
+async def get_conversation_prospect(s: t.SessionInfo, prospect_uuid: str) -> object:
     params = dict(
         person_id=s.person_id,
         prospect_uuid=prospect_uuid,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        api_row = tx.execute(
-            Q_SELECT_CONVERSATION_PROSPECT, params
+    async with api_tx('READ COMMITTED') as tx:
+        api_row = await (
+            await tx.execute(Q_SELECT_CONVERSATION_PROSPECT, params)
         ).fetchone()
         if not api_row:
             return '', 404
@@ -942,37 +977,16 @@ def get_conversation_prospect(s: t.SessionInfo, prospect_uuid: str) -> object:
 
         return profile
 
-def post_skip_by_uuid(req: t.PostSkip, s: t.SessionInfo, prospect_uuid: str) -> object:
-    if not s.person_uuid:
-        return 'Authentication required', 401
-
-    skip_by_uuid(
-        subject_uuid=s.person_uuid,
-        object_uuid=prospect_uuid,
-        reason=req.report_reason or '',
-    )
-    return None
-
-
-def post_unskip(s: t.SessionInfo, prospect_person_id: int) -> None:
-    params = dict(
-        subject_person_id=s.person_id,
-        object_person_id=prospect_person_id,
-    )
-
-    with api_tx() as tx:
-        tx.execute(Q_DELETE_SKIPPED, params)
-
-def post_unskip_by_uuid(s: t.SessionInfo, prospect_uuid: str) -> None:
+async def post_unskip_by_uuid(s: t.SessionInfo, prospect_uuid: str) -> None:
     params = dict(
         subject_person_id=s.person_id,
         prospect_uuid=prospect_uuid,
     )
 
-    with api_tx() as tx:
-        tx.execute(Q_DELETE_SKIPPED_BY_UUID, params)
+    async with api_tx() as tx:
+        await tx.execute(Q_DELETE_SKIPPED_BY_UUID, params)
 
-def get_compare_personalities(
+async def get_compare_personalities(
     s: t.SessionInfo,
     prospect_person_id: int,
     topic: str
@@ -997,10 +1011,11 @@ def get_compare_personalities(
         topic=db_topic,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        return tx.execute(Q_SELECT_PERSONALITY, params).fetchall()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_SELECT_PERSONALITY, params)
+        return await row_tx.fetchall()
 
-def get_compare_answers(
+async def get_compare_answers(
     s: t.SessionInfo,
     prospect_person_id: int,
     agreement: Optional[str],
@@ -1036,34 +1051,37 @@ def get_compare_answers(
         o=o,
     )
 
-    with api_tx('READ COMMITTED') as tx:
-        return tx.execute(Q_ANSWER_COMPARISON, params).fetchall()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ANSWER_COMPARISON, params)
+        return await row_tx.fetchall()
 
-def post_inbox_info(req: t.PostInboxInfo, s: t.SessionInfo) -> object:
+async def post_inbox_info(req: t.PostInboxInfo, s: t.SessionInfo) -> object:
     params = dict(
         person_id=s.person_id,
         prospect_person_uuids=req.person_uuids
     )
 
-    with api_tx('READ COMMITTED') as tx:
+    async with api_tx('READ COMMITTED') as tx:
         # The query is cheap (a few thousand index-only-scanned rows) but its
         # estimated cost crosses the default jit_optimize/inline thresholds for
         # users with large inboxes, so JIT spends ~1s compiling for no benefit.
-        tx.execute('SET LOCAL jit = off')
-        return tx.execute(Q_INBOX_INFO, params).fetchall()
+        await tx.execute('SET LOCAL jit = off')
+        row_tx = await tx.execute(Q_INBOX_INFO, params)
+        return await row_tx.fetchall()
 
-def delete_or_ban_account(
+async def delete_or_ban_account(
     s: Optional[t.SessionInfo],
     admin_ban_token: Optional[str] = None,
 ) -> object:
-    with api_tx() as tx:
-        tx.execute('SET LOCAL statement_timeout = 30_000')  # 30 seconds
+    async with api_tx() as tx:
+        await tx.execute('SET LOCAL statement_timeout = 30_000')  # 30 seconds
 
         if admin_ban_token:
-            rows = tx.execute(
+            row_tx = await tx.execute(
                 Q_ADMIN_BAN,
                 params=dict(token=admin_ban_token)
-            ).fetchall()
+            )
+            rows = await row_tx.fetchall()
         elif s:
             rows = [
                 dict(
@@ -1075,34 +1093,38 @@ def delete_or_ban_account(
             raise ValueError('At least one parameter must not be None')
 
         person_ids = [r['person_id'] for r in rows if r['person_id'] is not None]
-        session_token_hashes = [
-            r['session_token_hash']
-            for r in tx.execute(
+        if person_ids:
+            row_tx = await tx.execute(
                 Q_SELECT_SESSION_TOKEN_HASHES_BY_PERSON_ID,
                 params=dict(person_ids=person_ids),
-            ).fetchall()
-        ] if person_ids else []
+            )
+            session_token_rows = await row_tx.fetchall()
+            session_token_hashes = [
+                r['session_token_hash']
+                for r in session_token_rows
+            ]
+        else:
+            session_token_hashes = []
 
-        tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
+        await tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
 
-    for session_token_hash in session_token_hashes:
-        sessioncache.delete_session(session_token_hash)
+    await sign_out(session_token_hashes)
 
     return rows
 
-def post_deactivate(s: t.SessionInfo) -> None:
+async def post_deactivate(s: t.SessionInfo) -> None:
     params = dict(person_id=s.person_id)
 
-    with api_tx() as tx:
-        tx.execute(Q_POST_DEACTIVATE, params)
+    async with api_tx() as tx:
+        await tx.execute(Q_POST_DEACTIVATE, params)
 
-def get_profile_info(s: t.SessionInfo) -> object:
+async def get_profile_info(s: t.SessionInfo) -> object:
     params = dict(person_id=s.person_id)
 
-    with api_tx('READ COMMITTED') as tx:
-        return tx.require_one(Q_GET_PROFILE_INFO, params)['j']
+    async with api_tx('READ COMMITTED') as tx:
+        return (await tx.require_one(Q_GET_PROFILE_INFO, params))['j']
 
-def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> None:
+async def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> None:
     files_params = [
         dict(person_id=s.person_id, position=position)
         for position in req.files or []
@@ -1114,15 +1136,18 @@ def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> None:
     ]
 
     if files_params:
-        with api_tx() as tx:
-            tx.executemany(Q_DELETE_PROFILE_INFO_PHOTO, files_params)
-            tx.execute(Q_UPDATE_VERIFICATION_LEVEL, files_params[0])
+        async with api_tx() as tx:
+            await tx.executemany(Q_DELETE_PROFILE_INFO_PHOTO, files_params)
+            await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, files_params[0])
 
     if audio_files_params:
-        with api_tx() as tx:
-            tx.executemany(Q_DELETE_PROFILE_INFO_AUDIO, audio_files_params)
+        async with api_tx() as tx:
+            await tx.executemany(Q_DELETE_PROFILE_INFO_AUDIO, audio_files_params)
 
-def _patch_profile_info_about(person_id: int, new_about: str) -> None:
+async def _patch_profile_info_about(
+    person_id: int,
+    new_about: str,
+) -> None:
     select = """
     SELECT about AS old_about FROM person WHERE id = %(person_id)s
     """
@@ -1171,12 +1196,12 @@ def _patch_profile_info_about(person_id: int, new_about: str) -> None:
     SELECT 1
     """
 
-    with api_tx() as tx:
+    async with api_tx() as tx:
         select_params = dict(
             person_id=person_id,
         )
 
-        old_about = tx.require_one(select, select_params)['old_about']
+        old_about = (await tx.require_one(select, select_params))['old_about']
 
         update_params = dict(
             person_id=person_id,
@@ -1184,13 +1209,15 @@ def _patch_profile_info_about(person_id: int, new_about: str) -> None:
             added_text=diff_addition_with_context(old=old_about, new=new_about),
         )
 
-        tx.execute(update, update_params)
+        await tx.execute(update, update_params)
 
-def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
+async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
     if not s.person_id:
         return 'Not authorized', 400
 
     [field_name] = req.__pydantic_fields_set__
+
+    await _reject_rude_or_banned(field_name, req)
     field_value: object
     if field_name == 'photo_assignments':
         if req.photo_assignments is None:
@@ -1372,19 +1399,22 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
             person_id = %(person_id)s
         """
     elif field_name == 'name':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
-        with api_tx() as tx:
-            tx.execute(
+        async with api_tx() as tx:
+            await tx.execute(
                 "UPDATE person SET name = %(field_value)s WHERE id = %(person_id)s",
                 params,
             )
-            slug = assign_url_slug(tx, s.person_id)
+            slug = await assign_url_slug(tx, s.person_id)
 
         return slug
     elif field_name == 'about':
-        _patch_profile_info_about(s.person_id, _str_value(field_value, field_name))
+        await _patch_profile_info_about(
+            s.person_id,
+            _str_value(field_value, field_name),
+        )
         return None
     elif field_name == 'gender':
         q1 = """
@@ -1556,7 +1586,7 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
         verification_level.name = %(field_value)s
         """
     elif field_name == 'show_my_location':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         q1 = """
@@ -1566,7 +1596,7 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
         WHERE id = %(person_id)s
         """
     elif field_name == 'show_my_age':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         q1 = """
@@ -1576,7 +1606,7 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
         WHERE id = %(person_id)s
         """
     elif field_name == 'show_my_looking_for':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         q1 = """
@@ -1586,7 +1616,7 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
         WHERE id = %(person_id)s
         """
     elif field_name == 'hide_me_from_strangers':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         q1 = """
@@ -1596,7 +1626,7 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
         WHERE id = %(person_id)s
         """
     elif field_name == 'browse_invisibly':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         q1 = """
@@ -1613,7 +1643,7 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
         WHERE id = %(person_id)s
         """
     elif field_name == 'theme':
-        if not _has_gold(person_id=s.person_id):
+        if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         try:
@@ -1643,20 +1673,20 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
     else:
         return f'Unhandled field name {field_name}', 500
 
-    with api_tx() as tx:
-        if q1: tx.execute(q1, params)
-        if q2: tx.execute(q2, params)
+    async with api_tx() as tx:
+        if q1: await tx.execute(q1, params)
+        if q2: await tx.execute(q2, params)
 
     if uuid and base64_file and crop_size:
         try:
-            put_image_in_object_store(uuid, base64_file, crop_size)
+            await put_image_in_object_store(uuid, base64_file, crop_size)
         except:
             print(traceback.format_exc())
             return '', 500
 
     if uuid and base64_audio_file:
         try:
-            put_audio_in_object_store(
+            await put_audio_in_object_store(
                 uuid=uuid,
                 audio_file_bytes=base64_audio_file.transcoded,
             )
@@ -1666,16 +1696,18 @@ def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> object:
 
     return None
 
-def get_search_filters(s: t.SessionInfo) -> object:
-    return get_search_filters_by_person_id(person_id=s.person_id)
+async def get_search_filters(s: t.SessionInfo) -> object:
+    return await get_search_filters_by_person_id(person_id=s.person_id)
 
-def get_search_filters_by_person_id(person_id: Optional[int]) -> object:
+async def get_search_filters_by_person_id(
+    person_id: Optional[int],
+) -> object:
     params = dict(person_id=person_id)
 
-    with api_tx('READ COMMITTED') as tx:
-        return tx.require_one(Q_GET_SEARCH_FILTERS, params)['j']
+    async with api_tx('READ COMMITTED') as tx:
+        return (await tx.require_one(Q_GET_SEARCH_FILTERS, params))['j']
 
-def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> object:
+async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> object:
     [field_name] = req.__pydantic_fields_set__
     field_value = req.dict()[field_name]
 
@@ -1688,7 +1720,7 @@ def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> object:
         field_value=field_value,
     )
 
-    with api_tx() as tx:
+    async with api_tx() as tx:
         if field_name == 'gender':
             q1 = """
             DELETE FROM search_preference_gender
@@ -1929,12 +1961,15 @@ def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> object:
         else:
             return f'Invalid field name {field_name}', 400
 
-        tx.execute(q1, params)
-        tx.execute(q2, params)
+        await tx.execute(q1, params)
+        await tx.execute(q2, params)
 
     return None
 
-def post_search_filter_answer(req: t.PostSearchFilterAnswer, s: t.SessionInfo) -> object:
+async def post_search_filter_answer(
+    req: t.PostSearchFilterAnswer,
+    s: t.SessionInfo,
+) -> object:
     max_search_filter_answers = 20
     error = f'You can’t set more than {max_search_filter_answers} Q&A filters'
 
@@ -2036,14 +2071,14 @@ def post_search_filter_answer(req: t.PostSearchFilterAnswer, s: t.SessionInfo) -
         ) <= {max_search_filter_answers}
         """
 
-    with api_tx() as tx:
-        answer = tx.require_one(q, params).get('j')
+    async with api_tx() as tx:
+        answer = (await tx.require_one(q, params)).get('j')
         if answer is None:
             return dict(error=error), 400
         else:
             return dict(answer=answer)
 
-def get_search_clubs(
+async def get_search_clubs(
         s: Optional[t.SessionInfo],
         search_str: str,
         allow_empty: bool = False) -> object:
@@ -2066,33 +2101,39 @@ def get_search_clubs(
 
     q = Q_SEARCH_CLUBS if search_string else Q_TOP_CLUBS
 
-    with api_tx('READ COMMITTED') as tx:
-        return tx.execute(q, params).fetchall()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(q, params)
+        return await row_tx.fetchall()
 
-def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
+async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
     params = dict(
         person_id=s.person_id,
         club_name=req.name,
     )
 
-    with api_tx() as tx:
-        rows = tx.execute(Q_JOIN_CLUB, params).fetchall()
+    async with api_tx() as tx:
+        row_tx = await tx.execute(Q_JOIN_CLUB, params)
+        rows = await row_tx.fetchall()
 
     if rows:
         return f"Joined {req.name}", 200
     else:
         return f"Couldn't join {req.name}", 400
 
-def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
+async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
     params = dict(
         person_id=s.person_id,
         club_name=req.name,
     )
 
-    with api_tx() as tx:
-        tx.execute(Q_LEAVE_CLUB, params)
+    async with api_tx() as tx:
+        await tx.execute(Q_LEAVE_CLUB, params)
 
-def get_update_notifications(email: str, type: str, frequency: str) -> object:
+async def get_update_notifications(
+    email: str,
+    type: str,
+    frequency: str,
+) -> object:
     params = dict(
         email=email,
         frequency=frequency,
@@ -2107,11 +2148,10 @@ def get_update_notifications(email: str, type: str, frequency: str) -> object:
     else:
         return 'Invalid type', 400
 
-    with api_tx('READ COMMITTED') as tx:
-        query_results = [
-            tx.require_one(q, params)['ok']
-            for q in queries
-        ]
+    async with api_tx('READ COMMITTED') as tx:
+        query_results = []
+        for q in queries:
+            query_results.append((await tx.require_one(q, params))['ok'])
 
     if all(query_results):
         return (
@@ -2122,7 +2162,10 @@ def get_update_notifications(email: str, type: str, frequency: str) -> object:
     else:
         return 'Invalid email address or notification frequency', 400
 
-def post_verification_selfie(req: t.PostVerificationSelfie, s: t.SessionInfo) -> object:
+async def post_verification_selfie(
+    req: t.PostVerificationSelfie,
+    s: t.SessionInfo,
+) -> object:
     base64 = req.base64_file.base64
     image = req.base64_file.image
     top = req.base64_file.top
@@ -2146,15 +2189,16 @@ def post_verification_selfie(req: t.PostVerificationSelfie, s: t.SessionInfo) ->
         expected_previous_status=None,
     )
 
-    with api_tx() as tx:
-        if tx.execute(Q_INSERT_VERIFICATION_PHOTO_HASH, params_ok).fetchall():
-            tx.execute(Q_DELETE_VERIFICATION_JOB, params_ok)
-            tx.execute(Q_INSERT_VERIFICATION_JOB, params_ok)
+    async with api_tx() as tx:
+        row_tx = await tx.execute(Q_INSERT_VERIFICATION_PHOTO_HASH, params_ok)
+        if await row_tx.fetchall():
+            await tx.execute(Q_DELETE_VERIFICATION_JOB, params_ok)
+            await tx.execute(Q_INSERT_VERIFICATION_JOB, params_ok)
         else:
-            tx.execute(Q_UPDATE_VERIFICATION_JOB, params_bad)
+            await tx.execute(Q_UPDATE_VERIFICATION_JOB, params_bad)
 
     try:
-        put_image_in_object_store(
+        await put_image_in_object_store(
             photo_uuid, req.base64_file, crop_size, sizes=[450])
     except Exception as e:
         print('Upload failed with exception:', e)
@@ -2162,7 +2206,7 @@ def post_verification_selfie(req: t.PostVerificationSelfie, s: t.SessionInfo) ->
 
     return None
 
-def post_verify(s: t.SessionInfo) -> None:
+async def post_verify(s: t.SessionInfo) -> None:
     params = dict(
         person_id=s.person_id,
         status='queued',
@@ -2170,32 +2214,27 @@ def post_verify(s: t.SessionInfo) -> None:
         expected_previous_status='uploading-photo',
     )
 
-    with api_tx() as tx:
-        tx.execute(Q_UPDATE_VERIFICATION_JOB, params)
+    async with api_tx() as tx:
+        await tx.execute(Q_UPDATE_VERIFICATION_JOB, params)
 
-def get_check_verification(s: t.SessionInfo) -> object:
-    with api_tx() as tx:
-        row = tx.execute(
-            Q_CHECK_VERIFICATION,
-            dict(person_id=s.person_id)
-        ).fetchone()
+async def get_check_verification(s: t.SessionInfo) -> object:
+    async with api_tx() as tx:
+        await tx.execute(Q_CHECK_VERIFICATION, dict(person_id=s.person_id))
+        row = await tx.fetchone()
 
     if row:
         return row
     return '', 400
 
-def post_dismiss_donation(s: t.SessionInfo) -> None:
-    with api_tx() as tx:
-        tx.execute(Q_DISMISS_DONATION, dict(person_id=s.person_id))
-
-@lru_cache(maxsize=2048)
-def get_club(name: str, ttl_hash: object = None) -> object:
+@AsyncLruCache(maxsize=2048)
+async def get_club(name: str, ttl_hash: object = None) -> object:
     club_name = t.parse_club_name(name)
     if club_name is None:
         return None
 
-    with api_tx('READ COMMITTED') as tx:
-        row = tx.execute(Q_CLUB_PAGE_READ, dict(club_name=club_name)).fetchone()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_CLUB_PAGE_READ, dict(club_name=club_name))
+        row = await row_tx.fetchone()
 
     if not row:
         return None
@@ -2207,33 +2246,39 @@ def get_club(name: str, ttl_hash: object = None) -> object:
         'related_clubs': row['related_clubs'],
     }
 
-@lru_cache()
-def get_stats(ttl_hash: object = None, club_name: Optional[str] = None) -> object:
+@AsyncLruCache()
+async def get_stats(
+    ttl_hash: object = None,
+    club_name: Optional[str] = None,
+) -> object:
     if club_name:
         q, params = Q_STATS_BY_CLUB_NAME, dict(club_name=club_name)
     else:
         q, params = Q_STATS, None
 
-    with api_tx('READ COMMITTED') as tx:
-        return tx.execute(q, params).fetchone()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(q, params)
+        return await row_tx.fetchone()
 
-@lru_cache()
-def get_gender_stats(ttl_hash: object = None) -> object:
-    with api_tx('READ COMMITTED') as tx:
-        return tx.execute(Q_GENDER_STATS).fetchone()
+@AsyncLruCache()
+async def get_gender_stats(ttl_hash: object = None) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_GENDER_STATS)
+        return await row_tx.fetchone()
 
-def get_admin_ban_link(token: str) -> object:
+async def get_admin_ban_link(token: str) -> object:
     params = dict(token=token)
 
     err_invalid_token = (
         'Invalid token. User might have already been banned', 401)
 
     try:
-        with api_tx() as tx:
-            row = tx.execute(
+        async with api_tx() as tx:
+            row_tx = await tx.execute(
                 Q_ADMIN_TOKEN_TO_UUID,
                 params,
-            ).fetchone()
+            )
+            row = await row_tx.fetchone()
             if row is None:
                 raise TypeError()
             person_uuid = row['person_uuid']
@@ -2241,8 +2286,9 @@ def get_admin_ban_link(token: str) -> object:
         return err_invalid_token
 
     try:
-        with api_tx('READ COMMITTED') as tx:
-            rows = tx.execute(Q_CHECK_ADMIN_BAN_TOKEN, params).fetchall()
+        async with api_tx('READ COMMITTED') as tx:
+            row_tx = await tx.execute(Q_CHECK_ADMIN_BAN_TOKEN, params)
+            rows = await row_tx.fetchall()
     except psycopg.errors.InvalidTextRepresentation:
         return err_invalid_token
 
@@ -2252,21 +2298,21 @@ def get_admin_ban_link(token: str) -> object:
     else:
         return err_invalid_token
 
-def get_admin_ban(token: str) -> object:
-    rows = delete_or_ban_account(s=None, admin_ban_token=token)
+async def get_admin_ban(token: str) -> object:
+    rows = await delete_or_ban_account(s=None, admin_ban_token=token)
 
     if rows:
         return f'Banned {rows}'
     else:
         return 'Ban failed; User already banned or token invalid', 401
 
-def get_admin_delete_photo_link(token: str) -> object:
+async def get_admin_delete_photo_link(token: str) -> object:
     params = dict(token=token)
 
     try:
-        with api_tx('READ COMMITTED') as tx:
-            tx.execute(Q_CHECK_ADMIN_DELETE_PHOTO_TOKEN, params)
-            rows = tx.fetchall()
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute(Q_CHECK_ADMIN_DELETE_PHOTO_TOKEN, params)
+            rows = await tx.fetchall()
     except psycopg.errors.InvalidTextRepresentation:
         return 'Invalid token', 401
 
@@ -2276,46 +2322,49 @@ def get_admin_delete_photo_link(token: str) -> object:
     else:
         return 'Invalid token', 401
 
-def get_admin_delete_photo(token: str) -> object:
+async def get_admin_delete_photo(token: str) -> object:
     params = dict(token=token)
 
-    with api_tx('READ COMMITTED') as tx:
-        rows = tx.execute(Q_ADMIN_DELETE_PHOTO, params).fetchall()
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_DELETE_PHOTO, params)
+        rows = await row_tx.fetchall()
 
         if rows:
             params = dict(person_id=rows[0]['person_id'])
-            tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
+            await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
 
     if rows:
         return f'Deleted photo {rows}'
     else:
         return 'Photo deletion failed', 401
 
-def get_export_data_token(s: t.SessionInfo) -> object:
+async def get_export_data_token(s: t.SessionInfo) -> object:
     params = dict(person_id=s.person_id)
 
-    with api_tx() as tx:
-        return tx.execute(Q_INSERT_EXPORT_DATA_TOKEN, params).fetchone()
+    async with api_tx() as tx:
+        row_tx = await tx.execute(Q_INSERT_EXPORT_DATA_TOKEN, params)
+        return await row_tx.fetchone()
 
-def get_export_data(token: str) -> object:
+async def get_export_data(token: str) -> object:
     token_params = dict(token=token)
 
     # Fetch data from database
-    with api_tx('read committed') as tx:
-        params = tx.execute(Q_CHECK_EXPORT_DATA_TOKEN, token_params).fetchone()
+    async with api_tx('read committed') as tx:
+        row_tx = await tx.execute(Q_CHECK_EXPORT_DATA_TOKEN, token_params)
+        params = await row_tx.fetchone()
 
     if not params:
         return 'Invalid token. Link might have expired.', 401
 
-    with api_tx('read committed') as tx:
-        tx.execute('SET LOCAL statement_timeout = 30000') # 30 seconds
-        raw_data = tx.require_one(Q_EXPORT_API_DATA, params)['j']
+    async with api_tx('read committed') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 30000') # 30 seconds
+        raw_data = (await tx.require_one(Q_EXPORT_API_DATA, params))['j']
 
-    person_id = params['person_id']
+    person_id = cast(Optional[int], params['person_id'])
 
-    inferred_personality_data = get_me(person_id_as_int=person_id)
-
-    search_filters = get_search_filters_by_person_id(person_id=person_id)
+    search_filters = await get_search_filters_by_person_id(
+        person_id=person_id,
+    )
 
     # Redact sensitive fields
     for person in raw_data['person']:
@@ -2332,7 +2381,6 @@ def get_export_data(token: str) -> object:
     # Return the result
     exported_dict = dict(
         raw_data=raw_data,
-        inferred_personality_data=inferred_personality_data,
         search_filters=search_filters,
     )
 
@@ -2340,16 +2388,15 @@ def get_export_data(token: str) -> object:
 
     exported_bytes = exported_string.encode()
 
-    exported_bytesio = io.BytesIO(exported_bytes)
-
-    return send_file(
-        exported_bytesio,
-        mimetype='text/json',
-        as_attachment=True,
-        download_name='export.json',
+    return Response(
+        content=exported_bytes,
+        media_type='text/json',
+        headers={
+            'Content-Disposition': 'attachment; filename="export.json"',
+        },
     )
 
-def post_revenuecat(req: t.PostRevenuecat) -> object:
+async def post_revenuecat(req: t.PostRevenuecat, auth_header: str) -> object:
     def get_has_gold() -> Tuple[list[str], list[str]]:
         match req.event:
             case t.InitialPurchaseEvent(app_user_id=app_user_id):
@@ -2391,7 +2438,6 @@ def post_revenuecat(req: t.PostRevenuecat) -> object:
 
 
     try:
-        auth_header = request.headers.get("Authorization", "")
         bearer, revenuecat_token = auth_header.split()
         if bearer.lower() != 'bearer':
             raise Exception()
@@ -2400,25 +2446,24 @@ def post_revenuecat(req: t.PostRevenuecat) -> object:
 
     has_gold_params_seq = get_has_gold_params_seq()
 
-    with api_tx() as tx:
-        tx.execute(
+    async with api_tx() as tx:
+        await tx.execute(
             Q_SELECT_REVENUECAT_AUTHORIZED,
             dict(token_hash_revenuecat=sha512(revenuecat_token)),
         )
-        if not tx.fetchone():
+        if not await tx.fetchone():
             return 'Unauthorized', 401
 
         if not has_gold_params_seq:
             return 'Payload ignored because of its format', 200
 
-        tx.executemany(
-            Q_UPDATE_GOLD_FROM_REVENUECAT,
-            has_gold_params_seq,
-            returning=True
-        )
+        updated_rows = []
+        for params in has_gold_params_seq:
+            row_tx = await tx.execute(Q_UPDATE_GOLD_FROM_REVENUECAT, params)
+            updated_rows.extend(await row_tx.fetchall())
 
         all_uuids = set(str(x['person_uuid']) for x in has_gold_params_seq)
-        updated_uuids = set(str(x['person_uuid']) for x in fetchall_sets(tx))
+        updated_uuids = set(str(x['person_uuid']) for x in updated_rows)
         ignored_uuids = all_uuids - updated_uuids
 
         return dict(
@@ -2426,18 +2471,3 @@ def post_revenuecat(req: t.PostRevenuecat) -> object:
             updated_uuids=sorted(updated_uuids),
             ignored_uuids=sorted(ignored_uuids),
         )
-
-def get_visitors(s: t.SessionInfo) -> object:
-    with api_tx('READ COMMITTED') as tx:
-        return tx.require_one(Q_VISITORS, dict(person_id=s.person_id))['j']
-
-def post_mark_visitors_checked(
-    req: t.PostMarkVisitorsChecked,
-    s: t.SessionInfo
-) -> None:
-    params = dict(
-        person_id=s.person_id,
-        when=req.time,
-    )
-    with api_tx('READ COMMITTED') as tx:
-        tx.execute(Q_MARK_VISITORS_CHECKED, params)

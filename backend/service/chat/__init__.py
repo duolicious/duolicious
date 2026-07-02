@@ -1,11 +1,14 @@
 import os
-from database.asyncdatabase import (
+from database import (
     api_tx,
     check_connections_forever,
     row_str,
     row_str_or_none,
 )
 import asyncio
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+from batcher import start_all
 import duohash
 import regex
 import traceback
@@ -113,7 +116,19 @@ from service.chat.verification import (
     verification_required,
 )
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Start the batch consumers on the running loop (they can't be started at
+    # import time, before the loop exists) and keep the DB connection warm.
+    await start_all()
+    connection_check_task = asyncio.create_task(check_connections_forever())
+    try:
+        yield
+    finally:
+        connection_check_task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Global publisher connection, created once per worker.
 REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
@@ -698,7 +713,7 @@ async def process_text(
     async def store_audio_and_notify() -> None:
         if \
                 isinstance(maybe_message, AudioMessage) and \
-                not transcode_and_put(
+                not await transcode_and_put(
                     uuid=maybe_message.audio_uuid,
                     audio_base64=maybe_message.audio_base64,
                 ):

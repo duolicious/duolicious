@@ -11,9 +11,8 @@
 #     per-visitor query for people who aren't around to see it.
 #
 # A connection can also pull a `duo_query_visitors` snapshot and acknowledge it
-# with `duo_mark_visitors_checked`, replacing the deprecated `GET /visitors` and
-# `POST /mark-visitors-checked` REST endpoints (which must keep working for old
-# clients).
+# with `duo_mark_visitors_checked`, replacing the removed `GET /visitors` and
+# `POST /mark-visitors-checked` REST endpoints.
 #
 # Crucially, the "Browse Invisibly" privacy option must be respected by the live
 # push: an invisible viewer still sees their own `you_visited` update, but the
@@ -171,13 +170,6 @@ snapshot_over_websocket () {
   [[ "$(echo "$payload" | jq -r '.you_visited[0].person_uuid')" == "$prospect_uuid" ]] \
     || { echo "you_visited should describe the prospect"; exit 1; }
 
-  # The websocket snapshot must match what an old client still polling the
-  # deprecated REST endpoint sees, so the two delivery paths can't drift.
-  local rest
-  SESSION_TOKEN=$viewer_token rest=$(c GET "/visitors")
-  [[ "$(echo "$rest" | jq -S '{visited_you, you_visited}')" \
-   == "$(echo "$payload" | jq -S '{visited_you, you_visited}')" ]] \
-    || { echo "Websocket snapshot diverged from REST /visitors"; exit 1; }
 }
 
 # ---------------------------------------------------------------------------
@@ -288,9 +280,9 @@ no_visited_you_push_when_prospect_offline () {
   # The visit was still recorded, so the prospect will see it in their next
   # snapshot -- it just wasn't worth a live push while they were away.
   [[ "$(echo "$out" | grep -c duo_visitor || true)" -eq 0 ]]
-  SESSION_TOKEN=$prospect_token
+  send_json '{ "duo_query_visitors": {} }'
   local snapshot
-  snapshot=$(c GET "/visitors")
+  snapshot=$(echo "$(pop_until 'duo_visitors')" | snapshot_payload)
   [[ "$(echo "$snapshot" | jq '.visited_you | length')" -eq 1 ]] \
     || { echo "Offline prospect should still accrue the visit"; exit 1; }
 }
@@ -386,31 +378,6 @@ mark_visitors_checked_over_websocket () {
     || { echo "An older mark_visitors_checked should not regress the check time"; exit 1; }
 }
 
-# ---------------------------------------------------------------------------
-# 8) Old clients still get served by the deprecated REST endpoints
-# ---------------------------------------------------------------------------
-
-legacy_rest_endpoints_still_work () {
-  q "delete from visited"
-
-  visit_as "$prospect_token" "$viewer_uuid"
-
-  SESSION_TOKEN=$viewer_token
-
-  local response
-  response=$(c GET "/visitors")
-  [[ "$(echo "$response" | jq '.visited_you | length')" -eq 1 ]] \
-    || { echo "Legacy GET /visitors should still serve visitors"; exit 1; }
-
-  c POST "/mark-visitors-checked" > /dev/null
-  local checked_after
-  checked_after=$(q "
-    select extract(epoch from now() - last_visitor_check_time)::int
-    from person where id = ${viewer_id}")
-  [[ "$checked_after" -lt 60 ]] \
-    || { echo "Legacy POST /mark-visitors-checked should still work"; exit 1; }
-}
-
 snapshot_over_websocket
 you_visited_pushed_to_viewer
 self_visit_pushes_nothing
@@ -418,4 +385,3 @@ visited_you_pushed_to_online_prospect
 no_visited_you_push_when_prospect_offline
 browse_invisibly_respected_by_push
 mark_visitors_checked_over_websocket
-legacy_rest_endpoints_still_work

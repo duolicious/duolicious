@@ -69,6 +69,36 @@ club_page_is_precomputed_and_served () {
   [[ "$(jq -r '.related_clubs | type'        <<< "$result")" == "array" ]]
 }
 
+leading_slash_club_is_served_via_encoded_path () {
+  echo 'A club whose name contains slashes is reachable at /club/%2F...%2F'
+
+  # Club names may legitimately contain (and begin with) slashes, e.g. "/a/".
+  # Such a name reaches the API percent-encoded as "/club/%2Fa%2F". This
+  # guards the FastAPI/uvicorn path handling that decodes "%2F" back to "/"
+  # and feeds it to the {name:path} route param (the job Flask's
+  # LeadingSlashPathConverter used to do). A regression there would either
+  # 404 (the un-decoded "%2Fa%2F" fails CLUB_PATTERN, which has no "%") or
+  # route to the wrong club -- both caught by the assertions below.
+
+  reset_db
+
+  for i in $(seq 1 51); do
+    ../util/create-user.sh "slashclubber$i" 0 0
+  done
+  for i in $(seq 1 51); do
+    assume_role "slashclubber$i"
+    jc POST /join-club -d '{ "name": "/a/" }'
+  done
+
+  wait_for "select 1 from club_stats where club_name = '/a/' and (stats_json->>'member_count')::int = 51"
+  wait_for "select (description is not null)::int from club_seo where club_name = '/a/'"
+
+  result=$(c GET '/club/%2Fa%2F')
+
+  [[ "$(jq -r .name         <<< "$result")" == "/a/" ]]
+  [[ "$(jq -r .member_count <<< "$result")" == "51" ]]
+}
+
 small_club_is_not_a_page () {
   echo 'A club below the member threshold has no precomputed page and 404s'
 
@@ -128,6 +158,7 @@ related_clubs_are_ranked_by_overlap () {
 }
 
 club_page_is_precomputed_and_served
+leading_slash_club_is_served_via_encoded_path
 small_club_is_not_a_page
 missing_club_404s
 related_clubs_are_ranked_by_overlap

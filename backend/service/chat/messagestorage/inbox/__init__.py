@@ -1,7 +1,6 @@
 from batcher import Batcher
-from database import Tx, asyncdatabase
+from database import Tx, api_tx
 from dataclasses import dataclass
-import database
 from service.chat.chatutil import (
     LSERVER,
     format_timestamp,
@@ -132,7 +131,7 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
     Fetches the user's inbox using the query_id and builds an `InboxResult` for
     each message, followed by a final `InboxFin`.
     """
-    async with asyncdatabase.api_tx('read committed') as tx:
+    async with api_tx('read committed') as tx:
         await tx.execute(Q_GET_INBOX, dict(username=username))
         rows = await tx.fetchall()
 
@@ -173,7 +172,7 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
     return messages
 
 
-def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversationJob]) -> None:
+async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversationJob]) -> None:
     params_seq = [
         dict(
             from_username=job.from_username,
@@ -187,7 +186,7 @@ def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversationJob]
         for job in batch
     ]
 
-    tx.executemany(Q_UPSERT_CONVERSATION, params_seq)
+    await tx.executemany(Q_UPSERT_CONVERSATION, params_seq)
 
 
 def mark_displayed(from_username: str, to_username: str) -> None:
@@ -202,7 +201,7 @@ def mark_displayed(from_username: str, to_username: str) -> None:
     _mark_displayed_batcher.enqueue(job)
 
 
-def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
+async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
     params_seq = [
         dict(
             luser=job.from_username,
@@ -211,8 +210,8 @@ def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
         for job in batch
     ]
 
-    with database.api_tx('read committed') as tx:
-        tx.executemany(Q_MARK_DISPLAYED, params_seq)
+    async with api_tx('read committed') as tx:
+        await tx.executemany(Q_MARK_DISPLAYED, params_seq)
 
 
 _mark_displayed_batcher = Batcher[MarkDisplayedJob](
@@ -222,6 +221,3 @@ _mark_displayed_batcher = Batcher[MarkDisplayedJob](
     max_batch_size=1000,
     retry=False,
 )
-
-
-_mark_displayed_batcher.start()

@@ -39,7 +39,7 @@ def create_dbs() -> None:
 
     create_db('duo_api')
 
-def init_db() -> None:
+async def init_db() -> None:
     # Now DB_NAME exists, we do do the rest of the init.
     from service import api
     import location
@@ -56,8 +56,9 @@ def init_db() -> None:
     print('Initializing api DB...')
     for i, init_func in enumerate(init_funcs, start=1):
         print(f'  * {i} of {len(init_funcs)}')
-        init_func()
+        await init_func()
     print('Finished initializing api DB')
 
 create_dbs()
-init_db()
+import asyncio
+asyncio.run(init_db())

@@ -32,11 +32,7 @@ import base64
 import binascii
 from duoaudio import transcode_and_trim_audio_from_base64
 import traceback
-import antiabuse.antirude.displayname
-import antiabuse.antirude.education
-import antiabuse.antirude.occupation
 import antiabuse.antirude.profile
-import antiabuse.bannedphoto
 from antiabuse.antispam.urldetector import has_url
 from antiabuse.antispam.phonenumberdetector import detect_phone_numbers
 from antiabuse.antispam.solicitation import has_solicitation
@@ -195,7 +191,6 @@ class Base64AudioFile(BaseModel):
         values['transcoded'] = transcoded
 
         return values
-
     class Config:
         arbitrary_types_allowed = True
 
@@ -241,8 +236,10 @@ class Base64File(BaseModel):
             raise ValueError(f'Image invalid')
 
         md5_hash = md5(base64_value)
-        if antiabuse.bannedphoto.is_banned_photo(md5_hash):
-            raise ValueError("That pic breaks the rules 🙈")
+
+        # NOTE: the banned-photo check that used to live here now runs in the
+        # request handlers (person.patch_onboardee_info / patch_profile_info),
+        # since it needs the async DB and pydantic validators can't be async.
 
         width, height = image.size
 
@@ -440,13 +437,9 @@ class PatchOnboardeeInfo(BaseModel):
             raise ValueError('Age must be 18 or up')
         return date_of_birth
 
-    @field_validator('name')
-    def name_must_not_be_rude(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        if antiabuse.antirude.displayname.is_rude(value):
-            raise ValueError('Too rude')
-        return value
+    # NOTE: name_must_not_be_rude moved to the request handler
+    # (person.patch_onboardee_info) — the rude-name check needs the async DB and
+    # pydantic validators can't be async.
 
     @model_validator(mode='after')
     def check_exactly_one(self) -> "PatchOnboardeeInfo":
@@ -463,18 +456,6 @@ class PatchOnboardeeInfo(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-
-
-class DeleteOnboardeeInfo(BaseModel):
-    files: List[int]
-
-    @field_validator("files")
-    @classmethod
-    def validate_files(cls, files: List[int]) -> List[int]:
-        for pos in files:
-            if not (MIN_PHOTO_POSITION <= pos <= MAX_PHOTO_POSITION):
-                raise ValueError("Invalid photo position")
-        return files
 
 
 class DeleteProfileInfo(BaseModel):
@@ -584,13 +565,10 @@ class PatchProfileInfo(BaseModel):
 
         return values
 
-    @field_validator('name')
-    def name_must_not_be_rude(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        if antiabuse.antirude.displayname.is_rude(value):
-            raise ValueError('Too rude')
-        return value
+    # NOTE: name/occupation/education rude checks moved to the request handler
+    # (person.patch_profile_info) — they need the async DB (via
+    # is_allowed_club_name) and pydantic validators can't be async. The `about`
+    # rude/spam checks below stay: they're pure and don't touch the DB.
 
     @field_validator('about')
     def about_must_not_be_rude(cls, value: Optional[str]) -> Optional[str]:
@@ -609,22 +587,6 @@ class PatchProfileInfo(BaseModel):
                 detect_phone_numbers(value) or \
                 has_solicitation(value):
             raise ValueError('Spam')
-        return value
-
-    @field_validator('occupation')
-    def occupation_must_not_be_rude(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        if antiabuse.antirude.occupation.is_rude(value):
-            raise ValueError('Too rude')
-        return value
-
-    @field_validator('education')
-    def education_must_not_be_rude(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return value
-        if antiabuse.antirude.education.is_rude(value):
-            raise ValueError('Too rude')
         return value
 
     class Config:
@@ -788,7 +750,3 @@ class PostRevenuecat(BaseModel):
                 values['raw_event_error'] = str(e)
                 values['event'] = None
         return values
-
-
-class PostMarkVisitorsChecked(BaseModel):
-    time: Optional[datetime] = None

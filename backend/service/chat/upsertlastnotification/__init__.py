@@ -14,7 +14,7 @@ class LastNotification:
     is_intro: bool
 
 
-def execute_query(usernames: Iterable[str], is_intro: bool) -> None:
+async def execute_query(usernames: Iterable[str], is_intro: bool) -> None:
     if not usernames:
         return
 
@@ -25,18 +25,18 @@ def execute_query(usernames: Iterable[str], is_intro: bool) -> None:
 
     params_seq = [dict(username=username) for username in usernames]
 
-    with api_tx('read committed') as tx:
-        tx.executemany(q, params_seq)
+    async with api_tx('read committed') as tx:
+        await tx.executemany(q, params_seq)
 
 
-def process_batch(last_notifications: Iterable[LastNotification]) -> None:
+async def process_batch(last_notifications: Iterable[LastNotification]) -> None:
     for is_intro in (True, False):
         usernames = set(
                 n.username
                 for n in last_notifications
                 if n.is_intro is is_intro)
 
-        execute_query(usernames=usernames, is_intro=is_intro)
+        await execute_query(usernames=usernames, is_intro=is_intro)
 
 
 _batcher = Batcher[LastNotification](
@@ -47,8 +47,6 @@ _batcher = Batcher[LastNotification](
     retry=False,
 )
 
-
-_batcher.start()
 
 def upsert_last_notification(username: str, is_intro: bool) -> None:
     _batcher.enqueue(LastNotification(username=username, is_intro=is_intro))

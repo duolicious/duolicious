@@ -16,7 +16,8 @@ from service.cron.profilereporter import report_profiles_forever
 import asyncio
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
-from database.asyncdatabase import check_connections_forever
+from database import check_connections_forever
+from batcher import start_all
 
 class HealthCheckHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
@@ -34,6 +35,10 @@ async def http_server() -> None:
         await asyncio.to_thread(httpd.serve_forever)
 
 async def main() -> None:
+    # Start the batch consumers (e.g. notify's) on this loop before the jobs
+    # that enqueue into them begin running.
+    await start_all()
+
     await asyncio.gather(
         # Fetched: 11k, returned: 670k <- unoptimized
         # Fetched:  1k, returned:  84k <- optimized

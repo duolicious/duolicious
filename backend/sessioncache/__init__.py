@@ -56,7 +56,7 @@ SESSION_CACHE_TTL_SECONDS: int = 60
 
 _KEY_PREFIX = "cached_duo_session:"
 
-# Dedicated synchronous client (see `redisclient.make_redis_client` for the
+# Dedicated async client (see `redisclient.make_redis_client` for the
 # connection settings and the rationale behind the bounded timeouts -- they're
 # what lets every function below degrade to a cache miss / no-op instead of
 # blocking indefinitely on a slow Redis).
@@ -67,16 +67,14 @@ def _key(session_token_hash: str) -> str:
     return _KEY_PREFIX + session_token_hash
 
 
-def get_session(session_token_hash: str) -> duotypes.SessionInfo | None:
+async def get_session(session_token_hash: str) -> duotypes.SessionInfo | None:
     """
     Return the cached `SessionInfo` for `session_token_hash`, or None on a miss
     (including any Redis error, which is treated as a miss so the caller falls
     back to the database).
     """
     try:
-        # The synchronous client returns the dict directly; the type stubs also
-        # admit an Awaitable for the async client, so narrow it here.
-        cached = cast(dict, _redis.hgetall(_key(session_token_hash)))
+        cached = cast(dict, await _redis.hgetall(_key(session_token_hash)))
     except Exception:
         return None
 
@@ -99,7 +97,7 @@ def get_session(session_token_hash: str) -> duotypes.SessionInfo | None:
     )
 
 
-def put_session(
+async def put_session(
     session_info: duotypes.SessionInfo,
     session_expiry_epoch: float | None,
 ) -> None:
@@ -134,17 +132,17 @@ def put_session(
         pipe.delete(key)
         pipe.hset(key, mapping=cast(dict, mapping))
         pipe.expire(key, ttl)
-        pipe.execute()
+        await pipe.execute()
     except Exception:
         pass
 
 
-def delete_session(session_token_hash: str) -> None:
+async def delete_session(session_token_hash: str) -> None:
     """
     Drop the cached entry for `session_token_hash`. Call this after any
     mutation that changes a cached field for this exact session.
     """
     try:
-        _redis.delete(_key(session_token_hash))
+        await _redis.delete(_key(session_token_hash))
     except Exception:
         pass

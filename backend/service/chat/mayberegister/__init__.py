@@ -31,7 +31,7 @@ class DuoPushToken:
     token: Optional[str]
 
 
-def execute_query(tokens: Iterable[DuoPushToken], has_token: bool) -> None:
+async def execute_query(tokens: Iterable[DuoPushToken], has_token: bool) -> None:
     if not tokens:
         return
 
@@ -43,18 +43,18 @@ def execute_query(tokens: Iterable[DuoPushToken], has_token: bool) -> None:
 
     q = Q_SET_TOKEN if has_token else Q_DELETE_TOKEN
 
-    with api_tx('read committed') as tx:
-        tx.executemany(q, params_seq)
+    async with api_tx('read committed') as tx:
+        await tx.executemany(q, params_seq)
 
 
-def process_batch(batch: Iterable[DuoPushToken]) -> None:
+async def process_batch(batch: Iterable[DuoPushToken]) -> None:
     for has_token in (True, False):
         tokens = set(
             duo_push_token
             for duo_push_token in batch
             if bool(duo_push_token.token) is has_token)
 
-        execute_query(tokens=tokens, has_token=has_token)
+        await execute_query(tokens=tokens, has_token=has_token)
 
 
 _batcher = Batcher[DuoPushToken](
@@ -64,8 +64,6 @@ _batcher = Batcher[DuoPushToken](
     max_batch_size=100,
     retry=False,
 )
-
-_batcher.start()
 
 
 def register_push_token(

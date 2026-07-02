@@ -1,4 +1,4 @@
-from database.asyncdatabase import api_tx
+from database import api_tx
 from dataclasses import dataclass
 from service.cron.notifications.sql import (
     Q_UNREAD_INBOX,

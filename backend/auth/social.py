@@ -30,7 +30,7 @@ from service.api.decorators import enable_mocking
 
 
 # Bound on JWKS / certs HTTP fetches. Without this, a slow upstream pins
-# a gunicorn worker indefinitely on the cold-start fetch.
+# a worker indefinitely on the cold-start fetch.
 _PROVIDER_HTTP_TIMEOUT_SECONDS = 5
 
 

@@ -1,6 +1,6 @@
 from typing import List
 from dataclasses import dataclass
-from database import Tx, api_tx
+from database import Tx
 from functools import lru_cache
 
 Q_SET_MESSAGED = """
@@ -20,11 +20,11 @@ class SetMessagedJob:
     to_id: int
 
 
-def process_set_messaged_batch(tx: Tx, batch: List[SetMessagedJob]) -> None:
+async def process_set_messaged_batch(tx: Tx, batch: List[SetMessagedJob]) -> None:
     distinct_messaged = set(batch)
 
     params_seq = [
             dict(from_id=m.from_id, to_id=m.to_id)
             for m in distinct_messaged]
 
-    tx.executemany(Q_SET_MESSAGED, params_seq)
+    await tx.executemany(Q_SET_MESSAGED, params_seq)

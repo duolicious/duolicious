@@ -1,4 +1,4 @@
-from database.asyncdatabase import api_tx, row_str, row_str_list
+from database import api_tx, row_str, row_str_list
 from service.cron.autodeactivate2.sql import *
 from service.cron.autodeactivate2.template import emailtemplate
 from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
@@ -22,7 +22,7 @@ AUTODEACTIVATE2_POLL_SECONDS = int(os.environ.get(
 
 print(f'Hello from cron module: {__name__}')
 
-def maybe_send_email(email: str) -> None:
+async def maybe_send_email(email: str) -> None:
     if email.lower().endswith('@example.com'):
         return
 
@@ -30,7 +30,9 @@ def maybe_send_email(email: str) -> None:
     body = emailtemplate()
 
     print('autodeactivate2: sending deactivation email to', email)
-    aws_smtp.send(
+    # smtp.send is blocking; keep it off the event loop.
+    await asyncio.to_thread(
+        aws_smtp.send,
         subject=subject,
         body=body,
         to_addr=email,
@@ -61,8 +63,7 @@ async def autodeactivate2_once() -> None:
 
     for p in rows_deactivated:
         for session_token_hash in row_str_list(p, 'session_token_hashes'):
-            await asyncio.to_thread(
-                sessioncache.delete_session, session_token_hash)
+            await sessioncache.delete_session(session_token_hash)
 
     for p in rows_deactivated:
         person = dict(id=p['id'], email=row_str(p, 'email'))
@@ -75,7 +76,7 @@ async def autodeactivate2_once() -> None:
             print(f'  - autodeactive2: deactivated {person}')
 
     for p in rows_deactivated:
-        maybe_send_email(row_str(p, 'email'))
+        await maybe_send_email(row_str(p, 'email'))
         send_mobile_notifications(row_str_list(p, 'push_tokens'))
 
 async def autodeactivate2_forever() -> None:

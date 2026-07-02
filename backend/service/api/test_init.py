@@ -52,25 +52,25 @@ Q_SELECT_BANNED_PERSON_EMAILS = """
 SELECT normalized_email FROM banned_person ORDER BY normalized_email
 """
 
-class Test(unittest.TestCase):
-    def test_migration(self) -> None:
-        with api_tx() as tx:
-            tx.execute(Q_DELETE_PERSONS)
-            tx.execute(Q_INSERT_PERSONS)
+class Test(unittest.IsolatedAsyncioTestCase):
+    async def test_migration(self) -> None:
+        async with api_tx() as tx:
+            await tx.execute(Q_DELETE_PERSONS)
+            await tx.execute(Q_INSERT_PERSONS)
 
-            tx.execute(Q_DELETE_BANNED_PERSONS)
-            tx.execute(Q_INSERT_BANNED_PERSONS)
+            await tx.execute(Q_DELETE_BANNED_PERSONS)
+            await tx.execute(Q_INSERT_BANNED_PERSONS)
 
-        migrate_unnormalized_emails()
+        await migrate_unnormalized_emails()
 
-        with api_tx() as tx:
-            rows = tx.execute(Q_SELECT_PERSON_EMAILS).fetchall()
+        async with api_tx() as tx:
+            rows = await (await tx.execute(Q_SELECT_PERSON_EMAILS)).fetchall()
             emails = [row['normalized_email'] for row in rows]
             self.assertEqual(
                 emails,
                 ['example@gmail.com'])
 
-            rows = tx.execute(Q_SELECT_BANNED_PERSON_EMAILS).fetchall()
+            rows = await (await tx.execute(Q_SELECT_BANNED_PERSON_EMAILS)).fetchall()
             emails = [row['normalized_email'] for row in rows]
             self.assertEqual(
                 emails,

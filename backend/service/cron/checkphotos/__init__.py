@@ -1,5 +1,5 @@
 # Remove unused imports
-from database.asyncdatabase import api_tx, row_str
+from database import api_tx, row_str
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_images_from_object_store,
@@ -146,7 +146,15 @@ def compute_blurhashes(images: list[io.BytesIO]) -> list[str]:
     return blurhashes
 
 async def check_photos_once() -> None:
-    for chunk in list_uuids_in_object_store():
+    # `list_uuids_in_object_store` is a blocking generator (each step makes a
+    # synchronous S3 pagination request), so pull each page in a worker thread
+    # to avoid blocking the event loop.
+    chunks = list_uuids_in_object_store()
+    while True:
+        chunk = await asyncio.to_thread(lambda: next(chunks, None))
+        if chunk is None:
+            break
+
         uuids_to_update, uuids_to_delete = await resolve_uuids(chunk)
 
         await update_blurhashes(uuids_to_update)

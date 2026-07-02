@@ -1,4 +1,4 @@
-from database.asyncdatabase import api_tx
+from database import api_tx
 from service.cron.verificationjobrunner.sql import *
 from verification import verify
 from verification.messages import (

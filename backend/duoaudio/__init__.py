@@ -8,7 +8,7 @@ import binascii
 import constants
 from util import human_readable_size_metric
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncboto
 import boto3
 
 R2_AUDIO_BUCKET_NAME = os.environ['DUO_R2_AUDIO_BUCKET_NAME']
@@ -30,23 +30,15 @@ s3 = boto3.resource(
 
 audio_bucket = s3.Bucket(R2_AUDIO_BUCKET_NAME)
 
-def put_audio_in_object_store(
+async def put_audio_in_object_store(
     uuid: str,
     audio_file_bytes: bytes,
 ) -> None:
-    key = f'{uuid}.aac'
-
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [
-            executor.submit(
-                audio_bucket.put_object,
-                Key=key,
-                Body=audio_file_bytes
-            )
-        ]
-
-        for future in as_completed(futures):
-            future.result()
+    await asyncboto.put_object(
+        audio_bucket,
+        Key=f'{uuid}.aac',
+        Body=audio_file_bytes,
+    )
 
 def transcode_and_trim_audio(
     input_audio: io.BytesIO,

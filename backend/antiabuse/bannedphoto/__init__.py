@@ -9,7 +9,7 @@ WHERE
     hash = %(hash)s
 """
 
-def is_banned_photo(md5_hash: str) -> bool:
-    with api_tx() as tx:
-        tx.execute(Q_IS_BANNED_PHOTO, dict(hash=md5_hash))
-        return bool(tx.fetchall())
+async def is_banned_photo(md5_hash: str) -> bool:
+    async with api_tx() as tx:
+        await tx.execute(Q_IS_BANNED_PHOTO, dict(hash=md5_hash))
+        return bool(await tx.fetchall())
