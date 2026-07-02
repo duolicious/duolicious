@@ -1,6 +1,13 @@
 from collections.abc import Mapping
 from typing import TypeVar
-from util.coerce import boolean, integer, optional_str, string, string_list
+from util.coerce import (
+    boolean,
+    integer,
+    optional_int,
+    optional_str,
+    string,
+    string_list,
+)
 
 
 RowT = TypeVar('RowT')
@@ -26,6 +33,10 @@ def row_int(row: Mapping[str, object], key: str) -> int:
 
 def row_str(row: Mapping[str, object], key: str) -> str:
     return string(row_value(row, key), key)
+
+
+def row_int_or_none(row: Mapping[str, object], key: str) -> int | None:
+    return optional_int(row_value(row, key), key)
 
 
 def row_str_or_none(row: Mapping[str, object], key: str) -> str | None:

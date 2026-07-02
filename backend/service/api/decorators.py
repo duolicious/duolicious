@@ -3,7 +3,7 @@ from dataclasses import is_dataclass, asdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from email.utils import format_datetime
-from typing import Literal, ParamSpec, cast, overload
+from typing import Literal, ParamSpec, overload
 from uuid import UUID
 from database import api_tx, check_connections_forever
 from duohash import sha512
@@ -467,7 +467,7 @@ def duo_route(func: Callable[_P, object]) -> Callable[_P, Awaitable[Response]]:
     async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Response:
         result = func(*args, **kwargs)
         if inspect.isawaitable(result):
-            result = await cast(Awaitable[object], result)
+            result = await result
         return _make_response(result)
     return wrapper
 

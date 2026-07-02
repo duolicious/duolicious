@@ -43,10 +43,11 @@ cache miss / no-op so authentication keeps working off Postgres alone.
 """
 
 import time
-from typing import cast
 
 import duotypes
+from redis.typing import EncodableT
 from redisclient import make_redis_client
+from util.coerce import optional_str, string
 
 
 # Upper bound on how long a resolved session may be served from cache without
@@ -74,25 +75,29 @@ async def get_session(session_token_hash: str) -> duotypes.SessionInfo | None:
     back to the database).
     """
     try:
-        cached = cast(dict, await _redis.hgetall(_key(session_token_hash)))
+        cached = await _redis.hgetall(_key(session_token_hash))
     except Exception:
         return None
 
     if not cached:
         return None
 
-    # `person_id` is NULL for sessions that haven't finished onboarding yet;
-    # we encode that as the absence of the field rather than a sentinel string.
-    person_id = cached.get("person_id")
-    person_uuid = cached.get("person_uuid")
-    pending_club_name = cached.get("pending_club_name")
+    # The Redis stubs type hash values as `bytes | str` (they can't see that
+    # this client sets `decode_responses=True`), so coerce each field back to a
+    # checked `str`; this also validates the cache's shape at the boundary.
+    #
+    # `person_id` is NULL for sessions that haven't finished onboarding yet; we
+    # encode that as the absence of the field rather than a sentinel string.
+    person_id = optional_str(cached.get("person_id"))
+    person_uuid = optional_str(cached.get("person_uuid"))
+    pending_club_name = optional_str(cached.get("pending_club_name"))
 
     return duotypes.SessionInfo(
-        email=cached["email"],
+        email=string(cached["email"]),
         session_token_hash=session_token_hash,
         person_id=int(person_id) if person_id is not None else None,
         person_uuid=person_uuid,
-        signed_in=cached["signed_in"] == "1",
+        signed_in=string(cached["signed_in"]) == "1",
         pending_club_name=pending_club_name,
     )
 
@@ -114,8 +119,9 @@ async def put_session(
         return
 
     # Omit NULL fields entirely; Redis hashes can't store None, and
-    # `get_session` reconstructs the absent ones back to None.
-    mapping = {
+    # `get_session` reconstructs the absent ones back to None. The `EncodableT`
+    # value type matches what `hset(mapping=...)` expects, so no cast is needed.
+    mapping: dict[EncodableT, EncodableT] = {
         "email": session_info.email,
         "signed_in": "1" if session_info.signed_in else "0",
     }
@@ -130,7 +136,7 @@ async def put_session(
     try:
         pipe = _redis.pipeline()
         pipe.delete(key)
-        pipe.hset(key, mapping=cast(dict, mapping))
+        pipe.hset(key, mapping=mapping)
         pipe.expire(key, ttl)
         await pipe.execute()
     except Exception:

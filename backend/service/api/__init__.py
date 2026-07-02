@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Optional, cast
+from typing import Optional
+from util.coerce import string
 from urllib.parse import parse_qsl
 from fastapi import Body, Depends, Path as FastApiPath
 from starlette.requests import Request
@@ -259,9 +260,9 @@ async def post_auth_apple_callback(
         keep_blank_values=True,
     ))
     return apple_oauth.handle_callback(
-        id_token=cast(str, form.get('id_token') or ''),
-        state=cast(str, form.get('state') or ''),
-        error=cast(Optional[str], form.get('error')),
+        id_token=form.get('id_token') or '',
+        state=form.get('state') or '',
+        error=form.get('error'),
     )
 
 @app.post('/sign-out')
@@ -448,7 +449,7 @@ async def post_skip_by_uuid(
             exempt_when=disable_account_rate_limit)
 
     await skip_by_uuid(
-        subject_uuid=cast(str, s.person_uuid),
+        subject_uuid=string(s.person_uuid, 'person_uuid'),
         object_uuid=prospect_uuid,
         reason=req.report_reason or '',
     )

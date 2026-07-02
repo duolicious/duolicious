@@ -38,6 +38,12 @@ def string(value: object, field_name: str | None = None) -> str:
     return value
 
 
+def optional_int(value: object, field_name: str | None = None) -> int | None:
+    if value is None:
+        return None
+    return integer(value, field_name)
+
+
 def optional_str(value: object, field_name: str | None = None) -> str | None:
     if value is None or isinstance(value, str):
         return value

@@ -1,7 +1,9 @@
 import os
 from database import Row, Tx, api_tx
+from database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
-from typing import Optional, Tuple, Literal, cast
+from typing import Optional, Tuple, Literal
+from util.coerce import string
 from urlslug import (
     assign_url_slug,
     reserve_onboardee_url_slug,
@@ -660,7 +662,7 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
     await _reject_rude_or_banned(field_name, req)
 
     if field_name == 'name':
-        name = cast(str, field_value)
+        name = string(field_value)
         name_params = dict(
             email=s.email,
             field_value=name,
@@ -899,8 +901,8 @@ async def get_prospect_profile(
         if not api_row:
             return '', 404
 
-        profile = cast(dict[str, object] | None, api_row.get('j'))
-        if not profile:
+        profile = api_row.get('j')
+        if not isinstance(profile, dict) or not profile:
             return '', 404
 
         # The handle may have been a url_slug; resolve to the real uuid so the
@@ -921,13 +923,9 @@ async def get_prospect_profile(
     try:
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute('SET LOCAL statement_timeout = 1000') # 1 second
-            message_stats_tx = await tx.execute(
+            message_stats: Mapping[str, object] = await tx.require_one(
                 Q_MESSAGE_STATS,
                 dict(prospect_uuid=prospect_uuid),
-            )
-            message_stats = cast(
-                dict[str, object],
-                await message_stats_tx.fetchone(),
             )
     except psycopg.errors.QueryCanceled:
         message_stats = dict(
@@ -939,12 +937,9 @@ async def get_prospect_profile(
 
     if s.person_id is not None and s.person_uuid is not None and \
             prospect_id is not None and prospect_uuid is not None:
-        seconds_since_last_online = cast(
-            float | None,
-            profile.get('seconds_since_last_online'),
-        )
+        seconds_since_last_online = profile.get('seconds_since_last_online')
         prospect_online = (
-            seconds_since_last_online is not None and
+            isinstance(seconds_since_last_online, (int, float)) and
             seconds_since_last_online < VISITOR_ONLINE_TIMEOUT_SECONDS
         )
 
@@ -1032,13 +1027,17 @@ async def get_compare_answers(
     if topic not in valid_topics:
         return 'Invalid topic', 400
 
+    if n is None:
+        return 'Invalid n', 400
     try:
-        n_int = int(cast(str, n))
+        int(n)
     except:
         return 'Invalid n', 400
 
+    if o is None:
+        return 'Invalid o', 400
     try:
-        o_int = int(cast(str, o))
+        int(o)
     except:
         return 'Invalid o', 400
 
@@ -2360,7 +2359,7 @@ async def get_export_data(token: str) -> object:
         await tx.execute('SET LOCAL statement_timeout = 30000') # 30 seconds
         raw_data = (await tx.require_one(Q_EXPORT_API_DATA, params))['j']
 
-    person_id = cast(Optional[int], params['person_id'])
+    person_id = row_int_or_none(params, 'person_id')
 
     search_filters = await get_search_filters_by_person_id(
         person_id=person_id,
