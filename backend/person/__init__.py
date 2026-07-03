@@ -83,9 +83,6 @@ s3 = boto3.resource(
 
 bucket = s3.Bucket(R2_BUCKET_NAME)
 
-async def init_db() -> None:
-    pass
-
 @dataclass
 class CropSize:
     top: int

@@ -19,6 +19,10 @@ from service.api.responses import make_response
 
 _P = ParamSpec('_P')
 
+# Endpoints opted out of the global default rate limit (see `rate_limit_exempt`).
+# Membership is by function identity, checked in `DuoRoute.__init__`.
+_rate_limit_exempt: set[object] = set()
+
 
 def duo_route(
     func: Callable[_P, Awaitable[object]],
@@ -43,7 +47,7 @@ def rate_limit_exempt(func: Callable[_P, object]) -> Callable[_P, object]:
     otherwise applies to every endpoint (the FastAPI analogue of
     flask_limiter's `limiter.exempt`). Use only on handlers that must stay
     unthrottled (e.g. `GET /health`)."""
-    func._rate_limit_exempt = True  # type: ignore[attr-defined]
+    _rate_limit_exempt.add(func)
     return func
 
 
@@ -66,7 +70,7 @@ class DuoRoute(APIRoute):
         **kwargs: object,
     ) -> None:
         dependencies = list(dependencies or [])
-        if not getattr(endpoint, '_rate_limit_exempt', False):
+        if endpoint not in _rate_limit_exempt:
             dependencies.append(Depends(default_rate_limit()))
         # `**kwargs: object` forwarded into APIRoute's precisely-typed __init__;
         # the alternative to this one ignore is spelling out all ~25 params.

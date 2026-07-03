@@ -44,13 +44,11 @@ async def init_db() -> None:
     from database import open_db_pool
     from service.api import bootstrap
     import location
-    import person
     from qanda import question
 
     init_funcs = [
         bootstrap.init_db,
         location.init_db,
-        person.init_db,
         question.init_db,
     ]
 
