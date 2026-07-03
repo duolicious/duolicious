@@ -18,7 +18,7 @@ from service.api.decorators import (
     app,
     auth_rate_limit,
     client_ip,
-    default_rate_limit,
+    rate_limit_exempt,
     default_limits,
     session,
     shared_otp_limit_dependency,
@@ -164,7 +164,6 @@ async def init_db() -> None:
 async def post_request_otp(
     request: Request,
     req: t.PostRequestOtp,
-    _default_limited: None = Depends(default_rate_limit()),
     _shared_limited: None = Depends(shared_otp_limit_dependency),
 ) -> object:
     return await person.post_request_otp(req, client_ip(request))
@@ -172,7 +171,6 @@ async def post_request_otp(
 @app.post('/resend-otp')
 async def post_resend_otp(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
     _shared_limited: None = Depends(shared_otp_limit_dependency),
     s: t.SessionInfo = Depends(session(
         expected_onboarding_status=None,
@@ -189,7 +187,6 @@ async def post_check_otp(
         expected_onboarding_status=None,
         expected_sign_in_status=False,
     )),
-    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(ip_and_account_rate_limit(
         auth_rate_limit,
         scope='check_otp',
@@ -201,7 +198,6 @@ async def post_check_otp(
 async def post_sign_in_with_google(
     request: Request,
     req: t.PostSignInWithGoogle,
-    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(ip_rate_limit(
         auth_rate_limit,
         scope='social_sign_in',
@@ -217,7 +213,6 @@ async def post_sign_in_with_google(
 async def post_sign_in_with_apple(
     request: Request,
     req: t.PostSignInWithApple,
-    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(ip_rate_limit(
         auth_rate_limit,
         scope='social_sign_in',
@@ -241,7 +236,6 @@ async def post_sign_in_with_apple(
 @app.post('/auth/apple/callback')
 async def post_auth_apple_callback(
     request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
     _limited: None = Depends(ip_rate_limit(
         auth_rate_limit,
         scope='apple_oauth_callback',
@@ -262,7 +256,6 @@ async def post_auth_apple_callback(
 async def post_sign_out(
     request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_sign_out(s)
     return None
@@ -271,7 +264,6 @@ async def post_sign_out(
 async def post_check_session_token(
     request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_check_session_token(s)
 
@@ -282,7 +274,6 @@ async def get_search_locations(
         expected_onboarding_status=None,
         expected_sign_in_status=None,
     )),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await location.get_search_locations(request.query_params.get('q'))
 
@@ -291,7 +282,6 @@ async def patch_onboardee_info(
     request: Request,
     req: t.PatchOnboardeeInfo,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
-    _default_limited: None = Depends(default_rate_limit()),
     _account_limited: None = Depends(account_rate_limit(default_limits)),
 ) -> object:
     return await person.patch_onboardee_info(req, s)
@@ -300,7 +290,6 @@ async def patch_onboardee_info(
 async def post_finish_onboarding(
     request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_finish_onboarding(s)
 
@@ -308,7 +297,6 @@ async def post_finish_onboarding(
 async def get_next_questions(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await question.get_next_questions(
         s=s,
@@ -317,10 +305,7 @@ async def get_next_questions(
     )
 
 @app.get('/public-next-questions')
-async def get_public_next_questions(
-    request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_public_next_questions(request: Request) -> object:
     return await question.get_public_next_questions(
         n=request.query_params.get('n', '10'),
         o=request.query_params.get('o', '0'),
@@ -331,7 +316,6 @@ async def post_answer(
     request: Request,
     req: t.PostAnswer,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await qanda.post_answer(req, s)
 
@@ -340,15 +324,13 @@ async def delete_answer(
     request: Request,
     req: t.DeleteAnswer,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await qanda.delete_answer(req, s)
 
 @app.get('/search')
 async def get_search(
     request: Request,
-    s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
+    s: t.SessionInfo = Depends(session())
 ) -> object:
     n = request.query_params.get('n')
     o = request.query_params.get('o')
@@ -372,10 +354,7 @@ async def get_search(
     return await search.get_search(s=s, n=n, o=o, club=club)
 
 @app.get('/public-search')
-async def get_public_search(
-    request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_public_search(request: Request) -> object:
     return await search.get_public_search(
         n=request.query_params.get('n'),
         o=request.query_params.get('o'),
@@ -383,6 +362,7 @@ async def get_public_search(
     )
 
 @app.get('/health')
+@rate_limit_exempt
 async def get_health(request: Request) -> object:
     return 'status: ok'
 
@@ -391,7 +371,6 @@ async def get_prospect_profile(
     request: Request,
     prospect_handle: str,
     s: Optional[t.SessionInfo] = Depends(session(optional=True)),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_prospect_profile(s, prospect_handle)
 
@@ -400,7 +379,6 @@ async def get_conversation_prospect(
     request: Request,
     prospect_uuid: str,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_conversation_prospect(s, prospect_uuid)
 
@@ -410,7 +388,6 @@ async def post_skip_by_uuid(
     prospect_uuid: str,
     req: t.PostSkip = Body(default_factory=t.PostSkip),
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     if req.report_reason:
         await check_ip_and_account(request, report_rate_limit, scope="report")
@@ -427,7 +404,6 @@ async def post_unskip_by_uuid(
     request: Request,
     prospect_uuid: str,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_unskip_by_uuid(s, prospect_uuid)
     return None
@@ -438,7 +414,6 @@ async def get_compare_personalities(
     prospect_person_id: int,
     topic: str = FastApiPath(pattern='^(mbti|big5|attachment|politics|other)$'),
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_compare_personalities(s, prospect_person_id, topic)
 
@@ -447,7 +422,6 @@ async def get_compare_answers(
     request: Request,
     prospect_person_id: int,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_compare_answers(
         s,
@@ -463,7 +437,6 @@ async def post_inbox_info(
     request: Request,
     req: t.PostInboxInfo,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_inbox_info(req, s)
 
@@ -471,7 +444,6 @@ async def post_inbox_info(
 async def delete_account(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.delete_or_ban_account(s=s)
 
@@ -479,7 +451,6 @@ async def delete_account(
 async def post_deactivate(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_deactivate(s=s)
     return None
@@ -488,7 +459,6 @@ async def post_deactivate(
 async def get_profile_info(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_profile_info(s)
 
@@ -497,7 +467,6 @@ async def delete_profile_info(
     request: Request,
     req: t.DeleteProfileInfo,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.delete_profile_info(req, s)
     return None
@@ -507,7 +476,6 @@ async def patch_profile_info(
     request: Request,
     req: t.PatchProfileInfo,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.patch_profile_info(req, s)
 
@@ -515,7 +483,6 @@ async def patch_profile_info(
 async def get_search_filers(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_search_filters(s)
 
@@ -524,7 +491,6 @@ async def post_search_filter(
     request: Request,
     req: t.PostSearchFilter,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_search_filter(req, s)
 
@@ -532,7 +498,6 @@ async def post_search_filter(
 async def get_search_filter_questions(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await question.get_search_filter_questions(
         s=s,
@@ -546,7 +511,6 @@ async def post_search_filter_answer(
     request: Request,
     req: t.PostSearchFilterAnswer,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_search_filter_answer(req, s)
 
@@ -554,7 +518,6 @@ async def post_search_filter_answer(
 async def get_search_clubs(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_search_clubs(
         s=s,
@@ -562,10 +525,7 @@ async def get_search_clubs(
     )
 
 @app.get('/search-public-clubs')
-async def get_search_public_clubs(
-    request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_search_public_clubs(request: Request) -> object:
     return await person.get_search_clubs(
         s=None,
         search_str=request.query_params.get('q', ''),
@@ -573,11 +533,7 @@ async def get_search_public_clubs(
     )
 
 @app.get('/club/{name:path}')
-async def get_club(
-    request: Request,
-    name: str,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_club(request: Request, name: str) -> object:
     result = await person.get_club(
         name=name,
         ttl_hash=get_ttl_hash(seconds=300))
@@ -590,7 +546,6 @@ async def post_join_club(
     request: Request,
     req: t.PostJoinClub,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_join_club(req, s)
 
@@ -599,16 +554,12 @@ async def post_leave_club(
     request: Request,
     req: t.PostLeaveClub,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     await person.post_leave_club(req, s)
     return None
 
 @app.get('/update-notifications')
-async def get_update_notifications(
-    request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_update_notifications(request: Request) -> object:
     return await person.get_update_notifications(
         email=request.query_params.get('email', ''),
         type=request.query_params.get('type', ''),
@@ -619,7 +570,6 @@ async def get_update_notifications(
 async def get_feed(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     valid_datetime = t.ValidDatetime.model_validate(
         {'datetime': request.query_params.get('before')}
@@ -632,7 +582,6 @@ async def post_verification_selfie(
     request: Request,
     req: t.PostVerificationSelfie,
     s: t.SessionInfo = Depends(session()),
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.post_verification_selfie(req, s)
 
@@ -655,32 +604,24 @@ async def post_verify(
 # blocks live in `service.api.decorators`.
 @app.get('/check-verification')
 async def get_check_verification(
-    _limited: None = Depends(default_rate_limit()),
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_check_verification(s)
 
 @app.get('/stats')
-async def get_stats(
-    request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_stats(request: Request) -> object:
     return await person.get_stats(
         ttl_hash=get_ttl_hash(seconds=60),
         club_name=request.query_params.get('club-name'))
 
 @app.get('/gender-stats')
-async def get_gender_stats(
-    request: Request,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_gender_stats(request: Request) -> object:
     return await person.get_gender_stats(ttl_hash=get_ttl_hash(seconds=60))
 
 @app.get('/admin/ban-link/{token}')
 async def get_admin_ban_link(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_ban_link(token)
 
@@ -688,7 +629,6 @@ async def get_admin_ban_link(
 async def get_admin_ban(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_ban(token)
 
@@ -696,7 +636,6 @@ async def get_admin_ban(
 async def get_admin_delete_photo_link(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_delete_photo_link(token)
 
@@ -704,7 +643,6 @@ async def get_admin_delete_photo_link(
 async def get_admin_delete_photo(
     request: Request,
     token: str,
-    _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await person.get_admin_delete_photo(token)
 
@@ -720,18 +658,10 @@ async def get_export_data_token(
     return await person.get_export_data_token(s=s)
 
 @app.get('/export-data/{token}')
-async def get_export_data(
-    request: Request,
-    token: str,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def get_export_data(request: Request, token: str) -> object:
     return await person.get_export_data(token=token)
 
 @app.post('/revenuecat')
-async def post_revenuecat(
-    request: Request,
-    req: t.PostRevenuecat,
-    _default_limited: None = Depends(default_rate_limit()),
-) -> object:
+async def post_revenuecat(request: Request, req: t.PostRevenuecat) -> object:
     return await person.post_revenuecat(
         req, request.headers.get('Authorization', ''))

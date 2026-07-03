@@ -3,7 +3,7 @@ from dataclasses import is_dataclass, asdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from email.utils import format_datetime
-from typing import Literal, ParamSpec, overload
+from typing import Literal, ParamSpec, cast, overload
 from uuid import UUID
 from database import (
     api_tx,
@@ -20,7 +20,7 @@ import json
 import time
 import traceback
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 from starlette.datastructures import MutableHeaders
@@ -507,17 +507,38 @@ def duo_route(func: Callable[_P, object]) -> Callable[_P, Awaitable[Response]]:
     return wrapper
 
 
+def rate_limit_exempt(func: Callable[_P, object]) -> Callable[_P, object]:
+    """Opt a route out of the global default rate limit that `DuoRoute`
+    otherwise applies to every endpoint — the FastAPI analogue of
+    flask_limiter's `limiter.exempt`. Use only on handlers that must stay
+    unthrottled (e.g. `GET /health`)."""
+    func._rate_limit_exempt = True  # type: ignore[attr-defined]
+    return func
+
+
 class DuoRoute(APIRoute):
     """Route class that applies `duo_route` to every endpoint automatically,
     so handlers keep the plain-value return convention without repeating the
     decorator on each route. `duo_route` uses `@wraps`, so FastAPI still sees
-    the original signature (and route name) for dependency resolution."""
+    the original signature (and route name) for dependency resolution.
+
+    It also makes the per-endpoint default rate limit **opt-out** rather than
+    opt-in: every route gets `default_rate_limit()` injected as a dependency
+    (mirroring flask_limiter's `default_limits`, which applied to every
+    non-exempt view), so a forgotten dependency can't silently leave an
+    endpoint unthrottled. Mark a handler `@rate_limit_exempt` to skip it;
+    endpoints needing extra or bespoke limits still declare those explicitly."""
     def __init__(
         self,
         path: str,
         endpoint: Callable[_P, object],
         **kwargs: object,
     ) -> None:
+        if not getattr(endpoint, '_rate_limit_exempt', False):
+            dependencies = list(cast(
+                'list[object]', kwargs.get('dependencies') or []))
+            dependencies.append(Depends(default_rate_limit()))
+            kwargs['dependencies'] = dependencies
         super().__init__(path, duo_route(endpoint), **kwargs)  # type: ignore[arg-type]
 
 
