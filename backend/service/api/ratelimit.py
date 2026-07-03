@@ -116,7 +116,7 @@ class Limiter:
     async def check_default(self, request: Request, endpoint_name: str) -> None:
         """Apply the global per-endpoint default limits, keyed on the remote
         address."""
-        if self._default_exempt_when is not None and self._default_exempt_when(request):
+        if self._default_exempt_when(request):
             return
 
         key = self._default_key_func(request)

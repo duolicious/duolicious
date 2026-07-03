@@ -11,8 +11,12 @@ than copy-paste (and let drift) `timeout=`/`follow_redirects=` across `notify`,
 Callers that need a different bound pass `timeout=` (e.g. the FireHOL client's
 aggressive fail-open timeout); any keyword overrides the default.
 
-This mirrors `redisclient`, and is intentionally separate from the chat
-service, which constructs its own clients.
+Callers open a short-lived client per call (`async with make_http_client()`),
+rather than sharing a long-lived module-level client as `redisclient` does. That
+suits the low-frequency sites that use it (batched push, verification, the
+FireHOL cron) and keeps the client from binding to an event loop at import time.
+Like `redisclient`, this is intentionally separate from the chat service, which
+constructs its own clients.
 """
 
 import os

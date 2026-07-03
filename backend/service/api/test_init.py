@@ -1,5 +1,5 @@
 import unittest
-from service.api import migrate_unnormalized_emails
+from service.api.bootstrap import migrate_unnormalized_emails
 from database import api_tx
 from database.testcase import DbTestCase
 

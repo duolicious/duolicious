@@ -6,7 +6,6 @@ plain-value return convention (dict/list -> JSON, str -> text/html,
 that convention -- and the global default rate limit -- for free.
 """
 
-import inspect
 from collections.abc import Awaitable, Callable
 from typing import ParamSpec
 
@@ -21,18 +20,21 @@ from service.api.responses import make_response
 _P = ParamSpec('_P')
 
 
-def duo_route(func: Callable[_P, object]) -> Callable[_P, Awaitable[Response]]:
-    """Adapt a handler's plain return value into a `Response` via
+def duo_route(
+    func: Callable[_P, Awaitable[object]],
+) -> Callable[_P, Awaitable[Response]]:
+    """Adapt an async handler's plain return value into a `Response` via
     `make_response`. Returning a `Response` also makes FastAPI skip its
     `jsonable_encoder`, so serialization stays byte-for-byte under our control.
     `wraps` keeps the signature visible so FastAPI still resolves `Depends(...)`.
-    Handles sync or async handlers."""
+
+    Handlers must be `async def`. `DuoRoute` wraps every endpoint in this async
+    wrapper, so FastAPI always sees a coroutine and never offloads to its
+    threadpool -- a plain `def` handler would run its body on the event loop and
+    block it."""
     @wraps(func)
     async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Response:
-        result = func(*args, **kwargs)
-        if inspect.isawaitable(result):
-            result = await result
-        return make_response(result)
+        return make_response(await func(*args, **kwargs))
     return wrapper
 
 
@@ -59,7 +61,7 @@ class DuoRoute(APIRoute):
     def __init__(
         self,
         path: str,
-        endpoint: Callable[_P, object],
+        endpoint: Callable[_P, Awaitable[object]],
         dependencies: list[params.Depends] | None = None,
         **kwargs: object,
     ) -> None:

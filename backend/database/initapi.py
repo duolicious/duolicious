@@ -42,13 +42,13 @@ def create_dbs() -> None:
 async def init_db() -> None:
     # Now DB_NAME exists, we do do the rest of the init.
     from database import open_db_pool
-    from service import api
+    from service.api import bootstrap
     import location
     import person
     from qanda import question
 
     init_funcs = [
-        api.init_db,
+        bootstrap.init_db,
         location.init_db,
         person.init_db,
         question.init_db,
