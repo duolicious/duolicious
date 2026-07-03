@@ -1,7 +1,7 @@
 import os
 from database import (
     api_tx,
-    check_connections_forever,
+    db_pool_lifespan,
     row_str,
     row_str_or_none,
 )
@@ -118,14 +118,12 @@ from service.chat.verification import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Start the batch consumers on the running loop (they can't be started at
-    # import time, before the loop exists) and keep the DB connection warm.
-    await start_all()
-    connection_check_task = asyncio.create_task(check_connections_forever())
-    try:
+    # Open the DB pool and run its keepalive checker for the app's lifetime, then
+    # start the batch consumers on the running loop (they can't be started at
+    # import time, before the loop exists).
+    async with db_pool_lifespan():
+        await start_all()
         yield
-    finally:
-        connection_check_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)

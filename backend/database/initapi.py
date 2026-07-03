@@ -41,6 +41,7 @@ def create_dbs() -> None:
 
 async def init_db() -> None:
     # Now DB_NAME exists, we do do the rest of the init.
+    from database import open_db_pool
     from service import api
     import location
     import person
@@ -52,6 +53,8 @@ async def init_db() -> None:
         person.init_db,
         question.init_db,
     ]
+
+    await open_db_pool()
 
     print('Initializing api DB...')
     for i, init_func in enumerate(init_funcs, start=1):

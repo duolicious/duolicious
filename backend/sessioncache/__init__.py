@@ -4,11 +4,10 @@ Redis-backed cache for the per-request session lookup performed by
 
 Every authenticated request resolves its bearer token to a `SessionInfo` by
 running `Q_GET_SESSION` against Postgres. That query is a primary-key point
-read, but the Flask API funnels *all* of its database work through a single
-shared connection guarded by a process-wide lock (`_api_conn_lock` in
-database/__init__.py), so the lookup serializes every authenticated request
-behind that lock. Caching the resolved session in Redis keeps the common case
-(a valid, unchanged session) off both the lock and the database entirely.
+read, but running it on every authenticated request still means a checkout from
+the connection pool (`_api_pool` in database/__init__.py) and a database
+round-trip each time. Caching the resolved session in Redis keeps the common
+case (a valid, unchanged session) off both the pool and the database entirely.
 
 Correctness model
 -----------------

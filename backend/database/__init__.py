@@ -1,11 +1,12 @@
 import asyncio
 import os
 import psycopg
+from psycopg_pool import AsyncConnectionPool
 import random
 import traceback
-from types import TracebackType
+from contextlib import asynccontextmanager, suppress
 from typing import Protocol
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable
 from database._row import (
     require_row,
     row_bool,
@@ -135,82 +136,94 @@ class TxCursor:
         await self._cur.close()
 
 
-_api_conn: psycopg.AsyncConnection[Row] | None = None
+_pool_min_size = int(os.environ.get('DUO_DB_POOL_MIN_SIZE', '1'))
+_pool_max_size = int(os.environ.get('DUO_DB_POOL_MAX_SIZE', '2'))
 
-_api_conn_lock = asyncio.Lock()
+_ApiPool = AsyncConnectionPool[psycopg.AsyncConnection[Row]]
 
-class api_tx:
-    def __init__(self, isolation_level: str = _default_transaction_isolation) -> None:
-        normalized_isolation_level = isolation_level.upper()
 
-        if normalized_isolation_level not in _valid_isolation_levels:
-            raise ValueError(isolation_level)
+def _new_api_pool() -> _ApiPool:
+    return AsyncConnectionPool(
+        conninfo=_api_conninfo,
+        connection_class=psycopg.AsyncConnection[Row],
+        # Opening an async pool schedules background tasks on the running event
+        # loop, which doesn't exist yet at import time; `open_db_pool()` opens it
+        # from within each entrypoint's async lifespan/main.
+        open=False,
+        min_size=_pool_min_size,
+        max_size=_pool_max_size,
+        kwargs=dict(row_factory=psycopg.rows.dict_row),
+    )
 
-        self.isolation_level = normalized_isolation_level
 
-        self.conn: psycopg.AsyncConnection[Row]
-        self.cur: Tx
+# A closed pool can't be reopened, so the pool is (re)constructed on each open
+# rather than once at import. A server opens it once at startup; tests open and
+# close it per case, each on its own event loop.
+_api_pool: _ApiPool | None = None
 
-    async def __aenter__(self) -> Tx:
-        await _api_conn_lock.acquire()
 
-        global _api_conn
-        conn = _api_conn
-        if conn is None or conn.closed:
-            try:
-                conn = await psycopg.AsyncConnection.connect(
-                    conninfo=_api_conninfo,
-                    row_factory=psycopg.rows.dict_row,
-                )
-                _api_conn = conn
-            except:
-                _api_conn_lock.release()
-                print(traceback.format_exc())
-                raise
+def _pool() -> _ApiPool:
+    if _api_pool is None:
+        raise RuntimeError('db pool is not open; call open_db_pool() first')
+    return _api_pool
 
-        self.conn = conn
-        self.cur = TxCursor(conn.cursor())
 
-        if self.isolation_level != _default_transaction_isolation:
-            try:
-                await self.cur.execute(
-                    f'SET TRANSACTION ISOLATION LEVEL {self.isolation_level}'
-                )
-            except:
-                _api_conn_lock.release()
-                print(traceback.format_exc())
-                raise
-        return self.cur
+async def open_db_pool() -> None:
+    global _api_pool
+    if _api_pool is None or _api_pool.closed:
+        _api_pool = _new_api_pool()
+    # `wait=True` blocks until `min_size` connections are established, so the
+    # first query after startup doesn't pay a connection cost.
+    await _api_pool.open(wait=True)
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        try:
-            if exc_type is None:
-                await self.conn.commit()
-            else:
-                await self.conn.rollback()
-        except:
-                traceback.print_exception(exc_type, exc_val, exc_tb)
-        finally:
-            try:
-                await self.cur.close()
-            except:
-                print(traceback.format_exc())
 
-        _api_conn_lock.release()
+async def close_db_pool() -> None:
+    await _pool().close()
 
-async def _check_api_connection_forever() -> None:
+
+@asynccontextmanager
+async def api_tx(
+    isolation_level: str = _default_transaction_isolation,
+) -> AsyncIterator[Tx]:
+    normalized_isolation_level = isolation_level.upper()
+
+    if normalized_isolation_level not in _valid_isolation_levels:
+        raise ValueError(isolation_level)
+
+    async with _pool().connection() as conn, conn.cursor() as raw_cur:
+        cur = TxCursor(raw_cur)
+        if normalized_isolation_level != _default_transaction_isolation:
+            await cur.execute(
+                f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'
+            )
+        yield cur
+
+
+async def check_connections_forever() -> None:
+    # Connections aren't validated at checkout, so on a low-traffic instance one
+    # can sit idle long enough to be dropped by the network or server and then be
+    # handed out dead. Periodically pinging the whole pool keeps connections warm
+    # and heals any that died while idle.
     while True:
+        # `except Exception` (not bare `except`) so that `CancelledError`, raised
+        # when the entrypoint tears this task down, propagates and exits the loop.
         try:
-            async with api_tx() as tx:
-                await tx.execute('SELECT 1')
-        except:
+            await _pool().check()
+        except Exception:
             print(traceback.format_exc())
         await asyncio.sleep(random.randint(30, 90))
 
-async def check_connections_forever() -> None:
-    await _check_api_connection_forever()
+
+@asynccontextmanager
+async def db_pool_lifespan() -> AsyncIterator[None]:
+    await open_db_pool()
+    check_task = asyncio.create_task(check_connections_forever())
+    try:
+        yield
+    finally:
+        check_task.cancel()
+        # Wait for the cancellation to land so the checker can't touch the pool
+        # after we close it below.
+        with suppress(asyncio.CancelledError):
+            await check_task
+        await close_db_pool()

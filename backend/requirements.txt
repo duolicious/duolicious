@@ -13,7 +13,7 @@ onnxruntime
 openai
 Pillow
 pillow-heif
-psycopg[binary]
+psycopg[binary,pool]
 pydantic[email]
 PyJWT[crypto]
 pytricia

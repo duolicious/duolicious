@@ -1,6 +1,7 @@
 import unittest
 from service.api import migrate_unnormalized_emails
 from database import api_tx
+from database.testcase import DbTestCase
 
 Q_DELETE_PERSONS = """
 DELETE FROM person
@@ -52,7 +53,7 @@ Q_SELECT_BANNED_PERSON_EMAILS = """
 SELECT normalized_email FROM banned_person ORDER BY normalized_email
 """
 
-class Test(unittest.IsolatedAsyncioTestCase):
+class Test(DbTestCase):
     async def test_migration(self) -> None:
         async with api_tx() as tx:
             await tx.execute(Q_DELETE_PERSONS)

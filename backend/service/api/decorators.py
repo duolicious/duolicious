@@ -5,11 +5,13 @@ from decimal import Decimal
 from email.utils import format_datetime
 from typing import Literal, ParamSpec, overload
 from uuid import UUID
-from database import api_tx, check_connections_forever
+from database import (
+    api_tx,
+    db_pool_lifespan,
+)
 from duohash import sha512
 import constants
 import duotypes
-import asyncio
 import inspect
 import os
 from pathlib import Path
@@ -257,15 +259,13 @@ def limiter_account(request: Request) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Start any registered batch consumers on the running loop and keep the DB
-    # connection warm (the old sync `database` module started the keepalive on
-    # import; the async module leaves that to the entrypoint).
-    await start_all()
-    connection_check_task = asyncio.create_task(check_connections_forever())
-    try:
+    # Open the DB pool and run its keepalive checker for the app's lifetime, then
+    # start any registered batch consumers on the running loop (the old sync
+    # `database` module started the keepalive on import; the async module leaves
+    # that to the entrypoint).
+    async with db_pool_lifespan():
+        await start_all()
         yield
-    finally:
-        connection_check_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)

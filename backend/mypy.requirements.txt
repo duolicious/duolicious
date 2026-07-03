@@ -15,7 +15,7 @@ numpy==1.26.4
 onnxruntime
 openai
 pillow-heif
-psycopg[binary]
+psycopg[binary,pool]
 pydantic[email]
 PyJWT[crypto]
 redis

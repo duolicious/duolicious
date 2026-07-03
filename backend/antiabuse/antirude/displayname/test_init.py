@@ -1,7 +1,8 @@
 import unittest
 from antiabuse.antirude.displayname import is_rude
+from database.testcase import DbTestCase
 
-class TestIsRude(unittest.IsolatedAsyncioTestCase):
+class TestIsRude(DbTestCase):
 
     async def test_rude_strings(self) -> None:
         self.assertTrue(
