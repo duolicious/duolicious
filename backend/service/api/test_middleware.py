@@ -5,10 +5,10 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Message, Scope
 
-from service.api.decorators import (
+from service.api.asgi import _handle_too_large
+from service.api.middleware import (
     MaxBodySizeMiddleware,
     RequestEntityTooLarge,
-    _handle_too_large,
 )
 
 MAX_SIZE = 10

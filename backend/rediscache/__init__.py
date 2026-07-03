@@ -13,6 +13,12 @@ through JSON, so a cache hit returns JSON-compatible types (e.g. a `uuid.UUID`
 comes back as its string form) -- the same shape the API serializes into the
 HTTP response anyway.
 
+Caveat: a `date`/`datetime` in a result serialises to ISO-8601 here but to an
+HTTP-date in the API's response encoder, so a cache hit and a cache miss would
+render such a field differently. Only cache functions whose results carry no
+date/datetime values (they'd also be indistinguishable from plain strings on
+the way back out).
+
 Like `sessioncache`, Redis is treated as a best-effort accelerator: any Redis
 error -- or an argument/result that can't be encoded into a stable cache key --
 degrades to simply calling the wrapped function, so callers keep working off the

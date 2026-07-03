@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 from util.coerce import string
 from urllib.parse import parse_qsl
 from fastapi import Body, Depends, Path as FastApiPath, WebSocket
@@ -13,14 +12,13 @@ from qanda import question
 import search
 from auth import apple_oauth
 from database import api_tx
-import psycopg
-from service.api.decorators import (
-    app,
+from service.api.asgi import app
+from service.api.auth import session
+from service.api.routing import rate_limit_exempt
+from service.api.ratelimit import (
     auth_rate_limit,
     client_ip,
-    rate_limit_exempt,
     default_limits,
-    session,
     shared_otp_limit_dependency,
     ip_rate_limit,
     account_rate_limit,
@@ -52,7 +50,8 @@ _banned_club_file = (
     Path(__file__).parent.parent.parent / 'banned-club.sql')
 
 def get_ttl_hash(seconds: int = 10) -> int:
-    """Return the same value withing `seconds` time period"""
+    """Return a value that stays constant within each `seconds`-long window, so
+    a `@lru_cache`d function keyed on it recomputes at most once per window."""
     return round(time.time() / seconds)
 
 async def migrate_unnormalized_emails() -> None:
@@ -371,7 +370,7 @@ async def get_health(request: Request) -> object:
 async def get_prospect_profile(
     request: Request,
     prospect_handle: str,
-    s: Optional[t.SessionInfo] = Depends(session(optional=True)),
+    s: t.SessionInfo | None = Depends(session(optional=True)),
 ) -> object:
     return await person.get_prospect_profile(s, prospect_handle)
 
@@ -598,11 +597,6 @@ async def post_verify(
     await person.post_verify(s)
     return None
 
-# Reference example of the FastAPI-native, fully-async endpoint style we're
-# migrating toward (contrast the manual `@aget`/`@get` handlers around it).
-# Auth and rate limiting are `Depends(...)`, the DB read is async, and
-# `@duo_route` keeps the same plain-value return convention. The building
-# blocks live in `service.api.decorators`.
 @app.get('/check-verification')
 async def get_check_verification(
     s: t.SessionInfo = Depends(session()),

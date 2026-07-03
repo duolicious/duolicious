@@ -1,6 +1,6 @@
 """
-Redis-backed cache for the per-request session lookup performed by
-`require_auth` (see service/api/decorators.py).
+Redis-backed cache for the per-request session lookup performed by the
+`session()` auth dependency (see service/api/auth.py).
 
 Every authenticated request resolves its bearer token to a `SessionInfo` by
 running `Q_GET_SESSION` against Postgres. That query is a primary-key point
@@ -12,7 +12,7 @@ case (a valid, unchanged session) off both the pool and the database entirely.
 Correctness model
 -----------------
 The cache is keyed by `session_token_hash` and stores only the fields
-`require_auth` needs. The cached fields are nearly immutable per token; the
+`session()` needs. The cached fields are nearly immutable per token; the
 mutations that change them invalidate the entry explicitly via
 `delete_session()`:
 

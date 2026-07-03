@@ -212,6 +212,8 @@ async def lodge_report(
 
         report_obj = await (await tx.execute(Q_MAKE_REPORT, params=params)).fetchall()
 
+    # Fire-and-forget: the blocking SMTP send runs on its own thread so the
+    # report request returns without waiting on email delivery.
     threading.Thread(
         target=_send_report_email,
         kwargs=dict(
