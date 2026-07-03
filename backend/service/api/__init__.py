@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 from util.coerce import string
 from urllib.parse import parse_qsl
-from fastapi import Body, Depends, Path as FastApiPath
+from fastapi import Body, Depends, Path as FastApiPath, WebSocket
 from starlette.requests import Request
 import duotypes as t
 from antiabuse.lodgereport import skip_by_uuid
@@ -34,6 +34,7 @@ from service.api.decorators import (
 import time
 from antiabuse.antispam.signupemail import normalize_email
 import json
+from service.chat import process_websocket_messages
 
 _init_sql_file = (
     Path(__file__).parent.parent.parent / 'init-api.sql')
@@ -665,3 +666,7 @@ async def get_export_data(request: Request, token: str) -> object:
 async def post_revenuecat(request: Request, req: t.PostRevenuecat) -> object:
     return await person.post_revenuecat(
         req, request.headers.get('Authorization', ''))
+
+@app.websocket('/chat')
+async def websocket_chat(websocket: WebSocket) -> None:
+    return await process_websocket_messages(websocket)
