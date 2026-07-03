@@ -278,6 +278,10 @@ async def post_check_session_token(
 @app.get('/search-locations')
 async def get_search_locations(
     request: Request,
+    s: t.SessionInfo = Depends(session(
+        expected_onboarding_status=None,
+        expected_sign_in_status=None,
+    )),
     _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
     return await location.get_search_locations(request.query_params.get('q'))
