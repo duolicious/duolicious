@@ -230,13 +230,12 @@ async def redis_publish_many(
 
 async def redis_forward_to_websocket(
     pubsub: redis.client.PubSub,
-    subprotocol: str,
     websocket: WebSocket
 ) -> None:
     """
     Listens on the Redis subscription channel and forwards any messages to the
     connected websocket client, rendering each protocol-neutral bus payload to
-    the connection's wire format (JSON or XML).
+    JSON.
     """
     try:
         async for message in pubsub.listen():
@@ -245,10 +244,7 @@ async def redis_forward_to_websocket(
 
             try:
                 outbound = from_bus(message['data'])
-                data = (
-                    outbound.to_json()
-                    if subprotocol == 'json'
-                    else outbound.to_xml())
+                data = outbound.to_json()
             except:
                 continue
 
@@ -497,14 +493,13 @@ async def _handle_reaction(
 
 async def process_text(
     session: Session,
-    protocol: str,
     pubsub: redis.client.PubSub,
     text: str
 ) -> object | None:
     from_username = session.username
     connection_uuid = session.connection_uuid
 
-    parsed = parse_incoming(text, protocol)
+    parsed = parse_incoming(text)
 
     if parsed is None:
         return None
@@ -775,14 +770,7 @@ async def process_text(
 
 
 async def process_websocket_messages(websocket: WebSocket) -> None:
-    subprotocol_header = websocket.headers.get('sec-websocket-protocol')
-
-    if subprotocol_header == 'json':
-        subprotocol = 'json'
-    else:
-        subprotocol = 'xmpp'
-
-    await websocket.accept(subprotocol=subprotocol)
+    await websocket.accept(subprotocol='json')
 
     session = Session()
 
@@ -801,7 +789,7 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
     update_online_task = None
 
     redis_forward_to_websocket_task = asyncio.create_task(
-            redis_forward_to_websocket(pubsub, subprotocol, websocket))
+            redis_forward_to_websocket(pubsub, websocket))
 
     is_subscribed_by_username = False
 
@@ -812,7 +800,6 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
             await asyncio.shield(
                     process_text(
                         session=session,
-                        protocol=subprotocol,
                         pubsub=pubsub,
                         text=text))
 

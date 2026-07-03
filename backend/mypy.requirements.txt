@@ -6,8 +6,6 @@ confusable-homoglyphs
 fastapi
 google-auth
 limits[async-redis]
-lxml
-lxml-stubs
 mypy
 nltk
 numpy
@@ -28,7 +26,6 @@ types-pyOpenSSL
 types-regex
 types-requests
 types-ujson
-types-xmltodict
 uvicorn
 websockets
 xmltodict

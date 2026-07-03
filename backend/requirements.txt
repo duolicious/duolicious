@@ -5,7 +5,6 @@ fastapi
 google-auth
 httpx
 limits[async-redis]
-lxml
 nltk
 numpy
 numpy==1.26.4
@@ -23,4 +22,3 @@ regex
 spacy
 uvicorn[standard]
 websockets
-xmltodict

@@ -1,20 +1,17 @@
 """
 A minimal, immutable element model used only at the client<->server boundary.
 
-Inbound XML (legacy clients) and inbound JSON (modern clients, in the
-xmltodict-style shape) are both normalized into `Element` trees, which the
-interpreter in `inbound.py` turns into semantic dataclasses. Business logic
-never sees `lxml` or raw XML/JSON.
+Inbound JSON (in the xmltodict-style shape) is normalized into `Element` trees,
+which the interpreter in `inbound.py` turns into semantic dataclasses. Business
+logic never sees raw JSON.
 
 Child lookups match on local name only (ignoring namespace), mirroring the
-`local-name()` XPath style the legacy code relied on, so XML-sourced and
-JSON-sourced trees interpret identically.
+`local-name()` XPath style the protocol relies on.
 """
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from lxml import etree
 
 
 # XMPP namespaces referenced by the interpreter.
@@ -62,38 +59,6 @@ class Element:
         for child in self.children:
             result.extend(child.iter())
         return result
-
-
-def _safe_xml_parser() -> etree.XMLParser:
-    return etree.XMLParser(resolve_entities=False, no_network=True)
-
-
-def _from_lxml(node: etree._Element) -> Element:
-    qname = etree.QName(node.tag)
-    children = tuple(
-        _from_lxml(child)
-        for child in node
-        if isinstance(child.tag, str)
-    )
-    return Element(
-        tag=qname.localname,
-        ns=qname.namespace,
-        attrib=tuple((str(k), str(v)) for k, v in node.attrib.items()),
-        text=node.text,
-        children=children,
-    )
-
-
-def element_from_xml(text: str) -> Element | None:
-    try:
-        node = etree.fromstring(text, parser=_safe_xml_parser())
-    except Exception:
-        return None
-
-    if not isinstance(node.tag, str):
-        return None
-
-    return _from_lxml(node)
 
 
 def _scalar_to_str(value: object) -> str:

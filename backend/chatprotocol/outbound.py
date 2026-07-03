@@ -1,30 +1,18 @@
 """
 Outbound stanzas as frozen dataclasses.
 
-Each stanza knows how to render itself to the two client wire formats:
-
-- `to_xml()`  -> the exact XML string a legacy client receives.
-- `to_json()` -> the JSON string a modern client receives.
-
-Both are derived from a single ordered `canonical()` dict (in the xmltodict
-shape: `@attr` for attributes, `#text`/scalar for text, nested dicts for
-children) so the two renderings can never drift. The invariant
-`json.loads(to_json()) == xmltodict.parse(to_xml())` is locked by a unit test.
-
-A few legacy control stanzas were historically hand-written strings with
-cosmetic quirks (e.g. a space before `/>`); those override `to_xml()` with the
-exact literal so existing clients/tests keep seeing identical bytes.
+Each stanza renders itself to the client wire format via `to_json()`, derived
+from a single ordered `canonical()` dict (in the xmltodict shape: `@attr` for
+attributes, `#text`/scalar for text, nested dicts for children).
 
 The Redis bus carries a protocol-neutral `{"kind": <ClassName>, ...fields}`
-payload via `to_bus`/`from_bus`; the websocket boundary then renders it to the
-connection's subprotocol.
+payload via `to_bus`/`from_bus`; the websocket boundary then renders it to JSON.
 """
 from __future__ import annotations
 
 import dataclasses
 import json
 from dataclasses import dataclass
-from lxml import etree
 
 from chatprotocol.jid import LSERVER
 from chatprotocol.element import (
@@ -44,40 +32,12 @@ NS_CHAT_MARKERS = 'urn:xmpp:chat-markers:0'
 NS_STREAMS = 'http://etherx.jabber.org/streams'
 NS_TLS = 'urn:ietf:params:xml:ns:xmpp-tls'
 
-Canonical = dict | str | None
-
 _REGISTRY: dict[str, type['Outbound']] = {}
 
 
 def _register(cls: type['Outbound']) -> type['Outbound']:
     _REGISTRY[cls.__name__] = cls
     return cls
-
-
-def _canonical_to_lxml(tag: str, node: Canonical) -> etree._Element:
-    element = etree.Element(tag)
-
-    if node is None:
-        return element
-
-    if isinstance(node, str):
-        element.text = node
-        return element
-
-    for key, value in node.items():
-        if key.startswith('@'):
-            # `xmlns` is intentionally set as a plain attribute (not via nsmap)
-            # to reproduce the legacy serialization byte-for-byte.
-            element.set(key[1:], value)
-        elif key == '#text':
-            element.text = value
-        elif isinstance(value, list):
-            for item in value:
-                element.append(_canonical_to_lxml(key, item))
-        else:
-            element.append(_canonical_to_lxml(key, value))
-
-    return element
 
 
 @dataclass(frozen=True)
@@ -87,14 +47,6 @@ class Outbound:
 
     def to_json(self) -> str:
         return json.dumps(self.canonical())
-
-    def to_xml(self) -> str:
-        (tag, node), = self.canonical().items()
-        return etree.tostring(
-            _canonical_to_lxml(tag, node),
-            encoding='unicode',
-            pretty_print=False,
-        )
 
 
 def to_bus(obj: Outbound) -> str:
@@ -116,7 +68,7 @@ def _jid(username: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Control stanzas (literal XML preserved verbatim)                            #
+# Control stanzas                                                             #
 # --------------------------------------------------------------------------- #
 
 @_register
@@ -128,18 +80,12 @@ class Pong(Outbound):
             '@preferred_timeout': '5000',
         }}
 
-    def to_xml(self) -> str:
-        return '<duo_pong preferred_interval="10000" preferred_timeout="5000" />'
-
 
 @_register
 @dataclass(frozen=True)
 class RegistrationSuccessful(Outbound):
     def canonical(self) -> dict:
         return {'duo_registration_successful': None}
-
-    def to_xml(self) -> str:
-        return '<duo_registration_successful />'
 
 
 @_register
@@ -150,9 +96,6 @@ class SubscribeOk(Outbound):
     def canonical(self) -> dict:
         return {'duo_subscribe_successful': {'@uuid': self.username}}
 
-    def to_xml(self) -> str:
-        return f'<duo_subscribe_successful uuid="{self.username}" />'
-
 
 @_register
 @dataclass(frozen=True)
@@ -161,9 +104,6 @@ class SubscribeBad(Outbound):
 
     def canonical(self) -> dict:
         return {'duo_subscribe_unsuccessful': {'@uuid': self.username}}
-
-    def to_xml(self) -> str:
-        return f'<duo_subscribe_unsuccessful uuid="{self.username}" />'
 
 
 @_register
@@ -174,9 +114,6 @@ class UnsubscribeOk(Outbound):
     def canonical(self) -> dict:
         return {'duo_unsubscribe_successful': {'@uuid': self.username}}
 
-    def to_xml(self) -> str:
-        return f'<duo_unsubscribe_successful uuid="{self.username}" />'
-
 
 @_register
 @dataclass(frozen=True)
@@ -185,9 +122,6 @@ class UnsubscribeBad(Outbound):
 
     def canonical(self) -> dict:
         return {'duo_unsubscribe_unsuccessful': {'@uuid': self.username}}
-
-    def to_xml(self) -> str:
-        return f'<duo_unsubscribe_unsuccessful uuid="{self.username}" />'
 
 
 @_register
@@ -201,12 +135,6 @@ class OnlineEvent(Outbound):
             '@uuid': self.username,
             '@status': self.status,
         }}
-
-    def to_xml(self) -> str:
-        return (
-            f'<duo_online_event uuid="{self.username}" '
-            f'status="{self.status}" />'
-        )
 
 
 @_register
@@ -248,15 +176,6 @@ class MessageBlocked(Outbound):
             attrs['@subreason'] = self.subreason
         return {'duo_message_blocked': attrs}
 
-    def to_xml(self) -> str:
-        parts = [f'<duo_message_blocked id="{self.stanza_id}"']
-        if self.reason is not None:
-            parts.append(f' reason="{self.reason}"')
-        if self.subreason is not None:
-            parts.append(f' subreason="{self.subreason}"')
-        parts.append('/>')
-        return ''.join(parts)
-
 
 @_register
 @dataclass(frozen=True)
@@ -265,9 +184,6 @@ class MessageTooLong(Outbound):
 
     def canonical(self) -> dict:
         return {'duo_message_too_long': {'@id': self.stanza_id}}
-
-    def to_xml(self) -> str:
-        return f'<duo_message_too_long id="{self.stanza_id}"/>'
 
 
 @_register
@@ -281,12 +197,6 @@ class MessageNotUnique(Outbound):
             '@id': self.stanza_id,
             '@used_count': str(self.used_count),
         }}
-
-    def to_xml(self) -> str:
-        return (
-            f'<duo_message_not_unique id="{self.stanza_id}" '
-            f'used_count="{self.used_count}"/>'
-        )
 
 
 @_register
@@ -306,15 +216,6 @@ class MessageDelivered(Outbound):
         attrs['@stamp'] = self.stamp
         return {'duo_message_delivered': attrs}
 
-    def to_xml(self) -> str:
-        parts = [f'<duo_message_delivered id="{self.stanza_id}"']
-        if self.audio_uuid is not None:
-            parts.append(f' audio_uuid="{self.audio_uuid}"')
-        if self.mam_id is not None:
-            parts.append(f' mam_id="{self.mam_id}"')
-        parts.append(f' stamp="{self.stamp}"/>')
-        return ''.join(parts)
-
 
 @_register
 @dataclass(frozen=True)
@@ -324,9 +225,6 @@ class ServerError(Outbound):
     def canonical(self) -> dict:
         return {'duo_server_error': {'@id': self.stanza_id}}
 
-    def to_xml(self) -> str:
-        return f'<duo_server_error id="{self.stanza_id}"/>'
-
 
 @_register
 @dataclass(frozen=True)
@@ -334,12 +232,9 @@ class StreamClose(Outbound):
     def canonical(self) -> dict:
         return {'stream': None}
 
-    def to_xml(self) -> str:
-        return '</stream:stream>'
-
 
 # --------------------------------------------------------------------------- #
-# Structured stanzas (XML derived from the canonical dict via lxml)           #
+# Structured stanzas                                                          #
 # --------------------------------------------------------------------------- #
 
 @_register

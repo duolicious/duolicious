@@ -209,14 +209,6 @@ services:
       - "1025:1025"
       - "8025:8025"
 
-  chattest:
-    build:
-      context: .
-      dockerfile: chattest.Dockerfile
-
-    ports:
-      - "3000:3000"
-
   chatjsontest:
     build:
       context: .

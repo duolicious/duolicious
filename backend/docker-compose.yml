@@ -195,17 +195,6 @@ services:
       - "1025:1025"
       - "8025:8025"
 
-  chattest:
-    build:
-      context: .
-      dockerfile: chattest.Dockerfile
-
-    volumes:
-      - ./test/chattest/index.js:/usr/src/app/index.js
-
-    ports:
-      - "3000:3000"
-
   chatjsontest:
     build:
       context: .

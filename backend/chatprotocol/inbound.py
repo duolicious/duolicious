@@ -1,11 +1,10 @@
 """
 Inbound stanzas as frozen dataclasses, plus the parser that turns raw client
-text (XML or JSON) into them.
+JSON text into them.
 
-`parse_incoming(text, protocol)` normalizes the input into an `Element` and
-then `_interpret` classifies it into exactly one semantic dataclass (or
-`None`). Business logic dispatches on the dataclass type and never touches
-`lxml`/JSON again.
+`parse_incoming(text)` normalizes the input into an `Element` and then
+`_interpret` classifies it into exactly one semantic dataclass (or `None`).
+Business logic dispatches on the dataclass type and never touches JSON again.
 """
 from __future__ import annotations
 
@@ -32,7 +31,6 @@ from chatprotocol.element import (
     NS_SESSION,
     Element,
     element_from_json,
-    element_from_xml,
 )
 
 
@@ -355,11 +353,8 @@ def _interpret(el: Element) -> Inbound | None:
     return message_from_element(el)
 
 
-def parse_incoming(text: str, protocol: str) -> Inbound | None:
-    if protocol == 'json':
-        el = element_from_json(text)
-    else:
-        el = element_from_xml(text)
+def parse_incoming(text: str) -> Inbound | None:
+    el = element_from_json(text)
 
     if el is None:
         return None
