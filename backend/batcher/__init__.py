@@ -124,9 +124,11 @@ class Batcher(Generic[T]):
                 await self._process_batch(batch)
 
     def start(self) -> None:
-        # Create the queue here, on the running loop, so it binds to the loop
-        # that actually drains it (rather than whatever loop happened to exist
-        # at import time).
+        # Recreate the queue here, on the running loop, so it binds to the loop
+        # that actually drains it rather than whatever loop was current at import
+        # time. An `asyncio.Queue` raises if awaited from a different loop than
+        # the one it first bound to, so reusing the import-time queue breaks any
+        # start() on a fresh loop (e.g. every IsolatedAsyncioTestCase case).
         self._queue = asyncio.Queue()
         self._loop = asyncio.get_running_loop()
         self._task = self._loop.create_task(self._process_batches_forever())

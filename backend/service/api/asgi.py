@@ -6,12 +6,8 @@ which imports this `app`. `service.api:app` is the uvicorn entry point.
 """
 
 import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 
 import constants
-from batcher import start_all
-from database import db_pool_lifespan
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -26,20 +22,11 @@ from service.api.middleware import (
 from service.api.ratelimit import RateLimitExceeded
 from service.api.responses import make_response
 from service.api.routing import DuoRoute
+from service.lifespan import app_lifespan
 
 CORS_ORIGINS = os.environ.get('DUO_CORS_ORIGINS', '*')
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Open the DB pool (and its keepalive checker) for the app's lifetime, then
-    # start the registered batch consumers on the running loop.
-    async with db_pool_lifespan():
-        await start_all()
-        yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=app_lifespan)
 
 # Match paths exactly; a trailing slash is a different route, not a redirect.
 app.router.redirect_slashes = False

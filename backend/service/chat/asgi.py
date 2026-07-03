@@ -8,26 +8,11 @@ foot-gun. `service.chat.asgi:app` is the uvicorn entry point for the standalone
 chat service.
 """
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
-from batcher import start_all
-from database import db_pool_lifespan
 from fastapi import FastAPI
 
 from service.chat import process_websocket_messages
+from service.lifespan import app_lifespan
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Open the DB pool and run its keepalive checker for the app's lifetime, then
-    # start the batch consumers on the running loop (they can't be started at
-    # import time, before the loop exists).
-    async with db_pool_lifespan():
-        await start_all()
-        yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=app_lifespan)
 
 app.add_api_websocket_route("/", process_websocket_messages)

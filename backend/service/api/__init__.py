@@ -1,20 +1,23 @@
+import json
+import time
 from pathlib import Path
-from util.coerce import string
 from urllib.parse import parse_qsl
+
 from fastapi import Body, Depends, Path as FastApiPath, WebSocket
 from starlette.requests import Request
+
 import duotypes as t
-from antiabuse.lodgereport import skip_by_uuid
 import location
 import person
 import qanda
-from qanda import question
 import search
+from antiabuse.antispam.signupemail import normalize_email
+from antiabuse.lodgereport import skip_by_uuid
 from auth import apple_oauth
 from database import api_tx
+from qanda import question
 from service.api.asgi import app
 from service.api.auth import session
-from service.api.routing import rate_limit_exempt
 from service.api.ratelimit import (
     auth_rate_limit,
     client_ip,
@@ -29,10 +32,9 @@ from service.api.ratelimit import (
     verify_rate_limit,
     export_data_rate_limit,
 )
-import time
-from antiabuse.antispam.signupemail import normalize_email
-import json
+from service.api.routing import rate_limit_exempt
 from service.chat import process_websocket_messages
+from util.coerce import string
 
 _init_sql_file = (
     Path(__file__).parent.parent.parent / 'init-api.sql')
@@ -464,7 +466,7 @@ async def patch_profile_info(
     return await person.patch_profile_info(req, s)
 
 @app.get('/search-filters')
-async def get_search_filers(
+async def get_search_filters(
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_search_filters(s)

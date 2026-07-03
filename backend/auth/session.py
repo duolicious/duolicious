@@ -46,9 +46,10 @@ async def sign_out(session_token_hashes: Iterable[str]) -> None:
 
 async def enforce_session_limit(
     person_id: int | None,
-    current_session_token_hash: object,
+    current_session_token_hash: str,
 ) -> None:
-    """Async counterpart to `enforce_session_limit` for native routes."""
+    """Sign out the person's least-recently-active sessions beyond
+    `MAX_SIGNED_IN_SESSIONS`, always keeping the current one."""
     if person_id is None:
         return
 

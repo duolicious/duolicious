@@ -237,9 +237,9 @@ class Base64File(BaseModel):
 
         md5_hash = md5(base64_value)
 
-        # NOTE: the banned-photo check that used to live here now runs in the
-        # request handlers (person.patch_onboardee_info / patch_profile_info),
-        # since it needs the async DB and pydantic validators can't be async.
+        # The banned-photo check needs the async DB, which pydantic validators
+        # can't await, so every handler accepting a Base64File must run it
+        # itself (via person._reject_rude_or_banned).
 
         width, height = image.size
 
@@ -437,9 +437,8 @@ class PatchOnboardeeInfo(BaseModel):
             raise ValueError('Age must be 18 or up')
         return date_of_birth
 
-    # NOTE: name_must_not_be_rude moved to the request handler
-    # (person.patch_onboardee_info) — the rude-name check needs the async DB and
-    # pydantic validators can't be async.
+    # The rude-name check needs the async DB, so it runs in the handler
+    # (person.patch_onboardee_info), not here — see Base64File above.
 
     @model_validator(mode='after')
     def check_exactly_one(self) -> "PatchOnboardeeInfo":
@@ -565,9 +564,8 @@ class PatchProfileInfo(BaseModel):
 
         return values
 
-    # NOTE: name/occupation/education rude checks moved to the request handler
-    # (person.patch_profile_info) — they need the async DB (via
-    # is_allowed_club_name) and pydantic validators can't be async. The `about`
+    # The name/occupation/education rude checks need the async DB, so they run
+    # in the handler (person.patch_profile_info), not here. The `about`
     # rude/spam checks below stay: they're pure and don't touch the DB.
 
     @field_validator('about')

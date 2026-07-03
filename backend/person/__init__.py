@@ -1,7 +1,7 @@
 import os
 from database import Row, Tx, api_tx
 from database._row import row_int_or_none
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Optional, Tuple, Literal
 from util.coerce import string
 from urlslug import (
@@ -627,32 +627,36 @@ def _rejected(field: str, message: str, value: object) -> RequestValidationError
     )])
 
 
-async def _reject_rude_or_banned(field_name: str, req: object) -> None:
-    """Anti-abuse checks that need the async DB. They used to run inside the
-    (synchronous) pydantic validators for these fields; moved here so the DB can
-    be awaited (pydantic v2 validators can't be async). `check_exactly_one`
-    guarantees only the set field is inspected.
+# Rude-text checks that share the same shape (reject the field's value if the
+# checker flags it). `base64_file` inspects a hash and has its own message, so
+# it's handled separately in `_reject_rude_or_banned`.
+_RUDE_TEXT_CHECKS: dict[str, Callable[[str], Awaitable[bool]]] = {
+    'name': antiabuse.antirude.displayname.is_rude,
+    'occupation': antiabuse.antirude.occupation.is_rude,
+    'education': antiabuse.antirude.education.is_rude,
+}
 
-    A field can legitimately be set to null (e.g. clearing occupation), so each
-    check is skipped when its value is None — matching the `if value is None:
-    return value` guards the original validators had."""
-    if field_name == 'name':
-        name = getattr(req, 'name')
-        if name is not None and await antiabuse.antirude.displayname.is_rude(name):
-            raise _rejected('name', 'Too rude', name)
-    elif field_name == 'occupation':
-        occupation = getattr(req, 'occupation')
-        if occupation is not None and await antiabuse.antirude.occupation.is_rude(occupation):
-            raise _rejected('occupation', 'Too rude', occupation)
-    elif field_name == 'education':
-        education = getattr(req, 'education')
-        if education is not None and await antiabuse.antirude.education.is_rude(education):
-            raise _rejected('education', 'Too rude', education)
-    elif field_name == 'base64_file':
-        base64_file = getattr(req, 'base64_file', None)
-        if base64_file is not None and await antiabuse.bannedphoto.is_banned_photo(
-                base64_file.md5_hash):
-            raise _rejected('base64_file', 'That pic breaks the rules 🙈', base64_file.md5_hash)
+
+async def _reject_rude_or_banned(field_name: str, req: object) -> None:
+    """Anti-abuse checks that need the async DB, so they run here rather than in
+    the (synchronous) pydantic validators for these fields. Every handler
+    accepting one of these fields must call this.
+
+    A field can legitimately be set to null (e.g. clearing occupation), so the
+    check is skipped when its value is None."""
+    value = getattr(req, field_name, None)
+    if value is None:
+        return
+
+    if field_name == 'base64_file':
+        if await antiabuse.bannedphoto.is_banned_photo(value.md5_hash):
+            raise _rejected(
+                'base64_file', 'That pic breaks the rules 🙈', value.md5_hash)
+        return
+
+    checker = _RUDE_TEXT_CHECKS.get(field_name)
+    if checker is not None and await checker(value):
+        raise _rejected(field_name, 'Too rude', value)
 
 
 async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:
@@ -2165,6 +2169,8 @@ async def post_verification_selfie(
     req: t.PostVerificationSelfie,
     s: t.SessionInfo,
 ) -> object:
+    await _reject_rude_or_banned('base64_file', req)
+
     base64 = req.base64_file.base64
     image = req.base64_file.image
     top = req.base64_file.top
