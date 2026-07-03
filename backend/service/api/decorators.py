@@ -235,6 +235,10 @@ class Limiter:
                     raise RateLimitExceeded()
 
 
+# Rate-limit policies. Every limit string the app enforces is named here, so
+# they can be retuned in one place rather than hunting down literals in the
+# route handlers.
+
 default_limits = "60 per minute; 12 per second"
 
 # Per-IP cap shared by every unauthenticated auth endpoint
@@ -243,6 +247,22 @@ default_limits = "60 per minute; 12 per second"
 # against the same allowance — change this string to retune them all
 # at once.
 auth_rate_limit = "40 per day"
+
+# Shared OTP send cap (/request-otp, /resend-otp), keyed per-IP.
+otp_rate_limit = "3 per minute"
+
+# Per (search-type, club) cap on uncached /search queries.
+search_rate_limit = "15 per 2 minutes"
+
+# Cap on lodging a report via /skip (enforced only when a reason is given).
+report_rate_limit = "1 per 5 seconds; 20 per day"
+
+# Cap on /verify submissions, keyed per-IP and per-account.
+verify_rate_limit = "8 per day"
+
+# Cap on minting a data-export token (/export-data-token), per-IP and
+# per-account.
+export_data_rate_limit = "3 per day"
 
 limiter = Limiter(
     _get_remote_address,
@@ -636,8 +656,55 @@ def rate_limit(
     return dependency
 
 
+async def check_ip_and_account(
+    request: Request,
+    limit_value: LimitValue,
+    scope: ScopeArg = None,
+) -> None:
+    """Enforce `limit_value` twice for the current request: once keyed on the
+    client IP and once on the authenticated account, each honouring its own
+    mock-mode disable toggle. Called inline from handlers that rate-limit only
+    some requests (uncached searches, reports)."""
+    await limiter.check(
+        request, limit_value, scope=scope, exempt_when=disable_ip_rate_limit)
+    await limiter.check(
+        request, limit_value, scope=scope,
+        key_func=limiter_account, exempt_when=disable_account_rate_limit)
+
+
+def ip_rate_limit(
+    limit_value: LimitValue,
+    scope: ScopeArg = None,
+) -> Callable[[Request], Awaitable[None]]:
+    """Per-IP limit dependency with the standard mock-mode disable toggle, for
+    the unauthenticated auth endpoints."""
+    return rate_limit(limit_value, scope=scope, exempt_when=disable_ip_rate_limit)
+
+
+def account_rate_limit(
+    limit_value: LimitValue,
+    scope: ScopeArg = None,
+) -> Callable[[Request], Awaitable[None]]:
+    """Per-account limit dependency with the standard mock-mode disable
+    toggle."""
+    return rate_limit(
+        limit_value, scope=scope,
+        key_func=limiter_account, exempt_when=disable_account_rate_limit)
+
+
+def ip_and_account_rate_limit(
+    limit_value: LimitValue,
+    scope: ScopeArg = None,
+) -> Callable[[Request], Awaitable[None]]:
+    """`check_ip_and_account` as a route dependency, for endpoints that always
+    apply the IP+account pair (rather than conditionally, inline)."""
+    async def dependency(request: Request) -> None:
+        await check_ip_and_account(request, limit_value, scope)
+    return dependency
+
+
 shared_otp_limit_dependency = rate_limit(
-    "3 per minute",
+    otp_rate_limit,
     scope="otp",
     exempt_when=_is_private_ip,
 )

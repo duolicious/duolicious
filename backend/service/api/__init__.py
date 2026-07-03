@@ -21,12 +21,15 @@ from service.api.decorators import (
     default_rate_limit,
     default_limits,
     session,
-    rate_limit,
-    limiter,
     shared_otp_limit_dependency,
-    disable_ip_rate_limit,
-    disable_account_rate_limit,
-    limiter_account,
+    ip_rate_limit,
+    account_rate_limit,
+    ip_and_account_rate_limit,
+    check_ip_and_account,
+    search_rate_limit,
+    report_rate_limit,
+    verify_rate_limit,
+    export_data_rate_limit,
 )
 import time
 from antiabuse.antispam.signupemail import normalize_email
@@ -187,16 +190,9 @@ async def post_check_otp(
         expected_sign_in_status=False,
     )),
     _default_limited: None = Depends(default_rate_limit()),
-    _ip_limited: None = Depends(rate_limit(
+    _limited: None = Depends(ip_and_account_rate_limit(
         auth_rate_limit,
         scope='check_otp',
-        exempt_when=disable_ip_rate_limit,
-    )),
-    _account_limited: None = Depends(rate_limit(
-        auth_rate_limit,
-        scope='check_otp',
-        key_func=limiter_account,
-        exempt_when=disable_account_rate_limit,
     )),
 ) -> object:
     return await person.post_check_otp(req, s, client_ip(request))
@@ -206,10 +202,9 @@ async def post_sign_in_with_google(
     request: Request,
     req: t.PostSignInWithGoogle,
     _default_limited: None = Depends(default_rate_limit()),
-    _limited: None = Depends(rate_limit(
+    _limited: None = Depends(ip_rate_limit(
         auth_rate_limit,
         scope='social_sign_in',
-        exempt_when=disable_ip_rate_limit,
     )),
 ) -> object:
     return await person.post_sign_in_with_google(
@@ -223,10 +218,9 @@ async def post_sign_in_with_apple(
     request: Request,
     req: t.PostSignInWithApple,
     _default_limited: None = Depends(default_rate_limit()),
-    _limited: None = Depends(rate_limit(
+    _limited: None = Depends(ip_rate_limit(
         auth_rate_limit,
         scope='social_sign_in',
-        exempt_when=disable_ip_rate_limit,
     )),
 ) -> object:
     return await person.post_sign_in_with_apple(
@@ -248,10 +242,9 @@ async def post_sign_in_with_apple(
 async def post_auth_apple_callback(
     request: Request,
     _default_limited: None = Depends(default_rate_limit()),
-    _limited: None = Depends(rate_limit(
+    _limited: None = Depends(ip_rate_limit(
         auth_rate_limit,
         scope='apple_oauth_callback',
-        exempt_when=disable_ip_rate_limit,
     )),
 ) -> object:
     raw_body = await request.body()
@@ -295,11 +288,7 @@ async def patch_onboardee_info(
     req: t.PatchOnboardeeInfo,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
     _default_limited: None = Depends(default_rate_limit()),
-    _account_limited: None = Depends(rate_limit(
-        default_limits,
-        key_func=limiter_account,
-        exempt_when=disable_account_rate_limit,
-    )),
+    _account_limited: None = Depends(account_rate_limit(default_limits)),
 ) -> object:
     return await person.patch_onboardee_info(req, s)
 
@@ -371,23 +360,10 @@ async def get_search(
 
     search_type, _ = search.get_search_type(n, o)
 
-    limit = "15 per 2 minutes"
     scope = json.dumps([search_type, lowerClub])
 
     if search_type == 'uncached-search':
-        await limiter.check(
-            request,
-            limit,
-            scope=scope,
-            exempt_when=disable_ip_rate_limit,
-        )
-        await limiter.check(
-            request,
-            limit,
-            scope=scope,
-            key_func=limiter_account,
-            exempt_when=disable_account_rate_limit,
-        )
+        await check_ip_and_account(request, search_rate_limit, scope=scope)
 
     return await search.get_search(s=s, n=n, o=o, club=club)
 
@@ -432,21 +408,8 @@ async def post_skip_by_uuid(
     s: t.SessionInfo = Depends(session()),
     _default_limited: None = Depends(default_rate_limit()),
 ) -> object:
-    limit = "1 per 5 seconds; 20 per day"
-    scope = "report"
-
     if req.report_reason:
-        await limiter.check(
-            request,
-            limit,
-            scope=scope,
-            exempt_when=disable_ip_rate_limit)
-        await limiter.check(
-            request,
-            limit,
-            scope=scope,
-            key_func=limiter_account,
-            exempt_when=disable_account_rate_limit)
+        await check_ip_and_account(request, report_rate_limit, scope="report")
 
     await skip_by_uuid(
         subject_uuid=string(s.person_uuid, 'person_uuid'),
@@ -673,16 +636,9 @@ async def post_verification_selfie(
 async def post_verify(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _ip_limited: None = Depends(rate_limit(
-        "8 per day",
+    _limited: None = Depends(ip_and_account_rate_limit(
+        verify_rate_limit,
         scope="verify",
-        exempt_when=disable_ip_rate_limit,
-    )),
-    _account_limited: None = Depends(rate_limit(
-        "8 per day",
-        scope="verify",
-        key_func=limiter_account,
-        exempt_when=disable_account_rate_limit,
     )),
 ) -> object:
     await person.post_verify(s)
@@ -752,16 +708,9 @@ async def get_admin_delete_photo(
 async def get_export_data_token(
     request: Request,
     s: t.SessionInfo = Depends(session()),
-    _ip_limited: None = Depends(rate_limit(
-        "3 per day",
+    _limited: None = Depends(ip_and_account_rate_limit(
+        export_data_rate_limit,
         scope="export_data_token",
-        exempt_when=disable_ip_rate_limit,
-    )),
-    _account_limited: None = Depends(rate_limit(
-        "3 per day",
-        scope="export_data_token",
-        key_func=limiter_account,
-        exempt_when=disable_account_rate_limit,
     )),
 ) -> object:
     return await person.get_export_data_token(s=s)
