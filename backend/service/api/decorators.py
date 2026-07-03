@@ -23,6 +23,7 @@ import traceback
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
+from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -152,6 +153,8 @@ def _get_remote_address(request: Request) -> str:
 CORS_ORIGINS = os.environ.get('DUO_CORS_ORIGINS', '*')
 REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
 REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
+COMMIT_HASH = os.environ.get('DUO_COMMIT_HASH', 'unknown')
+WORKER_ID = str(os.getpid())
 
 
 # ---------------------------------------------------------------------------
@@ -268,20 +271,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
 
-app = FastAPI(lifespan=lifespan)
-
-# Disable Starlette's default 307 trailing-slash redirect (routes match their
-# exact path only).
-app.router.redirect_slashes = False
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS.split(','),
-    allow_methods=['*'],
-    allow_headers=['*'],
-)
-
-
 class RequestEntityTooLarge(Exception):
     """Raised while streaming a request body once it exceeds
     `MAX_CONTENT_LENGTH`. Rendered to a plain-text 413 by its handler."""
@@ -334,7 +323,33 @@ class MaxBodySizeMiddleware:
         await self.app(scope, counting_receive, send)
 
 
-app.add_middleware(MaxBodySizeMiddleware, max_size=constants.MAX_CONTENT_LENGTH)
+
+class WorkerHeadersMiddleware:
+    """Stamp every response with the serving worker's PID and the build's commit
+    hash, so clients can tell which of the `--workers` processes handled a
+    request and which build it's running.
+
+    A raw ASGI middleware (like `MaxBodySizeMiddleware`) rather than a
+    `BaseHTTPMiddleware`, so the headers land on every response -- including CORS
+    preflights and error responses from exception handlers -- and don't
+    interfere with streaming."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope['type'] != 'http':
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: Message) -> None:
+            if message['type'] == 'http.response.start':
+                headers = MutableHeaders(scope=message)
+                headers['X-Duolicious-Worker'] = WORKER_ID
+                headers['X-Duolicious-Commit'] = COMMIT_HASH
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 # ---------------------------------------------------------------------------
@@ -486,8 +501,6 @@ class DuoRoute(APIRoute):
         super().__init__(path, duo_route(endpoint), **kwargs)  # type: ignore[arg-type]
 
 
-# Every route registered via `@app.<method>` now goes through `DuoRoute`.
-app.router.route_class = DuoRoute
 
 
 class AuthError(Exception):
@@ -497,24 +510,6 @@ class AuthError(Exception):
     def __init__(self, message: str, status_code: int) -> None:
         self.message = message
         self.status_code = status_code
-
-
-@app.exception_handler(AuthError)
-async def _handle_auth_error(request: Request, exc: AuthError) -> Response:
-    return _make_response((exc.message, exc.status_code))
-
-
-@app.exception_handler(RequestEntityTooLarge)
-async def _handle_too_large(
-    request: Request, exc: Exception) -> Response:
-    return _make_response(('Request entity too large', 413))
-
-
-@app.exception_handler(RateLimitExceeded)
-async def _handle_rate_limit(request: Request, exc: RateLimitExceeded) -> Response:
-    # Only native routes reach here — the manual dispatch catches
-    # RateLimitExceeded itself and renders its own 429.
-    return _make_response(('Too Many Requests', 429))
 
 
 @overload
@@ -647,3 +642,41 @@ shared_otp_limit_dependency = rate_limit(
     exempt_when=_is_private_ip,
 )
 
+
+app = FastAPI(lifespan=lifespan)
+
+# Disable slashes
+app.router.redirect_slashes = False
+
+# Format responses
+app.router.route_class = DuoRoute
+
+# Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS.split(','),
+    allow_methods=['*'],
+    allow_headers=['*'],
+    expose_headers=['X-Duolicious-Worker', 'X-Duolicious-Commit'],
+)
+app.add_middleware(MaxBodySizeMiddleware, max_size=constants.MAX_CONTENT_LENGTH)
+app.add_middleware(WorkerHeadersMiddleware)
+
+
+# Exception handlers
+@app.exception_handler(AuthError)
+async def _handle_auth_error(request: Request, exc: AuthError) -> Response:
+    return _make_response((exc.message, exc.status_code))
+
+
+@app.exception_handler(RequestEntityTooLarge)
+async def _handle_too_large(
+    request: Request, exc: Exception) -> Response:
+    return _make_response(('Request entity too large', 413))
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _handle_rate_limit(request: Request, exc: RateLimitExceeded) -> Response:
+    # Only native routes reach here — the manual dispatch catches
+    # RateLimitExceeded itself and renders its own 429.
+    return _make_response(('Too Many Requests', 429))

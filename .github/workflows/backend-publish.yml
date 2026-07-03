@@ -31,7 +31,7 @@ jobs:
         run: echo "IMAGE_NAME=us-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/api/${BRANCH}" >> $GITHUB_ENV
 
       - name: Build Docker Image
-        run: docker build -t $IMAGE_NAME:$GITHUB_SHA -f api.Dockerfile .
+        run: docker build --build-arg DUO_COMMIT_HASH=$(git rev-parse --short HEAD) -t $IMAGE_NAME:$GITHUB_SHA -f api.Dockerfile .
 
       - name: Push Docker Image to Google Artifact Registry
         run: |
