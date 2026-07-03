@@ -738,13 +738,8 @@ async def process_text(
                         'personId': immediate_data['person_id'],
                         'personUuid': immediate_data['person_uuid'],
                         'name': immediate_data['name'],
-
                         'photoUuid': immediate_data['photo_uuid'],
                         'photoBlurhash': immediate_data['photo_blurhash'],
-
-                        # TODO: Deprecate these fields
-                        'imageUuid': immediate_data['photo_uuid'],
-                        'imageBlurhash': immediate_data['photo_blurhash'],
                     },
                 },
             )
