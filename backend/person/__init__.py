@@ -41,7 +41,6 @@ import antiabuse.antirude.occupation
 import antiabuse.antirude.education
 import antiabuse.bannedphoto
 from antiabuse.firehol import firehol
-from fastapi.exceptions import RequestValidationError
 import blurhash
 import numpy
 from async_lru_cache import AsyncLruCache
@@ -612,18 +611,6 @@ async def post_check_session_token(s: t.SessionInfo) -> object:
             **clubs,
         )
 
-def _rejected(field: str, message: str, value: object) -> RequestValidationError:
-    # Byte-for-byte the 422 pydantic produced when these checks lived in the
-    # models' `value_error` validators, so existing clients see no change.
-    return RequestValidationError([dict(
-        type='value_error',
-        loc=('body', field),
-        msg=f'Value error, {message}',
-        input=value,
-        ctx={'error': {}},
-    )])
-
-
 # Rude-text checks that share the same shape (reject the field's value if the
 # checker flags it). `base64_file` inspects a hash and has its own message, so
 # it's handled separately in `_reject_rude_or_banned`.
@@ -647,13 +634,13 @@ async def _reject_rude_or_banned(field_name: str, req: object) -> None:
 
     if field_name == 'base64_file':
         if await antiabuse.bannedphoto.is_banned_photo(value.md5_hash):
-            raise _rejected(
-                'base64_file', 'That pic breaks the rules 🙈', value.md5_hash)
+            raise t.FieldValidationError(
+                'base64_file', 'That pic breaks the rules 🙈')
         return
 
     checker = _RUDE_TEXT_CHECKS.get(field_name)
     if checker is not None and await checker(value):
-        raise _rejected(field_name, 'Too rude', value)
+        raise t.FieldValidationError(field_name, 'Too rude')
 
 
 async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> object:

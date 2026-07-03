@@ -131,6 +131,20 @@ MIN_PHOTO_POSITION = 1
 MAX_PHOTO_POSITION = 7
 
 
+class FieldValidationError(Exception):
+    """Reject a single request field from outside a pydantic validator.
+
+    Some checks (e.g. the async anti-abuse lookups in `person`) can't run inside
+    a synchronous pydantic validator, so they raise this instead. The API
+    renders it to the client exactly like a pydantic field-validation failure;
+    see `service/api/errors.py`."""
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(message)
+        self.field = field
+        self.message = message
+
+
 def validate_gif_dimensions(larger_dim: int, smaller_dim: int) -> None:
     if larger_dim > MAX_GIF_DIM:
         raise ValueError(

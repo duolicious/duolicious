@@ -8,12 +8,18 @@ which imports this `app`. `service.api:app` is the uvicorn entry point.
 import os
 
 import constants
+from duotypes import FieldValidationError
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
 from service.api.auth import AuthError
+from service.api.errors import (
+    render_field_validation_error,
+    render_validation_error,
+)
 from service.api.middleware import (
     MaxBodySizeMiddleware,
     RequestEntityTooLarge,
@@ -60,3 +66,9 @@ async def _handle_too_large(request: Request, exc: Exception) -> Response:
 @app.exception_handler(RateLimitExceeded)
 async def _handle_rate_limit(request: Request, exc: RateLimitExceeded) -> Response:
     return make_response(('Too Many Requests', 429))
+
+
+# Validation failures (pydantic's own, and the business-raised kind) are
+# rendered the way the pre-FastAPI app did; see `service.api.errors`.
+app.exception_handler(RequestValidationError)(render_validation_error)
+app.exception_handler(FieldValidationError)(render_field_validation_error)
