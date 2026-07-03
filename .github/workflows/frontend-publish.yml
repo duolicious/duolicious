@@ -64,7 +64,7 @@ jobs:
         env:
           NODE_OPTIONS: --openssl-legacy-provider
           DUO_API_URL: https://api.duolicious.app
-          DUO_CHAT_URL: wss://chat.duolicious.app
+          DUO_CHAT_URL: wss://api.duolicious.app/chat
           DUO_IMAGES_URL: https://user-images.duolicious.app
           DUO_AUDIO_URL: https://user-audio.duolicious.app
           DUO_STATUS_URL: https://status.duolicious.app

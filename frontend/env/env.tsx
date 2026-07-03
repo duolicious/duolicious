@@ -9,7 +9,7 @@ export const API_URL = Constants.expoConfig?.extra?.apiUrl
   ?? 'http://localhost:5000';
 
 export const CHAT_URL = Constants.expoConfig?.extra?.chatUrl
-  ?? 'ws://localhost:5443';
+  ?? 'ws://localhost:5000/chat';
 
 export const IMAGES_URL = Constants.expoConfig?.extra?.imagesUrl
   ?? 'http://localhost:9090/s3-mock-bucket';

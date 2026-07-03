@@ -68,7 +68,7 @@ Runtime configuration is provided to the app through Expo `extra` values (see `a
 ```bash
 export DUO_STATUS_URL=https://status.duolicious.app
 export DUO_API_URL=https://api.duolicious.app
-export DUO_CHAT_URL=wss://chat.duolicious.app
+export DUO_CHAT_URL=wss://api.duolicious.app/chat
 export DUO_IMAGES_URL=https://user-images.duolicious.app
 export DUO_AUDIO_URL=https://user-audio.duolicious.app
 export DUO_PARTNER_URL=${DUO_PARTNER_URL:-https://partner.duolicious.app}
@@ -78,7 +78,7 @@ export DUO_PARTNER_URL=${DUO_PARTNER_URL:-https://partner.duolicious.app}
 ```bash
 export DUO_STATUS_URL=http://localhost:8080
 export DUO_API_URL=http://localhost:5000
-export DUO_CHAT_URL=ws://localhost:5443
+export DUO_CHAT_URL=ws://localhost:5000/chat
 export DUO_IMAGES_URL=http://localhost:9090/s3-mock-bucket
 export DUO_AUDIO_URL=http://localhost:9090/s3-mock-audio-bucket
 export DUO_PARTNER_URL=${DUO_PARTNER_URL:-https://partner.duolicious.app}

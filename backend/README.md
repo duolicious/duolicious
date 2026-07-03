@@ -35,7 +35,6 @@ Run an entire test suite (e.g. all tests in functionality1):
 ## Common local URLs
 
 - API: [http://localhost:5000/health](http://localhost:5000/health)
-- Chat (WebSocket): `ws://localhost:5443`
 - Mock S3 UI/endpoint: [http://localhost:9090](http://localhost:9090)
 - MailHog (test email UI): [http://localhost:8025](http://localhost:8025)
 - Postgres (host port): `localhost:5432`
