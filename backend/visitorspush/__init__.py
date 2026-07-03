@@ -34,22 +34,22 @@ async def publish_visit(
 
     try:
         async with api_tx('READ COMMITTED') as tx:
-            viewer_row_tx = await tx.execute(Q_VISITOR_ITEM, dict(
+            await tx.execute(Q_VISITOR_ITEM, dict(
                 person_id=viewer_id,
                 subject_person_id=viewer_id,
                 object_person_id=prospect_id,
             ))
-            viewer_row = await viewer_row_tx.fetchone()
+            viewer_row = await tx.fetchone()
             viewer_item = viewer_row.get('j') if viewer_row else None
 
             owner_item = None
             if prospect_online:
-                owner_row_tx = await tx.execute(Q_VISITOR_ITEM, dict(
+                await tx.execute(Q_VISITOR_ITEM, dict(
                     person_id=prospect_id,
                     subject_person_id=viewer_id,
                     object_person_id=prospect_id,
                 ))
-                owner_row = await owner_row_tx.fetchone()
+                owner_row = await tx.fetchone()
                 owner_item = owner_row.get('j') if owner_row else None
 
         if viewer_item:

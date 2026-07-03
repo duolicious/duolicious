@@ -254,7 +254,6 @@ async def post_auth_apple_callback(
 
 @app.post('/sign-out')
 async def post_sign_out(
-    request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
 ) -> object:
     await person.post_sign_out(s)
@@ -262,7 +261,6 @@ async def post_sign_out(
 
 @app.post('/check-session-token')
 async def post_check_session_token(
-    request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=None)),
 ) -> object:
     return await person.post_check_session_token(s)
@@ -279,7 +277,6 @@ async def get_search_locations(
 
 @app.patch('/onboardee-info')
 async def patch_onboardee_info(
-    request: Request,
     req: t.PatchOnboardeeInfo,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
     _account_limited: None = Depends(account_rate_limit(default_limits)),
@@ -288,7 +285,6 @@ async def patch_onboardee_info(
 
 @app.post('/finish-onboarding')
 async def post_finish_onboarding(
-    request: Request,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
 ) -> object:
     return await person.post_finish_onboarding(s)
@@ -313,7 +309,6 @@ async def get_public_next_questions(request: Request) -> object:
 
 @app.post('/answer')
 async def post_answer(
-    request: Request,
     req: t.PostAnswer,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -321,7 +316,6 @@ async def post_answer(
 
 @app.delete('/answer')
 async def delete_answer(
-    request: Request,
     req: t.DeleteAnswer,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -363,12 +357,11 @@ async def get_public_search(request: Request) -> object:
 
 @app.get('/health')
 @rate_limit_exempt
-async def get_health(request: Request) -> object:
+async def get_health() -> object:
     return 'status: ok'
 
 @app.get('/prospect-profile/{prospect_handle}')
 async def get_prospect_profile(
-    request: Request,
     prospect_handle: str,
     s: t.SessionInfo | None = Depends(session(optional=True)),
 ) -> object:
@@ -376,7 +369,6 @@ async def get_prospect_profile(
 
 @app.get('/conversation-prospect/{prospect_uuid}')
 async def get_conversation_prospect(
-    request: Request,
     prospect_uuid: str,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -401,7 +393,6 @@ async def post_skip_by_uuid(
 
 @app.post('/unskip/by-uuid/{prospect_uuid}')
 async def post_unskip_by_uuid(
-    request: Request,
     prospect_uuid: str,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -410,7 +401,6 @@ async def post_unskip_by_uuid(
 
 @app.get('/compare-personalities/{prospect_person_id:int}/{topic}')
 async def get_compare_personalities(
-    request: Request,
     prospect_person_id: int,
     topic: str = FastApiPath(pattern='^(mbti|big5|attachment|politics|other)$'),
     s: t.SessionInfo = Depends(session()),
@@ -434,7 +424,6 @@ async def get_compare_answers(
 
 @app.post('/inbox-info')
 async def post_inbox_info(
-    request: Request,
     req: t.PostInboxInfo,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -442,14 +431,12 @@ async def post_inbox_info(
 
 @app.delete('/account')
 async def delete_account(
-    request: Request,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.delete_or_ban_account(s=s)
 
 @app.post('/deactivate')
 async def post_deactivate(
-    request: Request,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     await person.post_deactivate(s=s)
@@ -457,14 +444,12 @@ async def post_deactivate(
 
 @app.get('/profile-info')
 async def get_profile_info(
-    request: Request,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_profile_info(s)
 
 @app.delete('/profile-info')
 async def delete_profile_info(
-    request: Request,
     req: t.DeleteProfileInfo,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -473,7 +458,6 @@ async def delete_profile_info(
 
 @app.patch('/profile-info')
 async def patch_profile_info(
-    request: Request,
     req: t.PatchProfileInfo,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -481,14 +465,12 @@ async def patch_profile_info(
 
 @app.get('/search-filters')
 async def get_search_filers(
-    request: Request,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_search_filters(s)
 
 @app.post('/search-filter')
 async def post_search_filter(
-    request: Request,
     req: t.PostSearchFilter,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -508,7 +490,6 @@ async def get_search_filter_questions(
 
 @app.post('/search-filter-answer')
 async def post_search_filter_answer(
-    request: Request,
     req: t.PostSearchFilterAnswer,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -533,7 +514,7 @@ async def get_search_public_clubs(request: Request) -> object:
     )
 
 @app.get('/club/{name:path}')
-async def get_club(request: Request, name: str) -> object:
+async def get_club(name: str) -> object:
     result = await person.get_club(
         name=name,
         ttl_hash=get_ttl_hash(seconds=300))
@@ -543,7 +524,6 @@ async def get_club(request: Request, name: str) -> object:
 
 @app.post('/join-club')
 async def post_join_club(
-    request: Request,
     req: t.PostJoinClub,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -551,7 +531,6 @@ async def post_join_club(
 
 @app.post('/leave-club')
 async def post_leave_club(
-    request: Request,
     req: t.PostLeaveClub,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -579,7 +558,6 @@ async def get_feed(
 
 @app.post('/verification-selfie')
 async def post_verification_selfie(
-    request: Request,
     req: t.PostVerificationSelfie,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
@@ -587,7 +565,6 @@ async def post_verification_selfie(
 
 @app.post('/verify')
 async def post_verify(
-    request: Request,
     s: t.SessionInfo = Depends(session()),
     _limited: None = Depends(ip_and_account_rate_limit(
         verify_rate_limit,
@@ -615,35 +592,30 @@ async def get_gender_stats(request: Request) -> object:
 
 @app.get('/admin/ban-link/{token}')
 async def get_admin_ban_link(
-    request: Request,
     token: str,
 ) -> object:
     return await person.get_admin_ban_link(token)
 
 @app.get('/admin/ban/{token}')
 async def get_admin_ban(
-    request: Request,
     token: str,
 ) -> object:
     return await person.get_admin_ban(token)
 
 @app.get('/admin/delete-photo-link/{token}')
 async def get_admin_delete_photo_link(
-    request: Request,
     token: str,
 ) -> object:
     return await person.get_admin_delete_photo_link(token)
 
 @app.get('/admin/delete-photo/{token}')
 async def get_admin_delete_photo(
-    request: Request,
     token: str,
 ) -> object:
     return await person.get_admin_delete_photo(token)
 
 @app.get('/export-data-token')
 async def get_export_data_token(
-    request: Request,
     s: t.SessionInfo = Depends(session()),
     _limited: None = Depends(ip_and_account_rate_limit(
         export_data_rate_limit,
@@ -653,7 +625,7 @@ async def get_export_data_token(
     return await person.get_export_data_token(s=s)
 
 @app.get('/export-data/{token}')
-async def get_export_data(request: Request, token: str) -> object:
+async def get_export_data(token: str) -> object:
     return await person.get_export_data(token=token)
 
 @app.post('/revenuecat')

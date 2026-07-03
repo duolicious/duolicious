@@ -5,6 +5,9 @@ cd "$script_dir"
 
 set -e
 
+# Cap on WebSocket frames for the /chat endpoint; keep in sync with chat.main.sh.
+WS_MAX_SIZE=10485760  # 10 MB
+
 export PYTHONUNBUFFERED=true
 export PYTHONDONTWRITEBYTECODE=true
 export PYTHONPATH=.
@@ -32,6 +35,7 @@ then
   exec uvicorn \
     --host 0.0.0.0 \
     --port "$PORT" \
+    --ws-max-size "${WS_MAX_SIZE}" \
     --workers "${DUO_WORKERS:-4}" \
     --proxy-headers \
     --forwarded-allow-ips '*' \
@@ -42,6 +46,7 @@ then
   exec uvicorn \
     --host 0.0.0.0 \
     --port "$PORT" \
+    --ws-max-size "${WS_MAX_SIZE}" \
     --proxy-headers \
     --forwarded-allow-ips '*' \
     --reload \

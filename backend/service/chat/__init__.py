@@ -1,14 +1,10 @@
 import os
 from database import (
     api_tx,
-    db_pool_lifespan,
     row_str,
     row_str_or_none,
 )
 import asyncio
-from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
-from batcher import start_all
 import duohash
 import regex
 import traceback
@@ -105,8 +101,7 @@ from service.chat.audiomessage import (
     transcode_and_put,
 )
 import redis.asyncio as redis
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import WebSocket, WebSocketDisconnect
 import json
 from constants import (
     MAX_NOTIFICATION_LENGTH,
@@ -115,18 +110,6 @@ from util import truncate_text
 from service.chat.verification import (
     verification_required,
 )
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Open the DB pool and run its keepalive checker for the app's lifetime, then
-    # start the batch consumers on the running loop (they can't be started at
-    # import time, before the loop exists).
-    async with db_pool_lifespan():
-        await start_all()
-        yield
-
-
-app = FastAPI(lifespan=lifespan)
 
 # Global publisher connection, created once per worker.
 REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
@@ -796,7 +779,6 @@ async def process_text(
     return None
 
 
-@app.websocket("/")
 async def process_websocket_messages(websocket: WebSocket) -> None:
     subprotocol_header = websocket.headers.get('sec-websocket-protocol')
 

@@ -4,12 +4,14 @@ Handlers return plain values -- dict/list (-> JSON), str (-> text/html), bytes
 (-> octet-stream), None (-> empty body), a `(body, status)` tuple, or a ready
 `Response` (e.g. a redirect or file download). JSON is serialised the way
 Flask's default provider did (Decimal/UUID -> str, dates -> HTTP-date, sorted
-keys, trailing newline) so responses stay byte-comparable for clients, and
-pretty-printed (indent=2, matching `jq`) so the functionality test suite can
-diff against it. This is identical in dev and prod.
+keys, trailing newline), including its dev/prod split: pretty-printed
+(indent=2, matching `jq`) outside prod so the functionality test suite can diff
+against it, and compact in prod so responses don't pay for indentation
+whitespace on the wire.
 """
 
 import json
+import os
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -19,6 +21,10 @@ from uuid import UUID
 from starlette.responses import Response
 
 _HTML_MIME = 'text/html; charset=utf-8'
+
+# Prod serves compact JSON; everywhere else pretty-prints so `jq`-based
+# functionality tests can diff against it (matching Flask's debug-gated split).
+_PRETTY = os.environ.get('DUO_ENV') != 'prod'
 
 
 def _flask_json_default(o: object) -> object:
@@ -45,7 +51,8 @@ def _json_dumps(obj: object) -> str:
         default=_flask_json_default,
         sort_keys=True,
         ensure_ascii=True,
-        indent=2,
+        indent=2 if _PRETTY else None,
+        separators=None if _PRETTY else (',', ':'),
     )
     return body + '\n'
 
@@ -53,6 +60,9 @@ def _json_dumps(obj: object) -> str:
 def make_response(result: object) -> Response:
     status = 200
 
+    # The `(body, status)` convention. `status` must be an int; a 2-tuple whose
+    # second element isn't one is unpacked as the body only (status stays 200),
+    # so don't return a 2-element tuple as JSON data -- wrap it in a list.
     if isinstance(result, tuple) and len(result) == 2:
         body, code = result
         result = body

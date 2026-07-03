@@ -35,7 +35,7 @@ then
     --port "$PORT" \
     --ws-max-size "${WS_MAX_SIZE}" \
     --workers "${DUO_WORKERS:-4}" \
-    service.chat:app
+    service.chat.asgi:app
 elif [ "$DUO_ENV" = "dev" ]
 then
   exec uvicorn \
@@ -44,7 +44,7 @@ then
     --ws-max-size "${WS_MAX_SIZE}" \
     --reload \
     --reload-exclude 'venv/*' \
-    service.chat:app
+    service.chat.asgi:app
 else
   echo "The environment variable DUO_ENV must be set and have the value 'dev' or 'prod'"
 fi

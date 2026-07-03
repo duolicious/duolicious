@@ -36,8 +36,8 @@ async def _quiz_search_results(
         searcher_person_id=searcher_person_id,
     )
 
-    row_tx = await tx.execute(Q_QUIZ_SEARCH, params)
-    return await row_tx.fetchall()
+    await tx.execute(Q_QUIZ_SEARCH, params)
+    return await tx.fetchall()
 
 
 async def _uncached_search_results(
@@ -58,9 +58,10 @@ async def _uncached_search_results(
     try:
         await tx.execute(Q_UNCACHED_SEARCH_1, params)
         await tx.execute(Q_UNCACHED_SEARCH_2, params)
-        row_tx = await tx.execute(Q_CACHED_SEARCH, params)
-        return await row_tx.fetchall()
+        await tx.execute(Q_CACHED_SEARCH, params)
+        return await tx.fetchall()
     except psycopg.errors.QueryCanceled:
+        # The query probably timed-out because it was too specific
         return []
 
 
@@ -77,8 +78,8 @@ async def _cached_search_results(
         o=o,
     )
 
-    row_tx = await tx.execute(Q_CACHED_SEARCH, params)
-    return await row_tx.fetchall()
+    await tx.execute(Q_CACHED_SEARCH, params)
+    return await tx.fetchall()
 
 
 SearchType = Literal['quiz-search', 'uncached-search', 'cached-search']
@@ -126,8 +127,8 @@ async def get_search(
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
-        row_tx = await tx.execute(Q_SEARCH_PREFERENCE, params)
-        rows = await row_tx.fetchall()
+        await tx.execute(Q_SEARCH_PREFERENCE, params)
+        rows = await tx.fetchall()
 
         gender_preference = [row_int(row, 'gender_id') for row in rows]
 
@@ -156,6 +157,9 @@ async def get_search(
         else:
             raise Exception('Unexpected quiz type')
 
+    # Q_SEARCH_PREFERENCE clears `pending_club_name` for this person, so drop the
+    # now-stale cached session (see the sessioncache correctness model). Skip the
+    # call when there was nothing pending to clear.
     if s.pending_club_name is not None:
         await sessioncache.delete_session(s.session_token_hash)
 
@@ -193,12 +197,13 @@ async def get_public_search(
 
 async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
     async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(
+            Q_QUESTION_SCORE_VECTORS,
+            dict(question_ids=[a.question_id for a in req.answers]),
+        )
         questions = {
             row_int(q, 'id'): q
-            for q in await (await tx.execute(
-                Q_QUESTION_SCORE_VECTORS,
-                dict(question_ids=[a.question_id for a in req.answers]),
-            )).fetchall()
+            for q in await tx.fetchall()
         }
 
         presence, absence, count = personality.accumulate(
@@ -210,18 +215,19 @@ async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
         searcher_personality = personality.to_pgvector(
             personality.personality_vector(presence, absence, count))
 
-        return await (await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
+        await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
             searcher_personality=searcher_personality,
             n=req.n,
             o=req.o,
-        ))).fetchall()
+        ))
+        return await tx.fetchall()
 
 
 @redis_cache(ttl=60)
 async def _get_public_search() -> Sequence[object]:
     async with api_tx('READ COMMITTED') as tx:
-        row_tx = await tx.execute(Q_PUBLIC_SEARCH)
-        return await row_tx.fetchall()
+        await tx.execute(Q_PUBLIC_SEARCH)
+        return await tx.fetchall()
 
 
 async def get_feed(s: t.SessionInfo, before: datetime) -> object:
@@ -234,7 +240,7 @@ async def get_feed(s: t.SessionInfo, before: datetime) -> object:
         await tx.execute('SET LOCAL jit = off')
         await tx.execute("SET LOCAL work_mem = '32MB'")
 
-        row_tx = await tx.execute(Q_FEED, params)
-        rows = await row_tx.fetchall()
+        await tx.execute(Q_FEED, params)
+        rows = await tx.fetchall()
 
     return [row['j'] for row in rows]

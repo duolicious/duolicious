@@ -8,9 +8,9 @@ that convention -- and the global default rate limit -- for free.
 
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import ParamSpec, cast
+from typing import ParamSpec
 
-from fastapi import Depends
+from fastapi import Depends, params
 from fastapi.routing import APIRoute
 from functools import wraps
 from starlette.responses import Response
@@ -60,11 +60,14 @@ class DuoRoute(APIRoute):
         self,
         path: str,
         endpoint: Callable[_P, object],
+        dependencies: list[params.Depends] | None = None,
         **kwargs: object,
     ) -> None:
+        dependencies = list(dependencies or [])
         if not getattr(endpoint, '_rate_limit_exempt', False):
-            dependencies = list(cast(
-                'list[object]', kwargs.get('dependencies') or []))
             dependencies.append(Depends(default_rate_limit()))
-            kwargs['dependencies'] = dependencies
-        super().__init__(path, duo_route(endpoint), **kwargs)  # type: ignore[arg-type]
+        # `**kwargs: object` forwarded into APIRoute's precisely-typed __init__;
+        # the alternative to this one ignore is spelling out all ~25 params.
+        super().__init__(
+            path, duo_route(endpoint),
+            dependencies=dependencies, **kwargs)  # type: ignore[arg-type]

@@ -99,7 +99,13 @@ async def _mint(
     email: str,
     person_id: int | None = None,
 ) -> dict[str, object]:
-    """Async counterpart to `_mint` for native FastAPI routes."""
+    """Claim the first free candidate for `base` via `write_q`, skipping slugs
+    already held by another person or reserved by another onboardee (the
+    caller's own rows, identified by `person_id`/`email`, don't count). The
+    pre-check avoids the obvious collisions; the write's unique index is the
+    final arbiter for races it misses, with each attempt in a savepoint so a
+    rejection doesn't abort the caller's transaction. Returns
+    {'url_slug', 'is_random'}."""
     for slug, is_random in _candidates(base):
         row = await tx.require_one(
             Q_SLUG_TAKEN,
@@ -122,7 +128,10 @@ async def reserve_onboardee_url_slug(
     email: str,
     name: str,
 ) -> dict[str, object]:
-    """Async counterpart to `reserve_onboardee_url_slug`."""
+    """Reserve onboardee.url_slug for `name` and return {'url_slug', 'is_random'}.
+    Persisting the reservation is what lets finish-onboarding mint exactly this
+    slug and makes concurrent sign-ups treat it as taken. Re-runnable as the
+    onboardee edits their name; the latest reservation wins."""
     return await _mint(
         tx,
         slug_base(name),
@@ -134,11 +143,11 @@ async def assign_url_slug(
     tx: Tx,
     person_id: int,
 ) -> dict[str, object]:
-    """Async counterpart to `assign_url_slug`."""
-    person = await (await tx.execute(
-        Q_SELECT_PERSON,
-        dict(person_id=person_id),
-    )).fetchone()
+    """Assigns person.url_slug from the person's display name, skipping slugs
+    held by another person or reserved by an onboardee. Returns
+    {'url_slug', 'is_random'}."""
+    await tx.execute(Q_SELECT_PERSON, dict(person_id=person_id))
+    person = await tx.fetchone()
     if person is None:
         raise RuntimeError(f'person {person_id} not found')
 
