@@ -14,6 +14,10 @@ import {
 } from '../websocket-layer';
 import { notifyOwnLastMessageAt } from './hooks/read-receipt';
 import { ingestMamReaction } from './hooks/reaction';
+import {
+  awaitFocusedConversationFetch,
+  markConversationFetchDispatched,
+} from '../conversation-priority';
 
 const AUDIO_MESSAGE = 'Audio message';
 
@@ -201,12 +205,18 @@ const inboxStats = (inbox: Inbox): {
   };
 };
 
-const emptyInbox = (): Inbox => ({
-  chats:   { conversations: [], conversationsMap: {} },
-  intros:  { conversations: [], conversationsMap: {} },
-  archive: { conversations: [], conversationsMap: {} },
-  endTimestamp: null
-});
+// A deep clone of the current inbox, ready for in-place mutation - or `null`
+// when the inbox hasn't loaded yet. Incremental updates (a sent/received
+// message, a read receipt, an archive) must go through this so they never
+// fabricate an inbox while it's still loading: a `null` inbox is what tells the
+// UI to show its loading spinner, and manufacturing an empty one instead flips
+// it to the "no conversations" empty state for the rest of the load. There's
+// nothing to preserve anyway - `refreshInbox` replaces the whole inbox with the
+// authoritative server snapshot moments later.
+const cloneInboxForUpdate = (): Inbox | null => {
+  const inbox = getInbox();
+  return inbox === null ? null : _.cloneDeep(inbox);
+};
 
 const conversationListToMap = (
   conversationList: Conversation[]
@@ -251,7 +261,8 @@ const personUuidToJid = (personUuid: string): string =>
   `${personUuid}@duolicious.app`;
 
 const setInboxSent = (recipientPersonUuid: string, message: string) => {
-  const i = _.cloneDeep(getInbox() ?? emptyInbox());
+  const i = cloneInboxForUpdate();
+  if (!i) return;
 
   const chatsConversation =
     i.chats.conversationsMap[recipientPersonUuid] as Conversation | undefined;
@@ -304,7 +315,8 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
 // when a message arrives) into the inbox. The server's copy is authoritative,
 // so there's nothing left to fetch, even when the sender is a new person.
 const setInboxRecieved = (conversation: Conversation) => {
-  const inbox = _.cloneDeep(getInbox() ?? emptyInbox());
+  const inbox = cloneInboxForUpdate();
+  if (!inbox) return;
 
   const conversations = [
     ...inbox.chats.conversations,
@@ -334,11 +346,8 @@ const onReceiveInboxEntry = (doc: any) => { // eslint-disable-line @typescript-e
 };
 
 const setInboxDisplayed = (fromPersonUuid: string) => {
-  const inbox = _.cloneDeep(getInbox() ?? emptyInbox());
-
-  if (!inbox) {
-    return;
-  }
+  const inbox = cloneInboxForUpdate();
+  if (!inbox) return;
 
   const chatsConversation =
     inbox.chats.conversationsMap[fromPersonUuid] as Conversation | undefined;
@@ -695,11 +704,8 @@ const conversationsToInbox = (conversations: Conversation[]): Inbox => {
 };
 
 const setConversationArchived = (personUuid: string, isSkipped: boolean) => {
-  const inbox = _.cloneDeep(getInbox() ?? emptyInbox());
-
-  if (!inbox) {
-    return inbox;
-  }
+  const inbox = cloneInboxForUpdate();
+  if (!inbox) return;
 
   const conversationToUpdate = (
     inbox.chats .conversationsMap[personUuid] ??
@@ -942,6 +948,12 @@ const fetchConversation = async (
     return _.isEqual(doc, expectedDoc);
   };
 
+  // Release any snapshot queries held back in this conversation's favour (see
+  // `frontend/chat/conversation-priority`). Kept in the same synchronous block
+  // as the `send` below - the released waiters only resume as microtasks, so
+  // this query is guaranteed onto the wire before theirs.
+  markConversationFetchDispatched(withPersonUuid);
+
   const response = await send({
     data,
     responseDetector,
@@ -969,6 +981,11 @@ const fetchConversation = async (
 };
 
 const refreshInbox = async (): Promise<void> => {
+  // An open conversation's history loads first (see
+  // `frontend/chat/conversation-priority`); resolves immediately outside of
+  // connect time.
+  await awaitFocusedConversationFetch();
+
   const data = { duo_query_inbox: null };
 
   const responseDetector = (doc: any): Conversation[] | null => { // eslint-disable-line @typescript-eslint/no-explicit-any

@@ -52,6 +52,27 @@ const unlisten = (key: string, listener: Listener) => {
   listeners[key].listeners.delete(listener);
 };
 
+// Resolves with the next value published for `key`, or `undefined` if
+// `timeoutMs` elapses first. A one-shot `listen` for code that needs to await
+// a single event rather than subscribe to a stream of them.
+const nextEvent = <T = any>(
+  key: string,
+  timeoutMs: number,
+): Promise<T | undefined> =>
+  new Promise((resolve) => {
+    let unlistener = () => {};
+
+    const done = (value?: T) => {
+      clearTimeout(timer);
+      unlistener();
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => done(undefined), Math.max(0, timeoutMs));
+
+    unlistener = listen<T>(key, (value) => done(value));
+  });
+
 const notify = <T = any>(key: string, data?: T) => {
   // Ensure `listeners[key]` is set
   listeners[key] = listeners[key] ?? {
@@ -67,8 +88,9 @@ const notify = <T = any>(key: string, data?: T) => {
 };
 
 export {
+  lastEvent,
   listen,
+  nextEvent,
   notify,
   unlisten,
-  lastEvent,
 };

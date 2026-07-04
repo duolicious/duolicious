@@ -10,6 +10,7 @@ import {
   send,
   EV_CHAT_WS_RECEIVE,
 } from '../../websocket-layer';
+import { awaitFocusedConversationFetch } from '../../conversation-priority';
 
 // Event keys
 const EVENT_NUM_VISITORS = 'num-visitors';
@@ -305,7 +306,12 @@ const markVisitorChecked = (personUuid: string) => {
   setVisitorDataItem(key, updated, false);
 };
 
-const requestVisitorsSnapshot = () => {
+const requestVisitorsSnapshot = async () => {
+  // An open conversation's history loads first (see
+  // `frontend/chat/conversation-priority`); resolves immediately outside of
+  // connect time.
+  await awaitFocusedConversationFetch();
+
   send({ data: { duo_query_visitors: null } });
 };
 

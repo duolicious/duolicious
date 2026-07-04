@@ -49,7 +49,7 @@ import { verificationWatcher } from './verification/verification';
 import { ClubItem } from './club/club';
 import { Toast } from './components/toast';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { createLinking, isBannerRoute, focusedProspectHandle, focusedRouteIsWizard, getTopRouteName } from './navigation/linking';
+import { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsWizard, getTopRouteName } from './navigation/linking';
 import { useScrollbarStyle } from './components/navigation/scroll-bar-hooks';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -57,6 +57,7 @@ import { ErrorBoundary } from './components/error-boundary';
 import { TooltipListener } from './components/tooltip';
 import { VerificationCameraModal } from './components/verification-camera';
 import { notify } from './events/events';
+import { setActiveConversation } from './chat/conversation-priority';
 import { PointOfSaleModal } from './components/modal/point-of-sale-modal';
 import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-confirmation-modal';
 import { SignUpModal, showSignUp } from './components/modal/sign-up-modal';
@@ -159,6 +160,12 @@ const App = () => {
       if (result.postLoginRedirectState) {
         pendingPostLoginStateRef.current = result.postLoginRedirectState;
       }
+      // Report the focused conversation as soon as the startup route is known -
+      // before the navigation container mounts - so the chat layer can order an
+      // open conversation's history ahead of the inbox without waiting on
+      // `onReady`, and doesn't stall the inbox query when no conversation is
+      // open. See `frontend/chat/conversation-priority`.
+      setActiveConversation(focusedConversationHandle(result.initialState) ?? null);
       setInitialState(result.initialState);
     };
 
@@ -267,10 +274,19 @@ const App = () => {
     setBannerProspectHandle(focusedProspectHandle(rootState));
   }, []);
 
+  // Tell the chat layer which conversation (if any) is on screen, so on connect
+  // it can load an open conversation's history before the inbox snapshot. See
+  // `frontend/chat/conversation-priority`.
+  const publishActiveConversation = useCallback((state?: NavigationState) => {
+    const rootState = state ?? navigationContainerRef.current?.getRootState?.();
+    setActiveConversation(focusedConversationHandle(rootState) ?? null);
+  }, []);
+
   const onNavigationReady = useCallback(() => {
     applyPostSignInRedirect();
     recomputeBannerVisible();
-  }, [applyPostSignInRedirect, recomputeBannerVisible]);
+    publishActiveConversation();
+  }, [applyPostSignInRedirect, recomputeBannerVisible, publishActiveConversation]);
 
   useEffect(() => {
     // On sign-out drop any remaining pending state so a stale entry from
@@ -372,6 +388,7 @@ const App = () => {
     if (!state) return;
 
     recomputeBannerVisible(state);
+    publishActiveConversation(state);
 
     // URL-bar sync is left entirely to React Navigation's linking integration.
     // Doing a `window.history.replaceState` here in addition to RN's own
@@ -421,7 +438,7 @@ const App = () => {
       // because intermittent failures on transient states are expected.
       console.warn('Failed to persist last navigation path', e);
     }
-  }, [linking, recomputeBannerVisible]);
+  }, [linking, recomputeBannerVisible, publishActiveConversation]);
 
   // Only need live updates on web (for browser tab title)
   const stats = useInboxStats(Platform.OS === 'web');

@@ -90,6 +90,16 @@ const focusedProspectHandle = (state: RouteState | undefined): string | undefine
   return readPersonUuid(nested?.params);
 };
 
+// The person the focused Conversation Screen is showing, if that's the top
+// route. App reports this to the chat layer so it can load an open
+// conversation's history before the inbox snapshot on connect. See
+// `frontend/chat/conversation-priority`.
+const focusedConversationHandle = (state: RouteState | undefined): string | undefined => {
+  const root = state?.routes?.[state?.index ?? 0];
+  if (root?.name !== 'Conversation Screen') return undefined;
+  return readPersonUuid(root.params);
+};
+
 const isBannerRoute = (state: RouteState | undefined): boolean => {
   const root = state?.routes?.[state?.index ?? 0];
   if (!root) return false;
@@ -244,7 +254,7 @@ const createLinking = () => {
 
 type Linking = ReturnType<typeof createLinking>;
 
-export { createLinking, isBannerRoute, focusedProspectHandle, focusedRouteIsWizard, getTopRouteName };
+export { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsWizard, getTopRouteName };
 export type {
   Linking,
   RootParamList,
