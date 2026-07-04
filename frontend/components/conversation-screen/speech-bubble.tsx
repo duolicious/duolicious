@@ -484,6 +484,7 @@ const SpeechBubble = ({
           alignItems: message.message.fromCurrentUser ? 'flex-end' : 'flex-start',
           width: '100%',
           gap: 4,
+          zIndex: showReactionBar || isHovering ? 1 : 0,
         },
       ]}
     >
@@ -557,7 +558,10 @@ const SpeechBubble = ({
                   overflow: 'hidden',
                 }}
                 /* @ts-ignore */
-                onMouseEnter={() => setIsHovering(true)}
+                onMouseEnter={() => {
+                  measureReactionAnchor();
+                  setIsHovering(true);
+                }}
                 onMouseLeave={() => setIsHovering(false)}
                 /* @ts-ignore */
                 onClick={isMobile() ? undefined : () => {

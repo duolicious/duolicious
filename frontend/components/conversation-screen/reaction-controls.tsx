@@ -2,7 +2,9 @@ import { Platform, Pressable, View } from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
+  FadeInUp,
   FadeOutDown,
+  FadeOutUp,
 } from 'react-native-reanimated';
 import { DefaultText } from '../default-text';
 import {
@@ -20,6 +22,7 @@ const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '👎'];
 const REACTION_BAR_ESTIMATED_WIDTH = 220;
 const REACTION_BAR_ESTIMATED_HEIGHT = 44;
 const SCREEN_EDGE_PADDING = 8;
+const TOP_NAV_ESTIMATED_HEIGHT = 50;
 
 const reactionPillChrome = (appTheme: AppTheme) => ({
   backgroundColor: appTheme.reactionBarBackgroundColor,
@@ -123,15 +126,31 @@ const ReactionMenu = ({
     );
   }
 
+  // The bar normally sits above the message, but when the message is near the
+  // top of the window, that would put the bar underneath the `TopNavBar`
+  const fitsAbove =
+    !anchor ||
+    anchor.pageY - REACTION_BAR_ESTIMATED_HEIGHT - SCREEN_EDGE_PADDING >=
+      TOP_NAV_ESTIMATED_HEIGHT;
+
   return (
     <Animated.View
-      entering={FadeInDown.duration(100).easing(Easing.inOut(Easing.quad))}
-      exiting={FadeOutDown.duration(100).easing(Easing.inOut(Easing.quad))}
+      entering={
+        (fitsAbove ? FadeInDown : FadeInUp)
+          .duration(100)
+          .easing(Easing.inOut(Easing.quad))
+      }
+      exiting={
+        (fitsAbove ? FadeOutDown : FadeOutUp)
+          .duration(100)
+          .easing(Easing.inOut(Easing.quad))
+      }
       style={{
         position: 'absolute',
-        bottom: '100%',
+        ...(fitsAbove
+          ? { bottom: '100%', paddingBottom: 6 }
+          : { top: '100%', paddingTop: 6 }),
         left: 0,
-        paddingBottom: 6,
         zIndex: 10,
       }}
       /* @ts-ignore */
