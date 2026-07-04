@@ -325,7 +325,7 @@ const onReceiveInboxEntry = (doc: any) => { // eslint-disable-line @typescript-e
   }
 
   try {
-    const conversation = conversationFromWire(JSON.parse(doc.duo_inbox_entry));
+    const conversation = conversationFromWire(doc.duo_inbox_entry);
 
     if (conversation) {
       setInboxRecieved(conversation);
@@ -977,7 +977,7 @@ const refreshInbox = async (): Promise<void> => {
     }
 
     try {
-      const parsed = JSON.parse(doc.duo_inbox);
+      const parsed = doc.duo_inbox;
 
       if (!Array.isArray(parsed?.conversations)) {
         return null;

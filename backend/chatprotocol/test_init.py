@@ -80,7 +80,7 @@ _VISITORS_PAYLOAD_JSON = json.dumps({
     'you_visited': [],
     'last_visited_at': None,
 })
-_INBOX_CONVERSATION_JSON = json.dumps({
+_INBOX_CONVERSATION = {
     'person_uuid': U2,
     'url_slug': 'some-slug',
     'name': 'Alé & <co>',
@@ -93,10 +93,10 @@ _INBOX_CONVERSATION_JSON = json.dumps({
     'last_message': 'hi',
     'last_message_read': False,
     'last_message_timestamp': '2020-01-01T00:00:00.000000Z',
-})
-_INBOX_PAYLOAD_JSON = json.dumps({
-    'conversations': [json.loads(_INBOX_CONVERSATION_JSON)],
-})
+}
+_INBOX_PAYLOAD = {
+    'conversations': [_INBOX_CONVERSATION],
+}
 
 # One representative instance of every outbound stanza.
 OUTBOUND_SAMPLES = [
@@ -159,8 +159,8 @@ OUTBOUND_SAMPLES = [
         inner_to_username=U1, body='hi', stamp='2020-01-01T00:00:00.000000Z',
         unread_count=2, box='inbox', query_id='q1', muted_until=0),
     InboxFin(query_id='q1'),
-    InboxSnapshot(payload_json=_INBOX_PAYLOAD_JSON),
-    InboxEntry(payload_json=_INBOX_CONVERSATION_JSON),
+    InboxSnapshot(payload=_INBOX_PAYLOAD),
+    InboxEntry(payload=_INBOX_CONVERSATION),
     StreamOpenResponse(version='1.0', id='oid', from_=LSERVER),
     StreamFeatures(authenticated=False),
     StreamFeatures(authenticated=True),

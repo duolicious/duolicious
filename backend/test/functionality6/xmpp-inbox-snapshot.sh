@@ -115,7 +115,6 @@ query_inbox_snapshot () {
 snapshot_conversations () {
   jq -sS -r '
     [.[] | .duo_inbox | select(. != null)][0]
-    | fromjson
     | .conversations
     | map(del(.url_slug) | .last_message_timestamp = "redacted")
   '
@@ -137,7 +136,6 @@ actual_stanza_order=$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received_1")
 
 actual_entry=$(jq -sS -r '
   [.[] | .duo_inbox_entry | select(. != null)][0]
-  | fromjson
   | del(.url_slug)
   | .last_message_timestamp = "redacted"
 ' <<< "$received_1")
@@ -179,7 +177,6 @@ received_2=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 
 actual_entry=$(jq -sS -r '
   [.[] | .duo_inbox_entry | select(. != null)][0]
-  | fromjson
   | del(.url_slug)
   | .last_message_timestamp = "redacted"
 ' <<< "$received_2")

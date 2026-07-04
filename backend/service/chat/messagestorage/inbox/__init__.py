@@ -1,4 +1,3 @@
-import json
 import traceback
 
 from batcher import Batcher
@@ -385,7 +384,7 @@ async def get_inbox_snapshot(username: str) -> list[Outbound]:
     try:
         payload = await _fetch_inbox_conversations(username)
 
-        return [InboxSnapshot(payload_json=json.dumps(payload))]
+        return [InboxSnapshot(payload=payload)]
     except Exception:
         print(traceback.format_exc())
         return []
@@ -412,7 +411,7 @@ async def get_inbox_entry(
         if not conversations:
             return []
 
-        return [InboxEntry(payload_json=json.dumps(conversations[0]))]
+        return [InboxEntry(payload=conversations[0])]
     except Exception:
         print(traceback.format_exc())
         return []
