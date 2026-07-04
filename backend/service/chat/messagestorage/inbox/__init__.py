@@ -31,7 +31,15 @@ ORDER BY
 # conversation belongs in) mirror Q_INBOX_INFO, which serves the legacy
 # `/inbox-info` endpoint. This query joins them against the viewer's `inbox`
 # rows so one websocket response carries complete conversations.
-Q_INBOX_SNAPSHOT = """
+#
+# `entry_predicate` narrows the viewer's `inbox` rows: empty for the whole-inbox
+# snapshot, or an equality on `remote_bare_jid` (the primary key's second
+# column) for a single conversation. The predicate is kept a plain equality --
+# rather than an `%(x)s IS NULL OR ...` that serves both -- so the single-entry
+# query gets an index scan on `inbox_pkey` even under a generic plan, which a
+# parameterised `IS NULL` branch would defeat.
+def _q_inbox_snapshot(entry_predicate: str) -> str:
+    return f"""
 WITH viewer AS (
     SELECT
         id,
@@ -50,12 +58,7 @@ WITH viewer AS (
         inbox
     WHERE
         luser = %(username)s
-    AND
-        (
-            %(prospect_uuid)s::TEXT IS NULL
-        OR
-            split_part(remote_bare_jid, '@', 1) = %(prospect_uuid)s::TEXT
-        )
+    {entry_predicate}
 ), conversation AS (
     SELECT
         entry.prospect_uuid,
@@ -212,6 +215,13 @@ WHERE
 """
 
 
+# The whole inbox: no extra `entry` predicate beyond the viewer's `luser`.
+Q_INBOX_SNAPSHOT = _q_inbox_snapshot('')
+
+# A single conversation: a plain primary-key equality on `remote_bare_jid`.
+Q_INBOX_ENTRY = _q_inbox_snapshot('AND remote_bare_jid = %(remote_bare_jid)s')
+
+
 Q_UPSERT_CONVERSATION = f"""
 WITH upsert_sender AS (
     INSERT INTO inbox (
@@ -363,17 +373,24 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
 
 async def _fetch_inbox_conversations(
     username: str,
-    prospect_uuid: str | None = None,
+    prospect_username: str | None = None,
 ) -> dict:
-    params = dict(username=username, prospect_uuid=prospect_uuid)
+    if prospect_username is None:
+        query = Q_INBOX_SNAPSHOT
+        params = dict(username=username)
+    else:
+        query = Q_INBOX_ENTRY
+        params = dict(
+            username=username,
+            remote_bare_jid=f'{prospect_username}@{LSERVER}',
+        )
 
     async with api_tx('read committed') as tx:
-        # The query is cheap (index-only scans) but its estimated cost crosses
-        # the default jit thresholds for users with large inboxes, so JIT
-        # spends ~1s compiling for no benefit. (Same rationale as the legacy
-        # Q_INBOX_INFO.)
+        # The whole-inbox query's estimated cost crosses the default jit
+        # thresholds for users with large inboxes, so JIT spends ~1s compiling
+        # for no benefit. (Same rationale as the legacy Q_INBOX_INFO.)
         await tx.execute('SET LOCAL jit = off')
-        row = await tx.require_one(Q_INBOX_SNAPSHOT, params)
+        row = await tx.require_one(query, params)
 
     return row['j']
 
@@ -405,7 +422,7 @@ async def get_inbox_entry(
     try:
         payload = await _fetch_inbox_conversations(
             username=viewer_username,
-            prospect_uuid=prospect_username,
+            prospect_username=prospect_username,
         )
 
         conversations = payload['conversations']
