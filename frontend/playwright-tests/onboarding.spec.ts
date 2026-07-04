@@ -8,6 +8,7 @@ test('has correct onboarding flow', async ({ page }) => {
       await route.fulfill({
         json: {
           "api_version": 5,
+          "supported_client_versions": [ 9, 10 ],
           "statuses": [ "ok", "down for maintenance" ],
           "status_index": 0,
         }

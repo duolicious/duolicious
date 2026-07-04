@@ -31,7 +31,7 @@ import { InviteScreen, WelcomeScreen } from './components/welcome-screen';
 import { sessionToken, sessionPersonUuid } from './kv-storage/session-token';
 import { lastPath } from './kv-storage/last-path';
 import { clearAllKvExceptSessionToken } from './kv-storage/kv-storage';
-import { japi, SUPPORTED_API_VERSIONS } from './api/api';
+import { japi, CLIENT_VERSION } from './api/api';
 import { login, logout } from './chat/application-layer';
 import { useInboxStats } from './chat/application-layer/hooks/inbox-stats';
 import { STATUS_URL } from './env/env';
@@ -71,7 +71,7 @@ verificationWatcher();
 ExpoSplashScreen.preventAutoHideAsync();
 
 type StatusResponse = {
-  api_version: number;
+  supported_client_versions: number[];
   statuses: string[];
   status_index: number;
 };
@@ -299,13 +299,15 @@ const App = () => {
     }
 
     const j: StatusResponse = await response.json();
-    const apiVersion = j.api_version;
+    const supportedClientVersions = j.supported_client_versions;
     const reportedStatus = j.statuses[j.status_index];
 
     const latestServerStatus: ServerStatus = (() => {
       if (reportedStatus === "down for maintenance") {
         return reportedStatus;
-      } else if (!SUPPORTED_API_VERSIONS.includes(apiVersion)) {
+      } else if (
+        !supportedClientVersions.includes(CLIENT_VERSION)
+      ) {
         return "please update";
       } else if (reportedStatus === "ok") {
         return reportedStatus;

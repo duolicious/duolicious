@@ -7,12 +7,7 @@ import { delay } from '../util/util';
 import { notify } from '../events/events';
 import { ValidationErrorToast, SOMETHING_WENT_WRONG } from '../components/toast';
 
-const SUPPORTED_API_VERSIONS = [
-  8,
-  800_000,
-  9,
-  900_000,
-];
+const CLIENT_VERSION = 9;
 
 type ApiResponse<T = unknown> = {
   ok: boolean
@@ -192,7 +187,7 @@ const uriToBase64 = async (uri: string): Promise<string> => {
 }
 
 export {
-  SUPPORTED_API_VERSIONS,
+  CLIENT_VERSION,
   ApiResponse,
   api,
   japi,
