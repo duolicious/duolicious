@@ -48,17 +48,17 @@ WITH viewer AS (
     FROM
         person
     WHERE
-        uuid = uuid_or_null(%(username)s)
+        uuid = %(username)s::uuid
 ), entry AS (
     SELECT
-        split_part(remote_bare_jid, '@', 1) AS prospect_uuid,
+        uuid_or_null(split_part(remote_bare_jid, '@', 1)) AS prospect_uuid,
         body,
         COALESCE(unread_count, 0) AS unread_count,
         timestamp
     FROM
         inbox
     WHERE
-        luser = %(username)s
+        luser = %(username)s::text
     {entry_predicate}
 ), conversation AS (
     SELECT
@@ -125,7 +125,7 @@ WITH viewer AS (
     LEFT JOIN
         person AS prospect
     ON
-        prospect.uuid = uuid_or_null(entry.prospect_uuid)
+        prospect.uuid = entry.prospect_uuid
     LEFT JOIN
         viewer
     ON
@@ -181,14 +181,8 @@ WITH viewer AS (
     FROM
         conversation
 )
--- One row per conversation, already gated. The rows are assembled into the
--- wire payload in Python (see `_conversation_from_row`): building the JSON here
--- would make Postgres serialize a document that psycopg immediately parses back
--- into dicts, and its per-row timestamp formatting (`to_char`) is markedly
--- slower than doing it in Python. `timestamp` stays raw microseconds and is
--- formatted by `format_timestamp` on the way out.
 SELECT
-    prospect_uuid AS person_uuid,
+    prospect_uuid::TEXT AS person_uuid,
     url_slug,
     CASE WHEN is_available THEN name END AS name,
     CASE WHEN is_available THEN match_percentage END AS match_percentage,
@@ -425,6 +419,7 @@ async def _fetch_inbox_conversations(
         # thresholds for users with large inboxes, so JIT spends ~1s compiling
         # for no benefit. (Same rationale as the legacy Q_INBOX_INFO.)
         await tx.execute('SET LOCAL jit = off')
+        await tx.execute('SET LOCAL statement_timeout = 15000')
         await tx.execute(query, params)
         rows = await tx.fetchall()
 

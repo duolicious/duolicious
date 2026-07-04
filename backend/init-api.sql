@@ -49,13 +49,17 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT;
 
 
 CREATE OR REPLACE FUNCTION uuid_or_null(str text)
-RETURNS uuid AS $$
-BEGIN
-    RETURN str::uuid;
-EXCEPTION WHEN invalid_text_representation THEN
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+  RETURNS uuid
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  STRICT
+AS $$
+    SELECT CASE
+        WHEN str ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        THEN str::uuid
+    END
+$$;
 
 
 CREATE OR REPLACE FUNCTION iso8601_utc(ts timestamp)
