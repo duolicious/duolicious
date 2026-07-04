@@ -168,6 +168,12 @@ diff -u --color \
   <(echo "$actual_snapshot") \
   <(jq -S '[.]' <<< "$expected_entry")
 
+actual_snapshot=$(query_inbox_snapshot user2 | snapshot_conversations)
+
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S . <<< '[]')
+
 
 echo "A reply moves the conversation to chats on both sides"
 

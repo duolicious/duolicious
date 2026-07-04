@@ -207,6 +207,8 @@ SELECT
     ) AS j
 FROM
     gated
+WHERE
+    location <> 'nowhere'
 """
 
 
