@@ -83,6 +83,7 @@ import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons/faRightFro
 import { faDownload } from '@fortawesome/free-solid-svg-icons/faDownload'
 import { faUserGroup } from '@fortawesome/free-solid-svg-icons/faUserGroup'
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { INVITE_URL } from '../env/env';
 
 type ProfileInfoResponse = {
   photo_verification: { [position: string]: boolean }
@@ -446,10 +447,10 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
             textAlign: 'center',
           }}
         >
-          {`Changing your display name changes your username\xa0–\xa0Your `}
-          current username is {}
+          {`Changing your display name changes your profile link\xa0–\xa0Your `}
+          link is {}
           <DefaultText style={{ fontWeight: 700 }} disableTheme={true}>
-            {nameSlug}
+            {INVITE_URL}/p/{nameSlug}
           </DefaultText>
           {nameSlugTaken && ` (${name} is taken)`}
         </DefaultText>

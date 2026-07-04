@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
+import { differenceInYears } from 'date-fns';
 import { DefaultText } from '../components/default-text';
+import { showDateOfBirthConfirmation } from './modal/date-of-birth-confirmation-modal';
 import { OptionGroupDate } from '../data/option-groups';
 import type { InputProps, SubmitHandle } from './option-screen';
 
@@ -35,12 +37,32 @@ const DatePicker = forwardRef((
   const maxDay = year !== null && month !== null ?
     new Date(year, month, 0).getDate() :
     31;
+
+  const age = (() => {
+    if (day === null || month === null || year === null) {
+      return null;
+    }
+
+    const dob = new Date(Number(year), Number(month) - 1, Number(day));
+
+    const isRealDate = (
+      dob.getFullYear() === Number(year) &&
+      dob.getMonth() === Number(month) - 1 &&
+      dob.getDate() === Number(day)
+    );
+
+    if (!isRealDate) {
+      return null;
+    }
+
+    return differenceInYears(new Date(), dob);
+  })();
   const days = [...Array(maxDay)].map((_, i) => {
     const n = (i + 1).toString();
     return {label: n, value: n};
   });
 
-  const submit = useCallback(async () => {
+  const doSubmit = useCallback(async () => {
     setIsLoading(true);
 
     const dateString = (
@@ -55,6 +77,14 @@ const DatePicker = forwardRef((
 
     setIsLoading(false);
   }, [year, month, day]);
+
+  const submit = useCallback(async () => {
+    if (age === null) {
+      await doSubmit();
+    } else {
+      showDateOfBirthConfirmation({ age, onConfirm: doSubmit });
+    }
+  }, [age, doSubmit]);
 
   useImperativeHandle(ref, () => ({ submit }), [submit]);
 

@@ -111,6 +111,7 @@ import {
   setOptionScreenPayload,
   type OptionScreenPayload,
 } from '../navigation/option-screen-store';
+import { INVITE_URL } from '../env/env';
 
 type InputProps<T extends OptionGroupInputs> = {
   input: T,
@@ -393,9 +394,9 @@ const GivenName = forwardRef((props: InputProps<OptionGroupGivenName>, ref) => {
                 ? 'That doesn’t look like a real name 🤨'
                 : slugPreview
                   ? <>
-                      Your username will be {}
+                      Your profile will be at {}
                       <DefaultText style={{ fontWeight: 700 }} disableTheme={true}>
-                        {slugPreview}
+                        {INVITE_URL}/p/{slugPreview}
                       </DefaultText>
                       {slugTaken && ` (${inputValueRef.current} is taken)`}
                     </>

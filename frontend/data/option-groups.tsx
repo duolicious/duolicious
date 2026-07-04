@@ -1155,7 +1155,7 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
   {
     title: "Step 1 of 5: Display Name",
-    description: "This could be your first name, or an alias",
+    description: "This is the name people see on your profile. It could be your first name, or an alias. If you ever want to share your profile, you can use a link based on your display name.",
     input: {
       givenName: {
         submit: async (input) => await onboardingQueue.addTask(
