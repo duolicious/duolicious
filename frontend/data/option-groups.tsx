@@ -1,5 +1,5 @@
 import * as _ from "lodash";
-import { japi, ApiResponse } from '../api/api';
+import { api, japi, ApiResponse } from '../api/api';
 import { applyAuthenticatedResponse, AuthResult } from '../api/auth';
 import { navigationContainerRef } from '../App';
 import {
@@ -35,7 +35,12 @@ import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
 import { patchProfileInfo } from '../events/profile-info';
-import { patchSearchFilters, SearchFilters } from '../events/search-filters';
+import {
+  getSearchFilters,
+  patchSearchFilters,
+  SearchFilters,
+  setSearchFilters,
+} from '../events/search-filters';
 import { markSearchResultsStale } from '../events/stale-search-results';
 import { DefaultText } from '../components/default-text';
 import {
@@ -51,8 +56,39 @@ import { searchQueue } from '../api/queue';
 import { setAppThemeName } from '../app-theme/app-theme';
 import { showPointOfSale } from '../components/modal/point-of-sale-modal';
 import { descriptionStyle, noneFontSize } from '../components/option-styles';
+import {
+  MAX_DISTANCE_KM,
+} from '../units/units';
+import {
+  shouldNormalizeMaxDistanceAfterUnitChange,
+} from '../units/distance';
 
 const maxDailySelfies = 'eight';
+
+const maxOutDistanceFilter = () => {
+  const go = async () => {
+    return (await japi(
+      'post',
+      '/search-filter',
+      { furthest_distance: null },
+    )).ok;
+  };
+
+  searchQueue.addTask(go);
+  patchSearchFilters({ furthest_distance: null });
+  markSearchResultsStale();
+};
+
+const getKnownOrFetchedSearchFilters = async (): Promise<SearchFilters | undefined> => {
+  const cachedSearchFilters = getSearchFilters();
+  if (cachedSearchFilters) return cachedSearchFilters;
+
+  const response = await api<SearchFilters>('get', '/search-filters');
+  if (!response.ok || !response.json) return undefined;
+
+  setSearchFilters(response.json);
+  return response.json;
+};
 
 type OptionGroupButtons = {
   buttons: {
@@ -1029,8 +1065,20 @@ const generalSettingsOptionGroups: OptionGroup<OptionGroupButtons>[] = [
       buttons: {
         values: ['Metric', 'Imperial'],
         submit: async (units: 'Imperial' | 'Metric') => {
+          const previousUnits = getSignedInUser()?.units;
           const ok = (await japi('patch', '/profile-info', { units })).ok;
           if (ok) {
+            const furthestDistance = (
+              await getKnownOrFetchedSearchFilters()
+            )?.furthest_distance;
+            if (shouldNormalizeMaxDistanceAfterUnitChange(
+              furthestDistance,
+              previousUnits,
+              units,
+            )) {
+              maxOutDistanceFilter();
+            }
+
             patchProfileInfo({ units });
             setSignedInUser((signedInUser) => {
               if (signedInUser) {
@@ -1319,8 +1367,8 @@ const searchTwoWayBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     input: {
       slider: {
         sliderMin: 5,
-        sliderMax: 10000,
-        defaultValue: 10000,
+        sliderMax: MAX_DISTANCE_KM,
+        defaultValue: MAX_DISTANCE_KM,
         step: 1,
         unitsLabel: 'km',
         addPlusAtMax: true,

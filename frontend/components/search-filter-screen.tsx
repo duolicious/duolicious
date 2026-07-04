@@ -38,9 +38,21 @@ import { DefaultTextInput } from './default-text-input';
 import { SearchQuizCard } from './quiz-card';
 import { api } from '../api/api';
 import * as _ from "lodash";
-import { useSignedInUser, getSignedInUser, useIsWebLoggedOut } from '../events/signed-in-user';
+import {
+  useSignedInUser,
+  useIsWebLoggedOut,
+  type SignedInUser,
+} from '../events/signed-in-user';
 import { showSignUp } from './modal/sign-up-modal';
-import { cmToFeetInchesStr, kmToMilesStr } from '../units/units';
+import {
+  cmToFeetInchesStr,
+} from '../units/units';
+import {
+  distanceLabel,
+  distanceSliderMaxKm,
+  distanceValueText,
+  normalizeMaxDistanceKm,
+} from '../units/distance';
 import { TopNavBarButton } from './top-nav-bar-button';
 import { QAndADevice } from './q-and-a-device';
 import { useAppTheme } from '../app-theme/app-theme';
@@ -59,11 +71,11 @@ import {
 
 const getCurrentValueAsLabel = (
   og: OptionGroup<OptionGroupInputs> | undefined,
+  signedInUser: SignedInUser | undefined,
 ): string | undefined => {
   if (!og) return undefined;
 
   const currentValue = getCurrentValue(og.input);
-  const signedInUser = getSignedInUser();
 
   if (
     isOptionGroupCheckChips(og.input) &&
@@ -81,10 +93,7 @@ const getCurrentValueAsLabel = (
     if (currentValue === undefined) {
       return undefined;
     } else if (og.title === 'Furthest Distance') {
-      return _.isNil(currentValue) ? undefined :
-        signedInUser?.units === 'Imperial' ?
-        `${kmToMilesStr(currentValue)} mi.` :
-        `${currentValue} km`;
+      return distanceLabel(currentValue, signedInUser?.units);
     } else {
       return `${currentValue}`;
     }
@@ -232,10 +241,22 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
       } } });
     }
     if (og.title === 'Furthest Distance' && isOptionGroupSlider(og.input)) {
+      const distanceMaxKm = distanceSliderMaxKm(signedInUser?.units);
+      const normalizedValue = normalizeMaxDistanceKm(
+        value,
+        signedInUser?.units,
+      );
+      const currentValue =
+        isImperial && typeof normalizedValue === 'number' ?
+        Math.min(normalizedValue, distanceMaxKm) :
+        normalizedValue;
+
       return _.merge({}, og, { input: { slider: {
-        currentValue: value,
+        currentValue,
+        sliderMax: isImperial ? distanceMaxKm : og.input.slider.sliderMax,
+        defaultValue: isImperial ? distanceMaxKm : og.input.slider.defaultValue,
         unitsLabel: isImperial ? "mi." : 'km',
-        valueRewriter: isImperial ? kmToMilesStr : undefined,
+        valueRewriter: isImperial ? (km: number) => distanceValueText(km, 'Imperial') : undefined,
       } } });
     }
     if (og.title === 'Age' && isOptionGroupRangeSlider(og.input)) {
@@ -352,7 +373,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             _searchTwoWayBasicsOptionGroups.map((og, i) =>
               <Button_
                 key={i}
-                setting={getCurrentValueAsLabel(og)}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
                 optionGroups={_searchTwoWayBasicsOptionGroups.slice(i)}
               />
             )
@@ -374,7 +395,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             _searchOtherBasicsOptionGroups.map((og, i) =>
               <Button_
                 key={i}
-                setting={getCurrentValueAsLabel(og)}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
                 optionGroups={_searchOtherBasicsOptionGroups.slice(i)}
               />
             )
@@ -384,7 +405,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             _searchInteractionsOptionGroups.map((og, i) =>
               <Button_
                 key={i}
-                setting={getCurrentValueAsLabel(og)}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
                 optionGroups={_searchInteractionsOptionGroups.slice(i)}
               />
             )

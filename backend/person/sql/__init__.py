@@ -614,8 +614,8 @@ WITH onboardee_location AS (
             WHEN best_distance.cnt < 500
             THEN NULL
 
-            WHEN best_distance.dist > 9000  -- It's over 9000
-            THEN 9000
+            WHEN best_distance.dist > 8000  -- must be under 5000 miles
+            THEN 8000
 
             WHEN %(pending_club_name)s::TEXT IS NOT NULL
             THEN NULL
