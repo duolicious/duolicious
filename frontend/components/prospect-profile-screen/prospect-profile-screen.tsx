@@ -68,9 +68,6 @@ import { faPaperPlane } from '@fortawesome/free-solid-svg-icons/faPaperPlane'
 import { faReply } from '@fortawesome/free-solid-svg-icons/faReply'
 import { faLocationDot } from '@fortawesome/free-solid-svg-icons/faLocationDot'
 import { faUser } from '@fortawesome/free-solid-svg-icons/faUser'
-import * as Clipboard from 'expo-clipboard';
-import { notifyLinkCopiedToast } from '../toast';
-import { INVITE_URL } from '../../env/env';
 import { RotateCcw, Flag, X, Share2 } from "react-native-feather";
 import Reanimated, {
   Easing,
@@ -95,6 +92,7 @@ import { faChild } from '@fortawesome/free-solid-svg-icons/faChild'
 import { faChildren } from '@fortawesome/free-solid-svg-icons/faChildren'
 import { AboutText } from './about-reply';
 import { useQuote } from '../conversation-screen/quote';
+import { copyProfileLink } from '../../util/util';
 
 type ProspectNavigation = NativeStackNavigationProp<ProspectParamList>;
 type ProspectNavigationRef = MutableRefObject<ProspectNavigation | undefined>;
@@ -148,17 +146,6 @@ const GalleryScreen = ({navigation, route}: NativeStackScreenProps<ProspectParam
   );
 };
 
-// Path here must match the `Prospect Profile` route in App.tsx's linking config
-// (profiles live at the top level: /<username>).
-const buildShareableProfileUrl = (handle: string) =>
-  `${INVITE_URL}/p/${encodeURIComponent(handle)}`;
-
-const onPressShareProfile = async (personUuid: string | undefined) => {
-  if (!personUuid) return;
-  await Clipboard.setStringAsync(buildShareableProfileUrl(personUuid));
-  notifyLinkCopiedToast('Profile Link Copied!');
-};
-
 const profilePillButtonStyle = (
   surface: ReturnType<typeof legibleSurface>,
   pressed: boolean,
@@ -191,7 +178,7 @@ const ShareButton = ({personUuid, backgroundColor}: {
   backgroundColor: string,
 }) => {
   const onPress = useCallback(() => {
-    onPressShareProfile(personUuid);
+    copyProfileLink(personUuid);
   }, [personUuid]);
 
   const surface = legibleSurface(backgroundColor);
@@ -759,7 +746,7 @@ const AllClubs = ({
 
 type UserData = {
   name: string,
-  url_slug: string | null,
+  url_slug: string,
   person_uuid: string,
   about: string,
   mutual_clubs: string[],
@@ -1753,7 +1740,7 @@ const Body = ({
             name={data?.name}
           />}
         <ShareButton
-          personUuid={data?.url_slug ?? personUuid}
+          personUuid={data?.url_slug}
           backgroundColor={backgroundColor}
         />
         {!isViewingSelf && !!signedInUser &&

@@ -15,6 +15,9 @@ import {
   isWithinInterval,
 } from 'date-fns'
 import * as _ from 'lodash';
+import { INVITE_URL } from '../env/env';
+import { notifyLinkCopiedToast } from '../components/toast';
+import * as Clipboard from 'expo-clipboard';
 
 const isMobileWeb = () => {
   const re = /(android|iphone|ipod|iemobile|blackberry|webos|symbian)/i;
@@ -394,6 +397,15 @@ const UUID_REGEX = new RegExp(`^${UUID_REGEX_SOURCE}$`);
 
 const isUuid = (s: string | undefined): boolean => !!s && UUID_REGEX.test(s);
 
+const buildShareableProfileUrl = (handle: string) =>
+  `${INVITE_URL}/p/${encodeURIComponent(handle)}`;
+
+const copyProfileLink = async (handle: string | undefined) => {
+  if (!handle) return;
+  await Clipboard.setStringAsync(buildShareableProfileUrl(handle));
+  notifyLinkCopiedToast('Profile Link Copied!');
+};
+
 export {
   assert,
   assertNever,
@@ -423,4 +435,5 @@ export {
   memoizeWithTtl,
   UUID_REGEX_SOURCE,
   isUuid,
+  copyProfileLink,
 };

@@ -84,6 +84,9 @@ import { faDownload } from '@fortawesome/free-solid-svg-icons/faDownload'
 import { faUserGroup } from '@fortawesome/free-solid-svg-icons/faUserGroup'
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { INVITE_URL } from '../env/env';
+import { Pressable } from 'react-native-gesture-handler';
+import { copyProfileLink } from '../util/util';
+
 
 type ProfileInfoResponse = {
   photo_verification: { [position: string]: boolean }
@@ -439,21 +442,26 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
         }}
       />
       {!!nameSlug &&
-        <DefaultText
-          style={{
-            fontSize: 14,
-            color: appTheme.hintColor,
-            marginTop: 10,
-            textAlign: 'center',
-          }}
-        >
-          {`Changing your display name changes your profile link\xa0–\xa0Your `}
-          link is {}
-          <DefaultText style={{ fontWeight: 700 }} disableTheme={true}>
-            {INVITE_URL}/p/{nameSlug}
+        <Pressable onPress={() => copyProfileLink(nameSlug)}>
+          <DefaultText
+            style={{
+              fontSize: 14,
+              color: appTheme.hintColor,
+              marginTop: 10,
+              textAlign: 'center',
+            }}
+          >
+            {`Changing your display name changes your profile link\xa0–\xa0Your `}
+            link is {}
+            <DefaultText
+              style={{ fontWeight: 700 }}
+              disableTheme={true}
+            >
+              {INVITE_URL}/p/{nameSlug}
+            </DefaultText>
+            {nameSlugTaken && ` (${name} is taken)`}
           </DefaultText>
-          {nameSlugTaken && ` (${name} is taken)`}
-        </DefaultText>
+        </Pressable>
       }
 
       <Title>
