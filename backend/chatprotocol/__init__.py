@@ -14,6 +14,7 @@ so the live-push and snapshot paths share one source of truth.
 from chatprotocol.element import Element
 from chatprotocol.inbound import (
     InboxQuery,
+    InboxSnapshotQuery,
     IqBind,
     IqSession,
     MamQuery,

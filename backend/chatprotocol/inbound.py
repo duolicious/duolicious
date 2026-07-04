@@ -89,6 +89,16 @@ class InboxQuery:
 
 
 @dataclass(frozen=True)
+class InboxSnapshotQuery:
+    """
+    The modern inbox query (`duo_query_inbox`). Unlike the legacy `InboxQuery`,
+    the response carries complete conversations (person info included), so
+    clients don't have to join the inbox against the `/inbox-info` endpoint.
+    """
+    pass
+
+
+@dataclass(frozen=True)
 class MarkDisplayed:
     to_username: str
 
@@ -113,6 +123,7 @@ Inbound = (
     | RegisterPushToken
     | MamQuery
     | InboxQuery
+    | InboxSnapshotQuery
     | MarkDisplayed
     | VisitorsQuery
     | MarkVisitorsChecked
@@ -331,6 +342,9 @@ def _interpret(el: Element) -> Inbound | None:
 
     if el.tag == 'duo_query_visitors':
         return VisitorsQuery()
+
+    if el.tag == 'duo_query_inbox':
+        return InboxSnapshotQuery()
 
     if el.tag == 'duo_mark_visitors_checked':
         return MarkVisitorsChecked(when=el.get('when'))

@@ -474,6 +474,35 @@ class InboxFin(Outbound):
         }}
 
 
+@_register
+@dataclass(frozen=True)
+class InboxSnapshot(Outbound):
+    """
+    The response to `duo_query_inbox`: a JSON payload of the form
+    `{"conversations": [...]}` where each conversation is complete (last
+    message, unread state and person info), replacing the legacy
+    `InboxResult`/`InboxFin` stream plus `/inbox-info` join.
+    """
+    payload_json: str
+
+    def canonical(self) -> dict:
+        return {'duo_inbox': self.payload_json}
+
+
+@_register
+@dataclass(frozen=True)
+class InboxEntry(Outbound):
+    """
+    A single conversation in the same shape as `InboxSnapshot`'s entries,
+    pushed to the recipient when a message arrives so their client can update
+    its inbox without any further requests.
+    """
+    payload_json: str
+
+    def canonical(self) -> dict:
+        return {'duo_inbox_entry': self.payload_json}
+
+
 # --------------------------------------------------------------------------- #
 # Session / handshake stanzas                                                 #
 # --------------------------------------------------------------------------- #

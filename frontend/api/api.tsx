@@ -7,7 +7,7 @@ import { delay } from '../util/util';
 import { notify } from '../events/events';
 import { ValidationErrorToast, SOMETHING_WENT_WRONG } from '../components/toast';
 
-const CLIENT_VERSION = 9;
+const CLIENT_VERSION = 10;
 
 type ApiResponse<T = unknown> = {
   ok: boolean

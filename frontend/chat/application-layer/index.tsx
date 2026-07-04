@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
 import { getRandomString } from '../../random/string';
-import { japi } from '../../api/api';
 import { deleteFromArray, assert } from '../../util/util';
 import { listen, notify, lastEvent } from '../../events/events';
 import { getAndRegisterPushToken } from '../../notifications/notifications';
@@ -79,10 +78,6 @@ const findEarliestDateInConversations = (conversations: Conversation[]) => {
 const isValidUuid = (uuid: string): boolean => {
   const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return regex.test(uuid);
-}
-
-const parseUuidOrNull = (uuid: string): string | null => {
-  return isValidUuid(uuid) ? uuid : null;
 }
 
 
@@ -222,40 +217,31 @@ const conversationListToMap = (
   );
 };
 
-const populateConversationList = (
-  conversationList: Conversation[],
-  apiData: any, // eslint-disable-line @typescript-eslint/no-explicit-any
-): void => {
-  const personUuidToInfo = apiData.reduce((obj: Record<string, any>, item: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    obj[item.person_uuid] = item;
-    return obj;
-  }, {});
+// Builds a `Conversation` from the complete, snake-cased conversation objects
+// the server sends in `duo_inbox` snapshots and `duo_inbox_entry` pushes.
+const conversationFromWire = (
+  c: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+): Conversation | null => {
+  if (typeof c?.person_uuid !== 'string') {
+    return null;
+  }
 
+  const locations = ['chats', 'intros', 'archive', 'nowhere'];
 
-  conversationList.forEach((c: Conversation) => {
-    const personInfo = personUuidToInfo[c.personUuid];
-
-    // Update conversation information
-    c.name = personInfo?.name ?? 'Unavailable Person';
-    c.urlSlug = personInfo?.url_slug ?? null;
-    c.matchPercentage = personInfo?.match_percentage ?? 0;
-    c.photoUuid = personInfo?.image_uuid ?? null;
-    c.photoBlurhash = personInfo?.image_blurhash ?? null;
-    c.isAvailableUser = !!personInfo?.name;
-    c.isVerified = !!personInfo?.verified;
-    c.location = personInfo?.conversation_location ?? 'archive';
-    c.personUuid = personInfo?.person_uuid ?? c.personUuid ?? '';
-  });
-};
-
-const populateConversation = async (
-  conversation: Conversation
-): Promise<void> => {
-  const apiData = (
-    await japi('post',
-    '/inbox-info',
-    {person_uuids: [conversation.personUuid]})).json;
-  await populateConversationList([conversation], apiData);
+  return {
+    personUuid: c.person_uuid,
+    urlSlug: c.url_slug ?? null,
+    name: c.name ?? 'Unavailable Person',
+    matchPercentage: c.match_percentage ?? 0,
+    photoUuid: c.image_uuid ?? null,
+    photoBlurhash: c.image_blurhash ?? null,
+    lastMessage: c.last_message ?? '',
+    lastMessageRead: !!c.last_message_read,
+    lastMessageTimestamp: new Date(c.last_message_timestamp),
+    isAvailableUser: !!c.is_available,
+    isVerified: !!c.is_verified,
+    location: locations.includes(c.location) ? c.location : 'archive',
+  };
 };
 
 const jidToBareJid = (jid: string): string =>
@@ -314,76 +300,37 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
   notify<Inbox>('inbox', {...i});
 };
 
-const setInboxRecieved = async (
-  fromPersonUuid: string,
-  message: string,
-) => {
+// Merges a complete conversation (pushed by the server as `duo_inbox_entry`
+// when a message arrives) into the inbox. The server's copy is authoritative,
+// so there's nothing left to fetch, even when the sender is a new person.
+const setInboxRecieved = (conversation: Conversation) => {
   const inbox = _.cloneDeep(getInbox() ?? emptyInbox());
 
-  if (!inbox) {
+  const conversations = [
+    ...inbox.chats.conversations,
+    ...inbox.intros.conversations,
+    ...inbox.archive.conversations,
+  ].filter((c) => c.personUuid !== conversation.personUuid);
+
+  conversations.push(conversation);
+
+  notifyOnWeb(conversation.name, conversation.lastMessage);
+
+  notify<Inbox>('inbox', conversationsToInbox(conversations));
+};
+
+const onReceiveInboxEntry = (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (doc?.duo_inbox_entry === undefined) {
     return;
   }
 
-  const chatsConversation =
-    inbox.chats.conversationsMap[fromPersonUuid] as Conversation | undefined;
-  const introsConversation =
-    inbox.intros.conversationsMap[fromPersonUuid] as Conversation | undefined;
-  const archiveConversation =
-    inbox.archive.conversationsMap[fromPersonUuid] as Conversation | undefined;
+  try {
+    const conversation = conversationFromWire(JSON.parse(doc.duo_inbox_entry));
 
-  const updatedConversation: Conversation = {
-    personUuid: fromPersonUuid,
-    urlSlug: null,
-    name: '',
-    matchPercentage: 0,
-    photoUuid: null,
-    isAvailableUser: true,
-    location: 'archive',
-    photoBlurhash: '',
-    isVerified: false,
-    ...chatsConversation,
-    ...introsConversation,
-    ...archiveConversation,
-    lastMessage: message,
-    lastMessageRead: false,
-    lastMessageTimestamp: new Date(),
-  };
-
-  // The conversation is missing data as it's either new or from the archive
-  if (!chatsConversation && !introsConversation) {
-    await populateConversation(updatedConversation);
-  }
-
-  // Update the conversation in-place, in the `inbox` object
-  if (chatsConversation) {
-    Object.assign(chatsConversation, updatedConversation);
-  } else if (introsConversation) {
-    Object.assign(introsConversation, updatedConversation);
-  } else if (archiveConversation) {
-    Object.assign(archiveConversation, updatedConversation);
-  }
-
-  // The conversation's `.location` might have changed, so we need to update the
-  // inbox
-  if (!chatsConversation && !introsConversation) {
-    const updatedConversationsMap = {
-      [fromPersonUuid]: updatedConversation
-    };
-
-    Object.assign(updatedConversationsMap, inbox.chats.conversationsMap);
-    Object.assign(updatedConversationsMap, inbox.intros.conversationsMap);
-    Object.assign(updatedConversationsMap, inbox.archive.conversationsMap);
-
-    const updatedConversations = Object.values(updatedConversationsMap);
-
-    const updatedInbox = conversationsToInbox(updatedConversations);
-
-    Object.assign(inbox, updatedInbox);
-  }
-
-  notifyOnWeb(updatedConversation.name, updatedConversation.lastMessage);
-
-  notify<Inbox>('inbox', {...inbox});
+    if (conversation) {
+      setInboxRecieved(conversation);
+    }
+  } catch { }
 };
 
 const setInboxDisplayed = (fromPersonUuid: string) => {
@@ -868,13 +815,9 @@ const onReceiveMessage = (
       fromCurrentUser: jidMatchesSignedInUser(unpacked.from),
     };
 
+    // The inbox itself is updated by the `duo_inbox_entry` the server pushes
+    // just before each message, so only the message event is emitted here.
     if (otherPersonUuid === undefined) {
-      if (unpacked.type === 'chat-text') {
-        await setInboxRecieved(bareFrom, unpacked.text);
-      } else if (unpacked.type === 'chat-audio') {
-        await setInboxRecieved(bareFrom, AUDIO_MESSAGE);
-      }
-
       notify(`message-from-${bareFrom}`);
     }
 
@@ -1025,120 +968,32 @@ const fetchConversation = async (
   return response;
 };
 
-const refreshInbox = async (
-  endTimestamp?: Date,
-  pageSize?: number,
-): Promise<void> => {
-  const apiDataPromise = japi('post', '/inbox-info', {person_uuids: []});
+const refreshInbox = async (): Promise<void> => {
+  const data = { duo_query_inbox: null };
 
-  const queryId = getRandomString(10);
-
-  const endTimestampFragment = !endTimestamp ? {} : {
-    x: {
-      '@xmlns': 'jabber:x:data',
-      '@type': 'form',
-      field: {
-        '@type': 'text-single',
-        '@var': 'end',
-        value: {
-          '#text': endTimestamp.toISOString()
-        }
-      }
+  const responseDetector = (doc: any): Conversation[] | null => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (doc?.duo_inbox === undefined) {
+      return null;
     }
-  };
 
-  const maxPageSizeFragment = !pageSize ? {} : {
-    set: {
-      '@xmlns': 'http://jabber.org/protocol/rsm',
-      max: {
-        '#text': pageSize
-      }
-    }
-  };
-
-  const data = {
-    iq: {
-      '@type': 'set',
-      '@id': queryId,
-      inbox: {
-        '@xmlns': 'erlang-solutions.com:xmpp:inbox:0',
-        '@queryid': queryId,
-        ...endTimestampFragment,
-        ...maxPageSizeFragment,
-      }
-    }
-  };
-
-  const responseDetector = (doc: any): Conversation | null => { // eslint-disable-line @typescript-eslint/no-explicit-any
     try {
-      const {
-        message: {
-          result: {
-            '@unread': numUnread,
-            '@queryid': receivedQueryId,
-            forwarded: {
-              delay: {
-                '@stamp': timestamp,
-              },
-              message: {
-                '@from': from,
-                '@to': to,
-                'body': text,
-              }
-            }
-          }
-        }
-      } = doc;
+      const parsed = JSON.parse(doc.duo_inbox);
 
-      assert(receivedQueryId === queryId);
-
-      const fromCurrentUser = jidMatchesSignedInUser(from);
-      const bareTo = jidToBareJid(to);
-      const bareFrom = jidToBareJid(from);
-      const bareJid = fromCurrentUser ? bareTo : bareFrom;
-      const personUuid = parseUuidOrNull(bareJid);
-
-      if (!personUuid) {
+      if (!Array.isArray(parsed?.conversations)) {
         return null;
       }
 
-      // Some of these need to be fetched from the REST API instead of the XMPP
-      // server
-      return {
-        personUuid,
-        urlSlug: null,
-        name: '',
-        matchPercentage: 0,
-        photoUuid: null,
-        lastMessage: text,
-        lastMessageRead: numUnread === '0',
-        lastMessageTimestamp: new Date(timestamp),
-        isAvailableUser: true,
-        location: 'archive',
-        photoBlurhash: '',
-        isVerified: false,
-      };
+      return parsed.conversations
+        .map(conversationFromWire)
+        .filter((c: Conversation | null): c is Conversation => c !== null);
     } catch {
       return null;
     }
   };
 
-  const sentinelDetector = (doc: any): boolean => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    const expectedDoc = {
-      iq: {
-        '@id': queryId,
-        '@type': 'result',
-        fin: null
-      }
-    };
-
-    return _.isEqual(doc, expectedDoc);
-  };
-
   const response = await send({
     data,
     responseDetector,
-    sentinelDetector,
     timeoutMs: fetchInboxTimeout,
   });
 
@@ -1146,17 +1001,7 @@ const refreshInbox = async (
     return;
   }
 
-  const conversations: Conversations = {
-    conversations: response,
-    conversationsMap: conversationListToMap(response),
-  };
-
-  const apiData = (await apiDataPromise).json;
-  populateConversationList(conversations.conversations, apiData);
-
-  const inbox = conversationsToInbox(conversations.conversations);
-
-  notify<Inbox>('inbox', {...inbox});
+  notify<Inbox>('inbox', conversationsToInbox(response));
 };
 
 const registerPushToken = async (token: string | null) => {
@@ -1179,8 +1024,11 @@ const registerPushToken = async (token: string | null) => {
   }
 };
 
-// Update the inbox upon receiving a message
+// Emit message events upon receiving a message
 onReceiveMessage();
+
+// Update the inbox upon receiving a conversation pushed by the server
+listen(EV_CHAT_WS_RECEIVE, onReceiveInboxEntry);
 
 const onWebsocketOpen = () => {
   notify('chat-is-websocket-open', true);

@@ -2,8 +2,22 @@ const WebSocket = require('ws');
 const express = require('express');
 const bodyParser = require('body-parser');
 
-let wsClient = null;
-let receivedMessages = [];
+// Each named connection is an independent websocket client, so tests can keep
+// several users online at once (e.g. to observe stanzas pushed to a recipient
+// while the sender is also connected). Requests select a connection with the
+// `?id=` query parameter; omitting it uses the connection named 'default',
+// preserving the original single-connection behaviour.
+const connections = {};
+
+const getConnection = (req) => {
+  const id = req.query.id || 'default';
+
+  if (!(id in connections)) {
+    connections[id] = { wsClient: null, receivedMessages: [] };
+  }
+
+  return connections[id];
+};
 
 const app = express();
 app.use(bodyParser.json());
@@ -16,19 +30,21 @@ app.post('/config', (req, res) => {
     return res.status(400).send('Missing required "server" parameter');
   }
 
+  const connection = getConnection(req);
+
   // If already connected, close the previous connection
-  if (wsClient) {
-    wsClient.close();
-    receivedMessages = [];
+  if (connection.wsClient) {
+    connection.wsClient.close();
+    connection.receivedMessages = [];
   }
 
-  wsClient = new WebSocket(server, ['json']);
+  connection.wsClient = new WebSocket(server, ['json']);
 
-  wsClient.on('open', () => {
+  connection.wsClient.on('open', () => {
     console.log(`Connected to ${server}`);
   });
 
-  wsClient.on('message', (message) => {
+  connection.wsClient.on('message', (message) => {
     let decodedMessage = message.toString();
 
     console.log('⮈', decodedMessage);
@@ -37,14 +53,14 @@ app.post('/config', (req, res) => {
       pretty = JSON.stringify(JSON.parse(decodedMessage), undefined, 2);
     } catch { }
 
-    receivedMessages.push(pretty);
+    connection.receivedMessages.push(pretty);
   });
 
-  wsClient.on('error', (error) => {
+  connection.wsClient.on('error', (error) => {
     console.error('WebSocket error:', error);
   });
 
-  wsClient.on('close', () => {
+  connection.wsClient.on('close', () => {
     console.log('WebSocket connection closed');
   });
 
@@ -53,13 +69,15 @@ app.post('/config', (req, res) => {
 
 // /send accepts raw message text and sends it over the WebSocket connection
 app.post('/send', (req, res) => {
-  if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
+  const connection = getConnection(req);
+
+  if (!connection.wsClient || connection.wsClient.readyState !== WebSocket.OPEN) {
     return res.status(500).send('WebSocket is not connected');
   }
   try {
     const payload = JSON.stringify(req.body);
     console.log('⮊', payload);
-    wsClient.send(payload, (error) => {
+    connection.wsClient.send(payload, (error) => {
       if (error) {
         return res.status(500).send('Error sending message: ' + error.toString());
       }
@@ -72,8 +90,10 @@ app.post('/send', (req, res) => {
 
 // /pop returns and clears the list of received messages
 app.get('/pop', (req, res) => {
-  res.status(200).send(receivedMessages.join('\n'));
-  receivedMessages = [];
+  const connection = getConnection(req);
+
+  res.status(200).send(connection.receivedMessages.join('\n'));
+  connection.receivedMessages = [];
 });
 
 const PORT = process.env.PORT || 3001;
