@@ -1,8 +1,9 @@
 import traceback
 
 from batcher import Batcher
-from database import Tx, api_tx
+from database import Row, Tx, api_tx
 from dataclasses import dataclass
+from typing import TypedDict
 from service.chat.chatutil import (
     LSERVER,
     format_timestamp,
@@ -180,38 +181,31 @@ WITH viewer AS (
     FROM
         conversation
 )
+-- One row per conversation, already gated. The rows are assembled into the
+-- wire payload in Python (see `_conversation_from_row`): building the JSON here
+-- would make Postgres serialize a document that psycopg immediately parses back
+-- into dicts, and its per-row timestamp formatting (`to_char`) is markedly
+-- slower than doing it in Python. `timestamp` stays raw microseconds and is
+-- formatted by `format_timestamp` on the way out.
 SELECT
-    JSON_BUILD_OBJECT(
-        'conversations',
-        COALESCE(
-            JSON_AGG(
-                JSON_BUILD_OBJECT(
-                    'person_uuid', prospect_uuid,
-                    'url_slug', url_slug,
-                    'name', CASE WHEN is_available THEN name END,
-                    'match_percentage',
-                        CASE WHEN is_available THEN match_percentage END,
-                    'image_uuid', CASE WHEN is_available THEN image_uuid END,
-                    'image_blurhash',
-                        CASE WHEN is_available THEN image_blurhash END,
-                    'is_verified', is_available AND verified,
-                    'is_available', is_available,
-                    'location', location,
-                    'last_message', body,
-                    'last_message_read', unread_count = 0,
-                    'last_message_timestamp', iso8601_utc(
-                        (TO_TIMESTAMP(timestamp / 1e6) AT TIME ZONE 'UTC')
-                    )
-                )
-                ORDER BY timestamp
-            ),
-            '[]'::JSON
-        )
-    ) AS j
+    prospect_uuid AS person_uuid,
+    url_slug,
+    CASE WHEN is_available THEN name END AS name,
+    CASE WHEN is_available THEN match_percentage END AS match_percentage,
+    CASE WHEN is_available THEN image_uuid END AS image_uuid,
+    CASE WHEN is_available THEN image_blurhash END AS image_blurhash,
+    is_available AND verified AS is_verified,
+    is_available,
+    location,
+    body AS last_message,
+    unread_count = 0 AS last_message_read,
+    timestamp AS last_message_timestamp
 FROM
     gated
 WHERE
     location <> 'nowhere'
+ORDER BY
+    timestamp
 """
 
 
@@ -371,10 +365,51 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
     return messages
 
 
+class InboxConversation(TypedDict):
+    """
+    The wire shape of one inbox conversation: the whole of a `duo_inbox_entry`,
+    and each element of a `duo_inbox` snapshot's `conversations`. This is the
+    single source of truth for that shape; `Q_INBOX_SNAPSHOT`/`Q_INBOX_ENTRY`
+    return the underlying columns and the query gates the viewer-visible fields,
+    but the payload itself is assembled here.
+    """
+    person_uuid: str
+    url_slug: str | None
+    name: str | None
+    match_percentage: int | None
+    image_uuid: str | None
+    image_blurhash: str | None
+    is_verified: bool
+    is_available: bool
+    location: str
+    last_message: str
+    last_message_read: bool
+    last_message_timestamp: str
+
+
+def _conversation_from_row(row: Row) -> InboxConversation:
+    return InboxConversation(
+        person_uuid=row['person_uuid'],
+        url_slug=row['url_slug'],
+        name=row['name'],
+        match_percentage=row['match_percentage'],
+        image_uuid=row['image_uuid'],
+        image_blurhash=row['image_blurhash'],
+        is_verified=row['is_verified'],
+        is_available=row['is_available'],
+        location=row['location'],
+        last_message=row['last_message'],
+        last_message_read=row['last_message_read'],
+        # The query returns raw microseconds; formatting here (rather than via
+        # `to_char` in SQL) keeps the per-row timestamp work off the shared DB.
+        last_message_timestamp=format_timestamp(row['last_message_timestamp']),
+    )
+
+
 async def _fetch_inbox_conversations(
     username: str,
     prospect_username: str | None = None,
-) -> dict:
+) -> list[InboxConversation]:
     if prospect_username is None:
         query = Q_INBOX_SNAPSHOT
         params = dict(username=username)
@@ -390,9 +425,10 @@ async def _fetch_inbox_conversations(
         # thresholds for users with large inboxes, so JIT spends ~1s compiling
         # for no benefit. (Same rationale as the legacy Q_INBOX_INFO.)
         await tx.execute('SET LOCAL jit = off')
-        row = await tx.require_one(query, params)
+        await tx.execute(query, params)
+        rows = await tx.fetchall()
 
-    return row['j']
+    return [_conversation_from_row(row) for row in rows]
 
 
 async def get_inbox_snapshot(username: str) -> list[Outbound]:
@@ -401,9 +437,9 @@ async def get_inbox_snapshot(username: str) -> list[Outbound]:
     single `InboxSnapshot`.
     """
     try:
-        payload = await _fetch_inbox_conversations(username)
+        conversations = await _fetch_inbox_conversations(username)
 
-        return [InboxSnapshot(payload=payload)]
+        return [InboxSnapshot(payload={'conversations': conversations})]
     except Exception:
         print(traceback.format_exc())
         return []
@@ -420,12 +456,10 @@ async def get_inbox_entry(
     callers can publish the result unconditionally.
     """
     try:
-        payload = await _fetch_inbox_conversations(
-            username=viewer_username,
-            prospect_username=prospect_username,
+        conversations = await _fetch_inbox_conversations(
+            viewer_username,
+            prospect_username,
         )
-
-        conversations = payload['conversations']
 
         if not conversations:
             return []
