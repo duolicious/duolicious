@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 import json
 import os
 from batcher import Batcher
@@ -16,7 +16,7 @@ class Notification:
     token: str
     title: str
     body: str
-    data: Optional[object]
+    data: object | None
 
 async def process_notification_batch(notifications: List[Notification]) -> None:
     data = [

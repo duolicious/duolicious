@@ -1,6 +1,6 @@
 from database import api_tx
 from dataclasses import dataclass
-from typing import Optional, Iterable
+from typing import Iterable
 from batcher import Batcher
 from chatprotocol.inbound import RegisterPushToken
 
@@ -28,7 +28,7 @@ WHERE
 @dataclass(frozen=True)
 class DuoPushToken:
     session_token_hash: str
-    token: Optional[str]
+    token: str | None
 
 
 async def execute_query(tokens: Iterable[DuoPushToken], has_token: bool) -> None:

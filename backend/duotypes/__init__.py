@@ -3,7 +3,6 @@ from typing import (
     DefaultDict,
     Dict,
     List,
-    Optional,
     Annotated,
     Literal,
     Union,
@@ -98,14 +97,14 @@ ClubName = Annotated[
 # Optional variant for /request-otp, /sign-in-with-google,
 # /sign-in-with-apple, where the client passes a pending-club-invite name.
 PendingClubName = Annotated[
-    Optional[str],
+    str | None,
     BeforeValidator(_normalize_club_name),
 ]
 
 _club_name_adapter = TypeAdapter(ClubName)
 
 
-def parse_club_name(value: object) -> Optional[str]:
+def parse_club_name(value: object) -> str | None:
     """Returns the canonical club name, or None if invalid. For call
     sites that want to 404 or skip on bad input rather than raise."""
     try:
@@ -176,7 +175,7 @@ def validate_image_dimensions(larger_dim: int, smaller_dim: int) -> None:
 class ClubItem(BaseModel):
     name: str
     count_members: int
-    search_preference: Optional[bool]
+    search_preference: bool | None
 
 
 class Base64AudioFile(BaseModel):
@@ -308,11 +307,11 @@ class Theme(BaseModel):
 class SessionInfo(BaseModel):
     email: str
     session_token_hash: str
-    person_id: Optional[int]
-    person_uuid: Optional[str]
+    person_id: int | None
+    person_uuid: str | None
     onboarded: bool = False
     signed_in: bool
-    pending_club_name: Optional[str]
+    pending_club_name: str | None
 
     @model_validator(mode='before')
     def set_onboarded(cls, values: object) -> object:
@@ -325,7 +324,7 @@ class SessionInfo(BaseModel):
 
 class PostAnswer(BaseModel):
     question_id: int
-    answer: Optional[bool]
+    answer: bool | None
     public: bool
 
 
@@ -340,7 +339,7 @@ PUBLIC_ANSWER_LIMIT = 10
 
 class PublicAnswer(BaseModel):
     question_id: int
-    answer: Optional[bool]
+    answer: bool | None
     public: bool = True
 
 
@@ -409,20 +408,20 @@ class SocialClaims(BaseModel):
 
 
 class PatchOnboardeeInfo(BaseModel):
-    name: Optional[str] = Field(
+    name: str | None = Field(
         default=None,
         min_length=MIN_NAME_LEN,
         max_length=MAX_NAME_LEN,
     )
-    date_of_birth: Optional[str] = None
-    location: Optional[str] = Field(default=None, min_length=1)
-    gender: Optional[str] = Field(default=None, min_length=1)
-    other_peoples_genders: Optional[List[str]] = Field(default=None, min_length=1)
-    base64_file: Optional[Base64File] = None
+    date_of_birth: str | None = None
+    location: str | None = Field(default=None, min_length=1)
+    gender: str | None = Field(default=None, min_length=1)
+    other_peoples_genders: List[str] | None = Field(default=None, min_length=1)
+    base64_file: Base64File | None = None
 
     @field_validator('name', mode='before')
     @classmethod
-    def strip_name(cls, value: Optional[str]) -> Optional[str]:
+    def strip_name(cls, value: str | None) -> str | None:
         if value is None:
             return value
         return value.strip()
@@ -431,8 +430,8 @@ class PatchOnboardeeInfo(BaseModel):
     @classmethod
     def validate_other_peoples_genders(
         cls,
-        value: Optional[List[str]],
-    ) -> Optional[List[str]]:
+        value: List[str] | None,
+    ) -> List[str] | None:
         if value is None:
             return value
         for gender in value:
@@ -441,7 +440,7 @@ class PatchOnboardeeInfo(BaseModel):
         return value
 
     @field_validator('date_of_birth')
-    def age_must_be_18_or_up(cls, date_of_birth: Optional[str]) -> Optional[str]:
+    def age_must_be_18_or_up(cls, date_of_birth: str | None) -> str | None:
         if date_of_birth is None:
             return date_of_birth
         date_of_birth_date = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
@@ -472,13 +471,13 @@ class PatchOnboardeeInfo(BaseModel):
 
 
 class DeleteProfileInfo(BaseModel):
-    files: Optional[List[int]] = Field(
+    files: List[int] | None = Field(
         default=None,
         min_length=1,
         max_length=MAX_PHOTO_POSITION,
     )
 
-    audio_files: Optional[List[int]] = Field(
+    audio_files: List[int] | None = Field(
         default=None,
         min_length=1,
         max_length=1,
@@ -488,8 +487,8 @@ class DeleteProfileInfo(BaseModel):
     @classmethod
     def validate_files(
         cls,
-        files: Optional[List[int]],
-    ) -> Optional[List[int]]:
+        files: List[int] | None,
+    ) -> List[int] | None:
         if files is None:
             return files
         for pos in files:
@@ -501,8 +500,8 @@ class DeleteProfileInfo(BaseModel):
     @classmethod
     def validate_audio_files(
         cls,
-        audio_files: Optional[List[int]],
-    ) -> Optional[List[int]]:
+        audio_files: List[int] | None,
+    ) -> List[int] | None:
         if audio_files is None:
             return audio_files
         for value in audio_files:
@@ -512,48 +511,48 @@ class DeleteProfileInfo(BaseModel):
 
 
 class PatchProfileInfo(BaseModel):
-    base64_file: Optional[Base64File] = None
-    base64_audio_file: Optional[Base64AudioFile] = None
-    photo_assignments: Optional[PhotoAssignments] = None
-    name: Optional[str] = Field(
+    base64_file: Base64File | None = None
+    base64_audio_file: Base64AudioFile | None = None
+    photo_assignments: PhotoAssignments | None = None
+    name: str | None = Field(
         default=None,
         min_length=MIN_NAME_LEN,
         max_length=MAX_NAME_LEN,
     )
-    about: Optional[str] = Field(
+    about: str | None = Field(
         default=None,
         min_length=MIN_ABOUT_LEN,
         max_length=MAX_ABOUT_LEN,
     )
-    gender: Optional[str] = None
-    orientation: Optional[str] = None
-    ethnicity: Optional[str] = None
-    location: Optional[str] = None
-    occupation: Optional[str] = Field(default=None, min_length=1, max_length=64)
-    education: Optional[str] = Field(default=None, min_length=1, max_length=64)
-    height: Optional[int] = None
-    looking_for: Optional[str] = None
-    smoking: Optional[str] = None
-    drinking: Optional[str] = None
-    drugs: Optional[str] = None
-    long_distance: Optional[str] = None
-    relationship_status: Optional[str] = None
-    has_kids: Optional[str] = None
-    wants_kids: Optional[str] = None
-    exercise: Optional[str] = None
-    religion: Optional[str] = None
-    star_sign: Optional[str] = None
-    units: Optional[str] = None
-    chats: Optional[str] = None
-    intros: Optional[str] = None
-    verification_level: Optional[str] = None
-    show_my_location: Optional[str] = None
-    show_my_age: Optional[str] = None
-    show_my_looking_for: Optional[str] = None
-    hide_me_from_strangers: Optional[str] = None
-    browse_invisibly: Optional[str] = None
-    public_profile: Optional[str] = None
-    theme: Optional[Theme] = None
+    gender: str | None = None
+    orientation: str | None = None
+    ethnicity: str | None = None
+    location: str | None = None
+    occupation: str | None = Field(default=None, min_length=1, max_length=64)
+    education: str | None = Field(default=None, min_length=1, max_length=64)
+    height: int | None = None
+    looking_for: str | None = None
+    smoking: str | None = None
+    drinking: str | None = None
+    drugs: str | None = None
+    long_distance: str | None = None
+    relationship_status: str | None = None
+    has_kids: str | None = None
+    wants_kids: str | None = None
+    exercise: str | None = None
+    religion: str | None = None
+    star_sign: str | None = None
+    units: str | None = None
+    chats: str | None = None
+    intros: str | None = None
+    verification_level: str | None = None
+    show_my_location: str | None = None
+    show_my_age: str | None = None
+    show_my_looking_for: str | None = None
+    hide_me_from_strangers: str | None = None
+    browse_invisibly: str | None = None
+    public_profile: str | None = None
+    theme: Theme | None = None
 
     @model_validator(mode='after')
     def check_exactly_one(self) -> "PatchProfileInfo":
@@ -583,7 +582,7 @@ class PatchProfileInfo(BaseModel):
     # rude/spam checks below stay: they're pure and don't touch the DB.
 
     @field_validator('about')
-    def about_must_not_be_rude(cls, value: Optional[str]) -> Optional[str]:
+    def about_must_not_be_rude(cls, value: str | None) -> str | None:
         if value is None:
             return value
         if antiabuse.antirude.profile.is_rude(value):
@@ -591,7 +590,7 @@ class PatchProfileInfo(BaseModel):
         return value
 
     @field_validator('about')
-    def about_must_not_have_spam(cls, value: Optional[str]) -> Optional[str]:
+    def about_must_not_have_spam(cls, value: str | None) -> str | None:
         if value is None:
             return value
         if \
@@ -607,34 +606,34 @@ class PatchProfileInfo(BaseModel):
 
 class PostSearchFilter(BaseModel):
     class Age(BaseModel):
-        min_age: Optional[int]
-        max_age: Optional[int]
+        min_age: int | None
+        max_age: int | None
 
     class Height(BaseModel):
-        min_height_cm: Optional[int]
-        max_height_cm: Optional[int]
+        min_height_cm: int | None
+        max_height_cm: int | None
 
-    gender: Optional[List[str]] = Field(default=None, min_length=1)
-    orientation: Optional[List[str]] = Field(default=None, min_length=1)
-    ethnicity: Optional[List[str]] = Field(default=None, min_length=1)
-    age: Optional[Age] = None
-    furthest_distance: Optional[int] = None
-    height: Optional[Height] = None
-    has_a_profile_picture: Optional[List[str]] = Field(default=None, min_length=1)
-    looking_for: Optional[List[str]] = Field(default=None, min_length=1)
-    smoking: Optional[List[str]] = Field(default=None, min_length=1)
-    drinking: Optional[List[str]] = Field(default=None, min_length=1)
-    drugs: Optional[List[str]] = Field(default=None, min_length=1)
-    long_distance: Optional[List[str]] = Field(default=None, min_length=1)
-    relationship_status: Optional[List[str]] = Field(default=None, min_length=1)
-    has_kids: Optional[List[str]] = Field(default=None, min_length=1)
-    wants_kids: Optional[List[str]] = Field(default=None, min_length=1)
-    exercise: Optional[List[str]] = Field(default=None, min_length=1)
-    religion: Optional[List[str]] = Field(default=None, min_length=1)
-    star_sign: Optional[List[str]] = Field(default=None, min_length=1)
+    gender: List[str] | None = Field(default=None, min_length=1)
+    orientation: List[str] | None = Field(default=None, min_length=1)
+    ethnicity: List[str] | None = Field(default=None, min_length=1)
+    age: Age | None = None
+    furthest_distance: int | None = None
+    height: Height | None = None
+    has_a_profile_picture: List[str] | None = Field(default=None, min_length=1)
+    looking_for: List[str] | None = Field(default=None, min_length=1)
+    smoking: List[str] | None = Field(default=None, min_length=1)
+    drinking: List[str] | None = Field(default=None, min_length=1)
+    drugs: List[str] | None = Field(default=None, min_length=1)
+    long_distance: List[str] | None = Field(default=None, min_length=1)
+    relationship_status: List[str] | None = Field(default=None, min_length=1)
+    has_kids: List[str] | None = Field(default=None, min_length=1)
+    wants_kids: List[str] | None = Field(default=None, min_length=1)
+    exercise: List[str] | None = Field(default=None, min_length=1)
+    religion: List[str] | None = Field(default=None, min_length=1)
+    star_sign: List[str] | None = Field(default=None, min_length=1)
 
-    people_you_messaged: Optional[str] = None
-    people_you_skipped: Optional[str] = None
+    people_you_messaged: str | None = None
+    people_you_skipped: str | None = None
 
     @model_validator(mode='after')
     def check_exactly_one(self) -> "PostSearchFilter":
@@ -657,7 +656,7 @@ class PostSearchFilter(BaseModel):
 
 class PostSearchFilterAnswer(BaseModel):
     question_id: int
-    answer: Optional[bool]
+    answer: bool | None
     accept_unanswered: bool
 
 
@@ -674,7 +673,7 @@ class PostLeaveClub(BaseModel):
 
 
 class PostSkip(BaseModel):
-    report_reason: Optional[str] = Field(
+    report_reason: str | None = Field(
         default=None,
         min_length=1,
         max_length=10000,
@@ -682,7 +681,7 @@ class PostSkip(BaseModel):
 
     @field_validator('report_reason', mode='before')
     @classmethod
-    def strip_report_reason(cls, value: Optional[str]) -> Optional[str]:
+    def strip_report_reason(cls, value: str | None) -> str | None:
         if value is None:
             return value
         return value.strip()
@@ -738,11 +737,11 @@ RevenuecatEvent = Annotated[
 class PostRevenuecat(BaseModel):
     model_config = ConfigDict(extra='ignore')
 
-    api_version: Optional[str] = None
-    event: Optional[RevenuecatEvent] = None
+    api_version: str | None = None
+    event: RevenuecatEvent | None = None
     # keep the raw payload for unknown types (or failed parses)
-    raw_event: Optional[Dict[str, object]] = None
-    raw_event_error: Optional[str] = None
+    raw_event: Dict[str, object] | None = None
+    raw_event_error: str | None = None
 
     # one adapter reused for all validations
     _EVENT_ADAPTER: ClassVar[TypeAdapter[RevenuecatEvent]] = TypeAdapter(

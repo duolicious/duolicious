@@ -2,7 +2,6 @@ from database import api_tx
 from async_lru_cache import AsyncLruCache
 import json
 import os
-from typing import Optional
 
 _locations_json_file = os.path.join(
         os.path.dirname(__file__), '..',
@@ -52,7 +51,7 @@ async def init_db() -> None:
         )
 
 @AsyncLruCache(maxsize=26**3)
-async def get_search_locations(q: Optional[str]) -> object:
+async def get_search_locations(q: str | None) -> object:
     if q is None:
         return []
 

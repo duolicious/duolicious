@@ -2,7 +2,7 @@ import os
 from database import Row, Tx, api_tx
 from database._row import row_int_or_none
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Optional, Tuple, Literal
+from typing import Tuple, Literal
 from util.coerce import string
 from urlslug import (
     assign_url_slug,
@@ -250,12 +250,12 @@ async def _send_otp(email: str, otp: str) -> None:
         from_addr='noreply-otp@duolicious.app',
     )
 
-async def _check_ip_blocked(remote_addr: Optional[str]) -> object:
+async def _check_ip_blocked(remote_addr: str | None) -> object:
     if not remote_addr or await firehol.matches(remote_addr):
         return 'IP address blocked', 460
     return None
 
-async def _check_banned(tx: Tx, normalized_email: str, remote_addr: Optional[str]) -> object:
+async def _check_banned(tx: Tx, normalized_email: str, remote_addr: str | None) -> object:
     await tx.execute(Q_IS_BANNED, dict(
         normalized_email=normalized_email,
         ip_address=remote_addr,
@@ -307,7 +307,7 @@ def _str_value(value: object, field_name: str) -> str:
 
 async def post_request_otp(
     req: t.PostRequestOtp,
-    remote_addr: Optional[str],
+    remote_addr: str | None,
 ) -> object:
     if blocked := await _check_ip_blocked(remote_addr):
         return blocked
@@ -357,7 +357,7 @@ async def post_request_otp(
 
 async def post_resend_otp(
     s: t.SessionInfo,
-    remote_addr: Optional[str],
+    remote_addr: str | None,
 ) -> object:
     if blocked := await _check_ip_blocked(remote_addr):
         return blocked
@@ -388,7 +388,7 @@ async def post_resend_otp(
 async def post_check_otp(
     req: t.PostCheckOtp,
     s: t.SessionInfo,
-    remote_addr: Optional[str],
+    remote_addr: str | None,
 ) -> object:
     if blocked := await _check_ip_blocked(remote_addr):
         return blocked
@@ -434,8 +434,8 @@ async def _sign_in_with_social(
     sub: str,
     email: str,
     email_verified: bool,
-    pending_club_name: Optional[str],
-    remote_addr: Optional[str],
+    pending_club_name: str | None,
+    remote_addr: str | None,
 ) -> object:
     """
     Async counterpart to `_sign_in_with_social` for native FastAPI routes.
@@ -545,8 +545,8 @@ async def _sign_in_with_social(
 async def post_sign_in_with_google(
     *,
     token: str,
-    pending_club_name: Optional[str],
-    remote_addr: Optional[str],
+    pending_club_name: str | None,
+    remote_addr: str | None,
 ) -> object:
     try:
         claims = verify_google_id_token(token)
@@ -566,8 +566,8 @@ async def post_sign_in_with_apple(
     *,
     token: str,
     nonce: str,
-    pending_club_name: Optional[str],
-    remote_addr: Optional[str],
+    pending_club_name: str | None,
+    remote_addr: str | None,
 ) -> object:
     try:
         claims = verify_apple_identity_token(token, expected_nonce=nonce)
@@ -875,7 +875,7 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
     return dict(**row, **clubs)
 
 async def get_prospect_profile(
-    s: Optional[t.SessionInfo],
+    s: t.SessionInfo | None,
     prospect_handle: object,
 ) -> object:
     params = dict(
@@ -1001,10 +1001,10 @@ async def get_compare_personalities(
 async def get_compare_answers(
     s: t.SessionInfo,
     prospect_person_id: int,
-    agreement: Optional[str],
-    topic: Optional[str],
-    n: Optional[str],
-    o: Optional[str],
+    agreement: str | None,
+    topic: str | None,
+    n: str | None,
+    o: str | None,
 ) -> object:
     valid_agreements = ['all', 'agree', 'disagree', 'unanswered']
     valid_topics = ['all', 'values', 'sex', 'interpersonal', 'other']
@@ -1057,8 +1057,8 @@ async def post_inbox_info(req: t.PostInboxInfo, s: t.SessionInfo) -> object:
         return await row_tx.fetchall()
 
 async def delete_or_ban_account(
-    s: Optional[t.SessionInfo],
-    admin_ban_token: Optional[str] = None,
+    s: t.SessionInfo | None,
+    admin_ban_token: str | None = None,
 ) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 30_000')  # 30 seconds
@@ -1687,7 +1687,7 @@ async def get_search_filters(s: t.SessionInfo) -> object:
     return await get_search_filters_by_person_id(person_id=s.person_id)
 
 async def get_search_filters_by_person_id(
-    person_id: Optional[int],
+    person_id: int | None,
 ) -> object:
     params = dict(person_id=person_id)
 
@@ -2066,7 +2066,7 @@ async def post_search_filter_answer(
             return dict(answer=answer)
 
 async def get_search_clubs(
-        s: Optional[t.SessionInfo],
+        s: t.SessionInfo | None,
         search_str: str,
         allow_empty: bool = False) -> object:
 
@@ -2238,7 +2238,7 @@ async def get_club(name: str, ttl_hash: object = None) -> object:
 @AsyncLruCache()
 async def get_stats(
     ttl_hash: object = None,
-    club_name: Optional[str] = None,
+    club_name: str | None = None,
 ) -> object:
     if club_name:
         q, params = Q_STATS_BY_CLUB_NAME, dict(club_name=club_name)

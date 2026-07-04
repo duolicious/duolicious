@@ -33,7 +33,6 @@ Env vars:
 """
 
 import os
-from typing import Optional
 
 from starlette.responses import RedirectResponse
 
@@ -50,7 +49,7 @@ _REDIRECT_TARGETS = {
 }
 
 
-def _resolve_target(state: str) -> Optional[str]:
+def _resolve_target(state: str) -> str | None:
     # `state` is `<csrf-nonce>.<target>`; we only care about the target
     # suffix. The nonce is verified client-side after the redirect.
     try:
@@ -64,7 +63,7 @@ def handle_callback(
     *,
     id_token: str,
     state: str,
-    error: Optional[str],
+    error: str | None,
 ) -> object:
     target_url = _resolve_target(state)
     if not target_url:

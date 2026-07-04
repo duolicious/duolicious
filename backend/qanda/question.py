@@ -2,7 +2,7 @@ import os
 from database import api_tx
 import duotypes as t
 from questions.archetypeise_questions import load_questions
-from typing import List, Optional
+from typing import List
 import json
 
 _categorised_question_json_file = os.path.join(
