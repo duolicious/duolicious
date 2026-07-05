@@ -222,6 +222,15 @@ async def redis_publish(channel: str, message: str) -> None:
     await REDIS_WORKER_CLIENT.publish(channel, message)
 
 
+async def redis_has_subscribers(channel: str) -> bool:
+    """
+    True when at least one websocket connection (on any chat worker; they all
+    share one Redis) is subscribed to `channel`.
+    """
+    [(_, count)] = await REDIS_WORKER_CLIENT.pubsub_numsub(channel)
+    return count > 0
+
+
 async def redis_publish_many(
     channel: str,
     messages: Iterable[Outbound],
@@ -765,11 +774,18 @@ async def process_text(
             # its inbox already has the sender's info (which legacy clients
             # fetched from `/inbox-info` instead). This runs after the message
             # is stored, so the entry reflects the new message.
-            await redis_publish_many(
-                    to_username,
-                    await get_inbox_entry(
-                        viewer_username=to_username,
-                        prospect_username=from_username))
+            #
+            # Fetching the entry is skipped when nobody is subscribed to the
+            # recipient's channel: the publish would go nowhere, and an
+            # offline recipient gets the whole inbox via `duo_query_inbox` on
+            # reconnect anyway. That reconnect snapshot also covers the race
+            # where a recipient connects between this check and the publish.
+            if await redis_has_subscribers(to_username):
+                await redis_publish_many(
+                        to_username,
+                        await get_inbox_entry(
+                            viewer_username=to_username,
+                            prospect_username=from_username))
 
             await redis_publish_many(to_username, [delivery_message])
 
