@@ -375,10 +375,12 @@ WITH searcher AS (
     )
 
     -- The users have at least a 50%% match or
-    -- the searcher is searching within a club
+    -- the searcher is searching within a club or
+    -- the searcher is a recently joined member
     AND (
         (prospect.personality <#> searcher.personality) < 1e-5
         OR searcher.club_preference IS NOT NULL
+        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
     )
 
     -- One-way filters
