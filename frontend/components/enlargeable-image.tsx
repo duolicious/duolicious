@@ -9,6 +9,9 @@ import type { ProspectParamList } from '../navigation/linking';
 import { Image as ExpoImage } from 'expo-image';
 import { IMAGES_URL } from '../env/env';
 
+const hasGifExtraExt = (photoExtraExts: string[] | undefined | null): boolean =>
+  photoExtraExts?.some((ext) => ext.toLowerCase() === 'gif') ?? false;
+
 const EnlargeablePhoto = ({
   photoUuid,
   photoExtraExts,
@@ -29,6 +32,7 @@ const EnlargeablePhoto = ({
   onPress?: () => void
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<ProspectParamList>>();
+  const isGif = hasGifExtraExt(photoExtraExts);
 
   const internalOnPress = useCallback((event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -48,9 +52,8 @@ const EnlargeablePhoto = ({
 
 
   const prefetchEnlargedImage = useCallback(() => {
-    if (!photoUuid || !!photoExtraExts?.length) return;
-    const ext = (photoExtraExts && photoExtraExts[0]) || 'jpg';
-    const originalUri = `${IMAGES_URL}/original-${photoUuid}.${ext}`;
+    if (!photoUuid || isGif) return;
+    const originalUri = `${IMAGES_URL}/original-${photoUuid}.jpg`;
     setTimeout(() => {
       try {
         ExpoImage.prefetch(originalUri);
@@ -58,7 +61,7 @@ const EnlargeablePhoto = ({
         console.warn(e);
       }
     }, 500);
-  }, [photoUuid, photoExtraExts?.length]);
+  }, [photoUuid, isGif]);
 
   if (photoUuid === undefined && !isPrimary) {
     return <></>;
@@ -66,7 +69,7 @@ const EnlargeablePhoto = ({
 
   return (
     <Pressable
-      disabled={!!photoExtraExts?.length || !photoUuid}
+      disabled={isGif || !photoUuid}
       onPress={internalOnPress}
       style={[
         {
