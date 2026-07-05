@@ -444,6 +444,17 @@ async def get_feed(
 
     return await search.get_feed(s=s, before=valid_datetime.datetime)
 
+@app.get('/feed-v2')
+async def get_feed_v2(
+    request: Request,
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    valid_datetime = t.ValidDatetime.model_validate(
+        {'datetime': request.query_params.get('before')}
+    )
+
+    return await search.get_feed_v2(s=s, before=valid_datetime.datetime)
+
 @app.post('/verification-selfie')
 async def post_verification_selfie(
     req: t.PostVerificationSelfie,

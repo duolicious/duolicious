@@ -39,6 +39,8 @@ const SelectedClub = ({
 }) => {
   const { appThemeName } = useAppTheme();
 
+  const textColor = appThemeName === 'dark' ? '#ffffff' : '#7700ff';
+
   return (
     <Pressable
       style={{
@@ -50,17 +52,20 @@ const SelectedClub = ({
       onPress={onPress && (() => onPress(clubItem))}
     >
       <Basic
+        // Styled like the prospect profile's mutual clubs: bold, with the
+        // border taking the chip's text color
         style={{
           backgroundColor: appThemeName === 'dark'
             ? 'rgba(119, 0, 255, 1.0)'
             : 'rgba(119, 0, 255, 0.1)',
           flexShrink: 1,
           borderBottomWidth: 3,
+          borderColor: textColor,
         }}
         textStyle={{
-          color: appThemeName === 'dark'
-            ? '#ffffff'
-            : '#7700ff',
+          color: textColor,
+          fontFamily: 'TruenoBold',
+          fontWeight: '900',
         }}
       >
         {clubItem.name}

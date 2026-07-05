@@ -18,6 +18,7 @@ from search.sql import (
     Q_UNCACHED_SEARCH_1,
     Q_UNCACHED_SEARCH_2,
     Q_FEED,
+    Q_FEED_V2,
 )
 from dataclasses import dataclass
 from datetime import datetime
@@ -241,6 +242,22 @@ async def get_feed(s: t.SessionInfo, before: datetime) -> object:
         await tx.execute("SET LOCAL work_mem = '32MB'")
 
         await tx.execute(Q_FEED, params)
+        rows = await tx.fetchall()
+
+    return [row['j'] for row in rows]
+
+
+async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
+    params = dict(
+        searcher_person_id=s.person_id,
+        before=before,
+    )
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL jit = off')
+        await tx.execute("SET LOCAL work_mem = '32MB'")
+
+        await tx.execute(Q_FEED_V2, params)
         rows = await tx.fetchall()
 
     return [row['j'] for row in rows]

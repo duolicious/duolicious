@@ -116,6 +116,7 @@ DO $$ BEGIN
         'added-photo',
         'added-voice-bio',
         'joined',
+        'joined-club',
         'updated-bio',
         'was-recently-online',
         'recently-online-with-photo',

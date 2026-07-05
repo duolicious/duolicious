@@ -233,4 +233,148 @@ EOF
   diff -u --color <(echo "$response") <(echo "$expected")
 }
 
+joined_club_feed_items () {
+  local before
+
+  assume_role searcher
+
+  before=$(q "select iso8601_utc(now()::timestamp)")
+
+  c GET "/feed?before=${before}" \
+    | jq -S '
+      def redact: if . == null then . else "redacted_nonnull_value" end;
+
+      def redact_if_present($k):
+        if has($k) and .[$k] != null
+        then .[$k] |= redact
+        else .
+        end ;
+
+      [ .[] | select(.type == "joined-club") ]
+      | map(
+            redact_if_present("person_uuid")
+          | redact_if_present("url_slug")
+          | redact_if_present("photo_uuid")
+          | redact_if_present("photo_blurhash")
+          | redact_if_present("time")
+          | .club_sample_members |= map(map_values(redact))
+          | .club_viewer |= map_values(redact)
+      )
+    '
+}
+
+expected_joined_club_item () {
+  local name=$1
+  local count_members=$2
+  local count_sample_members=$3
+
+  jq -nS \
+    --arg name "$name" \
+    --argjson count_members "$count_members" \
+    --argjson count_sample_members "$count_sample_members" \
+    '
+    {
+      "advertiser_friendly": false,
+      "age": 26,
+      "club_count_members": $count_members,
+      "club_sample_members": [
+        range($count_sample_members)
+        | {
+            "person_uuid": "redacted_nonnull_value",
+            "photo_blurhash": "redacted_nonnull_value",
+            "photo_uuid": "redacted_nonnull_value",
+            "url_slug": "redacted_nonnull_value"
+          }
+      ],
+      "club_viewer": {
+        "person_uuid": "redacted_nonnull_value",
+        "photo_blurhash": null,
+        "photo_uuid": null,
+        "url_slug": "redacted_nonnull_value"
+      },
+      "flair": ["gold"],
+      "gender": "Other",
+      "is_verified": false,
+      "joined_club_name": "cats",
+      "location": "New York, New York, United States",
+      "match_percentage": 50,
+      "name": $name,
+      "person_uuid": "redacted_nonnull_value",
+      "photo_blurhash": "redacted_nonnull_value",
+      "photo_uuid": "redacted_nonnull_value",
+      "time": "redacted_nonnull_value",
+      "type": "joined-club",
+      "url_slug": "redacted_nonnull_value"
+    }
+    '
+}
+
+test_joined_club () {
+  local response
+  local expected
+  local event_time_1
+  local event_time_2
+
+  q "delete from duo_session"
+  q "delete from person"
+  q "delete from club"
+  q "delete from banned_club where name = 'cats'"
+  q "delete from onboardee"
+  q "delete from undeleted_photo"
+
+  ../util/create-user.sh searcher 0
+  ../util/create-user.sh user1 0 1
+  ../util/create-user.sh user2 0 1
+  ../util/create-user.sh user3 0 1
+
+  q "update person set privacy_verification_level_id = 1"
+  q "update person set background_color = '#aaaaaa'"
+
+  assume_role user2
+  jc POST /join-club -d '{ "name": "cats" }'
+
+  assume_role user3
+  jc POST /join-club -d '{ "name": "cats" }'
+
+  assume_role user1
+  jc POST /join-club -d '{ "name": "cats" }'
+
+  # Re-joining a club mustn't refresh the event
+  event_time_1=$(q "select last_event_time from person where name = 'user1'")
+  jc POST /join-club -d '{ "name": "cats" }'
+  event_time_2=$(q "select last_event_time from person where name = 'user1'")
+  [[ "$event_time_1" == "$event_time_2" ]]
+
+  # Members appear in the feed with the other members in their facepiles.
+  # (The feed's selectivity keeps round(3 / 2) = 2 of the 3 candidates, in
+  # last-event-time order: user1 and user3.)
+  response=$(joined_club_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_joined_club_item user1 3 2) \
+      <(expected_joined_club_item user3 3 2)
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # Leaving the club reverts the leaver's event and shrinks the facepiles.
+  # (user3's event reverts to 'joined'; being recently online with a photo,
+  # they map to 'recently-online-with-photo' and outrank user2, so user1 is
+  # the only joined-club item that survives selectivity.)
+  assume_role user3
+  jc POST /leave-club -d '{ "name": "cats" }'
+
+  response=$(joined_club_feed_items)
+  expected=$(jq -sS . <(expected_joined_club_item user1 2 1))
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # Banning the club hides the events
+  q "insert into banned_club (name) values ('cats')"
+
+  response=$(joined_club_feed_items)
+  diff -u --color <(echo "$response") <(echo "[]")
+
+  q "delete from banned_club where name = 'cats'"
+}
+
 test_json_format
+test_joined_club

@@ -1,12 +1,3 @@
-CREATE OR REPLACE FUNCTION uuid_or_null(str text)
-  RETURNS uuid
-  LANGUAGE sql
-  IMMUTABLE
-  PARALLEL SAFE
-  STRICT
-AS $$
-    SELECT CASE
-        WHEN str ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-        THEN str::uuid
-    END
-$$;
+-- Must run outside a transaction block, or in its own transaction: the new
+-- value can't be used by later statements in the same transaction.
+ALTER TYPE person_event ADD VALUE IF NOT EXISTS 'joined-club' AFTER 'joined';

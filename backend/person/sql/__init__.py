@@ -2181,6 +2181,21 @@ WITH is_allowed_club_name AS (
         inserted_person_club
     WHERE
         inserted_person_club.club_name = club.name
+), updated_person AS (
+    UPDATE
+        person
+    SET
+        last_event_time = now(),
+        last_event_name = 'joined-club',
+        last_event_data = jsonb_build_object(
+            'joined_club_name', inserted_person_club.club_name
+        )
+    FROM
+        inserted_person_club
+    WHERE
+        person.id = %(person_id)s
+    AND
+        %(update_event)s
 )
 SELECT
     1
@@ -2199,15 +2214,29 @@ WITH deleted_person_club AS (
         club_name = %(club_name)s
     RETURNING
         club_name
+), updated_club AS (
+    UPDATE
+        club
+    SET
+        count_members = GREATEST(0, count_members - 1)
+    WHERE
+        name = %(club_name)s
+    AND
+        EXISTS (SELECT 1 FROM deleted_person_club)
 )
+-- Stop advertising the club in the feed if it's the person's latest event
 UPDATE
-    club
+    person
 SET
-    count_members = GREATEST(0, count_members - 1)
+    last_event_time = sign_up_time,
+    last_event_name = 'joined',
+    last_event_data = '{}'::jsonb
 WHERE
-    name = %(club_name)s
+    id = %(person_id)s
 AND
-    EXISTS (SELECT 1 FROM deleted_person_club)
+    last_event_name = 'joined-club'
+AND
+    last_event_data->>'joined_club_name' = %(club_name)s
 """
 
 # Club SEO page queries. The heavy aggregation lives in the cron package

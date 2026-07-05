@@ -3,7 +3,13 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useCallback, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { DefaultText } from './default-text';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
@@ -20,7 +26,19 @@ import type { RootParamList } from '../navigation/linking';
 import { japi } from '../api/api';
 import { DefaultFlatList, DefaultFlashList } from './default-flat-list';
 import { z } from 'zod';
-import { notify } from '../events/events';
+import { notify, listen, lastEvent } from '../events/events';
+import { Club } from './club';
+import { ClubItem, joinClub, leaveClub } from '../club/club';
+import { ImageBackground } from 'expo-image';
+import { IMAGES_URL } from '../env/env';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import Reanimated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { setProspectHint } from '../navigation/prospect-cache';
 import { ReportModalInitialData } from './modal/report-modal';
 import { Flag } from "react-native-feather";
@@ -43,11 +61,16 @@ type Action =
   | "Added a voice bio"
   | "Erased their bio"
   | "Joined"
+  | "Joined a club"
   | "Recently online"
   | "Updated their bio"
 
 const DataItemBaseSchema = z.object({
   time: z.string(),
+  // The feed is ordered and paginated by when people were last online, while
+  // `time` is the event's time, so this is the `before` cursor for the next
+  // page.
+  online_time: z.string(),
   person_uuid: z.string(),
   url_slug: z.string().nullable(),
   name: z.string(),
@@ -78,8 +101,40 @@ const UpdatedBioFieldsSchema = DataItemBaseSchema.extend({
 
 const JoinedFieldsSchema = DataItemBaseSchema;
 
+const JoinedClubFieldsSchema = DataItemBaseSchema.extend({
+  joined_club_name: z.string(),
+  club_count_members: z.number(),
+  club_sample_members: z.array(
+    z.object({
+      person_uuid: z.string(),
+      url_slug: z.string().nullable(),
+      photo_uuid: z.string(),
+      photo_blurhash: z.string(),
+    })
+  ),
+  // The viewer, as a facepile entry. Sent by the server so the facepile
+  // doesn't depend on the profile-info store, which is only populated when
+  // the profile tab mounts. Unlike the sample members, the viewer might not
+  // have a photo.
+  club_viewer: z.object({
+    person_uuid: z.string(),
+    url_slug: z.string().nullable(),
+    photo_uuid: z.string().nullable(),
+    photo_blurhash: z.string().nullable(),
+  }),
+  // Not sent by the server; stamped by fetchPage when the page arrives.
+  // Records whether the viewer was a member (and so counted in
+  // club_count_members) at fetch time, so join/leave presses can adjust the
+  // count without any per-card state.
+  viewer_was_member: z.boolean().optional(),
+});
+
 const DataItemJoinedSchema = JoinedFieldsSchema.extend({
   type: z.literal('joined'),
+});
+
+const DataItemJoinedClubSchema = JoinedClubFieldsSchema.extend({
+  type: z.literal('joined-club'),
 });
 
 const DataItemAddedPhotoSchema = AddedPhotoFieldsSchema.extend({
@@ -108,6 +163,7 @@ const DataItemWasRecentlyOnlineWithVoiceBioSchema = AddedVoiceBioFieldsSchema.ex
 
 const DataItemSchema = z.discriminatedUnion('type', [
   DataItemJoinedSchema,
+  DataItemJoinedClubSchema,
   DataItemWasRecentlyOnlineWithBioSchema,
   DataItemWasRecentlyOnlineWithPhotoSchema,
   DataItemWasRecentlyOnlineWithVoiceBioSchema,
@@ -122,6 +178,7 @@ type DataItemWasRecentlyOnlineWithPhoto = z.infer<typeof DataItemWasRecentlyOnli
 type DataItemWasRecentlyOnlineWithVoiceBio = z.infer<typeof DataItemWasRecentlyOnlineWithVoiceBioSchema>;
 
 type JoinedFields = z.infer<typeof JoinedFieldsSchema>;
+type JoinedClubFields = z.infer<typeof JoinedClubFieldsSchema>;
 type UpdatedBioFields = z.infer<typeof UpdatedBioFieldsSchema>;
 type AddedPhotoFields = z.infer<typeof AddedPhotoFieldsSchema>;
 type AddedVoiceBioFields = z.infer<typeof AddedVoiceBioFieldsSchema>;
@@ -152,6 +209,11 @@ const isDistinctItem = (item: DataItem) => {
   return result;
 };
 
+const stampViewerMembership = (item: DataItem): DataItem =>
+  item.type === 'joined-club'
+    ? { ...item, viewer_was_member: isClubMember(item.joined_club_name) }
+    : item;
+
 const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
   if (pageNumber === 1) {
     pageMetadata.lastPage = null;
@@ -161,13 +223,14 @@ const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
   const now           = new Date();
   const oneMinuteAgo  = new Date(now.getTime() - 60_000).toISOString(); // underscore for readability
 
-  const lastPageTime = pageMetadata?.lastPage?.at(-1)?.time ?? oneMinuteAgo;
+  const lastPageTime =
+    pageMetadata?.lastPage?.at(-1)?.online_time ?? oneMinuteAgo;
 
   const before = pageNumber === 1 ? oneMinuteAgo : lastPageTime;
 
   const response = await japi(
     'get',
-    `/feed?before=${encodeURIComponent(before)}`,
+    `/feed-v2?before=${encodeURIComponent(before)}`,
     undefined,
     {
       maxRetries: 2,
@@ -186,7 +249,8 @@ const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
   pageMetadata.lastPage = response
     .json
     .filter(isValidDataItem)
-    .filter(isDistinctItem);
+    .filter(isDistinctItem)
+    .map(stampViewerMembership);
 
   return [...pageMetadata.lastPage];
 };
@@ -455,6 +519,345 @@ const FeedItemJoined = ({ fields }: { fields: JoinedFields }) => {
             doUseOnline={!fields.photo_uuid}
           />
           <ActionTime action="Joined" time={new Date(fields.time)} />
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+const isClubMember = (clubName: string) =>
+  (lastEvent<ClubItem[]>('updated-clubs') ?? [])
+    .some((c) => c.name === clubName);
+
+const useIsClubMember = (clubName: string) => {
+  const subscribe = useCallback(
+    (onChange: () => void) => listen('updated-clubs', onChange),
+    [],
+  );
+
+  return useSyncExternalStore(subscribe, () => isClubMember(clubName));
+};
+
+// While the pile is collapsed the avatars overlap; spreading separates them
+// so each face can be seen and pressed. The margin is animated directly with
+// an explicit easing curve rather than via a layout transition, whose easing
+// isn't respected on web.
+const useFacepileSpreadStyle = (overlap: boolean, spread: boolean) => {
+  const progress = useSharedValue(spread ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(spread ? 1 : 0, {
+      duration: 250,
+      easing: Easing.out(Easing.poly(4)),
+    });
+  }, [spread, progress]);
+
+  return useAnimatedStyle(() => ({
+    marginLeft: overlap ? interpolate(progress.value, [0, 1], [-8, 4]) : 0,
+  }), [overlap]);
+};
+
+const FacepileAvatar = ({
+  member,
+  overlap,
+  spread,
+  onRequestSpread,
+}: {
+  member: JoinedClubFields['club_sample_members'][number]
+  overlap: boolean
+  spread: boolean
+  onRequestSpread: () => void
+}) => {
+  const handle = member.url_slug || member.person_uuid;
+
+  const navigateToProfile = useNavigationToProfile(
+    handle,
+    member.photo_blurhash,
+  );
+
+  const onPress = useCallback((e: GestureResponderEvent) => {
+    if (spread) {
+      navigateToProfile(e);
+    } else {
+      // Stop the web link navigating; the first press only spreads the pile
+      e.preventDefault();
+      onRequestSpread();
+    }
+  }, [spread, navigateToProfile, onRequestSpread]);
+
+  const spreadStyle = useFacepileSpreadStyle(overlap, spread);
+
+  return (
+    <Reanimated.View style={spreadStyle}>
+      <Pressable onPress={onPress} {...makeLinkProps(`/${handle}`)}>
+        <ImageBackground
+          source={{
+            uri: `${IMAGES_URL}/450-${member.photo_uuid}.jpg`,
+            height: 450,
+            width: 450,
+          }}
+          placeholder={{ blurhash: member.photo_blurhash }}
+          transition={150}
+          style={styles.facepileImage}
+          contentFit="cover"
+          recyclingKey={member.photo_uuid}
+        />
+      </Pressable>
+    </Reanimated.View>
+  );
+};
+
+// The viewer's own avatar, at the end of the facepile. Always rendered, but
+// only visible while the viewer is a member of the club, fading in and out as
+// they join and leave. Animating visibility on an always-mounted view rather
+// than mounting and unmounting means joining can't be confused with anything
+// else that recreates the view (navigating away and back, list recycling,
+// refetches), which is what made `entering` animations here replay when they
+// shouldn't. Falls back to a placeholder if the viewer has no photo.
+const ViewerFacepileAvatar = ({
+  viewer,
+  visible,
+  overlap,
+  spread,
+  onRequestSpread,
+}: {
+  viewer: JoinedClubFields['club_viewer']
+  visible: boolean
+  overlap: boolean
+  spread: boolean
+  onRequestSpread: () => void
+}) => {
+  const { appTheme } = useAppTheme();
+
+  const handle = viewer.url_slug || viewer.person_uuid;
+
+  const navigateToProfile = useNavigationToProfile(
+    handle,
+    viewer.photo_blurhash,
+  );
+
+  const onPress = useCallback((e: GestureResponderEvent) => {
+    if (spread) {
+      navigateToProfile(e);
+    } else {
+      e.preventDefault();
+      onRequestSpread();
+    }
+  }, [spread, navigateToProfile, onRequestSpread]);
+
+  const spreadStyle = useFacepileSpreadStyle(overlap, spread);
+
+  const opacity = useSharedValue(visible ? 1 : 0);
+
+  useEffect(() => {
+    opacity.value = withTiming(visible ? 1 : 0, {
+      duration: 250,
+      easing: Easing.out(Easing.poly(4)),
+    });
+  }, [visible, opacity]);
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Reanimated.View
+      style={[
+        styles.facepileImage,
+        spreadStyle,
+        fadeStyle,
+        {
+          backgroundColor: appTheme.avatarBackgroundColor,
+          // An invisible avatar shouldn't be pressable or follow its link.
+          // Toggled instantly so a fading-out avatar isn't pressable either.
+          pointerEvents: visible ? 'auto' : 'none',
+        },
+      ]}
+    >
+      <Pressable
+        onPress={onPress}
+        style={styles.viewerFacepilePressable}
+        {...makeLinkProps(`/${handle}`)}
+      >
+        {viewer.photo_uuid
+          ? <ImageBackground
+              source={{
+                uri: `${IMAGES_URL}/450-${viewer.photo_uuid}.jpg`,
+                height: 450,
+                width: 450,
+              }}
+              placeholder={
+                viewer.photo_blurhash && { blurhash: viewer.photo_blurhash }}
+              transition={150}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              recyclingKey={viewer.photo_uuid}
+            />
+          : <Ionicons
+              style={{ fontSize: 16, color: appTheme.avatarColor }}
+              name="person"
+            />
+        }
+      </Pressable>
+    </Reanimated.View>
+  );
+};
+
+const ClubFacepile = ({
+  sampleMembers,
+  countMembers,
+  viewer,
+  viewerIsMember,
+}: {
+  sampleMembers: JoinedClubFields['club_sample_members']
+  countMembers: number
+  viewer: JoinedClubFields['club_viewer']
+  viewerIsMember: boolean
+}) => {
+  const { appTheme } = useAppTheme();
+
+  // Overlapped avatars are hard to make out and to press, so the pile spreads
+  // on hover (desktop) or on a first press (mobile) before individual avatars
+  // navigate anywhere
+  const [spread, setSpread] = useState(false);
+
+  const onRequestSpread = useCallback(() => setSpread(true), []);
+
+  return (
+    // On mobile the count goes on its own line: were it beside the pile,
+    // spreading the pile could wrap the text and change the card's height
+    <View style={styles.facepileColumn}>
+      {(sampleMembers.length > 0 || viewerIsMember) &&
+        <Pressable
+          style={{ flexDirection: 'row' }}
+          onPress={onRequestSpread}
+          // Raw DOM events rather than onHoverIn/onHoverOut: Pressable's
+          // hover uses contain semantics, so hovering the nested avatar
+          // Pressables would end the container's hover and re-collapse the
+          // pile. mouseenter/mouseleave don't refire on child transitions.
+          //
+          // Desktop-only: mobile web browsers emulate mouseenter on tap,
+          // which would spread the pile an instant before the press lands
+          // and turn the first press into a profile navigation.
+          {...(isMobile() ? {} : {
+            /* @ts-ignore */
+            onMouseEnter: onRequestSpread,
+            onMouseLeave: () => setSpread(false),
+          })}
+        >
+          {sampleMembers.map((member, i) =>
+            <FacepileAvatar
+              key={member.person_uuid}
+              member={member}
+              overlap={i > 0}
+              spread={spread}
+              onRequestSpread={onRequestSpread}
+            />
+          )}
+          <ViewerFacepileAvatar
+            viewer={viewer}
+            visible={viewerIsMember}
+            overlap={sampleMembers.length > 0}
+            spread={spread}
+            onRequestSpread={onRequestSpread}
+          />
+        </Pressable>
+      }
+      <DefaultText style={{ color: appTheme.hintColor }}>
+        {countMembers.toLocaleString()}
+        {countMembers === 1 ? ' member' : ' members'}
+      </DefaultText>
+    </View>
+  );
+};
+
+const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
+  const { appTheme } = useAppTheme();
+
+  const onPress = useNavigationToProfile(
+    fields.person_uuid,
+    fields.photo_blurhash,
+  );
+
+  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+
+  const isMember = useIsClubMember(fields.joined_club_name);
+
+  // Optimistic: joinClub/leaveClub update the 'updated-clubs' event before
+  // their network requests are sent, so the count and facepile change
+  // immediately. The server counted the viewer iff they were a member at
+  // fetch time (viewer_was_member) and never puts them among the sample
+  // members; the viewer's avatar (club_viewer) is only visible while they're
+  // a member.
+  const viewerWasMember = fields.viewer_was_member ?? false;
+  const countMembers = fields.club_count_members
+    + (isMember ? 1 : 0)
+    - (viewerWasMember ? 1 : 0);
+
+  // Returning `false` makes the chip shake and show the point of sale, the
+  // same way the profile screen's club chips do when the quota's been hit
+  const onPressClub = useCallback(() => {
+    if (isMember) {
+      leaveClub(fields.joined_club_name);
+    } else {
+      return joinClub(fields.joined_club_name, fields.club_count_members, false);
+    }
+  }, [isMember, fields.joined_club_name, fields.club_count_members]);
+
+  const props = isMobile() ? {
+    onPress,
+    onPressIn,
+    onPressOut,
+  } : {
+    disabled: true,
+  };
+
+  return (
+    <Pressable style={styles.pressableStyle} {...props}>
+      <Animated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+        {fields.photo_uuid &&
+          <Avatar
+            percentage={fields.match_percentage}
+            personUuid={fields.person_uuid}
+            urlSlug={fields.url_slug}
+            photoUuid={fields.photo_uuid}
+            photoBlurhash={fields.photo_blurhash}
+            doUseOnline={!!fields.photo_uuid}
+          />
+        }
+        <View style={{ flex: 1, gap: NAME_ACTION_TIME_GAP_VERTICAL }}>
+          <AgeGenderLocation
+            personUuid={fields.person_uuid}
+            urlSlug={fields.url_slug}
+            photoBlurhash={fields.photo_blurhash}
+            name={fields.name}
+            isVerified={fields.is_verified}
+            age={fields.age}
+            gender={fields.gender}
+            userLocation={fields.location}
+            doUseOnline={!fields.photo_uuid}
+          />
+          <ActionTime action="Joined a club" time={new Date(fields.time)} />
+          <View style={{ flexDirection: 'row' }}>
+            <Club
+              name={fields.joined_club_name}
+              isMutual={isMember}
+              onPress={onPressClub}
+              // Like the prospect profile's mutual clubs, whose border takes
+              // the chip's text color
+              style={
+                isMember ? { borderColor: appTheme.secondaryColor } : undefined}
+            />
+          </View>
+          <ClubFacepile
+            // Keying by the card's identity resets the spread state when the
+            // native list recycles this component instance for another item
+            key={`${fields.person_uuid}:${fields.joined_club_name}`}
+            sampleMembers={fields.club_sample_members}
+            countMembers={countMembers}
+            viewer={fields.club_viewer}
+            viewerIsMember={isMember}
+          />
         </View>
       </Animated.View>
     </Pressable>
@@ -732,6 +1135,8 @@ const FeedItem = ({ dataItem }: { dataItem: DataItem }) => {
   switch (dataItem.type) {
     case 'joined':
       return <FeedItemJoined fields={dataItem} />;
+    case 'joined-club':
+      return <FeedItemJoinedClub fields={dataItem} />;
     case 'recently-online-with-bio':
     case 'recently-online-with-photo':
     case 'recently-online-with-voice-bio':
@@ -824,6 +1229,24 @@ const styles = StyleSheet.create({
   },
   pressableStyle: {
     marginBottom: 20,
+  },
+  facepileColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  facepileImage: {
+    height: 28,
+    width: 28,
+    borderRadius: 999,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerFacepilePressable: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

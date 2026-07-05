@@ -10,6 +10,13 @@ FEED_RESULTS_PER_PAGE = 50
 # The inverse of the proportion of feed results to discard.
 FEED_SELECTIVITY = 2
 
+# How many members to show in a `joined-club` feed item's facepile
+FEED_CLUB_FACEPILE_SIZE = 5
+
+# How many of a club's members to consider for the facepile. Bounds the work
+# done per feed item when the club is huge.
+FEED_CLUB_FACEPILE_POOL = 50
+
 
 
 Q_UPSERT_SEARCH_PREFERENCE_CLUB = """
@@ -1439,4 +1446,646 @@ FROM
     filtered_by_club
 ORDER BY
     last_event_time DESC
+"""
+
+Q_FEED_V2 = f"""
+WITH searcher AS (
+    SELECT
+        id as searcher_id,
+        uuid AS searcher_uuid,
+        url_slug AS searcher_url_slug,
+        gender_id,
+        date_of_birth,
+        personality,
+        verification_level_id
+    FROM
+        person
+    WHERE
+        person.id = %(searcher_person_id)s
+), searcher_photo AS (
+    -- The searcher's first photo, for rendering their own avatar in
+    -- 'joined-club' facepiles. Zero rows if they have no photos.
+    SELECT
+        photo.uuid,
+        photo.blurhash
+    FROM
+        searcher
+    JOIN
+        photo
+    ON
+        photo.person_id = searcher.searcher_id
+    ORDER BY
+        photo.position
+    LIMIT 1
+), recent_person AS (
+    -- Unlike v1, the feed is ordered by when people were last online, so a
+    -- single scan of the last-online index bounds the candidate pool.
+    SELECT
+        *
+    FROM
+        person
+    WHERE
+        last_online_time < %(before)s
+    AND
+        last_online_time > now() - interval '1 month'
+    ORDER BY
+        last_online_time DESC
+    LIMIT
+        5000
+), person_data AS (
+    SELECT
+        prospect.id,
+        prospect.uuid AS person_uuid,
+        prospect.url_slug,
+        prospect.name,
+        photo_data.blurhash AS photo_blurhash,
+        photo_data.uuid AS photo_uuid,
+        prospect.verification_level_id > 1 AS is_verified,
+        prospect.last_online_time,
+        mapped_last_event_time,
+        mapped_last_event_name,
+        mapped_last_event_data,
+        CLAMP(
+            0,
+            99,
+            100 * (
+                1 - (prospect.personality <#> searcher.personality)
+            ) / 2
+        )::SMALLINT AS match_percentage,
+        flair,
+        has_gold,
+        sign_up_time,
+        -- Ads have been removed; this is kept as a constant so existing native
+        -- clients (which validate this field) keep working without the DB
+        -- spending time computing it.
+        FALSE AS advertiser_friendly,
+        count_answers,
+        about,
+        (
+            SELECT EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
+            WHERE prospect.show_my_age
+        ) AS age,
+        gender.name AS gender,
+        (
+            SELECT prospect.location_short_friendly
+            WHERE prospect.show_my_location
+        ) AS location
+    FROM
+        recent_person AS prospect
+    JOIN
+        gender
+    ON
+        gender.id = prospect.gender_id
+    LEFT JOIN LATERAL (
+        SELECT
+            photo.uuid,
+            photo.blurhash,
+            photo.nsfw_score
+        FROM
+            photo
+        WHERE
+            photo.person_id = prospect.id
+        ORDER BY
+            photo.position
+        LIMIT 1
+    ) AS photo_data
+    ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            -- Events which are less than a week old are shown as themselves,
+            -- at their event time. Older events are replaced by a
+            -- 'recently-online-with-*' event shown at the prospect's
+            -- last-online time, so the feed feels fresh.
+            -- 'was-recently-online' is a legacy event with no content of its
+            -- own, so it's never shown as itself.
+            prospect.last_event_time > now() - interval '1 week'
+            AND prospect.last_event_name <> 'was-recently-online'
+            AS event_is_fresh,
+
+            -- Legacy rows can store 'recently-online-with-*' names directly;
+            -- normalize them to the underlying content event.
+            CASE prospect.last_event_name
+
+            WHEN 'recently-online-with-photo'
+            THEN 'added-photo'
+
+            WHEN 'recently-online-with-voice-bio'
+            THEN 'added-voice-bio'
+
+            WHEN 'recently-online-with-bio'
+            THEN 'updated-bio'
+
+            ELSE prospect.last_event_name
+
+            END::person_event AS content_event_name
+    ) AS normalized_event
+    ON TRUE
+    LEFT JOIN LATERAL (
+        -- A random photo for synthesizing a 'recently-online-with-photo'
+        -- event when the prospect's last event is stale and has no content of
+        -- its own
+        SELECT
+            photo.uuid,
+            photo.blurhash,
+            photo.extra_exts
+        FROM
+            photo
+        WHERE
+            photo.person_id = prospect.id
+        AND
+            NOT event_is_fresh
+        AND
+            content_event_name NOT IN (
+                'added-photo',
+                'added-voice-bio',
+                'updated-bio'
+            )
+        ORDER BY
+            '{{}}'::TEXT[] = extra_exts,
+            photo.uuid = photo_data.uuid,
+            random()
+        LIMIT 1
+    ) AS added_photo_data
+    ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            CASE
+
+            WHEN event_is_fresh
+            THEN content_event_name
+
+            WHEN content_event_name = 'added-photo'
+            THEN 'recently-online-with-photo'
+
+            WHEN content_event_name = 'added-voice-bio'
+            THEN 'recently-online-with-voice-bio'
+
+            WHEN content_event_name = 'updated-bio'
+            THEN 'recently-online-with-bio'
+
+            WHEN added_photo_data.uuid IS NOT NULL
+            THEN 'recently-online-with-photo'
+
+            -- The event is stale and there's nothing to synthesize a
+            -- 'recently-online-with-*' event from; the prospect is excluded
+
+            END::person_event AS mapped_last_event_name
+    ) AS mapped_last_event_name
+    ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            CASE
+                WHEN event_is_fresh
+                THEN prospect.last_event_time
+                ELSE prospect.last_online_time
+            END AS mapped_last_event_time
+    ) AS mapped_last_event_time
+    ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            CASE
+
+            WHEN
+                event_is_fresh
+            OR
+                content_event_name IN (
+                    'added-photo',
+                    'added-voice-bio',
+                    'updated-bio'
+                )
+            THEN prospect.last_event_data
+
+            WHEN added_photo_data.uuid IS NOT NULL
+            THEN jsonb_build_object(
+                'added_photo_uuid', added_photo_data.uuid,
+                'added_photo_blurhash', added_photo_data.blurhash,
+                'added_photo_extra_exts', added_photo_data.extra_exts
+            )
+
+            ELSE prospect.last_event_data
+
+            END::JSONB AS mapped_last_event_data
+    ) AS mapped_last_event_data
+    ON TRUE
+    CROSS JOIN
+        searcher
+    WHERE
+        mapped_last_event_name IS NOT NULL
+    AND
+        activated
+    AND
+        shadow_banned_at IS NULL
+    AND
+        -- The searcher meets the prospects privacy_verification_level_id
+        -- requirement
+        prospect.privacy_verification_level_id <=
+            searcher.verification_level_id
+    AND
+        -- The prospect wants to be shown to strangers or isn't a stranger
+        (
+            prospect.id IN (
+                SELECT
+                    subject_person_id
+                FROM
+                    messaged
+                WHERE
+                    object_person_id = %(searcher_person_id)s
+            )
+        OR
+            NOT prospect.hide_me_from_strangers
+        )
+    AND
+        -- The prospect did not skip the searcher
+        prospect.id NOT IN (
+            SELECT
+                subject_person_id
+            FROM
+                skipped
+            WHERE
+                object_person_id = %(searcher_person_id)s
+        )
+    AND
+        -- The searcher did not skip the prospect, or the searcher wishes to
+        -- view skipped prospects
+        (
+            prospect.id NOT IN (
+                SELECT
+                    object_person_id
+                FROM
+                    skipped
+                WHERE
+                    subject_person_id = %(searcher_person_id)s
+            )
+        OR
+            1 IN (
+                SELECT
+                    skipped_id
+                FROM
+                    search_preference_skipped
+                WHERE
+                    person_id = %(searcher_person_id)s
+            )
+        )
+    AND
+        -- The searcher did not message the prospect, or the searcher wishes to
+        -- view messaged prospects
+        (
+            prospect.id NOT IN (
+                SELECT
+                    object_person_id
+                FROM
+                    messaged
+                WHERE
+                    subject_person_id = %(searcher_person_id)s
+            )
+        OR
+            1 IN (
+                SELECT
+                    messaged_id
+                FROM
+                    search_preference_messaged
+                WHERE
+                    person_id = %(searcher_person_id)s
+            )
+        )
+    -- Decrease users' odds of appearing in the feed if they're already getting
+    -- lots of messages
+    AND random() < (
+        SELECT
+            1.0 / (1.0 + count(*)::real) ^ 0.5
+        FROM
+            messaged
+        WHERE
+            object_person_id = prospect.id
+        AND
+            created_at > now() - interval '1 day'
+    )
+    -- The prospect's gender is one the searcher prefers
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            search_preference_gender AS preference
+        WHERE
+            preference.person_id = searcher.searcher_id
+        AND
+            preference.gender_id = prospect.gender_id
+    )
+    -- The searcher's gender is one the prospect prefers
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            search_preference_gender AS preference
+        WHERE
+            preference.person_id = prospect.id
+        AND
+            preference.gender_id = searcher.gender_id
+    )
+    -- The prospect meets the searcher's age preference
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            search_preference_age AS preference
+        WHERE
+            preference.person_id = searcher.searcher_id
+        AND
+            prospect.date_of_birth <= (
+                CURRENT_DATE -
+                INTERVAL '1 year' *
+                COALESCE(preference.min_age, 0)
+            )
+        AND
+            prospect.date_of_birth > (
+                CURRENT_DATE -
+                INTERVAL '1 year' *
+                (COALESCE(preference.max_age, 999) + 1)
+            )
+    )
+    -- The searcher meets the prospect's age preference
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            search_preference_age AS preference
+        WHERE
+            preference.person_id = prospect.id
+        AND
+            searcher.date_of_birth <= (
+                CURRENT_DATE -
+                INTERVAL '1 year' *
+                COALESCE(preference.min_age, 0)
+            )
+        AND
+            searcher.date_of_birth > (
+                CURRENT_DATE -
+                INTERVAL '1 year' *
+                (COALESCE(preference.max_age, 999) + 1)
+            )
+    )
+    -- Exclude photos that might be NSFW
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            photo
+        WHERE
+            uuid = mapped_last_event_data->>'added_photo_uuid'
+        AND
+            photo.nsfw_score > 0.2
+    )
+    -- Exclude events advertising clubs that were banned after being joined.
+    -- Only 'joined-club' events have a 'joined_club_name' key, so the check
+    -- on `last_event_name` is redundant, but it short-circuits the lookup for
+    -- other events and stops the planner from flattening the NOT EXISTS into
+    -- an anti-join, which it has been observed to plan as a repeated
+    -- sequential scan of banned_club.
+    AND (
+        prospect.last_event_name <> 'joined-club'
+    OR NOT EXISTS (
+        SELECT
+            1
+        FROM
+            banned_club
+        WHERE
+            banned_club.name =
+                LOWER(prospect.last_event_data->>'joined_club_name')
+    ))
+    -- Exclude users who were reported two or more times in the past day
+    AND (
+        SELECT
+            count(*)
+        FROM
+            skipped
+        WHERE
+            object_person_id = prospect.id
+        AND
+            created_at > now() - interval '2 days'
+        AND
+            reported
+    ) < 2
+    -- Exclude users who aren't verified but are required to be
+    AND (
+            prospect.verification_level_id > 1
+        OR
+            NOT prospect.verification_required
+    )
+    -- Exclude users who don't seem human. A user seems human if:
+    --   * They're verified; or
+    --   * Their account is more than a month old; or
+    --   * They've customized their account's color scheme
+    --   * They've got an audio bio
+    --   * They've got an otherwise well-completed profile
+    --   * They've got Gold
+    AND (
+            prospect.verification_level_id > 1
+
+        OR
+            prospect.sign_up_time < now() - interval '1 month'
+
+        OR
+            lower(prospect.title_color) <> '#000000'
+        OR
+            lower(prospect.body_color) <> '#000000'
+        OR
+            lower(prospect.background_color) <> '#ffffff'
+
+        OR EXISTS (
+            SELECT 1 FROM audio WHERE person_id = prospect.id
+        )
+
+        OR
+            prospect.count_answers >= 25
+        AND
+            length(prospect.about) > 0
+        AND EXISTS (
+            SELECT 1 FROM person_club WHERE person_id = prospect.id
+        )
+
+        OR
+            prospect.has_gold
+    )
+    -- Exclude the searcher from their own feed results
+    AND
+        searcher_id <> prospect.id
+    ORDER BY
+        prospect.last_online_time DESC
+    LIMIT
+        {FEED_RESULTS_PER_PAGE}
+), feed_page AS (
+    SELECT
+        id,
+        person_uuid,
+        url_slug,
+        name,
+        photo_uuid,
+        photo_blurhash,
+        is_verified,
+        match_percentage,
+        mapped_last_event_name AS type,
+        iso8601_utc(mapped_last_event_time) AS time,
+        -- The feed is ordered and paginated by when people were last online,
+        -- while `time` is the event's time, so clients need this as their
+        -- `before` cursor for the next page.
+        iso8601_utc(last_online_time) AS online_time,
+        last_online_time,
+        mapped_last_event_data,
+        ({Q_COMPUTED_FLAIR}) AS flair,
+        age,
+        gender,
+        location,
+        advertiser_friendly
+    FROM
+        person_data
+)
+SELECT
+    jsonb_build_object(
+        'person_uuid', person_uuid,
+        'url_slug', url_slug,
+        'name', name,
+        'photo_uuid', photo_uuid,
+        'photo_blurhash', photo_blurhash,
+        'is_verified', is_verified,
+        'time', time,
+        'online_time', online_time,
+        'type', type,
+        'match_percentage', match_percentage,
+        'flair', flair,
+        'age', age,
+        'gender', gender,
+        'location', location,
+        'advertiser_friendly', advertiser_friendly
+    )
+    || mapped_last_event_data
+    || COALESCE(joined_club_data.j, '{{}}'::jsonb)
+    AS j
+FROM
+    feed_page
+CROSS JOIN
+    searcher
+LEFT JOIN LATERAL (
+    SELECT
+        jsonb_build_object(
+            'club_count_members', club.count_members,
+            'club_sample_members', COALESCE(facepile.j, '[]'::jsonb),
+            'club_viewer', jsonb_build_object(
+                'person_uuid', searcher.searcher_uuid,
+                'url_slug', searcher.searcher_url_slug,
+                'photo_uuid', searcher_photo.uuid,
+                'photo_blurhash', searcher_photo.blurhash
+            )
+        ) AS j
+    FROM
+        club
+    LEFT JOIN
+        searcher_photo
+    ON
+        TRUE
+    LEFT JOIN LATERAL (
+        SELECT
+            jsonb_agg(
+                jsonb_build_object(
+                    'person_uuid', facepile_member.person_uuid,
+                    'url_slug', facepile_member.url_slug,
+                    'photo_uuid', facepile_member.photo_uuid,
+                    'photo_blurhash', facepile_member.photo_blurhash
+                )
+                ORDER BY
+                    facepile_member.matches_gender_preference DESC,
+                    facepile_member.last_online_time DESC
+            ) AS j
+        FROM (
+            SELECT
+                member.uuid AS person_uuid,
+                member.url_slug,
+                member_photo.uuid AS photo_uuid,
+                member_photo.blurhash AS photo_blurhash,
+                member.last_online_time,
+                EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        search_preference_gender AS preference
+                    WHERE
+                        preference.person_id = searcher.searcher_id
+                    AND
+                        preference.gender_id = member.gender_id
+                ) AS matches_gender_preference
+            FROM (
+                SELECT
+                    person_id
+                FROM
+                    person_club
+                WHERE
+                    person_club.club_name = club.name
+                AND
+                    person_club.activated
+                ORDER BY
+                    person_club.person_id DESC
+                LIMIT
+                    {FEED_CLUB_FACEPILE_POOL}
+            ) AS pool
+            JOIN
+                person AS member
+            ON
+                member.id = pool.person_id
+            JOIN LATERAL (
+                SELECT
+                    photo.uuid,
+                    photo.blurhash
+                FROM
+                    photo
+                WHERE
+                    photo.person_id = member.id
+                AND
+                    COALESCE(photo.nsfw_score, 0) <= 0.2
+                ORDER BY
+                    photo.position
+                LIMIT 1
+            ) AS member_photo
+            ON TRUE
+            WHERE
+                -- The joiner is already the feed item's hero avatar
+                member.id <> feed_page.id
+            AND
+                -- The searcher is already in the payload as club_viewer,
+                -- so including them here would double them up
+                member.id <> searcher.searcher_id
+            AND
+                member.shadow_banned_at IS NULL
+            AND
+                NOT member.hide_me_from_strangers
+            AND
+                member.privacy_verification_level_id <=
+                    searcher.verification_level_id
+            AND (
+                    member.verification_level_id > 1
+                OR
+                    NOT member.verification_required
+            )
+            ORDER BY
+                matches_gender_preference DESC,
+                member.last_online_time DESC
+            LIMIT
+                {FEED_CLUB_FACEPILE_SIZE}
+        ) AS facepile_member
+    ) AS facepile
+    ON TRUE
+    WHERE
+        feed_page.type = 'joined-club'
+    AND
+        -- A range condition rather than `=` so the planner probes the club's
+        -- btree primary key. Plain equality also matches the trigram gist
+        -- index on `name`, which the planner has been observed to pick
+        -- despite it being ~100x slower to probe.
+        club.name >= (feed_page.mapped_last_event_data
+            ->> 'joined_club_name')
+    AND
+        club.name <= (feed_page.mapped_last_event_data
+            ->> 'joined_club_name')
+) AS joined_club_data
+ON TRUE
+ORDER BY
+    last_online_time DESC
 """

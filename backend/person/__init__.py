@@ -292,6 +292,7 @@ async def _handle_pending_club(
         club_name=pending_club_name,
         pending_club_name=pending_club_name,
         do_modify=True,
+        update_event=False,
     )
     if person_id is not None and pending_club_name is not None:
         await tx.execute(Q_JOIN_CLUB, club_params)
@@ -2096,6 +2097,7 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
     params = dict(
         person_id=s.person_id,
         club_name=req.name,
+        update_event=True,
     )
 
     async with api_tx() as tx:
