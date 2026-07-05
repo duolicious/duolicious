@@ -1918,6 +1918,14 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
+// The single, merged "Basics" section shown to users who signed up after the
+// basics filters became one-way. Grandfathered users keep the legacy two-way
+// vs. other split.
+const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
+  ...searchTwoWayBasicsOptionGroups,
+  ...searchOtherBasicsOptionGroups,
+];
+
 const searchInteractionsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     title: "People You Messaged",
@@ -2372,6 +2380,7 @@ export {
   noneFontSize,
   notificationSettingsOptionGroups,
   privacySettingsOptionGroups,
+  searchBasicsOptionGroups,
   searchInteractionsOptionGroups,
   socialAccountOptionGroups,
   searchOtherBasicsOptionGroups,

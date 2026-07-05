@@ -472,36 +472,44 @@ WITH onboardee_location AS (
                     )
                 AND
                     -- The new_person meets the prospect's gender preference
-                    EXISTS (
-                        SELECT 1
-                        FROM search_preference_gender AS preference
-                        WHERE
-                            preference.person_id = prospect.id AND
-                            preference.gender_id = (SELECT gender_id FROM new_person)
+                    -- or the new_person's search is one-way
+                    (
+                        EXISTS (
+                            SELECT 1
+                            FROM search_preference_gender AS preference
+                            WHERE
+                                preference.person_id = prospect.id AND
+                                preference.gender_id = (SELECT gender_id FROM new_person)
+                        )
+                        OR (SELECT id FROM new_person) >= {constants.FIRST_ONE_WAY_FILTER_PERSON_ID}
                     )
                 AND
                     -- The new_person meets the prospect's location preference
-                    ST_DWithin(
-                        prospect.coordinates,
-                        (SELECT coordinates FROM new_person),
-                        (
-                            SELECT
-                                COALESCE(
-                                    (
-                                        SELECT
-                                            1000 * distance
-                                        FROM
-                                            person
-                                        JOIN
-                                            search_preference_distance
-                                        ON
-                                            person.id = person_id
-                                        WHERE
-                                            person.id = prospect.id
-                                    ),
-                                    1e9
-                                )
+                    -- or the new_person's search is one-way
+                    (
+                        ST_DWithin(
+                            prospect.coordinates,
+                            (SELECT coordinates FROM new_person),
+                            (
+                                SELECT
+                                    COALESCE(
+                                        (
+                                            SELECT
+                                                1000 * distance
+                                            FROM
+                                                person
+                                            JOIN
+                                                search_preference_distance
+                                            ON
+                                                person.id = person_id
+                                            WHERE
+                                                person.id = prospect.id
+                                        ),
+                                        1e9
+                                    )
+                            )
                         )
+                        OR (SELECT id FROM new_person) >= {constants.FIRST_ONE_WAY_FILTER_PERSON_ID}
                     )
                 AND
                    -- The prospect meets the new_person's age preference
@@ -523,23 +531,27 @@ WITH onboardee_location AS (
                     )
                 AND
                    -- The new_person meets the prospect's age preference
-                   EXISTS (
-                        SELECT 1
-                        FROM search_preference_age AS preference
-                        WHERE
-                            preference.person_id = prospect.id
-                        AND
-                            (SELECT date_of_birth FROM new_person) <= (
-                                CURRENT_DATE -
-                                INTERVAL '1 year' *
-                                COALESCE(preference.min_age, 0)
-                            )
-                        AND
-                            (SELECT date_of_birth FROM new_person) > (
-                                CURRENT_DATE -
-                                INTERVAL '1 year' *
-                                (COALESCE(preference.max_age, 999) + 1)
-                            )
+                   -- or the new_person's search is one-way
+                   (
+                        EXISTS (
+                            SELECT 1
+                            FROM search_preference_age AS preference
+                            WHERE
+                                preference.person_id = prospect.id
+                            AND
+                                (SELECT date_of_birth FROM new_person) <= (
+                                    CURRENT_DATE -
+                                    INTERVAL '1 year' *
+                                    COALESCE(preference.min_age, 0)
+                                )
+                            AND
+                                (SELECT date_of_birth FROM new_person) > (
+                                    CURRENT_DATE -
+                                    INTERVAL '1 year' *
+                                    (COALESCE(preference.max_age, 999) + 1)
+                                )
+                        )
+                        OR (SELECT id FROM new_person) >= {constants.FIRST_ONE_WAY_FILTER_PERSON_ID}
                     )
                 LIMIT
                     2000 * 2

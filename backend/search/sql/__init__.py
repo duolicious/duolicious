@@ -1,4 +1,7 @@
-from constants import ONLINE_RECENTLY_SECONDS
+from constants import (
+    FIRST_ONE_WAY_FILTER_PERSON_ID,
+    ONLINE_RECENTLY_SECONDS,
+)
 from commonsql import Q_COMPUTED_FLAIR
 
 # How many feed results to send to the client per request
@@ -66,7 +69,7 @@ WHERE
 
 
 
-Q_UNCACHED_SEARCH_2 = """
+Q_UNCACHED_SEARCH_2 = f"""
 WITH searcher AS (
     SELECT
         coordinates,
@@ -279,6 +282,7 @@ WITH searcher AS (
 
     WHERE (
         -- The searcher meets the prospect's gender preference or
+        -- the searcher's search is one-way or
         -- the searcher is searching with in a club
         EXISTS (
             SELECT
@@ -290,11 +294,13 @@ WITH searcher AS (
             AND
                 preference.gender_id = searcher.gender_id
         )
+        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
         OR searcher.club_preference IS NOT NULL
     )
 
     AND (
         -- The searcher meets the prospect's location preference or
+        -- the searcher's search is one-way or
         -- the searcher is searching within a club
         ST_DWithin(
             prospect.coordinates,
@@ -314,6 +320,7 @@ WITH searcher AS (
                     )
             )
         )
+        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
         OR searcher.club_preference IS NOT NULL
     )
 
@@ -342,6 +349,7 @@ WITH searcher AS (
         )::DATE
 
     -- The searcher meets the prospect's age preference or
+    -- the searcher's search is one-way or
     -- the searcher is searching within a club
     AND (
        EXISTS (
@@ -362,6 +370,7 @@ WITH searcher AS (
                     (COALESCE(preference.max_age, 999) + 1)
                 )
         )
+        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
         OR searcher.club_preference IS NOT NULL
     )
 
@@ -1283,16 +1292,20 @@ WITH searcher AS (
         EXTRACT(YEAR FROM AGE(searcher.date_of_birth)),
         EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
     )
-    -- The searcher meets the prospect's gender preference
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            search_preference_gender
-        WHERE
-            search_preference_gender.person_id = prospect.id
-        AND
-            search_preference_gender.gender_id = searcher.gender_id
+    -- The searcher meets the prospect's gender preference or the searcher's
+    -- search is one-way
+    AND (
+        EXISTS (
+            SELECT
+                1
+            FROM
+                search_preference_gender
+            WHERE
+                search_preference_gender.person_id = prospect.id
+            AND
+                search_preference_gender.gender_id = searcher.gender_id
+        )
+        OR searcher.searcher_id >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
     )
     -- Exclude photos that might be NSFW
     AND NOT EXISTS (

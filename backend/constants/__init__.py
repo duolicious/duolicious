@@ -7,6 +7,13 @@ MAX_AUDIO_SECONDS = 120 + 1
 
 MAX_NOTIFICATION_LENGTH = 128
 
+# Searchers who signed up before the basics filters (gender, distance, age)
+# became one-way keep the two-way behavior they signed up under: their
+# searches exclude anyone whose own filters exclude them. Searchers whose id
+# is at or above this cutoff see prospects regardless of the prospects'
+# filters.
+FIRST_ONE_WAY_FILTER_PERSON_ID = 369305
+
 ONLINE_RECENTLY_SECONDS = 12 * 60 * 60  # 12 hours
 
 # Cadence at which a live chat connection refreshes its `person.last_online_time`

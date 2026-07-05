@@ -845,6 +845,94 @@ test_bidirectional_age_filter () {
   assert_search_names "user1 user2"
 }
 
+# Creates a user whose person id is past `FIRST_ONE_WAY_FILTER_PERSON_ID`, so
+# their searches are one-way: prospects appear in them even when the
+# prospects' own filters exclude this user. Restores the id sequence
+# afterwards so users created later are grandfathered (two-way) again.
+create_one_way_searcher () {
+  local name=$1
+  local next_id=$(q "select max(id) + 1 from person")
+
+  q "alter sequence person_id_seq restart with 369305"
+  ../util/create-user.sh "$name" 0 1
+  q "alter sequence person_id_seq restart with ${next_id}"
+
+  q "
+  update person
+  set
+    privacy_verification_level_id = 1,
+    personality = array_full(47, 1e-5)
+  where name = '${name}'"
+}
+
+test_one_way_gender_filter () {
+  setup
+  create_one_way_searcher user3
+
+  # user1's gender filter excludes user3's gender
+  assume_role user1
+  jc PATCH /profile-info  -d '{ "gender": "Woman" }'
+  jc POST  /search-filter -d '{ "gender": ["Woman"] }'
+
+  assume_role user3
+  jc PATCH /profile-info  -d '{ "gender": "Man" }'
+  jc POST  /search-filter -d '{ "gender": ["Woman"] }'
+
+  # user3 signed up after the cutoff, so their search is one-way: they see
+  # user1 despite user1's filter. (searcher and user2 are excluded by user3's
+  # own gender filter.)
+  assert_search_names 'user1'
+
+  # Grandfathered searchers still get the two-way behavior
+  assume_role searcher
+  jc PATCH /profile-info  -d '{ "gender": "Man" }'
+  jc POST  /search-filter -d '{ "gender": ["Woman"] }'
+  assert_search_names ''
+}
+
+test_one_way_location_filter () {
+  setup
+  create_one_way_searcher user3
+
+  # user1's distance filter excludes user3's location
+  assume_role user1
+  jc PATCH /profile-info  -d '{ "location": "Brisbane, Queensland, Australia" }'
+  jc POST  /search-filter -d '{ "furthest_distance": 100 }'
+
+  assume_role user3
+  jc POST  /search-filter -d '{ "furthest_distance": null }'
+
+  # user3 signed up after the cutoff, so their search is one-way: they see
+  # user1 despite user1's filter
+  assert_search_names 'searcher user1 user2'
+
+  # Grandfathered searchers still get the two-way behavior
+  assume_role searcher
+  jc POST  /search-filter -d '{ "furthest_distance": null }'
+  assert_search_names 'user2 user3'
+}
+
+test_one_way_age_filter () {
+  setup
+  create_one_way_searcher user3
+
+  # user1's age filter excludes user3's age
+  assume_role user1
+  jc POST  /search-filter -d '{ "age": { "min_age": 40, "max_age": 60 }}'
+
+  assume_role user3
+  jc POST  /search-filter -d '{ "age": { "min_age": null, "max_age": null }}'
+
+  # user3 signed up after the cutoff, so their search is one-way: they see
+  # user1 despite user1's filter
+  assert_search_names 'searcher user1 user2'
+
+  # Grandfathered searchers still get the two-way behavior
+  assume_role searcher
+  jc POST  /search-filter -d '{ "age": { "min_age": null, "max_age": null }}'
+  assert_search_names 'user2 user3'
+}
+
 test_search_page_size_limit () {
   setup
 
@@ -960,6 +1048,10 @@ test_basic star_sign 'Leo'
 test_bidirectional_gender_filter
 test_bidirectional_location_filter
 test_bidirectional_age_filter
+
+test_one_way_gender_filter
+test_one_way_location_filter
+test_one_way_age_filter
 
 test_json_format
 
