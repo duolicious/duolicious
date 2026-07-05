@@ -31,10 +31,12 @@ from chatprotocol.outbound import (
     AuthFailure,
     AuthSuccess,
     BindResult,
+    InboxConversation,
     InboxEntry,
     InboxFin,
     InboxResult,
     InboxSnapshot,
+    InboxSnapshotPayload,
     IncomingChat,
     IncomingReaction,
     IncomingTyping,
@@ -80,7 +82,7 @@ _VISITORS_PAYLOAD_JSON = json.dumps({
     'you_visited': [],
     'last_visited_at': None,
 })
-_INBOX_CONVERSATION = {
+_INBOX_CONVERSATION: InboxConversation = {
     'person_uuid': U2,
     'url_slug': 'some-slug',
     'name': 'Alé & <co>',
@@ -94,7 +96,7 @@ _INBOX_CONVERSATION = {
     'last_message_read': False,
     'last_message_timestamp': '2020-01-01T00:00:00.000000Z',
 }
-_INBOX_PAYLOAD = {
+_INBOX_PAYLOAD: InboxSnapshotPayload = {
     'conversations': [_INBOX_CONVERSATION],
 }
 

@@ -3,12 +3,12 @@ import traceback
 from batcher import Batcher
 from database import Row, Tx, api_tx
 from dataclasses import dataclass
-from typing import TypedDict
 from service.chat.chatutil import (
     LSERVER,
     format_timestamp,
 )
 from chatprotocol.outbound import (
+    InboxConversation,
     InboxEntry,
     InboxFin,
     InboxResult,
@@ -359,28 +359,10 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
     return messages
 
 
-class InboxConversation(TypedDict):
-    """
-    The wire shape of one inbox conversation: the whole of a `duo_inbox_entry`,
-    and each element of a `duo_inbox` snapshot's `conversations`. This is the
-    single source of truth for that shape; `Q_INBOX_SNAPSHOT`/`Q_INBOX_ENTRY`
-    return the underlying columns and the query gates the viewer-visible fields,
-    but the payload itself is assembled here.
-    """
-    person_uuid: str
-    url_slug: str | None
-    name: str | None
-    match_percentage: int | None
-    image_uuid: str | None
-    image_blurhash: str | None
-    is_verified: bool
-    is_available: bool
-    location: str
-    last_message: str
-    last_message_read: bool
-    last_message_timestamp: str
-
-
+# The wire shape itself is defined beside the stanzas that carry it
+# (`chatprotocol.outbound.InboxConversation`); `Q_INBOX_SNAPSHOT`/
+# `Q_INBOX_ENTRY` return the underlying columns and the query gates the
+# viewer-visible fields, but the payload is assembled here.
 def _conversation_from_row(row: Row) -> InboxConversation:
     return InboxConversation(
         person_uuid=row['person_uuid'],

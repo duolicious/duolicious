@@ -13,6 +13,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from dataclasses import dataclass
+from typing import TypedDict
 
 from chatprotocol.jid import LSERVER
 from chatprotocol.element import (
@@ -474,6 +475,34 @@ class InboxFin(Outbound):
         }}
 
 
+@dataclass(frozen=True)
+class InboxConversation(TypedDict):
+    """
+    The wire shape of one inbox conversation: the whole of an `InboxEntry`
+    payload, and each element of an `InboxSnapshot` payload's `conversations`.
+    This is the single source of truth for that shape; the rows it's assembled
+    from come from `Q_INBOX_SNAPSHOT`/`Q_INBOX_ENTRY` in
+    `service.chat.messagestorage.inbox`.
+    """
+    person_uuid: str
+    url_slug: str | None
+    name: str | None
+    match_percentage: int | None
+    image_uuid: str | None
+    image_blurhash: str | None
+    is_verified: bool
+    is_available: bool
+    location: str
+    last_message: str
+    last_message_read: bool
+    last_message_timestamp: str
+
+
+@dataclass(frozen=True)
+class InboxSnapshotPayload(TypedDict):
+    conversations: list[InboxConversation]
+
+
 @_register
 @dataclass(frozen=True)
 class InboxSnapshot(Outbound):
@@ -483,7 +512,7 @@ class InboxSnapshot(Outbound):
     message, unread state and person info), replacing the legacy
     `InboxResult`/`InboxFin` stream plus `/inbox-info` join.
     """
-    payload: dict
+    payload: InboxSnapshotPayload
 
     def canonical(self) -> dict:
         return {'duo_inbox': self.payload}
@@ -497,7 +526,7 @@ class InboxEntry(Outbound):
     pushed to the recipient when a message arrives so their client can update
     its inbox without any further requests.
     """
-    payload: dict
+    payload: InboxConversation
 
     def canonical(self) -> dict:
         return {'duo_inbox_entry': self.payload}
