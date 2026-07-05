@@ -56,6 +56,7 @@ from service.chat.chatutil import (
     format_timestamp,
     now_microseconds,
     fetch_id_from_username,
+    redis_has_subscribers,
 )
 from chatprotocol.message import (
     AudioMessage,
@@ -220,15 +221,6 @@ REPEATED_CHARACTERS_RE = regex.compile(r'(.)\1{1,}')
 
 async def redis_publish(channel: str, message: str) -> None:
     await REDIS_WORKER_CLIENT.publish(channel, message)
-
-
-async def redis_has_subscribers(channel: str) -> bool:
-    """
-    True when at least one websocket connection (on any chat worker; they all
-    share one Redis) is subscribed to `channel`.
-    """
-    [(_, count)] = await REDIS_WORKER_CLIENT.pubsub_numsub(channel)
-    return count > 0
 
 
 async def redis_publish_many(
@@ -780,7 +772,7 @@ async def process_text(
             # offline recipient gets the whole inbox via `duo_query_inbox` on
             # reconnect anyway. That reconnect snapshot also covers the race
             # where a recipient connects between this check and the publish.
-            if await redis_has_subscribers(to_username):
+            if await redis_has_subscribers(REDIS_WORKER_CLIENT, to_username):
                 await redis_publish_many(
                         to_username,
                         await get_inbox_entry(

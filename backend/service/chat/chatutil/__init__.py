@@ -1,3 +1,5 @@
+import redis.asyncio as redis
+
 from async_lru_cache import AsyncLruCache
 from database import api_tx
 
@@ -45,6 +47,18 @@ SELECT shadow_banned_at FROM person WHERE id = %(person_id)s
 Q_FETCH_IS_PUBLIC = """
 SELECT public_profile FROM person WHERE id = %(person_id)s
 """
+
+
+async def redis_has_subscribers(
+    redis_client: redis.Redis,
+    channel: str,
+) -> bool:
+    """
+    True when at least one websocket connection (on any chat worker; they all
+    share one Redis) is subscribed to `channel`.
+    """
+    [(_, count)] = await redis_client.pubsub_numsub(channel)
+    return count > 0
 
 
 @AsyncLruCache(ttl=5)  # 5 seconds

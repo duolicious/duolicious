@@ -4,6 +4,7 @@ from service.chat.chatutil import (
     fetch_is_public,
     fetch_is_skipped,
     fetch_id_from_username,
+    redis_has_subscribers,
 )
 from enum import Enum
 from commonsql import Q_UPDATE_LAST
@@ -96,15 +97,36 @@ async def _redis_subscribe_online(
     if isinstance(val, bytes):
         val = val.decode()
 
+    stored: OnlineEvent | None = None
+
     if isinstance(val, str):
         try:
             event = from_bus(val)
             if isinstance(event, OnlineEvent):
-                return event
+                stored = event
         except Exception:
             pass
 
-    return OnlineEvent(username=username, status=OnlineStatus.OFFLINE.value)
+    if stored is None:
+        return OnlineEvent(username=username, status=OnlineStatus.OFFLINE.value)
+
+    # The stored status can misreport whether the user is connected *right
+    # now*: a crashed worker never demotes 'online' (the key just expires,
+    # ONLINE_RECENTLY_SECONDS later), and a multi-device user dropping one
+    # connection is demoted to 'online-recently' until the surviving device's
+    # next heartbeat. Whether any of the user's websocket connections is
+    # subscribed to their username channel is authoritative -- it's the same
+    # subscription message delivery uses, and Redis drops it when a connection
+    # dies -- so it decides between 'online' and 'online-recently'. The stored
+    # event then only attests that the user was seen within the last
+    # ONLINE_RECENTLY_SECONDS. Pushed OnlineEvents need no such correction:
+    # they're emitted by actual connection lifecycle.
+    status = (
+        OnlineStatus.ONLINE.value
+        if await redis_has_subscribers(redis_client, username)
+        else OnlineStatus.ONLINE_RECENTLY.value)
+
+    return OnlineEvent(username=username, status=status)
 
 
 async def _redis_unsubscribe_online(
