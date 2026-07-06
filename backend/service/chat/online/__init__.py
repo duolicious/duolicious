@@ -112,15 +112,15 @@ async def _redis_subscribe_online(
 
     # The stored status can misreport whether the user is connected *right
     # now*: a crashed worker never demotes 'online' (the key just expires,
-    # ONLINE_RECENTLY_SECONDS later), and a multi-device user dropping one
-    # connection is demoted to 'online-recently' until the surviving device's
-    # next heartbeat. Whether any of the user's websocket connections is
-    # subscribed to their username channel is authoritative -- it's the same
-    # subscription message delivery uses, and Redis drops it when a connection
-    # dies -- so it decides between 'online' and 'online-recently'. The stored
-    # event then only attests that the user was seen within the last
-    # ONLINE_RECENTLY_SECONDS. Pushed OnlineEvents need no such correction:
-    # they're emitted by actual connection lifecycle.
+    # ONLINE_RECENTLY_SECONDS later). Whether any of the user's websocket
+    # connections is subscribed to their username channel is authoritative --
+    # it's the same subscription message delivery uses, and Redis drops it
+    # when a connection dies -- so it decides between 'online' and
+    # 'online-recently'. The stored event then only attests that the user was
+    # seen within the last ONLINE_RECENTLY_SECONDS. Pushed OnlineEvents need
+    # no such correction: connection lifecycle emits them, and the disconnect
+    # path performs this same subscriber check so a multi-device user stays
+    # 'online' until their last connection drops.
     status = (
         OnlineStatus.ONLINE.value
         if await redis_has_subscribers(redis_client, username)

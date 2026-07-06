@@ -67,6 +67,19 @@ app.post('/config', (req, res) => {
   res.status(200).send();
 });
 
+// /disconnect closes the connection's websocket without opening a new one, so
+// tests can observe what the chat service does when a client drops.
+app.post('/disconnect', (req, res) => {
+  const connection = getConnection(req);
+
+  if (connection.wsClient) {
+    connection.wsClient.close();
+    connection.wsClient = null;
+  }
+
+  res.status(200).send();
+});
+
 // /send accepts raw message text and sends it over the WebSocket connection
 app.post('/send', (req, res) => {
   const connection = getConnection(req);

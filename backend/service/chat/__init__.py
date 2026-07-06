@@ -862,11 +862,25 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
             except asyncio.CancelledError:
                 pass
 
+            # Drop this connection's subscription to the user's own channel
+            # before counting subscribers, so the count only reflects the
+            # user's other connections. If another client is still connected,
+            # the user stays 'online'; only losing the last connection demotes
+            # them to 'online-recently'.
+            if is_subscribed_by_username and session.username:
+                try:
+                    await pubsub.unsubscribe(session.username)
+                except:
+                    print(traceback.format_exc())
+
             try:
                 await update_online_once(
                     redis_client=REDIS_WORKER_CLIENT,
                     session=session,
-                    online=False,
+                    online=bool(
+                        session.username and
+                        await redis_has_subscribers(
+                            REDIS_WORKER_CLIENT, session.username)),
                 )
             except asyncio.CancelledError:
                 pass
