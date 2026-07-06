@@ -1456,36 +1456,6 @@ WITH searcher AS (
     ) AS photo_data
     ON TRUE
     LEFT JOIN LATERAL (
-        SELECT
-            -- Events which are less than a week old are shown as themselves,
-            -- at their event time. Older events are replaced by a
-            -- 'recently-online-with-*' event shown at the prospect's
-            -- last-online time, so the feed feels fresh.
-            -- 'was-recently-online' is a legacy event with no content of its
-            -- own, so it's never shown as itself.
-            prospect.last_event_time > now() - interval '1 week'
-            AND prospect.last_event_name <> 'was-recently-online'
-            AS event_is_fresh,
-
-            -- Legacy rows can store 'recently-online-with-*' names directly;
-            -- normalize them to the underlying content event.
-            CASE prospect.last_event_name
-
-            WHEN 'recently-online-with-photo'
-            THEN 'added-photo'
-
-            WHEN 'recently-online-with-voice-bio'
-            THEN 'added-voice-bio'
-
-            WHEN 'recently-online-with-bio'
-            THEN 'updated-bio'
-
-            ELSE prospect.last_event_name
-
-            END::person_event AS content_event_name
-    ) AS normalized_event
-    ON TRUE
-    LEFT JOIN LATERAL (
         -- A random photo for synthesizing a 'recently-online-with-photo'
         -- event when the prospect's last event is stale and has no content of
         -- its own
