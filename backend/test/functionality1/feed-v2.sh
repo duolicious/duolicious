@@ -488,6 +488,36 @@ test_joined_club () {
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
+  # user3 skips the searcher. The searcher can no longer access user3's
+  # profile, so user3's own joined-club item disappears and user3 is dropped
+  # from the other members' facepiles. The club's member count is unaffected.
+  assume_role user3
+  c POST "/skip/by-uuid/$(q "select uuid from person where name = 'searcher'")"
+
+  set_deterministic_online_times
+
+  response=$(joined_club_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_joined_club_item user1 3 1) \
+      <(expected_joined_club_item user2 3 1)
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # Undoing the skip restores user3's item and facepile entries
+  q "delete from skipped"
+
+  set_deterministic_online_times
+
+  response=$(joined_club_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_joined_club_item user1 3 2) \
+      <(expected_joined_club_item user2 3 2) \
+      <(expected_joined_club_item user3 3 2)
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
   # Leaving the club reverts the leaver's event and shrinks the facepiles
   assume_role user3
   jc POST /leave-club -d '{ "name": "cats" }'

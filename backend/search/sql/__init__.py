@@ -1965,6 +1965,19 @@ LEFT JOIN LATERAL (
             AND
                 NOT member.hide_me_from_strangers
             AND
+                -- The member did not skip the searcher; their profile would be
+                -- inaccessible if they did
+                NOT EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        skipped
+                    WHERE
+                        skipped.subject_person_id = member.id
+                    AND
+                        skipped.object_person_id = searcher.searcher_id
+                )
+            AND
                 member.privacy_verification_level_id <=
                     searcher.verification_level_id
             AND (
