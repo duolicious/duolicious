@@ -38,6 +38,7 @@ const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
   const panXValue = useRef(0); // Keep track of the current value
   const sliderWidth = useRef(0);
   const gestureStartX = useRef(0); // Store gesture start position
+  const valueRef = useRef(initialValue);
 
   const valueRange = maximumValue - minimumValue;
 
@@ -45,8 +46,13 @@ const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
   useEffect(() => {
     const listenerId = panX.addListener(({ value }) => {
       panXValue.current = value;
+      // Positions are meaningless until the slider has been laid out
+      if (sliderWidth.current === 0) {
+        return;
+      }
       // Call onValueChange continuously as the value changes
       const newValue = calculateValue(value);
+      valueRef.current = newValue;
       onValueChange(newValue);
     });
     return () => {
@@ -58,6 +64,14 @@ const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
     const ratio = position / sliderWidth.current || 0;
     const value = ratio * valueRange + minimumValue;
     return Math.max(minimumValue, Math.min(value, maximumValue));
+  };
+
+  const calculatePosition = (value: number) => {
+    const clampedValue = Math.max(
+      minimumValue,
+      Math.min(value, maximumValue)
+    );
+    return ((clampedValue - minimumValue) / valueRange) * sliderWidth.current;
   };
 
   const pan = useMemo(
@@ -81,8 +95,8 @@ const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
         minimumValue,
         Math.min(value, maximumValue)
       );
-      const newPosition =
-        ((clampedValue - minimumValue) / valueRange) * sliderWidth.current;
+      const newPosition = calculatePosition(clampedValue);
+      valueRef.current = clampedValue;
       panX.setValue(newPosition);
       panXValue.current = newPosition;
       // Update parent about the new value
@@ -91,28 +105,31 @@ const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
   }));
 
   useEffect(() => {
-    const initialPosition =
-      ((initialValue - minimumValue) / valueRange) * sliderWidth.current;
+    valueRef.current = Math.max(
+      minimumValue,
+      Math.min(initialValue, maximumValue)
+    );
+    const initialPosition = calculatePosition(initialValue);
     panX.setValue(initialPosition);
     panXValue.current = initialPosition;
   }, [initialValue, minimumValue, maximumValue]);
 
   const onLayout = (event: LayoutChangeEvent) => {
-    sliderWidth.current = Math.max(
+    const width = Math.max(
       0,
       event.nativeEvent.layout.width - thumbRadius * 2
     );
-    const initialPosition =
-      ((initialValue - minimumValue) / valueRange) * sliderWidth.current;
-    panX.setValue(initialPosition);
-    panXValue.current = initialPosition;
+    // Views hidden with `display: none` (e.g. in an inactive tab) report
+    // zero-width layouts; acting on them would reset the slider to its
+    // minimum
+    if (width === 0 || width === sliderWidth.current) {
+      return;
+    }
+    sliderWidth.current = width;
+    const position = calculatePosition(valueRef.current);
+    panX.setValue(position);
+    panXValue.current = position;
   };
-
-  const translateX = panX.interpolate({
-    inputRange: [0, sliderWidth.current],
-    outputRange: [0, sliderWidth.current],
-    extrapolate: 'clamp',
-  });
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -129,7 +146,7 @@ const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
           style={[
             styles.thumb,
             {
-              transform: [{ translateX }],
+              transform: [{ translateX: panX }],
             },
           ]}
         />

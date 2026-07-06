@@ -1,0 +1,58 @@
+{
+    "name": "@types/react-test-renderer",
+    "version": "19.1.0",
+    "description": "TypeScript definitions for react-test-renderer",
+    "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-test-renderer",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Arvitaly",
+            "githubUsername": "arvitaly",
+            "url": "https://github.com/arvitaly"
+        },
+        {
+            "name": "Lochbrunner",
+            "githubUsername": "lochbrunner",
+            "url": "https://github.com/lochbrunner"
+        },
+        {
+            "name": "John Reilly",
+            "githubUsername": "johnnyreilly",
+            "url": "https://github.com/johnnyreilly"
+        },
+        {
+            "name": "John Gozde",
+            "githubUsername": "jgoz",
+            "url": "https://github.com/jgoz"
+        },
+        {
+            "name": "Jessica Franco",
+            "githubUsername": "Jessidhia",
+            "url": "https://github.com/Jessidhia"
+        },
+        {
+            "name": "Dhruv Jain",
+            "githubUsername": "maddhruv",
+            "url": "https://github.com/maddhruv"
+        },
+        {
+            "name": "Sebastian Silbermann",
+            "githubUsername": "eps1lon",
+            "url": "https://github.com/eps1lon"
+        }
+    ],
+    "main": "",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/react-test-renderer"
+    },
+    "scripts": {},
+    "dependencies": {
+        "@types/react": "*"
+    },
+    "peerDependencies": {},
+    "typesPublisherContentHash": "ff262e499ee6ae6755c298a9b1a7ab8059d4151cbc5849800b6dbab3eb486e60",
+    "typeScriptVersion": "5.1"
+}
