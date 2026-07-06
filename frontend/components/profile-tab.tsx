@@ -57,7 +57,7 @@ import { resetUserScopedClientState } from '../navigation/reset-client-state';
 import { api, japi, ApiResponse } from '../api/api';
 import { useSignedInUser, setSignedInUser, getSignedInUser } from '../events/signed-in-user';
 import { cmToFeetInchesStr } from '../units/units';
-import { IMAGES_URL } from '../env/env';
+import { photoUri } from '../util/photos';
 import * as _ from "lodash";
 import { aboutQueue, nameQueue } from '../api/queue';
 import { ClubSelector } from './club-selector';
@@ -205,15 +205,7 @@ const Images_ = ({data}: {data: ProfileInfo}) => {
           const extraExts: string[] = (
             data?.photo_extra_exts ?? {})[position] ?? [];
 
-          const ext = extraExts[0] ?? 'jpg';
-
-          const prefix = extraExts.length ? '' : `${resolution}-`;
-
-          if (photoUuid) {
-            return `${IMAGES_URL}/${prefix}${photoUuid}.${ext}`
-          } else {
-            return null;
-          }
+          return photoUri(photoUuid, resolution, extraExts);
         },
         getBlurhash: (position: string) => {
           const photoBlurhash = (data?.photo_blurhash ?? {})[position] ?? null;

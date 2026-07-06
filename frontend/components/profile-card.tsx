@@ -18,9 +18,7 @@ import {
 } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DefaultText } from './default-text';
-import {
-  IMAGES_URL,
-} from '../env/env';
+import { photoUri } from '../util/photos';
 import {
   CompositeNavigationProp,
   NavigationProp,
@@ -130,13 +128,7 @@ const PhotoOrSkeleton_ = ({
 
   const { appTheme } = useAppTheme();
 
-  const uriPrefix = photoExtraExts?.length ? '' : `${resolution}-`;
-
-  const ext = (photoExtraExts && photoExtraExts[0]) ?? 'jpg';
-
-  const uri = photoUuid ?
-    `${IMAGES_URL}/${uriPrefix}${photoUuid}.${ext}` :
-    photoUuid;
+  const uri = photoUri(photoUuid, resolution, photoExtraExts);
 
   // This is a workaround for an issue where images that are only blurhashes
   // appear as blank. I'm guessing the root cause is another issue I vaguely

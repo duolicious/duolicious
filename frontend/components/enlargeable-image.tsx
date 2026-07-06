@@ -8,9 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ProspectParamList } from '../navigation/linking';
 import { Image as ExpoImage } from 'expo-image';
 import { IMAGES_URL } from '../env/env';
-
-const hasGifExtraExt = (photoExtraExts: string[] | undefined | null): boolean =>
-  photoExtraExts?.some((ext) => ext.toLowerCase() === 'gif') ?? false;
+import { hasGifExtraExt } from '../util/photos';
 
 const EnlargeablePhoto = ({
   photoUuid,
