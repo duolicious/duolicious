@@ -222,13 +222,12 @@ const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
     pageMetadata.seenPersonUuids = new Set();
   }
 
-  const now           = new Date();
-  const oneMinuteAgo  = new Date(now.getTime() - 60_000).toISOString(); // underscore for readability
+  const now = new Date().toISOString();
 
   const lastPageTime =
-    pageMetadata?.lastPage?.at(-1)?.came_online_time ?? oneMinuteAgo;
+    pageMetadata?.lastPage?.at(-1)?.came_online_time ?? now;
 
-  const before = pageNumber === 1 ? oneMinuteAgo : lastPageTime;
+  const before = pageNumber === 1 ? now : lastPageTime;
 
   const response = await japi(
     'get',

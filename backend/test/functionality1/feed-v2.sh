@@ -14,6 +14,8 @@
 #   * Includes a `came_online_time` field, which clients use as the `before`
 #     cursor for the next page, and an `online_time` field showing when the
 #     person was last online
+#   * Excludes people whose came_online_time or last_online_time is within
+#     the past minute
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$script_dir"
@@ -82,6 +84,8 @@ test_json_format () {
   ../util/create-user.sh user12 0 1
   ../util/create-user.sh user13 0 1
   ../util/create-user.sh user14 0 1
+  ../util/create-user.sh user15 0 1
+  ../util/create-user.sh user16 0 1
 
   searcher_uuid=$(q "select uuid from person where name = 'searcher'")
 
@@ -166,6 +170,18 @@ test_json_format () {
            last_online_time = now() - interval '$(( 100 - i )) minutes'
        where name = 'user${i}'"
   done
+
+  # user15's online session started within the past minute and user16 was
+  # online within the past minute, so both are excluded (from every page)
+  # despite being eligible in every other way
+  q "update person
+     set came_online_time = now() - interval '1 second',
+         last_online_time = now() - interval '99 minutes'
+     where name = 'user15'"
+  q "update person
+     set came_online_time = now() - interval '15 minutes',
+         last_online_time = now() - interval '1 second'
+     where name = 'user16'"
 
   before=$(q "select iso8601_utc(now()::timestamp)")
 

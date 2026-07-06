@@ -1490,6 +1490,10 @@ WITH searcher AS (
         person
     WHERE
         came_online_time < %(before)s
+    AND
+        came_online_time < now() - interval '1 minute'
+    AND
+        last_online_time < now() - interval '1 minute'
     ORDER BY
         came_online_time DESC
     LIMIT
