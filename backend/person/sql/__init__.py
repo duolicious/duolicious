@@ -464,6 +464,15 @@ WITH onboardee_location AS (
                         WHERE preference.email = (SELECT email FROM new_person)
                     )
                 AND
+                    -- The new_person meets the prospect's gender preference
+                    EXISTS (
+                        SELECT 1
+                        FROM search_preference_gender AS preference
+                        WHERE
+                            preference.person_id = prospect.id AND
+                            preference.gender_id = (SELECT gender_id FROM new_person)
+                    )
+                AND
                     -- The prospect meets the new_person's location preference
                     ST_DWithin(
                         prospect.coordinates,

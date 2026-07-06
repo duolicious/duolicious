@@ -78,6 +78,7 @@ WITH searcher AS (
     SELECT
         coordinates,
         personality,
+        gender_id,
         COALESCE(
             (
                 SELECT
@@ -282,8 +283,24 @@ WITH searcher AS (
     CROSS JOIN
         searcher
 
+    WHERE (
+        -- The searcher meets the prospect's gender preference or
+        -- the searcher is searching within a club
+        EXISTS (
+            SELECT
+                1
+            FROM
+                search_preference_gender AS preference
+            WHERE
+                preference.person_id = prospect.id
+            AND
+                preference.gender_id = searcher.gender_id
+        )
+        OR searcher.club_preference IS NOT NULL
+    )
+
    -- The prospect meets the searcher's age preference
-    WHERE
+    AND
         prospect.date_of_birth <= (
             SELECT
                 CURRENT_DATE -
@@ -929,6 +946,7 @@ Q_FEED = f"""
 WITH searcher AS (
     SELECT
         id as searcher_id,
+        gender_id,
         date_of_birth,
         personality,
         verification_level_id
@@ -1213,6 +1231,17 @@ WITH searcher AS (
     AND random() < age_gap_acceptability_odds(
         EXTRACT(YEAR FROM AGE(searcher.date_of_birth)),
         EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
+    )
+    -- The searcher meets the prospect's gender preference
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            search_preference_gender
+        WHERE
+            search_preference_gender.person_id = prospect.id
+        AND
+            search_preference_gender.gender_id = searcher.gender_id
     )
     -- Exclude photos that might be NSFW
     AND NOT EXISTS (

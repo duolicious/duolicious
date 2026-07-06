@@ -743,26 +743,34 @@ EOF
   diff <(echo "$response") <(echo "$expected")
 }
 
-# The basics filters (gender, distance, age) are one-way for all searchers: a
-# searcher sees a prospect regardless of the prospect's own filters. Only the
-# searcher's own filters restrict their results.
+# The gender filter is two-way for all searchers: a searcher only sees
+# prospects whose own gender filters accept the searcher. The other basics
+# filters (distance, age) are one-way: a searcher sees a prospect regardless
+# of the prospect's distance and age filters.
 
-test_one_way_gender_filter () {
+test_bidirectional_gender_filter () {
   setup
 
-  # user1's gender filter excludes searcher's gender
   assume_role user1
-  jc PATCH /profile-info  -d '{ "gender": "Woman" }'
-  jc POST  /search-filter -d '{ "gender": ["Woman"] }'
-
-  assume_role searcher
   jc PATCH /profile-info  -d '{ "gender": "Man" }'
   jc POST  /search-filter -d '{ "gender": ["Woman"] }'
 
-  # searcher's search is one-way: they see user1 despite user1's filter
-  # excluding Men. user2 (a "Other" gender) is excluded by searcher's own
-  # [Woman] filter.
-  assert_search_names 'user1'
+  assume_role user2
+  jc PATCH /profile-info  -d '{ "gender": "Non-binary" }'
+  jc POST  /search-filter -d '{ "gender": ["Woman"] }'
+
+  assume_role searcher
+  jc PATCH /profile-info  -d '{ "gender": "Woman" }'
+  jc POST  /search-filter -d '{ "gender": ["Man"] }'
+
+  assume_role user1
+  assert_search_names "searcher"
+
+  assume_role user2
+  assert_search_names ""
+
+  assume_role searcher
+  assert_search_names "user1"
 }
 
 test_one_way_location_filter () {
@@ -910,7 +918,7 @@ test_basic exercise 'Never' frequency
 test_basic religion 'Buddhist'
 test_basic star_sign 'Leo'
 
-test_one_way_gender_filter
+test_bidirectional_gender_filter
 test_one_way_location_filter
 test_one_way_age_filter
 
