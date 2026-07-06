@@ -1319,7 +1319,7 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
-const searchTwoWayBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
+const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     ...yourPartnersGenderOptionGroup,
     title: "Gender",
@@ -1421,9 +1421,6 @@ const searchTwoWayBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       }
     },
   },
-];
-
-const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     title: "Orientation",
     Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="person" />,
@@ -1918,14 +1915,6 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
-// The single, merged "Basics" section shown to users who signed up after the
-// basics filters became one-way. Grandfathered users keep the legacy two-way
-// vs. other split.
-const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
-  ...searchTwoWayBasicsOptionGroups,
-  ...searchOtherBasicsOptionGroups,
-];
-
 const searchInteractionsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     title: "People You Messaged",
@@ -1992,8 +1981,7 @@ const defaultSearchFilters = (): SearchFilters => {
   const filters: SearchFilters = { answer: [] };
 
   const optionGroups = [
-    ...searchTwoWayBasicsOptionGroups,
-    ...searchOtherBasicsOptionGroups,
+    ...searchBasicsOptionGroups,
     ...searchInteractionsOptionGroups,
   ];
 
@@ -2383,8 +2371,6 @@ export {
   searchBasicsOptionGroups,
   searchInteractionsOptionGroups,
   socialAccountOptionGroups,
-  searchOtherBasicsOptionGroups,
-  searchTwoWayBasicsOptionGroups,
   themePickerOptionGroups,
   verificationOptionGroups,
 };

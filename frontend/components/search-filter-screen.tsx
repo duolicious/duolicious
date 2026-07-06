@@ -19,8 +19,6 @@ import {
   OptionGroup,
   OptionGroupInputs,
   searchBasicsOptionGroups,
-  searchTwoWayBasicsOptionGroups,
-  searchOtherBasicsOptionGroups,
   searchInteractionsOptionGroups,
   defaultSearchFilters,
   getCurrentValue,
@@ -28,7 +26,6 @@ import {
   isOptionGroupRangeSlider,
   isOptionGroupSlider,
 } from '../data/option-groups';
-import { FIRST_ONE_WAY_FILTER_PERSON_ID } from '../constants/constants';
 import {
   NativeStackScreenProps,
   createNativeStackNavigator,
@@ -297,15 +294,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
     })();
   }, [isLocked]);
 
-  // People who signed up while the basics filters were two-way keep the
-  // legacy screen structure, including its two-way messaging, even though
-  // their filters are only two-way against other grandfathered users now
-  const hasLegacyTwoWayFilters =
-    !!signedInUser && signedInUser.personId < FIRST_ONE_WAY_FILTER_PERSON_ID;
-
   const _searchBasicsOptionGroups = searchBasicsOptionGroups.map(withCurrent);
-  const _searchTwoWayBasicsOptionGroups = searchTwoWayBasicsOptionGroups.map(withCurrent);
-  const _searchOtherBasicsOptionGroups = searchOtherBasicsOptionGroups.map(withCurrent);
   const _searchInteractionsOptionGroups = searchInteractionsOptionGroups.map(withCurrent);
 
   const goBack = useCallback(() => {
@@ -377,55 +366,15 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             Set the Q&A answers you’ll accept from your matches
           </DefaultText>
 
-          {hasLegacyTwoWayFilters &&
-            <>
-              <Title style={{marginTop: 40}}>Basics (Two-way Filters)</Title>
-              {
-                _searchTwoWayBasicsOptionGroups.map((og, i) =>
-                  <Button_
-                    key={i}
-                    setting={getCurrentValueAsLabel(og, signedInUser)}
-                    optionGroups={_searchTwoWayBasicsOptionGroups.slice(i)}
-                  />
-                )
-              }
-              <DefaultText
-                style={{
-                  color: '#999',
-                  textAlign: 'center',
-                  marginRight: 10,
-                  marginLeft: 10,
-                }}
-              >
-                Anyone you filter with your two-way search settings won’t see
-                you in their searches either, unless searching a mutual club
-              </DefaultText>
-
-              <Title style={{marginTop: 40}}>Basics (Other Filters)</Title>
-              {
-                _searchOtherBasicsOptionGroups.map((og, i) =>
-                  <Button_
-                    key={i}
-                    setting={getCurrentValueAsLabel(og, signedInUser)}
-                    optionGroups={_searchOtherBasicsOptionGroups.slice(i)}
-                  />
-                )
-              }
-            </>
-          }
-          {!hasLegacyTwoWayFilters &&
-            <>
-              <Title style={{marginTop: 40}}>Basics</Title>
-              {
-                _searchBasicsOptionGroups.map((og, i) =>
-                  <Button_
-                    key={i}
-                    setting={getCurrentValueAsLabel(og, signedInUser)}
-                    optionGroups={_searchBasicsOptionGroups.slice(i)}
-                  />
-                )
-              }
-            </>
+          <Title style={{marginTop: 40}}>Basics</Title>
+          {
+            _searchBasicsOptionGroups.map((og, i) =>
+              <Button_
+                key={i}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
+                optionGroups={_searchBasicsOptionGroups.slice(i)}
+              />
+            )
           }
           <Title style={{marginTop: 40}}>Interactions</Title>
           {

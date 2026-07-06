@@ -1,7 +1,4 @@
-from constants import (
-    FIRST_ONE_WAY_FILTER_PERSON_ID,
-    ONLINE_RECENTLY_SECONDS,
-)
+from constants import ONLINE_RECENTLY_SECONDS
 from commonsql import Q_COMPUTED_FLAIR
 
 # How many feed results to send to the client per request
@@ -76,12 +73,11 @@ WHERE
 
 
 
-Q_UNCACHED_SEARCH_2 = f"""
+Q_UNCACHED_SEARCH_2 = """
 WITH searcher AS (
     SELECT
         coordinates,
         personality,
-        gender_id,
         COALESCE(
             (
                 SELECT
@@ -101,7 +97,6 @@ WITH searcher AS (
             WHERE
                 person_id = %(searcher_person_id)s
         ) AS club_preference,
-        date_of_birth,
         count_answers,
         -- The searcher's one-way (enum) preferences, fetched once here as
         -- arrays so the prospect filters below become cheap `= ANY(...)`
@@ -287,52 +282,8 @@ WITH searcher AS (
     CROSS JOIN
         searcher
 
-    WHERE (
-        -- The searcher meets the prospect's gender preference or
-        -- the searcher's search is one-way or
-        -- the searcher is searching with in a club
-        EXISTS (
-            SELECT
-                1
-            FROM
-                search_preference_gender AS preference
-            WHERE
-                preference.person_id = prospect.id
-            AND
-                preference.gender_id = searcher.gender_id
-        )
-        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
-        OR searcher.club_preference IS NOT NULL
-    )
-
-    AND (
-        -- The searcher meets the prospect's location preference or
-        -- the searcher's search is one-way or
-        -- the searcher is searching within a club
-        ST_DWithin(
-            prospect.coordinates,
-            searcher.coordinates,
-            (
-                SELECT
-                    COALESCE(
-                        (
-                            SELECT
-                                1000 * distance
-                            FROM
-                                search_preference_distance
-                            WHERE
-                                person_id = prospect.id
-                        ),
-                        1e9
-                    )
-            )
-        )
-        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
-        OR searcher.club_preference IS NOT NULL
-    )
-
    -- The prospect meets the searcher's age preference
-    AND
+    WHERE
         prospect.date_of_birth <= (
             SELECT
                 CURRENT_DATE -
@@ -354,43 +305,6 @@ WITH searcher AS (
             WHERE
                 person_id = %(searcher_person_id)s
         )::DATE
-
-    -- The searcher meets the prospect's age preference or
-    -- the searcher's search is one-way or
-    -- the searcher is searching within a club
-    AND (
-       EXISTS (
-            SELECT 1
-            FROM search_preference_age AS preference
-            WHERE
-                preference.person_id = prospect.id
-            AND
-                searcher.date_of_birth <= (
-                    CURRENT_DATE -
-                    INTERVAL '1 year' *
-                    COALESCE(preference.min_age, 0)
-                )
-            AND
-                searcher.date_of_birth > (
-                    CURRENT_DATE -
-                    INTERVAL '1 year' *
-                    (COALESCE(preference.max_age, 999) + 1)
-                )
-        )
-        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
-        OR searcher.club_preference IS NOT NULL
-    )
-
-    -- The users have at least a 50%% match or
-    -- the searcher is searching within a club or
-    -- the searcher is a recently joined member
-    AND (
-        (prospect.personality <#> searcher.personality) < 1e-5
-        OR searcher.club_preference IS NOT NULL
-        OR %(searcher_person_id)s >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
-    )
-
-    -- One-way filters
     AND
         prospect.orientation_id = ANY(searcher.orientation_preference)
     AND
@@ -1015,7 +929,6 @@ Q_FEED = f"""
 WITH searcher AS (
     SELECT
         id as searcher_id,
-        gender_id,
         date_of_birth,
         personality,
         verification_level_id
@@ -1300,21 +1213,6 @@ WITH searcher AS (
     AND random() < age_gap_acceptability_odds(
         EXTRACT(YEAR FROM AGE(searcher.date_of_birth)),
         EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
-    )
-    -- The searcher meets the prospect's gender preference or the searcher's
-    -- search is one-way
-    AND (
-        EXISTS (
-            SELECT
-                1
-            FROM
-                search_preference_gender
-            WHERE
-                search_preference_gender.person_id = prospect.id
-            AND
-                search_preference_gender.gender_id = searcher.gender_id
-        )
-        OR searcher.searcher_id >= {FIRST_ONE_WAY_FILTER_PERSON_ID}
     )
     -- Exclude photos that might be NSFW
     AND NOT EXISTS (
