@@ -43,6 +43,7 @@ from service.chat.session import (
 from service.chat.online import (
     maybe_redis_subscribe_online,
     maybe_redis_unsubscribe_online,
+    update_came_online_if_first_client,
     update_online_once,
     update_online_forever,
 )
@@ -831,6 +832,15 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
                         text=text))
 
             if not update_online_task and session.username:
+                # This runs before the `pubsub.subscribe(session.username)`
+                # below, which is what counts as a connected client, so at
+                # this point the subscriber count still excludes this
+                # connection.
+                await update_came_online_if_first_client(
+                    redis_client=REDIS_WORKER_CLIENT,
+                    session=session,
+                )
+
                 update_online_task = asyncio.create_task(
                     update_online_forever(
                         redis_client=REDIS_WORKER_CLIENT,

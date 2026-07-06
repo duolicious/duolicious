@@ -4,6 +4,10 @@
 # at once (e.g. two browser tabs). Dropping one of several connections must
 # not demote the user to 'online-recently'; only losing the last connection
 # does. 'online' means at least one client is connected.
+#
+# Relatedly, `person.came_online_time` (which orders the v2 feed) must only be
+# stamped when a user goes from zero connected clients to one, not when they
+# connect additional clients.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$script_dir"
@@ -97,19 +101,35 @@ echo "The subscription reports 'offline' while multi has no connections"
 pop_viewer | grep -q '"@status": "offline"' \
   || { echo "Expected an 'offline' status"; exit 1; }
 
+q "update person set came_online_time = to_timestamp(0)
+   where uuid = '${multi_uuid}'"
+
 echo "Multi's first connection pushes 'online'"
 chat_auth_as multi1 "$multi_uuid" "$multi_token"
 sleep 1
 pop_viewer | grep -q '"@status": "online"' \
   || { echo "Expected an 'online' event"; exit 1; }
 
+echo "Going from zero clients to one stamps came_online_time"
+[[ $(q "select came_online_time > now() - interval '1 minute'
+        from person where uuid = '${multi_uuid}'") == t ]] \
+  || { echo "Expected came_online_time to be stamped"; exit 1; }
+
 # ---------------------------------------------------------------------------
 # 2) Dropping one of two connections keeps the user 'online'
 # ---------------------------------------------------------------------------
 
+q "update person set came_online_time = to_timestamp(0)
+   where uuid = '${multi_uuid}'"
+
 chat_auth_as multi2 "$multi_uuid" "$multi_token"
 sleep 1
 pop_viewer > /dev/null
+
+echo "Connecting a second client must not stamp came_online_time"
+[[ $(q "select came_online_time = to_timestamp(0)::timestamp
+        from person where uuid = '${multi_uuid}'") == t ]] \
+  || { echo "Expected came_online_time to be unchanged"; exit 1; }
 
 echo "Dropping one of two connections must not demote multi"
 disconnect multi2

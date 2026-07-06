@@ -67,10 +67,12 @@ type Action =
 
 const DataItemBaseSchema = z.object({
   time: z.string(),
-  // The feed is ordered and paginated by when people were last online, while
-  // `time` is the event's time, so this is the `before` cursor for the next
-  // page.
+  // When the person was last online, for display
   online_time: z.string(),
+  // The feed is ordered and paginated by when people's online session
+  // started, while `time` is the event's time and `online_time` is when they
+  // were last online, so this is the `before` cursor for the next page.
+  came_online_time: z.string(),
   person_uuid: z.string(),
   url_slug: z.string().nullable(),
   name: z.string(),
@@ -224,7 +226,7 @@ const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
   const oneMinuteAgo  = new Date(now.getTime() - 60_000).toISOString(); // underscore for readability
 
   const lastPageTime =
-    pageMetadata?.lastPage?.at(-1)?.online_time ?? oneMinuteAgo;
+    pageMetadata?.lastPage?.at(-1)?.came_online_time ?? oneMinuteAgo;
 
   const before = pageNumber === 1 ? oneMinuteAgo : lastPageTime;
 

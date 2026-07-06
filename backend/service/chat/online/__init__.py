@@ -77,6 +77,16 @@ WHERE
 """
 
 
+Q_UPDATE_CAME_ONLINE = """
+UPDATE
+    person
+SET
+    came_online_time = NOW()
+WHERE
+    uuid = %(person_uuid)s
+"""
+
+
 @dataclass(frozen=True)
 class UpdateLastJob:
     session_username: str
@@ -289,6 +299,28 @@ async def update_online_once(
         username=session.username,
         online=online,
     )
+
+
+async def update_came_online_if_first_client(
+    redis_client: redis.Redis,
+    session: Session,
+) -> None:
+    """
+    Stamp `person.came_online_time` if this session's user is going from zero
+    connected clients to one. Must run when a connection authenticates, before
+    the connection subscribes to its own username channel, since that
+    subscription is what counts as a connected client.
+    """
+    if session.username is None:
+        return
+
+    if await redis_has_subscribers(redis_client, session.username):
+        return
+
+    async with api_tx('read committed') as tx:
+        await tx.execute(
+            Q_UPDATE_CAME_ONLINE,
+            dict(person_uuid=session.username))
 
 
 async def update_online_forever(

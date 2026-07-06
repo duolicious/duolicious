@@ -1478,18 +1478,20 @@ WITH searcher AS (
         photo.position
     LIMIT 1
 ), recent_person AS (
-    -- Unlike v1, the feed is ordered by when people were last online, so a
-    -- single scan of the last-online index bounds the candidate pool.
+    -- Unlike v1, the feed is ordered by when people's current online session
+    -- started (came_online_time) rather than by event time, so a single scan
+    -- of the came-online index bounds the candidate pool. Ordering by
+    -- last_online_time would let people game the feed by staying online 24/7;
+    -- came_online_time only advances when they go from zero connected clients
+    -- to one.
     SELECT
         *
     FROM
         person
     WHERE
-        last_online_time < %(before)s
-    AND
-        last_online_time > now() - interval '1 month'
+        came_online_time < %(before)s
     ORDER BY
-        last_online_time DESC
+        came_online_time DESC
     LIMIT
         5000
 ), person_data AS (
@@ -1502,6 +1504,7 @@ WITH searcher AS (
         photo_data.uuid AS photo_uuid,
         prospect.verification_level_id > 1 AS is_verified,
         prospect.last_online_time,
+        prospect.came_online_time,
         mapped_last_event_time,
         mapped_last_event_name,
         mapped_last_event_data,
@@ -1873,7 +1876,7 @@ WITH searcher AS (
     )
     -- Exclude users who don't seem human. A user seems human if:
     --   * They're verified; or
-    --   * Their account is more than a month old; or
+    --   * Their account is more than a week old; or
     --   * They've customized their account's color scheme
     --   * They've got an audio bio
     --   * They've got an otherwise well-completed profile
@@ -1882,7 +1885,7 @@ WITH searcher AS (
             prospect.verification_level_id > 1
 
         OR
-            prospect.sign_up_time < now() - interval '1 month'
+            prospect.sign_up_time < now() - interval '1 week'
 
         OR
             lower(prospect.title_color) <> '#000000'
@@ -1910,7 +1913,7 @@ WITH searcher AS (
     AND
         searcher_id <> prospect.id
     ORDER BY
-        prospect.last_online_time DESC
+        prospect.came_online_time DESC
     LIMIT
         {FEED_RESULTS_PER_PAGE}
 ), feed_page AS (
@@ -1925,11 +1928,13 @@ WITH searcher AS (
         match_percentage,
         mapped_last_event_name AS type,
         iso8601_utc(mapped_last_event_time) AS time,
-        -- The feed is ordered and paginated by when people were last online,
-        -- while `time` is the event's time, so clients need this as their
-        -- `before` cursor for the next page.
+        -- When the person was last online, for display
         iso8601_utc(last_online_time) AS online_time,
-        last_online_time,
+        -- The feed is ordered and paginated by when people's online session
+        -- started, so clients need this as their `before` cursor for the
+        -- next page.
+        iso8601_utc(came_online_time) AS came_online_time_iso,
+        came_online_time,
         mapped_last_event_data,
         ({Q_COMPUTED_FLAIR}) AS flair,
         age,
@@ -1949,6 +1954,7 @@ SELECT
         'is_verified', is_verified,
         'time', time,
         'online_time', online_time,
+        'came_online_time', came_online_time_iso,
         'type', type,
         'match_percentage', match_percentage,
         'flair', flair,
@@ -2087,5 +2093,5 @@ LEFT JOIN LATERAL (
 ) AS joined_club_data
 ON TRUE
 ORDER BY
-    last_online_time DESC
+    came_online_time DESC
 """

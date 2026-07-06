@@ -2,15 +2,18 @@
 #
 # Tests for the `/feed-v2` endpoint (Q_FEED_V2). Unlike v1, the v2 feed:
 #
-#   * Orders people by when they were recently online, not by event time
+#   * Orders people by when their online session started (came_online_time),
+#     not by event time or by when they were last online, so staying online
+#     24/7 can't keep someone at the top of the feed
 #   * Shows events' own times, unless the event is more than a week old, in
 #     which case a 'recently-online-with-*' event is shown at the person's
 #     last-online time instead
 #   * Only shows people of the viewer's preferred gender and age range, who
 #     also prefer the viewer's gender and age (`age_gap_acceptability_odds`
 #     no longer applies)
-#   * Includes an `online_time` field, which clients use as the `before`
-#     cursor for the next page
+#   * Includes a `came_online_time` field, which clients use as the `before`
+#     cursor for the next page, and an `online_time` field showing when the
+#     person was last online
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$script_dir"
@@ -50,6 +53,7 @@ redact_feed () {
         | redact_if_present("photo_uuid")
         | redact_if_present("time")
         | redact_if_present("online_time")
+        | redact_if_present("came_online_time")
     )
   '
 }
@@ -151,12 +155,15 @@ test_json_format () {
   q "update search_preference_age set min_age = 30, max_age = 40
      where person_id = (select id from person where name = 'user13')"
 
-  # The feed is ordered by last_online_time, so make the ordering
-  # deterministic: user1 was online most recently
+  # The feed is ordered by came_online_time, so make the ordering
+  # deterministic: user1's online session started most recently. Setting
+  # last_online_time in the reverse order proves the feed orders by
+  # came_online_time, not by when people were last online.
   for i in $(seq 1 14)
   do
     q "update person
-       set last_online_time = now() - interval '${i} minutes'
+       set came_online_time = now() - interval '${i} minutes',
+           last_online_time = now() - interval '$(( 100 - i )) minutes'
        where name = 'user${i}'"
   done
 
@@ -182,6 +189,7 @@ test_json_format () {
     "location": "New York, New York, United States",
     "match_percentage": 50,
     "name": "user1",
+    "came_online_time": "redacted_nonnull_value",
     "online_time": "redacted_nonnull_value",
     "person_uuid": "redacted_nonnull_value",
     "photo_blurhash": "redacted_nonnull_value",
@@ -204,6 +212,7 @@ test_json_format () {
     "location": "New York, New York, United States",
     "match_percentage": 50,
     "name": "user2",
+    "came_online_time": "redacted_nonnull_value",
     "online_time": "redacted_nonnull_value",
     "person_uuid": "redacted_nonnull_value",
     "photo_blurhash": "redacted_nonnull_value",
@@ -227,6 +236,7 @@ test_json_format () {
     "location": "New York, New York, United States",
     "match_percentage": 50,
     "name": "user3",
+    "came_online_time": "redacted_nonnull_value",
     "online_time": "redacted_nonnull_value",
     "person_uuid": "redacted_nonnull_value",
     "photo_blurhash": "redacted_nonnull_value",
@@ -250,6 +260,7 @@ test_json_format () {
     "location": "New York, New York, United States",
     "match_percentage": 50,
     "name": "user4",
+    "came_online_time": "redacted_nonnull_value",
     "online_time": "redacted_nonnull_value",
     "person_uuid": "redacted_nonnull_value",
     "photo_blurhash": "redacted_nonnull_value",
@@ -270,6 +281,7 @@ test_json_format () {
     "location": "New York, New York, United States",
     "match_percentage": 50,
     "name": "user5",
+    "came_online_time": "redacted_nonnull_value",
     "online_time": "redacted_nonnull_value",
     "person_uuid": "redacted_nonnull_value",
     "photo_blurhash": "redacted_nonnull_value",
@@ -293,6 +305,7 @@ test_json_format () {
     "location": "New York, New York, United States",
     "match_percentage": 50,
     "name": "user6",
+    "came_online_time": "redacted_nonnull_value",
     "online_time": "redacted_nonnull_value",
     "person_uuid": "redacted_nonnull_value",
     "photo_blurhash": "redacted_nonnull_value",
@@ -309,12 +322,12 @@ EOF
   diff -u --color <(echo actual) <(echo expected) || true
   diff -u --color <(echo "$response") <(echo "$expected")
 
-  # Paginating with the third item's online_time as the cursor returns the
-  # items which were online strictly earlier
+  # Paginating with the third item's came_online_time as the cursor returns
+  # the items whose online sessions started strictly earlier
   local before2
   local page2_names
 
-  before2=$(echo "$raw_response" | jq -r '.[2].online_time')
+  before2=$(echo "$raw_response" | jq -r '.[2].came_online_time')
 
   page2_names=$(
     c GET "/feed-v2?before=$(jq -rn --arg t "$before2" '$t | @uri')" \
@@ -349,6 +362,7 @@ joined_club_feed_items () {
           | redact_if_present("photo_blurhash")
           | redact_if_present("time")
           | redact_if_present("online_time")
+          | redact_if_present("came_online_time")
           | .club_sample_members |= map(map_values(redact))
           | .club_viewer |= map_values(redact)
       )
@@ -391,6 +405,7 @@ expected_joined_club_item () {
       "location": "New York, New York, United States",
       "match_percentage": 50,
       "name": $name,
+      "came_online_time": "redacted_nonnull_value",
       "online_time": "redacted_nonnull_value",
       "person_uuid": "redacted_nonnull_value",
       "photo_blurhash": "redacted_nonnull_value",
@@ -406,7 +421,8 @@ set_deterministic_online_times () {
   for i in $(seq 1 3)
   do
     q "update person
-       set last_online_time = now() - interval '${i} minutes'
+       set came_online_time = now() - interval '${i} minutes',
+           last_online_time = now() - interval '${i} minutes'
        where name = 'user${i}'"
   done
 }

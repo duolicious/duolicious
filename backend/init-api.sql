@@ -330,6 +330,11 @@ CREATE TABLE IF NOT EXISTS person (
     sign_in_time TIMESTAMP NOT NULL DEFAULT NOW(),
     last_nag_time TIMESTAMP DEFAULT to_timestamp(0),
     last_online_time TIMESTAMP NOT NULL DEFAULT NOW(),
+    -- When the user last went from having zero connected chat clients to one.
+    -- Unlike last_online_time, which keeps advancing for as long as the user
+    -- stays connected, this only advances when a new online session starts,
+    -- so ordering the feed by it can't be gamed by staying online 24/7.
+    came_online_time TIMESTAMP NOT NULL DEFAULT NOW(),
     last_visitor_check_time TIMESTAMP NOT NULL DEFAULT NOW(),
 
     -- Whether the account was deactivated via the settings or automatically
@@ -1754,3 +1759,6 @@ CREATE INDEX IF NOT EXISTS
 
 CREATE INDEX IF NOT EXISTS idx__person__last_online_time
     ON person(last_online_time);
+
+CREATE INDEX IF NOT EXISTS idx__person__came_online_time
+    ON person(came_online_time);
