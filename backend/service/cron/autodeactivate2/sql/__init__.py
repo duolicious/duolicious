@@ -2,6 +2,7 @@ Q_DEACTIVATE = """
 WITH to_deactivate AS (
     SELECT
         id,
+        uuid::TEXT AS uuid,
         email
     FROM
         person
@@ -80,6 +81,7 @@ WITH to_deactivate AS (
 -- `updated_person`, and thus the cascade, is empty).
 SELECT
     to_deactivate.id,
+    to_deactivate.uuid,
     to_deactivate.email,
     COALESCE(deleted_session_hashes.hashes, ARRAY[]::TEXT[])
         AS session_token_hashes,

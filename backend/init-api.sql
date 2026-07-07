@@ -359,6 +359,10 @@ CREATE TABLE IF NOT EXISTS person (
     -- Notifications
     intro_seconds INT NOT NULL DEFAULT 0,
     chat_seconds INT NOT NULL DEFAULT 0,
+    -- How many push notifications were sent while the user had no connected
+    -- chat clients. Stamped into each push as the iOS app-icon badge and
+    -- zeroed when the user goes from zero connected clients to one.
+    unseen_notification_count INT NOT NULL DEFAULT 0,
 
     -- Primary keys and constraints
     UNIQUE (email),

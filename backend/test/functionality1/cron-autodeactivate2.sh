@@ -114,6 +114,12 @@ do_test () {
   # was deleted), while users who remained active got none.
   [[ "$(count_pushes_to 'deactivated_push_token')" = "1" ]]
 
+  # A user due for deactivation has no connected chat clients, so the push
+  # increments the unseen-notification count and carries it as the app-icon
+  # badge.
+  [[ "$(q "select unseen_notification_count from person where email like 'will-be-deactivated%'")" = "1" ]]
+  [[ "$(badges_of_pushes_to 'deactivated_push_token')" = "[1]" ]]
+
   diff \
     <(get_emails) \
     ../../test/fixtures/cron-autodeactivate2-email

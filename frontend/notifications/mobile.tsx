@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 
@@ -65,6 +65,29 @@ const dismissConversationNotificationsOnMobile = async (
   );
 };
 
+// The server zeroes its unseen-notification counter when a client connects,
+// but the badge already on this device's app icon only updates when the next
+// push arrives, so clear it locally the moment the app is opened or
+// foregrounded.
+const useClearAppIconBadgeOnMobile = () => {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    Notifications.setBadgeCountAsync(0);
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        Notifications.setBadgeCountAsync(0);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+};
+
 const getLastNotificationResponseOnMobile = async () => {
   if (Platform.OS === 'web') {
     return null;
@@ -78,5 +101,6 @@ const getLastNotificationResponseOnMobile = async () => {
 export {
   dismissConversationNotificationsOnMobile,
   getLastNotificationResponseOnMobile,
+  useClearAppIconBadgeOnMobile,
   useNotificationObserverOnMobile,
 };

@@ -15,6 +15,7 @@ from commonsql import (
     Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
     Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
 )
+from unseennotificationcount import increment_unseen_notification_count
 import asyncio
 from smtp import make_aws_smtp
 import os
@@ -108,7 +109,10 @@ async def send_email_notification(row: PersonNotification) -> None:
 
     await asyncio.to_thread(send)
 
-def send_mobile_notification(row: PersonNotification) -> None:
+def send_mobile_notification(
+    row: PersonNotification,
+    badge: int | None,
+) -> None:
     if disable_mobile_notifications():
         print(
             'File prevented mobile notifications',
@@ -120,15 +124,44 @@ def send_mobile_notification(row: PersonNotification) -> None:
             title='You have a new message 😍',
             body=big_part(row.has_intro, row.has_chat),
             data={'screen': 'Inbox'},
+            badge=badge,
         )
 
-async def send_notification(row: PersonNotification) -> None:
+async def compute_badges(
+    person_notifications: list[PersonNotification],
+) -> dict[str, int | None]:
+    """
+    Q_UNREAD_INBOX fans a person out into one row per push token, but the
+    unseen-notification count (the app-icon badge) must increment once per
+    person, not once per device, so every device shows the same badge. The
+    conditions here mirror the ones under which `maybe_send_notification`
+    sends a push rather than an email or nothing.
+    """
+    badges: dict[str, int | None] = {}
+
+    for row in person_notifications:
+        if not row.token:
+            continue
+        if not do_send_notification(row):
+            continue
+        if row.person_uuid in badges:
+            continue
+
+        badges[row.person_uuid] = await increment_unseen_notification_count(
+                username=row.person_uuid)
+
+    return badges
+
+async def send_notification(
+    row: PersonNotification,
+    badge: int | None,
+) -> None:
     if not row.token:
         print('Sending email notification:', str(row))
         return await send_email_notification(row)
 
     print('Sending mobile notification:', str(row))
-    send_mobile_notification(row)
+    send_mobile_notification(row, badge=badge)
 
 async def update_last_notification_time(row: PersonNotification) -> None:
     params = dict(username=row.person_uuid)
@@ -139,11 +172,14 @@ async def update_last_notification_time(row: PersonNotification) -> None:
         if row.has_chat:
             await tx.execute(Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME, params)
 
-async def maybe_send_notification(row: PersonNotification) -> None:
+async def maybe_send_notification(
+    row: PersonNotification,
+    badge: int | None,
+) -> None:
     if not do_send_notification(row):
         return
 
-    await send_notification(row)
+    await send_notification(row, badge)
     await update_last_notification_time(row)
 
 async def send_notifications_once() -> None:
@@ -154,8 +190,10 @@ async def send_notifications_once() -> None:
 
     person_notifications = [PersonNotification(**j) for j in rows]
 
+    badges = await compute_badges(person_notifications)
+
     for row in person_notifications:
-        await maybe_send_notification(row)
+        await maybe_send_notification(row, badges.get(row.person_uuid))
 
 async def send_notifications_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))

@@ -42,3 +42,26 @@ Immediate notifications are pushed the instant a qualifying message arrives.
 Everything else — every other frequency, the email fallback, and anyone an
 immediate push couldn't reach — is handled by a periodic check that applies all
 the rules above.
+
+## The app-icon badge
+
+The iOS app icon shows how many notifications were sent since the user last
+had the app open, to nudge them into opening it. It's a rough count of
+notifications, not unread messages.
+
+The server keeps the count in `person.unseen_notification_count` and stamps it
+into every push as an absolute badge value, so all of a user's devices
+converge on the same number:
+
+- A push sent while the user has **no connected chat clients** increments the
+  count once per user (not per device) and carries it as the badge. This holds
+  for every push the server sends — live chat messages, the periodic check,
+  and the auto-deactivation notice alike.
+- A push sent while **any client is connected** carries no badge — the user
+  can see the message themselves — which leaves each device's badge untouched.
+  Pushes from the periodic check always badge, since it only notifies users
+  who haven't been online for 10 minutes, as does the auto-deactivation
+  notice, which only targets users offline for at least 30 days.
+- Connecting any client — web or mobile — zeroes the count. The opened device
+  also clears its own badge locally right away; other devices keep a stale
+  badge until their next push corrects it.

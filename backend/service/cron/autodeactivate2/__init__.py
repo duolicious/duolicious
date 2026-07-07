@@ -9,6 +9,7 @@ import os
 import random
 import sessioncache
 from collections.abc import Iterable
+from unseennotificationcount import increment_unseen_notification_count
 
 DRY_RUN = os.environ.get(
     'DUO_CRON_AUTODEACTIVATE2_DRY_RUN',
@@ -39,7 +40,21 @@ async def maybe_send_email(email: str) -> None:
     )
 
 
-def send_mobile_notifications(push_tokens: Iterable[str]) -> None:
+async def send_mobile_notifications(
+    person_uuid: str,
+    push_tokens: Iterable[str],
+) -> None:
+    push_tokens = list(push_tokens)
+
+    if not push_tokens:
+        return
+
+    # A user due for deactivation hasn't been online for at least 30 days, so
+    # they have no connected chat clients and this push must increment the
+    # unseen-notification count (the app-icon badge) — once per person, not
+    # once per device.
+    badge = await increment_unseen_notification_count(username=person_uuid)
+
     for token in push_tokens:
         print('autodeactivate2: sending deactivation push notification to', token)
         notify.enqueue_mobile_notification(
@@ -49,6 +64,7 @@ def send_mobile_notifications(push_tokens: Iterable[str]) -> None:
                 "Because we only show active members, your profile was hidden. "
                 "Open Duolicious to become visible again."
             ),
+            badge=badge,
         )
 
 
@@ -77,7 +93,10 @@ async def autodeactivate2_once() -> None:
 
     for p in rows_deactivated:
         await maybe_send_email(row_str(p, 'email'))
-        send_mobile_notifications(row_str_list(p, 'push_tokens'))
+        await send_mobile_notifications(
+            person_uuid=row_str(p, 'uuid'),
+            push_tokens=row_str_list(p, 'push_tokens'),
+        )
 
 async def autodeactivate2_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))

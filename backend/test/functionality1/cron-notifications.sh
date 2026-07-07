@@ -526,6 +526,10 @@ test_no_sessions_emailed () {
   [[ "$(q "select count(*) from person where uuid::text = '$user1id' and intro_seconds > 0")" = 1 ]]
   [[ "$(count_emails_to 'user1@duolicious.app')" = 1 ]]
   [[ "$(curl -s 'http://localhost:3002/messages' | jq 'length')" = 0 ]]
+
+  # Emails don't badge an app icon, so the unseen-notification count is
+  # untouched.
+  [[ "$(q "select unseen_notification_count from person where uuid::text = '$user1id'")" = 0 ]]
 }
 
 test_low_active_users_notified_via_email () {
@@ -626,6 +630,10 @@ test_recently_active_mobile_user_pushed () {
   [[ "$(q "select count(*) from person where uuid::text = '$user1id' and intro_seconds > 0")" = 1 ]]
   [[ "$(count_pushes_to 'token_recent')" = 1 ]]
   [[ "$(count_emails_to 'user1@duolicious.app')" = 0 ]]
+
+  # The push carries the unseen-notification count as the app-icon badge.
+  [[ "$(q "select unseen_notification_count from person where uuid::text = '$user1id'")" = 1 ]]
+  [[ "$(badges_of_pushes_to 'token_recent')" = '[1]' ]]
 }
 
 # Happy path: a person signed in on several mobile devices gets one push per
@@ -658,6 +666,12 @@ test_pushed_to_each_signed_in_device () {
   [[ "$(count_pushes_to 'token_dev_a')" = 1 ]]
   [[ "$(count_pushes_to 'token_dev_b')" = 1 ]]
   [[ "$(count_emails_to 'user1@duolicious.app')" = 0 ]]
+
+  # The unseen-notification count incremented once for the person, not once
+  # per device, so both devices show the same badge.
+  [[ "$(q "select unseen_notification_count from person where uuid::text = '$user1id'")" = 1 ]]
+  [[ "$(badges_of_pushes_to 'token_dev_a')" = '[1]' ]]
+  [[ "$(badges_of_pushes_to 'token_dev_b')" = '[1]' ]]
 }
 
 test_happy_path_intros

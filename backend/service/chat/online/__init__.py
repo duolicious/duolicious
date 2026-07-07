@@ -81,7 +81,8 @@ Q_UPDATE_CAME_ONLINE = """
 UPDATE
     person
 SET
-    came_online_time = NOW()
+    came_online_time = NOW(),
+    unseen_notification_count = 0
 WHERE
     uuid = %(person_uuid)s
 """
@@ -306,10 +307,18 @@ async def update_came_online_if_first_client(
     session: Session,
 ) -> None:
     """
-    Stamp `person.came_online_time` if this session's user is going from zero
-    connected clients to one. Must run when a connection authenticates, before
-    the connection subscribes to its own username channel, since that
-    subscription is what counts as a connected client.
+    Stamp `person.came_online_time` and zero the unseen-notification count (the
+    app-icon badge) if this session's user is going from zero connected clients
+    to one. Zeroing only on that transition is enough in practice: the count
+    only increments while the user has no connected clients, so it stays zero
+    while another client is connected — except when a notification's
+    subscriber check races a connecting client and the increment lands just
+    after the zeroing. Such a leftover survives until the next zero-to-one
+    transition, which the badge's best-effort precision tolerates; don't build
+    on the count being exactly zero while a client is connected. Must run when
+    a connection authenticates, before the connection subscribes to its own
+    username channel, since that subscription is what counts as a connected
+    client.
     """
     if session.username is None:
         return

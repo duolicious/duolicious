@@ -41,6 +41,7 @@ import { GifPickerModal } from './components/modal/gif-picker-modal';
 import { ReportModal } from './components/modal/report-modal';
 import { ImageCropper } from './components/image-cropper';
 import {
+  useClearAppIconBadgeOnMobile,
   useNotificationObserverOnMobile,
   getLastNotificationResponseOnMobile,
 } from './notifications/mobile';
@@ -457,6 +458,7 @@ const App = () => {
   });
 
   usePushTokenListenerOnMobile();
+  useClearAppIconBadgeOnMobile();
   useScrollbarStyle();
 
   useEffect(() => {

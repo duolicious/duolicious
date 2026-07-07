@@ -17,6 +17,7 @@ class Notification:
     title: str
     body: str
     data: object | None
+    badge: int | None
 
 async def process_notification_batch(notifications: List[Notification]) -> None:
     data = [
@@ -25,6 +26,11 @@ async def process_notification_batch(notifications: List[Notification]) -> None:
             title=notification.title,
             body=notification.body,
             **(dict(data=notification.data) if notification.data else {}),
+            **(
+                dict(badge=notification.badge)
+                if notification.badge is not None
+                else {}
+            ),
             sound='default',
             priority='high',
         )
@@ -63,11 +69,18 @@ def enqueue_mobile_notification(
     token: str | None,
     title: str,
     body: str,
-    data: object = None
+    data: object = None,
+    badge: int | None = None,
 ) -> None:
     if not token:
         return
 
-    notification = Notification(token=token, title=title, body=body, data=data)
+    notification = Notification(
+        token=token,
+        title=title,
+        body=body,
+        data=data,
+        badge=badge,
+    )
 
     _batcher.enqueue(notification)

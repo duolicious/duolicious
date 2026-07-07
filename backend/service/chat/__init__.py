@@ -12,6 +12,7 @@ import sys
 from websockets.exceptions import ConnectionClosedError
 import notify
 from async_lru_cache import AsyncLruCache
+from unseennotificationcount import increment_unseen_notification_count
 import random
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
@@ -288,12 +289,22 @@ async def send_notification(
 
     truncated_message = truncate_text(message, MAX_NOTIFICATION_LENGTH)
 
+    # The app-icon badge counts pushes sent while the user had no connected
+    # clients. With a client open, the user can see the message themselves, so
+    # the counter is left alone and the badge omitted, which leaves each
+    # device's badge untouched.
+    badge = (
+        None
+        if await redis_has_subscribers(REDIS_WORKER_CLIENT, to_username)
+        else await increment_unseen_notification_count(username=to_username))
+
     for to_token in to_tokens:
         notify.enqueue_mobile_notification(
             token=to_token,
             title=f"{from_name} sent you a message",
             body=truncated_message,
             data=data,
+            badge=badge,
         )
 
     upsert_last_notification(username=to_username, is_intro=is_intro)

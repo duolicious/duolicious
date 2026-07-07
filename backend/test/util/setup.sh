@@ -421,6 +421,15 @@ count_pushes_to () {
     | jq "[.[] | select(.to == \"${token}\")] | length"
 }
 
+# The badges of every push sent to a given token, in order, as a compact JSON
+# array. A push without a badge appears as null.
+# Example: [[ "$(badges_of_pushes_to 'some_token')" = '[1,2,null]' ]]
+badges_of_pushes_to () {
+  local token=$1
+  curl -s 'http://localhost:3002/messages' \
+    | jq -c "[.[] | select(.to == \"${token}\") | .badge]"
+}
+
 # Forget all pushes recorded by the test push server.
 # Example: clear_pushes
 clear_pushes () {
