@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -25,6 +26,7 @@ import {
 } from '../anchored-overlay';
 
 const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '👎'];
+const REACTION_BAR_ANIMATION_DURATION = 100;
 const REACTION_BAR_ESTIMATED_WIDTH = 220;
 const REACTION_BAR_ESTIMATED_HEIGHT = 44;
 const SCREEN_EDGE_PADDING = 8;
@@ -96,40 +98,77 @@ const ReactionMenu = ({
 }) => {
   const windowDimensions = useWindowOverlayDimensions();
 
-  if (!visible) {
-    return <></>;
+  // On web, an `exiting` animation only plays if the `Animated.View` itself
+  // is removed while its parent stays mounted; unmounting the whole `Modal`
+  // at once makes the bar vanish instantly. So on web, dismissal keeps the
+  // overlay mounted for the length of the exit animation and removes just
+  // the bar. On native the overlay must not linger — an Android `Modal`
+  // blocks all touches while mounted — and Reanimated plays the exit there
+  // even when the whole `Modal` unmounts.
+  const showModalBar = visible && showDismissLayer;
+  const [prevShowModalBar, setPrevShowModalBar] = useState(showModalBar);
+  const [isModalBarExiting, setIsModalBarExiting] = useState(false);
+
+  if (showModalBar !== prevShowModalBar) {
+    setPrevShowModalBar(showModalBar);
+    setIsModalBarExiting(Platform.OS === 'web' && !showModalBar);
   }
 
-  if (showDismissLayer) {
+  useEffect(() => {
+    if (!isModalBarExiting) {
+      return;
+    }
+
+    const timeout = setTimeout(
+      () => setIsModalBarExiting(false),
+      REACTION_BAR_ANIMATION_DURATION,
+    );
+
+    return () => clearTimeout(timeout);
+  }, [isModalBarExiting]);
+
+  if (showModalBar || isModalBarExiting) {
     return (
       <AnchoredOverlay
-        visible={visible}
+        visible
         modal
         onRequestClose={onDismiss}
       >
-        <Pressable
-          onPressIn={onDismiss}
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-          }}
-        />
-        <Animated.View
-          entering={FadeInDown.duration(1234).easing(Easing.inOut(Easing.quad))}
-          exiting={FadeOutDown.duration(1234).easing(Easing.inOut(Easing.quad))}
-          style={aboveAnchorStyle(anchor, windowDimensions, {
-            estimatedWidth: REACTION_BAR_ESTIMATED_WIDTH,
-            estimatedHeight: REACTION_BAR_ESTIMATED_HEIGHT,
-            edgePadding: SCREEN_EDGE_PADDING,
-          })}
-        >
-          <ReactionBar selected={selected} onPick={onPick} />
-        </Animated.View>
+        {showModalBar &&
+          <Pressable
+            onPressIn={onDismiss}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+            }}
+          />
+        }
+        {showModalBar &&
+          <Animated.View
+            entering={FadeInDown
+              .duration(REACTION_BAR_ANIMATION_DURATION)
+              .easing(Easing.inOut(Easing.quad))}
+            exiting={FadeOutDown
+              .duration(REACTION_BAR_ANIMATION_DURATION)
+              .easing(Easing.inOut(Easing.quad))}
+            style={aboveAnchorStyle(anchor, windowDimensions, {
+              estimatedWidth: REACTION_BAR_ESTIMATED_WIDTH,
+              estimatedHeight: REACTION_BAR_ESTIMATED_HEIGHT,
+              edgePadding: SCREEN_EDGE_PADDING,
+            })}
+          >
+            <ReactionBar selected={selected} onPick={onPick} />
+          </Animated.View>
+        }
       </AnchoredOverlay>
     );
+  }
+
+  if (!visible) {
+    return <></>;
   }
 
   // The bar normally sits above the message, but when the message is near the
@@ -143,12 +182,12 @@ const ReactionMenu = ({
     <Animated.View
       entering={
         (fitsAbove ? FadeInDown : FadeInUp)
-          .duration(1234)
+          .duration(REACTION_BAR_ANIMATION_DURATION)
           .easing(Easing.inOut(Easing.quad))
       }
       exiting={
         (fitsAbove ? FadeOutDown : FadeOutUp)
-          .duration(1234)
+          .duration(REACTION_BAR_ANIMATION_DURATION)
           .easing(Easing.inOut(Easing.quad))
       }
       style={{
