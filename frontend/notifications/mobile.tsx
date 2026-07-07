@@ -39,6 +39,32 @@ const useNotificationObserverOnMobile = (
   }, deps);
 };
 
+const dismissConversationNotificationsOnMobile = async (
+  personUuid: string,
+) => {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  const notifications = await Notifications.getPresentedNotificationsAsync();
+
+  await Promise.all(
+    notifications
+      .filter(notification => {
+        const data = notification.request.content.data;
+        const params = data?.params as Record<string, unknown> | undefined;
+
+        return (
+          data?.screen === 'Conversation Screen' &&
+          params?.personUuid === personUuid
+        );
+      })
+      .map(notification =>
+        Notifications.dismissNotificationAsync(notification.request.identifier)
+      )
+  );
+};
+
 const getLastNotificationResponseOnMobile = async () => {
   if (Platform.OS === 'web') {
     return null;
@@ -50,6 +76,7 @@ const getLastNotificationResponseOnMobile = async () => {
 };
 
 export {
+  dismissConversationNotificationsOnMobile,
   getLastNotificationResponseOnMobile,
   useNotificationObserverOnMobile,
 };

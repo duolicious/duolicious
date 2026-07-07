@@ -66,6 +66,7 @@ import { useSkipped } from '../../hide-and-block/hide-and-block';
 import { OnlineIndicator } from '../online-indicator';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { getProspectHint, setProspectHint } from '../../navigation/prospect-cache';
+import { dismissConversationNotificationsOnMobile } from '../../notifications/mobile';
 
 type ConversationProspectResponse = {
   name?: string,
@@ -739,6 +740,15 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       fetchFirstPage(personUuid)
     }
   }, [personUuid, isActive && isOnline]);
+
+  // Clear this conversation's notifications from the tray when the
+  // conversation is opened, and again when the app returns to the foreground
+  // while it's still open (a notification might've arrived in the background)
+  useEffect(() => {
+    if (isActive && personUuid) {
+      dismissConversationNotificationsOnMobile(personUuid);
+    }
+  }, [personUuid, isActive]);
 
   // Scroll to end when last message changes
   useEffect(() => {
