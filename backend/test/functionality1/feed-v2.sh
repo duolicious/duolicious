@@ -9,8 +9,9 @@
 #     which case a 'recently-online-with-*' event is shown at the person's
 #     last-online time instead
 #   * Only shows people of the viewer's preferred gender and age range, who
-#     also prefer the viewer's gender and age (`age_gap_acceptability_odds`
-#     no longer applies)
+#     also prefer the viewer's gender. The age filter is one-way: people
+#     appear in the viewer's feed regardless of their own age preference
+#     (`age_gap_acceptability_odds` no longer applies)
 #   * Includes a `came_online_time` field, which clients use as the `before`
 #     cursor for the next page, and an `online_time` field showing when the
 #     person was last online
@@ -155,7 +156,8 @@ test_json_format () {
      set date_of_birth = (now() - interval '50 years')::date
      where name = 'user12'"
 
-  # user13 has an age preference the searcher doesn't meet
+  # user13 has an age preference the searcher doesn't meet, but the age
+  # filter is one-way, so user13 still appears in the searcher's feed
   q "update search_preference_age set min_age = 30, max_age = 40
      where person_id = (select id from person where name = 'user13')"
 
@@ -330,6 +332,27 @@ test_json_format () {
     "time_equals_online_time": true,
     "type": "recently-online-with-photo",
     "url_slug": "redacted_nonnull_value"
+  },
+  {
+    "advertiser_friendly": false,
+    "age": 26,
+    "flair": [
+      "gold"
+    ],
+    "gender": "Other",
+    "is_verified": false,
+    "location": "New York, New York, United States",
+    "match_percentage": 50,
+    "name": "user13",
+    "came_online_time": "redacted_nonnull_value",
+    "online_time": "redacted_nonnull_value",
+    "person_uuid": "redacted_nonnull_value",
+    "photo_blurhash": "redacted_nonnull_value",
+    "photo_uuid": "redacted_nonnull_value",
+    "time": "redacted_nonnull_value",
+    "time_equals_online_time": false,
+    "type": "joined",
+    "url_slug": "redacted_nonnull_value"
   }
 ]
 EOF
@@ -350,7 +373,7 @@ EOF
       | jq -cS '[ .[].name ]'
   )
 
-  [[ "$page2_names" == '["user4","user5","user6"]' ]]
+  [[ "$page2_names" == '["user4","user5","user6","user13"]' ]]
 }
 
 joined_club_feed_items () {

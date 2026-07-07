@@ -1382,7 +1382,6 @@ WITH searcher AS (
         uuid AS searcher_uuid,
         url_slug AS searcher_url_slug,
         gender_id,
-        date_of_birth,
         personality,
         verification_level_id
     FROM
@@ -1732,27 +1731,6 @@ WITH searcher AS (
             )
         AND
             prospect.date_of_birth > (
-                CURRENT_DATE -
-                INTERVAL '1 year' *
-                (COALESCE(preference.max_age, 999) + 1)
-            )
-    )
-    -- The searcher meets the prospect's age preference
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            search_preference_age AS preference
-        WHERE
-            preference.person_id = prospect.id
-        AND
-            searcher.date_of_birth <= (
-                CURRENT_DATE -
-                INTERVAL '1 year' *
-                COALESCE(preference.min_age, 0)
-            )
-        AND
-            searcher.date_of_birth > (
                 CURRENT_DATE -
                 INTERVAL '1 year' *
                 (COALESCE(preference.max_age, 999) + 1)
