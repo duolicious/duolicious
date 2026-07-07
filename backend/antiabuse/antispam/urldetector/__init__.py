@@ -25,6 +25,7 @@ EXTRANEOUS_SPACES = re.compile(r'\s+')
 COMMON_TLDS = {'com', 'net', 'org', 'gg', 'co', 'io'}
 
 VERY_SAFE_DOMAINS = {
+    'klipy.com',
     'tenor.com',
 }
 

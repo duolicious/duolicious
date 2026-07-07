@@ -59,7 +59,8 @@ const defaultTextColor = 'black';
 const defaultFontSize = 15;
 
 const isSafeImageUrl = (str: string): boolean => {
-  const urlRegex = /^https:\/\/media\.tenor\.com\/\S+\.(gif|webp)$/i;
+  // Tenor remains for messages sent before the switch to Klipy
+  const urlRegex = /^https:\/\/(media\.tenor\.com|static\.klipy\.com)\/\S+\.(gif|webp)$/i;
   return urlRegex.test(str);
 };
 

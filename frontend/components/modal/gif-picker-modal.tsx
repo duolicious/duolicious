@@ -13,21 +13,22 @@ import { listen, notify } from '../../events/events';
 import { backgroundColors } from './background-colors';
 import { DefaultTextInput } from '../default-text-input';
 import { AutoResizingGif } from '../auto-resizing-gif';
-import { TENOR_API_KEY } from '../../env/env';
+import { KLIPY_API_KEY } from '../../env/env';
 import { isMobile } from '../../util/util';
 import { useAppTheme } from '../../app-theme/app-theme';
 
 type GifPickedEvent = string;
 
-type TenorGif = {
-  media: {
-    gif: { url: string },
-    nanogif: { url: string },
-    tinygif: { url: string },
-  }[],
+type KlipyGif = {
+  file: {
+    hd: { gif: { url: string } },
+    sm: { gif: { url: string } },
+    xs: { gif: { url: string } },
+  },
 };
 
-const TENOR_SEARCH_URL = 'https://g.tenor.com/v1/search';
+const KLIPY_SEARCH_URL =
+  `https://api.klipy.com/api/v1/${KLIPY_API_KEY}/gifs/search`;
 const NUM_COLS = 3;
 
 const fadeIn = FadeIn.duration(200);
@@ -78,7 +79,7 @@ const GifPickerModal: React.FC = () => {
   const [isShowing, setIsShowing] = useState(false);
   const [selectedGif, setSelectedGif] = useState<null | string>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [gifResults, setGifResults] = useState<TenorGif[]>([]);
+  const [gifResults, setGifResults] = useState<KlipyGif[]>([]);
   const [loading, setLoading] = useState(false);
 
   const cancel = useCallback(() => {
@@ -92,20 +93,18 @@ const GifPickerModal: React.FC = () => {
     }
   }, [selectedGif]);
 
-  // Fetch gifs from Tenor when a search query is provided
+  // Fetch gifs from Klipy when a search query is provided
   const fetchGifs = useCallback(async (query: string) => {
     setLoading(true);
     try {
       const response = await fetch(
-        `${TENOR_SEARCH_URL}` +
+        `${KLIPY_SEARCH_URL}` +
           `?q=${encodeURIComponent(query)}` +
-          `&key=${TENOR_API_KEY}` +
-          `&media_filter=gif,${isMobile() ? 'nanogif' : 'tinygif'}` +
-          `&limit=${NUM_COLS * 16}`
+          `&page=1` +
+          `&per_page=${NUM_COLS * 16}`
       );
       const json = await response.json();
-      // The Tenor API returns an array of results – adjust according to your needs
-      setGifResults(json.results || []);
+      setGifResults(json?.data?.data || []);
     } catch (error) {
       console.error('Error fetching gifs:', error);
     }
@@ -139,7 +138,7 @@ const GifPickerModal: React.FC = () => {
   }
 
   // Divide gifResults equally between three columns
-  const columns = _.times<TenorGif[]>(NUM_COLS, () => []);
+  const columns = _.times<KlipyGif[]>(NUM_COLS, () => []);
   gifResults.forEach((item, index) => {
     columns[index % NUM_COLS].push(item);
   });
@@ -165,7 +164,7 @@ const GifPickerModal: React.FC = () => {
         <View style={styles.gifGalleryContainer}>
           <DefaultTextInput
             style={styles.searchInput}
-            placeholder="Search Tenor"
+            placeholder="Search KLIPY"
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus={true}
@@ -187,13 +186,13 @@ const GifPickerModal: React.FC = () => {
                     <RenderGifItem
                       key={j}
                       priority={indexToPriority(j)}
-                      gifUrl={item.media[0]?.gif?.url}
+                      gifUrl={item.file?.hd?.gif?.url}
                       previewUrl={
                         isMobile() ?
-                          item.media[0]?.nanogif?.url :
-                          item.media[0]?.tinygif?.url
+                          item.file?.xs?.gif?.url :
+                          item.file?.sm?.gif?.url
                       }
-                      isSelected={item.media[0]?.gif?.url === selectedGif}
+                      isSelected={item.file?.hd?.gif?.url === selectedGif}
                       onPress={setSelectedGif}
                     />
                   )}

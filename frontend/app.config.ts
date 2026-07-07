@@ -38,7 +38,7 @@ const config: ExpoConfig = {
     inviteUrl: process.env.DUO_INVITE_URL,
     partnerUrl: process.env.DUO_PARTNER_URL,
     webVersion: process.env.DUO_WEB_VERSION,
-    tenorApiKey: process.env.DUO_TENOR_API_KEY,
+    klipyApiKey: process.env.DUO_KLIPY_API_KEY,
     notificationIconUrl: process.env.NOTIFICATION_ICON_URL,
     notificationSoundUrl: process.env.NOTIFICATION_SOUND_URL,
     googleIosClientId: process.env.DUO_GOOGLE_IOS_CLIENT_ID,

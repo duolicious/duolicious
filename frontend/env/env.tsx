@@ -29,8 +29,8 @@ export const PARTNER_URL = Constants.expoConfig?.extra?.partnerUrl
 export const WEB_VERSION = Constants.expoConfig?.extra?.webVersion
   ?? '000000';
 
-export const TENOR_API_KEY = Constants.expoConfig?.extra?.tenorApiKey
-  ?? 'LIVDSRZULELA';
+export const KLIPY_API_KEY = Constants.expoConfig?.extra?.klipyApiKey
+  ?? 'zRR3mhpo6qidN2teiLQ2DcCcQqrSL8YNBzz8qaCqbGVkDe4r7vLAQc7couS48krD';
 
 export const NOTIFICATION_ICON_URL = Constants.expoConfig?.extra?.notificationIconUrl
   ?? 'https://duolicious.app/assets/desktop-notification.png';

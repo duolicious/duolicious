@@ -60,7 +60,7 @@ Runtime configuration is provided to the app through Expo `extra` values (see `a
 - `DUO_PARTNER_URL` – partner portal URL
 - `DUO_INVITE_URL` – invite landing page URL
 - `DUO_WEB_VERSION` – web build/version identifier
-- `DUO_TENOR_API_KEY` – Tenor API key for GIFs
+- `DUO_KLIPY_API_KEY` – Klipy API key for GIFs
 - `NOTIFICATION_ICON_URL` – desktop notification icon URL
 - `NOTIFICATION_SOUND_URL` – desktop notification sound URL
 

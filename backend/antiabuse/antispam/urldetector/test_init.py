@@ -104,6 +104,26 @@ Also some clubs are just there to find people who might like me; I’m hetero un
 
         self.assertEqual(actual, expected)
 
+    def test_klipy_match_1(self) -> None:
+        haystack = "https://static.klipy.com/ii/f87f46a2c5aeaeed4c68910815f73eaf/84/09/VBhPiYbU.gif"
+
+        actual = has_url(haystack, include_safe=True, do_normalize=False)
+
+        expected = [(UrlType.VERY_SAFE, haystack)]
+
+        self.assertEqual(actual, expected)
+
+    def test_klipy_match_2(self) -> None:
+        needle = "https://static.klipy.com/ii/f87f46a2c5aeaeed4c68910815f73eaf/84/09/VBhPiYbU.gif"
+
+        haystack = "look at this https://static.klipy.com/ii/f87f46a2c5aeaeed4c68910815f73eaf/84/09/VBhPiYbU.gif url"
+
+        actual = has_url(haystack, include_safe=True, do_normalize=False)
+
+        expected = [(UrlType.VERY_SAFE, needle)]
+
+        self.assertEqual(actual, expected)
+
 
 
 if __name__ == '__main__':
