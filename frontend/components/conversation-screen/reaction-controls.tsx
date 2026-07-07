@@ -1,4 +1,10 @@
-import { Platform, Pressable, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleProp,
+  View,
+  ViewStyle,
+} from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
@@ -168,25 +174,25 @@ const ReactionMenu = ({
 
 const ReactionChip = ({
   emoji,
-  alignSelf,
   onPress,
+  style,
 }: {
   emoji: string,
-  alignSelf: 'flex-start' | 'flex-end',
   onPress?: () => void,
+  style?: StyleProp<ViewStyle>,
 }) => {
   const { appTheme } = useAppTheme();
   return (
     <Pressable
       onPress={onPress}
-      style={{
-        ...reactionPillChrome(appTheme),
-        alignSelf,
-        marginTop: -8,
-        paddingVertical: 1,
-        zIndex: 2,
-        ...(Platform.OS === 'web' && onPress ? { cursor: 'pointer' } : {}),
-      }}
+      style={[
+        {
+          ...reactionPillChrome(appTheme),
+          paddingVertical: 1,
+          ...(Platform.OS === 'web' && onPress ? { cursor: 'pointer' } : {}),
+        },
+        style,
+      ]}
     >
       <DefaultText style={{ fontSize: 14 }}>{emoji}</DefaultText>
     </Pressable>

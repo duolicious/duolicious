@@ -54,7 +54,7 @@ import {
 import { uriToBase64 } from '../../api/api';
 import { notify } from '../../events/events';
 import { ValidationErrorToast } from '../toast';
-import { FormattedText } from './speech-bubble';
+import { FormattedText } from './chat-message';
 import { X } from 'react-native-feather';
 import {
   Quote as QuoteType,

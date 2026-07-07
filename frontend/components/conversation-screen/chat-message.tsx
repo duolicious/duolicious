@@ -58,6 +58,10 @@ const defaultTextColor = 'black';
 
 const defaultFontSize = 15;
 
+const avatarSize = 24;
+
+const avatarGap = 5;
+
 const isSafeImageUrl = (str: string): boolean => {
   // Tenor remains for messages sent before the switch to Klipy
   const urlRegex = /^https:\/\/(media\.tenor\.com|static\.klipy\.com)\/\S+\.(gif|webp)$/i;
@@ -73,6 +77,20 @@ const haptics = () => {
   if (Platform.OS !== 'web') {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   }
+};
+
+const Avatar = ({ avatarUuid }: { avatarUuid: string }) => {
+  return (
+    <Image
+      source={{ uri: `${IMAGES_URL}/450-${avatarUuid}.jpg` }}
+      transition={150}
+      style={{
+        width: avatarSize,
+        height: avatarSize,
+        borderRadius: 9999,
+      }}
+    />
+  );
 };
 
 const FormattedQuoteBlock = ({
@@ -281,7 +299,7 @@ const MessageStatusComponent = ({
   );
 };
 
-const SpeechBubble = ({
+const ChatMessage = ({
   messageId,
   name,
   avatarUuid,
@@ -476,13 +494,16 @@ const SpeechBubble = ({
     return <></>;
   }
 
+  const { fromCurrentUser } = message.message;
+  const shownAvatarUuid = fromCurrentUser ? undefined : avatarUuid;
+
   return (
     <View
       style={[
         {
           paddingLeft: 10,
           paddingRight: 10,
-          alignItems: message.message.fromCurrentUser ? 'flex-end' : 'flex-start',
+          alignItems: fromCurrentUser ? 'flex-end' : 'flex-start',
           width: '100%',
           gap: 4,
           zIndex: showReactionBar || isHovering ? 1 : 0,
@@ -493,7 +514,7 @@ const SpeechBubble = ({
         style={{
           position: 'relative',
           width: '100%',
-          alignItems: message.message.fromCurrentUser ? 'flex-end' : 'flex-start',
+          alignItems: fromCurrentUser ? 'flex-end' : 'flex-start',
           zIndex: showReactionBar || isHovering ? 1 : 0,
         }}
         /* @ts-ignore */
@@ -521,7 +542,7 @@ const SpeechBubble = ({
             style={[
               {
                 flexDirection: 'row',
-                gap: 5,
+                gap: avatarGap,
                 alignItems: 'flex-end',
                 ...(doRenderUrlAsImage ? {
                   width: '66%',
@@ -533,16 +554,8 @@ const SpeechBubble = ({
               gestureStyle
             ]}
           >
-            {!message.message.fromCurrentUser && avatarUuid &&
-              <Image
-                source={{ uri: `${IMAGES_URL}/450-${avatarUuid}.jpg` }}
-                transition={150}
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 9999,
-                }}
-              />
+            {shownAvatarUuid &&
+              <Avatar avatarUuid={shownAvatarUuid} />
             }
             {message.message.type === 'chat-text' &&
               <View
@@ -633,8 +646,14 @@ const SpeechBubble = ({
       {reaction &&
         <ReactionChip
           emoji={reaction.emoji}
-          alignSelf={message.message.fromCurrentUser ? 'flex-end' : 'flex-start'}
           onPress={reaction.reactionFrom === 'self' ? clearOwnReaction : undefined}
+          style={{
+            // Tuck the chip into the bubble’s bottom edge, clear of the avatar
+            alignSelf: fromCurrentUser ? 'flex-end' : 'flex-start',
+            marginTop: -8,
+            marginLeft: shownAvatarUuid ? avatarSize + avatarGap : 0,
+            zIndex: 2,
+          }}
         />
       }
       {doShowTimestamp &&
@@ -642,7 +661,7 @@ const SpeechBubble = ({
           selectable={true}
           style={{
             fontSize: appTheme.timestampFontSize,
-            alignSelf: message.message.fromCurrentUser ? 'flex-end' : 'flex-start',
+            alignSelf: fromCurrentUser ? 'flex-end' : 'flex-start',
             color: appTheme.hintColor,
           }}
         >
@@ -660,7 +679,7 @@ const SpeechBubble = ({
   );
 };
 
-const TypingSpeechBubble = ({
+const TypingIndicator = ({
   personUuid,
   avatarUuid,
 }: {
@@ -728,25 +747,17 @@ const TypingSpeechBubble = ({
   };
 
   return (
-    <Animated.View style={[styles.speechBubbleContainer, animatedContainerStyle]}>
+    <Animated.View style={[styles.typingIndicatorContainer, animatedContainerStyle]}>
       <View
         style={{
           flexDirection: 'row',
-          gap: 5,
+          gap: avatarGap,
           alignItems: 'flex-end',
           maxWidth: '80%',
         }}
       >
         {avatarUuid &&
-          <Image
-            source={{ uri: `${IMAGES_URL}/450-${avatarUuid}.jpg` }}
-            transition={150}
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 9999,
-            }}
-          />
+          <Avatar avatarUuid={avatarUuid} />
         }
         <View
           style={{
@@ -770,7 +781,7 @@ const TypingSpeechBubble = ({
 };
 
 const styles = StyleSheet.create({
-  speechBubbleContainer: {
+  typingIndicatorContainer: {
     paddingLeft: 10,
     paddingRight: 10,
     alignItems: 'flex-start',
@@ -789,7 +800,7 @@ const styles = StyleSheet.create({
 });
 
 export {
+  ChatMessage,
   FormattedText,
-  SpeechBubble,
-  TypingSpeechBubble,
+  TypingIndicator,
 };

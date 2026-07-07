@@ -26,7 +26,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { TopNavBar } from '../top-nav-bar';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
-import { SpeechBubble, TypingSpeechBubble } from './speech-bubble';
+import { ChatMessage, TypingIndicator } from './chat-message';
 import { ReadReceipt } from './read-receipt';
 import { DefaultText } from '../default-text';
 import {
@@ -913,7 +913,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
                     message={message.message}
                   />
                 }
-                <SpeechBubble
+                <ChatMessage
                   messageId={messageId}
                   name={name}
                   avatarUuid={photoUuid}
@@ -928,7 +928,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
               alignItems: 'flex-start',
             }}
           >
-            <TypingSpeechBubble
+            <TypingIndicator
               personUuid={personUuid}
               avatarUuid={photoUuid}
             />
