@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from 'react';
 import * as _ from 'lodash';
 import { listen, notify, lastEvent } from './events';
 import { markSearchResultsStale } from './stale-search-results';
+import { markFeedStale } from './stale-feed';
 import type { SearchFilterAnswer } from '../navigation/search-filter-state';
 
 type SearchFilters = {
@@ -35,6 +36,9 @@ const patchSearchFilters = (partial: SearchFilters) => {
   if (!changed) return;
 
   markSearchResultsStale();
+  if ('gender' in partial || 'age' in partial) {
+    markFeedStale();
+  }
   notify<SearchFilters>(EVENT_KEY, { ...prev, ...partial });
 };
 

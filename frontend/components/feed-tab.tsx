@@ -20,13 +20,14 @@ import { GestureResponderEvent, Pressable, Animated, ViewStyle } from 'react-nat
 import { EnlargeablePhoto } from './enlargeable-image';
 import { commonStyles } from '../styles';
 import { VerificationBadge } from './verification-badge';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../navigation/linking';
 import { japi } from '../api/api';
 import { DefaultFlatList, DefaultFlashList } from './default-flat-list';
 import { z } from 'zod';
 import { notify, listen, lastEvent } from '../events/events';
+import { consumeStaleFeed } from '../events/stale-feed';
 import { Club } from './club';
 import { ClubItem, joinClub, leaveClub } from '../club/club';
 import { ImageBackground } from 'expo-image';
@@ -1168,6 +1169,14 @@ const FeedTab = () => {
     const refresh = listRef?.current?.refresh;
     refresh && refresh();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (consumeStaleFeed()) {
+        onPressRefresh();
+      }
+    }, [onPressRefresh])
+  );
 
   return (
     <View style={styles.safeAreaView}>

@@ -42,6 +42,7 @@ import {
   setSearchFilters,
 } from '../events/search-filters';
 import { markSearchResultsStale } from '../events/stale-search-results';
+import { markFeedStale } from '../events/stale-feed';
 import { DefaultText } from '../components/default-text';
 import {
   Linking,
@@ -605,6 +606,7 @@ const genderOptionGroup: OptionGroup<OptionGroupButtons> = {
           patchProfileInfo({ gender });
           notifyUpdatedVerification({ gender: false });
           markSearchResultsStale();
+          markFeedStale();
         }
         return ok;
       },
