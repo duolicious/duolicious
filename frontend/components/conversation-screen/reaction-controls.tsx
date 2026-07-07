@@ -118,8 +118,8 @@ const ReactionMenu = ({
           }}
         />
         <Animated.View
-          entering={FadeInDown.duration(100).easing(Easing.inOut(Easing.quad))}
-          exiting={FadeOutDown.duration(100).easing(Easing.inOut(Easing.quad))}
+          entering={FadeInDown.duration(1234).easing(Easing.inOut(Easing.quad))}
+          exiting={FadeOutDown.duration(1234).easing(Easing.inOut(Easing.quad))}
           style={aboveAnchorStyle(anchor, windowDimensions, {
             estimatedWidth: REACTION_BAR_ESTIMATED_WIDTH,
             estimatedHeight: REACTION_BAR_ESTIMATED_HEIGHT,
@@ -143,12 +143,12 @@ const ReactionMenu = ({
     <Animated.View
       entering={
         (fitsAbove ? FadeInDown : FadeInUp)
-          .duration(100)
+          .duration(1234)
           .easing(Easing.inOut(Easing.quad))
       }
       exiting={
         (fitsAbove ? FadeOutDown : FadeOutUp)
-          .duration(100)
+          .duration(1234)
           .easing(Easing.inOut(Easing.quad))
       }
       style={{

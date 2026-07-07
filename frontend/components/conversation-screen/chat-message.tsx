@@ -506,7 +506,13 @@ const ChatMessage = ({
           alignItems: fromCurrentUser ? 'flex-end' : 'flex-start',
           width: '100%',
           gap: 4,
-          zIndex: showReactionBar || isHovering ? 1 : 0,
+          // The zIndex bump is only for the hover (non-modal) reaction bar,
+          // which must stack above later sibling bubbles. It must not depend
+          // on `showReactionBar`: that bar renders inside a `Modal`, and on
+          // Android, changing an ancestor's zIndex restructures the native
+          // view hierarchy under it, which makes the Modal's dialog (and the
+          // bar in it) blink for a frame.
+          zIndex: isHovering ? 1 : 0,
         },
       ]}
     >
@@ -515,7 +521,7 @@ const ChatMessage = ({
           position: 'relative',
           width: '100%',
           alignItems: fromCurrentUser ? 'flex-end' : 'flex-start',
-          zIndex: showReactionBar || isHovering ? 1 : 0,
+          zIndex: isHovering ? 1 : 0,
         }}
         /* @ts-ignore */
         onContextMenu={
