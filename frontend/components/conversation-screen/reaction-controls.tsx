@@ -121,7 +121,7 @@ const ReactionMenu = ({
 
     const timeout = setTimeout(
       () => setIsModalBarExiting(false),
-      REACTION_BAR_ANIMATION_DURATION,
+      REACTION_BAR_ANIMATION_DURATION + 50,
     );
 
     return () => clearTimeout(timeout);
