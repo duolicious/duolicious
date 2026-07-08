@@ -13,7 +13,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import Animated from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useConversation } from '../chat/application-layer/hooks/conversation';
 import { refreshInbox } from '../chat/application-layer';
 import { TopNavBar } from './top-nav-bar';
@@ -132,6 +132,7 @@ const InboxTab = () => {
   const numIntros = stats?.numIntros ?? 0;
 
   const canApplySearchFilters =
+    sectionIndex === 0 &&
     numIntros >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
 
   const introsNumericalLabel = (
@@ -277,11 +278,10 @@ const InboxTab = () => {
         showArchive={showArchive}
         applySearchFilters={applySearchFilters}
         isRefreshingInbox={isRefreshingInbox}
-        showFilterButton={sectionIndex === 0 && canApplySearchFilters}
+        showFilterButton={canApplySearchFilters}
         showFilterHint={
           !isFilterHintDismissed &&
           !showArchive &&
-          sectionIndex === 0 &&
           canApplySearchFilters
         }
         onPressArchiveButton={onPressArchiveButton}
@@ -405,7 +405,7 @@ const InboxTabNavBar = ({
       </View>
       <View style={styles.navBarButtons}>
         {!showArchive && showFilterButton &&
-          <View>
+          <Animated.View entering={FadeIn} exiting={FadeOut}>
             <TopNavBarButton
               onPress={onPressFilterButton}
               iconName={applySearchFilters ? 'funnel' : 'funnel-outline'}
@@ -418,7 +418,7 @@ const InboxTabNavBar = ({
             {showFilterHint &&
               <InboxFilterHint onDismiss={onDismissFilterHint} />
             }
-          </View>
+          </Animated.View>
         }
         <TopNavBarButton
           onPress={onPressArchiveButton}
