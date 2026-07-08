@@ -50,8 +50,7 @@ import { delay, possessive } from '../../util/util';
 import { ReportModalInitialData } from '../modal/report-modal';
 import { listen, notify } from '../../events/events';
 import { ImageBackground } from 'expo-image';
-import * as StoreReview from 'expo-store-review';
-import { askedForReviewBefore } from '../../kv-storage/asked-for-review-before';
+import { maybeRequestReview } from '../../store-review/store-review';
 import { MessageDivider }  from './message-divider';
 import * as _ from 'lodash';
 import { Input } from './input';
@@ -102,14 +101,6 @@ const firstMamId = (messageIds: string[] | null): string => {
 
   return '';
 };
-
-const maybeRequestReview = async (delayMs: number = 0) => {
-  if (await StoreReview.hasAction() && !await askedForReviewBefore()) {
-    await delay(delayMs);
-    await StoreReview.requestReview();
-  }
-};
-
 
 const Menu = ({
   navigation,
