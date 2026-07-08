@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from 'react';
 import * as _ from 'lodash';
 import { listen, notify, lastEvent } from './events';
 import { markSearchResultsStale } from './stale-search-results';
+import { markInboxStale } from './stale-inbox';
 import { markFeedStale } from './stale-feed';
 import type { SearchFilterAnswer } from '../navigation/search-filter-state';
 
@@ -36,6 +37,7 @@ const patchSearchFilters = (partial: SearchFilters) => {
   if (!changed) return;
 
   markSearchResultsStale();
+  markInboxStale();
   if ('gender' in partial || 'age' in partial) {
     markFeedStale();
   }

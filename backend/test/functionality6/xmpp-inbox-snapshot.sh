@@ -151,6 +151,7 @@ expected_entry=$(cat << EOF
   "last_message_timestamp": "redacted",
   "location": "intros",
   "match_percentage": 50,
+  "matches_search_filters": true,
   "name": "user2",
   "person_uuid": "${user2uuid}"
 }
@@ -173,6 +174,23 @@ actual_snapshot=$(query_inbox_snapshot user2 | snapshot_conversations)
 diff -u --color \
   <(echo "$actual_snapshot") \
   <(jq -S . <<< '[]')
+
+
+echo "An intro from a sender outside the viewer's search filters is flagged"
+
+q "update search_preference_age set min_age = 90, max_age = 99 where person_id = ${user1id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S '[. | .matches_search_filters = false]' <<< "$expected_entry")
+
+q "update search_preference_age set min_age = null, max_age = null where person_id = ${user1id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
 
 
 echo "A reply moves the conversation to chats on both sides"
@@ -198,6 +216,7 @@ expected_entry=$(cat << EOF
   "last_message_timestamp": "redacted",
   "location": "chats",
   "match_percentage": 50,
+  "matches_search_filters": true,
   "name": "user1",
   "person_uuid": "${user1uuid}"
 }
@@ -220,6 +239,7 @@ expected_snapshot=$(cat << EOF
     "last_message_timestamp": "redacted",
     "location": "chats",
     "match_percentage": 50,
+    "matches_search_filters": true,
     "name": "user2",
     "person_uuid": "${user2uuid}"
   }
@@ -248,6 +268,7 @@ expected_snapshot=$(cat << EOF
     "last_message_timestamp": "redacted",
     "location": "archive",
     "match_percentage": null,
+    "matches_search_filters": true,
     "name": null,
     "person_uuid": "${user2uuid}"
   }

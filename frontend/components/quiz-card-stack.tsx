@@ -40,6 +40,7 @@ import {
   removeAnonymousAnswer,
 } from '../events/anonymous-answers';
 import { markSearchResultsStale } from '../events/stale-search-results';
+import { markInboxStale } from '../events/stale-inbox';
 
 // How many questions an unauthenticated web user may answer before we ask them
 // to sign up.
@@ -438,6 +439,7 @@ const deleteAnswer = async (
   }
 
   markSearchResultsStale();
+  markInboxStale();
 };
 
 const removePreviousAnswerInPlace = async (
@@ -481,6 +483,7 @@ const saveAnswer = async (
   }
 
   markSearchResultsStale();
+  markInboxStale();
 };
 
 const addAnswerInPlace = async (

@@ -493,6 +493,7 @@ class InboxConversation(TypedDict):
     is_verified: bool
     is_available: bool
     location: str
+    matches_search_filters: bool
     last_message: str
     last_message_read: bool
     last_message_timestamp: str

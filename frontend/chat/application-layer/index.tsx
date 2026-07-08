@@ -147,6 +147,7 @@ type Conversation = {
   isAvailableUser: boolean
   isVerified: boolean
   location: 'chats' | 'intros' | 'archive' | 'nowhere'
+  matchesSearchFilters: boolean
 };
 
 type ConversationsMap = { [key: string]: Conversation };
@@ -171,6 +172,7 @@ const inboxStats = (inbox: Inbox): {
   numChats: number
   numUnreadChats: number
   numIntros: number
+  numIntrosMatchingFilters: number
   numUnreadIntros: number
   numArchive: number
   numUnreadArchive: number
@@ -188,6 +190,10 @@ const inboxStats = (inbox: Inbox): {
   const numArchive = inbox.archive.conversations.length;
   const numChatsAndIntros = numChats + numIntros;
 
+  const numIntrosMatchingFilters = inbox.intros.conversations
+    .filter((c) => c.matchesSearchFilters)
+    .length;
+
   const numUnreadChats = unreadSum(inbox.chats.conversations);
   const numUnreadIntros = unreadSum(inbox.intros.conversations);
   const numUnreadArchive = unreadSum(inbox.archive.conversations);
@@ -197,6 +203,7 @@ const inboxStats = (inbox: Inbox): {
     numChats,
     numUnreadChats,
     numIntros,
+    numIntrosMatchingFilters,
     numUnreadIntros,
     numArchive,
     numUnreadArchive,
@@ -251,6 +258,7 @@ const conversationFromWire = (
     isAvailableUser: !!c.is_available,
     isVerified: !!c.is_verified,
     location: locations.includes(c.location) ? c.location : 'archive',
+    matchesSearchFilters: !!(c.matches_search_filters ?? true),
   };
 };
 
@@ -279,6 +287,7 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
     location: 'archive',
     photoBlurhash: '',
     isVerified: false,
+    matchesSearchFilters: true,
     ...chatsConversation,
     ...introsConversation,
     lastMessage: message,

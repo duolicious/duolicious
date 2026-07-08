@@ -5,6 +5,8 @@ import { listen } from '../../../events/events';
 import * as _ from 'lodash';
 
 
+const MIN_INTROS_TO_APPLY_SEARCH_FILTERS = 10;
+
 const getSection = (sectionIndex: number, showArchive: boolean) => {
   if (showArchive) {
     return 'archive';
@@ -53,8 +55,20 @@ const sortConversations = (
   conversations: Conversation[],
   section: 'intros' | 'chats' | 'archive',
   sortBy: 'latest' | 'match',
+  applySearchFilters: boolean,
 ): Conversation[] => {
   if (conversations.length === 0) return conversations;
+
+  const applySearchFilters_ =
+    applySearchFilters &&
+    conversations.length >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
+
+  // When the user applies their search filters to intros, intros from outside
+  // the filters sink below the rest, keeping their relative order otherwise.
+  const filterRank = (c: Conversation) =>
+    section === 'intros' && applySearchFilters_ && !c.matchesSearchFilters
+      ? 0
+      : 1;
 
   return [...conversations].sort((a, b) => {
     if (section === 'archive') {
@@ -65,13 +79,13 @@ const sortConversations = (
       ]);
     } else if (section === 'intros' && sortBy === 'match') {
       return compareArrays(
-        [b.matchPercentage, +b.lastMessageTimestamp],
-        [a.matchPercentage, +a.lastMessageTimestamp],
+        [filterRank(b), b.matchPercentage, +b.lastMessageTimestamp],
+        [filterRank(a), a.matchPercentage, +a.lastMessageTimestamp],
       );
     } else {
       return compareArrays(
-        [+b.lastMessageTimestamp, b.matchPercentage],
-        [+a.lastMessageTimestamp, a.matchPercentage],
+        [filterRank(b), +b.lastMessageTimestamp, b.matchPercentage],
+        [filterRank(a), +a.lastMessageTimestamp, a.matchPercentage],
       );
     }
   });
@@ -80,14 +94,16 @@ const sortConversations = (
 const computeConversationIds = (
   inbox: Inbox | null,
   section: 'intros' | 'chats' | 'archive',
-  sortBy: 'latest' | 'match'
+  sortBy: 'latest' | 'match',
+  applySearchFilters: boolean,
 ): string[] | null => {
   if (inbox === null) {
     return null;
   }
 
   const conversations = getSectionConversations(inbox, section);
-  const sorted = sortConversations(conversations, section, sortBy);
+  const sorted = sortConversations(
+    conversations, section, sortBy, applySearchFilters);
   return sorted.map((c) => c.personUuid);
 };
 
@@ -97,23 +113,31 @@ const useConversations = () => {
     sectionIndex: number,
     sortByIndex: number,
     showArchive: boolean,
+    applySearchFilters: boolean,
   }>({
     conversations: null,
     sectionIndex: 0,
     sortByIndex: 0,
     showArchive: false,
+    applySearchFilters: false,
   });
 
   // Subscribe to inbox updates and update only when the derived list changes.
   useEffect(() => {
     const onUpdate = (newInbox?: Inbox | null) => {
       setState((oldState) => {
-        const { sectionIndex, sortByIndex, showArchive } = oldState;
+        const {
+          sectionIndex,
+          sortByIndex,
+          showArchive,
+          applySearchFilters,
+        } = oldState;
 
         const section = getSection(sectionIndex, showArchive);
         const sortBy = getSortBy(sortByIndex);
 
-        const newIds = computeConversationIds(newInbox ?? null, section, sortBy);
+        const newIds = computeConversationIds(
+          newInbox ?? null, section, sortBy, applySearchFilters);
 
         return _.isEqual(oldState.conversations, newIds)
           ? oldState
@@ -130,13 +154,14 @@ const useConversations = () => {
         return oldState;
       }
 
-      const { sortByIndex, showArchive } = oldState;
+      const { sortByIndex, showArchive, applySearchFilters } = oldState;
 
       const section = getSection(sectionIndex, showArchive);
       const sortBy = getSortBy(sortByIndex);
 
       const inbox = getInbox();
-      const conversations = computeConversationIds(inbox, section, sortBy);
+      const conversations = computeConversationIds(
+        inbox, section, sortBy, applySearchFilters);
 
       return { ...oldState, conversations, sectionIndex };
     });
@@ -148,15 +173,35 @@ const useConversations = () => {
         return oldState;
       }
 
-      const { sectionIndex, showArchive } = oldState;
+      const { sectionIndex, showArchive, applySearchFilters } = oldState;
 
       const section = getSection(sectionIndex, showArchive);
       const sortBy = getSortBy(sortByIndex);
 
       const inbox = getInbox();
-      const conversations = computeConversationIds(inbox, section, sortBy);
+      const conversations = computeConversationIds(
+        inbox, section, sortBy, applySearchFilters);
 
       return { ...oldState, conversations, sortByIndex };
+    });
+  }, []);
+
+  const setApplySearchFilters = useCallback((applySearchFilters: boolean) => {
+    setState((oldState) => {
+      if (oldState.applySearchFilters === applySearchFilters) {
+        return oldState;
+      }
+
+      const { sectionIndex, sortByIndex, showArchive } = oldState;
+
+      const section = getSection(sectionIndex, showArchive);
+      const sortBy = getSortBy(sortByIndex);
+
+      const inbox = getInbox();
+      const conversations = computeConversationIds(
+        inbox, section, sortBy, applySearchFilters);
+
+      return { ...oldState, conversations, applySearchFilters };
     });
   }, []);
 
@@ -168,13 +213,14 @@ const useConversations = () => {
         return oldState;
       }
 
-      const { sectionIndex, sortByIndex } = oldState;
+      const { sectionIndex, sortByIndex, applySearchFilters } = oldState;
 
       const section = getSection(sectionIndex, showArchive);
       const sortBy = getSortBy(sortByIndex);
 
       const inbox = getInbox();
-      const conversations = computeConversationIds(inbox, section, sortBy);
+      const conversations = computeConversationIds(
+        inbox, section, sortBy, applySearchFilters);
 
       return { ...oldState, conversations, showArchive };
     });
@@ -184,8 +230,13 @@ const useConversations = () => {
     ...state,
     setSectionIndex,
     setSortByIndex,
+    setApplySearchFilters,
     setShowArchive,
   }
 };
 
-export { useConversations };
+export {
+  MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
+  sortConversations,
+  useConversations,
+};

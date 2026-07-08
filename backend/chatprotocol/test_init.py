@@ -92,6 +92,7 @@ _INBOX_CONVERSATION: InboxConversation = {
     'is_verified': False,
     'is_available': True,
     'location': 'intros',
+    'matches_search_filters': True,
     'last_message': 'hi',
     'last_message_read': False,
     'last_message_timestamp': '2020-01-01T00:00:00.000000Z',

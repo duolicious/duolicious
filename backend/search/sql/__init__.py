@@ -73,6 +73,11 @@ WHERE
 
 
 
+# The searcher's filter predicates (except club membership) are mirrored (by
+# hand) by the `matches_search_filters` column of the inbox snapshot query in
+# `service.chat.messagestorage.inbox`, which flags intros from senders outside
+# the viewer's search filters. If a filter is added or changed here, change it
+# there too.
 Q_UNCACHED_SEARCH_2 = """
 WITH searcher AS (
     SELECT

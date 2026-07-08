@@ -10,24 +10,58 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useState,
 } from 'react';
 import Animated from 'react-native-reanimated';
 import { useConversation } from '../chat/application-layer/hooks/conversation';
+import { refreshInbox } from '../chat/application-layer';
 import { TopNavBar } from './top-nav-bar';
 import { IntrosItem, ChatsItem } from './inbox-item';
 import { DefaultText } from './default-text';
 import { ButtonGroup } from './button-group';
 import { useInboxStats } from '../chat/application-layer/hooks/inbox-stats';
-import { useConversations } from '../chat/application-layer/hooks/conversations';
+import {
+  MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
+  useConversations,
+} from '../chat/application-layer/hooks/conversations';
 import { TopNavBarButton } from './top-nav-bar-button';
-import { inboxOrder, inboxSection } from '../kv-storage/inbox';
+import {
+  inboxApplySearchFilters,
+  inboxOrder,
+  inboxSection,
+} from '../kv-storage/inbox';
 import { listen } from '../events/events';
+import { consumeStaleInbox } from '../events/stale-inbox';
+import { seenInboxFilterHint } from '../kv-storage/seen-inbox-filter-hint';
+import { InboxFilterHint } from './inbox-filter-hint';
+import { useFocusEffect } from '@react-navigation/native';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
 
 const IntrosItemMemo = memo(IntrosItem);
 const ChatsItemMemo = memo(ChatsItem);
+
+type InboxListItem = string | { dividerKey: string, label: string };
+
+const InboxDivider = ({ label }: { label: string }) => {
+  const { appTheme } = useAppTheme();
+
+  const lineStyle = [
+    styles.dividerLine,
+    { backgroundColor: appTheme.secondaryColor },
+  ];
+
+  return (
+    <View style={styles.divider}>
+      <View style={lineStyle} />
+      <DefaultText style={styles.dividerText}>
+        {label}
+      </DefaultText>
+      <View style={lineStyle} />
+    </View>
+  );
+};
 
 const RenderItem = ({ item }: { item: string }) => {
   const conversation = useConversation(item);
@@ -64,10 +98,13 @@ const RenderItem = ({ item }: { item: string }) => {
   }
 };
 
-const renderItem = ({ item }: ListRenderItemInfo<string>) =>
-  <RenderItem item={item} />;
+const renderItem = ({ item }: ListRenderItemInfo<InboxListItem>) =>
+  typeof item === 'string'
+    ? <RenderItem item={item} />
+    : <InboxDivider label={item.label} />;
 
-const keyExtractor = (id: string) => id;
+const keyExtractor = (item: InboxListItem) =>
+  typeof item === 'string' ? item : item.dividerKey;
 
 const InboxTab = () => {
   const { appTheme } = useAppTheme();
@@ -77,15 +114,25 @@ const InboxTab = () => {
     sectionIndex,
     sortByIndex,
     showArchive,
+    applySearchFilters,
     setSectionIndex,
     setSortByIndex,
+    setApplySearchFilters,
     setShowArchive,
   } = useConversations();
 
   const stats = useInboxStats();
 
+  const [isRefreshingInbox, setIsRefreshingInbox] = useState(false);
+
   const numUnreadIntros = stats?.numUnreadIntros ?? 0;
   const numUnreadChats  = stats?.numUnreadChats  ?? 0;
+
+  const numIntros = stats?.numIntros ?? 0;
+  const numIntrosMatchingFilters = stats?.numIntrosMatchingFilters ?? 0;
+
+  const canApplySearchFilters =
+    numIntros >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
 
   const introsNumericalLabel = (
     numUnreadIntros ?
@@ -106,6 +153,28 @@ const InboxTab = () => {
     inboxOrder(value);
   }, []);
 
+  const [isFilterHintDismissed, setIsFilterHintDismissed] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (!(await seenInboxFilterHint())) {
+        setIsFilterHintDismissed(false);
+      }
+    })();
+  }, []);
+
+  const dismissFilterHint = useCallback(() => {
+    setIsFilterHintDismissed(true);
+    seenInboxFilterHint(true);
+  }, []);
+
+  const onPressFilterButton = useCallback(() => {
+    dismissFilterHint();
+    const value = !applySearchFilters;
+    setApplySearchFilters(value);
+    inboxApplySearchFilters(value ? 1 : 0);
+  }, [applySearchFilters]);
+
   const onPressArchiveButton = useCallback(() => {
     setShowArchive(x => !x);
   }, []);
@@ -114,11 +183,68 @@ const InboxTab = () => {
     (async () => {
       const _inboxOrder = await inboxOrder();
       const _inboxSection = await inboxSection();
+      const _inboxApplySearchFilters = await inboxApplySearchFilters();
 
       setSectionIndex(_inboxSection);
       setSortByIndex(_inboxOrder);
+      setApplySearchFilters(!!_inboxApplySearchFilters);
     })();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (consumeStaleInbox()) {
+        setIsRefreshingInbox(true);
+        refreshInbox().finally(() => setIsRefreshingInbox(false));
+      }
+    }, [])
+  );
+
+  const listData = useMemo<InboxListItem[] | null>(() => {
+    if (conversations === null) {
+      return null;
+    }
+
+    const showDividers =
+      !showArchive &&
+      sectionIndex === 0 &&
+      applySearchFilters &&
+      conversations.length >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
+
+    if (!showDividers) {
+      return conversations;
+    }
+
+    const numMatching = Math.min(
+      numIntrosMatchingFilters, conversations.length);
+    const numOutside = conversations.length - numMatching;
+
+    const items: InboxListItem[] = [];
+
+    if (numMatching > 0) {
+      items.push({
+        dividerKey: 'divider-matching',
+        label: `Within your search filters (${numMatching})`,
+      });
+      items.push(...conversations.slice(0, numMatching));
+    }
+
+    if (numOutside > 0) {
+      items.push({
+        dividerKey: 'divider-outside',
+        label: `Outside your search filters (${numOutside})`,
+      });
+      items.push(...conversations.slice(numMatching));
+    }
+
+    return items;
+  }, [
+    conversations,
+    showArchive,
+    sectionIndex,
+    applySearchFilters,
+    numIntrosMatchingFilters,
+  ]);
 
   const emptyText = (() => {
     if (!showArchive && sectionIndex === 0)
@@ -160,18 +286,29 @@ const InboxTab = () => {
     <View style={styles.safeAreaView}>
       <InboxTabNavBar
         showArchive={showArchive}
+        applySearchFilters={applySearchFilters}
+        isRefreshingInbox={isRefreshingInbox}
+        showFilterButton={canApplySearchFilters}
+        showFilterHint={
+          !isFilterHintDismissed &&
+          !showArchive &&
+          sectionIndex === 0 &&
+          canApplySearchFilters
+        }
         onPressArchiveButton={onPressArchiveButton}
+        onPressFilterButton={onPressFilterButton}
+        onDismissFilterHint={dismissFilterHint}
       />
-      {conversations === null &&
+      {listData === null &&
         <View style={{height: '100%', justifyContent: 'center', alignItems: 'center'}}>
           <LogoActivityIndicator size="large" color={appTheme.brandColor} />
         </View>
       }
-      {conversations !== null &&
+      {listData !== null &&
         <View style={styles.flatListContainer} onLayout={onLayout}>
-          <Animated.FlatList<string>
+          <Animated.FlatList<InboxListItem>
             ref={observeListRef}
-            data={conversations}
+            data={listData}
             ListHeaderComponent={<>{
               !showArchive && <>
                 <ButtonGroup
@@ -207,7 +344,7 @@ const InboxTab = () => {
               </DefaultText>
             }
             ListFooterComponent={
-              conversations.length > 0 ?
+              listData.length > 0 ?
                 <DefaultText style={styles.endText}>{endText}</DefaultText> :
                 null
             }
@@ -226,10 +363,22 @@ const InboxTab = () => {
 
 const InboxTabNavBar = ({
   showArchive,
+  applySearchFilters,
+  isRefreshingInbox,
+  showFilterButton,
+  showFilterHint,
   onPressArchiveButton,
+  onPressFilterButton,
+  onDismissFilterHint,
 }: {
   showArchive: boolean,
+  applySearchFilters: boolean,
+  isRefreshingInbox: boolean,
+  showFilterButton: boolean,
+  showFilterHint: boolean,
   onPressArchiveButton: () => void,
+  onPressFilterButton: () => void,
+  onDismissFilterHint: () => void,
 }) => {
   const { appTheme } = useAppTheme();
   const [isOnline, setIsOnline] = useState(false);
@@ -265,13 +414,31 @@ const InboxTabNavBar = ({
           />
         }
       </View>
-      <TopNavBarButton
-        onPress={onPressArchiveButton}
-        iconName={showArchive ? 'chatbubbles-outline' : 'file-tray-full-outline'}
-        position="right"
-        secondary={false}
-        label={showArchive ? "Inbox" : "Archive"}
-      />
+      <View style={styles.navBarButtons}>
+        {!showArchive && showFilterButton &&
+          <View>
+            <TopNavBarButton
+              onPress={onPressFilterButton}
+              iconName={applySearchFilters ? 'funnel' : 'funnel-outline'}
+              overlayIconName={applySearchFilters ? 'checkmark-circle' : undefined}
+              position={null}
+              secondary={false}
+              label="Filter"
+              loading={isRefreshingInbox}
+            />
+            {showFilterHint &&
+              <InboxFilterHint onDismiss={onDismissFilterHint} />
+            }
+          </View>
+        }
+        <TopNavBarButton
+          onPress={onPressArchiveButton}
+          iconName={showArchive ? 'chatbubbles-outline' : 'file-tray-full-outline'}
+          position={null}
+          secondary={false}
+          label={showArchive ? "Inbox" : "Archive"}
+        />
+      </View>
     </TopNavBar>
   );
 };
@@ -294,6 +461,35 @@ const styles = StyleSheet.create({
     fontFamily: 'Trueno',
     margin: '20%',
     textAlign: 'center',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 10,
+    marginLeft: 20,
+    marginRight: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontFamily: 'TruenoBold',
+    fontSize: 13,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  navBarButtons: {
+    position: 'absolute',
+    top: 0,
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    right: 10,
+    gap: 14,
   },
   endText: {
     fontFamily: 'TruenoBold',

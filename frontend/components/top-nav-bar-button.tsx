@@ -1,6 +1,8 @@
 import {
+  ActivityIndicator,
   Animated,
   Pressable,
+  View,
   ViewStyle,
 } from 'react-native';
 import {
@@ -20,6 +22,8 @@ const TopNavBarButton = ({
   position,
   label,
   style,
+  loading = false,
+  overlayIconName,
 }: {
   onPress: () => void
   iconName: ComponentProps<typeof Ionicons>['name']
@@ -27,6 +31,8 @@ const TopNavBarButton = ({
   position: 'left' | 'right' | null
   label?: string,
   style?: ViewStyle,
+  loading?: boolean,
+  overlayIconName?: ComponentProps<typeof Ionicons>['name'],
 }) => {
   const opacity = useRef(new Animated.Value(1)).current;
 
@@ -75,13 +81,40 @@ const TopNavBarButton = ({
         flexDirection: 'row',
         gap: 5,
       }}>
-        <Ionicons
-          style={{
-            color: appTheme.secondaryColor,
-            fontSize: secondary || isMobile() ? 28 : 22,
-          }}
-          name={iconName}
-        />
+        {loading ?
+          <ActivityIndicator
+            size="small"
+            color={appTheme.brandColor}
+            style={{
+              width: secondary || isMobile() ? 28 : 22,
+              height: secondary || isMobile() ? 28 : 22,
+            }}
+          /> :
+          <View>
+            <Ionicons
+              style={{
+                color: appTheme.secondaryColor,
+                fontSize: secondary || isMobile() ? 28 : 22,
+              }}
+              name={iconName}
+            />
+            {overlayIconName &&
+              <Ionicons
+                style={{
+                  position: 'absolute',
+                  right: -3,
+                  bottom: -1,
+                  color: appTheme.secondaryColor,
+                  fontSize: secondary || isMobile() ? 16 : 12,
+                  backgroundColor: appTheme.primaryColor,
+                  borderRadius: 999,
+                  overflow: 'hidden',
+                }}
+                name={overlayIconName}
+              />
+            }
+          </View>
+        }
         {!isMobile() && label &&
           <DefaultText style={{ fontWeight: '700' }}>
             {label}

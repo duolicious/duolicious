@@ -39,12 +39,129 @@ ORDER BY
 # rather than an `%(x)s IS NULL OR ...` that serves both -- so the single-entry
 # query gets an index scan on `inbox_pkey` even under a generic plan, which a
 # parameterised `IS NULL` branch would defeat.
+#
+# `matches_search_filters` says whether an intro's sender passes the viewer's
+# search filters, so clients can sort and flag intros from outside them. The
+# predicates mirror `Q_UNCACHED_SEARCH_2` in `search.sql` (kept in sync by
+# hand; each notes the other), except those that can't apply to an intro: the
+# sender's own gender preference and `hide_me_from_strangers` (the sender
+# chose to message the viewer), skipped/messaged gating (the inbox `location`
+# rules already handle those), and platform verification requirements (not a
+# viewer-chosen filter). Searching within a club also deliberately doesn't
+# count: it scopes a search, but an intro from outside the club isn't the
+# kind of mismatch this flag is for. Non-intro conversations are always TRUE.
 def _q_inbox_snapshot(entry_predicate: str) -> str:
     return f"""
 WITH viewer AS (
     SELECT
         id,
-        personality
+        personality,
+        coordinates,
+        COALESCE(
+            (
+                SELECT
+                    1000 * distance
+                FROM
+                    search_preference_distance
+                WHERE
+                    person_id = person.id
+            ),
+            1e9
+        ) AS distance_preference,
+        -- The latest date of birth the viewer's minimum age allows
+        (
+            SELECT
+                (
+                    CURRENT_DATE -
+                    INTERVAL '1 year' *
+                    COALESCE(min_age, 0)
+                )::DATE
+            FROM
+                search_preference_age
+            WHERE
+                person_id = person.id
+        ) AS max_date_of_birth_preference,
+        -- The earliest date of birth the viewer's maximum age allows
+        (
+            SELECT
+                (
+                    CURRENT_DATE -
+                    INTERVAL '1 year' *
+                    (COALESCE(max_age, 999) + 1)
+                )::DATE
+            FROM
+                search_preference_age
+            WHERE
+                person_id = person.id
+        ) AS min_date_of_birth_preference,
+        (
+            SELECT min_height_cm FROM search_preference_height_cm
+            WHERE person_id = person.id
+        ) AS min_height_preference,
+        (
+            SELECT max_height_cm FROM search_preference_height_cm
+            WHERE person_id = person.id
+        ) AS max_height_preference,
+        ARRAY(
+            SELECT gender_id FROM search_preference_gender
+            WHERE person_id = person.id
+        ) AS gender_preference,
+        ARRAY(
+            SELECT orientation_id FROM search_preference_orientation
+            WHERE person_id = person.id
+        ) AS orientation_preference,
+        ARRAY(
+            SELECT ethnicity_id FROM search_preference_ethnicity
+            WHERE person_id = person.id
+        ) AS ethnicity_preference,
+        ARRAY(
+            SELECT has_profile_picture_id FROM search_preference_has_profile_picture
+            WHERE person_id = person.id
+        ) AS has_profile_picture_preference,
+        ARRAY(
+            SELECT looking_for_id FROM search_preference_looking_for
+            WHERE person_id = person.id
+        ) AS looking_for_preference,
+        ARRAY(
+            SELECT smoking_id FROM search_preference_smoking
+            WHERE person_id = person.id
+        ) AS smoking_preference,
+        ARRAY(
+            SELECT drinking_id FROM search_preference_drinking
+            WHERE person_id = person.id
+        ) AS drinking_preference,
+        ARRAY(
+            SELECT drugs_id FROM search_preference_drugs
+            WHERE person_id = person.id
+        ) AS drugs_preference,
+        ARRAY(
+            SELECT long_distance_id FROM search_preference_long_distance
+            WHERE person_id = person.id
+        ) AS long_distance_preference,
+        ARRAY(
+            SELECT relationship_status_id FROM search_preference_relationship_status
+            WHERE person_id = person.id
+        ) AS relationship_status_preference,
+        ARRAY(
+            SELECT has_kids_id FROM search_preference_has_kids
+            WHERE person_id = person.id
+        ) AS has_kids_preference,
+        ARRAY(
+            SELECT wants_kids_id FROM search_preference_wants_kids
+            WHERE person_id = person.id
+        ) AS wants_kids_preference,
+        ARRAY(
+            SELECT exercise_id FROM search_preference_exercise
+            WHERE person_id = person.id
+        ) AS exercise_preference,
+        ARRAY(
+            SELECT religion_id FROM search_preference_religion
+            WHERE person_id = person.id
+        ) AS religion_preference,
+        ARRAY(
+            SELECT star_sign_id FROM search_preference_star_sign
+            WHERE person_id = person.id
+        ) AS star_sign_preference
     FROM
         person
     WHERE
@@ -80,6 +197,28 @@ WITH viewer AS (
         COALESCE(
             prospect.activated AND prospect.shadow_banned_at IS NULL, FALSE
         ) AS is_prospect_activated,
+        -- The columns `matches_search_filters` tests the prospect on, carried
+        -- through so the final SELECT can evaluate the filters for intro rows
+        -- only. Never sent to the client.
+        prospect.id AS prospect_id,
+        prospect.gender_id AS prospect_gender_id,
+        prospect.coordinates AS prospect_coordinates,
+        prospect.date_of_birth AS prospect_date_of_birth,
+        prospect.orientation_id AS prospect_orientation_id,
+        prospect.ethnicity_id AS prospect_ethnicity_id,
+        prospect.height_cm AS prospect_height_cm,
+        prospect.has_profile_picture_id AS prospect_has_profile_picture_id,
+        prospect.looking_for_id AS prospect_looking_for_id,
+        prospect.smoking_id AS prospect_smoking_id,
+        prospect.drinking_id AS prospect_drinking_id,
+        prospect.drugs_id AS prospect_drugs_id,
+        prospect.long_distance_id AS prospect_long_distance_id,
+        prospect.relationship_status_id AS prospect_relationship_status_id,
+        prospect.has_kids_id AS prospect_has_kids_id,
+        prospect.wants_kids_id AS prospect_wants_kids_id,
+        prospect.exercise_id AS prospect_exercise_id,
+        prospect.religion_id AS prospect_religion_id,
+        prospect.star_sign_id AS prospect_star_sign_id,
         EXISTS (
             SELECT
                 1
@@ -193,9 +332,91 @@ SELECT
     location,
     body AS last_message,
     unread_count = 0 AS last_message_read,
-    timestamp AS last_message_timestamp
+    timestamp AS last_message_timestamp,
+    COALESCE(
+        CASE
+            WHEN location = 'intros'
+            THEN
+                prospect_gender_id = ANY(viewer.gender_preference)
+            AND
+                ST_DWithin(
+                    prospect_coordinates,
+                    viewer.coordinates,
+                    viewer.distance_preference
+                )
+            AND
+                prospect_date_of_birth <= viewer.max_date_of_birth_preference
+            AND
+                prospect_date_of_birth > viewer.min_date_of_birth_preference
+            AND
+                prospect_orientation_id = ANY(viewer.orientation_preference)
+            AND
+                prospect_ethnicity_id = ANY(viewer.ethnicity_preference)
+            AND
+                COALESCE(prospect_height_cm, 0) >=
+                    COALESCE(viewer.min_height_preference, 0)
+            AND
+                COALESCE(prospect_height_cm, 999) <=
+                    COALESCE(viewer.max_height_preference, 999)
+            AND
+                prospect_has_profile_picture_id =
+                    ANY(viewer.has_profile_picture_preference)
+            AND
+                prospect_looking_for_id = ANY(viewer.looking_for_preference)
+            AND
+                prospect_smoking_id = ANY(viewer.smoking_preference)
+            AND
+                prospect_drinking_id = ANY(viewer.drinking_preference)
+            AND
+                prospect_drugs_id = ANY(viewer.drugs_preference)
+            AND
+                prospect_long_distance_id = ANY(viewer.long_distance_preference)
+            AND
+                prospect_relationship_status_id =
+                    ANY(viewer.relationship_status_preference)
+            AND
+                prospect_has_kids_id = ANY(viewer.has_kids_preference)
+            AND
+                prospect_wants_kids_id = ANY(viewer.wants_kids_preference)
+            AND
+                prospect_exercise_id = ANY(viewer.exercise_preference)
+            AND
+                prospect_religion_id = ANY(viewer.religion_preference)
+            AND
+                prospect_star_sign_id = ANY(viewer.star_sign_preference)
+            AND
+                -- NOT EXISTS an answer contrary to the viewer's preference...
+                NOT EXISTS (
+                    SELECT 1
+                    FROM (
+                        SELECT *
+                        FROM search_preference_answer
+                        WHERE person_id = viewer.id
+                    ) AS pref
+                    LEFT JOIN
+                        answer ans
+                    ON
+                        ans.person_id = prospect_id AND
+                        ans.question_id = pref.question_id
+                    WHERE
+                        -- Contrary because the answer exists and is wrong
+                        ans.answer IS NOT NULL AND
+                        ans.answer != pref.answer
+                    OR
+                        -- Contrary because the answer doesn't exist but should
+                        ans.answer IS NULL AND
+                        pref.accept_unanswered = FALSE
+                )
+            ELSE TRUE
+        END,
+        FALSE
+    ) AS matches_search_filters
 FROM
     gated
+LEFT JOIN
+    viewer
+ON
+    TRUE
 WHERE
     location <> 'nowhere'
 ORDER BY
@@ -374,6 +595,7 @@ def _conversation_from_row(row: Row) -> InboxConversation:
         is_verified=row['is_verified'],
         is_available=row['is_available'],
         location=row['location'],
+        matches_search_filters=row['matches_search_filters'],
         last_message=row['last_message'],
         last_message_read=row['last_message_read'],
         # The query returns raw microseconds; formatting here (rather than via

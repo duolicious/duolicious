@@ -6,12 +6,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEYS = [
   'app_theme_name',
+  'inbox_apply_search_filters',
   'inbox_order',
   'inbox_section',
   'last_path',
   'navigation_state',
   'draft_messages',
   'person_uuid',
+  'seen_inbox_filter_hint',
   'seen_reply_hint',
   'session_token',
   'was_review_requested',
