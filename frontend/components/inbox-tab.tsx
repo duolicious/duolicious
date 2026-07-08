@@ -277,7 +277,7 @@ const InboxTab = () => {
         showArchive={showArchive}
         applySearchFilters={applySearchFilters}
         isRefreshingInbox={isRefreshingInbox}
-        showFilterButton={canApplySearchFilters}
+        showFilterButton={sectionIndex === 0 && canApplySearchFilters}
         showFilterHint={
           !isFilterHintDismissed &&
           !showArchive &&

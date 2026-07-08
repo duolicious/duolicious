@@ -38,7 +38,7 @@ const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
             textAlign: 'center',
           }}
         >
-          Tip: tap here to see intros that match your search filters first
+          Press here to see intros that match your search filters first
         </DefaultText>
       </>}
     </HintBubble>
