@@ -2,9 +2,9 @@
 
 # Create and onboard a test user via the HTTP API.
 # - Requests an OTP for the provided username or email and confirms it
-# - Populates onboarding info (name, DOB, location, gender, photos)
+# - Populates onboarding info (name, DOB, location, gender)
 # - Answers a number of profile questions
-# - Optionally uploads an audio bio
+# - Optionally uploads photos and an audio bio
 #
 # Usage:
 #   ./create-user.sh <username_or_email> [num_questions=100] [num_photos=0] [do_add_audio=false]
@@ -67,12 +67,12 @@ add_audio () {
     -d "{ \"base64_audio_file\": { \"base64\": \"${snd}\" } }"
 }
 
-add_photos_to_onboardee () {
+add_photos () {
   for i in $(seq 1 $1)
   do
     local img=$(rand_image)
 
-    jc PATCH /onboardee-info \
+    jc PATCH /profile-info \
       -d "{
               \"base64_file\": {
                   \"position\": ${i},
@@ -115,8 +115,9 @@ main () {
   jc PATCH /onboardee-info -d '{ "location": "New York, New York, United States" }'
   jc PATCH /onboardee-info -d '{ "gender": "Other" }'
   jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Agender", "Femboy", "Intersex", "Non-binary", "Transgender", "Trans woman", "Trans man", "Other"] }'
-  add_photos_to_onboardee "${num_photos}"
   c POST /finish-onboarding
+
+  add_photos "${num_photos}"
 
   answer_questions "$num_questions"
 

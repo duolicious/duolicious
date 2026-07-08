@@ -417,7 +417,6 @@ class PatchOnboardeeInfo(BaseModel):
     location: str | None = Field(default=None, min_length=1)
     gender: str | None = Field(default=None, min_length=1)
     other_peoples_genders: List[str] | None = Field(default=None, min_length=1)
-    base64_file: Base64File | None = None
 
     @field_validator('name', mode='before')
     @classmethod

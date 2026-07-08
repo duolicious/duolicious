@@ -6,12 +6,10 @@ cd "$script_dir"
 source ../util/setup.sh
 
 img1=$(rand_image)
-img2=$(rand_image)
-img3=$(rand_image)
 
 set -xe
 
-echo Create a user who added two photos during onboarding
+echo Create a user who added two photos
 q "delete from banned_person"
 q "delete from duo_session"
 q "delete from person"
@@ -22,7 +20,6 @@ q "delete from undeleted_photo"
 
 [[ "$(q "select count(*) from photo")" == "4" ]]
 [[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "2" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "0" ]]
 [[ "$(q "select count(*) from undeleted_photo")" == "0" ]]
 
 assume_role user1
@@ -40,61 +37,6 @@ jc PATCH /profile-info \
 
 [[ "$(q "select count(*) from photo")" == "4" ]]
 [[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "2" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "0" ]]
-[[ "$(q "select count(*) from undeleted_photo")" == "1" ]]
-
-echo Change and delete photos during onboarding
-q "delete from banned_person"
-q "delete from duo_session"
-q "delete from person"
-q "delete from onboardee"
-q "delete from undeleted_photo"
-../util/create-user.sh unchanged 0 2
-
-response=$(jc POST /request-otp -d '{ "email": "user1@example.com" }')
-SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
-jc POST /check-otp -d '{ "otp": "000000" }'
-
-echo Upload onboardee photos 1.jpg and 2.jpg
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 1,
-              \"base64\": \"${img1}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 2,
-              \"base64\": \"${img2}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-[[ "$(q "select count(*) from photo")" == "2" ]]
-[[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "1" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "2" ]]
-[[ "$(q "select count(*) from undeleted_photo")" == "0" ]]
-
-echo Change the first onboardee photo
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 1,
-              \"base64\": \"${img1}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-[[ "$(q "select count(*) from photo")" == "2" ]]
-[[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "1" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "2" ]]
 [[ "$(q "select count(*) from undeleted_photo")" == "1" ]]
 
 echo Self-deleted account
@@ -111,7 +53,6 @@ c DELETE /account
 
 [[ "$(q "select count(*) from photo")" == "2" ]]
 [[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "1" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "0" ]]
 [[ "$(q "select count(*) from undeleted_photo")" == "2" ]]
 
 echo Admin-deleted account
@@ -133,7 +74,6 @@ c GET "/admin/ban/${uuid}"
 
 [[ "$(q "select count(*) from photo")" == "2" ]]
 [[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "1" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "0" ]]
 [[ "$(q "select count(*) from undeleted_photo")" == "2" ]]
 
 echo Admin-deleted photo
@@ -159,83 +99,7 @@ c GET "/admin/delete-photo/${uuid}"
 [[ "$(q "select count(*) from photo")" == "3" ]]
 [[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "2" ]]
 [[ "$(q "select count(*) from person where verification_level_id = 3")" == "0" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "0" ]]
 [[ "$(q "select count(*) from undeleted_photo")" == "1" ]]
-
-echo Expired onboardee
-q "delete from banned_person"
-q "delete from duo_session"
-q "delete from person"
-q "delete from onboardee"
-q "delete from undeleted_photo"
-
-../util/create-user.sh unchanged 0 1
-
-response=$(jc POST /request-otp -d '{ "email": "user1@example.com" }')
-SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
-jc POST /check-otp -d '{ "otp": "000000" }'
-
-echo Upload onboardee photos 1.jpg and 2.jpg for user1
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 1,
-              \"base64\": \"${img1}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 2,
-              \"base64\": \"${img2}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-response=$(jc POST /request-otp -d '{ "email": "user2@example.com" }')
-SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
-jc POST /check-otp -d '{ "otp": "000000" }'
-
-echo Upload onboardee photos 1.jpg and 2.jpg for user2
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 1,
-              \"base64\": \"${img1}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 2,
-              \"base64\": \"${img2}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-q "
-update
-  onboardee
-set
-  created_at = now() - interval '1 year'
-where
-  email = 'user1@example.com'
-"
-
-sleep 2
-
-[[ "$(q "select count(*) from photo")" == "1" ]]
-[[ "$(q "select count(*) from person where has_profile_picture_id = 1")" == "1" ]]
-[[ "$(q "select count(*) from onboardee_photo")" == "2" ]]
-[[ "$(q "select count(*) from undeleted_photo")" == "2" ]]
 
 echo Verification photos are deleted when the job expires
 q "delete from verification_job"

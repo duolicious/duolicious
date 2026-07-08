@@ -5,10 +5,6 @@ cd "$script_dir"
 
 source ../util/setup.sh
 
-img1=$(base64 -w 0 < ../fixtures/img.heic)
-img2=$(rand_image)
-img3=$(rand_image)
-
 set -xe
 
 date_in_20_days=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)")
@@ -49,39 +45,15 @@ jc PATCH /onboardee-info -d '{ "location": "Sydney, New South Wales, Australia" 
 jc PATCH /onboardee-info -d '{ "gender": "Man" }'
 jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"] }'
 
-jc PATCH /onboardee-info \
+! jc PATCH /onboardee-info \
   -d "{
           \"base64_file\": {
               \"position\": 1,
-              \"base64\": \"${img1}\",
+              \"base64\": \"$(rand_image)\",
               \"top\": 0,
               \"left\": 0
           }
-      }"
-
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 2,
-              \"base64\": \"${img2}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-jc PATCH /onboardee-info \
-  -d "{
-          \"base64_file\": {
-              \"position\": 3,
-              \"base64\": \"${img3}\",
-              \"top\": 0,
-              \"left\": 0
-          }
-      }"
-
-wait_for_creation_by_uuid "$(q "select uuid from onboardee_photo limit 1")"
-
-[[ "$(q "select COUNT(*) from onboardee_photo")" -eq 3 ]]
+      }" || exit 1
 
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 1 ]]
 

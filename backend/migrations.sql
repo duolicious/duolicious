@@ -1,2 +1,4 @@
-ALTER TABLE person
-    ADD COLUMN IF NOT EXISTS unseen_notification_count INT NOT NULL DEFAULT 0;
+-- Onboardees can no longer upload photos; the table is unused. Any objects
+-- still referenced only by this table will be garbage-collected by the
+-- `checkphotos` cron job once it stops considering `onboardee_photo`.
+DROP TABLE IF EXISTS onboardee_photo;

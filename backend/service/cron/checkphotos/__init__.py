@@ -113,8 +113,7 @@ async def resolve_uuids(uuids: list[str]) -> tuple[list[str], list[str]]:
         SELECT unn.uuid
         FROM unnest(%(uuids)s::TEXT[]) AS unn(uuid)
         LEFT JOIN photo p ON unn.uuid = p.uuid
-        LEFT JOIN onboardee_photo op ON unn.uuid = op.uuid
-        WHERE p.uuid IS NULL AND op.uuid IS NULL
+        WHERE p.uuid IS NULL
     """
     params = dict(uuids=uuids)
 

@@ -35,7 +35,7 @@ WITH q1 AS (
     WHERE
         created_at < NOW() - INTERVAL '1 week'
     RETURNING
-        email
+        1
 ), q6 AS (
     DELETE FROM
         verification_job
@@ -51,17 +51,6 @@ WITH q1 AS (
     RETURNING
         uuid, person_id
 ), each_deleted_photo AS (
-    SELECT
-        onboardee_photo.uuid
-    FROM
-        onboardee_photo
-    JOIN
-        q5
-    ON
-        onboardee_photo.email = q5.email
-
-    UNION
-
     SELECT uuid FROM q6
 
     UNION

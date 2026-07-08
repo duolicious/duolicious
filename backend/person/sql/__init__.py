@@ -371,11 +371,7 @@ WITH onboardee_location AS (
         coordinates,
         gender_id,
         COALESCE(about, ''),
-        CASE
-            WHEN EXISTS (SELECT 1 FROM onboardee_photo WHERE email = %(email)s)
-            THEN 1
-            ELSE 2
-        END AS has_profile_picture_id,
+        2 AS has_profile_picture_id,
         (
             SELECT id
             FROM unit
@@ -526,23 +522,6 @@ WITH onboardee_location AS (
         1
     OFFSET
         1
-), new_photo AS (
-    INSERT INTO photo (
-        person_id,
-        position,
-        uuid,
-        blurhash,
-        hash
-    )
-    SELECT
-        new_person.id,
-        position,
-        onboardee_photo.uuid,
-        onboardee_photo.blurhash,
-        onboardee_photo.hash
-    FROM onboardee_photo
-    JOIN new_person
-    ON onboardee_photo.email = new_person.email
 ), updated_session AS (
     UPDATE duo_session
     SET person_id = new_person.id

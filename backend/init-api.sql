@@ -398,16 +398,6 @@ CREATE TABLE IF NOT EXISTS onboardee_search_preference_gender (
     PRIMARY KEY (email, gender_id)
 );
 
-CREATE TABLE IF NOT EXISTS onboardee_photo (
-    email TEXT NOT NULL REFERENCES onboardee(email) ON DELETE CASCADE,
-    position SMALLINT NOT NULL,
-    uuid TEXT NOT NULL,
-    blurhash TEXT NOT NULL,
-    extra_exts TEXT[] NOT NULL DEFAULT '{}',
-    hash TEXT NOT NULL,
-    PRIMARY KEY (email, position)
-);
-
 CREATE TABLE IF NOT EXISTS duo_session (
     session_token_hash TEXT NOT NULL,
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -929,8 +919,6 @@ CREATE INDEX IF NOT EXISTS idx__photo__uuid
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
     ON photo(nsfw_score);
 
-CREATE INDEX IF NOT EXISTS idx__onboardee_photo__uuid
-    ON onboardee_photo(uuid);
 CREATE INDEX IF NOT EXISTS idx__onboardee__created_at
     ON onboardee(created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx__onboardee__url_slug
