@@ -111,6 +111,7 @@ const InboxTab = () => {
 
   const {
     conversations,
+    numIntrosWithinFilters,
     sectionIndex,
     sortByIndex,
     showArchive,
@@ -129,7 +130,6 @@ const InboxTab = () => {
   const numUnreadChats  = stats?.numUnreadChats  ?? 0;
 
   const numIntros = stats?.numIntros ?? 0;
-  const numIntrosMatchingFilters = stats?.numIntrosMatchingFilters ?? 0;
 
   const canApplySearchFilters =
     numIntros >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
@@ -205,28 +205,23 @@ const InboxTab = () => {
       return null;
     }
 
-    const showDividers =
-      !showArchive &&
-      sectionIndex === 0 &&
-      applySearchFilters &&
-      conversations.length >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
-
-    if (!showDividers) {
+    // Non-null exactly when the visible section is intros with search filters
+    // applied, and marks where the sorted list's "outside" region begins.
+    if (numIntrosWithinFilters === null) {
       return conversations;
     }
 
-    const numMatching = Math.min(
-      numIntrosMatchingFilters, conversations.length);
-    const numOutside = conversations.length - numMatching;
+    const numWithin = numIntrosWithinFilters;
+    const numOutside = conversations.length - numWithin;
 
     const items: InboxListItem[] = [];
 
-    if (numMatching > 0) {
+    if (numWithin > 0) {
       items.push({
         dividerKey: 'divider-matching',
-        label: `Within your search filters (${numMatching})`,
+        label: `Within your search filters (${numWithin})`,
       });
-      items.push(...conversations.slice(0, numMatching));
+      items.push(...conversations.slice(0, numWithin));
     }
 
     if (numOutside > 0) {
@@ -234,17 +229,11 @@ const InboxTab = () => {
         dividerKey: 'divider-outside',
         label: `Outside your search filters (${numOutside})`,
       });
-      items.push(...conversations.slice(numMatching));
+      items.push(...conversations.slice(numWithin));
     }
 
     return items;
-  }, [
-    conversations,
-    showArchive,
-    sectionIndex,
-    applySearchFilters,
-    numIntrosMatchingFilters,
-  ]);
+  }, [conversations, numIntrosWithinFilters]);
 
   const emptyText = (() => {
     if (!showArchive && sectionIndex === 0)

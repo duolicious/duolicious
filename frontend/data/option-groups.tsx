@@ -608,7 +608,6 @@ const genderOptionGroup: OptionGroup<OptionGroupButtons> = {
           patchProfileInfo({ gender });
           notifyUpdatedVerification({ gender: false });
           markSearchResultsStale();
-          markInboxStale();
           markFeedStale();
         }
         return ok;

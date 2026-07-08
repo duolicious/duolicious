@@ -172,7 +172,6 @@ const inboxStats = (inbox: Inbox): {
   numChats: number
   numUnreadChats: number
   numIntros: number
-  numIntrosMatchingFilters: number
   numUnreadIntros: number
   numArchive: number
   numUnreadArchive: number
@@ -190,10 +189,6 @@ const inboxStats = (inbox: Inbox): {
   const numArchive = inbox.archive.conversations.length;
   const numChatsAndIntros = numChats + numIntros;
 
-  const numIntrosMatchingFilters = inbox.intros.conversations
-    .filter((c) => c.matchesSearchFilters)
-    .length;
-
   const numUnreadChats = unreadSum(inbox.chats.conversations);
   const numUnreadIntros = unreadSum(inbox.intros.conversations);
   const numUnreadArchive = unreadSum(inbox.archive.conversations);
@@ -203,7 +198,6 @@ const inboxStats = (inbox: Inbox): {
     numChats,
     numUnreadChats,
     numIntros,
-    numIntrosMatchingFilters,
     numUnreadIntros,
     numArchive,
     numUnreadArchive,

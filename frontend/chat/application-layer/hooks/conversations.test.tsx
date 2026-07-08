@@ -19,9 +19,10 @@ jest.mock('../../../notifications/notifications', () => ({
 
 import {
   MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
+  computeConversationIds,
   sortConversations,
 } from './conversations';
-import { Conversation } from '../index';
+import { Conversation, Inbox } from '../index';
 
 const conversation = (
   personUuid: string,
@@ -67,6 +68,16 @@ const manyIntros = [...fewIntros, ...filler];
 
 const ids = (cs: Conversation[]) => cs.map((c) => c.personUuid);
 
+const inboxOf = (intros: Conversation[]): Inbox => ({
+  chats: { conversations: [], conversationsMap: {} },
+  intros: {
+    conversations: intros,
+    conversationsMap: Object.fromEntries(intros.map((c) => [c.personUuid, c])),
+  },
+  archive: { conversations: [], conversationsMap: {} },
+  endTimestamp: null,
+});
+
 describe('sortConversations', () => {
   it('ignores search filters when not applying them', () => {
     expect(ids(sortConversations(manyIntros, 'intros', 'match', false))).toEqual(
@@ -98,5 +109,30 @@ describe('sortConversations', () => {
 
     expect(ids(sortConversations(manyIntros, 'archive', 'latest', true))).toEqual(
       ids(sortConversations(manyIntros, 'archive', 'latest', false)));
+  });
+});
+
+describe('computeConversationIds', () => {
+  it('splits the list exactly where the sunk intros begin', () => {
+    const computed = computeConversationIds(
+      inboxOf(manyIntros), 'intros', 'match', true);
+
+    expect(computed?.numIntrosWithinFilters).toBe(manyIntros.length - 2);
+    expect(computed?.ids.slice(manyIntros.length - 2)).toEqual(
+      ['match99filtered', 'match10filtered']);
+  });
+
+  it('reports no split when the intros aren\'t sunk', () => {
+    const noSplit = [
+      // Filters not applied
+      computeConversationIds(inboxOf(manyIntros), 'intros', 'match', false),
+      // Section too small to triage
+      computeConversationIds(inboxOf(fewIntros), 'intros', 'match', true),
+      // Not the intros section
+      computeConversationIds(inboxOf(manyIntros), 'chats', 'latest', true),
+    ];
+
+    noSplit.forEach((computed) =>
+      expect(computed?.numIntrosWithinFilters).toBeNull());
   });
 });
