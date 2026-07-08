@@ -55,7 +55,14 @@ def _q_inbox_snapshot(entry_predicate: str) -> str:
 WITH viewer AS (
     SELECT
         id,
-        personality,
+        personality
+    FROM
+        person
+    WHERE
+        uuid = %(username)s::uuid
+), viewer_search_preferences AS MATERIALIZED (
+    SELECT
+        id,
         coordinates,
         COALESCE(
             (
@@ -197,28 +204,9 @@ WITH viewer AS (
         COALESCE(
             prospect.activated AND prospect.shadow_banned_at IS NULL, FALSE
         ) AS is_prospect_activated,
-        -- The columns `matches_search_filters` tests the prospect on, carried
-        -- through so the final SELECT can evaluate the filters for intro rows
-        -- only. Never sent to the client.
+        -- Only for the final SELECT's `matches_search_filters` probe; never
+        -- sent to the client.
         prospect.id AS prospect_id,
-        prospect.gender_id AS prospect_gender_id,
-        prospect.coordinates AS prospect_coordinates,
-        prospect.date_of_birth AS prospect_date_of_birth,
-        prospect.orientation_id AS prospect_orientation_id,
-        prospect.ethnicity_id AS prospect_ethnicity_id,
-        prospect.height_cm AS prospect_height_cm,
-        prospect.has_profile_picture_id AS prospect_has_profile_picture_id,
-        prospect.looking_for_id AS prospect_looking_for_id,
-        prospect.smoking_id AS prospect_smoking_id,
-        prospect.drinking_id AS prospect_drinking_id,
-        prospect.drugs_id AS prospect_drugs_id,
-        prospect.long_distance_id AS prospect_long_distance_id,
-        prospect.relationship_status_id AS prospect_relationship_status_id,
-        prospect.has_kids_id AS prospect_has_kids_id,
-        prospect.wants_kids_id AS prospect_wants_kids_id,
-        prospect.exercise_id AS prospect_exercise_id,
-        prospect.religion_id AS prospect_religion_id,
-        prospect.star_sign_id AS prospect_star_sign_id,
         EXISTS (
             SELECT
                 1
@@ -319,6 +307,7 @@ WITH viewer AS (
         END AS location
     FROM
         conversation
+    OFFSET 0
 )
 SELECT
     prospect_uuid::TEXT AS person_uuid,
@@ -333,90 +322,94 @@ SELECT
     body AS last_message,
     unread_count = 0 AS last_message_read,
     timestamp AS last_message_timestamp,
-    COALESCE(
-        CASE
-            WHEN location = 'intros'
-            THEN
-                prospect_gender_id = ANY(viewer.gender_preference)
-            AND
-                ST_DWithin(
-                    prospect_coordinates,
-                    viewer.coordinates,
-                    viewer.distance_preference
-                )
-            AND
-                prospect_date_of_birth <= viewer.max_date_of_birth_preference
-            AND
-                prospect_date_of_birth > viewer.min_date_of_birth_preference
-            AND
-                prospect_orientation_id = ANY(viewer.orientation_preference)
-            AND
-                prospect_ethnicity_id = ANY(viewer.ethnicity_preference)
-            AND
-                COALESCE(prospect_height_cm, 0) >=
-                    COALESCE(viewer.min_height_preference, 0)
-            AND
-                COALESCE(prospect_height_cm, 999) <=
-                    COALESCE(viewer.max_height_preference, 999)
-            AND
-                prospect_has_profile_picture_id =
-                    ANY(viewer.has_profile_picture_preference)
-            AND
-                prospect_looking_for_id = ANY(viewer.looking_for_preference)
-            AND
-                prospect_smoking_id = ANY(viewer.smoking_preference)
-            AND
-                prospect_drinking_id = ANY(viewer.drinking_preference)
-            AND
-                prospect_drugs_id = ANY(viewer.drugs_preference)
-            AND
-                prospect_long_distance_id = ANY(viewer.long_distance_preference)
-            AND
-                prospect_relationship_status_id =
-                    ANY(viewer.relationship_status_preference)
-            AND
-                prospect_has_kids_id = ANY(viewer.has_kids_preference)
-            AND
-                prospect_wants_kids_id = ANY(viewer.wants_kids_preference)
-            AND
-                prospect_exercise_id = ANY(viewer.exercise_preference)
-            AND
-                prospect_religion_id = ANY(viewer.religion_preference)
-            AND
-                prospect_star_sign_id = ANY(viewer.star_sign_preference)
-            AND
-                -- NOT EXISTS an answer contrary to the viewer's preference...
-                NOT EXISTS (
-                    SELECT 1
-                    FROM (
-                        SELECT *
-                        FROM search_preference_answer
-                        WHERE person_id = viewer.id
-                    ) AS pref
-                    LEFT JOIN
-                        answer ans
-                    ON
-                        ans.person_id = prospect_id AND
-                        ans.question_id = pref.question_id
-                    WHERE
-                        -- Contrary because the answer exists and is wrong
-                        ans.answer IS NOT NULL AND
-                        ans.answer != pref.answer
-                    OR
-                        -- Contrary because the answer doesn't exist but should
-                        ans.answer IS NULL AND
-                        pref.accept_unanswered = FALSE
-                )
-            ELSE TRUE
-        END,
-        FALSE
-    ) AS matches_search_filters
+    CASE
+        WHEN location = 'intros'
+        THEN COALESCE(
+            (
+                SELECT
+                        prospect.gender_id = ANY(prefs.gender_preference)
+                    AND
+                        ST_DWithin(
+                            prospect.coordinates,
+                            prefs.coordinates,
+                            prefs.distance_preference
+                        )
+                    AND
+                        prospect.date_of_birth <= prefs.max_date_of_birth_preference
+                    AND
+                        prospect.date_of_birth > prefs.min_date_of_birth_preference
+                    AND
+                        prospect.orientation_id = ANY(prefs.orientation_preference)
+                    AND
+                        prospect.ethnicity_id = ANY(prefs.ethnicity_preference)
+                    AND
+                        COALESCE(prospect.height_cm, 0) >=
+                            COALESCE(prefs.min_height_preference, 0)
+                    AND
+                        COALESCE(prospect.height_cm, 999) <=
+                            COALESCE(prefs.max_height_preference, 999)
+                    AND
+                        prospect.has_profile_picture_id =
+                            ANY(prefs.has_profile_picture_preference)
+                    AND
+                        prospect.looking_for_id = ANY(prefs.looking_for_preference)
+                    AND
+                        prospect.smoking_id = ANY(prefs.smoking_preference)
+                    AND
+                        prospect.drinking_id = ANY(prefs.drinking_preference)
+                    AND
+                        prospect.drugs_id = ANY(prefs.drugs_preference)
+                    AND
+                        prospect.long_distance_id = ANY(prefs.long_distance_preference)
+                    AND
+                        prospect.relationship_status_id =
+                            ANY(prefs.relationship_status_preference)
+                    AND
+                        prospect.has_kids_id = ANY(prefs.has_kids_preference)
+                    AND
+                        prospect.wants_kids_id = ANY(prefs.wants_kids_preference)
+                    AND
+                        prospect.exercise_id = ANY(prefs.exercise_preference)
+                    AND
+                        prospect.religion_id = ANY(prefs.religion_preference)
+                    AND
+                        prospect.star_sign_id = ANY(prefs.star_sign_preference)
+                    AND
+                        -- NOT EXISTS an answer contrary to the viewer's preference...
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM (
+                                SELECT *
+                                FROM search_preference_answer
+                                WHERE person_id = prefs.id
+                            ) AS pref
+                            LEFT JOIN
+                                answer ans
+                            ON
+                                ans.person_id = prospect.id AND
+                                ans.question_id = pref.question_id
+                            WHERE
+                                -- Contrary because the answer exists and is wrong
+                                ans.answer IS NOT NULL AND
+                                ans.answer != pref.answer
+                            OR
+                                -- Contrary because the answer doesn't exist but should
+                                ans.answer IS NULL AND
+                                pref.accept_unanswered = FALSE
+                        )
+                FROM
+                    person AS prospect
+                CROSS JOIN
+                    viewer_search_preferences AS prefs
+                WHERE
+                    prospect.id = gated.prospect_id
+            ),
+            FALSE
+        )
+        ELSE TRUE
+    END AS matches_search_filters
 FROM
     gated
-LEFT JOIN
-    viewer
-ON
-    TRUE
 WHERE
     location <> 'nowhere'
 ORDER BY
