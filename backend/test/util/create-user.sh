@@ -67,23 +67,6 @@ add_audio () {
     -d "{ \"base64_audio_file\": { \"base64\": \"${snd}\" } }"
 }
 
-add_photos () {
-  for i in $(seq 1 $1)
-  do
-    local img=$(rand_image)
-
-    jc PATCH /profile-info \
-      -d "{
-              \"base64_file\": {
-                  \"position\": ${i},
-                  \"base64\": \"${img}\",
-                  \"top\": 0,
-                  \"left\": 0
-              }
-          }"
-  done
-}
-
 main () {
   local username_or_email=$1
   local num_questions=${2:-100}
@@ -117,7 +100,20 @@ main () {
   jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Agender", "Femboy", "Intersex", "Non-binary", "Transgender", "Trans woman", "Trans man", "Other"] }'
   c POST /finish-onboarding
 
-  add_photos "${num_photos}"
+  if (( num_photos > 0 ))
+  then
+    add_photos "${num_photos}"
+
+    # Adding photos via /profile-info bumps last_event to 'added-photo'.
+    # Reset it so created users start with the 'joined' event they had back
+    # when photos were uploaded during onboarding; the feed and moderation
+    # tests rely on that.
+    q "update person
+       set last_event_time = sign_up_time,
+           last_event_name = 'joined',
+           last_event_data = '{}'
+       where email = '$email'"
+  fi
 
   answer_questions "$num_questions"
 
