@@ -131,9 +131,9 @@ test_json_format () {
 
   # user4's, user6's and user7's events happened more than a week ago.
   # user4's ('updated-bio') maps to 'recently-online-with-bio'; user6's
-  # ('joined') has no content of its own, so a 'recently-online-with-photo'
-  # event is synthesized from their photo; user7 has no photos to synthesize
-  # an event from, so they're excluded.
+  # ('added-photo') maps to 'recently-online-with-photo'; user7's ('joined')
+  # has no content of its own and they have no photos to synthesize an event
+  # from, so they're excluded.
   q "update person set last_event_time = now() - interval '8 days'
      where name in ('user4', 'user6', 'user7')"
 
@@ -289,6 +289,9 @@ test_json_format () {
     "url_slug": "redacted_nonnull_value"
   },
   {
+    "added_photo_blurhash": "redacted_nonnull_value",
+    "added_photo_extra_exts": [],
+    "added_photo_uuid": "redacted_nonnull_value",
     "advertiser_friendly": false,
     "age": 26,
     "flair": [
@@ -306,7 +309,7 @@ test_json_format () {
     "photo_uuid": "redacted_nonnull_value",
     "time": "redacted_nonnull_value",
     "time_equals_online_time": false,
-    "type": "joined",
+    "type": "added-photo",
     "url_slug": "redacted_nonnull_value"
   },
   {
@@ -334,6 +337,9 @@ test_json_format () {
     "url_slug": "redacted_nonnull_value"
   },
   {
+    "added_photo_blurhash": "redacted_nonnull_value",
+    "added_photo_extra_exts": [],
+    "added_photo_uuid": "redacted_nonnull_value",
     "advertiser_friendly": false,
     "age": 26,
     "flair": [
@@ -351,7 +357,7 @@ test_json_format () {
     "photo_uuid": "redacted_nonnull_value",
     "time": "redacted_nonnull_value",
     "time_equals_online_time": false,
-    "type": "joined",
+    "type": "added-photo",
     "url_slug": "redacted_nonnull_value"
   }
 ]

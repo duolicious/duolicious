@@ -100,20 +100,7 @@ main () {
   jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Agender", "Femboy", "Intersex", "Non-binary", "Transgender", "Trans woman", "Trans man", "Other"] }'
   c POST /finish-onboarding
 
-  if (( num_photos > 0 ))
-  then
-    add_photos "${num_photos}"
-
-    # Adding photos via /profile-info bumps last_event to 'added-photo'.
-    # Reset it so created users start with the 'joined' event they had back
-    # when photos were uploaded during onboarding; the feed and moderation
-    # tests rely on that.
-    q "update person
-       set last_event_time = sign_up_time,
-           last_event_name = 'joined',
-           last_event_data = '{}'
-       where email = '$email'"
-  fi
+  add_photos "${num_photos}"
 
   answer_questions "$num_questions"
 

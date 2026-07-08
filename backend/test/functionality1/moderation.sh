@@ -196,13 +196,15 @@ specific_photo_is_banned () {
 
   [[ "$(q "select count(*) from photo")" -eq 3 ]]
   [[ "$(q "select count(*) from banned_photo_hash")" -eq 0 ]]
-  [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 2 ]]
+  # The reporter, the accused and the bystander all have added-photo events
+  [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 3 ]]
 
   c GET "/admin/delete-photo/$(deleted_photo_token)"
 
   [[ "$(q "select count(*) from photo")" -eq 2 ]]
   [[ "$(q "select count(*) from banned_photo_hash where hash <> ''")" -eq 1 ]]
-  [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 1 ]]
+  # Deleting the accused's photo reverts their added-photo event
+  [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 2 ]]
 
   assume_role 'accuse.d+1@gmail.com'
 
