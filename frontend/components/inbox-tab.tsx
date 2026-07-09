@@ -426,6 +426,7 @@ const InboxTabNavBar = ({
           position={null}
           secondary={false}
           label={showArchive ? "Inbox" : "Archive"}
+          style={styles.archiveButton}
         />
       </View>
     </TopNavBar>
@@ -478,7 +479,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     right: 10,
-    gap: 14,
+  },
+  // Spacing lives here rather than as `gap` on navBarButtons because
+  // reanimated's exiting animation positions the leaving filter button as if
+  // the row had no gap, making it jump flush against this button.
+  archiveButton: {
+    marginLeft: 14,
   },
   endText: {
     fontFamily: 'TruenoBold',
