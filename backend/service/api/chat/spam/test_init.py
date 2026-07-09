@@ -1,5 +1,5 @@
 import unittest
-from service.chat.spam import is_spam
+from service.api.chat.spam import is_spam
 
 class TestIsOffensive(unittest.TestCase):
 

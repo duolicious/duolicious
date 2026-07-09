@@ -10,7 +10,7 @@ MAX_NOTIFICATION_LENGTH = 128
 ONLINE_RECENTLY_SECONDS = 12 * 60 * 60  # 12 hours
 
 # Cadence at which a live chat connection refreshes its `person.last_online_time`
-# (see `service.chat.online.update_online_forever`).
+# (see `service.api.chat.online.update_online_forever`).
 LAST_UPDATE_INTERVAL_SECONDS = 4 * 60  # 4 minutes
 
 # A user is treated as "currently online" -- and so worth running the expensive

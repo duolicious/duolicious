@@ -52,7 +52,7 @@ EOF
 
   curl -X POST "http://localhost:3001/config?id=${connectionId}" \
     -H "Content-Type: application/json" \
-    -d '{ "server": "ws://chat:5443" }'
+    -d '{ "server": "ws://api:5000/chat" }'
 
   sleep 0.2
 

@@ -1,6 +1,6 @@
 import redis.asyncio as redis
 import traceback
-from service.chat.chatutil import (
+from service.api.chat.chatutil import (
     fetch_is_public,
     fetch_is_skipped,
     fetch_id_from_username,
@@ -9,7 +9,7 @@ from service.chat.chatutil import (
 from enum import Enum
 from commonsql import Q_UPDATE_LAST
 from batcher import Batcher
-from service.chat.session import Session
+from service.api.chat.session import Session
 from chatprotocol.outbound import (
     OnlineEvent,
     Outbound,
@@ -32,7 +32,7 @@ from constants import (
     ONLINE_RECENTLY_SECONDS,
 )
 
-_TEST_INPUT_DIR = Path(__file__).parents[3] / 'test' / 'input'
+_TEST_INPUT_DIR = Path(__file__).parents[4] / 'test' / 'input'
 
 
 def _read_test_input(name: str) -> str | None:

@@ -2,7 +2,7 @@ import re
 import unittest
 
 from search.sql import Q_UNCACHED_SEARCH_2
-from service.chat.messagestorage.inbox import Q_INBOX_SNAPSHOT
+from service.api.chat.messagestorage.inbox import Q_INBOX_SNAPSHOT
 
 # The searcher's filter predicates that the inbox snapshot deliberately
 # doesn't mirror in `matches_search_filters` (the rationale for each is with

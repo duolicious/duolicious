@@ -75,7 +75,7 @@ WHERE
 
 # The searcher's filter predicates (except club membership) are mirrored (by
 # hand) by the `matches_search_filters` column of the inbox snapshot query in
-# `service.chat.messagestorage.inbox`, which flags intros from senders outside
+# `service.api.chat.messagestorage.inbox`, which flags intros from senders outside
 # the viewer's search filters. If a filter is added or changed here, change it
 # there too. (A unit test beside the inbox query fails when a
 # `search_preference_*` table is consulted by one query and not the other.)

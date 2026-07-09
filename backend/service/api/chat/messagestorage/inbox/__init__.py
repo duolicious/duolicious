@@ -3,7 +3,7 @@ import traceback
 from batcher import Batcher
 from database import Row, Tx, api_tx
 from dataclasses import dataclass
-from service.chat.chatutil import (
+from service.api.chat.chatutil import (
     LSERVER,
     format_timestamp,
 )

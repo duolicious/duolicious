@@ -482,7 +482,7 @@ class InboxConversation(TypedDict):
     payload, and each element of an `InboxSnapshot` payload's `conversations`.
     This is the single source of truth for that shape; the rows it's assembled
     from come from `Q_INBOX_SNAPSHOT`/`Q_INBOX_ENTRY` in
-    `service.chat.messagestorage.inbox`.
+    `service.api.chat.messagestorage.inbox`.
     """
     person_uuid: str
     url_slug: str | None

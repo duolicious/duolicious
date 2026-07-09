@@ -40,7 +40,7 @@ from service.api.ratelimit import (
     export_data_rate_limit,
 )
 from service.api.routing import rate_limit_exempt
-from service.chat import process_websocket_messages
+from service.api.chat import process_websocket_messages
 from util.coerce import string
 
 def get_ttl_hash(seconds: int = 10) -> int:

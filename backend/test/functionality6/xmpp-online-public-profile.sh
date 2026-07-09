@@ -72,7 +72,7 @@ values (${viewer_id}, ${blockd_id})"
 open_anon () {
   curl -sX POST http://localhost:3001/config \
     -H "Content-Type: application/json" \
-    -d '{ "server": "ws://chat:5443" }' > /dev/null
+    -d '{ "server": "ws://api:5000/chat" }' > /dev/null
   sleep 0.5
 }
 

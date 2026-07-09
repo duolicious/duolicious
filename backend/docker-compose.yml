@@ -92,35 +92,6 @@ services:
       timeout: 10s
       retries: 3
 
-  chat:
-    build:
-      context: .
-      dockerfile: chat.Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "5442:5442"
-      - "5443:5443"
-    volumes:
-      - .:/app:ro
-    environment:
-      DUO_ENV: dev
-
-      DUO_DB_HOST: postgres
-      DUO_DB_PORT: 5432
-      DUO_DB_USER: postgres
-      DUO_DB_PASS: password
-
-      DUO_R2_AUDIO_BUCKET_NAME: s3-mock-audio-bucket
-      DUO_R2_ACCT_ID: unused-in-dev-env
-      DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
-      DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
-
-      DUO_BOTO_ENDPOINT_URL: http://s3mock:9090
-
-      DUO_CHAT_PORTS: '5443'
-
   cron:
     build:
       context: .

@@ -5,7 +5,7 @@ cd "$script_dir"
 
 set -e
 
-# Cap on WebSocket frames for the /chat endpoint; keep in sync with chat.main.sh.
+# Cap on WebSocket frames for the /chat endpoint.
 WS_MAX_SIZE=10485760  # 10 MB
 
 export PYTHONUNBUFFERED=true

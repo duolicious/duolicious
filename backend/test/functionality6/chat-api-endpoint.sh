@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
-# Purpose: the chat WebSocket handler is now also served at `/chat` on the API
-# service (so modern clients can use a single origin), alongside the standalone
-# chat service at `ws://chat:5443` that older clients still connect to. This is a
-# minimal smoke test that the handler is reachable via the API endpoint: connect
-# to `ws://api:5000/chat` and confirm a `duo_ping` is answered with a `duo_pong`.
+# Purpose: the chat WebSocket handler is served at `/chat` on the API service, so
+# clients use a single origin. This is a minimal smoke test that the handler is
+# reachable there: connect to `ws://api:5000/chat` and confirm a `duo_ping` is
+# answered with a `duo_pong`.
 #
 # Ping is handled before the authentication gate, so no user/session set-up is
 # needed -- which keeps this test fast.
@@ -16,8 +15,7 @@ source ../util/setup.sh
 
 set -xe
 
-# Point the JSON chat client at the API service's `/chat` endpoint rather than
-# the standalone chat service.
+# Point the JSON chat client at the API service's `/chat` endpoint.
 curl -sX POST http://localhost:3001/config \
   -H "Content-Type: application/json" \
   -d '{ "server": "ws://api:5000/chat" }' > /dev/null

@@ -18,6 +18,7 @@ services:
       BROWSER: none
       EXPO_NO_TELEMETRY: "1"
       # The frontend's env defaults already point at the backend's published
-      # localhost ports (api :5000, chat :5443, s3mock :9090, status :8080).
+      # localhost ports (api :5000, s3mock :9090, status :8080). Chat runs on
+      # the API's :5000/chat WebSocket endpoint.
       # Browser requests run on the host, so no DUO_* overrides are needed
       # for the default local stack.

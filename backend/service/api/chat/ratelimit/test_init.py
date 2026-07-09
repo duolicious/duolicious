@@ -1,5 +1,5 @@
 import unittest
-from service.chat.ratelimit import (
+from service.api.chat.ratelimit import (
     get_default_rate_limit,
     get_stanza,
     DefaultRateLimit,

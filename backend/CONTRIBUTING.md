@@ -26,7 +26,7 @@ curl -sf http://localhost:5000/health && echo API OK
 ## Local development
 
 - Easiest: keep everything in Docker (`docker compose up -d`)
-- Hot reload from source: follow the "Local development" section in `DEVELOPER.md` to run `./api.main.sh` and `./chat.main.sh` against Dockerized Postgres/Redis/S3/SMTP.
+- Hot reload from source: follow the "Local development" section in `DEVELOPER.md` to run `./api.main.sh` against Dockerized Postgres/Redis/S3/SMTP.
 
 ## Testing
 

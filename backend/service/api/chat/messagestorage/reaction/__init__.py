@@ -8,7 +8,7 @@ as a text bubble. Reactions are keyed on the server-assigned `mam_message.id`
 
 A message is archived as two rows whose ids differ only in the low bit -- the
 sender copy is `microseconds << 8` and the recipient copy is that value `+ 1`
-(see `Q_INSERT_MESSAGE` in `service/chat/messagestorage/mam`). So the partner's
+(see `Q_INSERT_MESSAGE` in `service/api/chat/messagestorage/mam`). So the partner's
 copy of any message is `id ^ 1`. A reaction updates both copies by their
 `(person_id, id)` primary key.
 
@@ -27,7 +27,7 @@ A missing target therefore means a genuinely absent or own-message reaction, not
 a not-yet-flushed one.
 """
 from database import api_tx
-from service.chat.messagestorage.mam import sibling_mam_id
+from service.api.chat.messagestorage.mam import sibling_mam_id
 
 
 Q_FETCH_REACTION_PARTNER = """

@@ -1,9 +1,8 @@
-"""Shared ASGI lifespan for the API and chat apps.
+"""ASGI lifespan for the API app (which also serves the `/chat` WebSocket).
 
-Both services need the same startup/shutdown: open the DB pool (and its
-keepalive checker) for the app's lifetime, then start the registered batch
-consumers on the running loop. The consumers can't be started at import time,
-before the loop exists.
+Startup/shutdown: open the DB pool (and its keepalive checker) for the app's
+lifetime, then start the registered batch consumers on the running loop. The
+consumers can't be started at import time, before the loop exists.
 """
 
 from collections.abc import AsyncIterator

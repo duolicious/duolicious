@@ -4,7 +4,7 @@ from async_lru_cache import AsyncLruCache
 from database import api_tx
 
 # Re-exported from the dependency-light module so existing
-# `from service.chat.chatutil import ...` imports keep working.
+# `from service.api.chat.chatutil import ...` imports keep working.
 from chatprotocol.jid import (
     LSERVER,
     to_bare_jid,

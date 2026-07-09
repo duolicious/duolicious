@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from database import Tx, api_tx
-from service.chat.chatutil import (
+from service.api.chat.chatutil import (
     LSERVER,
     fetch_has_gold,
     format_datetime,

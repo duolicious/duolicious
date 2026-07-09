@@ -80,44 +80,15 @@ services:
       # only asserts on the redirect Location header.
       DUO_APPLE_WEB_REDIRECT_URL: http://test-web.example/
       DUO_APPLE_ANDROID_REDIRECT_URL: http://test-android.example/
+
+      # The `/chat` WebSocket endpoint sends live push notifications; the
+      # `pushmock` service records them so tests can assert on them.
+      DUO_NOTIFICATION_API_URL: http://pushmock:3002
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  chat:
-    build:
-      context: .
-      dockerfile: chat.Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "5442:5442"
-      - "5443:5443"
-    volumes:
-      - ./test:/app/test:ro
-    environment:
-      DUO_ENV: dev
-
-      DUO_DB_HOST: postgres
-      DUO_DB_PORT: 5432
-      DUO_DB_USER: postgres
-      DUO_DB_PASS: password
-
-      DUO_R2_AUDIO_BUCKET_NAME: s3-mock-audio-bucket
-      DUO_R2_ACCT_ID: unused-in-dev-env
-      DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
-      DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
-
-      DUO_BOTO_ENDPOINT_URL: http://s3mock:9090
-
-      DUO_CHAT_PORTS: '5443'
-
-      # Live push notifications are recorded by the `pushmock` service so tests
-      # can assert on them.
-      DUO_NOTIFICATION_API_URL: http://pushmock:3002
 
   cron:
     build:

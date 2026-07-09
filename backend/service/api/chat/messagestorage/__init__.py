@@ -1,11 +1,11 @@
-from service.chat.messagestorage.inbox import (
+from service.api.chat.messagestorage.inbox import (
         UpsertConversationJob,
         process_upsert_conversation_batch,
 )
-from service.chat.messagestorage.mam import (
+from service.api.chat.messagestorage.mam import (
         process_store_mam_message_batch,
         StoreMamMessageJob)
-from service.chat.messagestorage.setmessaged import (
+from service.api.chat.messagestorage.setmessaged import (
         process_set_messaged_batch,
         SetMessagedJob)
 from batcher import Batcher

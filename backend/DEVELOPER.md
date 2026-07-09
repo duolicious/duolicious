@@ -40,22 +40,8 @@ export DUO_SMTP_PORT=1025
 ./api.main.sh
 ```
 
-3. In another terminal, run the Chat service:
-
-```bash
-export DUO_ENV=dev
-export DUO_DB_HOST=localhost
-export DUO_DB_PORT=5432
-export DUO_DB_USER=postgres
-export DUO_DB_PASS=password
-export DUO_R2_AUDIO_BUCKET_NAME=s3-mock-audio-bucket
-export DUO_R2_ACCT_ID=dev
-export DUO_R2_ACCESS_KEY_ID=s3-mock-access-key-id
-export DUO_R2_ACCESS_KEY_SECRET=s3-mock-secret-access-key-secret
-export DUO_BOTO_ENDPOINT_URL=http://localhost:9090
-export DUO_CHAT_PORTS=5443
-./chat.main.sh
-```
+The API server also serves the chat WebSocket at `ws://localhost:5000/chat`, so
+no separate chat process is needed.
 
 Notes:
 - OTPs are `000000` for `@example.com` emails in `dev`.
@@ -126,21 +112,6 @@ These environment variables specify where user-uploaded content is stored:
 * `DUO_BOTO_ENDPOINT_URL` - Your endpoint URL. This defaults to `https://{R2_ACCT_ID}.r2.cloudflarestorage.com` if unset.
 
 These env vars get passed to the `boto3` library, so they're compatible with AWS S3 despite containing `R2` in their names. The `api` container needs to have permissions to upload files to these buckets. Deletion is handled by the `cron` container.
-
-#### `chat` container
-
-These environment variables let the `chat` container know where your PostgreSQL database is:
-
-* `DUO_DB_HOST` - Your PostgreSQL database's hostname.
-* `DUO_DB_PORT` - Your PostgreSQL database's port.
-* `DUO_DB_USER` - Your PostgreSQL database's username.
-* `DUO_DB_PASS` - Your PostgreSQL database's password.
-
-This environment variable determines which port, or ports, workers operate on:
-
-* `DUO_CHAT_PORTS` - This could be a single number (e.g. `5443`) or a range (e.g. `5443-5447`). Specifying a range starts a worker for each port.
-
-If you use more than one worker, you need to place a load balancer between the `chat` container and clients.
 
 #### `cron` container
 

@@ -3,9 +3,9 @@ The chat wire-protocol layer: stanza parsing/serialisation (`inbound`,
 `outbound`, `element`) plus the dependency-light primitives they need (`jid`,
 `message`).
 
-This deliberately lives OUTSIDE the `service.chat` package. Importing anything
-under `service.chat` runs `service/chat/__init__.py`, which boots the whole chat
-FastAPI app (it creates `app = FastAPI()` and a Redis client at import time).
+This deliberately lives OUTSIDE the `service.api.chat` package. Importing anything
+under `service.api.chat` runs `service/api/chat/__init__.py`, which creates a Redis
+client (and drags in the database layer) at import time.
 Keeping the protocol here -- with no module-level side effects and no
 database/redis imports -- lets the synchronous Flask API (e.g. `visitorspush`)
 import the real `Outbound` stanzas and `to_bus` without dragging in the server,

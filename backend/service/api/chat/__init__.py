@@ -16,42 +16,42 @@ from unseennotificationcount import increment_unseen_notification_count
 import random
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
-from service.chat.robot9000 import Q_SELECT_INTRO_HASH, upsert_intro_hash
-from service.chat.mayberegister import register_push_token
-from service.chat.spam import is_spam_message
-from service.chat.upsertlastnotification import upsert_last_notification
-from service.chat.messagestorage.inbox import (
+from service.api.chat.robot9000 import Q_SELECT_INTRO_HASH, upsert_intro_hash
+from service.api.chat.mayberegister import register_push_token
+from service.api.chat.spam import is_spam_message
+from service.api.chat.upsertlastnotification import upsert_last_notification
+from service.api.chat.messagestorage.inbox import (
     get_inbox,
     get_inbox_entry,
     get_inbox_snapshot,
     mark_displayed,
 )
-from service.chat.messagestorage.mam import (
+from service.api.chat.messagestorage.mam import (
     get_conversation,
     microseconds_to_mam_message_id,
     sibling_mam_id,
 )
 from chatprotocol.mam_id import encode_mam_id
-from service.chat.messagestorage import store_message
-from service.chat.messagestorage.reaction import (
+from service.api.chat.messagestorage import store_message
+from service.api.chat.messagestorage.reaction import (
     fetch_reaction_partner,
     store_reaction,
 )
-from service.chat.session import (
+from service.api.chat.session import (
     Session,
     maybe_get_session_response,
 )
-from service.chat.online import (
+from service.api.chat.online import (
     maybe_redis_subscribe_online,
     maybe_redis_unsubscribe_online,
     update_came_online_if_first_client,
     update_online_once,
     update_online_forever,
 )
-from service.chat.ratelimit import (
+from service.api.chat.ratelimit import (
     maybe_fetch_rate_limit,
 )
-from service.chat.chatutil import (
+from service.api.chat.chatutil import (
     fetch_is_skipped,
     fetch_is_shadow_banned,
     fetch_has_gold,
@@ -81,7 +81,7 @@ from chatprotocol import (
     VisitorsQuery,
     parse_incoming,
 )
-from service.chat.visitors import (
+from service.api.chat.visitors import (
     get_visitors_snapshot,
     mark_visitors_checked,
 )
@@ -103,7 +103,7 @@ from chatprotocol.outbound import (
     from_bus,
     to_bus,
 )
-from service.chat.audiomessage import (
+from service.api.chat.audiomessage import (
     transcode_and_put,
 )
 import redis.asyncio as redis
@@ -113,7 +113,7 @@ from constants import (
     MAX_NOTIFICATION_LENGTH,
 )
 from util import truncate_text
-from service.chat.verification import (
+from service.api.chat.verification import (
     verification_required,
 )
 

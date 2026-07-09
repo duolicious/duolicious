@@ -2,7 +2,7 @@
 #
 #   docker compose up
 #
-# brings up the full backend (API, chat, cron, Postgres, mock S3, SMTP, ...)
+# brings up the full backend (API, cron, Postgres, mock S3, SMTP, ...)
 # plus the frontend web app, so a new contributor can get the whole app
 # running with a single command.
 #

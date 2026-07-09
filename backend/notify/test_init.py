@@ -42,7 +42,8 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
     async def test_enqueue_mobile_notification_success(self) -> None:
         # Set up the mock response to simulate a successful notification
         factory, client = _mock_async_client({'data': [{'status': 'ok'}]})
-        with patch('notify.make_http_client', factory):
+        with patch('notify.make_http_client', factory), \
+                patch('notify.NOTIFICATION_API_URL', 'http://localhost'):
             # Enqueued back-to-back: the first flushes on its own (the consumer
             # was idle, so its window had already elapsed), then the next two
             # are batched together in the following window.
@@ -114,7 +115,8 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
     async def test_enqueue_mobile_notification_failure(self) -> None:
         # Set up the mock response to simulate a failed notification
         factory, client = _mock_async_client({'data': [{'status': 'error'}]})
-        with patch('notify.make_http_client', factory):
+        with patch('notify.make_http_client', factory), \
+                patch('notify.NOTIFICATION_API_URL', 'http://localhost'):
             # Call the _enqueue_mobile_notification function
             enqueue_mobile_notification(
                 token='my-token',
