@@ -39,6 +39,7 @@ from antiabuse.antispam.signupemail import (
 import antiabuse.antirude.displayname
 import antiabuse.antirude.occupation
 import antiabuse.antirude.education
+import antiabuse.asnblock as asnblock
 import antiabuse.bannedphoto
 from antiabuse.firehol import firehol
 import blurhash
@@ -250,10 +251,35 @@ async def _send_otp(email: str, otp: str) -> None:
         from_addr='noreply-otp@duolicious.app',
     )
 
-async def _check_ip_blocked(remote_addr: str | None) -> object:
-    if not remote_addr or await firehol.matches(remote_addr):
-        return 'IP address blocked', 460
-    return None
+async def _check_signup_ip_blocked(
+    remote_addr: str | None,
+) -> tuple[object, list[str] | None]:
+    """Best-effort IP gate for new sign-ups: FireHOL lists plus the ASN
+    blocklist. Sign-ins skip this gate entirely; only ban-based blocking
+    (`Q_IS_BANNED`) applies to them.
+
+    Returns `(error, asns)`, where `asns` is whatever RIPEstat reported (or
+    None when the lookup never ran), to be recorded on the session for abuse
+    analysis. Both lookups fail open, so a slow FireHOL container or RIPEstat
+    never blocks a sign-up.
+    """
+    if not remote_addr:
+        return ('IP address blocked', 460), None
+
+    firehol_lists, asns = await asyncio.gather(
+        firehol.matches(remote_addr),
+        asnblock.ripe.asns(remote_addr),
+    )
+
+    if firehol_lists or asnblock.blocked(asns):
+        return ('IP address blocked', 460), asns
+
+    return None, asns
+
+
+async def _is_registered(tx: Tx, normalized_email: str) -> bool:
+    await tx.execute(Q_IS_REGISTERED, dict(normalized_email=normalized_email))
+    return await tx.fetchone() is not None
 
 async def _check_banned(tx: Tx, normalized_email: str, remote_addr: str | None) -> object:
     await tx.execute(Q_IS_BANNED, dict(
@@ -310,14 +336,21 @@ async def post_request_otp(
     req: t.PostRequestOtp,
     remote_addr: str | None,
 ) -> object:
-    if blocked := await _check_ip_blocked(remote_addr):
-        return blocked
+    normalized = normalize_email(req.email)
+
+    async with api_tx() as tx:
+        registered = await _is_registered(tx, normalized)
+
+    asns: list[str] | None = None
+    if not registered:
+        blocked, asns = await _check_signup_ip_blocked(remote_addr)
+        if blocked:
+            return blocked
 
     if not await check_and_update_bad_domains(req.email):
         return 'Disposable email', 400
 
     session_token, session_token_hash = _new_session_token()
-    normalized = normalize_email(req.email)
 
     # Stash any answers the user gave before signing up on the session row, to
     # be flushed onto their profile once the session resolves to a person.
@@ -334,6 +367,7 @@ async def post_request_otp(
         session_token_hash=session_token_hash,
         ip_address=remote_addr,
         answers=answers,
+        asns=asns,
     )
 
     async with api_tx() as tx:
@@ -360,9 +394,6 @@ async def post_resend_otp(
     s: t.SessionInfo,
     remote_addr: str | None,
 ) -> object:
-    if blocked := await _check_ip_blocked(remote_addr):
-        return blocked
-
     normalized = normalize_email(s.email)
     params = dict(
         email=s.email,
@@ -391,9 +422,6 @@ async def post_check_otp(
     s: t.SessionInfo,
     remote_addr: str | None,
 ) -> object:
-    if blocked := await _check_ip_blocked(remote_addr):
-        return blocked
-
     params = dict(
         otp=req.otp,
         session_token_hash=s.session_token_hash,
@@ -441,9 +469,6 @@ async def _sign_in_with_social(
     """
     Async counterpart to `_sign_in_with_social` for native FastAPI routes.
     """
-    if blocked := await _check_ip_blocked(remote_addr):
-        return blocked
-
     session_token, session_token_hash = _new_session_token()
     normalized = normalize_email(email)
 
@@ -498,7 +523,15 @@ async def _sign_in_with_social(
 
         pending_provider = None
         pending_sub = None
+        asns: list[str] | None = None
         if person_id is None:
+            # A brand-new sign-up: apply the FireHOL/ASN gate. This awaits
+            # external lookups mid-transaction, which is tolerable because
+            # they're tightly time-bounded (and fail open).
+            blocked, asns = await _check_signup_ip_blocked(remote_addr)
+            if blocked:
+                return blocked
+
             await tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
             pending_provider = provider
             pending_sub = sub
@@ -511,6 +544,7 @@ async def _sign_in_with_social(
             ip_address=remote_addr,
             pending_social_provider=pending_provider,
             pending_social_sub=pending_sub,
+            asns=asns,
         ))
 
         if person_id is not None:

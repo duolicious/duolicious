@@ -215,7 +215,8 @@ INSERT INTO duo_session (
     pending_club_name,
     otp,
     ip_address,
-    answers
+    answers,
+    asns
 )
 SELECT
     %(session_token_hash)s,
@@ -235,7 +236,8 @@ SELECT
     %(pending_club_name)s,
     otp,
     %(ip_address)s,
-    %(answers)s::jsonb
+    %(answers)s::jsonb,
+    %(asns)s::text[]
 FROM
     otp
 RETURNING
@@ -3044,6 +3046,15 @@ WHERE EXISTS (
 )
 """
 
+# Whether the email already belongs to an account. Decides if an auth attempt
+# is a sign-in or a sign-up; the FireHOL/ASN gate only applies to sign-ups.
+Q_IS_REGISTERED = """
+SELECT 1
+FROM person
+WHERE normalized_email = %(normalized_email)s
+LIMIT 1
+"""
+
 # Look up a linked person by provider sub. Excludes bots — a bot account
 # returning here would bypass the bot check that the OTP path performs.
 Q_LOOKUP_SOCIAL_IDENTITY = """
@@ -3115,7 +3126,8 @@ INSERT INTO duo_session (
     ip_address,
     signed_in,
     pending_social_provider,
-    pending_social_sub
+    pending_social_sub,
+    asns
 ) VALUES (
     %(session_token_hash)s,
     %(person_id)s,
@@ -3124,7 +3136,8 @@ INSERT INTO duo_session (
     %(ip_address)s,
     TRUE,
     %(pending_social_provider)s,
-    %(pending_social_sub)s
+    %(pending_social_sub)s,
+    %(asns)s::text[]
 )
 """
 

@@ -418,6 +418,11 @@ CREATE TABLE IF NOT EXISTS duo_session (
     -- cleared once the session resolves to one (sign-in or onboarding).
     answers JSONB,
 
+    -- The ASN(s) announcing `ip_address` according to RIPEstat when the
+    -- session was created. Recorded for new sign-ups only (and NULL when the
+    -- best-effort lookup failed), so that patterns of abuse can be analysed.
+    asns TEXT[],
+
     PRIMARY KEY (session_token_hash)
 );
 

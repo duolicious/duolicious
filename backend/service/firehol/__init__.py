@@ -58,10 +58,11 @@ IPvXAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 FIREHOL_PORT = int(os.environ.get("DUO_FIREHOL_PORT", "5070"))
 
+# Kept deliberately permissive: FireHOL only gates new sign-ups (see
+# `person._check_signup_ip_blocked`), and `firehol_anonymous` covers the
+# VPN/proxy/Tor addresses we care about there.
 DEFAULT_LISTS = [
-    "firehol_abusers_30d.netset",
     "firehol_anonymous.netset",
-    "stopforumspam_365d.ipset",
 ]
 
 UPDATE_INTERVAL = timedelta(hours=4)
