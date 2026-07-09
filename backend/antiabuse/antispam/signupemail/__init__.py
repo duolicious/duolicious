@@ -1,4 +1,5 @@
 from antiabuse.antispam.signupemail.sql import *
+from dataclasses import dataclass
 from database import api_tx
 from pathlib import Path
 
@@ -26,28 +27,39 @@ plus_address_domains = set([
     "zohomail.com",
 ])
 
-async def check_and_update_bad_domains(email: str) -> object:
+@dataclass(frozen=True)
+class EmailInfo:
+    domain_ok: bool
+    registered: bool
+
+
+async def get_email_info(email: str, normalized_email: str) -> EmailInfo:
     _, domain = email.split('@')
 
-    params = dict(email=email, domain=domain)
+    params = dict(
+        email=email,
+        normalized_email=normalized_email,
+        domain=domain,
+    )
 
     # Check if we already know about the email domain
     async with api_tx() as tx:
-        domain_status = (await tx.require_one(
-            Q_EMAIL_INFO,
-            params=params
-        ))['domain_status']
+        row = await tx.require_one(Q_EMAIL_INFO, params=params)
+
+    domain_status = row['domain_status']
 
     if domain_status == 'registered':
-        return True
+        domain_ok = True
     elif domain_status == 'unregistered-good':
-        return True
+        domain_ok = True
     elif domain_status == 'unregistered-bad':
-        return False
+        domain_ok = False
     elif domain_status == 'unregistered-unknown':
-        return False
+        domain_ok = False
     else:
         raise Exception('Unhandled domain status')
+
+    return EmailInfo(domain_ok=domain_ok, registered=row['registered'])
 
 
 def normalize_email_case(email: str) -> str:

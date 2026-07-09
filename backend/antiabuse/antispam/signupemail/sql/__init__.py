@@ -1,4 +1,6 @@
-Q_EMAIL_INFO = """
+from commonsql import Q_IS_REGISTERED_BY_NORMALIZED_EMAIL
+
+Q_EMAIL_INFO = f"""
 SELECT
     CASE
         WHEN EXISTS (SELECT 1 FROM person WHERE email = %(email)s)
@@ -11,5 +13,7 @@ SELECT
         THEN 'unregistered-bad'
 
         ELSE 'unregistered-unknown'
-    END AS domain_status
+    END AS domain_status,
+
+    {Q_IS_REGISTERED_BY_NORMALIZED_EMAIL} AS registered
 """

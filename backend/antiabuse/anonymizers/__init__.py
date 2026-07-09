@@ -12,28 +12,20 @@ FireHOL container or RIPEstat never blocks a sign-up.
 """
 
 import asyncio
-import ipaddress
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Union
 
 from antiabuse.anonymizers import asnblock
 from antiabuse.anonymizers.firehol import firehol as firehol_client
-
-IPAddress = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
-
-
-def _log(message: str) -> None:
-    print(f"{datetime.now(timezone.utc).isoformat()} {message}")
+from util import IPAddress, log
 
 
 @dataclass(frozen=True)
 class AnonymizerCheck:
     blocked: bool
 
-    # Whatever RIPEstat reported for the address, blocked or not; recorded on
-    # new sign-ups' sessions so patterns of abuse can be analysed.
-    asns: list[asnblock.Asn]
+    # Recorded on new sign-ups' sessions for abuse analysis; None means the
+    # lookup failed, [] an address that announces no ASN.
+    asns: list[int] | None
 
 
 async def check(ip: IPAddress) -> AnonymizerCheck:
@@ -44,20 +36,16 @@ async def check(ip: IPAddress) -> AnonymizerCheck:
         asnblock.ripe.asns(ip),
     )
 
-    blocked_asns = asnblock.blocked_asns(asns)
+    blocked_asns = asnblock.blocked_asns(asns or [])
 
-    reasons = [
-        reason
-        for reason in [
-            f"FireHOL lists: {', '.join(sorted(firehol_lists))}"
-                if firehol_lists else None,
-            f"blocked ASNs: {', '.join(blocked_asns)}"
-                if blocked_asns else None,
-        ]
-        if reason
-    ]
+    reasons = []
+    if firehol_lists:
+        reasons.append(f"FireHOL lists: {', '.join(sorted(firehol_lists))}")
+    if blocked_asns:
+        reasons.append(
+            f"blocked ASNs: {', '.join(str(asn) for asn in blocked_asns)}")
 
     if reasons:
-        _log(f"Blocking sign-up from {ip} — {'; '.join(reasons)}")
+        log(f"Blocking sign-up from {ip} — {'; '.join(reasons)}")
 
     return AnonymizerCheck(blocked=bool(reasons), asns=asns)

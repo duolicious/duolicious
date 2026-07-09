@@ -13,7 +13,7 @@ import antiabuse.anonymizers as anonymizers
 
 def _check(
     firehol_lists: list[str],
-    asns: list[str],
+    asns: list[int] | None,
 ) -> tuple[anonymizers.AnonymizerCheck, list[str]]:
     """Run `check("1.2.3.4")` with mocked blockers, returning the result and
     whatever was logged."""
@@ -29,7 +29,7 @@ def _check(
             "asns",
             AsyncMock(return_value=asns),
         ),
-        patch.object(anonymizers, "_log", logged.append),
+        patch.object(anonymizers, "log", logged.append),
     ):
         result = asyncio.run(anonymizers.check("1.2.3.4"))
     return result, logged
@@ -37,27 +37,35 @@ def _check(
 
 class CheckTests(unittest.TestCase):
     def test_not_blocked(self) -> None:
-        result, logged = _check(firehol_lists=[], asns=["15169"])
+        result, logged = _check(firehol_lists=[], asns=[15169])
         self.assertEqual(
             result,
-            anonymizers.AnonymizerCheck(blocked=False, asns=["15169"]),
+            anonymizers.AnonymizerCheck(blocked=False, asns=[15169]),
+        )
+        self.assertEqual(logged, [])
+
+    def test_failed_asn_lookup_not_blocked(self) -> None:
+        result, logged = _check(firehol_lists=[], asns=None)
+        self.assertEqual(
+            result,
+            anonymizers.AnonymizerCheck(blocked=False, asns=None),
         )
         self.assertEqual(logged, [])
 
     def test_blocked_by_firehol(self) -> None:
         result, logged = _check(
             firehol_lists=["firehol_anonymous.netset"],
-            asns=["15169"],
+            asns=[15169],
         )
         self.assertTrue(result.blocked)
-        self.assertEqual(result.asns, ["15169"])
+        self.assertEqual(result.asns, [15169])
         self.assertEqual(logged, [
             "Blocking sign-up from 1.2.3.4 — "
             "FireHOL lists: firehol_anonymous.netset",
         ])
 
     def test_blocked_by_asn(self) -> None:
-        result, logged = _check(firehol_lists=[], asns=["16247"])
+        result, logged = _check(firehol_lists=[], asns=[16247])
         self.assertTrue(result.blocked)
         self.assertEqual(logged, [
             "Blocking sign-up from 1.2.3.4 — blocked ASNs: 16247",
@@ -66,7 +74,7 @@ class CheckTests(unittest.TestCase):
     def test_blocked_by_both(self) -> None:
         result, logged = _check(
             firehol_lists=["firehol_anonymous.netset"],
-            asns=["9009", "16247"],
+            asns=[9009, 16247],
         )
         self.assertTrue(result.blocked)
         self.assertEqual(logged, [

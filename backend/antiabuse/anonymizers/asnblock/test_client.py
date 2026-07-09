@@ -16,9 +16,10 @@ from antiabuse.anonymizers.asnblock import (
     RipeClient,
     blocked_asns,
 )
+from util import Json
 
 
-def _network_info(asns: list[str], prefix: str) -> dict:
+def _network_info(asns: list[Json], prefix: str) -> Json:
     """The subset of RIPEstat's network-info response shape that we consume."""
     return {
         "status": "ok",
@@ -30,11 +31,11 @@ def _network_info(asns: list[str], prefix: str) -> dict:
 
 
 class _StubServer(ThreadingHTTPServer):
-    responses_for: dict[str | None, object]
+    responses_for: dict[str | None, Json]
 
 
 class _StubHandler(BaseHTTPRequestHandler):
-    def _json(self, status: int, payload: object) -> None:
+    def _json(self, status: int, payload: Json) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -65,6 +66,7 @@ class RipeClientTests(unittest.TestCase):
             "8.8.8.8": _network_info(["15169"], "8.8.8.0/24"),
             "1.2.3.4": _network_info(["16247", "9009"], "1.2.3.0/24"),
             "5.5.5.5": {"status": "ok", "data": "malformed"},
+            "6.6.6.6": _network_info(["not-a-number", "15169"], "6.6.6.0/24"),
         }
         self.server = server
         self._thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -79,19 +81,21 @@ class RipeClientTests(unittest.TestCase):
         self.server.server_close()
 
     def test_asns_hit(self) -> None:
-        self.assertEqual(asyncio.run(self.client.asns("8.8.8.8")), ["15169"])
+        self.assertEqual(asyncio.run(self.client.asns("8.8.8.8")), [15169])
 
     def test_asns_multiple(self) -> None:
-        self.assertEqual(
-            sorted(asyncio.run(self.client.asns("1.2.3.4"))),
-            ["16247", "9009"],
-        )
+        asns = asyncio.run(self.client.asns("1.2.3.4"))
+        assert asns is not None
+        self.assertEqual(sorted(asns), [9009, 16247])
 
     def test_asns_miss(self) -> None:
         self.assertEqual(asyncio.run(self.client.asns("9.9.9.9")), [])
 
     def test_asns_malformed_response_fails_open(self) -> None:
-        self.assertEqual(asyncio.run(self.client.asns("5.5.5.5")), [])
+        self.assertIsNone(asyncio.run(self.client.asns("5.5.5.5")))
+
+    def test_asns_non_numeric_entries_dropped(self) -> None:
+        self.assertEqual(asyncio.run(self.client.asns("6.6.6.6")), [15169])
 
 
 class RipeClientFailOpenTests(unittest.TestCase):
@@ -102,33 +106,21 @@ class RipeClientFailOpenTests(unittest.TestCase):
         self.client = RipeClient("http://127.0.0.1:1")
 
     def test_asns_fails_open(self) -> None:
-        self.assertEqual(asyncio.run(self.client.asns("1.2.3.4")), [])
+        self.assertIsNone(asyncio.run(self.client.asns("1.2.3.4")))
 
 
 class BlocklistTests(unittest.TestCase):
-    def test_blocklist_contents(self) -> None:
-        # The ASNs from https://github.com/duolicious/duolicious/issues/1288,
-        # plus AS4785 and AS136557. Normalized to strings to match RIPEstat's
-        # reporting.
-        self.assertEqual(
-            BLOCKED_ASNS,
-            frozenset([
-                "4785",
-                "9009",
-                "16247",
-                "42973",
-                "60068",
-                "136557",
-                "206092",
-                "211612",
-                "212238",
-            ]),
-        )
+    def test_blocklist_is_sane(self) -> None:
+        self.assertTrue(BLOCKED_ASNS)
+        self.assertTrue(all(isinstance(asn, int) for asn in BLOCKED_ASNS))
+        self.assertTrue(all(asn > 0 for asn in BLOCKED_ASNS))
+        # A known-blocked anchor (AWS), so an accidentally-emptied file fails.
+        self.assertIn(16509, BLOCKED_ASNS)
 
     def test_blocked_asns(self) -> None:
-        self.assertEqual(blocked_asns(["16247"]), ["16247"])
-        self.assertEqual(blocked_asns(["15169", "9009"]), ["9009"])
-        self.assertEqual(blocked_asns(["15169"]), [])
+        self.assertEqual(blocked_asns([16247]), [16247])
+        self.assertEqual(blocked_asns([15169, 9009]), [9009])
+        self.assertEqual(blocked_asns([15169]), [])
         self.assertEqual(blocked_asns([]), [])
 
 

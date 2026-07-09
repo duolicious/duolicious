@@ -12,15 +12,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from antiabuse.anonymizers.firehol import FireholClient
+from util import Json
 
 
 class _StubServer(ThreadingHTTPServer):
-    matches_for: dict[str | None, list[str]]
+    matches_for: dict[str | None, list[Json]]
 
 
 class _StubHandler(BaseHTTPRequestHandler):
     # Set per-test on the server instance.
-    def _json(self, status: int, payload: object) -> None:
+    def _json(self, status: int, payload: Json) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -44,7 +45,10 @@ class _StubHandler(BaseHTTPRequestHandler):
 class FireholClientTests(unittest.TestCase):
     def setUp(self) -> None:
         server = _StubServer(("127.0.0.1", 0), _StubHandler)
-        server.matches_for = {"1.2.3.4": ["list_a", "list_b"]}
+        server.matches_for = {
+            "1.2.3.4": ["list_a", "list_b"],
+            "6.6.6.6": [1, "list_a", None],
+        }
         self.server = server
         self._thread = threading.Thread(target=server.serve_forever, daemon=True)
         self._thread.start()
@@ -65,6 +69,9 @@ class FireholClientTests(unittest.TestCase):
 
     def test_matches_miss(self) -> None:
         self.assertEqual(asyncio.run(self.client.matches("5.5.5.5")), [])
+
+    def test_matches_non_string_entries_dropped(self) -> None:
+        self.assertEqual(asyncio.run(self.client.matches("6.6.6.6")), ["list_a"])
 
 
 class FireholClientFailOpenTests(unittest.TestCase):

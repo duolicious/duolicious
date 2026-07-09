@@ -33,7 +33,7 @@ from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
 import psycopg
 from antiabuse.antispam.signupemail import (
-    check_and_update_bad_domains,
+    get_email_info,
     normalize_email,
 )
 import antiabuse.antirude.displayname
@@ -250,33 +250,32 @@ async def _send_otp(email: str, otp: str) -> None:
         from_addr='noreply-otp@duolicious.app',
     )
 
-async def _check_signup_ip_blocked(
-    remote_addr: str | None,
-) -> tuple[object, list[str] | None]:
-    """Best-effort IP gate for new sign-ups, via the anonymizer blockers
-    (FireHOL lists plus the ASN blocklist, checked in parallel). Sign-ins skip
-    this gate entirely; only ban-based blocking (`Q_IS_BANNED`) applies to
-    them.
+@dataclass(frozen=True)
+class _SignupGate:
+    # An (error, status) response to return early with, or None to proceed.
+    error: tuple[str, int] | None
 
-    Returns `(error, asns)`, where `asns` is whatever RIPEstat reported (or
-    None when the lookup never ran), to be recorded on the session for abuse
-    analysis. Both lookups fail open, so a slow FireHOL container or RIPEstat
-    never blocks a sign-up.
-    """
+    # ASNs to record on the new session; None when unknown or not a sign-up.
+    asns: list[int] | None
+
+
+async def _gate_signup(remote_addr: str | None, is_signup: bool) -> _SignupGate:
+    """Best-effort, fail-open anonymizer gate (FireHOL lists plus the ASN
+    blocklist) for sign-ups; sign-ins get only ban-based blocking
+    (`Q_IS_BANNED`)."""
+    if not is_signup:
+        return _SignupGate(error=None, asns=None)
+
     if not remote_addr:
-        return ('IP address blocked', 460), None
+        return _SignupGate(error=('IP address blocked', 460), asns=None)
 
     result = await anonymizers.check(remote_addr)
 
     if result.blocked:
-        return ('IP address blocked', 460), result.asns
+        return _SignupGate(error=('IP address blocked', 460), asns=result.asns)
 
-    return None, result.asns
+    return _SignupGate(error=None, asns=result.asns)
 
-
-async def _is_registered(tx: Tx, normalized_email: str) -> bool:
-    await tx.execute(Q_IS_REGISTERED, dict(normalized_email=normalized_email))
-    return await tx.fetchone() is not None
 
 async def _check_banned(tx: Tx, normalized_email: str, remote_addr: str | None) -> object:
     await tx.execute(Q_IS_BANNED, dict(
@@ -335,17 +334,14 @@ async def post_request_otp(
 ) -> object:
     normalized = normalize_email(req.email)
 
-    async with api_tx() as tx:
-        registered = await _is_registered(tx, normalized)
+    email_info = await get_email_info(req.email, normalized)
 
-    asns: list[str] | None = None
-    if not registered:
-        blocked, asns = await _check_signup_ip_blocked(remote_addr)
-        if blocked:
-            return blocked
-
-    if not await check_and_update_bad_domains(req.email):
+    if not email_info.domain_ok:
         return 'Disposable email', 400
+
+    gate = await _gate_signup(remote_addr, is_signup=not email_info.registered)
+    if gate.error:
+        return gate.error
 
     session_token, session_token_hash = _new_session_token()
 
@@ -364,7 +360,7 @@ async def post_request_otp(
         session_token_hash=session_token_hash,
         ip_address=remote_addr,
         answers=answers,
-        asns=asns,
+        asns=gate.asns,
     )
 
     async with api_tx() as tx:
@@ -391,6 +387,12 @@ async def post_resend_otp(
     s: t.SessionInfo,
     remote_addr: str | None,
 ) -> object:
+    # A session without a person is an in-progress sign-up, so the gate from
+    # `post_request_otp` still applies.
+    gate = await _gate_signup(remote_addr, is_signup=s.person_id is None)
+    if gate.error:
+        return gate.error
+
     normalized = normalize_email(s.email)
     params = dict(
         email=s.email,
@@ -419,6 +421,10 @@ async def post_check_otp(
     s: t.SessionInfo,
     remote_addr: str | None,
 ) -> object:
+    gate = await _gate_signup(remote_addr, is_signup=s.person_id is None)
+    if gate.error:
+        return gate.error
+
     params = dict(
         otp=req.otp,
         session_token_hash=s.session_token_hash,
@@ -508,6 +514,19 @@ async def _sign_in_with_social(
 
         if email_match:
             person_id = email_match['person_id']
+
+        if person_id is None and not email:
+            return 'Provider did not return an email', 400
+
+    # The gate does external HTTP; never hold a transaction open across it. The
+    # first transaction above is read-only, so all writes stay atomic in the
+    # second one below.
+    gate = await _gate_signup(remote_addr, is_signup=person_id is None)
+    if gate.error:
+        return gate.error
+
+    async with api_tx() as tx:
+        if email_match:
             await tx.execute(Q_INSERT_SOCIAL_IDENTITY, dict(
                 provider=provider,
                 provider_sub=sub,
@@ -515,20 +534,9 @@ async def _sign_in_with_social(
                 email=email,
             ))
 
-        if person_id is None and not email:
-            return 'Provider did not return an email', 400
-
         pending_provider = None
         pending_sub = None
-        asns: list[str] | None = None
         if person_id is None:
-            # A brand-new sign-up: apply the FireHOL/ASN gate. This awaits
-            # external lookups mid-transaction, which is tolerable because
-            # they're tightly time-bounded (and fail open).
-            blocked, asns = await _check_signup_ip_blocked(remote_addr)
-            if blocked:
-                return blocked
-
             await tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
             pending_provider = provider
             pending_sub = sub
@@ -541,7 +549,7 @@ async def _sign_in_with_social(
             ip_address=remote_addr,
             pending_social_provider=pending_provider,
             pending_social_sub=pending_sub,
-            asns=asns,
+            asns=gate.asns,
         ))
 
         if person_id is not None:

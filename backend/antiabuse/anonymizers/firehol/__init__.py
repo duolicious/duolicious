@@ -11,19 +11,13 @@ empty list, i.e. "not blocked". The service itself does no timeout handling, so
 timeouts are owned (and logged) here.
 """
 
-import ipaddress
 import os
-from datetime import datetime, timezone
-from typing import Union
 from urllib.parse import quote
 
-import httpx
-
-from httpxclient import make_http_client
-from util import timed
+from httpxclient import get_json_fail_open
+from util import IPAddress
 
 ListName = str
-IPAddress = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 FIREHOL_URL = os.environ.get("DUO_FIREHOL_URL", "http://firehol:5070")
 
@@ -33,38 +27,22 @@ FIREHOL_URL = os.environ.get("DUO_FIREHOL_URL", "http://firehol:5070")
 FIREHOL_TIMEOUT = float(os.environ.get("DUO_FIREHOL_TIMEOUT", "0.02"))
 
 
-def _log(message: str) -> None:
-    print(f"{datetime.now(timezone.utc).isoformat()} {message}")
-
-
 class FireholClient:
     """Check IP addresses against the FireHOL container over HTTP."""
 
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
 
-    async def _get(self, path: str) -> object:
-        url = f"{self.base_url}{path}"
-        with timed("FireHOL request", _log):
-            try:
-                async with make_http_client(timeout=FIREHOL_TIMEOUT) as client:
-                    resp = await client.get(url)
-                if resp.status_code != 200:
-                    return None
-                return resp.json()
-            except httpx.TimeoutException:
-                _log(f"FireHOL request timed out, failing open: {url}")
-                return None
-            except (httpx.HTTPError, ValueError) as e:
-                _log(f"FireHOL request failed, failing open ({url}): {e}")
-                return None
-
     async def matches(self, ip: IPAddress) -> list[ListName]:
         """Return the FireHOL lists the address belongs to (or [])."""
-        response = await self._get(f"/matches?ip={quote(str(ip))}")
+        response = await get_json_fail_open(
+            f"{self.base_url}/matches?ip={quote(str(ip))}",
+            timeout=FIREHOL_TIMEOUT,
+            label="FireHOL request",
+        )
         if not isinstance(response, list):
             return []
-        return response
+        return [name for name in response if isinstance(name, str)]
 
 
 # ---------------------------------------------------------------------------

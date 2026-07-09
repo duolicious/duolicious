@@ -1,3 +1,11 @@
+# Whether a person already exists with this normalized email. Shared so the
+# sign-up OTP flow (`_OTP_CTE`) and the email-info lookup (`Q_EMAIL_INFO`) can
+# never disagree on what "registered" means.
+Q_IS_REGISTERED_BY_NORMALIZED_EMAIL = """
+EXISTS (SELECT 1 FROM person WHERE normalized_email = %(normalized_email)s)
+"""
+
+
 Q_UPDATE_VERIFICATION_LEVEL_ASSIGN = """
     verification_level_id = CASE
         WHEN EXISTS (

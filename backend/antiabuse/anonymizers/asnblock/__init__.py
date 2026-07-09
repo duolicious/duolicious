@@ -6,45 +6,36 @@ network-info endpoint and checks them against a small JSON blocklist
 (`blocked-asns.json`, a list of ASNs) of VPN / hosting providers whose
 addresses are a recurring source of abuse.
 
-Like `antiabuse.anonymizers.firehol`, lookups fail open: any timeout,
-connection error, or malformed response yields no ASNs, i.e. "not blocked". A
-typical RIPEstat lookup takes ~0.3 s from the server, so the default timeout
-adds only a small margin on top of that; if RIPEstat is slower, we just let
-the user sign up.
+ASNs are 32-bit unsigned integers and are handled as `int` throughout;
+RIPEstat reports them as digit strings, which the client parses (dropping
+anything non-numeric) at that boundary.
+
+Like `antiabuse.anonymizers.firehol`, lookups fail open: any failure yields
+None, i.e. "not blocked", kept distinct from [] so `duo_session.asns` can
+tell an outage from an unrouted address. Each lookup opens a fresh connection
+to RIPEstat, so the default timeout leaves room for the TLS handshake; if
+RIPEstat is slower than that, we just let the user sign up.
 """
 
-import ipaddress
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Union
+from typing import Iterable
 from urllib.parse import quote
 
-import httpx
-
-from httpxclient import make_http_client
-from util import timed
-
-Asn = str
-IPAddress = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
+from httpxclient import get_json_fail_open
+from util import IPAddress
 
 RIPE_URL = os.environ.get("DUO_RIPE_URL", "https://stat.ripe.net")
 
-RIPE_TIMEOUT = float(os.environ.get("DUO_RIPE_TIMEOUT", "0.5"))
+RIPE_TIMEOUT = float(os.environ.get("DUO_RIPE_TIMEOUT", "1"))
 
-# A JSON list of ASNs as bare numbers; RIPEstat reports ASNs as digit strings,
-# so they're normalized to strings here.
+# A JSON list of ASNs as bare numbers.
 _blocked_asns_file = Path(__file__).parent / "blocked-asns.json"
 
-BLOCKED_ASNS: frozenset[Asn] = frozenset(
-    str(asn)
-    for asn in json.loads(_blocked_asns_file.read_text(encoding="utf-8"))
+BLOCKED_ASNS: frozenset[int] = frozenset(
+    json.loads(_blocked_asns_file.read_text(encoding="utf-8"))
 )
-
-
-def _log(message: str) -> None:
-    print(f"{datetime.now(timezone.utc).isoformat()} {message}")
 
 
 class RipeClient:
@@ -53,38 +44,34 @@ class RipeClient:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
 
-    async def asns(self, ip: IPAddress) -> list[Asn]:
-        """Return the ASNs announcing `ip` (or [] on any failure)."""
-        url = (
+    async def asns(self, ip: IPAddress) -> list[int] | None:
+        """Return the ASNs announcing `ip`, or None if the lookup failed."""
+        response = await get_json_fail_open(
             f"{self.base_url}/data/network-info/data.json"
-            f"?resource={quote(str(ip))}"
+            f"?resource={quote(str(ip))}",
+            timeout=RIPE_TIMEOUT,
+            label="RIPEstat request",
         )
-        with timed("RIPEstat request", _log):
-            try:
-                async with make_http_client(timeout=RIPE_TIMEOUT) as client:
-                    resp = await client.get(url)
-                if resp.status_code != 200:
-                    return []
-                response = resp.json()
-            except httpx.TimeoutException:
-                _log(f"RIPEstat request timed out, failing open: {url}")
-                return []
-            except (httpx.HTTPError, ValueError) as e:
-                _log(f"RIPEstat request failed, failing open ({url}): {e}")
-                return []
 
         if not isinstance(response, dict):
-            return []
+            return None
         data = response.get("data")
         if not isinstance(data, dict):
-            return []
+            return None
         asns = data.get("asns")
         if not isinstance(asns, list):
-            return []
-        return [str(asn) for asn in asns if isinstance(asn, (str, int))]
+            return None
+
+        # RIPEstat reports ASNs as digit strings; drop anything else rather
+        # than letting one odd entry fail the whole lookup.
+        return [
+            int(asn)
+            for asn in asns
+            if isinstance(asn, (str, int)) and str(asn).isdigit()
+        ]
 
 
-def blocked_asns(asns: Iterable[Asn]) -> list[Asn]:
+def blocked_asns(asns: Iterable[int]) -> list[int]:
     """The subset of `asns` that is on the blocklist."""
     return [asn for asn in asns if asn in BLOCKED_ASNS]
 

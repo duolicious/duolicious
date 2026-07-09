@@ -1,6 +1,10 @@
 import constants
 from constants import MIN_CLUB_PAGE_MEMBERS, MAX_RELATED_CLUBS
-from commonsql import Q_IS_ALLOWED_CLUB_NAME, Q_COMPUTED_FLAIR
+from commonsql import (
+    Q_COMPUTED_FLAIR,
+    Q_IS_ALLOWED_CLUB_NAME,
+    Q_IS_REGISTERED_BY_NORMALIZED_EMAIL,
+)
 
 MAX_CLUB_SEARCH_RESULTS = 20
 
@@ -160,15 +164,15 @@ existing_person AS (
 # OTP and social paths share `Q_IS_BANNED` for that and run it as an
 # explicit step in the same transaction, which keeps both endpoints
 # following the same control flow.
-_OTP_CTE = """
+_OTP_CTE = f"""
 WITH random_otp AS (
     SELECT LPAD(FLOOR(RANDOM() * (10e5 + 1))::TEXT, 6, '0') AS otp
 ), zero_otp AS (
     SELECT '000000' AS otp
 ), is_registered AS (
-    SELECT 1 WHERE     EXISTS (SELECT 1 FROM person WHERE normalized_email = %(normalized_email)s)
+    SELECT 1 WHERE     {Q_IS_REGISTERED_BY_NORMALIZED_EMAIL}
 ), is_unregistered AS (
-    SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM person WHERE normalized_email = %(normalized_email)s)
+    SELECT 1 WHERE NOT {Q_IS_REGISTERED_BY_NORMALIZED_EMAIL}
 ), domain AS (
     SELECT
         SUBSTRING(%(email)s FROM POSITION('@' IN %(email)s) + 1) AS domain
@@ -237,7 +241,7 @@ SELECT
     otp,
     %(ip_address)s,
     %(answers)s::jsonb,
-    %(asns)s::text[]
+    %(asns)s::bigint[]
 FROM
     otp
 RETURNING
@@ -3046,15 +3050,6 @@ WHERE EXISTS (
 )
 """
 
-# Whether the email already belongs to an account. Decides if an auth attempt
-# is a sign-in or a sign-up; the FireHOL/ASN gate only applies to sign-ups.
-Q_IS_REGISTERED = """
-SELECT 1
-FROM person
-WHERE normalized_email = %(normalized_email)s
-LIMIT 1
-"""
-
 # Look up a linked person by provider sub. Excludes bots — a bot account
 # returning here would bypass the bot check that the OTP path performs.
 Q_LOOKUP_SOCIAL_IDENTITY = """
@@ -3137,7 +3132,7 @@ INSERT INTO duo_session (
     TRUE,
     %(pending_social_provider)s,
     %(pending_social_sub)s,
-    %(asns)s::text[]
+    %(asns)s::bigint[]
 )
 """
 

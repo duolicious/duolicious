@@ -1,10 +1,23 @@
+from datetime import datetime, timezone
 from urllib.parse import quote
-from typing import Callable, Iterator
+from typing import Callable, Iterator, TypeAlias, Union
 import contextlib
+import ipaddress
 import os
 import time
 
 OFFPEAK_FUNCTION_OVERRIDE = os.environ.get('DUO_OFFPEAK_FUNCTION_OVERRIDE', '').lower()
+
+# `service.firehol` keeps its own copy: its container ships only service/firehol.
+IPAddress = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
+
+Json: TypeAlias = (
+    None | bool | int | float | str | list['Json'] | dict[str, 'Json']
+)
+
+
+def log(message: str) -> None:
+    print(f"{datetime.now(timezone.utc).isoformat()} {message}")
 
 
 @contextlib.contextmanager

@@ -23,6 +23,8 @@ import os
 
 import httpx
 
+from util import Json, log, timed
+
 # Bounds every outbound request unless the caller overrides it. Keeps a slow or
 # unreachable peer from blocking the event loop indefinitely.
 HTTP_TIMEOUT: float = float(os.environ.get("DUO_HTTP_TIMEOUT", "30"))
@@ -41,3 +43,28 @@ def make_http_client(
         timeout=timeout,
         follow_redirects=follow_redirects,
     )
+
+
+async def get_json_fail_open(
+    url: str,
+    *,
+    timeout: float,
+    label: str,
+) -> Json:
+    """GET `url` and decode the JSON body; any failure is logged and yields
+    None, so a slow or broken upstream never blocks the caller's request."""
+    with timed(label, log):
+        try:
+            async with make_http_client(timeout=timeout) as client:
+                resp = await client.get(url)
+            if resp.status_code != 200:
+                log(f"{label} returned HTTP {resp.status_code}, "
+                    f"failing open: {url}")
+                return None
+            return resp.json()
+        except httpx.TimeoutException:
+            log(f"{label} timed out, failing open: {url}")
+            return None
+        except (httpx.HTTPError, ValueError) as e:
+            log(f"{label} failed, failing open ({url}): {e}")
+            return None
