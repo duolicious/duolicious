@@ -205,13 +205,9 @@ export async function computeStartupNavigationState(args: {
   // Signed in: prefer push-notification, then pending-club flows, then restore.
   if (notification) {
     return {
-      initialState: {
-        index: 1,
-        routes: [
-          { name: 'Home' },
-          { name: notification.screen, params: notification.params },
-        ],
-      },
+      initialState: withHomeBackStack({
+        routes: [{ name: notification.screen, params: notification.params }],
+      }),
       postLoginRedirectState: null,
     };
   }

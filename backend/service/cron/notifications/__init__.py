@@ -123,7 +123,7 @@ def send_mobile_notification(
             token=row.token,
             title='You have a new message 😍',
             body=big_part(row.has_intro, row.has_chat),
-            data={'screen': 'Inbox'},
+            data={'screen': 'Home', 'params': {'screen': 'Inbox'}},
             badge=badge,
         )
 
