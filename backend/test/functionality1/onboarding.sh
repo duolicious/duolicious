@@ -97,6 +97,10 @@ c GET /search-locations?q=Syd
 jc POST /answer -d '{ "question_id": 1001, "answer": true, "public": false }'
 jc POST /answer -d '{ "question_id": 1002, "answer": false, "public": false }'
 
+# The yes/no counts land via a one-second batcher, not in the POST /answer
+# transaction
+sleep 2
+
 [[ "$(q "select count_yes   from question where id = 1001")" -eq 1 ]]
 [[ "$(q "select count_no    from question where id = 1001")" -eq 0 ]]
 [[ "$(q "select count_yes   from question where id = 1002")" -eq 0 ]]

@@ -3,6 +3,7 @@ import { resetProspectHints } from './prospect-cache';
 import { resetSearchFilterAnswers } from './search-filter-state';
 import { resetProfileInfo } from '../events/profile-info';
 import { resetSearchFilters } from '../events/search-filters';
+import { resetViewerAnswers } from '../api/answer';
 
 // Drop every piece of in-memory, user-scoped client state. Call this from
 // any path that signs the user out (explicit sign-out, account deletion,
@@ -22,4 +23,5 @@ export const resetUserScopedClientState = () => {
   resetOptionScreenPayloads();
   resetProfileInfo();
   resetSearchFilters();
+  resetViewerAnswers();
 };

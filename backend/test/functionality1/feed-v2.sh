@@ -587,5 +587,316 @@ test_joined_club () {
   q "delete from banned_club where name = 'cats'"
 }
 
+# Answer events and yes/no counts land via one-second batchers in the API,
+# not in the POST /answer transaction, so give them a moment to flush before
+# asserting on them
+flush_answer_batchers () {
+  sleep 2
+}
+
+answered_question_feed_items () {
+  local before
+
+  assume_role searcher
+
+  before=$(q "select iso8601_utc(now()::timestamp)")
+
+  c GET "/feed-v2?before=${before}" \
+    | jq -S '
+      def redact: if . == null then . else "redacted_nonnull_value" end;
+
+      def redact_if_present($k):
+        if has($k) and .[$k] != null
+        then .[$k] |= redact
+        else .
+        end ;
+
+      [ .[] | select(.type == "answered-question") ]
+      | map(
+            redact_if_present("person_uuid")
+          | redact_if_present("url_slug")
+          | redact_if_present("photo_uuid")
+          | redact_if_present("photo_blurhash")
+          | redact_if_present("time")
+          | redact_if_present("online_time")
+          | redact_if_present("came_online_time")
+          | .question_yes_members |= map(map_values(redact))
+          | .question_no_members |= map(map_values(redact))
+          | .question_viewer |= (
+                .person_uuid |= redact
+              | .url_slug |= redact
+            )
+      )
+    '
+}
+
+expected_answered_question_item () {
+  local name=$1
+  local count_yes_members=$2
+  local count_no_members=$3
+  local count_yes=$4
+  local count_no=$5
+  local viewer_answer=$6
+  local viewer_public=$7
+  local match_percentage=$8
+
+  jq -nS \
+    --arg name "$name" \
+    --argjson question_id "$question_id" \
+    --arg question_text "$question_text" \
+    --arg question_topic "$question_topic" \
+    --argjson count_yes_members "$count_yes_members" \
+    --argjson count_no_members "$count_no_members" \
+    --argjson count_yes "$count_yes" \
+    --argjson count_no "$count_no" \
+    --argjson viewer_answer "$viewer_answer" \
+    --argjson viewer_public "$viewer_public" \
+    --argjson match_percentage "$match_percentage" \
+    '
+    def members($n):
+      [ range($n)
+        | {
+            "person_uuid": "redacted_nonnull_value",
+            "photo_blurhash": "redacted_nonnull_value",
+            "photo_uuid": "redacted_nonnull_value",
+            "url_slug": "redacted_nonnull_value"
+          }
+      ];
+
+    {
+      "advertiser_friendly": false,
+      "age": 26,
+      "answered_question_id": $question_id,
+      "question_text": $question_text,
+      "question_topic": $question_topic,
+      "question_count_yes": $count_yes,
+      "question_count_no": $count_no,
+      "question_yes_members": members($count_yes_members),
+      "question_no_members": members($count_no_members),
+      "question_viewer": {
+        "person_uuid": "redacted_nonnull_value",
+        "url_slug": "redacted_nonnull_value",
+        "photo_uuid": null,
+        "photo_blurhash": null,
+        "answer": $viewer_answer,
+        "public_": $viewer_public
+      },
+      "flair": ["gold"],
+      "gender": "Other",
+      "is_verified": false,
+      "location": "New York, New York, United States",
+      "match_percentage": $match_percentage,
+      "name": $name,
+      "came_online_time": "redacted_nonnull_value",
+      "online_time": "redacted_nonnull_value",
+      "person_uuid": "redacted_nonnull_value",
+      "photo_blurhash": "redacted_nonnull_value",
+      "photo_uuid": "redacted_nonnull_value",
+      "time": "redacted_nonnull_value",
+      "type": "answered-question",
+      "url_slug": "redacted_nonnull_value"
+    }
+    '
+}
+
+test_answered_question () {
+  local response
+  local expected
+  local user_type
+  local match_user1
+  local match_user2
+  local match_user3
+
+  reset_db
+
+  ../util/create-user.sh searcher 0
+  ../util/create-user.sh user1 0 1
+  ../util/create-user.sh user2 0 1
+  ../util/create-user.sh user3 0 1
+
+  q "update person set privacy_verification_level_id = 1"
+  q "update person set background_color = '#aaaaaa'"
+
+  question_id=10
+  question_text=$(q "select question from question where id = ${question_id}")
+  question_topic=$(q "select topic from question where id = ${question_id}")
+
+  # The yes/no counts include private answers and survive `reset_db`, so zero
+  # them for determinism. They're only ever incremented, even on re-answers,
+  # so the expectations below track every POST, public or private.
+  q "update question set count_yes = 0, count_no = 0
+     where id = ${question_id}"
+
+  # user2 and user3 answer publicly
+  assume_role user2
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": true, \"public\": true }"
+
+  assume_role user3
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": false, \"public\": true }"
+
+  # user1 answers privately, which mustn't be advertised in the feed
+  assume_role user1
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": true, \"public\": false }"
+
+  flush_answer_batchers
+
+  user_type=$(q "select last_event_name from person where name = 'user1'")
+  [[ "$user_type" != answered-question ]]
+
+  set_deterministic_online_times
+
+  # user1's private answer doesn't appear as an event or in the piles. The
+  # searcher hasn't answered, so `question_viewer.answer` is null.
+  # question_count_yes is 2: user1's private answer counts, like on the quiz
+  # screen, despite being hidden from the piles
+  response=$(answered_question_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_answered_question_item user2 0 1 2 1 null null 50) \
+      <(expected_answered_question_item user3 1 0 2 1 null null 50)
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # user1 re-answers publicly; their event appears and they join the piles
+  assume_role user1
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": true, \"public\": true }"
+
+  flush_answer_batchers
+
+  set_deterministic_online_times
+
+  # Re-answering increments question_count_yes again; the counts only ever
+  # grow
+  response=$(answered_question_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_answered_question_item user1 1 1 3 1 null null 50) \
+      <(expected_answered_question_item user2 1 1 3 1 null null 50) \
+      <(expected_answered_question_item user3 2 0 3 1 null null 50)
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # The searcher answers publicly. Their answer appears in question_viewer,
+  # but they never appear among the sample members. Answering shifts the
+  # searcher's personality, and with it the match percentages.
+  assume_role searcher
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": false, \"public\": true }"
+
+  flush_answer_batchers
+
+  match_user1=$(q "
+    select clamp(
+      0, 99,
+      100 * (1 - (a.personality <#> b.personality)) / 2
+    )::smallint
+    from person a, person b
+    where a.name = 'searcher' and b.name = 'user1'")
+  match_user2=$(q "
+    select clamp(
+      0, 99,
+      100 * (1 - (a.personality <#> b.personality)) / 2
+    )::smallint
+    from person a, person b
+    where a.name = 'searcher' and b.name = 'user2'")
+  match_user3=$(q "
+    select clamp(
+      0, 99,
+      100 * (1 - (a.personality <#> b.personality)) / 2
+    )::smallint
+    from person a, person b
+    where a.name = 'searcher' and b.name = 'user3'")
+
+  set_deterministic_online_times
+
+  response=$(answered_question_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_answered_question_item user1 1 1 3 2 false true "$match_user1") \
+      <(expected_answered_question_item user2 1 1 3 2 false true "$match_user2") \
+      <(expected_answered_question_item user3 2 0 3 2 false true "$match_user3")
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # The searcher makes their answer private. It's their own answer, so it's
+  # still sent to them -- flagged private -- or answering from the feed could
+  # mistake it for unanswered and silently re-publish it
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": false, \"public\": false }"
+
+  flush_answer_batchers
+
+  set_deterministic_online_times
+
+  response=$(answered_question_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_answered_question_item user1 1 1 3 3 false false "$match_user1") \
+      <(expected_answered_question_item user2 1 1 3 3 false false "$match_user2") \
+      <(expected_answered_question_item user3 2 0 3 3 false false "$match_user3")
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # Making an answer private reverts the answerer's event and removes them
+  # from the piles
+  assume_role user3
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": false, \"public\": false }"
+
+  flush_answer_batchers
+
+  user_type=$(q "select last_event_name from person where name = 'user3'")
+  [[ "$user_type" == joined ]]
+
+  set_deterministic_online_times
+
+  response=$(answered_question_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_answered_question_item user1 1 0 3 4 false false "$match_user1") \
+      <(expected_answered_question_item user2 1 0 3 4 false false "$match_user2")
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # Deleting an answer reverts the deleter's event and removes them from the
+  # piles
+  assume_role user2
+  jc DELETE /answer -d "{ \"question_id\": ${question_id} }"
+
+  flush_answer_batchers
+
+  user_type=$(q "select last_event_name from person where name = 'user2'")
+  [[ "$user_type" == joined ]]
+
+  set_deterministic_online_times
+
+  response=$(answered_question_feed_items)
+  expected=$(
+    jq -sS . \
+      <(expected_answered_question_item user1 0 0 3 4 false false "$match_user1")
+  )
+  diff -u --color <(echo "$response") <(echo "$expected")
+
+  # Skipping the question (a null answer) reverts the event too
+  assume_role user1
+  jc POST /answer \
+    -d "{ \"question_id\": ${question_id}, \"answer\": null, \"public\": true }"
+
+  flush_answer_batchers
+
+  user_type=$(q "select last_event_name from person where name = 'user1'")
+  [[ "$user_type" == joined ]]
+
+  set_deterministic_online_times
+
+  response=$(answered_question_feed_items)
+  diff -u --color <(echo "$response") <(echo "[]")
+}
+
 test_json_format
 test_joined_club
+test_answered_question

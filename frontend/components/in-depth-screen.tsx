@@ -8,6 +8,7 @@ import {
   useLayoutEffect,
   useState,
 } from 'react';
+import { seedViewerAnswer, useViewerAnswer } from '../api/answer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopNavBar } from './top-nav-bar';
 import { DefaultText } from './default-text';
@@ -21,7 +22,6 @@ import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-s
 import type { ProspectNavigationRef } from './prospect-profile-screen/prospect-profile-screen';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProspectParamList } from '../navigation/linking';
-import { CardState } from './quiz-card';
 import { useSignedInUser } from '../events/signed-in-user';
 import { getProspectHint, setProspectHint } from '../navigation/prospect-cache';
 
@@ -218,6 +218,15 @@ const fetchAnswersPage = (
 
   const responseList = response.ok ? response.json : [];
 
+  // The store is the live source of truth for the viewer's own answers; the
+  // fetched `person_answer`/`person_public_` only seed it
+  for (const item of responseList) {
+    seedViewerAnswer(item.question_id, {
+      answer: item.person_answer,
+      public_: item.person_public_ ?? true,
+    });
+  }
+
   return responseList.map((item) => ({
     kind: 'answer',
     item: item,
@@ -248,36 +257,34 @@ const InDepthScreen = (navigationRef: ProspectNavigationRef) => {
   />;
 }
 
-const InDepthItem = ({personId, item}: {personId: number, item: InDepthListItem}) => {
+const InDepthAnswer = ({personId, item}: {personId: number, item: CompareAnswer}) => {
   const [signedInUser] = useSignedInUser();
   const isViewingSelf = personId === signedInUser?.personId;
 
-  const [, triggerRender] = useState({});
+  const viewerAnswer = useViewerAnswer(item.question_id);
 
-  const onStateChange = (state: CardState) => {
-    if (item.kind !== 'answer') return;
-    item.item.person_public_ = state.public_;
-    item.item.person_answer = state.answer;
-    if (isViewingSelf) {
-      item.item.prospect_answer = state.answer;
-      triggerRender({});
-    }
-  };
+  // When viewing yourself, you're the prospect too, so the prospect column
+  // has to track your live answer
+  const prospectAnswer =
+    isViewingSelf ? viewerAnswer.answer : item.prospect_answer;
 
+  return (
+    <AnsweredQuizCard
+      questionNumber={item.question_id}
+      topic={item.topic}
+      user1={item.prospect_name}
+      answer1={prospectAnswer}
+      user2="You"
+    >
+      {item.question}
+    </AnsweredQuizCard>
+  );
+};
+
+const InDepthItem = ({personId, item}: {personId: number, item: InDepthListItem}) => {
   switch (item.kind) {
     case 'answer':
-      return <AnsweredQuizCard
-          questionNumber={item.item.question_id}
-          topic={item.item.topic}
-          user1={item.item.prospect_name}
-          answer1={item.item.prospect_answer}
-          user2="You"
-          answer2={item.item.person_answer}
-          answer2Publicly={item.item.person_public_ ?? true}
-          onStateChange={onStateChange}
-        >
-          {item.item.question}
-        </AnsweredQuizCard>;
+      return <InDepthAnswer personId={personId} item={item.item} />;
     case 'mbti':
     case 'big5':
     case 'politics':

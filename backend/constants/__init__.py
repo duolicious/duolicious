@@ -31,6 +31,12 @@ MAX_ONLINE_SUBSCRIPTIONS = 500
 # signed out on each new sign-in.
 MAX_SIGNED_IN_SESSIONS = 100
 
+# Refreshing someone's 'answered-question' feed event on every public answer
+# would rewrite their (heavily indexed) person row once per swipe while they
+# play Q&A. Refreshing at most this often caps that churn; the advertised
+# question is at most this stale.
+ANSWERED_QUESTION_EVENT_REFRESH_SECONDS = 60 * 60  # 1 hour
+
 # Club SEO page tunables. Shared by person/sql (API reads) and
 # service/cron/clubseo/sql (cron aggregation); kept in this dependency-free
 # module so both sides can import them without pulling each other in.

@@ -14,9 +14,9 @@ import { DefaultText } from './default-text';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { Avatar } from './avatar';
-import { getShortElapsedTime, isMobile, assertNever, capLuminance } from '../util/util';
+import { getShortElapsedTime, isMobile, assertNever, capLuminance, formatCount } from '../util/util';
 import { makeLinkProps } from '../util/navigation';
-import { GestureResponderEvent, Pressable, Animated, ViewStyle } from 'react-native';
+import { GestureResponderEvent, LayoutChangeEvent, Pressable, Animated, ViewStyle } from 'react-native';
 import { EnlargeablePhoto } from './enlargeable-image';
 import { commonStyles } from '../styles';
 import { VerificationBadge } from './verification-badge';
@@ -24,6 +24,13 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../navigation/linking';
 import { japi } from '../api/api';
+import {
+  ViewerAnswer,
+  seedViewerAnswer,
+  setAnswerPublicly,
+  toggleAnswer,
+  useViewerAnswer,
+} from '../api/answer';
 import { DefaultFlatList, DefaultFlashList } from './default-flat-list';
 import { z } from 'zod';
 import { notify, listen, lastEvent } from '../events/events';
@@ -35,7 +42,6 @@ import { IMAGES_URL } from '../env/env';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Reanimated, {
   Easing,
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -52,6 +58,11 @@ import { faReply } from '@fortawesome/free-solid-svg-icons/faReply';
 import { OnlineIndicator } from './online-indicator';
 import { useAppTheme } from '../app-theme/app-theme';
 import { usePressableAnimation } from '../animation/animation';
+import {
+  ANSWER_ICON_SIZE,
+  AnswerIcon,
+  NonInteractiveQuizCard,
+} from './quiz-card';
 
 const NAME_ACTION_TIME_GAP_VERTICAL = 16;
 
@@ -63,6 +74,7 @@ type Action =
   | "Erased their bio"
   | "Joined"
   | "Joined a club"
+  | "Played Q&A"
   | "Recently online"
   | "Updated their bio"
 
@@ -104,32 +116,51 @@ const UpdatedBioFieldsSchema = DataItemBaseSchema.extend({
 
 const JoinedFieldsSchema = DataItemBaseSchema;
 
+const FacepileMemberSchema = z.object({
+  person_uuid: z.string(),
+  url_slug: z.string().nullable(),
+  photo_uuid: z.string(),
+  photo_blurhash: z.string(),
+});
+
+// The viewer, as a facepile entry. Sent by the server so the facepile
+// doesn't depend on the profile-info store, which is only populated when
+// the profile tab mounts. Unlike the sample members, the viewer might not
+// have a photo.
+const FacepileViewerSchema = z.object({
+  person_uuid: z.string(),
+  url_slug: z.string().nullable(),
+  photo_uuid: z.string().nullable(),
+  photo_blurhash: z.string().nullable(),
+});
+
 const JoinedClubFieldsSchema = DataItemBaseSchema.extend({
   joined_club_name: z.string(),
   club_count_members: z.number(),
-  club_sample_members: z.array(
-    z.object({
-      person_uuid: z.string(),
-      url_slug: z.string().nullable(),
-      photo_uuid: z.string(),
-      photo_blurhash: z.string(),
-    })
-  ),
-  // The viewer, as a facepile entry. Sent by the server so the facepile
-  // doesn't depend on the profile-info store, which is only populated when
-  // the profile tab mounts. Unlike the sample members, the viewer might not
-  // have a photo.
-  club_viewer: z.object({
-    person_uuid: z.string(),
-    url_slug: z.string().nullable(),
-    photo_uuid: z.string().nullable(),
-    photo_blurhash: z.string().nullable(),
-  }),
+  club_sample_members: z.array(FacepileMemberSchema),
+  club_viewer: FacepileViewerSchema,
   // Not sent by the server; stamped by fetchPage when the page arrives.
   // Records whether the viewer was a member (and so counted in
   // club_count_members) at fetch time, so join/leave presses can adjust the
   // count without any per-card state.
   viewer_was_member: z.boolean().optional(),
+});
+
+const AnsweredQuestionFieldsSchema = DataItemBaseSchema.extend({
+  answered_question_id: z.number(),
+  question_text: z.string(),
+  question_topic: z.string(),
+  // Like the quiz screen's counts, these include private answers
+  question_count_yes: z.number(),
+  question_count_no: z.number(),
+  question_yes_members: z.array(FacepileMemberSchema),
+  question_no_members: z.array(FacepileMemberSchema),
+  // The viewer's own answer, private or not; `public_` is null when they
+  // haven't answered
+  question_viewer: FacepileViewerSchema.extend({
+    answer: z.boolean().nullable(),
+    public_: z.boolean().nullable(),
+  }),
 });
 
 const DataItemJoinedSchema = JoinedFieldsSchema.extend({
@@ -138,6 +169,10 @@ const DataItemJoinedSchema = JoinedFieldsSchema.extend({
 
 const DataItemJoinedClubSchema = JoinedClubFieldsSchema.extend({
   type: z.literal('joined-club'),
+});
+
+const DataItemAnsweredQuestionSchema = AnsweredQuestionFieldsSchema.extend({
+  type: z.literal('answered-question'),
 });
 
 const DataItemAddedPhotoSchema = AddedPhotoFieldsSchema.extend({
@@ -167,6 +202,7 @@ const DataItemWasRecentlyOnlineWithVoiceBioSchema = AddedVoiceBioFieldsSchema.ex
 const DataItemSchema = z.discriminatedUnion('type', [
   DataItemJoinedSchema,
   DataItemJoinedClubSchema,
+  DataItemAnsweredQuestionSchema,
   DataItemWasRecentlyOnlineWithBioSchema,
   DataItemWasRecentlyOnlineWithPhotoSchema,
   DataItemWasRecentlyOnlineWithVoiceBioSchema,
@@ -182,6 +218,9 @@ type DataItemWasRecentlyOnlineWithVoiceBio = z.infer<typeof DataItemWasRecentlyO
 
 type JoinedFields = z.infer<typeof JoinedFieldsSchema>;
 type JoinedClubFields = z.infer<typeof JoinedClubFieldsSchema>;
+type AnsweredQuestionFields = z.infer<typeof AnsweredQuestionFieldsSchema>;
+type FacepileMember = z.infer<typeof FacepileMemberSchema>;
+type FacepileViewer = z.infer<typeof FacepileViewerSchema>;
 type UpdatedBioFields = z.infer<typeof UpdatedBioFieldsSchema>;
 type AddedPhotoFields = z.infer<typeof AddedPhotoFieldsSchema>;
 type AddedVoiceBioFields = z.infer<typeof AddedVoiceBioFieldsSchema>;
@@ -216,6 +255,15 @@ const stampViewerMembership = (item: DataItem): DataItem =>
   item.type === 'joined-club'
     ? { ...item, viewer_was_member: isClubMember(item.joined_club_name) }
     : item;
+
+const seedViewerAnswerFromItem = (item: DataItem): void => {
+  if (item.type === 'answered-question') {
+    seedViewerAnswer(item.answered_question_id, {
+      answer: item.question_viewer.answer,
+      public_: item.question_viewer.public_ ?? true,
+    });
+  }
+};
 
 const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
   if (pageNumber === 1) {
@@ -253,6 +301,8 @@ const fetchPage = async (pageNumber: number): Promise<DataItem[] | null> => {
     .filter(isValidDataItem)
     .filter(isDistinctItem)
     .map(stampViewerMembership);
+
+  pageMetadata.lastPage.forEach(seedViewerAnswerFromItem);
 
   return [...pageMetadata.lastPage];
 };
@@ -540,33 +590,32 @@ const useIsClubMember = (clubName: string) => {
   return useSyncExternalStore(subscribe, () => isClubMember(clubName));
 };
 
-// While the pile is collapsed the avatars overlap; spreading separates them
-// so each face can be seen and pressed. The margin is animated directly with
-// an explicit easing curve rather than via a layout transition, whose easing
-// isn't respected on web.
-const useFacepileSpreadStyle = (overlap: boolean, spread: boolean) => {
-  const progress = useSharedValue(spread ? 1 : 0);
+// Facepile geometry. Named because the width math in QuestionFacepiles
+// depends on these, so it can't silently disagree with the styles.
+const FACEPILE_AVATAR_SIZE = 28;
 
-  useEffect(() => {
-    progress.value = withTiming(spread ? 1 : 0, {
-      duration: 250,
-      easing: Easing.out(Easing.poly(4)),
-    });
-  }, [spread, progress]);
+// How far each avatar tucks behind its left neighbour while a pile is
+// collapsed
+const FACEPILE_OVERLAP = 8;
 
-  return useAnimatedStyle(() => ({
-    marginLeft: overlap ? interpolate(progress.value, [0, 1], [-8, 4]) : 0,
-  }), [overlap]);
-};
+// The gap left between neighbouring avatars once a pile spreads
+const FACEPILE_SPREAD_GAP = 4;
+
+// How far spreading moves each avatar relative to its neighbour
+const FACEPILE_SPREAD_STEP = FACEPILE_OVERLAP + FACEPILE_SPREAD_GAP;
+
+// The gap between an answer icon and its pile in a question facepile row
+const FACEPILE_GROUP_GAP = 8;
+
+// A question facepile row's horizontal padding, per side
+const FACEPILE_ROW_PADDING = 12;
 
 const FacepileAvatar = ({
   member,
-  overlap,
   spread,
   onRequestSpread,
 }: {
-  member: JoinedClubFields['club_sample_members'][number]
-  overlap: boolean
+  member: FacepileMember
   spread: boolean
   onRequestSpread: () => void
 }) => {
@@ -587,45 +636,40 @@ const FacepileAvatar = ({
     }
   }, [spread, navigateToProfile, onRequestSpread]);
 
-  const spreadStyle = useFacepileSpreadStyle(overlap, spread);
-
   return (
-    <Reanimated.View style={spreadStyle}>
-      <Pressable onPress={onPress} {...makeLinkProps(`/${handle}`)}>
-        <ImageBackground
-          source={{
-            uri: `${IMAGES_URL}/450-${member.photo_uuid}.jpg`,
-            height: 450,
-            width: 450,
-          }}
-          placeholder={{ blurhash: member.photo_blurhash }}
-          transition={150}
-          style={styles.facepileImage}
-          contentFit="cover"
-          recyclingKey={member.photo_uuid}
-        />
-      </Pressable>
-    </Reanimated.View>
+    <Pressable onPress={onPress} {...makeLinkProps(`/${handle}`)}>
+      <ImageBackground
+        source={{
+          uri: `${IMAGES_URL}/450-${member.photo_uuid}.jpg`,
+          height: 450,
+          width: 450,
+        }}
+        placeholder={{ blurhash: member.photo_blurhash }}
+        transition={150}
+        style={styles.facepileImage}
+        contentFit="cover"
+        recyclingKey={member.photo_uuid}
+      />
+    </Pressable>
   );
 };
 
-// The viewer's own avatar, at the end of the facepile. Always rendered, but
-// only visible while the viewer is a member of the club, fading in and out as
-// they join and leave. Animating visibility on an always-mounted view rather
-// than mounting and unmounting means joining can't be confused with anything
-// else that recreates the view (navigating away and back, list recycling,
-// refetches), which is what made `entering` animations here replay when they
-// shouldn't. Falls back to a placeholder if the viewer has no photo.
+// The viewer's own avatar. Always rendered, but only visible while the
+// viewer belongs in the pile (they're a club member; they publicly gave the
+// pile's answer), fading in and out as that changes. Animating visibility on
+// an always-mounted view rather than mounting and unmounting means joining
+// can't be confused with anything else that recreates the view (navigating
+// away and back, list recycling, refetches), which is what made `entering`
+// animations here replay when they shouldn't. Falls back to a placeholder if
+// the viewer has no photo.
 const ViewerFacepileAvatar = ({
   viewer,
   visible,
-  overlap,
   spread,
   onRequestSpread,
 }: {
-  viewer: JoinedClubFields['club_viewer']
+  viewer: FacepileViewer
   visible: boolean
-  overlap: boolean
   spread: boolean
   onRequestSpread: () => void
 }) => {
@@ -647,8 +691,6 @@ const ViewerFacepileAvatar = ({
     }
   }, [spread, navigateToProfile, onRequestSpread]);
 
-  const spreadStyle = useFacepileSpreadStyle(overlap, spread);
-
   const opacity = useSharedValue(visible ? 1 : 0);
 
   useEffect(() => {
@@ -666,7 +708,6 @@ const ViewerFacepileAvatar = ({
     <Reanimated.View
       style={[
         styles.facepileImage,
-        spreadStyle,
         fadeStyle,
         {
           backgroundColor: appTheme.avatarBackgroundColor,
@@ -705,65 +746,172 @@ const ViewerFacepileAvatar = ({
   );
 };
 
+// A facepile avatar's animated position. Translated rather than
+// margin-animated so that spreading a pile can't reflow the layout around it
+const FacepileSlot = ({
+  overlap,
+  offsetX,
+  zIndex,
+  children,
+}: {
+  overlap: boolean
+  offsetX: number
+  zIndex?: number
+  children: React.ReactNode
+}) => {
+  const offset = useSharedValue(offsetX);
+
+  useEffect(() => {
+    offset.value = withTiming(offsetX, {
+      duration: 250,
+      easing: Easing.out(Easing.poly(4)),
+    });
+  }, [offsetX, offset]);
+
+  const offsetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: offset.value }],
+  }));
+
+  return (
+    <Reanimated.View
+      style={[
+        offsetStyle,
+        { marginLeft: overlap ? -FACEPILE_OVERLAP : 0, zIndex },
+      ]}
+    >
+      {children}
+    </Reanimated.View>
+  );
+};
+
+// While the pile is collapsed the avatars overlap, which makes them hard to
+// make out and to press, so the pile spreads on hover (desktop) or on a first
+// press (mobile) before individual avatars navigate anywhere. The avatar
+// beside `viewerPosition` is the anchor: the pile spreads away from it, so a
+// pile can sit against that edge of its container.
+const Facepile = ({
+  members,
+  viewer,
+  viewerVisible,
+  viewerPosition,
+  spread,
+  onRequestSpread,
+  onRequestCollapse,
+}: {
+  members: FacepileMember[]
+  viewer: FacepileViewer
+  viewerVisible: boolean
+  viewerPosition: 'start' | 'end'
+  spread: boolean
+  onRequestSpread: () => void
+  onRequestCollapse: () => void
+}) => {
+  const spreadDirection = viewerPosition === 'start' ? -1 : 1;
+
+  const anchorDistanceOf = (documentOrder: number) =>
+    viewerPosition === 'start'
+      ? members.length - documentOrder
+      : documentOrder;
+
+  const offsetOf = (documentOrder: number) =>
+    spreadDirection
+      * anchorDistanceOf(documentOrder)
+      * (spread ? FACEPILE_SPREAD_STEP : 0);
+
+  const zIndexOf = (documentOrder: number) =>
+    viewerPosition === 'start'
+      ? members.length + 1 - documentOrder
+      : undefined;
+
+  const viewerAvatar = (documentOrder: number) => (
+    <FacepileSlot
+      overlap={documentOrder > 0}
+      offsetX={offsetOf(documentOrder)}
+      zIndex={zIndexOf(documentOrder)}
+    >
+      <ViewerFacepileAvatar
+        viewer={viewer}
+        visible={viewerVisible}
+        spread={spread}
+        onRequestSpread={onRequestSpread}
+      />
+    </FacepileSlot>
+  );
+
+  return (
+    <Pressable
+      style={{ flexDirection: 'row' }}
+      onPress={onRequestSpread}
+      // Raw DOM events rather than onHoverIn/onHoverOut: Pressable's
+      // hover uses contain semantics, so hovering the nested avatar
+      // Pressables would end the container's hover and re-collapse the
+      // pile. mouseenter/mouseleave don't refire on child transitions.
+      //
+      // Desktop-only: mobile web browsers emulate mouseenter on tap,
+      // which would spread the pile an instant before the press lands
+      // and turn the first press into a profile navigation.
+      {...(isMobile() ? {} : {
+        /* @ts-ignore */
+        onMouseEnter: onRequestSpread,
+        onMouseLeave: onRequestCollapse,
+      })}
+    >
+      {viewerPosition === 'start' && viewerAvatar(0)}
+      {members.map((member, i) => {
+        const documentOrder = viewerPosition === 'start' ? i + 1 : i;
+
+        return (
+          <FacepileSlot
+            key={member.person_uuid}
+            overlap={documentOrder > 0}
+            offsetX={offsetOf(documentOrder)}
+            zIndex={zIndexOf(documentOrder)}
+          >
+            <FacepileAvatar
+              member={member}
+              spread={spread}
+              onRequestSpread={onRequestSpread}
+            />
+          </FacepileSlot>
+        );
+      })}
+      {viewerPosition === 'end' && viewerAvatar(members.length)}
+    </Pressable>
+  );
+};
+
 const ClubFacepile = ({
   sampleMembers,
   countMembers,
   viewer,
   viewerIsMember,
 }: {
-  sampleMembers: JoinedClubFields['club_sample_members']
+  sampleMembers: FacepileMember[]
   countMembers: number
-  viewer: JoinedClubFields['club_viewer']
+  viewer: FacepileViewer
   viewerIsMember: boolean
 }) => {
   const { appTheme } = useAppTheme();
 
-  // Overlapped avatars are hard to make out and to press, so the pile spreads
-  // on hover (desktop) or on a first press (mobile) before individual avatars
-  // navigate anywhere
   const [spread, setSpread] = useState(false);
 
-  const onRequestSpread = useCallback(() => setSpread(true), []);
+  const onRequestSpread   = useCallback(() => setSpread(true),  []);
+  const onRequestCollapse = useCallback(() => setSpread(false), []);
 
   return (
     // On mobile the count goes on its own line: were it beside the pile,
-    // spreading the pile could wrap the text and change the card's height
+    // a spread pile would slide over the text
     <View style={styles.facepileColumn}>
       {(sampleMembers.length > 0 || viewerIsMember) &&
-        <Pressable
-          style={{ flexDirection: 'row' }}
-          onPress={onRequestSpread}
-          // Raw DOM events rather than onHoverIn/onHoverOut: Pressable's
-          // hover uses contain semantics, so hovering the nested avatar
-          // Pressables would end the container's hover and re-collapse the
-          // pile. mouseenter/mouseleave don't refire on child transitions.
-          //
-          // Desktop-only: mobile web browsers emulate mouseenter on tap,
-          // which would spread the pile an instant before the press lands
-          // and turn the first press into a profile navigation.
-          {...(isMobile() ? {} : {
-            /* @ts-ignore */
-            onMouseEnter: onRequestSpread,
-            onMouseLeave: () => setSpread(false),
-          })}
-        >
-          {sampleMembers.map((member, i) =>
-            <FacepileAvatar
-              key={member.person_uuid}
-              member={member}
-              overlap={i > 0}
-              spread={spread}
-              onRequestSpread={onRequestSpread}
-            />
-          )}
-          <ViewerFacepileAvatar
-            viewer={viewer}
-            visible={viewerIsMember}
-            overlap={sampleMembers.length > 0}
-            spread={spread}
-            onRequestSpread={onRequestSpread}
-          />
-        </Pressable>
+        <Facepile
+          members={sampleMembers}
+          viewer={viewer}
+          viewerVisible={viewerIsMember}
+          viewerPosition="end"
+          spread={spread}
+          onRequestSpread={onRequestSpread}
+          onRequestCollapse={onRequestCollapse}
+        />
       }
       <DefaultText style={{ color: appTheme.hintColor }}>
         {countMembers.toLocaleString()}
@@ -863,6 +1011,248 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
         </View>
       </Animated.View>
     </Pressable>
+  );
+};
+
+const QuestionFacepiles = ({
+  fields,
+  viewerAnswer,
+  onPressNo,
+  onPressYes,
+}: {
+  fields: AnsweredQuestionFields
+  viewerAnswer: ViewerAnswer
+  onPressNo: () => void
+  onPressYes: () => void
+}) => {
+  const { appTheme } = useAppTheme();
+
+  const [spread, setSpread] = useState<'yes' | 'no' | null>(null);
+
+  const onRequestSpreadNo  = useCallback(() => setSpread('no'),  []);
+  const onRequestSpreadYes = useCallback(() => setSpread('yes'), []);
+  const onRequestCollapse  = useCallback(() => setSpread(null),  []);
+
+  const [rowInnerWidth, setRowInnerWidth] = useState<number | null>(null);
+
+  const onLayoutRow = useCallback((e: LayoutChangeEvent) => {
+    // On web, navigating to another tab hides this one via `display: none`,
+    // which fires a zero-width layout. Adopting it would drop facepile members
+    // and replay their entering animations upon returning to this tab.
+    if (e.nativeEvent.layout.width === 0) {
+      return;
+    }
+
+    setRowInnerWidth(
+      e.nativeEvent.layout.width - 2 * FACEPILE_ROW_PADDING);
+  }, []);
+
+  // Per side: answer icon + gap + viewer slot + the visible sliver of each
+  // overlapped member; the middle must absorb a spread's step per member,
+  // plus breathing room so the piles never read as one
+  const fitsMembers = (n: number) =>
+    rowInnerWidth !== null
+    && rowInnerWidth >=
+      2 * (ANSWER_ICON_SIZE + FACEPILE_GROUP_GAP + FACEPILE_AVATAR_SIZE)
+      + (2 * (FACEPILE_AVATAR_SIZE - FACEPILE_OVERLAP) + FACEPILE_SPREAD_STEP)
+        * n
+      + 16;
+
+  const maxMembers =
+    rowInnerWidth === null ? (isMobile() ? 3 : 5) :
+    fitsMembers(5) ? 5 :
+    fitsMembers(4) ? 4 :
+    3;
+
+  // The counts include private answers, so publicness is ignored here,
+  // unlike in the viewer's pile membership
+  const adjustedCount = (countAtFetch: number, answer: boolean) =>
+    Math.max(0, countAtFetch
+      + (viewerAnswer.answer === answer ? 1 : 0)
+      - (fields.question_viewer.answer === answer ? 1 : 0));
+
+  const countYes = adjustedCount(fields.question_count_yes, true);
+  const countNo = adjustedCount(fields.question_count_no, false);
+
+  // "No" on the left and "yes" on the right, matching the quiz screen's
+  // swipe directions
+  return (
+    <View style={styles.questionFacepileRow} onLayout={onLayoutRow}>
+      <View
+        style={[
+          styles.questionFacepileGroup,
+          spread === 'no' && styles.spreadFacepileGroup,
+        ]}
+      >
+        <AnswerIcon
+          answer="no"
+          selected={viewerAnswer.answer === false}
+          enabled={true}
+          onPress={onPressNo}
+        />
+        <View style={styles.questionFacepileColumn}>
+          <Facepile
+            members={fields.question_no_members.slice(0, maxMembers)}
+            viewer={fields.question_viewer}
+            viewerVisible={
+              viewerAnswer.answer === false && viewerAnswer.public_}
+            viewerPosition="end"
+            spread={spread === 'no'}
+            onRequestSpread={onRequestSpreadNo}
+            onRequestCollapse={onRequestCollapse}
+          />
+          <DefaultText style={{ color: appTheme.hintColor }}>
+             No • {formatCount(countNo)}
+          </DefaultText>
+        </View>
+      </View>
+      <View
+        style={[
+          styles.questionFacepileGroup,
+          spread === 'yes' && styles.spreadFacepileGroup,
+        ]}
+      >
+        <View
+          style={[styles.questionFacepileColumn, { alignItems: 'flex-end' }]}
+        >
+          <Facepile
+            members={fields.question_yes_members.slice(0, maxMembers)}
+            viewer={fields.question_viewer}
+            viewerVisible={
+              viewerAnswer.answer === true && viewerAnswer.public_}
+            viewerPosition="start"
+            spread={spread === 'yes'}
+            onRequestSpread={onRequestSpreadYes}
+            onRequestCollapse={onRequestCollapse}
+          />
+          <DefaultText style={{ color: appTheme.hintColor }}>
+            {formatCount(countYes)} • Yes
+          </DefaultText>
+        </View>
+        <AnswerIcon
+          answer="yes"
+          selected={viewerAnswer.answer === true}
+          enabled={true}
+          onPress={onPressYes}
+        />
+      </View>
+    </View>
+  );
+};
+
+const FeedItemAnsweredQuestion = ({
+  fields
+}: {
+  fields: AnsweredQuestionFields
+}) => {
+  const { appTheme } = useAppTheme();
+
+  const onPress = useNavigationToProfile(
+    fields.person_uuid,
+    fields.photo_blurhash,
+  );
+
+  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+
+  const viewerAnswer = useViewerAnswer(fields.answered_question_id);
+
+  const onPressYes = useCallback(
+    () => toggleAnswer(fields.answered_question_id, true),
+    [fields.answered_question_id],
+  );
+
+  const onPressNo = useCallback(
+    () => toggleAnswer(fields.answered_question_id, false),
+    [fields.answered_question_id],
+  );
+
+  const onChangeAnswerPublicly = useCallback(
+    (public_: boolean) => setAnswerPublicly(
+      fields.answered_question_id, public_),
+    [fields.answered_question_id],
+  );
+
+  const props = isMobile() ? {
+    onPress,
+    onPressIn,
+    onPressOut,
+  } : {
+    disabled: true,
+  };
+
+  const extraChildren = (
+    <QuestionFacepiles
+      // Keying by the card's identity resets the spread state when the
+      // native list recycles this component instance for another item
+      key={`${fields.person_uuid}:${fields.answered_question_id}`}
+      fields={fields}
+      viewerAnswer={viewerAnswer}
+      onPressNo={onPressNo}
+      onPressYes={onPressYes}
+    />
+  );
+
+  return (
+    <View style={styles.pressableStyle}>
+      <Animated.View
+        style={[
+          styles.answeredQuestionCardBorders,
+          appTheme.card,
+          { backgroundColor },
+        ]}
+      >
+        {/* Only this row navigates to the profile: a card-wide Pressable
+            would swallow presses on the checkbox, whose gesture handler
+            doesn't take part in the responder negotiation */}
+        <Pressable style={styles.answeredQuestionHeader} {...props}>
+          {fields.photo_uuid &&
+            <Avatar
+              percentage={fields.match_percentage}
+              personUuid={fields.person_uuid}
+              urlSlug={fields.url_slug}
+              photoUuid={fields.photo_uuid}
+              photoBlurhash={fields.photo_blurhash}
+              doUseOnline={!!fields.photo_uuid}
+            />
+          }
+          <View style={{ flex: 1, gap: NAME_ACTION_TIME_GAP_VERTICAL }}>
+            <AgeGenderLocation
+              personUuid={fields.person_uuid}
+              urlSlug={fields.url_slug}
+              photoBlurhash={fields.photo_blurhash}
+              name={fields.name}
+              isVerified={fields.is_verified}
+              age={fields.age}
+              gender={fields.gender}
+              userLocation={fields.location}
+              doUseOnline={!fields.photo_uuid}
+            />
+            <ActionTime action="Played Q&A" time={new Date(fields.time)} />
+          </View>
+        </Pressable>
+        <NonInteractiveQuizCard
+          questionNumber={fields.answered_question_id}
+          topic={fields.question_topic}
+          answerPubliclyValue={viewerAnswer.public_}
+          onChangeAnswerPublicly={onChangeAnswerPublicly}
+          containerStyle={{
+            height: undefined,
+            width: undefined,
+            paddingLeft: 0,
+            paddingRight: 0,
+          }}
+          innerStyle={{
+            flexGrow: undefined,
+            height: undefined,
+            width: '100%',
+          }}
+          maxFontSize={18}
+          extraChildren={extraChildren}
+        >
+          {fields.question_text}
+        </NonInteractiveQuizCard>
+      </Animated.View>
+    </View>
   );
 };
 
@@ -1139,6 +1529,8 @@ const FeedItem = ({ dataItem }: { dataItem: DataItem }) => {
       return <FeedItemJoined fields={dataItem} />;
     case 'joined-club':
       return <FeedItemJoinedClub fields={dataItem} />;
+    case 'answered-question':
+      return <FeedItemAnsweredQuestion fields={dataItem} />;
     case 'recently-online-with-bio':
     case 'recently-online-with-photo':
     case 'recently-online-with-voice-bio':
@@ -1245,9 +1637,44 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
   },
+  answeredQuestionCardBorders: {
+    ...commonStyles.cardBorders,
+    flexDirection: 'column',
+    gap: 10,
+    padding: 10,
+  },
+  answeredQuestionHeader: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  questionFacepileRow: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    rowGap: 8,
+    paddingBottom: 20,
+    paddingLeft: FACEPILE_ROW_PADDING,
+    paddingRight: FACEPILE_ROW_PADDING,
+  },
+  questionFacepileColumn: {
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  questionFacepileGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: FACEPILE_GROUP_GAP,
+  },
+  spreadFacepileGroup: {
+    zIndex: 1,
+  },
   facepileImage: {
-    height: 28,
-    width: 28,
+    height: FACEPILE_AVATAR_SIZE,
+    width: FACEPILE_AVATAR_SIZE,
     borderRadius: 999,
     overflow: 'hidden',
     alignItems: 'center',

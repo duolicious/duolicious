@@ -27,7 +27,7 @@ import { DonutChart } from './donut-chart';
 import { DefaultText } from './default-text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api, japi } from '../api/api';
-import { cardQueue, quizQueue } from '../api/queue';
+import { cardQueue, prospectUpdateQueue } from '../api/queue';
 import * as _ from "lodash";
 import { useSkipped } from '../hide-and-block/hide-and-block';
 import { useAppTheme } from '../app-theme/app-theme';
@@ -39,8 +39,7 @@ import {
   anonymousAnswers,
   removeAnonymousAnswer,
 } from '../events/anonymous-answers';
-import { markSearchResultsStale } from '../events/stale-search-results';
-import { markInboxStale } from '../events/stale-inbox';
+import { saveAnswer, deleteAnswer } from '../api/answer';
 
 // How many questions an unauthenticated web user may answer before we ask them
 // to sign up.
@@ -430,18 +429,6 @@ const removeNextProspectInPlace = async (
   });
 };
 
-const deleteAnswer = async (
-  questionNumber: number,
-  isPublic: boolean,
-) => {
-  if (!isPublic) {
-    await japi('delete', '/answer', { question_id: questionNumber });
-  }
-
-  markSearchResultsStale();
-  markInboxStale();
-};
-
 const removePreviousAnswerInPlace = async (
   card: CardState,
   swipeDirection: Direction | undefined,
@@ -453,7 +440,9 @@ const removePreviousAnswerInPlace = async (
     return;
   }
 
-  await deleteAnswer(card.questionNumber, isPublic);
+  if (!isPublic) {
+    await deleteAnswer(card.questionNumber);
+  }
 
   if (swipeDirection === 'left' || swipeDirection === 'right') {
     removeNextProspectInPlace(state, triggerRender);
@@ -468,24 +457,6 @@ const directionToAnswer = (
   if (direction === 'down') return null;
 };
 
-const saveAnswer = async (
-  questionNumber: number,
-  answer: boolean | null | undefined,
-  answerPublicly: boolean,
-  isPublic: boolean,
-) => {
-  if (!isPublic) {
-    await japi('post', '/answer', {
-      question_id: questionNumber,
-      answer: answer,
-      public: answerPublicly,
-    });
-  }
-
-  markSearchResultsStale();
-  markInboxStale();
-};
-
 const addAnswerInPlace = async (
   direction: Direction,
   swipedCard: CardState,
@@ -493,12 +464,11 @@ const addAnswerInPlace = async (
   state: StackState,
   triggerRender: () => void,
 ) => {
-  if (swipedCard.questionNumber !== undefined) {
+  if (swipedCard.questionNumber !== undefined && !isPublic) {
     await saveAnswer(
       swipedCard.questionNumber,
       directionToAnswer(direction),
       swipedCard.answerPublicly,
-      isPublic,
     );
   }
 
@@ -875,7 +845,7 @@ const QuizCardStack = (props: {
         removeAnonymousAnswer(previouslySwipedCard.questionNumber);
       }
 
-      quizQueue.addTask(() => removePreviousAnswerInPlace(
+      prospectUpdateQueue.addTask(() => removePreviousAnswerInPlace(
         previouslySwipedCard,
         previousSwipeDirection,
         isPublic,
@@ -932,7 +902,7 @@ const QuizCardStack = (props: {
       });
     }
 
-    quizQueue.addTask(() => addAnswerInPlace(
+    prospectUpdateQueue.addTask(() => addAnswerInPlace(
       direction,
       swipedCard,
       isPublic,

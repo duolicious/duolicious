@@ -7,12 +7,171 @@ FEED_RESULTS_PER_PAGE = 50
 # The inverse of the proportion of feed results to discard.
 FEED_SELECTIVITY = 2
 
-# How many members to show in a `joined-club` feed item's facepile
-FEED_CLUB_FACEPILE_SIZE = 5
+# How many members to send for a feed item's facepile. For an
+# `answered-question` item's "yes" and "no" piles, mobile clients only show
+# the first 3 because the two piles share the card's width.
+FEED_FACEPILE_SIZE = 5
 
-# How many of a club's members to consider for the facepile. Bounds the work
-# done per feed item when the club is huge.
-FEED_CLUB_FACEPILE_POOL = 50
+# How many candidate members to consider for a facepile. Bounds the work done
+# per feed item when the club or question is huge.
+FEED_FACEPILE_POOL = 50
+
+
+def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
+    """
+    A `jsonb_agg` of up to `FEED_FACEPILE_SIZE` members drawn from `pool`, a
+    subquery yielding at most `FEED_FACEPILE_POOL` candidate `person_id`s.
+    Members the searcher isn't allowed to see are filtered here, so `pool`
+    doesn't have to get that right; `member_condition` may extend the filter
+    with per-event-type conditions on `member`. Evaluated as a lateral join
+    within `Q_FEED_V2`, where `feed_page` and `searcher` are in scope.
+    """
+    return f"""
+        SELECT
+            jsonb_agg(
+                jsonb_build_object(
+                    'person_uuid', facepile_member.person_uuid,
+                    'url_slug', facepile_member.url_slug,
+                    'photo_uuid', facepile_member.photo_uuid,
+                    'photo_blurhash', facepile_member.photo_blurhash
+                )
+                ORDER BY
+                    facepile_member.matches_gender_preference DESC,
+                    facepile_member.last_online_time DESC
+            ) AS j
+        FROM (
+            SELECT
+                member.uuid AS person_uuid,
+                member.url_slug,
+                member_photo.uuid AS photo_uuid,
+                member_photo.blurhash AS photo_blurhash,
+                member.last_online_time,
+                EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        search_preference_gender AS preference
+                    WHERE
+                        preference.person_id = searcher.searcher_id
+                    AND
+                        preference.gender_id = member.gender_id
+                ) AS matches_gender_preference
+            FROM (
+                {pool}
+            ) AS pool
+            JOIN
+                person AS member
+            ON
+                member.id = pool.person_id
+            JOIN LATERAL (
+                SELECT
+                    photo.uuid,
+                    photo.blurhash
+                FROM
+                    photo
+                WHERE
+                    photo.person_id = member.id
+                AND
+                    COALESCE(photo.nsfw_score, 0) <= 0.2
+                ORDER BY
+                    photo.position
+                LIMIT 1
+            ) AS member_photo
+            ON TRUE
+            WHERE
+                -- The event's subject is already the feed item's hero avatar
+                member.id <> feed_page.id
+            AND
+                -- The searcher is already in the payload as the viewer entry
+                -- (club_viewer/question_viewer), so including them here would
+                -- double them up
+                member.id <> searcher.searcher_id
+            AND (
+                {member_condition}
+            )
+            AND
+                member.shadow_banned_at IS NULL
+            AND
+                NOT member.hide_me_from_strangers
+            AND
+                -- The member did not skip the searcher; their profile would
+                -- be inaccessible if they did
+                NOT EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        skipped
+                    WHERE
+                        skipped.subject_person_id = member.id
+                    AND
+                        skipped.object_person_id = searcher.searcher_id
+                )
+            AND
+                member.privacy_verification_level_id <=
+                    searcher.verification_level_id
+            AND (
+                    member.verification_level_id > 1
+                OR
+                    NOT member.verification_required
+            )
+            ORDER BY
+                matches_gender_preference DESC,
+                member.last_online_time DESC
+            LIMIT
+                {FEED_FACEPILE_SIZE}
+        ) AS facepile_member
+    """
+
+
+def _club_facepile() -> str:
+    """
+    The facepile for a 'joined-club' feed item; `club` is in scope at the
+    call site.
+    """
+    return _facepile(f"""
+                SELECT
+                    person_id
+                FROM
+                    person_club
+                WHERE
+                    person_club.club_name = club.name
+                AND
+                    person_club.activated
+                ORDER BY
+                    person_club.person_id DESC
+                LIMIT
+                    {FEED_FACEPILE_POOL}
+    """)
+
+
+def _question_facepile(answer: bool) -> str:
+    """
+    The facepile of people who publicly answered `question.id` with `answer`;
+    `question` is in scope at the call site.
+    """
+    return _facepile(
+        f"""
+                SELECT
+                    person_id
+                FROM
+                    answer
+                WHERE
+                    answer.question_id = question.id
+                AND
+                    answer.public_
+                AND
+                    answer.answer = {'TRUE' if answer else 'FALSE'}
+                ORDER BY
+                    answer.person_id DESC
+                LIMIT
+                    {FEED_FACEPILE_POOL}
+        """,
+        member_condition="""
+                -- Unlike `person_club` rows, `answer` rows aren't deactivated
+                -- with the account, so members must be filtered here
+                member.activated
+        """,
+    )
 
 
 
@@ -1396,7 +1555,8 @@ WITH searcher AS (
         person.id = %(searcher_person_id)s
 ), searcher_photo AS (
     -- The searcher's first photo, for rendering their own avatar in
-    -- 'joined-club' facepiles. Zero rows if they have no photos.
+    -- 'joined-club' and 'answered-question' facepiles. Zero rows if they
+    -- have no photos.
     SELECT
         photo.uuid,
         photo.blurhash
@@ -1880,6 +2040,7 @@ SELECT
     )
     || mapped_last_event_data
     || COALESCE(joined_club_data.j, '{{}}'::jsonb)
+    || COALESCE(answered_question_data.j, '{{}}'::jsonb)
     AS j
 FROM
     feed_page
@@ -1904,106 +2065,7 @@ LEFT JOIN LATERAL (
     ON
         TRUE
     LEFT JOIN LATERAL (
-        SELECT
-            jsonb_agg(
-                jsonb_build_object(
-                    'person_uuid', facepile_member.person_uuid,
-                    'url_slug', facepile_member.url_slug,
-                    'photo_uuid', facepile_member.photo_uuid,
-                    'photo_blurhash', facepile_member.photo_blurhash
-                )
-                ORDER BY
-                    facepile_member.matches_gender_preference DESC,
-                    facepile_member.last_online_time DESC
-            ) AS j
-        FROM (
-            SELECT
-                member.uuid AS person_uuid,
-                member.url_slug,
-                member_photo.uuid AS photo_uuid,
-                member_photo.blurhash AS photo_blurhash,
-                member.last_online_time,
-                EXISTS (
-                    SELECT
-                        1
-                    FROM
-                        search_preference_gender AS preference
-                    WHERE
-                        preference.person_id = searcher.searcher_id
-                    AND
-                        preference.gender_id = member.gender_id
-                ) AS matches_gender_preference
-            FROM (
-                SELECT
-                    person_id
-                FROM
-                    person_club
-                WHERE
-                    person_club.club_name = club.name
-                AND
-                    person_club.activated
-                ORDER BY
-                    person_club.person_id DESC
-                LIMIT
-                    {FEED_CLUB_FACEPILE_POOL}
-            ) AS pool
-            JOIN
-                person AS member
-            ON
-                member.id = pool.person_id
-            JOIN LATERAL (
-                SELECT
-                    photo.uuid,
-                    photo.blurhash
-                FROM
-                    photo
-                WHERE
-                    photo.person_id = member.id
-                AND
-                    COALESCE(photo.nsfw_score, 0) <= 0.2
-                ORDER BY
-                    photo.position
-                LIMIT 1
-            ) AS member_photo
-            ON TRUE
-            WHERE
-                -- The joiner is already the feed item's hero avatar
-                member.id <> feed_page.id
-            AND
-                -- The searcher is already in the payload as club_viewer,
-                -- so including them here would double them up
-                member.id <> searcher.searcher_id
-            AND
-                member.shadow_banned_at IS NULL
-            AND
-                NOT member.hide_me_from_strangers
-            AND
-                -- The member did not skip the searcher; their profile would be
-                -- inaccessible if they did
-                NOT EXISTS (
-                    SELECT
-                        1
-                    FROM
-                        skipped
-                    WHERE
-                        skipped.subject_person_id = member.id
-                    AND
-                        skipped.object_person_id = searcher.searcher_id
-                )
-            AND
-                member.privacy_verification_level_id <=
-                    searcher.verification_level_id
-            AND (
-                    member.verification_level_id > 1
-                OR
-                    NOT member.verification_required
-            )
-            ORDER BY
-                matches_gender_preference DESC,
-                member.last_online_time DESC
-            LIMIT
-                {FEED_CLUB_FACEPILE_SIZE}
-        ) AS facepile_member
+        {_club_facepile()}
     ) AS facepile
     ON TRUE
     WHERE
@@ -2019,6 +2081,64 @@ LEFT JOIN LATERAL (
         club.name <= (feed_page.mapped_last_event_data
             ->> 'joined_club_name')
 ) AS joined_club_data
+ON TRUE
+LEFT JOIN LATERAL (
+    SELECT
+        jsonb_build_object(
+            'question_text', question.question,
+            'question_topic', question.topic,
+            -- Like the quiz screen's counts, these include private answers,
+            -- which is also what makes them cheap: counting only public
+            -- answers would mean aggregating over the question's answers on
+            -- every read
+            'question_count_yes', question.count_yes,
+            'question_count_no', question.count_no,
+            'question_yes_members', COALESCE(yes_facepile.j, '[]'::jsonb),
+            'question_no_members', COALESCE(no_facepile.j, '[]'::jsonb),
+            'question_viewer', jsonb_build_object(
+                'person_uuid', searcher.searcher_uuid,
+                'url_slug', searcher.searcher_url_slug,
+                'photo_uuid', searcher_photo.uuid,
+                'photo_blurhash', searcher_photo.blurhash,
+                'answer', viewer_answer.answer,
+                'public_', viewer_answer.public_
+            )
+        ) AS j
+    FROM
+        question
+    LEFT JOIN
+        searcher_photo
+    ON
+        TRUE
+    LEFT JOIN LATERAL (
+        -- The searcher's own answer, sent whether or not it's public (it's
+        -- their own answer). Were a private answer sent as unanswered,
+        -- answering from the feed would silently re-answer it publicly.
+        SELECT
+            answer.answer,
+            answer.public_
+        FROM
+            answer
+        WHERE
+            answer.person_id = searcher.searcher_id
+        AND
+            answer.question_id = question.id
+    ) AS viewer_answer
+    ON TRUE
+    LEFT JOIN LATERAL (
+        {_question_facepile(True)}
+    ) AS yes_facepile
+    ON TRUE
+    LEFT JOIN LATERAL (
+        {_question_facepile(False)}
+    ) AS no_facepile
+    ON TRUE
+    WHERE
+        feed_page.type = 'answered-question'
+    AND
+        question.id = (feed_page.mapped_last_event_data
+            ->> 'answered_question_id')::SMALLINT
+) AS answered_question_data
 ON TRUE
 ORDER BY
     came_online_time DESC

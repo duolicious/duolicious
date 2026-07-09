@@ -13,7 +13,6 @@ import {
   createElement,
   memo,
   useCallback,
-  useLayoutEffect,
   useState,
 } from 'react';
 import { StatelessCheckBox } from './check-box';
@@ -23,7 +22,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { X, Check, FastForward } from "react-native-feather";
 import { Skeleton } from './skeleton';
 import { japi } from '../api/api';
-import { quizQueue } from '../api/queue';
+import {
+  nextAnswer,
+  setAnswerPublicly,
+  toggleAnswer,
+  useViewerAnswer,
+} from '../api/answer';
 import { IndeterminateProgressBar } from './indeterminate-progress-bar';
 import { Logo14 } from './logo';
 import { useAppTheme } from '../app-theme/app-theme';
@@ -47,11 +51,6 @@ const cardPadding = {
   paddingTop: 5,
   paddingBottom: 10,
 };
-
-type CardState = {
-  answer: boolean | null,
-  public_: boolean,
-}
 
 type SearchFilterAnswerResponse = {
   error?: string
@@ -527,6 +526,10 @@ const NonInteractiveQuizCard = ({children, ...props}: {
   );
 };
 
+// Exported so layouts around AnswerIcons (like the feed's facepile row) can
+// size themselves against it
+const ANSWER_ICON_SIZE = 26;
+
 const AnswerIcon = ({
   answer,
   selected,
@@ -564,8 +567,8 @@ const AnswerIcon = ({
         borderWidth: 1,
         borderRadius: 999,
         overflow: 'visible',
-        width: 26,
-        height: 26,
+        width: ANSWER_ICON_SIZE,
+        height: ANSWER_ICON_SIZE,
       },
       onPress,
     },
@@ -621,20 +624,6 @@ const AnswerIconGroup = ({
   );
 };
 
-const nextAnswer = (curAnswer: boolean | null, pressedButton?: boolean) => {
-  if (pressedButton === undefined) {
-    if (curAnswer === true) return false;
-    if (curAnswer === false) return null;
-    return true;
-  } else {
-    if (curAnswer === pressedButton) {
-      return null;
-    } else {
-      return pressedButton;
-    }
-  }
-};
-
 const AnsweredQuizCard = ({
   children,
   questionNumber,
@@ -642,9 +631,6 @@ const AnsweredQuizCard = ({
   user1,
   answer1,
   user2,
-  answer2,
-  answer2Publicly,
-  onStateChange,
 }: {
   children: string,
   questionNumber: number
@@ -652,28 +638,18 @@ const AnsweredQuizCard = ({
   user1: string,
   answer1: boolean | null,
   user2: string,
-  answer2: boolean | null,
-  answer2Publicly: boolean,
-  onStateChange: (state: CardState) => void,
 }) => {
-  const [state, setState] = useState<CardState>({
-    answer: answer2,
-    public_: answer2Publicly
-  });
+  const viewerAnswer = useViewerAnswer(questionNumber);
 
-  useLayoutEffect(() => {
-    onStateChange(state);
-  }, [JSON.stringify(state)]);
-
-  const textColor = useCallback(() => {
-    if (state.answer === null)
+  const textColor = (() => {
+    if (viewerAnswer.answer === null)
       return '#666';
-    if (answer1 === state.answer) {
+    if (answer1 === viewerAnswer.answer) {
       return '#5a5';
     } else {
       return '#e57';
     }
-  }, [answer1, state.answer])();
+  })();
 
   const textStyle: StyleProp<TextStyle> = {
     fontWeight: '500',
@@ -681,51 +657,13 @@ const AnsweredQuizCard = ({
     maxWidth: 120,
   };
 
-  const onPressAnswerIconGroup = useCallback(async (pressedButton: boolean) => {
-    setState((state: CardState): CardState => {
-      const nextAnswer_ = nextAnswer(state.answer, pressedButton);
-
-      quizQueue.addTask(async () => {
-        await japi(
-          'post',
-          '/answer',
-          {
-            question_id: questionNumber,
-            answer: nextAnswer_,
-            public: state.public_,
-          }
-        );
-      });
-
-      const nextState = {
-        ...state,
-        answer: nextAnswer_,
-      };
-
-      return nextState;
-    });
-  }, [setState]);
+  const onPressAnswerIconGroup = useCallback((pressedButton: boolean) => {
+    toggleAnswer(questionNumber, pressedButton);
+  }, [questionNumber]);
 
   const onChangeAnswerPublicly = useCallback((public_: boolean) => {
-    setState((state: CardState): CardState => {
-      quizQueue.addTask(async () =>
-        japi(
-          'post',
-          '/answer',
-          {
-            question_id: questionNumber,
-            answer: state.answer,
-            public: public_,
-          }
-        )
-      );
-
-      return {
-        ...state,
-        public_: public_,
-      };
-    });
-  }, [setState]);
+    setAnswerPublicly(questionNumber, public_);
+  }, [questionNumber]);
 
   const extraChildren = (
     <View
@@ -766,7 +704,7 @@ const AnsweredQuizCard = ({
           {user2}:
         </DefaultText>
         <AnswerIconGroup
-          answer={state.answer}
+          answer={viewerAnswer.answer}
           enabled={true}
           onPress={onPressAnswerIconGroup}
         />
@@ -776,7 +714,7 @@ const AnsweredQuizCard = ({
 
   return (
     <NonInteractiveQuizCard
-      answerPubliclyValue={state.public_}
+      answerPubliclyValue={viewerAnswer.public_}
       onChangeAnswerPublicly={onChangeAnswerPublicly}
       questionNumber={questionNumber}
       topic={topic}
@@ -1027,9 +965,11 @@ const NoMoreCards = () => {
 };
 
 export {
+  ANSWER_ICON_SIZE,
+  AnswerIcon,
   AnsweredQuizCard,
-  CardState,
   NoMoreCards,
+  NonInteractiveQuizCard,
   QuizCard,
   SearchQuizCard,
   SkeletonQuizCard,

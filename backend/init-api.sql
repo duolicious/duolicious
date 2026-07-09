@@ -117,6 +117,7 @@ DO $$ BEGIN
         'added-voice-bio',
         'joined',
         'joined-club',
+        'answered-question',
         'updated-bio',
         'was-recently-online',
         'recently-online-with-photo',
@@ -875,8 +876,11 @@ CREATE INDEX IF NOT EXISTS idx__person__roles
 
 CREATE INDEX IF NOT EXISTS idx__search_cache__searcher_person_id__position ON search_cache(searcher_person_id, position);
 
-CREATE INDEX IF NOT EXISTS idx__answer__question_id ON answer(question_id);
 CREATE INDEX IF NOT EXISTS idx__answer__person_id_public_answer ON answer(person_id, public_, answer);
+-- Lets the feed's 'answered-question' facepiles scan a question's public
+-- yes/no answerers in person_id order
+CREATE INDEX IF NOT EXISTS idx__answer__question_id_public_answer
+    ON answer(question_id, public_, answer, person_id);
 -- Lets the club-top-answers cron index-only-scan (person, question, answer)
 -- instead of doing a heap fetch per row -- the PK is (person_id,
 -- question_id) without `answer`. ~80 s -> ~3 s per popular club.

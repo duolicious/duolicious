@@ -135,8 +135,10 @@ answers_saved_on_onboarding () {
   [[ "$(q "select public_ from answer where person_id = $pid and question_id = $q2")" == "f" ]]
   [[ "$(q "select count_answers from person where id = $pid")" -eq 2 ]]
 
-  # The stash is cleared and the question stats were bumped.
+  # The stash is cleared and the question stats were bumped. The yes/no
+  # counts land via a one-second batcher, not in the flush transaction.
   [[ "$(q "select count(*) from duo_session where answers is not null")" -eq 0 ]]
+  sleep 2
   [[ "$(q "select count_yes from question where id = $q1")" -eq 1 ]]
   [[ "$(q "select count_no  from question where id = $q2")" -eq 1 ]]
 }
