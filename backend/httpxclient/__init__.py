@@ -6,7 +6,7 @@ Every outbound HTTP call wants the same baseline policy -- a bounded timeout so
 a slow or unreachable peer can't stall the event loop indefinitely, and
 redirect-following to match the `urllib` behaviour these calls replaced. Rather
 than copy-paste (and let drift) `timeout=`/`follow_redirects=` across `notify`,
-`verification`, `antiabuse.firehol`, ... the policy lives here once.
+`verification`, `antiabuse.anonymizers`, ... the policy lives here once.
 
 Callers that need a different bound pass `timeout=` (e.g. the FireHOL client's
 aggressive fail-open timeout); any keyword overrides the default.

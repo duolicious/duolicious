@@ -39,9 +39,8 @@ from antiabuse.antispam.signupemail import (
 import antiabuse.antirude.displayname
 import antiabuse.antirude.occupation
 import antiabuse.antirude.education
-import antiabuse.asnblock as asnblock
 import antiabuse.bannedphoto
-from antiabuse.firehol import firehol
+from antiabuse import anonymizers
 import blurhash
 import numpy
 from async_lru_cache import AsyncLruCache
@@ -254,9 +253,10 @@ async def _send_otp(email: str, otp: str) -> None:
 async def _check_signup_ip_blocked(
     remote_addr: str | None,
 ) -> tuple[object, list[str] | None]:
-    """Best-effort IP gate for new sign-ups: FireHOL lists plus the ASN
-    blocklist. Sign-ins skip this gate entirely; only ban-based blocking
-    (`Q_IS_BANNED`) applies to them.
+    """Best-effort IP gate for new sign-ups, via the anonymizer blockers
+    (FireHOL lists plus the ASN blocklist, checked in parallel). Sign-ins skip
+    this gate entirely; only ban-based blocking (`Q_IS_BANNED`) applies to
+    them.
 
     Returns `(error, asns)`, where `asns` is whatever RIPEstat reported (or
     None when the lookup never ran), to be recorded on the session for abuse
@@ -266,15 +266,12 @@ async def _check_signup_ip_blocked(
     if not remote_addr:
         return ('IP address blocked', 460), None
 
-    firehol_lists, asns = await asyncio.gather(
-        firehol.matches(remote_addr),
-        asnblock.ripe.asns(remote_addr),
-    )
+    result = await anonymizers.check(remote_addr)
 
-    if firehol_lists or asnblock.blocked(asns):
-        return ('IP address blocked', 460), asns
+    if result.blocked:
+        return ('IP address blocked', 460), result.asns
 
-    return None, asns
+    return None, result.asns
 
 
 async def _is_registered(tx: Tx, normalized_email: str) -> bool:

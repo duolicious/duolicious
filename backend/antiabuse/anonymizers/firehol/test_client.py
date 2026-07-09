@@ -1,5 +1,5 @@
 """
-Tests for antiabuse.firehol – the HTTP client that talks to the FireHOL
+Tests for antiabuse.anonymizers.firehol – the HTTP client that talks to the FireHOL
 container. A tiny stub HTTP server stands in for the real container so these
 tests touch neither the network nor a subprocess.
 """
@@ -11,7 +11,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from antiabuse.firehol import FireholClient
+from antiabuse.anonymizers.firehol import FireholClient
 
 
 class _StubServer(ThreadingHTTPServer):

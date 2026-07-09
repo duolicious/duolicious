@@ -1,7 +1,7 @@
 """
-Tests for antiabuse.asnblock – the RIPEstat client and ASN blocklist that gate
-new sign-ups. A tiny stub HTTP server stands in for RIPEstat so these tests
-touch neither the network nor a subprocess.
+Tests for antiabuse.anonymizers.asnblock – the RIPEstat client and ASN
+blocklist that gate new sign-ups. A tiny stub HTTP server stands in for
+RIPEstat so these tests touch neither the network nor a subprocess.
 """
 
 import asyncio
@@ -11,7 +11,11 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from antiabuse.asnblock import BLOCKED_ASNS, RipeClient, blocked
+from antiabuse.anonymizers.asnblock import (
+    BLOCKED_ASNS,
+    RipeClient,
+    blocked_asns,
+)
 
 
 def _network_info(asns: list[str], prefix: str) -> dict:
@@ -103,25 +107,29 @@ class RipeClientFailOpenTests(unittest.TestCase):
 
 class BlocklistTests(unittest.TestCase):
     def test_blocklist_contents(self) -> None:
-        # The ASNs from https://github.com/duolicious/duolicious/issues/1288.
+        # The ASNs from https://github.com/duolicious/duolicious/issues/1288,
+        # plus AS4785 and AS136557. Normalized to strings to match RIPEstat's
+        # reporting.
         self.assertEqual(
             BLOCKED_ASNS,
             frozenset([
-                "9009",    # M247 Europe SRL
-                "16247",   # M247 Ltd
-                "42973",   # M247 Ltd
-                "60068",   # Datacamp Limited
-                "206092",  # Datacamp Limited
-                "211612",  # Datacamp Limited
-                "212238",  # Datacamp Limited
+                "4785",
+                "9009",
+                "16247",
+                "42973",
+                "60068",
+                "136557",
+                "206092",
+                "211612",
+                "212238",
             ]),
         )
 
-    def test_blocked(self) -> None:
-        self.assertTrue(blocked(["16247"]))
-        self.assertTrue(blocked(["15169", "9009"]))
-        self.assertFalse(blocked(["15169"]))
-        self.assertFalse(blocked([]))
+    def test_blocked_asns(self) -> None:
+        self.assertEqual(blocked_asns(["16247"]), ["16247"])
+        self.assertEqual(blocked_asns(["15169", "9009"]), ["9009"])
+        self.assertEqual(blocked_asns(["15169"]), [])
+        self.assertEqual(blocked_asns([]), [])
 
 
 if __name__ == "__main__":
