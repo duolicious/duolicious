@@ -13,6 +13,8 @@ import Animated, {
   FadeOutDown,
   FadeOutUp,
 } from 'react-native-reanimated';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faPlus } from '@fortawesome/free-solid-svg-icons/faPlus';
 import { DefaultText } from '../default-text';
 import {
   useAppTheme,
@@ -27,7 +29,7 @@ import {
 
 const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '👎'];
 const REACTION_BAR_ANIMATION_DURATION = 100;
-const REACTION_BAR_ESTIMATED_WIDTH = 220;
+const REACTION_BAR_ESTIMATED_WIDTH = 252;
 const REACTION_BAR_ESTIMATED_HEIGHT = 44;
 const SCREEN_EDGE_PADDING = 8;
 const TOP_NAV_ESTIMATED_HEIGHT = 50;
@@ -43,9 +45,11 @@ const reactionPillChrome = (appTheme: AppTheme) => ({
 const ReactionBar = ({
   selected,
   onPick,
+  onOpenPicker,
 }: {
   selected: string | undefined,
   onPick: (emoji: string) => void,
+  onOpenPicker: () => void,
 }) => {
   const { appTheme } = useAppTheme();
   return (
@@ -53,6 +57,7 @@ const ReactionBar = ({
       style={{
         ...reactionPillChrome(appTheme),
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 2,
         paddingVertical: 4,
       }}
@@ -75,6 +80,30 @@ const ReactionBar = ({
           <DefaultText style={{ fontSize: 22 }}>{emoji}</DefaultText>
         </Pressable>
       ))}
+      <View
+        style={{
+          width: 1,
+          alignSelf: 'stretch',
+          marginVertical: 2,
+          backgroundColor: appTheme.reactionBarBorderColor,
+        }}
+      />
+      <Pressable
+        onPress={onOpenPicker}
+        aria-label="More reactions"
+        style={{
+          paddingHorizontal: 6,
+          paddingVertical: 4,
+          borderRadius: 999,
+          ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+        }}
+      >
+        <FontAwesomeIcon
+          icon={faPlus}
+          size={18}
+          color={appTheme.secondaryColor}
+        />
+      </Pressable>
     </View>
   );
 };
@@ -85,6 +114,7 @@ const ReactionMenu = ({
   anchor,
   selected,
   onPick,
+  onOpenPicker,
   onDismiss,
   onHoverChange,
 }: {
@@ -93,6 +123,7 @@ const ReactionMenu = ({
   anchor?: AnchorMeasurement,
   selected: string | undefined,
   onPick: (emoji: string) => void,
+  onOpenPicker: () => void,
   onDismiss: () => void,
   onHoverChange?: (isHovering: boolean) => void,
 }) => {
@@ -160,7 +191,11 @@ const ReactionMenu = ({
               edgePadding: SCREEN_EDGE_PADDING,
             })}
           >
-            <ReactionBar selected={selected} onPick={onPick} />
+            <ReactionBar
+              selected={selected}
+              onPick={onPick}
+              onOpenPicker={onOpenPicker}
+            />
           </Animated.View>
         }
       </AnchoredOverlay>
@@ -206,7 +241,11 @@ const ReactionMenu = ({
         onHoverChange ? () => onHoverChange(false) : undefined
       }
     >
-      <ReactionBar selected={selected} onPick={onPick} />
+      <ReactionBar
+        selected={selected}
+        onPick={onPick}
+        onOpenPicker={onOpenPicker}
+      />
     </Animated.View>
   );
 };

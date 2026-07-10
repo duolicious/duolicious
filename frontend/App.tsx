@@ -38,6 +38,7 @@ import { STATUS_URL } from './env/env';
 import { delay } from './util/util';
 import { ColorPickerModal } from './components/modal/color-picker-modal/color-picker-modal';
 import { GifPickerModal } from './components/modal/gif-picker-modal';
+import { EmojiPickerModal } from './components/modal/emoji-picker-modal';
 import { ReportModal } from './components/modal/report-modal';
 import { ImageCropper } from './components/image-cropper';
 import {
@@ -542,6 +543,7 @@ const App = () => {
             <ImageCropper/>
             <ColorPickerModal/>
             <GifPickerModal/>
+            <EmojiPickerModal/>
             <Toast/>
             <PointOfSaleModal/>
             <SignUpModal/>

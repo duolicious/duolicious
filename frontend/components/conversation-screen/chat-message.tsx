@@ -51,6 +51,10 @@ import {
   ReactionMenu,
 } from './reaction-controls';
 import { useAnchorMeasurement } from '../anchored-overlay';
+import { notify } from '../../events/events';
+import {
+  ShowEmojiPickerEvent,
+} from '../modal/emoji-picker-modal';
 
 const currentUserBackgroundColor = '#70f';
 
@@ -364,6 +368,26 @@ const ChatMessage = ({
     setShowReactionBar(true);
   }, [measureReactionAnchor]);
 
+  const openEmojiPicker = useCallback(() => {
+    setShowReactionBar(false);
+
+    if (!mamId) {
+      return;
+    }
+
+    if (isMobile()) {
+      notify<ShowEmojiPickerEvent>('show-emoji-picker', { mamId });
+    } else {
+      // The hover path never measures the anchor before this point
+      measureReactionAnchor((measurement) =>
+        notify<ShowEmojiPickerEvent>(
+          'show-emoji-picker',
+          { mamId, anchor: measurement },
+        )
+      );
+    }
+  }, [mamId, measureReactionAnchor]);
+
   const doRenderUrlAsImage = (
     message &&
     message.message.type === 'chat-text' &&
@@ -536,6 +560,7 @@ const ChatMessage = ({
           anchor={reactionAnchor}
           selected={reaction?.emoji}
           onPick={pickReaction}
+          onOpenPicker={openEmojiPicker}
           onDismiss={() => setShowReactionBar(false)}
           onHoverChange={isMobile() ? undefined : setIsHovering}
         />
