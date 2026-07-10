@@ -323,6 +323,11 @@ send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji2"
 [[ "$(inbox_row "$user2uuid" "$user1uuid")" == "Reacted ${emoji2} to: ${body1}|2" ]]
 [[ "$(count_pushes_to 'user2-token')" -eq 2 ]]
 
+# The partner got a fresh inbox entry ahead of the replacement reaction
+received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
+[[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" \
+    == "duo_inbox_entry,duo_reaction" ]]
+
 
 echo "Clearing a reaction is quiet"
 
