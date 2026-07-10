@@ -468,7 +468,11 @@ const ChatMessage = ({
       runOnJS(openReactionBar)()
     });
 
-  const gesture = Gesture.Exclusive(longPress, pan, tap);
+  // RNGH's web orchestrator never reports failure for a disabled handler, so
+  // a disabled longPress in the composition blocks pan and tap forever
+  const gesture = canReact
+    ? Gesture.Exclusive(longPress, pan, tap)
+    : Gesture.Exclusive(pan, tap);
 
   const gestureStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
