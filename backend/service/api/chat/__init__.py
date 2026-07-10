@@ -447,6 +447,60 @@ async def _chat_interaction_blocked(
     return False, None
 
 
+async def _publish_reaction_inbox_entry(
+    partner_username: str,
+    reactor_username: str,
+) -> None:
+    # Skipped when nobody is subscribed to the partner's channel: the publish
+    # would go nowhere, and an offline partner gets the whole inbox via
+    # `duo_query_inbox` on reconnect anyway.
+    if not await redis_has_subscribers(REDIS_WORKER_CLIENT, partner_username):
+        return
+
+    await redis_publish_many(
+        partner_username,
+        await get_inbox_entry(
+            viewer_username=partner_username,
+            prospect_username=reactor_username))
+
+
+async def _send_reaction_notification(
+    from_id: int,
+    partner_id: int,
+    partner_username: str,
+    emoji: str,
+    target_body: str,
+) -> None:
+    # Always a chat, never an intro, from the partner's perspective: they
+    # authored the reacted-to message, so they've messaged the reactor by
+    # definition.
+    immediate_data = await fetch_immediate_data(
+        from_id=from_id,
+        to_id=partner_id,
+        is_intro=False)
+
+    if immediate_data is None:
+        return
+
+    await send_notification(
+        from_name=row_str_or_none(immediate_data, 'name'),
+        to_username=partner_username,
+        message=target_body,
+        is_intro=False,
+        title=f"{immediate_data['name']} reacted {emoji} to your message",
+        data={
+            'screen': 'Conversation Screen',
+            'params': {
+                'personId': immediate_data['person_id'],
+                'personUuid': immediate_data['person_uuid'],
+                'name': immediate_data['name'],
+                'photoUuid': immediate_data['photo_uuid'],
+                'photoBlurhash': immediate_data['photo_blurhash'],
+            },
+        },
+    )
+
+
 async def _handle_reaction(
     parsed: ReactionMessage,
     from_username: str,
@@ -483,14 +537,14 @@ async def _handle_reaction(
     if is_blocked:
         return await reject()
 
-    is_shadow_banned = await fetch_is_shadow_banned(from_id)
+    deliver_to_partner = not await fetch_is_shadow_banned(from_id)
 
     stored = await store_reaction(
         reactor_username=from_username,
         partner_username=partner_username,
         reactor_copy_id=reactor_copy_id,
         emoji=parsed.emoji,
-        deliver_to_recipient=not is_shadow_banned,
+        deliver_to_recipient=deliver_to_partner,
     )
 
     if not stored:
@@ -510,25 +564,20 @@ async def _handle_reaction(
             to_id=partner_id,
             msg_id=parsed.stanza_id,
             body=reaction_inbox_body(parsed.emoji, target.target_body),
-            deliver_to_recipient=not is_shadow_banned,
+            deliver_to_recipient=deliver_to_partner,
         )
 
     stamp = format_timestamp(now_microseconds())
 
-    if not is_shadow_banned:
-        # The inbox entry goes out before the reaction itself, mirroring the
-        # message path: by the time the partner's client reacts to the
-        # stanza, its inbox already reflects it. Skipped when nobody is
-        # subscribed; an offline partner gets the whole inbox via
-        # `duo_query_inbox` on reconnect anyway.
-        if is_new_visible_reaction and await redis_has_subscribers(
-                REDIS_WORKER_CLIENT, partner_username):
-            await redis_publish_many(
-                partner_username,
-                await get_inbox_entry(
-                    viewer_username=partner_username,
-                    prospect_username=from_username))
+    # The inbox entry goes out before the reaction itself, mirroring the
+    # message path: by the time the partner's client reacts to the stanza,
+    # its inbox already reflects it.
+    if deliver_to_partner and is_new_visible_reaction:
+        await _publish_reaction_inbox_entry(
+            partner_username=partner_username,
+            reactor_username=from_username)
 
+    if deliver_to_partner:
         await redis_publish_many(partner_username, [
             IncomingReaction(
                 from_username=from_username,
@@ -539,35 +588,13 @@ async def _handle_reaction(
             )
         ])
 
-        if is_new_visible_reaction:
-            # Always a chat, never an intro, from the partner's perspective:
-            # they authored the reacted-to message, so they've messaged the
-            # reactor by definition.
-            immediate_data = await fetch_immediate_data(
-                from_id=from_id,
-                to_id=partner_id,
-                is_intro=False)
-
-            if immediate_data is not None:
-                await send_notification(
-                    from_name=row_str_or_none(immediate_data, 'name'),
-                    to_username=partner_username,
-                    message=target.target_body,
-                    is_intro=False,
-                    title=(
-                        f"{immediate_data['name']} reacted {parsed.emoji} "
-                        "to your message"),
-                    data={
-                        'screen': 'Conversation Screen',
-                        'params': {
-                            'personId': immediate_data['person_id'],
-                            'personUuid': immediate_data['person_uuid'],
-                            'name': immediate_data['name'],
-                            'photoUuid': immediate_data['photo_uuid'],
-                            'photoBlurhash': immediate_data['photo_blurhash'],
-                        },
-                    },
-                )
+    if deliver_to_partner and is_new_visible_reaction:
+        await _send_reaction_notification(
+            from_id=from_id,
+            partner_id=partner_id,
+            partner_username=partner_username,
+            emoji=parsed.emoji,
+            target_body=target.target_body)
 
     await redis_publish_many(connection_uuid, [
         ReactionDelivered(stanza_id=parsed.stanza_id, stamp=stamp)
