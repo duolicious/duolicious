@@ -20,6 +20,7 @@ from limits.aio.strategies import FixedWindowRateLimiter
 from limits.storage import storage_from_string
 from starlette.requests import Request
 
+from antiabuse.antispam.signupemail import normalize_email
 from service.api.mocking import (
     disable_account_rate_limit,
     disable_ip_rate_limit,
@@ -132,15 +133,13 @@ class Limiter:
 
 default_limits = "60 per minute; 12 per second"
 
-# Per-IP cap shared by every unauthenticated auth endpoint
-# (/request-otp, /check-otp, /sign-in-with-*, /auth/apple/callback).
-# Each endpoint scopes the bucket separately so they don't double-bill
-# against the same allowance -- change this string to retune them all
-# at once.
-auth_rate_limit = "40 per day"
-
-# Shared OTP send cap (/request-otp, /resend-otp), keyed per-IP.
-otp_rate_limit = "3 per minute"
+# Cap shared by every auth endpoint (/request-otp, /resend-otp, /check-otp,
+# /sign-in-with-*, /auth/apple/callback), enforced per-IP everywhere and
+# additionally per-email (OTP sends) or per-account (/check-otp), so rotating
+# IPs can't mint unlimited OTP emails for one address. Each endpoint scopes
+# its buckets separately so they don't double-bill against the same
+# allowance -- change this string to retune them all at once.
+auth_rate_limit = "3 per minute; 40 per day"
 
 # Per (search-type, club) cap on uncached /search queries.
 search_rate_limit = "15 per 2 minutes"
@@ -214,6 +213,27 @@ async def check_ip_and_account(
         key_func=limiter_account, exempt_when=disable_account_rate_limit)
 
 
+async def check_otp_send_limits(request: Request, email: str) -> None:
+    """Enforce `auth_rate_limit` twice for an OTP send: once keyed on the
+    client IP and once on the normalized email. `/request-otp` and
+    `/resend-otp` call this inline (with the email from the request body or
+    session respectively) since the email key can't compose as a dependency:
+    `limiter_account` is only populated for authenticated requests."""
+    await limiter.check(
+        request,
+        auth_rate_limit,
+        scope='otp',
+        exempt_when=_is_private_ip,
+    )
+    await limiter.check(
+        request,
+        auth_rate_limit,
+        scope='otp_email',
+        key_func=lambda _: normalize_email(email),
+        exempt_when=disable_account_rate_limit,
+    )
+
+
 def ip_rate_limit(
     limit_value: LimitValue,
     scope: ScopeArg = None,
@@ -243,10 +263,3 @@ def ip_and_account_rate_limit(
     async def dependency(request: Request) -> None:
         await check_ip_and_account(request, limit_value, scope)
     return dependency
-
-
-shared_otp_limit_dependency = rate_limit(
-    otp_rate_limit,
-    scope="otp",
-    exempt_when=_is_private_ip,
-)

@@ -18,6 +18,42 @@ set -xe
   jc POST /request-otp -d '{ "email": "user1@example.com" }'
 ! jc POST /request-otp -d '{ "email": "user2@example.com" }' || exit 1
 
+echo Email-keyed OTP limit applies to /request-otp even when the IP changes
+printf 1 > ../../test/input/disable-ip-rate-limit
+printf 0 > ../../test/input/disable-account-rate-limit
+for x in {1..3}
+do
+  printf "256.256.3.${x}" > ../../test/input/mock-ip-address
+  jc POST /request-otp -d '{ "email": "user6@example.com" }'
+done
+printf 256.256.3.99 > ../../test/input/mock-ip-address
+! jc POST /request-otp -d '{ "email": "user6@example.com" }' || exit 1
+
+echo "The email-keyed limit doesn't affect other email addresses"
+jc POST /request-otp -d '{ "email": "user7@example.com" }'
+
+echo Email aliases share one OTP allowance
+printf 256.256.4.1 > ../../test/input/mock-ip-address
+jc POST /request-otp -d '{ "email": "otpvictim@gmail.com" }'
+printf 256.256.4.2 > ../../test/input/mock-ip-address
+jc POST /request-otp -d '{ "email": "otp.victim+a@gmail.com" }'
+printf 256.256.4.3 > ../../test/input/mock-ip-address
+jc POST /request-otp -d '{ "email": "OtpVictim+b@gmail.com" }'
+printf 256.256.4.4 > ../../test/input/mock-ip-address
+! jc POST /request-otp -d '{ "email": "otpvictim@gmail.com" }' || exit 1
+
+echo /resend-otp draws from the same per-email allowance
+printf 256.256.5.1 > ../../test/input/mock-ip-address
+response=$(jc POST /request-otp -d '{ "email": "user8@example.com" }')
+SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
+printf 256.256.5.2 > ../../test/input/mock-ip-address
+jc POST /resend-otp
+printf 256.256.5.3 > ../../test/input/mock-ip-address
+jc POST /resend-otp
+printf 256.256.5.4 > ../../test/input/mock-ip-address
+! jc POST /resend-otp || exit 1
+SESSION_TOKEN=""
+
 printf 1 > ../../test/input/disable-ip-rate-limit
 printf 1 > ../../test/input/disable-account-rate-limit
 q 'delete from person'

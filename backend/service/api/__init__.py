@@ -29,7 +29,7 @@ from service.api.ratelimit import (
     auth_rate_limit,
     client_ip,
     default_limits,
-    shared_otp_limit_dependency,
+    check_otp_send_limits,
     ip_rate_limit,
     account_rate_limit,
     ip_and_account_rate_limit,
@@ -52,19 +52,19 @@ def get_ttl_hash(seconds: int = 10) -> int:
 async def post_request_otp(
     request: Request,
     req: t.PostRequestOtp,
-    _shared_limited: None = Depends(shared_otp_limit_dependency),
 ) -> object:
+    await check_otp_send_limits(request, req.email)
     return await person.post_request_otp(req, client_ip(request))
 
 @app.post('/resend-otp')
 async def post_resend_otp(
     request: Request,
-    _shared_limited: None = Depends(shared_otp_limit_dependency),
     s: t.SessionInfo = Depends(session(
         expected_onboarding_status=None,
         expected_sign_in_status=False,
     )),
 ) -> object:
+    await check_otp_send_limits(request, s.email)
     return await person.post_resend_otp(s, client_ip(request))
 
 @app.post('/check-otp')
