@@ -67,6 +67,43 @@ def store_message(
     _store_message_batcher.enqueue(job, callback)
 
 
+async def store_reaction_conversation(
+    from_username: str,
+    to_username: str,
+    from_id: int,
+    to_id: int,
+    msg_id: str,
+    body: str,
+    deliver_to_recipient: bool,
+) -> None:
+    """
+    Surface a reaction in both people's inboxes, synchronously. Unlike
+    messages, reactions aren't batched: the caller publishes the updated inbox
+    entry immediately afterwards, so the row must already be committed.
+
+    The `messaged` upsert makes the partner's inbox entry visible when the
+    reactor never replied to them (the inbox queries hide conversations whose
+    prospect never messaged the viewer), treating a reaction as engagement the
+    same way a reply would be.
+    """
+    async with api_tx('read committed') as tx:
+        await process_upsert_conversation_batch(tx, [
+            UpsertConversationJob(
+                from_username=from_username,
+                to_username=to_username,
+                msg_id=msg_id,
+                body=body,
+                deliver_to_recipient=deliver_to_recipient,
+            )
+        ])
+        await process_set_messaged_batch(tx, [
+            SetMessagedJob(
+                from_id=from_id,
+                to_id=to_id,
+            )
+        ])
+
+
 async def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
     store_mam_message_jobs = [
             job.store_mam_message_job

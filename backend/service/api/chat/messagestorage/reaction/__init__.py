@@ -26,13 +26,17 @@ so no client can learn a message's `mam_id` until after its rows are committed.
 A missing target therefore means a genuinely absent or own-message reaction, not
 a not-yet-flushed one.
 """
+from dataclasses import dataclass
+
 from database import api_tx
 from service.api.chat.messagestorage.mam import sibling_mam_id
 
 
-Q_FETCH_REACTION_PARTNER = """
+Q_FETCH_REACTION_TARGET = """
 SELECT
-    remote_bare_jid AS partner_username
+    remote_bare_jid AS partner_username,
+    reaction AS previous_reaction,
+    body AS target_body
 FROM
     mam_message
 WHERE
@@ -131,19 +135,35 @@ FROM
 """
 
 
-async def fetch_reaction_partner(
+@dataclass(frozen=True)
+class ReactionTarget:
+    partner_username: str
+    previous_reaction: str | None
+    target_body: str
+
+
+def reaction_inbox_body(emoji: str, target_body: str) -> str:
+    return f'Reacted {emoji} to: {target_body}'
+
+
+async def fetch_reaction_target(
     reactor_username: str,
     reactor_copy_id: int,
-) -> str | None:
+) -> ReactionTarget | None:
     """
-    The username of the person whose message the reactor is reacting to, taken
-    from the `remote_bare_jid` of the reactor's own incoming archive copy.
-    Returns None when the target isn't a message the reactor received (their own
-    message, or a non-existent id), which the caller should reject.
+    The target of a reaction, taken from the reactor's own incoming archive
+    copy: the partner (whose message is being reacted to, from
+    `remote_bare_jid`), the reaction currently on the message, and the
+    message's body. Returns None when the target isn't a message the reactor
+    received (their own message, or a non-existent id), which the caller
+    should reject.
+
+    `previous_reaction` is read before `store_reaction` writes; concurrent
+    reactions from the same user can at worst notify twice.
     """
     async with api_tx('read committed') as tx:
         await tx.execute(
-            Q_FETCH_REACTION_PARTNER,
+            Q_FETCH_REACTION_TARGET,
             dict(
                 reactor_username=reactor_username,
                 reactor_copy_id=reactor_copy_id,
@@ -151,7 +171,14 @@ async def fetch_reaction_partner(
         )
         row = await tx.fetchone()
 
-    return row['partner_username'] if row else None
+    if not row:
+        return None
+
+    return ReactionTarget(
+        partner_username=row['partner_username'],
+        previous_reaction=row['previous_reaction'],
+        target_body=row['target_body'],
+    )
 
 
 async def store_reaction(

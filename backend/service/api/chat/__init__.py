@@ -32,9 +32,13 @@ from service.api.chat.messagestorage.mam import (
     sibling_mam_id,
 )
 from chatprotocol.mam_id import encode_mam_id
-from service.api.chat.messagestorage import store_message
+from service.api.chat.messagestorage import (
+    store_message,
+    store_reaction_conversation,
+)
 from service.api.chat.messagestorage.reaction import (
-    fetch_reaction_partner,
+    fetch_reaction_target,
+    reaction_inbox_body,
     store_reaction,
 )
 from service.api.chat.session import (
@@ -267,6 +271,7 @@ async def send_notification(
     message: str | None,
     is_intro: bool,
     data: object,
+    title: str | None = None,
 ) -> None:
     if from_name is None:
         return None
@@ -301,7 +306,7 @@ async def send_notification(
     for to_token in to_tokens:
         notify.enqueue_mobile_notification(
             token=to_token,
-            title=f"{from_name} sent you a message",
+            title=title if title is not None else f"{from_name} sent you a message",
             body=truncated_message,
             data=data,
             badge=badge,
@@ -458,12 +463,14 @@ async def _handle_reaction(
     if not from_id:
         return None
 
-    partner_username = await fetch_reaction_partner(
+    target = await fetch_reaction_target(
         reactor_username=from_username,
         reactor_copy_id=reactor_copy_id,
     )
-    if partner_username is None:
+    if target is None:
         return await reject()
+
+    partner_username = target.partner_username
 
     partner_id = await fetch_id_from_username(partner_username)
     if partner_id is None:
@@ -489,9 +496,39 @@ async def _handle_reaction(
     if not stored:
         return await reject()
 
+    # Re-sending the same emoji changes nothing the partner can see, and
+    # clearing a reaction is deliberately quiet, so only a new visible
+    # reaction reaches the partner's inbox and notifications.
+    is_new_visible_reaction = (
+        bool(parsed.emoji) and parsed.emoji != target.previous_reaction)
+
+    if is_new_visible_reaction:
+        await store_reaction_conversation(
+            from_username=from_username,
+            to_username=partner_username,
+            from_id=from_id,
+            to_id=partner_id,
+            msg_id=parsed.stanza_id,
+            body=reaction_inbox_body(parsed.emoji, target.target_body),
+            deliver_to_recipient=not is_shadow_banned,
+        )
+
     stamp = format_timestamp(now_microseconds())
 
     if not is_shadow_banned:
+        # The inbox entry goes out before the reaction itself, mirroring the
+        # message path: by the time the partner's client reacts to the
+        # stanza, its inbox already reflects it. Skipped when nobody is
+        # subscribed; an offline partner gets the whole inbox via
+        # `duo_query_inbox` on reconnect anyway.
+        if is_new_visible_reaction and await redis_has_subscribers(
+                REDIS_WORKER_CLIENT, partner_username):
+            await redis_publish_many(
+                partner_username,
+                await get_inbox_entry(
+                    viewer_username=partner_username,
+                    prospect_username=from_username))
+
         await redis_publish_many(partner_username, [
             IncomingReaction(
                 from_username=from_username,
@@ -501,6 +538,36 @@ async def _handle_reaction(
                 stamp=stamp,
             )
         ])
+
+        if is_new_visible_reaction:
+            # Always a chat, never an intro, from the partner's perspective:
+            # they authored the reacted-to message, so they've messaged the
+            # reactor by definition.
+            immediate_data = await fetch_immediate_data(
+                from_id=from_id,
+                to_id=partner_id,
+                is_intro=False)
+
+            if immediate_data is not None:
+                await send_notification(
+                    from_name=row_str_or_none(immediate_data, 'name'),
+                    to_username=partner_username,
+                    message=target.target_body,
+                    is_intro=False,
+                    title=(
+                        f"{immediate_data['name']} reacted {parsed.emoji} "
+                        "to your message"),
+                    data={
+                        'screen': 'Conversation Screen',
+                        'params': {
+                            'personId': immediate_data['person_id'],
+                            'personUuid': immediate_data['person_uuid'],
+                            'name': immediate_data['name'],
+                            'photoUuid': immediate_data['photo_uuid'],
+                            'photoBlurhash': immediate_data['photo_blurhash'],
+                        },
+                    },
+                )
 
     await redis_publish_many(connection_uuid, [
         ReactionDelivered(stanza_id=parsed.stanza_id, stamp=stamp)
