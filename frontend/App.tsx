@@ -35,7 +35,7 @@ import { japi, CLIENT_VERSION } from './api/api';
 import { login, logout } from './chat/application-layer';
 import { useInboxStats } from './chat/application-layer/hooks/inbox-stats';
 import { STATUS_URL } from './env/env';
-import { delay } from './util/util';
+import { delay, isMobile } from './util/util';
 import { ColorPickerModal } from './components/modal/color-picker-modal/color-picker-modal';
 import { GifPickerModal } from './components/modal/gif-picker-modal';
 import { EmojiPickerModal } from './components/modal/emoji-picker-modal';
@@ -482,7 +482,19 @@ const App = () => {
     <ErrorBoundary onError={onError}>
       <SafeAreaProvider>
         {!isLoading && initialState !== undefined &&
-          <GestureHandlerRootView>
+          <GestureHandlerRootView
+            style={
+              // On mobile web, the browser's own long-press gesture finds no
+              // selectable text under the finger (message text is
+              // unselectable there) and escalates to selecting the whole
+              // page. Elements with `selectable={true}` still opt back in
+              // via an inline `user-select: text`.
+              isMobile() && Platform.OS === 'web'
+                /* @ts-ignore */
+                ? { flex: 1, userSelect: 'none' }
+                : { flex: 1 }
+            }
+          >
             <KeyboardProvider>
             <NavigationContainer
               ref={navigationContainerRef}
