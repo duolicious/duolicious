@@ -95,7 +95,11 @@ const ReactionBar = ({
           paddingHorizontal: 6,
           paddingVertical: 4,
           borderRadius: 999,
-          ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+          ...(Platform.OS === 'web' ? {
+            cursor: 'pointer',
+            // @ts-ignore
+            outline: 'none',
+          } : {}),
         }}
       >
         <FontAwesomeIcon

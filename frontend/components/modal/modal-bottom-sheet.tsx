@@ -141,6 +141,10 @@ const ModalBottomSheet = ({
           style={[
             {
               height: sheetHeight,
+              // When the keyboard opens, the avoiding view shrinks; without
+              // this the fixed-height sheet overflows off the top of the
+              // screen, clipping the handle and search input
+              maxHeight: '100%',
               backgroundColor: appTheme.primaryColor,
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
