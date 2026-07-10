@@ -80,14 +80,6 @@ const ReactionBar = ({
           <DefaultText style={{ fontSize: 22 }}>{emoji}</DefaultText>
         </Pressable>
       ))}
-      <View
-        style={{
-          width: 1,
-          alignSelf: 'stretch',
-          marginVertical: 2,
-          backgroundColor: appTheme.reactionBarBorderColor,
-        }}
-      />
       <Pressable
         onPress={onOpenPicker}
         aria-label="More reactions"
