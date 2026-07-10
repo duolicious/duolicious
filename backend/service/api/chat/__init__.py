@@ -775,9 +775,8 @@ async def process_text(
         if not is_shadow_banned:
             # The complete inbox entry goes out before the message itself so
             # that by the time the recipient's client reacts to the message,
-            # its inbox already has the sender's info (which legacy clients
-            # fetched from `/inbox-info` instead). This runs after the message
-            # is stored, so the entry reflects the new message.
+            # its inbox already has the sender's info. This runs after the
+            # message is stored, so the entry reflects the new message.
             #
             # Fetching the entry is skipped when nobody is subscribed to the
             # recipient's channel: the publish would go nowhere, and an

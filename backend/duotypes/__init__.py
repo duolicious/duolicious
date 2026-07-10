@@ -659,10 +659,6 @@ class PostSearchFilterAnswer(BaseModel):
     accept_unanswered: bool
 
 
-class PostInboxInfo(BaseModel):
-    person_uuids: List[str]
-
-
 class PostJoinClub(BaseModel):
     name: ClubName
 

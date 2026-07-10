@@ -122,23 +122,6 @@ test_conversation_prospect () {
   [[ "$(c GET "/conversation-prospect/${user1_uuid}" | jq -r '.name')" = "user1" ]]
 }
 
-test_inbox_info () {
-  setup
-
-  # user1 messaged user2
-  q "insert into messaged (subject_person_id, object_person_id) values (${user1_id}, ${user2_id})"
-
-  ban user1
-
-  # From user2's perspective the shadow-banned partner is anonymised, exactly
-  # like a deactivated account: the uuid is returned but the name/photo are not.
-  assume_role user2
-  response=$(jc POST "/inbox-info" -d "{ \"person_uuids\": [\"${user1_uuid}\"] }")
-
-  [[ "$(echo "$response" | jq -r '.[0].person_uuid')" = "${user1_uuid}" ]]
-  [[ "$(echo "$response" | jq -r '.[0].name')" = "null" ]]
-}
-
 test_compare_answers () {
   setup
 
@@ -180,6 +163,5 @@ test_search_hides_banned_from_others
 test_club_search_hides_banned_from_others
 test_prospect_profile
 test_conversation_prospect
-test_inbox_info
 test_compare_answers
 test_data_export_hides_the_flag

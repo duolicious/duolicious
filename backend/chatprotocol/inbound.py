@@ -93,7 +93,7 @@ class InboxSnapshotQuery:
     """
     The modern inbox query (`duo_query_inbox`). Unlike the legacy `InboxQuery`,
     the response carries complete conversations (person info included), so
-    clients don't have to join the inbox against the `/inbox-info` endpoint.
+    clients don't have to join the inbox against a separate endpoint.
     """
     pass
 

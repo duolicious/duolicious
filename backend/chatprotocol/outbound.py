@@ -511,7 +511,7 @@ class InboxSnapshot(Outbound):
     The response to `duo_query_inbox`: a JSON object of the form
     `{"conversations": [...]}` where each conversation is complete (last
     message, unread state and person info), replacing the legacy
-    `InboxResult`/`InboxFin` stream plus `/inbox-info` join.
+    `InboxResult`/`InboxFin` stream.
     """
     payload: InboxSnapshotPayload
 

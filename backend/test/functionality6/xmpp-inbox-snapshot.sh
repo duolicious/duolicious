@@ -277,3 +277,13 @@ EOF
 )
 
 diff -u --color <(echo "$actual_snapshot") <(jq -S . <<< "$expected_snapshot")
+
+
+echo "A shadow-banned partner is anonymised and archived, like a skipped one"
+
+q "delete from skipped"
+q "update person set shadow_banned_at = now() where id = ${user2id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+diff -u --color <(echo "$actual_snapshot") <(jq -S . <<< "$expected_snapshot")

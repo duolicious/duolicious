@@ -310,13 +310,6 @@ async def get_compare_answers(
         o=request.query_params.get('o', '0'),
     )
 
-@app.post('/inbox-info')
-async def post_inbox_info(
-    req: t.PostInboxInfo,
-    s: t.SessionInfo = Depends(session()),
-) -> object:
-    return await person.post_inbox_info(req, s)
-
 @app.delete('/account')
 async def delete_account(
     s: t.SessionInfo = Depends(session()),

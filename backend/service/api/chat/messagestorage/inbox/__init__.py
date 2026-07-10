@@ -28,10 +28,9 @@ ORDER BY
 """
 
 
-# The gating rules (which fields a viewer may see, and which box the
-# conversation belongs in) mirror Q_INBOX_INFO, which serves the legacy
-# `/inbox-info` endpoint. This query joins them against the viewer's `inbox`
-# rows so one websocket response carries complete conversations.
+# This query joins the gating rules (which fields a viewer may see, and which
+# box the conversation belongs in) against the viewer's `inbox` rows so one
+# websocket response carries complete conversations.
 #
 # `entry_predicate` narrows the viewer's `inbox` rows: empty for the whole-inbox
 # snapshot, or an equality on `remote_bare_jid` (the primary key's second
@@ -616,7 +615,7 @@ async def _fetch_inbox_conversations(
     async with api_tx('read committed') as tx:
         # The whole-inbox query's estimated cost crosses the default jit
         # thresholds for users with large inboxes, so JIT spends ~1s compiling
-        # for no benefit. (Same rationale as the legacy Q_INBOX_INFO.)
+        # for no benefit.
         await tx.execute('SET LOCAL jit = off')
         await tx.execute('SET LOCAL statement_timeout = 15000')
         await tx.execute(query, params)
