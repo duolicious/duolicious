@@ -95,17 +95,19 @@ const ReactionBar = ({
           paddingHorizontal: 6,
           paddingVertical: 4,
           borderRadius: 999,
-          ...(Platform.OS === 'web' ? {
-            cursor: 'pointer',
-            // @ts-ignore
-            outline: 'none',
-          } : {}),
+          cursor: 'pointer',
+          // @ts-ignore
+          outline: 'none',
         }}
       >
         <FontAwesomeIcon
           icon={faPlus}
           size={18}
           color={appTheme.secondaryColor}
+          style={{
+            // @ts-ignore
+            outline: 'none',
+          }}
         />
       </Pressable>
     </View>

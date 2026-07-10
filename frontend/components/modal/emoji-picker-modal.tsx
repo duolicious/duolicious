@@ -76,13 +76,13 @@ const EmojiPickerModal: React.FC = () => {
     });
   }, []);
 
-  if (isMobile()) {
-    // `event` is kept while `isShowing` is false so the sheet's contents stay
-    // mounted through its exit animation
-    if (!event) {
-      return null;
-    }
+  // `event` is kept while `isShowing` is false so the sheet's contents stay
+  // mounted through its exit animation
+  if (isMobile() && !event) {
+    return null;
+  }
 
+  if (isMobile()) {
     return (
       <ModalBottomSheet
         visible={isShowing}
@@ -96,51 +96,51 @@ const EmojiPickerModal: React.FC = () => {
         />
       </ModalBottomSheet>
     );
-  }
-
-  return (
-    <AnchoredOverlay
-      visible={isShowing}
-      modal
-      onRequestClose={close}
-    >
-      <Pressable
-        onPressIn={close}
-        style={StyleSheet.absoluteFillObject}
-      />
-      <Animated.View
-        entering={FadeIn.duration(100)}
-        style={[
-          aboveAnchorStyle(event?.anchor, windowDimensions, {
-            estimatedWidth: PANEL_WIDTH,
-            estimatedHeight: PANEL_HEIGHT,
-          }),
-          {
-            width: PANEL_WIDTH,
-            height: PANEL_HEIGHT,
-            backgroundColor: appTheme.primaryColor,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: appTheme.reactionBarBorderColor,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 8,
-            overflow: 'hidden',
-          },
-        ]}
+  } else {
+    return (
+      <AnchoredOverlay
+        visible={isShowing}
+        modal
+        onRequestClose={close}
       >
-        <SearchInput query={query} onChangeQuery={setQuery} autoFocus />
-        <View style={styles.panelGrid}>
-          <EmojiGrid
-            query={query}
-            selected={reaction?.emoji}
-            onPick={onPick}
-          />
-        </View>
-      </Animated.View>
-    </AnchoredOverlay>
-  );
+        <Pressable
+          onPressIn={close}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <Animated.View
+          entering={FadeIn.duration(100)}
+          style={[
+            aboveAnchorStyle(event?.anchor, windowDimensions, {
+              estimatedWidth: PANEL_WIDTH,
+              estimatedHeight: PANEL_HEIGHT,
+            }),
+            {
+              width: PANEL_WIDTH,
+              height: PANEL_HEIGHT,
+              backgroundColor: appTheme.primaryColor,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: appTheme.reactionBarBorderColor,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+              overflow: 'hidden',
+            },
+          ]}
+        >
+          <SearchInput query={query} onChangeQuery={setQuery} autoFocus />
+          <View style={styles.panelGrid}>
+            <EmojiGrid
+              query={query}
+              selected={reaction?.emoji}
+              onPick={onPick}
+            />
+          </View>
+        </Animated.View>
+      </AnchoredOverlay>
+    )
+  }
 };
 
 const styles = StyleSheet.create({
