@@ -142,10 +142,6 @@ class ReactionTarget:
     target_body: str
 
 
-def reaction_inbox_body(emoji: str, target_body: str) -> str:
-    return f'Reacted {emoji} to: {target_body}'
-
-
 async def fetch_reaction_target(
     reactor_username: str,
     reactor_copy_id: int,

@@ -2,7 +2,10 @@ import re
 import unittest
 
 from search.sql import Q_UNCACHED_SEARCH_2
-from service.api.chat.messagestorage.inbox import Q_INBOX_SNAPSHOT
+from service.api.chat.messagestorage.inbox import (
+    Q_INBOX_SNAPSHOT,
+    _composed_body,
+)
 
 # The searcher's filter predicates that the inbox snapshot deliberately
 # doesn't mirror in `matches_search_filters` (the rationale for each is with
@@ -40,6 +43,26 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         # If a deliberately-unmirrored table disappears from the search query,
         # its entry above is stale.
         self.assertLessEqual(DELIBERATELY_UNMIRRORED, search_tables)
+
+
+class TestComposedBody(unittest.TestCase):
+    def test_no_reaction_returns_last_message(self) -> None:
+        self.assertEqual(
+            _composed_body('hey, how are you?', None, None),
+            'hey, how are you?',
+        )
+
+    def test_reaction_decorates_its_target(self) -> None:
+        self.assertEqual(
+            _composed_body('a newer message', '👍', 'hey, how are you?'),
+            'Reacted 👍 to: hey, how are you?',
+        )
+
+    def test_multiline_target(self) -> None:
+        self.assertEqual(
+            _composed_body('x', '😂', 'line one\nline two'),
+            'Reacted 😂 to: line one\nline two',
+        )
 
 
 if __name__ == '__main__':

@@ -21,6 +21,7 @@ from service.api.chat.mayberegister import register_push_token
 from service.api.chat.spam import is_spam_message
 from service.api.chat.upsertlastnotification import upsert_last_notification
 from service.api.chat.messagestorage.inbox import (
+    clear_inbox_reaction,
     get_inbox,
     get_inbox_entry,
     get_inbox_snapshot,
@@ -38,7 +39,6 @@ from service.api.chat.messagestorage import (
 )
 from service.api.chat.messagestorage.reaction import (
     fetch_reaction_target,
-    reaction_inbox_body,
     store_reaction,
 )
 from service.api.chat.session import (
@@ -550,9 +550,8 @@ async def _handle_reaction(
     if not stored:
         return await reject()
 
-    # Re-sending the same emoji changes nothing the partner can see, and
-    # clearing a reaction is deliberately quiet, so only a new visible
-    # reaction reaches the partner's inbox and notifications.
+    # Re-sending the same emoji changes nothing the partner can see, so only
+    # a new visible reaction reaches the partner's inbox and notifications.
     is_new_visible_reaction = (
         bool(parsed.emoji) and parsed.emoji != target.previous_reaction)
 
@@ -562,17 +561,30 @@ async def _handle_reaction(
             to_username=partner_username,
             from_id=from_id,
             to_id=partner_id,
-            msg_id=parsed.stanza_id,
-            body=reaction_inbox_body(parsed.emoji, target.target_body),
+            reaction_target_mam_id=reactor_copy_id,
+            emoji=parsed.emoji,
+            target_body=target.target_body,
             deliver_to_recipient=deliver_to_partner,
         )
+
+    # A clear reverts both inbox previews to the last message, but only when
+    # the rows still reflect this reaction; if the partner's row changed,
+    # they're pushed a fresh inbox entry below. No unread bump, no push.
+    partner_inbox_reverted = (
+        not parsed.emoji
+        and await clear_inbox_reaction(
+            reactor_username=from_username,
+            partner_username=partner_username,
+            reaction_target_mam_id=reactor_copy_id,
+            deliver_to_recipient=deliver_to_partner,
+        ))
 
     stamp = format_timestamp(now_microseconds())
 
     # The inbox entry goes out before the reaction itself, mirroring the
     # message path: by the time the partner's client reacts to the stanza,
     # its inbox already reflects it.
-    if deliver_to_partner and is_new_visible_reaction:
+    if deliver_to_partner and (is_new_visible_reaction or partner_inbox_reverted):
         await _publish_reaction_inbox_entry(
             partner_username=partner_username,
             reactor_username=from_username)

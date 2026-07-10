@@ -221,12 +221,15 @@ mam_id_by_body () {
   ] | .[0]'
 }
 
-# The partner-side inbox row a reaction should touch, as "body|unread_count".
+# The inbox row a reaction should touch, as "body|reaction|unread_count".
+# `body` must always stay the conversation's last message; a live reaction
+# rides in its own column.
 inbox_row () {
   local luser=$1
   local remote=$2
 
-  q "select body || '|' || unread_count from inbox
+  q "select body || '|' || coalesce(reaction, '') || '|' || unread_count
+     from inbox
      where luser = '${luser}'
      and remote_bare_jid = '${remote}@duolicious.app'"
 }
@@ -262,14 +265,15 @@ curl -sX GET "http://localhost:3001/pop?id=user2" > /dev/null
 
 send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji1"
 
-# The partner's inbox row holds the reaction preview, unread, in chats
-[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "Reacted ${emoji1} to: ${body1}|1" ]]
+# The partner's inbox row keeps the message as `body` and holds the reaction
+# in its own column, unread, in chats
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body1}|${emoji1}|1" ]]
 [[ "$(q "select box from inbox
          where luser = '${user2uuid}'
          and remote_bare_jid = '${user1uuid}@duolicious.app'")" == "chats" ]]
 
 # The reactor's own row is updated too, read
-[[ "$(inbox_row "$user1uuid" "$user2uuid")" == "Reacted ${emoji1} to: ${body1}|0" ]]
+[[ "$(inbox_row "$user1uuid" "$user2uuid")" == "${body1}|${emoji1}|0" ]]
 
 # Reacting counts as engagement
 [[ "$(q "select count(*) from messaged
@@ -308,7 +312,7 @@ echo "Re-sending the same emoji changes nothing"
 
 send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji1"
 
-[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "Reacted ${emoji1} to: ${body1}|1" ]]
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body1}|${emoji1}|1" ]]
 [[ "$(count_pushes_to 'user2-token')" -eq 1 ]]
 
 # Only the (idempotent) duo_reaction stanza was delivered, no inbox entry
@@ -316,11 +320,11 @@ received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 [[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" == "duo_reaction" ]]
 
 
-echo "Changing the emoji notifies again"
+echo "Changing the emoji notifies again but keeps one outstanding unread bump"
 
 send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji2"
 
-[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "Reacted ${emoji2} to: ${body1}|2" ]]
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body1}|${emoji2}|1" ]]
 [[ "$(count_pushes_to 'user2-token')" -eq 2 ]]
 
 # The partner got a fresh inbox entry ahead of the replacement reaction
@@ -329,16 +333,47 @@ received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
     == "duo_inbox_entry,duo_reaction" ]]
 
 
-echo "Clearing a reaction is quiet"
+echo "Clearing a reaction reverts both previews, without a push"
 
 send_reaction_as user1 "$user2uuid" "$mam_id" ""
 
-# The reaction is gone from the archive but the inbox and pushes are untouched
+# The reaction is gone from the archive and from both inbox rows; the
+# partner's unread bump is retracted; no push was sent
 [[ "$(q "select count(*) from mam_message where reaction is not null")" -eq 0 ]]
-[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "Reacted ${emoji2} to: ${body1}|2" ]]
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body1}||0" ]]
+[[ "$(inbox_row "$user1uuid" "$user2uuid")" == "${body1}||0" ]]
 [[ "$(count_pushes_to 'user2-token')" -eq 2 ]]
 
-# The clear itself still reaches open clients so they can drop the bubble
+# The partner's open client gets the reverted inbox entry, then the clear
+# itself so it can drop the bubble
+received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
+[[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" \
+    == "duo_inbox_entry,duo_reaction" ]]
+
+entry=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received")
+[[ "$(jq -r '.last_message' <<< "$entry")" == "${body1}" ]]
+[[ "$(jq -r '.last_message_read' <<< "$entry")" == "true" ]]
+
+
+echo "A clear after a newer message changes nothing"
+
+send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji1"
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body1}|${emoji1}|1" ]]
+[[ "$(count_pushes_to 'user2-token')" -eq 3 ]]
+
+# A newer message supersedes the reaction as the latest activity
+body_newer="a newer message from user 2"
+send_message_as user2 "$user2uuid" "$user1uuid" "$body_newer"
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body_newer}||0" ]]
+
+curl -sX GET "http://localhost:3001/pop?id=user2" > /dev/null
+
+send_reaction_as user1 "$user2uuid" "$mam_id" ""
+
+# The guarded clear proves the row no longer reflects the cleared reaction,
+# so the partner's inbox is untouched and only the bubble-clearing stanza
+# goes out
+[[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body_newer}||0" ]]
 received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 [[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" == "duo_reaction" ]]
 
@@ -361,10 +396,9 @@ clear_pushes
 send_reaction_as user3 "$user2uuid" "$mam_id_2" "$emoji1"
 
 # The reactor's own row shows the reaction so their app behaves normally...
-[[ "$(inbox_row "$user3uuid" "$user2uuid")" == "Reacted ${emoji1} to: ${body2}|0" ]]
+[[ "$(inbox_row "$user3uuid" "$user2uuid")" == "${body2}|${emoji1}|0" ]]
 
-# ...but the partner's row still shows their own sent message, unread count 0,
-# and they got no stanzas and no push
-[[ "$(inbox_row "$user2uuid" "$user3uuid")" == "${body2}|0" ]]
+# ...but the partner's row is untouched, and they got no stanzas and no push
+[[ "$(inbox_row "$user2uuid" "$user3uuid")" == "${body2}||0" ]]
 [[ "$(curl -sX GET "http://localhost:3001/pop?id=user2")" == "" ]]
 [[ "$(count_pushes_to 'user2-token')" -eq 0 ]]

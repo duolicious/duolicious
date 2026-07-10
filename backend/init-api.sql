@@ -1693,6 +1693,17 @@ CREATE TABLE IF NOT EXISTS inbox (
     --   I - incoming, remote_bare_jid is a value from From.
     --   O - outgoing, remote_bare_jid is a value from To.
     direction mam_direction          NOT NULL,
+    -- The latest reaction in the conversation, riding alongside the last
+    -- message the same way `mam_message.reaction` rides on its target, so
+    -- clearing a reaction never has to reconstruct `body`. NULL when the last
+    -- activity is a message. `reaction_target_mam_id` is the reactor's own
+    -- (incoming) copy id of the reacted-to message -- server-derived, so
+    -- clears can prove the row still reflects the reaction being cleared.
+    -- `reaction_body` is the reacted-to message's body, kept separately
+    -- because the target is often not the conversation's last message.
+    reaction TEXT,
+    reaction_target_mam_id BIGINT,
+    reaction_body TEXT,
     PRIMARY KEY(luser, remote_bare_jid)
 );
 

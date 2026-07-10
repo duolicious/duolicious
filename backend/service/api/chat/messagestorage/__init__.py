@@ -1,6 +1,7 @@
 from service.api.chat.messagestorage.inbox import (
         UpsertConversationJob,
         process_upsert_conversation_batch,
+        set_inbox_reaction,
 )
 from service.api.chat.messagestorage.mam import (
         process_store_mam_message_batch,
@@ -72,8 +73,9 @@ async def store_reaction_conversation(
     to_username: str,
     from_id: int,
     to_id: int,
-    msg_id: str,
-    body: str,
+    reaction_target_mam_id: int,
+    emoji: str,
+    target_body: str,
     deliver_to_recipient: bool,
 ) -> None:
     """
@@ -87,15 +89,15 @@ async def store_reaction_conversation(
     same way a reply would be.
     """
     async with api_tx('read committed') as tx:
-        await process_upsert_conversation_batch(tx, [
-            UpsertConversationJob(
-                from_username=from_username,
-                to_username=to_username,
-                msg_id=msg_id,
-                body=body,
-                deliver_to_recipient=deliver_to_recipient,
-            )
-        ])
+        await set_inbox_reaction(
+            tx,
+            reactor_username=from_username,
+            partner_username=to_username,
+            reaction_target_mam_id=reaction_target_mam_id,
+            emoji=emoji,
+            target_body=target_body,
+            deliver_to_recipient=deliver_to_recipient,
+        )
         await process_set_messaged_batch(tx, [
             SetMessagedJob(
                 from_id=from_id,
