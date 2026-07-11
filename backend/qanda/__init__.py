@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from itertools import groupby
 import numpy
+import psycopg
 from answerspush import publish_answer_update
 from batcher import Batcher
 from constants import ANSWERED_QUESTION_EVENT_REFRESH_SECONDS
@@ -291,19 +292,44 @@ async def _set_answer(
         visible_answer_changed=new_visible != old_visible,
     )
 
+# The answer-event batcher updates the answerer's person row (the feed event)
+# while `_set_answer`'s repeatable-read transaction updates the same row's
+# personality columns, so a flush landing mid-transaction aborts it with a
+# serialization failure. Retrying re-runs the whole read-modify-write on a
+# fresh snapshot, which is safe: nothing is enqueued or published until a
+# transaction commits.
+_SET_ANSWER_TRIES = 3
+
+async def _set_answer_with_retry(
+    person_id: int,
+    question_id: int,
+    answer: bool | None,
+    public: bool | None,
+    delete: bool,
+) -> AnswerWriteResult | None:
+    for _ in range(_SET_ANSWER_TRIES - 1):
+        try:
+            async with api_tx() as tx:
+                return await _set_answer(
+                    tx, person_id, question_id, answer, public, delete)
+        except psycopg.errors.SerializationFailure:
+            continue
+
+    async with api_tx() as tx:
+        return await _set_answer(
+            tx, person_id, question_id, answer, public, delete)
+
 async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
     if s.person_id is None:
         return '', 500
 
-    async with api_tx() as tx:
-        result = await _set_answer(
-            tx,
-            s.person_id,
-            req.question_id,
-            req.answer,
-            req.public,
-            delete=False,
-        )
+    result = await _set_answer_with_retry(
+        s.person_id,
+        req.question_id,
+        req.answer,
+        req.public,
+        delete=False,
+    )
 
     if result:
         _answer_event_batcher.enqueue(result.event_job)
@@ -323,15 +349,13 @@ async def delete_answer(req: t.DeleteAnswer, s: t.SessionInfo) -> object | None:
     if s.person_id is None:
         return '', 500
 
-    async with api_tx() as tx:
-        result = await _set_answer(
-            tx,
-            s.person_id,
-            req.question_id,
-            None,
-            None,
-            delete=True,
-        )
+    result = await _set_answer_with_retry(
+        s.person_id,
+        req.question_id,
+        None,
+        None,
+        delete=True,
+    )
 
     if result:
         _answer_event_batcher.enqueue(result.event_job)
