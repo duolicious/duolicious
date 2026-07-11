@@ -315,6 +315,22 @@ async def send_notification(
     upsert_last_notification(username=to_username, is_intro=is_intro)
 
 
+# The shape is what the frontend's notification-tap handler expects.
+def _conversation_screen_data(
+    immediate_data: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        'screen': 'Conversation Screen',
+        'params': {
+            'personId': immediate_data['person_id'],
+            'personUuid': immediate_data['person_uuid'],
+            'name': immediate_data['name'],
+            'photoUuid': immediate_data['photo_uuid'],
+            'photoBlurhash': immediate_data['photo_blurhash'],
+        },
+    }
+
+
 def normalize_message(message_str: str) -> str:
     message_str = message_str.lower()
 
@@ -447,21 +463,23 @@ async def _chat_interaction_blocked(
     return False, None
 
 
-async def _publish_reaction_inbox_entry(
-    partner_username: str,
-    reactor_username: str,
+async def _publish_inbox_entry(
+    viewer_username: str,
+    prospect_username: str,
 ) -> None:
-    # Skipped when nobody is subscribed to the partner's channel: the publish
-    # would go nowhere, and an offline partner gets the whole inbox via
-    # `duo_query_inbox` on reconnect anyway.
-    if not await redis_has_subscribers(REDIS_WORKER_CLIENT, partner_username):
+    # Skipped when nobody is subscribed to the viewer's channel: the publish
+    # would go nowhere, and an offline viewer gets the whole inbox via
+    # `duo_query_inbox` on reconnect anyway. That reconnect snapshot also
+    # covers the race where the viewer connects between this check and the
+    # publish.
+    if not await redis_has_subscribers(REDIS_WORKER_CLIENT, viewer_username):
         return
 
     await redis_publish_many(
-        partner_username,
+        viewer_username,
         await get_inbox_entry(
-            viewer_username=partner_username,
-            prospect_username=reactor_username))
+            viewer_username=viewer_username,
+            prospect_username=prospect_username))
 
 
 async def _send_reaction_notification(
@@ -488,16 +506,7 @@ async def _send_reaction_notification(
         message=target_body,
         is_intro=False,
         title=f"{immediate_data['name']} reacted {emoji} to your message",
-        data={
-            'screen': 'Conversation Screen',
-            'params': {
-                'personId': immediate_data['person_id'],
-                'personUuid': immediate_data['person_uuid'],
-                'name': immediate_data['name'],
-                'photoUuid': immediate_data['photo_uuid'],
-                'photoBlurhash': immediate_data['photo_blurhash'],
-            },
-        },
+        data=_conversation_screen_data(immediate_data),
     )
 
 
@@ -585,9 +594,9 @@ async def _handle_reaction(
     # message path: by the time the partner's client reacts to the stanza,
     # its inbox already reflects it.
     if deliver_to_partner and (is_new_visible_reaction or partner_inbox_reverted):
-        await _publish_reaction_inbox_entry(
-            partner_username=partner_username,
-            reactor_username=from_username)
+        await _publish_inbox_entry(
+            viewer_username=partner_username,
+            prospect_username=from_username)
 
     if deliver_to_partner:
         await redis_publish_many(partner_username, [
@@ -854,16 +863,7 @@ async def process_text(
                 to_username=to_username,
                 message=maybe_message.body,
                 is_intro=is_intro,
-                data={
-                    'screen': 'Conversation Screen',
-                    'params': {
-                        'personId': immediate_data['person_id'],
-                        'personUuid': immediate_data['person_uuid'],
-                        'name': immediate_data['name'],
-                        'photoUuid': immediate_data['photo_uuid'],
-                        'photoBlurhash': immediate_data['photo_blurhash'],
-                    },
-                },
+                data=_conversation_screen_data(immediate_data),
             )
 
         response = MessageDelivered(
@@ -883,18 +883,9 @@ async def process_text(
             # that by the time the recipient's client reacts to the message,
             # its inbox already has the sender's info. This runs after the
             # message is stored, so the entry reflects the new message.
-            #
-            # Fetching the entry is skipped when nobody is subscribed to the
-            # recipient's channel: the publish would go nowhere, and an
-            # offline recipient gets the whole inbox via `duo_query_inbox` on
-            # reconnect anyway. That reconnect snapshot also covers the race
-            # where a recipient connects between this check and the publish.
-            if await redis_has_subscribers(REDIS_WORKER_CLIENT, to_username):
-                await redis_publish_many(
-                        to_username,
-                        await get_inbox_entry(
-                            viewer_username=to_username,
-                            prospect_username=from_username))
+            await _publish_inbox_entry(
+                viewer_username=to_username,
+                prospect_username=from_username)
 
             await redis_publish_many(to_username, [delivery_message])
 
