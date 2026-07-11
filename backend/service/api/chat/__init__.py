@@ -736,7 +736,10 @@ async def process_text(
         if isinstance(maybe_message, ChatMessage)
         else None)
 
-    if question_id is not None and await fetch_question(question_id) is None:
+    if \
+            isinstance(maybe_message, ChatMessage) and \
+            question_id is not None and \
+            await fetch_question(question_id) is None:
         maybe_message = dataclasses.replace(maybe_message, question_id=None)
         question_id = None
 
