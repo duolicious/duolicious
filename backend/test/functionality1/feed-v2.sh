@@ -588,9 +588,10 @@ test_joined_club () {
   q "delete from banned_club where name = 'cats'"
 }
 
-# Answer events and yes/no counts land via one-second batchers in the API,
-# not in the POST /answer transaction, so give them a moment to flush before
-# asserting on them
+# A question's yes/no counts land via a one-second batcher in the API, not in
+# the POST /answer transaction, so give it a moment to flush before asserting
+# on the feed's counts. (The answered-question event itself is now written in
+# the POST /answer transaction, so it needs no wait.)
 flush_answer_batchers () {
   sleep 2
 }

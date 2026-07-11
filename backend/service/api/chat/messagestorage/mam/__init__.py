@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from database import Tx, api_tx
+from qanda import ANSWER_VISIBLE_TO_OTHERS
 from service.api.chat.chatutil import (
     LSERVER,
     fetch_has_gold,
@@ -77,7 +78,10 @@ WITH page AS (
         mam_message.body,
         mam_message.audio_uuid,
         mam_message.reaction,
-        mam_message.question_id
+        mam_message.question_id,
+        -- The viewer owns every row on this page (the CTE filters on it), so
+        -- their person id is free here -- no per-row person lookup needed.
+        mam_message.person_id AS viewer_id
     FROM
         mam_message
     JOIN
@@ -95,6 +99,15 @@ WITH page AS (
         mam_message.id DESC
     LIMIT
         LEAST(50, COALESCE(%(max)s, 50))
+),
+-- Resolved once for the whole page rather than re-joining person per row.
+partner AS (
+    SELECT
+        id AS partner_id
+    FROM
+        person
+    WHERE
+        uuid = uuid_or_null(%(to_username)s)
 )
 SELECT
     page.*,
@@ -106,6 +119,10 @@ SELECT
 FROM
     page
 LEFT JOIN
+    partner
+ON
+    TRUE
+LEFT JOIN
     question
 ON
     question.id = page.question_id
@@ -115,12 +132,8 @@ LEFT JOIN LATERAL (
         answer.public_
     FROM
         answer
-    JOIN
-        person
-    ON
-        person.id = answer.person_id
     WHERE
-        person.uuid = %(from_username)s
+        answer.person_id = page.viewer_id
     AND
         answer.question_id = page.question_id
 ) AS viewer_answer
@@ -131,18 +144,12 @@ LEFT JOIN LATERAL (
         answer.answer
     FROM
         answer
-    JOIN
-        person
-    ON
-        person.id = answer.person_id
     WHERE
-        person.uuid = uuid_or_null(%(to_username)s)
+        answer.person_id = partner.partner_id
     AND
         answer.question_id = page.question_id
     AND
-        answer.public_
-    AND
-        answer.answer IS NOT NULL
+        {ANSWER_VISIBLE_TO_OTHERS}
 ) AS partner_answer
 ON
     page.question_id IS NOT NULL

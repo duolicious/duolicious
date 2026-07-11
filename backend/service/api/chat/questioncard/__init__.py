@@ -1,12 +1,14 @@
 """
 Card data for chat messages that reply to a quiz question. This is the choke
 point for what each participant may see: the viewer's own answer is returned
-unfiltered (it's theirs), the partner's only while it's public -- the same
-filter `Q_SELECT_MESSAGE` applies on the MAM fetch path.
+unfiltered (it's theirs), the partner's only through the shared
+`ANSWER_VISIBLE_TO_OTHERS` predicate -- the same one the MAM fetch path
+(`Q_SELECT_MESSAGE`) and the feed apply.
 """
 from async_lru_cache import AsyncLruCache
 from dataclasses import dataclass
 from database import api_tx
+from qanda import ANSWER_VISIBLE_TO_OTHERS
 
 
 Q_FETCH_QUESTION = """
@@ -20,7 +22,7 @@ WHERE
 """
 
 
-Q_FETCH_CARD_ANSWERS = """
+Q_FETCH_CARD_ANSWERS = f"""
 SELECT
     viewer_answer.answer AS viewer_answer,
     viewer_answer.public_ AS viewer_answer_public,
@@ -50,9 +52,7 @@ LEFT JOIN LATERAL (
     AND
         answer.question_id = %(question_id)s
     AND
-        answer.public_
-    AND
-        answer.answer IS NOT NULL
+        {ANSWER_VISIBLE_TO_OTHERS}
 ) AS partner_answer
 ON
     TRUE

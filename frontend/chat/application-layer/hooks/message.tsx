@@ -17,7 +17,7 @@ import {
 } from '../index';
 import { getRandomString } from '../../../random/string';
 import { assertNever } from '../../../util/util';
-import { seedPartnerAnswer } from './partner-answer';
+import { seedPartnerAnswer, questionCardToFields } from './partner-answer';
 import { QuoteCard } from '../../../components/conversation-screen/quote';
 
 type UseMessage =
@@ -93,11 +93,8 @@ const sendMessageAndNotify = (
           text: content.text,
           timestamp: new Date(),
           fromCurrentUser: true,
-          ...(content.questionCard !== undefined ? {
-            questionId: content.questionCard.questionId,
-            question: content.questionCard.question,
-            questionTopic: content.questionCard.topic,
-          } : {}),
+          ...(content.questionCard !== undefined
+            ? questionCardToFields(content.questionCard) : {}),
         };
       case 'chat-audio':
         return {

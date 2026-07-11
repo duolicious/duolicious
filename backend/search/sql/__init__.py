@@ -1,5 +1,6 @@
 from constants import ONLINE_RECENTLY_SECONDS
 from commonsql import Q_COMPUTED_FLAIR
+from qanda import ANSWER_VISIBLE_TO_OTHERS
 
 # How many feed results to send to the client per request
 FEED_RESULTS_PER_PAGE = 50
@@ -2177,9 +2178,7 @@ LEFT JOIN LATERAL (
         AND
             answer.question_id = question.id
         AND
-            answer.public_
-        AND
-            answer.answer IS NOT NULL
+            {ANSWER_VISIBLE_TO_OTHERS}
     ) AS subject_answer
     ON TRUE
     LEFT JOIN LATERAL (

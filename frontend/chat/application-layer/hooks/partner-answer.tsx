@@ -9,6 +9,7 @@ import { listen, lastEvent, notify } from '../../../events/events';
 import { useRetained } from '../../../events/use-retained';
 import { EV_CHAT_WS_RECEIVE } from '../../websocket-layer';
 import { seedViewerAnswer } from '../../../api/answer';
+import { QuoteCard } from '../../../components/conversation-screen/quote';
 
 const eventKey = (personUuid: string, questionId: number) =>
   `partner-answer-${personUuid}-${questionId}`;
@@ -73,6 +74,46 @@ const ingestCardAttributes = (
   });
 };
 
+// The quiz-card display fields on a chat-text message. The current answers
+// aren't among them -- they live in the answer stores so they can update live.
+// One shape shared by the live-receive, MAM-fetch, and send paths so they
+// can't drift apart.
+type QuestionCardFields = {
+  questionId: number
+  question: string
+  questionTopic: string
+};
+
+// Parse the card fields off a message's wire attributes, or undefined when the
+// message isn't a quiz-card reply. The server always sends the three together
+// or none.
+const questionCardFromWire = (attrs: {
+  '@question_id'?: unknown
+  '@question'?: unknown
+  '@question_topic'?: unknown
+}): QuestionCardFields | undefined => {
+  const questionId = attrs['@question_id'];
+  const question = attrs['@question'];
+  const questionTopic = attrs['@question_topic'];
+
+  if (!questionId || !question || !questionTopic) {
+    return undefined;
+  }
+
+  return {
+    questionId: Number(questionId),
+    question: String(question),
+    questionTopic: String(questionTopic),
+  };
+};
+
+// The same fields off a composer quote card, for the outgoing-message path.
+const questionCardToFields = (card: QuoteCard): QuestionCardFields => ({
+  questionId: card.questionId,
+  question: card.question,
+  questionTopic: card.topic,
+});
+
 const usePartnerAnswer = (
   personUuid: string,
   questionId: number | undefined,
@@ -100,7 +141,10 @@ const onReceiveAnswerUpdate = (doc: any) => { // eslint-disable-line @typescript
 listen(EV_CHAT_WS_RECEIVE, onReceiveAnswerUpdate);
 
 export {
+  QuestionCardFields,
   ingestCardAttributes,
+  questionCardFromWire,
+  questionCardToFields,
   seedPartnerAnswer,
   usePartnerAnswer,
 };

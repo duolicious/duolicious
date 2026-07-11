@@ -14,7 +14,11 @@ import {
 } from '../websocket-layer';
 import { notifyOwnLastMessageAt } from './hooks/read-receipt';
 import { ingestMamReaction } from './hooks/reaction';
-import { ingestCardAttributes } from './hooks/partner-answer';
+import {
+  ingestCardAttributes,
+  questionCardFromWire,
+  questionCardToFields,
+} from './hooks/partner-answer';
 import { QuoteCard } from '../../components/conversation-screen/quote';
 import {
   awaitFocusedConversationFetch,
@@ -677,11 +681,7 @@ const sendMessage = async (
         text,
         timestamp,
         fromCurrentUser: true,
-        ...(questionCard !== undefined ? {
-          questionId: questionCard.questionId,
-          question: questionCard.question,
-          questionTopic: questionCard.topic,
-        } : {}),
+        ...(questionCard !== undefined ? questionCardToFields(questionCard) : {}),
       },
       status: response.status
     };
@@ -786,9 +786,6 @@ const onReceiveMessage = (
           '@id': id,
           '@audio_uuid': audioUuid,
           '@mam_id': mamId,
-          '@question_id': questionId,
-          '@question': question,
-          '@question_topic': questionTopic,
           body: text,
         }
       } = doc;
@@ -809,19 +806,14 @@ const onReceiveMessage = (
       }
 
       if (type === 'chat' && text){
-        if (questionId && question && questionTopic) {
-          ingestCardAttributes(jidToBareJid(from), doc.message);
-        }
+        // No-ops unless the message is a card reply; self-guards on the id.
+        ingestCardAttributes(jidToBareJid(from), doc.message);
 
         return {
           ...base,
           type: 'chat-text' as 'chat-text',
           text: text as string,
-          ...(questionId && question && questionTopic ? {
-            questionId: Number(questionId),
-            question: question as string,
-            questionTopic: questionTopic as string,
-          } : {}),
+          ...(questionCardFromWire(doc.message) ?? {}),
         };
       }
 
@@ -951,9 +943,6 @@ const fetchConversation = async (
                 '@audio_uuid': audioUuid,
                 '@reaction': reaction,
                 '@reaction_from': reactionFrom,
-                '@question_id': questionId,
-                '@question': question,
-                '@question_topic': questionTopic,
                 'body': text,
               }
             }
@@ -965,12 +954,11 @@ const fetchConversation = async (
 
       ingestMamReaction(mamId, reaction, reactionFrom);
 
-      if (questionId && question && questionTopic) {
-        ingestCardAttributes(
-          withPersonUuid,
-          doc.message.result.forwarded.message,
-        );
-      }
+      // No-ops unless the message is a card reply; self-guards on the id.
+      ingestCardAttributes(
+        withPersonUuid,
+        doc.message.result.forwarded.message,
+      );
 
       if (audioUuid) {
         return {
@@ -993,11 +981,7 @@ const fetchConversation = async (
           mamId: mamId || undefined,
           timestamp: new Date(timestamp),
           fromCurrentUser: jidMatchesSignedInUser(from),
-          ...(questionId && question && questionTopic ? {
-            questionId: Number(questionId),
-            question: question as string,
-            questionTopic: questionTopic as string,
-          } : {}),
+          ...(questionCardFromWire(doc.message.result.forwarded.message) ?? {}),
         };
       }
     } catch {

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from itertools import groupby
 import numpy
 import psycopg
 from answerspush import publish_answer_update
@@ -31,6 +30,14 @@ WHERE
     person_id = %(person_id)s AND
     question_id = %(question_id)s
 """
+
+# A person's quiz answer is only ever visible to *other* people while it's
+# public and actually answered. Every query that serves someone else's answer
+# -- chat question-cards on live delivery (`questioncard`) and MAM
+# (`Q_SELECT_MESSAGE`), and the feed's subject answer (`Q_FEED_V2`) --
+# interpolates this one predicate, so the privacy rule can't silently drift
+# between those paths. Assumes the answer table is aliased `answer`.
+ANSWER_VISIBLE_TO_OTHERS = "(answer.public_ AND answer.answer IS NOT NULL)"
 
 Q_UPSERT_ANSWER = """
 INSERT INTO answer (
@@ -128,22 +135,12 @@ WHERE session_token_hash = %(session_token_hash)s
 """
 
 
-# What a person's feed event should say after their latest answer write:
-# advertise the question, or stop advertising it
-@dataclass(frozen=True)
-class AnswerEventJob:
-    person_id: int
-    question_id: int
-    advertise: bool
-
-
 # `visible_answer` is what other users may now see: the answer when it's
 # public, else None. Publishing to the answers channel only when
 # `visible_answer_changed` means private edits can never leak -- an edit that
 # starts and ends hidden produces no event at all.
 @dataclass(frozen=True)
 class AnswerWriteResult:
-    event_job: AnswerEventJob
     visible_answer: bool | None
     visible_answer_changed: bool
 
@@ -153,30 +150,6 @@ class YesNoCountJob:
     question_id: int
     add_yes: int
     add_no: int
-
-
-async def _process_answer_event_batch(jobs: list[AnswerEventJob]) -> None:
-    # Grouped into runs of consecutive same-type jobs, one executemany per
-    # run. Runs execute in batch order, so a person who reverts one
-    # question's event and advertises another's within a batch gets the
-    # outcome of that sequence; a whole-batch set/revert split would not
-    # preserve it.
-    async with api_tx('read committed') as tx:
-        for advertise, run in groupby(jobs, key=lambda job: job.advertise):
-            if advertise:
-                await tx.executemany(Q_SET_ANSWERED_QUESTION_EVENT, [
-                    dict(
-                        person_id=job.person_id,
-                        question_id=job.question_id,
-                        refresh_seconds=ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
-                    )
-                    for job in run
-                ])
-            else:
-                await tx.executemany(Q_REVERT_ANSWERED_QUESTION_EVENT, [
-                    dict(person_id=job.person_id, question_id=job.question_id)
-                    for job in run
-                ])
 
 
 async def _process_yes_no_count_batch(jobs: list[YesNoCountJob]) -> None:
@@ -214,6 +187,7 @@ async def _set_answer(
     answer: bool | None,
     public: bool | None,
     delete: bool,
+    write_event: bool = True,
 ) -> AnswerWriteResult | None:
     question_tx = await tx.execute(
         Q_QUESTION_SCORE_VECTORS,
@@ -273,32 +247,49 @@ async def _set_answer(
     ))
 
     is_visible = not delete and answer is not None and bool(public)
+
+    # The feed event is written in this same transaction, so it commits (or
+    # rolls back) atomically with the answer and personality columns and
+    # nothing else contends for the person row. `write_event` is False for
+    # pre-signup answers, which must never advertise in the feed.
+    if write_event and is_visible:
+        await tx.execute(Q_SET_ANSWERED_QUESTION_EVENT, dict(
+            person_id=person_id,
+            question_id=question_id,
+            refresh_seconds=ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
+        ))
+    elif write_event:
+        await tx.execute(Q_REVERT_ANSWERED_QUESTION_EVENT, dict(
+            person_id=person_id,
+            question_id=question_id,
+        ))
+
     old_visible = (
         old['answer']
         if old is not None and old['answer'] is not None and old['public_']
         else None)
     new_visible = answer if is_visible else None
 
-    # Returned rather than enqueued/published so callers only act after their
-    # transaction commits; a rolled-back answer must not reach the feed or the
-    # answers channel
+    # The answers-channel publish is left to the caller so it happens only
+    # after this transaction commits: a rolled-back answer must not reach the
+    # channel.
     return AnswerWriteResult(
-        event_job=AnswerEventJob(
-            person_id=person_id,
-            question_id=question_id,
-            advertise=is_visible,
-        ),
         visible_answer=new_visible,
         visible_answer_changed=new_visible != old_visible,
     )
 
-# The answer-event batcher updates the answerer's person row (the feed event)
-# while `_set_answer`'s repeatable-read transaction updates the same row's
-# personality columns, so a flush landing mid-transaction aborts it with a
-# serialization failure. Retrying re-runs the whole read-modify-write on a
-# fresh snapshot, which is safe: nothing is enqueued or published until a
-# transaction commits.
+# `_set_answer` is the only writer of a person's row per answer now that the
+# feed event is written inside its transaction, so serialization failures are
+# no longer routine. The one remaining conflict is a person answering two
+# questions truly concurrently -- both read-modify-write their personality
+# columns, and repeatable-read must abort one to prevent a lost update. That's
+# rare, and retrying re-runs the read-modify-write on a fresh snapshot, which
+# is safe: nothing is published until the transaction commits.
 _SET_ANSWER_TRIES = 3
+_SET_ANSWER_RETRYABLE = (
+    psycopg.errors.SerializationFailure,
+    psycopg.errors.DeadlockDetected,
+)
 
 async def _set_answer_with_retry(
     person_id: int,
@@ -307,17 +298,16 @@ async def _set_answer_with_retry(
     public: bool | None,
     delete: bool,
 ) -> AnswerWriteResult | None:
-    for _ in range(_SET_ANSWER_TRIES - 1):
+    for attempt in range(_SET_ANSWER_TRIES):
         try:
             async with api_tx() as tx:
                 return await _set_answer(
                     tx, person_id, question_id, answer, public, delete)
-        except psycopg.errors.SerializationFailure:
-            continue
+        except _SET_ANSWER_RETRYABLE:
+            if attempt == _SET_ANSWER_TRIES - 1:
+                raise
 
-    async with api_tx() as tx:
-        return await _set_answer(
-            tx, person_id, question_id, answer, public, delete)
+    return None
 
 async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
     if s.person_id is None:
@@ -330,9 +320,6 @@ async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
         req.public,
         delete=False,
     )
-
-    if result:
-        _answer_event_batcher.enqueue(result.event_job)
 
     _enqueue_yes_no_count(req.question_id, req.answer)
 
@@ -356,9 +343,6 @@ async def delete_answer(req: t.DeleteAnswer, s: t.SessionInfo) -> object | None:
         None,
         delete=True,
     )
-
-    if result:
-        _answer_event_batcher.enqueue(result.event_job)
 
     if result and result.visible_answer_changed and s.person_uuid:
         await publish_answer_update(
@@ -389,8 +373,8 @@ async def _flush_session_answers(
     for answer in answers:
         _enqueue_yes_no_count(answer['question_id'], answer['answer'])
 
-        # The returned write result is deliberately dropped: answers stashed
-        # before signup shouldn't advertise in the feed or publish updates
+        # `write_event=False` and the dropped result: answers stashed before
+        # signup shouldn't advertise in the feed or publish updates.
         await _set_answer(
             tx,
             person_id,
@@ -398,6 +382,7 @@ async def _flush_session_answers(
             answer['answer'],
             answer.get('public', True),
             delete=False,
+            write_event=False,
         )
 
     await tx.execute(
@@ -406,18 +391,13 @@ async def _flush_session_answers(
     )
 
 
-# Every answer write lands on two hot rows -- the answerer's person row (the
-# feed event) and the question row (the yes/no counts) -- and quiz players
-# write in bursts. Batching moves those writes off the request path and
-# coalesces each batch into one write per person/question.
-_answer_event_batcher = Batcher[AnswerEventJob](
-    process_fn=_process_answer_event_batch,
-    flush_interval=1.0,
-    min_batch_size=1,
-    max_batch_size=1000,
-    retry=False,
-)
-
+# Every answer write bumps a globally hot row -- the question's yes/no counts
+# -- and quiz players write in bursts, so many users hammer the same question
+# row at once. Batching moves those writes off the request path and coalesces
+# each batch into one write per question. (The answerer's person row, by
+# contrast, is written inside `_set_answer`'s own transaction: it's per-person,
+# not globally hot, so it needs no batching and stays free of cross-transaction
+# contention.)
 _yes_no_count_batcher = Batcher[YesNoCountJob](
     process_fn=_process_yes_no_count_batch,
     flush_interval=1.0,
