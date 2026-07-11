@@ -672,11 +672,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       return;
     }
 
-    // Own sends already zero our unread; `_onReceiveReaction` covers reactions
-    if (lastMessage.message.fromCurrentUser) {
-      return;
-    }
-
     await markDisplayed(personUuid, lastMessage.message.id);
   }, [_.last(messageIds)]);
 
