@@ -805,6 +805,25 @@ test_answered_question () {
      | .question_no_members[0].person_uuid')
   [[ "$user3_first_no" == "$user3_uuid" ]]
 
+  # A subject who hides from strangers still leads their own pile. Their feed
+  # item is already on screen (they messaged the searcher, so they're not a
+  # stranger), so re-applying the pile's visibility checks mustn't drop them.
+  q "update person set hide_me_from_strangers = true where name = 'user1'"
+  q "insert into messaged (subject_person_id, object_person_id) values (
+       (select id from person where name = 'user1'),
+       (select id from person where name = 'searcher'))"
+
+  feed=$(c GET "/feed-v2?before=${before}")
+  user1_first_yes=$(echo "$feed" | jq -r \
+    --arg u "$user1_uuid" \
+    '.[] | select(.type == "answered-question" and .person_uuid == $u)
+     | .question_yes_members[0].person_uuid')
+  [[ "$user1_first_yes" == "$user1_uuid" ]]
+
+  # Restore the pre-scenario state so the assertions below are unaffected
+  q "update person set hide_me_from_strangers = false where name = 'user1'"
+  q "delete from messaged"
+
   # The searcher answers publicly. Their answer appears in question_viewer,
   # but they never appear among the sample members. Answering shifts the
   # searcher's personality, and with it the match percentages.

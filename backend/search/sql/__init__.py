@@ -97,31 +97,39 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
             AND (
                 {member_condition}
             )
-            AND
-                member.shadow_banned_at IS NULL
-            AND
-                NOT member.hide_me_from_strangers
-            AND
-                -- The member did not skip the searcher; their profile would
-                -- be inaccessible if they did
-                NOT EXISTS (
-                    SELECT
-                        1
-                    FROM
-                        skipped
-                    WHERE
-                        skipped.subject_person_id = member.id
-                    AND
-                        skipped.object_person_id = searcher.searcher_id
-                )
-            AND
-                member.privacy_verification_level_id <=
-                    searcher.verification_level_id
             AND (
-                    member.verification_level_id > 1
-                OR
-                    NOT member.verification_required
-            )
+                -- The event's subject is already shown as the item's hero
+                -- avatar, so their visibility was settled upstream. Re-running
+                -- the pile's per-member visibility checks on them would drop
+                -- subjects who hide from strangers, aren't verified, etc.,
+                -- defeating the slot they're guaranteed
+                member.id = feed_page.id
+            OR (
+                    member.shadow_banned_at IS NULL
+                AND
+                    NOT member.hide_me_from_strangers
+                AND
+                    -- The member did not skip the searcher; their profile
+                    -- would be inaccessible if they did
+                    NOT EXISTS (
+                        SELECT
+                            1
+                        FROM
+                            skipped
+                        WHERE
+                            skipped.subject_person_id = member.id
+                        AND
+                            skipped.object_person_id = searcher.searcher_id
+                    )
+                AND
+                    member.privacy_verification_level_id <=
+                        searcher.verification_level_id
+                AND (
+                        member.verification_level_id > 1
+                    OR
+                        NOT member.verification_required
+                )
+            ))
             ORDER BY
                 -- The event's subject leads, so the frontend can seat their
                 -- face closest to the card's centre
