@@ -316,7 +316,6 @@ async def send_notification(
     upsert_last_notification(username=to_username, is_intro=is_intro)
 
 
-# The shape is what the frontend's notification-tap handler expects.
 def _conversation_screen_data(
     immediate_data: Mapping[str, object],
 ) -> dict[str, object]:
@@ -468,8 +467,7 @@ async def _publish_inbox_entry(
     viewer_username: str,
     prospect_username: str,
 ) -> None:
-    # An offline viewer gets the whole inbox via `duo_query_inbox` on
-    # reconnect, which also covers a viewer connecting after this check.
+    # An offline viewer gets the whole inbox via `duo_query_inbox` on reconnect.
     if not await redis_has_subscribers(REDIS_WORKER_CLIENT, viewer_username):
         return
 
@@ -487,7 +485,6 @@ async def _send_reaction_notification(
     emoji: str,
     target_body: str,
 ) -> None:
-    # Never an intro: the partner authored the reacted-to message.
     immediate_data = await fetch_immediate_data(
         from_id=from_id,
         to_id=partner_id,
@@ -581,13 +578,11 @@ async def _handle_reaction(
 
     stamp = format_timestamp(now_microseconds())
 
-    # The entry must go out before the reaction itself, like the message path.
     if deliver_to_partner and (is_new_visible_reaction or cleared.partner_reverted):
         await _publish_inbox_entry(
             viewer_username=partner_username,
             prospect_username=from_username)
 
-    # The client doesn't update its own inbox locally when reacting.
     if is_new_visible_reaction or cleared.reactor_reverted:
         await _publish_inbox_entry(
             viewer_username=from_username,

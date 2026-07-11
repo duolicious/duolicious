@@ -329,7 +329,6 @@ const setInboxRecieved = (conversation: Conversation) => {
 
   conversations.push(conversation);
 
-  // A read entry is the viewer's own doing, e.g. their reaction echoed back.
   if (!conversation.lastMessageRead) {
     notifyOnWeb(conversation.name, conversation.lastMessage);
   }
@@ -792,7 +791,6 @@ const onReceiveMessage = (
     return null;
   };
 
-  // The server bumps the conversation's unread state for reactions too.
   const _onReceiveReaction = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const reaction = doc?.duo_reaction;
 

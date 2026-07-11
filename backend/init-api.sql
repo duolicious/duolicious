@@ -1693,9 +1693,7 @@ CREATE TABLE IF NOT EXISTS inbox (
     --   I - incoming, remote_bare_jid is a value from From.
     --   O - outgoing, remote_bare_jid is a value from To.
     direction mam_direction          NOT NULL,
-    -- The conversation's live reaction rides alongside `body` rather than
-    -- overwriting it, so clearing it can revert the preview. NULL when the
-    -- last activity is a message.
+    -- The conversation's live reaction; NULL when the last activity is a message.
     reaction TEXT,
     reaction_target_mam_id BIGINT,
     reaction_body TEXT,

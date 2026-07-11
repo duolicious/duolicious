@@ -463,7 +463,6 @@ WITH upsert_sender AS (
         direction = EXCLUDED.direction,
         timestamp = EXCLUDED.timestamp,
         unread_count = 0,
-        -- A message supersedes any reaction as the latest activity.
         reaction = NULL,
         reaction_target_mam_id = NULL,
         reaction_body = NULL
@@ -511,9 +510,6 @@ SELECT 1
 """
 
 
-# Both rows are guaranteed to exist: they were created when the reacted-to
-# message was sent/received. The unread CASE keeps at most one outstanding
-# bump per live reaction, which makes the clear query's decrement sound.
 Q_SET_INBOX_REACTION = f"""
 WITH update_reactor AS (
     UPDATE inbox SET
@@ -548,9 +544,6 @@ AND
 """
 
 
-# The `reaction_target_mam_id` predicates make the clear a no-op on rows a
-# newer message or reaction has since taken over. `timestamp` is deliberately
-# not reverted: that would reorder the inbox beneath an open client.
 Q_CLEAR_INBOX_REACTION = f"""
 WITH update_reactor AS (
     UPDATE inbox SET
@@ -622,7 +615,6 @@ def reaction_inbox_body(emoji: str, target_body: str) -> str:
     return f'Reacted {emoji} to: {target_body}'
 
 
-# Composed at read time: `inbox.body` always holds the last message.
 def _composed_body(body: str, reaction: str | None, reaction_body: str | None) -> str:
     if reaction is None or reaction_body is None:
         return body
