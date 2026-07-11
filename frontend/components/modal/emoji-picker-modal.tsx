@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { listen } from '../../events/events';
 import {
@@ -83,11 +83,20 @@ const EmojiPickerModal: React.FC = () => {
   }
 
   if (isMobile()) {
+    const searchInput = <SearchInput query={query} onChangeQuery={setQuery} />;
+
+    // On mobile web the on-screen keyboard overlays the sheet's bottom;
+    // anchoring the search input there makes the browser scroll it into view,
+    // keeping the grid above it visible
+    const searchInputPlacement = Platform.OS === 'web'
+      ? { footer: searchInput }
+      : { header: searchInput };
+
     return (
       <ModalBottomSheet
         visible={isShowing}
         onRequestClose={close}
-        header={<SearchInput query={query} onChangeQuery={setQuery} />}
+        {...searchInputPlacement}
       >
         <EmojiGrid
           query={query}

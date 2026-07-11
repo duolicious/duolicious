@@ -26,6 +26,7 @@ const ModalBottomSheet = ({
   visible,
   onRequestClose,
   header,
+  footer,
   children,
   heightFraction = 0.75,
 }: {
@@ -33,6 +34,7 @@ const ModalBottomSheet = ({
   onRequestClose: () => void
   // Rendered inside the drag zone, under the grab handle
   header?: ReactNode
+  footer?: ReactNode
   children: ReactNode
   heightFraction?: number
 }) => {
@@ -172,6 +174,7 @@ const ModalBottomSheet = ({
           <View style={styles.content}>
             {children}
           </View>
+          {footer}
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
