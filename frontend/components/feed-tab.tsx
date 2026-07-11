@@ -1074,6 +1074,15 @@ const QuestionFacepiles = ({
   const countYes = adjustedCount(fields.question_count_yes, true);
   const countNo = adjustedCount(fields.question_count_no, false);
 
+  // Each pile reads outward from the card's centre, where the viewer's own
+  // avatar (the pile's anchor) sits. The server sends the event's subject
+  // first so their face can sit just inside that anchor, closest to the
+  // centre. The "yes" pile is start-anchored, so the subject's leading
+  // position already puts them there; the "no" pile is end-anchored, so its
+  // members are reversed to move the subject to the anchor.
+  const yesMembers = fields.question_yes_members.slice(0, maxMembers);
+  const noMembers = fields.question_no_members.slice(0, maxMembers).reverse();
+
   // "No" on the left and "yes" on the right, matching the quiz screen's
   // swipe directions
   return (
@@ -1092,7 +1101,7 @@ const QuestionFacepiles = ({
         />
         <View style={styles.questionFacepileColumn}>
           <Facepile
-            members={fields.question_no_members.slice(0, maxMembers)}
+            members={noMembers}
             viewer={fields.question_viewer}
             viewerVisible={
               viewerAnswer.answer === false && viewerAnswer.public_}
@@ -1116,7 +1125,7 @@ const QuestionFacepiles = ({
           style={[styles.questionFacepileColumn, { alignItems: 'flex-end' }]}
         >
           <Facepile
-            members={fields.question_yes_members.slice(0, maxMembers)}
+            members={yesMembers}
             viewer={fields.question_viewer}
             viewerVisible={
               viewerAnswer.answer === true && viewerAnswer.public_}

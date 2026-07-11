@@ -507,13 +507,14 @@ test_joined_club () {
   set_deterministic_online_times
 
   # Unlike v1, the v2 feed has no selectivity, so all three members appear,
-  # in last-online order, with the other members in their facepiles
+  # in last-online order. Each facepile now leads with the event's own
+  # subject, so all three members (including the subject) show in it
   response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_joined_club_item user1 3 2) \
-      <(expected_joined_club_item user2 3 2) \
-      <(expected_joined_club_item user3 3 2)
+      <(expected_joined_club_item user1 3 3) \
+      <(expected_joined_club_item user2 3 3) \
+      <(expected_joined_club_item user3 3 3)
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -528,8 +529,8 @@ test_joined_club () {
   response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_joined_club_item user1 3 1) \
-      <(expected_joined_club_item user2 3 1)
+      <(expected_joined_club_item user1 3 2) \
+      <(expected_joined_club_item user2 3 2)
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -541,9 +542,9 @@ test_joined_club () {
   response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_joined_club_item user1 3 2) \
-      <(expected_joined_club_item user2 3 2) \
-      <(expected_joined_club_item user3 3 2)
+      <(expected_joined_club_item user1 3 3) \
+      <(expected_joined_club_item user2 3 3) \
+      <(expected_joined_club_item user3 3 3)
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -556,8 +557,8 @@ test_joined_club () {
   response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_joined_club_item user1 2 1) \
-      <(expected_joined_club_item user2 2 1)
+      <(expected_joined_club_item user1 2 2) \
+      <(expected_joined_club_item user2 2 2)
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -568,7 +569,7 @@ test_joined_club () {
      where name = 'user1'"
 
   response=$(joined_club_feed_items)
-  expected=$(jq -sS . <(expected_joined_club_item user2 2 1))
+  expected=$(jq -sS . <(expected_joined_club_item user2 2 2))
   diff -u --color <(echo "$response") <(echo "$expected")
 
   assume_role searcher
@@ -751,12 +752,14 @@ test_answered_question () {
   # user1's private answer doesn't appear as an event or in the piles. The
   # searcher hasn't answered, so `question_viewer.answer` is null.
   # question_count_yes is 2: user1's private answer counts, like on the quiz
-  # screen, despite being hidden from the piles
+  # screen, despite being hidden from the piles. Each pile now includes the
+  # event's own subject, so user2 (public yes) shows in their yes pile and
+  # user3 (public no) shows in their no pile
   response=$(answered_question_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_answered_question_item user2 0 1 2 1 null null 50) \
-      <(expected_answered_question_item user3 1 0 2 1 null null 50)
+      <(expected_answered_question_item user2 1 1 2 1 null null 50) \
+      <(expected_answered_question_item user3 1 1 2 1 null null 50)
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -770,15 +773,37 @@ test_answered_question () {
   set_deterministic_online_times
 
   # Re-answering increments question_count_yes again; the counts only ever
-  # grow
+  # grow. Every event shows the same public answerers (user1, user2 in "yes";
+  # user3 in "no"), each led by its own subject
   response=$(answered_question_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_answered_question_item user1 1 1 3 1 null null 50) \
-      <(expected_answered_question_item user2 1 1 3 1 null null 50) \
-      <(expected_answered_question_item user3 2 0 3 1 null null 50)
+      <(expected_answered_question_item user1 2 1 3 1 null null 50) \
+      <(expected_answered_question_item user2 2 1 3 1 null null 50) \
+      <(expected_answered_question_item user3 2 1 3 1 null null 50)
   )
   diff -u --color <(echo "$response") <(echo "$expected")
+
+  # The subject leads their own pile so the frontend can seat their face
+  # closest to the card's centre: user1 (public yes) is first in their own
+  # "yes" pile, and user3 (public no) is first in their own "no" pile
+  assume_role searcher
+  before=$(q "select iso8601_utc(now()::timestamp)")
+  feed=$(c GET "/feed-v2?before=${before}")
+
+  user1_uuid=$(q "select uuid from person where name = 'user1'")
+  user1_first_yes=$(echo "$feed" | jq -r \
+    --arg u "$user1_uuid" \
+    '.[] | select(.type == "answered-question" and .person_uuid == $u)
+     | .question_yes_members[0].person_uuid')
+  [[ "$user1_first_yes" == "$user1_uuid" ]]
+
+  user3_uuid=$(q "select uuid from person where name = 'user3'")
+  user3_first_no=$(echo "$feed" | jq -r \
+    --arg u "$user3_uuid" \
+    '.[] | select(.type == "answered-question" and .person_uuid == $u)
+     | .question_no_members[0].person_uuid')
+  [[ "$user3_first_no" == "$user3_uuid" ]]
 
   # The searcher answers publicly. Their answer appears in question_viewer,
   # but they never appear among the sample members. Answering shifts the
@@ -816,9 +841,9 @@ test_answered_question () {
   response=$(answered_question_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_answered_question_item user1 1 1 3 2 false true "$match_user1") \
-      <(expected_answered_question_item user2 1 1 3 2 false true "$match_user2") \
-      <(expected_answered_question_item user3 2 0 3 2 false true "$match_user3")
+      <(expected_answered_question_item user1 2 1 3 2 false true "$match_user1") \
+      <(expected_answered_question_item user2 2 1 3 2 false true "$match_user2") \
+      <(expected_answered_question_item user3 2 1 3 2 false true "$match_user3")
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -835,9 +860,9 @@ test_answered_question () {
   response=$(answered_question_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_answered_question_item user1 1 1 3 3 false false "$match_user1") \
-      <(expected_answered_question_item user2 1 1 3 3 false false "$match_user2") \
-      <(expected_answered_question_item user3 2 0 3 3 false false "$match_user3")
+      <(expected_answered_question_item user1 2 1 3 3 false false "$match_user1") \
+      <(expected_answered_question_item user2 2 1 3 3 false false "$match_user2") \
+      <(expected_answered_question_item user3 2 1 3 3 false false "$match_user3")
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -857,8 +882,8 @@ test_answered_question () {
   response=$(answered_question_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_answered_question_item user1 1 0 3 4 false false "$match_user1") \
-      <(expected_answered_question_item user2 1 0 3 4 false false "$match_user2")
+      <(expected_answered_question_item user1 2 0 3 4 false false "$match_user1") \
+      <(expected_answered_question_item user2 2 0 3 4 false false "$match_user2")
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 
@@ -877,7 +902,7 @@ test_answered_question () {
   response=$(answered_question_feed_items)
   expected=$(
     jq -sS . \
-      <(expected_answered_question_item user1 0 0 3 4 false false "$match_user1")
+      <(expected_answered_question_item user1 1 0 3 4 false false "$match_user1")
   )
   diff -u --color <(echo "$response") <(echo "$expected")
 

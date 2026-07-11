@@ -36,6 +36,7 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                     'photo_blurhash', facepile_member.photo_blurhash
                 )
                 ORDER BY
+                    facepile_member.is_subject DESC,
                     facepile_member.matches_gender_preference DESC,
                     facepile_member.last_online_time DESC
             ) AS j
@@ -46,6 +47,7 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                 member_photo.uuid AS photo_uuid,
                 member_photo.blurhash AS photo_blurhash,
                 member.last_online_time,
+                member.id = feed_page.id AS is_subject,
                 EXISTS (
                     SELECT
                         1
@@ -57,7 +59,16 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                         preference.gender_id = member.gender_id
                 ) AS matches_gender_preference
             FROM (
-                {pool}
+                -- The event's subject always leads the facepile (see the
+                -- ORDER BY below), even when `pool`'s own LIMIT would have
+                -- dropped them, so their face is guaranteed a slot.
+                -- `feed_page` is the current lateral row, so this is the one
+                -- subject, not the whole page
+                ( SELECT feed_page.id AS person_id )
+
+                UNION
+
+                ( {pool} )
             ) AS pool
             JOIN
                 person AS member
@@ -79,9 +90,6 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
             ) AS member_photo
             ON TRUE
             WHERE
-                -- The event's subject is already the feed item's hero avatar
-                member.id <> feed_page.id
-            AND
                 -- The searcher is already in the payload as the viewer entry
                 -- (club_viewer/question_viewer), so including them here would
                 -- double them up
@@ -115,6 +123,9 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                     NOT member.verification_required
             )
             ORDER BY
+                -- The event's subject leads, so the frontend can seat their
+                -- face closest to the card's centre
+                member.id = feed_page.id DESC,
                 matches_gender_preference DESC,
                 member.last_online_time DESC
             LIMIT
@@ -166,10 +177,28 @@ def _question_facepile(answer: bool) -> str:
                 LIMIT
                     {FEED_FACEPILE_POOL}
         """,
-        member_condition="""
+        member_condition=f"""
                 -- Unlike `person_club` rows, `answer` rows aren't deactivated
                 -- with the account, so members must be filtered here
                 member.activated
+            AND
+                -- `pool` already answered this way, but the unioned subject
+                -- hasn't been checked, so re-assert it here to keep them out
+                -- of the pile that doesn't match their answer
+                EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        answer
+                    WHERE
+                        answer.person_id = member.id
+                    AND
+                        answer.question_id = question.id
+                    AND
+                        answer.public_
+                    AND
+                        answer.answer = {'TRUE' if answer else 'FALSE'}
+                )
         """,
     )
 
