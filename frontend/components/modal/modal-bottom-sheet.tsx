@@ -14,13 +14,17 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { backgroundColors } from './background-colors';
 import { useAppTheme } from '../../app-theme/app-theme';
 
 const SLIDE_DURATION = 250;
 const DISMISS_VELOCITY = 800;
+
+// Gap kept below the status bar so the sheet's top never crowds the screen
+// edge, where a downward swipe would reach the system pull-down instead
+const TOP_GAP = 50;
 
 const ModalBottomSheet = ({
   visible,
@@ -41,6 +45,7 @@ const ModalBottomSheet = ({
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const keyboard = useReanimatedKeyboardAnimation();
   const sheetHeight = Math.round(heightFraction * windowHeight);
 
   const [isMounted, setIsMounted] = useState(visible);
@@ -113,9 +118,25 @@ const ModalBottomSheet = ({
     opacity: interpolate(translateY.value, [0, sheetHeight], [1, 0]),
   }));
 
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  const sheetStyle = useAnimatedStyle(() => {
+    // The window doesn't resize when the on-screen keyboard opens, so grow the
+    // sheet upward to lift its content (and the search input in the header)
+    // above the keyboard, capping the top below the status bar so the drag
+    // handle stays reachable. The sheet itself still spans to the bottom of the
+    // screen; `paddingBottom` insets only the scrollable content to the top of
+    // the keyboard, letting the sheet's own colour fill behind the keyboard and
+    // its rounded corners. `keyboard.height` is 0 when closed and on web, where
+    // the browser scrolls the input into view
+    const keyboardHeight = Math.abs(keyboard.height.value);
+    return {
+      height: Math.min(
+        sheetHeight + keyboardHeight,
+        windowHeight - insets.top - TOP_GAP,
+      ),
+      paddingBottom: Math.max(keyboardHeight, insets.bottom),
+      transform: [{ translateY: translateY.value }],
+    };
+  });
 
   if (!isMounted) {
     return null;
@@ -134,23 +155,16 @@ const ModalBottomSheet = ({
           style={[StyleSheet.absoluteFillObject, backgroundColors.dark]}
         />
       </Animated.View>
-      <KeyboardAvoidingView
-        behavior="padding"
+      <View
         style={styles.avoidingView}
         pointerEvents="box-none"
       >
         <Animated.View
           style={[
             {
-              height: sheetHeight,
-              // When the keyboard opens, the avoiding view shrinks; without
-              // this the fixed-height sheet overflows off the top of the
-              // screen, clipping the handle and search input
-              maxHeight: '100%',
               backgroundColor: appTheme.primaryColor,
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
-              paddingBottom: insets.bottom,
               overflow: 'hidden',
             },
             sheetStyle,
@@ -176,7 +190,7 @@ const ModalBottomSheet = ({
           </View>
           {footer}
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 };
