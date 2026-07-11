@@ -1,3 +1,26 @@
+"""
+Reads and writes a person's quiz answers and the derived personality vectors,
+feed events, and yes/no tallies.
+
+`ANSWER_VISIBLE_TO_OTHERS` is the one predicate that decides whether someone
+else may see an answer (public and actually answered). The live question-card
+path (`questioncard`), the MAM fetch (`Q_SELECT_MESSAGE`), and the feed's
+subject answer (`Q_FEED_V2`) all interpolate it, so the rule can't drift
+between them; it assumes the `answer` table is aliased `answer`.
+
+`_set_answer` writes the answer, personality columns, and feed event in one
+transaction, so they commit or roll back together. The answers-channel publish
+is left to the caller, which fires it only after the transaction commits and
+only when the visible answer changed, so a rolled-back or private edit never
+reaches the wire. Two answers written truly concurrently can serialize on the
+personality columns; `_set_answer_with_retry` re-runs on a fresh snapshot,
+which is safe because nothing publishes before commit. `write_event` is False
+for pre-signup answers, which must never advertise or publish.
+
+Yes/no tallies are batched because every answer bumps the same globally hot
+question row; the answerer's own row isn't hot, so it stays in `_set_answer`'s
+transaction unbatched.
+"""
 from dataclasses import dataclass
 import numpy
 import psycopg
@@ -31,12 +54,6 @@ WHERE
     question_id = %(question_id)s
 """
 
-# A person's quiz answer is only ever visible to *other* people while it's
-# public and actually answered. Every query that serves someone else's answer
-# -- chat question-cards on live delivery (`questioncard`) and MAM
-# (`Q_SELECT_MESSAGE`), and the feed's subject answer (`Q_FEED_V2`) --
-# interpolates this one predicate, so the privacy rule can't silently drift
-# between those paths. Assumes the answer table is aliased `answer`.
 ANSWER_VISIBLE_TO_OTHERS = "(answer.public_ AND answer.answer IS NOT NULL)"
 
 Q_UPSERT_ANSWER = """
@@ -135,10 +152,6 @@ WHERE session_token_hash = %(session_token_hash)s
 """
 
 
-# `visible_answer` is what other users may now see: the answer when it's
-# public, else None. Publishing to the answers channel only when
-# `visible_answer_changed` means private edits can never leak -- an edit that
-# starts and ends hidden produces no event at all.
 @dataclass(frozen=True)
 class AnswerWriteResult:
     visible_answer: bool | None
@@ -248,10 +261,6 @@ async def _set_answer(
 
     is_visible = not delete and answer is not None and bool(public)
 
-    # The feed event is written in this same transaction, so it commits (or
-    # rolls back) atomically with the answer and personality columns and
-    # nothing else contends for the person row. `write_event` is False for
-    # pre-signup answers, which must never advertise in the feed.
     if write_event and is_visible:
         await tx.execute(Q_SET_ANSWERED_QUESTION_EVENT, dict(
             person_id=person_id,
@@ -270,21 +279,11 @@ async def _set_answer(
         else None)
     new_visible = answer if is_visible else None
 
-    # The answers-channel publish is left to the caller so it happens only
-    # after this transaction commits: a rolled-back answer must not reach the
-    # channel.
     return AnswerWriteResult(
         visible_answer=new_visible,
         visible_answer_changed=new_visible != old_visible,
     )
 
-# `_set_answer` is the only writer of a person's row per answer now that the
-# feed event is written inside its transaction, so serialization failures are
-# no longer routine. The one remaining conflict is a person answering two
-# questions truly concurrently -- both read-modify-write their personality
-# columns, and repeatable-read must abort one to prevent a lost update. That's
-# rare, and retrying re-runs the read-modify-write on a fresh snapshot, which
-# is safe: nothing is published until the transaction commits.
 _SET_ANSWER_TRIES = 3
 _SET_ANSWER_RETRYABLE = (
     psycopg.errors.SerializationFailure,
@@ -373,8 +372,6 @@ async def _flush_session_answers(
     for answer in answers:
         _enqueue_yes_no_count(answer['question_id'], answer['answer'])
 
-        # `write_event=False` and the dropped result: answers stashed before
-        # signup shouldn't advertise in the feed or publish updates.
         await _set_answer(
             tx,
             person_id,
@@ -391,13 +388,6 @@ async def _flush_session_answers(
     )
 
 
-# Every answer write bumps a globally hot row -- the question's yes/no counts
-# -- and quiz players write in bursts, so many users hammer the same question
-# row at once. Batching moves those writes off the request path and coalesces
-# each batch into one write per question. (The answerer's person row, by
-# contrast, is written inside `_set_answer`'s own transaction: it's per-person,
-# not globally hot, so it needs no batching and stays free of cross-transaction
-# contention.)
 _yes_no_count_batcher = Batcher[YesNoCountJob](
     process_fn=_process_yes_no_count_batch,
     flush_interval=1.0,

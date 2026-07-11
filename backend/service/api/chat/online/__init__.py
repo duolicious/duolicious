@@ -104,10 +104,6 @@ async def _redis_subscribe_online(
     key = FMT_KEY.format(username=username)
     val = await redis_client.get(key)
 
-    # Watching someone's online status also watches their quiz-answer changes;
-    # both carry only state the subscriber may see, and `should_subscribe` has
-    # already gated the subscription itself. There's no answer snapshot to
-    # send: MAM results carry current answers, so a fetch is the snapshot.
     await pubsub.subscribe(key)
     await pubsub.subscribe(answers_channel(username))
 

@@ -267,9 +267,6 @@ const NonInteractiveQuizCard = ({children, ...props}: {
   imageBackgroundStyle?: ViewStyle,
   showAnswerPubliclyCheckBox?: boolean,
   showTutorial?: boolean,
-  // When set, a "Reply" button is rendered inside the card, so replying to a
-  // quiz card works the same wherever the card appears (the feed, the In-Depth
-  // screen). Omitted where a reply makes no sense, e.g. inside a conversation.
   onPressReply?: (e: GestureResponderEvent) => void,
 }) => {
   const {

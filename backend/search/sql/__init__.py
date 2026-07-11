@@ -2165,10 +2165,6 @@ LEFT JOIN LATERAL (
     ) AS viewer_answer
     ON TRUE
     LEFT JOIN LATERAL (
-        -- The feed subject's own answer, so replying can quote it. Filtered
-        -- by publicness even though the feed event only fires for public
-        -- answers: the event lingers until the batcher reverts it, so it can
-        -- briefly outlive the answer's visibility.
         SELECT
             answer.answer
         FROM

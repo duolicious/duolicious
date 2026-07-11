@@ -1,3 +1,8 @@
+/**
+ * The right-aligned "Reply" affordance shared by every surface that lets you
+ * quote something into a conversation: bio-update feed items and quiz cards
+ * (which render it inside the card via `NonInteractiveQuizCard`).
+ */
 import {
   GestureResponderEvent,
   Pressable,
@@ -8,9 +13,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faReply } from '@fortawesome/free-solid-svg-icons/faReply';
 import { useAppTheme } from '../app-theme/app-theme';
 
-// The right-aligned "Reply" affordance shared by every surface that lets you
-// quote something into a conversation: bio-update feed items and quiz cards
-// (which render it inside the card via `NonInteractiveQuizCard`).
 const ReplyButton = ({
   onPress,
 }: {

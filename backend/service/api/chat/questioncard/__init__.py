@@ -4,6 +4,9 @@ point for what each participant may see: the viewer's own answer is returned
 unfiltered (it's theirs), the partner's only through the shared
 `ANSWER_VISIBLE_TO_OTHERS` predicate -- the same one the MAM fetch path
 (`Q_SELECT_MESSAGE`) and the feed apply.
+
+Question text and topic never change, so `fetch_question` caches hits forever;
+misses aren't cached, in case the question is created later.
 """
 from async_lru_cache import AsyncLruCache
 from dataclasses import dataclass
@@ -68,8 +71,6 @@ class Card:
     partner_answer: bool | None
 
 
-# Question text and topic never change, so a hit can be cached forever; a miss
-# isn't cached in case the question is created later.
 @AsyncLruCache(cache_condition=bool)
 async def fetch_question(question_id: int) -> dict | None:
     async with api_tx('read committed') as tx:

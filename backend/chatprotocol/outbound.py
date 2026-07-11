@@ -174,12 +174,6 @@ class OnlineEvent(Outbound):
 @_register
 @dataclass(frozen=True)
 class AnswerUpdate(Outbound):
-    """
-    Pushed on the `answers-{username}` channel when a person's publicly
-    visible answer to a quiz question changes. `answer` is 'yes'/'no', or None
-    when the answer is no longer visible (deleted or made private) -- private
-    state never reaches the wire.
-    """
     username: str
     question_id: int
     answer: str | None = None

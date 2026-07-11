@@ -1,3 +1,13 @@
+"""
+Reads and writes the message archive (MAM).
+
+`mam_message.question_id` has no foreign key on purpose: messages are inserted
+in shared batches, so one bad reference would abort the whole batch. The chat
+server validates question ids before storing instead. Card answers are joined
+fresh on every fetch, so a partner answer deleted or made private since the
+message was sent simply disappears; the viewer's own answer is unfiltered (it's
+theirs, and seeds the client's answer store).
+"""
 from dataclasses import dataclass
 from database import Tx, api_tx
 from qanda import ANSWER_VISIBLE_TO_OTHERS
@@ -66,10 +76,6 @@ WHERE
 
 
 Q_SELECT_MESSAGE = f"""
--- The card answers are joined fresh on every fetch, so a partner answer that
--- was deleted or made private since the message was sent disappears without
--- any bookkeeping. The viewer's own answer is deliberately unfiltered: it's
--- their own state and seeds the client's answer store.
 WITH page AS (
     SELECT
         mam_message.id,
@@ -79,8 +85,6 @@ WITH page AS (
         mam_message.audio_uuid,
         mam_message.reaction,
         mam_message.question_id,
-        -- The viewer owns every row on this page (the CTE filters on it), so
-        -- their person id is free here -- no per-row person lookup needed.
         mam_message.person_id AS viewer_id
     FROM
         mam_message
@@ -100,7 +104,6 @@ WITH page AS (
     LIMIT
         LEAST(50, COALESCE(%(max)s, 50))
 ),
--- Resolved once for the whole page rather than re-joining person per row.
 partner AS (
     SELECT
         id AS partner_id

@@ -296,8 +296,6 @@ const InDepthAnswer = ({
     },
   );
 
-  // No reply affordance when viewing your own answers, or before a deep-link
-  // has resolved who the prospect is.
   const canReply = !isViewingSelf && !!personUuid;
 
   return (
@@ -363,8 +361,6 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
   const personUuid: string | undefined = route?.params?.personUuid;
   const initialHint = getProspectHint(personUuid) ?? {};
 
-  // Optimistic avatar data for the reply flow's prospect hint; the conversation
-  // screen fetches the authoritative copy either way.
   const photoUuid = initialHint.photoUuid ?? null;
   const photoBlurhash = initialHint.photoBlurhash ?? null;
 

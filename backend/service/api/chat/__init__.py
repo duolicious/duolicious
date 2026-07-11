@@ -729,8 +729,6 @@ async def process_text(
     if not to_id:
         return None
 
-    # A reference to a question that doesn't exist degrades to a plain text
-    # message; the body's blockquote fallback still reads fine.
     question_id = (
         maybe_message.question_id
         if isinstance(maybe_message, ChatMessage)
@@ -833,9 +831,6 @@ async def process_text(
         sender_mam_id = encode_mam_id(sender_copy_id)
         recipient_mam_id = encode_mam_id(sibling_mam_id(sender_copy_id))
 
-        # Runs after the message batch commits, so the card reflects committed
-        # answer state. Viewer/partner are from the recipient's perspective:
-        # they're the one this stanza is delivered to.
         card = (
             await fetch_card(
                 question_id=question_id,
