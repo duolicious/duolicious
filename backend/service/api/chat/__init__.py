@@ -21,6 +21,7 @@ from service.api.chat.mayberegister import register_push_token
 from service.api.chat.spam import is_spam_message
 from service.api.chat.upsertlastnotification import upsert_last_notification
 from service.api.chat.messagestorage.inbox import (
+    ClearedInboxReaction,
     clear_inbox_reaction,
     get_inbox,
     get_inbox_entry,
@@ -576,27 +577,35 @@ async def _handle_reaction(
             deliver_to_recipient=deliver_to_partner,
         )
 
-    # A clear reverts both inbox previews to the last message, but only when
-    # the rows still reflect this reaction; if the partner's row changed,
-    # they're pushed a fresh inbox entry below. No unread bump, no push.
-    partner_inbox_reverted = (
-        not parsed.emoji
-        and await clear_inbox_reaction(
+    # A clear reverts both inbox previews to the last message, but only
+    # where the rows still reflect this reaction; whoever's row changed is
+    # pushed a fresh inbox entry below. No unread bump, no push.
+    cleared = ClearedInboxReaction()
+    if not parsed.emoji:
+        cleared = await clear_inbox_reaction(
             reactor_username=from_username,
             partner_username=partner_username,
             reaction_target_mam_id=reactor_copy_id,
             deliver_to_recipient=deliver_to_partner,
-        ))
+        )
 
     stamp = format_timestamp(now_microseconds())
 
     # The inbox entry goes out before the reaction itself, mirroring the
     # message path: by the time the partner's client reacts to the stanza,
     # its inbox already reflects it.
-    if deliver_to_partner and (is_new_visible_reaction or partner_inbox_reverted):
+    if deliver_to_partner and (is_new_visible_reaction or cleared.partner_reverted):
         await _publish_inbox_entry(
             viewer_username=partner_username,
             prospect_username=from_username)
+
+    # The reactor's own devices get the entry too -- their inbox preview
+    # changed, and unlike sending a message, the client doesn't update its
+    # own inbox locally when reacting.
+    if is_new_visible_reaction or cleared.reactor_reverted:
+        await _publish_inbox_entry(
+            viewer_username=from_username,
+            prospect_username=partner_username)
 
     if deliver_to_partner:
         await redis_publish_many(partner_username, [

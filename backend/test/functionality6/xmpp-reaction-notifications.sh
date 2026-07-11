@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-# Purpose: A new, visible reaction surfaces in the partner's inbox and sends a
-# push notification (issue #1177). Verify that:
+# Purpose: A new, visible reaction surfaces in both people's inboxes and sends
+# the partner a push notification (issue #1177). Verify that:
 #   1. Reacting upserts both people's inbox rows, inserts `messaged`, pushes a
-#      live `duo_inbox_entry` before the `duo_reaction`, and sends a push whose
-#      title names the reactor and emoji.
+#      live `duo_inbox_entry` to both people (before the `duo_reaction` on the
+#      partner's side), and sends a push whose title names the reactor and
+#      emoji.
 #   2. Re-sending the same emoji is a no-op; changing the emoji re-notifies;
-#      clearing is quiet.
+#      clearing is quiet but still refreshes both inboxes.
 #   3. A shadow-banned reactor only updates their own side and sends nothing.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -290,6 +291,13 @@ entry=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received")
 [[ "$(jq -r '.last_message' <<< "$entry")" == "Reacted ${emoji1} to: ${body1}" ]]
 [[ "$(jq -r '.last_message_read' <<< "$entry")" == "false" ]]
 
+# The reactor's own open client gets its updated inbox entry too, already
+# read, so backing out of the conversation shows the new preview
+received1=$(curl -sX GET "http://localhost:3001/pop?id=user1")
+entry1=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received1")
+[[ "$(jq -r '.last_message' <<< "$entry1")" == "Reacted ${emoji1} to: ${body1}" ]]
+[[ "$(jq -r '.last_message_read' <<< "$entry1")" == "true" ]]
+
 # The push landed, with a reaction-specific title, deep-linking to the convo
 [[ "$(count_pushes_to 'user2-token')" -eq 1 ]]
 [[ "$(titles_of_pushes_to 'user2-token')" == "[\"user1 reacted ${emoji1} to your message\"]" ]]
@@ -319,6 +327,10 @@ send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji1"
 received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 [[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" == "duo_reaction" ]]
 
+# The reactor's client has nothing to update either
+received1=$(curl -sX GET "http://localhost:3001/pop?id=user1")
+[[ "$(jq -s '[.[] | .duo_inbox_entry | select(. != null)] | length' <<< "$received1")" -eq 0 ]]
+
 
 echo "Changing the emoji notifies again but keeps one outstanding unread bump"
 
@@ -331,6 +343,11 @@ send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji2"
 received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 [[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" \
     == "duo_inbox_entry,duo_reaction" ]]
+
+# The reactor's preview follows the replacement too
+received1=$(curl -sX GET "http://localhost:3001/pop?id=user1")
+entry1=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received1")
+[[ "$(jq -r '.last_message' <<< "$entry1")" == "Reacted ${emoji2} to: ${body1}" ]]
 
 
 echo "Clearing a reaction reverts both previews, without a push"
@@ -354,6 +371,11 @@ entry=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received")
 [[ "$(jq -r '.last_message' <<< "$entry")" == "${body1}" ]]
 [[ "$(jq -r '.last_message_read' <<< "$entry")" == "true" ]]
 
+# The reactor's preview reverts too
+received1=$(curl -sX GET "http://localhost:3001/pop?id=user1")
+entry1=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received1")
+[[ "$(jq -r '.last_message' <<< "$entry1")" == "${body1}" ]]
+
 
 echo "A clear after a newer message changes nothing"
 
@@ -370,12 +392,15 @@ curl -sX GET "http://localhost:3001/pop?id=user2" > /dev/null
 
 send_reaction_as user1 "$user2uuid" "$mam_id" ""
 
-# The guarded clear proves the row no longer reflects the cleared reaction,
-# so the partner's inbox is untouched and only the bubble-clearing stanza
-# goes out
+# The guarded clear proves the rows no longer reflect the cleared reaction,
+# so neither inbox is touched: the partner only gets the bubble-clearing
+# stanza and the reactor gets no entry
 [[ "$(inbox_row "$user2uuid" "$user1uuid")" == "${body_newer}||0" ]]
 received=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 [[ "$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")" == "duo_reaction" ]]
+
+received1=$(curl -sX GET "http://localhost:3001/pop?id=user1")
+[[ "$(jq -s '[.[] | .duo_inbox_entry | select(. != null)] | length' <<< "$received1")" -eq 0 ]]
 
 
 echo "A shadow-banned reactor only updates their own side"
@@ -395,8 +420,12 @@ clear_pushes
 
 send_reaction_as user3 "$user2uuid" "$mam_id_2" "$emoji1"
 
-# The reactor's own row shows the reaction so their app behaves normally...
+# The reactor's own row shows the reaction so their app behaves normally,
+# and their own client still gets its inbox entry...
 [[ "$(inbox_row "$user3uuid" "$user2uuid")" == "${body2}|${emoji1}|0" ]]
+received3=$(curl -sX GET "http://localhost:3001/pop?id=user3")
+entry3=$(jq -s '[.[] | .duo_inbox_entry | select(. != null)][0]' <<< "$received3")
+[[ "$(jq -r '.last_message' <<< "$entry3")" == "Reacted ${emoji1} to: ${body2}" ]]
 
 # ...but the partner's row is untouched, and they got no stanzas and no push
 [[ "$(inbox_row "$user2uuid" "$user3uuid")" == "${body2}||0" ]]

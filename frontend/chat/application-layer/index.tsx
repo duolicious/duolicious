@@ -329,7 +329,11 @@ const setInboxRecieved = (conversation: Conversation) => {
 
   conversations.push(conversation);
 
-  notifyOnWeb(conversation.name, conversation.lastMessage);
+  // A read entry is the viewer's own doing (e.g. the server echoing their
+  // reaction back to their inbox) -- nothing to alert them about.
+  if (!conversation.lastMessageRead) {
+    notifyOnWeb(conversation.name, conversation.lastMessage);
+  }
 
   notify<Inbox>('inbox', conversationsToInbox(conversations));
 };
@@ -428,26 +432,28 @@ const authenticate = async () => {
   ]);
 };
 
-const markDisplayed = async (message: ChatMessage) => {
-  if (message.fromCurrentUser) return;
+// Conversation-scoped: the server zeroes the conversation's unread count
+// regardless of `messageId`, so this works even when the last message is the
+// viewer's own (e.g. the unread state came from a reaction to it).
+const markDisplayed = async (otherPersonUuid: string, messageId: string) => {
+  if (!credentials) return;
 
-  if (!isValidUuid(jidToBareJid(message.from))) return;
-  if (!isValidUuid(jidToBareJid(message.to))) return;
+  if (!isValidUuid(otherPersonUuid)) return;
 
   const data = {
     message: {
-      '@to': message.from,
-      '@from': message.to,
+      '@to': personUuidToJid(otherPersonUuid),
+      '@from': personUuidToJid(credentials.username),
       displayed: {
         '@xmlns': 'urn:xmpp:chat-markers:0',
-        '@id': message.id,
+        '@id': messageId,
       },
     }
   };
 
   await send({ data });
 
-  setInboxDisplayed(jidToBareJid(message.from));
+  setInboxDisplayed(otherPersonUuid);
 };
 
 const sendMessage = async (
@@ -789,7 +795,23 @@ const onReceiveMessage = (
     return null;
   };
 
+  // The server bumps the conversation's unread state for a reaction like it
+  // does for a message, so viewing one must mark the conversation displayed
+  // like viewing a message does.
+  const _onReceiveReaction = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const reaction = doc?.duo_reaction;
+
+    if (!reaction) return;
+    if (otherPersonUuid === undefined) return;
+    if (!doMarkDisplayed) return;
+    if (jidToBareJid(reaction['@from'] ?? '') !== otherPersonUuid) return;
+
+    await markDisplayed(otherPersonUuid, reaction['@mam_id'] ?? '');
+  };
+
   const _onReceiveMessage = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    await _onReceiveReaction(doc);
+
     const unpacked = unpackDoc(doc);
 
     if (!unpacked) {
@@ -830,8 +852,8 @@ const onReceiveMessage = (
       notify(`message-from-${bareFrom}`);
     }
 
-    if (otherPersonUuid !== undefined && doMarkDisplayed) {
-      await markDisplayed(message);
+    if (otherPersonUuid !== undefined && doMarkDisplayed && !message.fromCurrentUser) {
+      await markDisplayed(otherPersonUuid, message.id);
     }
 
     if (callback !== undefined) {
@@ -966,7 +988,7 @@ const fetchConversation = async (
 
   if (response !== 'timeout' && response.length > 0) {
     const lastMessage = response[response.length - 1];
-    await markDisplayed(lastMessage);
+    await markDisplayed(withPersonUuid, lastMessage.id);
   }
 
   // Reconcile whether our message is the conversation's last one against the

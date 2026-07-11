@@ -555,11 +555,11 @@ AND
 """
 
 
-# The `reaction_target_mam_id` predicate proves the row still reflects the
+# The `reaction_target_mam_id` predicates prove each row still reflects the
 # reaction being cleared -- if a newer message or reaction has since taken
-# over the row, the clear correctly changes nothing. The bumped `timestamp`
-# is deliberately left in place: reverting it would reorder the inbox
-# beneath an open client for an event it can't see.
+# over a row, the clear correctly changes nothing there. The bumped
+# `timestamp` is deliberately left in place: reverting it would reorder the
+# inbox beneath an open client for an event it can't see.
 Q_CLEAR_INBOX_REACTION = f"""
 WITH update_reactor AS (
     UPDATE inbox SET
@@ -572,22 +572,28 @@ WITH update_reactor AS (
         remote_bare_jid = %(partner_jid)s
     AND
         reaction_target_mam_id = %(reaction_target_mam_id)s
+    RETURNING
+        1
+), update_partner AS (
+    UPDATE inbox SET
+        reaction = NULL,
+        reaction_target_mam_id = NULL,
+        reaction_body = NULL,
+        unread_count = GREATEST(COALESCE(unread_count, 0) - 1, 0)
+    WHERE
+        %(deliver_to_recipient)s::BOOLEAN
+    AND
+        luser = %(partner_username)s
+    AND
+        remote_bare_jid = %(reactor_jid)s
+    AND
+        reaction_target_mam_id = %(reaction_target_mam_id)s
+    RETURNING
+        1
 )
-UPDATE inbox SET
-    reaction = NULL,
-    reaction_target_mam_id = NULL,
-    reaction_body = NULL,
-    unread_count = GREATEST(COALESCE(unread_count, 0) - 1, 0)
-WHERE
-    %(deliver_to_recipient)s::BOOLEAN
-AND
-    luser = %(partner_username)s
-AND
-    remote_bare_jid = %(reactor_jid)s
-AND
-    reaction_target_mam_id = %(reaction_target_mam_id)s
-RETURNING
-    1
+SELECT
+    EXISTS (SELECT 1 FROM update_reactor) AS reactor_reverted,
+    EXISTS (SELECT 1 FROM update_partner) AS partner_reverted
 """
 
 
@@ -796,17 +802,23 @@ async def set_inbox_reaction(
     )
 
 
+@dataclass(frozen=True)
+class ClearedInboxReaction:
+    reactor_reverted: bool = False
+    partner_reverted: bool = False
+
+
 async def clear_inbox_reaction(
     reactor_username: str,
     partner_username: str,
     reaction_target_mam_id: int,
     deliver_to_recipient: bool,
-) -> bool:
+) -> ClearedInboxReaction:
     """
-    Removes the reaction from both people's inbox rows, provided the rows
-    still reflect this exact reaction (see Q_CLEAR_INBOX_REACTION). Returns
-    True when the partner's row changed, so the caller knows to push them a
-    fresh inbox entry.
+    Removes the reaction from both people's inbox rows, provided each row
+    still reflects this exact reaction (see Q_CLEAR_INBOX_REACTION). The
+    flags say whose rows changed, so the caller knows who needs a fresh
+    inbox entry.
     """
     async with api_tx('read committed') as tx:
         await tx.execute(
@@ -822,7 +834,10 @@ async def clear_inbox_reaction(
         )
         row = await tx.fetchone()
 
-    return row is not None
+    return ClearedInboxReaction(
+        reactor_reverted=bool(row and row['reactor_reverted']),
+        partner_reverted=bool(row and row['partner_reverted']),
+    )
 
 
 async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversationJob]) -> None:
