@@ -120,7 +120,7 @@ LEFT JOIN LATERAL (
     ON
         person.id = answer.person_id
     WHERE
-        person.uuid = uuid_or_null(%(from_username)s)
+        person.uuid = %(from_username)s
     AND
         answer.question_id = page.question_id
 ) AS viewer_answer
