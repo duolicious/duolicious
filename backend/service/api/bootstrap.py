@@ -32,6 +32,7 @@ async def migrate_unnormalized_emails() -> None:
     `normalize_email` normalizes more address.
     """
     async with api_tx() as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         q = "SELECT 1 FROM person WHERE normalized_email ILIKE '%@googlemail.com' LIMIT 1"
         await tx.execute(q)
         if await tx.fetchone():
