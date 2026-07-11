@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from itertools import groupby
 import numpy
+from answerspush import publish_answer_update
 from batcher import Batcher
 from constants import ANSWERED_QUESTION_EVENT_REFRESH_SECONDS
 from database import Row, Tx, api_tx
@@ -21,7 +22,8 @@ WHERE
 
 Q_GET_ANSWER = """
 SELECT
-    answer
+    answer,
+    public_
 FROM
     answer
 WHERE
@@ -134,6 +136,17 @@ class AnswerEventJob:
     advertise: bool
 
 
+# `visible_answer` is what other users may now see: the answer when it's
+# public, else None. Publishing to the answers channel only when
+# `visible_answer_changed` means private edits can never leak -- an edit that
+# starts and ends hidden produces no event at all.
+@dataclass(frozen=True)
+class AnswerWriteResult:
+    event_job: AnswerEventJob
+    visible_answer: bool | None
+    visible_answer_changed: bool
+
+
 @dataclass(frozen=True)
 class YesNoCountJob:
     question_id: int
@@ -200,7 +213,7 @@ async def _set_answer(
     answer: bool | None,
     public: bool | None,
     delete: bool,
-) -> AnswerEventJob | None:
+) -> AnswerWriteResult | None:
     question_tx = await tx.execute(
         Q_QUESTION_SCORE_VECTORS,
         dict(question_ids=[question_id]),
@@ -258,12 +271,24 @@ async def _set_answer(
         count_answers=int(count),
     ))
 
-    # Returned rather than enqueued so callers only enqueue after their
-    # transaction commits; a rolled-back answer must not reach the feed
-    return AnswerEventJob(
-        person_id=person_id,
-        question_id=question_id,
-        advertise=not delete and answer is not None and bool(public),
+    is_visible = not delete and answer is not None and bool(public)
+    old_visible = (
+        old['answer']
+        if old is not None and old['answer'] is not None and old['public_']
+        else None)
+    new_visible = answer if is_visible else None
+
+    # Returned rather than enqueued/published so callers only act after their
+    # transaction commits; a rolled-back answer must not reach the feed or the
+    # answers channel
+    return AnswerWriteResult(
+        event_job=AnswerEventJob(
+            person_id=person_id,
+            question_id=question_id,
+            advertise=is_visible,
+        ),
+        visible_answer=new_visible,
+        visible_answer_changed=new_visible != old_visible,
     )
 
 async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
@@ -271,7 +296,7 @@ async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
         return '', 500
 
     async with api_tx() as tx:
-        event_job = await _set_answer(
+        result = await _set_answer(
             tx,
             s.person_id,
             req.question_id,
@@ -280,10 +305,17 @@ async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
             delete=False,
         )
 
-    if event_job:
-        _answer_event_batcher.enqueue(event_job)
+    if result:
+        _answer_event_batcher.enqueue(result.event_job)
 
     _enqueue_yes_no_count(req.question_id, req.answer)
+
+    if result and result.visible_answer_changed and s.person_uuid:
+        await publish_answer_update(
+            username=s.person_uuid,
+            question_id=req.question_id,
+            answer=result.visible_answer,
+        )
 
     return None
 
@@ -292,7 +324,7 @@ async def delete_answer(req: t.DeleteAnswer, s: t.SessionInfo) -> object | None:
         return '', 500
 
     async with api_tx() as tx:
-        event_job = await _set_answer(
+        result = await _set_answer(
             tx,
             s.person_id,
             req.question_id,
@@ -301,8 +333,15 @@ async def delete_answer(req: t.DeleteAnswer, s: t.SessionInfo) -> object | None:
             delete=True,
         )
 
-    if event_job:
-        _answer_event_batcher.enqueue(event_job)
+    if result:
+        _answer_event_batcher.enqueue(result.event_job)
+
+    if result and result.visible_answer_changed and s.person_uuid:
+        await publish_answer_update(
+            username=s.person_uuid,
+            question_id=req.question_id,
+            answer=result.visible_answer,
+        )
 
     return None
 
@@ -326,8 +365,8 @@ async def _flush_session_answers(
     for answer in answers:
         _enqueue_yes_no_count(answer['question_id'], answer['answer'])
 
-        # The returned event job is deliberately dropped: answers stashed
-        # before signup shouldn't advertise in the feed
+        # The returned write result is deliberately dropped: answers stashed
+        # before signup shouldn't advertise in the feed or publish updates
         await _set_answer(
             tx,
             person_id,

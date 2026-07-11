@@ -2132,6 +2132,7 @@ LEFT JOIN LATERAL (
             'question_count_no', question.count_no,
             'question_yes_members', COALESCE(yes_facepile.j, '[]'::jsonb),
             'question_no_members', COALESCE(no_facepile.j, '[]'::jsonb),
+            'question_subject_answer', subject_answer.answer,
             'question_viewer', jsonb_build_object(
                 'person_uuid', searcher.searcher_uuid,
                 'url_slug', searcher.searcher_url_slug,
@@ -2161,6 +2162,25 @@ LEFT JOIN LATERAL (
         AND
             answer.question_id = question.id
     ) AS viewer_answer
+    ON TRUE
+    LEFT JOIN LATERAL (
+        -- The feed subject's own answer, so replying can quote it. Filtered
+        -- by publicness even though the feed event only fires for public
+        -- answers: the event lingers until the batcher reverts it, so it can
+        -- briefly outlive the answer's visibility.
+        SELECT
+            answer.answer
+        FROM
+            answer
+        WHERE
+            answer.person_id = feed_page.id
+        AND
+            answer.question_id = question.id
+        AND
+            answer.public_
+        AND
+            answer.answer IS NOT NULL
+    ) AS subject_answer
     ON TRUE
     LEFT JOIN LATERAL (
         {_question_facepile(True)}

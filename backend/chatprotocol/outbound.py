@@ -68,6 +68,39 @@ def _jid(username: str) -> str:
     return f'{username}@{LSERVER}'
 
 
+def answer_to_wire(answer: bool | None) -> str | None:
+    if answer is None:
+        return None
+    return 'yes' if answer else 'no'
+
+
+def _question_card_attrs(
+    question_id: int | None,
+    question: str | None,
+    question_topic: str | None,
+    viewer_answer: str | None,
+    viewer_answer_public: bool | None,
+    partner_answer: str | None,
+) -> dict:
+    if question_id is None:
+        return {}
+    if question is None or question_topic is None:
+        return {}
+    attrs: dict = {
+        '@question_id': str(question_id),
+        '@question': question,
+        '@question_topic': question_topic,
+    }
+    if viewer_answer is not None:
+        attrs['@viewer_answer'] = viewer_answer
+    if viewer_answer_public is not None:
+        attrs['@viewer_answer_public'] = (
+            'true' if viewer_answer_public else 'false')
+    if partner_answer is not None:
+        attrs['@partner_answer'] = partner_answer
+    return attrs
+
+
 # --------------------------------------------------------------------------- #
 # Control stanzas                                                             #
 # --------------------------------------------------------------------------- #
@@ -136,6 +169,29 @@ class OnlineEvent(Outbound):
             '@uuid': self.username,
             '@status': self.status,
         }}
+
+
+@_register
+@dataclass(frozen=True)
+class AnswerUpdate(Outbound):
+    """
+    Pushed on the `answers-{username}` channel when a person's publicly
+    visible answer to a quiz question changes. `answer` is 'yes'/'no', or None
+    when the answer is no longer visible (deleted or made private) -- private
+    state never reaches the wire.
+    """
+    username: str
+    question_id: int
+    answer: str | None = None
+
+    def canonical(self) -> dict:
+        attrs: dict = {
+            '@uuid': self.username,
+            '@question_id': str(self.question_id),
+        }
+        if self.answer is not None:
+            attrs['@answer'] = self.answer
+        return {'duo_answer_update': attrs}
 
 
 @_register
@@ -247,6 +303,12 @@ class IncomingChat(Outbound):
     body: str
     audio_uuid: str | None = None
     mam_id: str | None = None
+    question_id: int | None = None
+    question: str | None = None
+    question_topic: str | None = None
+    viewer_answer: str | None = None
+    viewer_answer_public: bool | None = None
+    partner_answer: str | None = None
 
     def canonical(self) -> dict:
         message: dict = {
@@ -260,6 +322,14 @@ class IncomingChat(Outbound):
             message['@audio_uuid'] = self.audio_uuid
         if self.mam_id is not None:
             message['@mam_id'] = self.mam_id
+        message.update(_question_card_attrs(
+            question_id=self.question_id,
+            question=self.question,
+            question_topic=self.question_topic,
+            viewer_answer=self.viewer_answer,
+            viewer_answer_public=self.viewer_answer_public,
+            partner_answer=self.partner_answer,
+        ))
         message['body'] = self.body
         message['request'] = {'@xmlns': NS_RECEIPTS}
         return {'message': message}
@@ -358,6 +428,12 @@ class MamResult(Outbound):
     audio_uuid: str | None = None
     reaction: str | None = None
     reaction_from: str | None = None
+    question_id: int | None = None
+    question: str | None = None
+    question_topic: str | None = None
+    viewer_answer: str | None = None
+    viewer_answer_public: bool | None = None
+    partner_answer: str | None = None
 
     def canonical(self) -> dict:
         inner: dict = {
@@ -373,6 +449,14 @@ class MamResult(Outbound):
         if self.reaction is not None:
             inner['@reaction'] = self.reaction
             inner['@reaction_from'] = self.reaction_from
+        inner.update(_question_card_attrs(
+            question_id=self.question_id,
+            question=self.question,
+            question_topic=self.question_topic,
+            viewer_answer=self.viewer_answer,
+            viewer_answer_public=self.viewer_answer_public,
+            partner_answer=self.partner_answer,
+        ))
         inner['body'] = self.body
         inner['request'] = {'@xmlns': NS_RECEIPTS}
 

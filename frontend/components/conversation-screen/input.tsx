@@ -58,6 +58,7 @@ import { FormattedText } from './chat-message';
 import { X } from 'react-native-feather';
 import {
   Quote as QuoteType,
+  QuoteCard,
   quoteToMessageMarkdown,
   quoteToPreviewMarkdown,
   setQuote,
@@ -478,7 +479,7 @@ const Input = ({
   onFocus,
 }: {
   initialValue?: string
-  onPressSend: (text: string) => void
+  onPressSend: (text: string, card?: QuoteCard) => void
   onChange: (s: string) => void
   onPressGif: () => void
   onAudioComplete: (audioBase64: string) => void
@@ -704,6 +705,7 @@ const Input = ({
   const handleSendPress = () => {
     const trimmedText = text.trim();
     const quoteAsMarkdown = quoteToMessageMarkdown(quote);
+    const card = quote?.card;
 
     if (trimmedText.length === 0) {
       return;
@@ -713,7 +715,7 @@ const Input = ({
     setQuote(null);
 
     if (trimmedText.length > 0 && quoteAsMarkdown.length > 0) {
-      onPressSend(quoteAsMarkdown + '\n' + trimmedText);
+      onPressSend(quoteAsMarkdown + '\n' + trimmedText, card);
     } else if (trimmedText.length > 0) {
       onPressSend(trimmedText);
     }

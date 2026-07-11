@@ -22,6 +22,7 @@ class BaseMessage:
 @dataclass(frozen=True)
 class ChatMessage(BaseMessage):
     body: str
+    question_id: int | None = None
 
 
 @dataclass(frozen=True)

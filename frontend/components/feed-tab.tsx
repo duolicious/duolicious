@@ -52,7 +52,7 @@ import { Flag } from "react-native-feather";
 import { AudioPlayer } from './audio-player';
 import { useSkipped } from '../hide-and-block/hide-and-block';
 import { TopNavBarButton } from './top-nav-bar-button';
-import { setQuote } from './conversation-screen/quote';
+import { QuoteCard, setQuote } from './conversation-screen/quote';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faReply } from '@fortawesome/free-solid-svg-icons/faReply';
 import { OnlineIndicator } from './online-indicator';
@@ -155,6 +155,9 @@ const AnsweredQuestionFieldsSchema = DataItemBaseSchema.extend({
   question_count_no: z.number(),
   question_yes_members: z.array(FacepileMemberSchema),
   question_no_members: z.array(FacepileMemberSchema),
+  // The feed subject's answer while it's publicly visible, so replying can
+  // quote it
+  question_subject_answer: z.boolean().nullable(),
   // The viewer's own answer, private or not; `public_` is null when they
   // haven't answered
   question_viewer: FacepileViewerSchema.extend({
@@ -347,17 +350,18 @@ const useNavigationToConversation = (
   photoUuid: string | null,
   photoBlurhash: string | null,
   quote: string,
+  card?: QuoteCard,
 ) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
   return useCallback((e: GestureResponderEvent) => {
     e.preventDefault();
 
-    setQuote({ text: quote, attribution: name });
+    setQuote({ text: quote, attribution: name, card });
 
     setProspectHint(personUuid, { name, photoUuid, photoBlurhash });
     navigation.navigate('Conversation Screen', { personUuid });
-  }, [personUuid, name, photoUuid, photoBlurhash, quote]);
+  }, [personUuid, name, photoUuid, photoBlurhash, quote, card]);
 };
 
 const AgeGenderLocation = ({
@@ -1149,6 +1153,41 @@ const QuestionFacepiles = ({
   );
 };
 
+const ReplyFooter = ({
+  onPress,
+}: {
+  onPress: (e: GestureResponderEvent) => void,
+}) => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <View style={{ alignItems: 'flex-end' }} >
+      <Pressable
+        style={{
+          flexDirection: 'row',
+          gap: 6,
+          paddingRight: 5,
+        }}
+        hitSlop={20}
+        onPress={onPress}
+      >
+        <DefaultText style={{ fontWeight: 700 }}>
+          Reply
+        </DefaultText>
+        <FontAwesomeIcon
+          icon={faReply}
+          size={16}
+          color={appTheme.secondaryColor}
+          style={{
+            /* @ts-ignore */
+            outline: 'none',
+          }}
+        />
+      </Pressable>
+    </View>
+  );
+};
+
 const FeedItemAnsweredQuestion = ({
   fields
 }: {
@@ -1179,6 +1218,24 @@ const FeedItemAnsweredQuestion = ({
     (public_: boolean) => setAnswerPublicly(
       fields.answered_question_id, public_),
     [fields.answered_question_id],
+  );
+
+  const quoteText = fields.question_subject_answer === null
+    ? fields.question_text
+    : `${fields.question_text} — ${fields.question_subject_answer ? 'Yes' : 'No'}`;
+
+  const onPressReply = useNavigationToConversation(
+    fields.person_uuid,
+    fields.name,
+    fields.photo_uuid,
+    fields.photo_blurhash,
+    quoteText,
+    {
+      questionId: fields.answered_question_id,
+      question: fields.question_text,
+      topic: fields.question_topic,
+      subjectAnswer: fields.question_subject_answer,
+    },
   );
 
   const props = isMobile() ? {
@@ -1260,6 +1317,7 @@ const FeedItemAnsweredQuestion = ({
         >
           {fields.question_text}
         </NonInteractiveQuizCard>
+        <ReplyFooter onPress={onPressReply} />
       </Animated.View>
     </View>
   );
@@ -1496,30 +1554,7 @@ const FeedItemUpdatedBio = ({
               {fields.added_text}
             </DefaultText>
           </View>
-          <View style={{ alignItems: 'flex-end' }} >
-            <Pressable
-              style={{
-                flexDirection: 'row',
-                gap: 6,
-                paddingRight: 5,
-              }}
-              hitSlop={20}
-              onPress={onPressReply}
-            >
-              <DefaultText style={{ fontWeight: 700 }}>
-                Reply
-              </DefaultText>
-              <FontAwesomeIcon
-                icon={faReply}
-                size={16}
-                color={appTheme.secondaryColor}
-                style={{
-                  /* @ts-ignore */
-                  outline: 'none',
-                }}
-              />
-            </Pressable>
-          </View>
+          <ReplyFooter onPress={onPressReply} />
         </View>
       </Animated.View>
     </Pressable>

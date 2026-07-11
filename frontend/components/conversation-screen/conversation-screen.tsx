@@ -60,6 +60,7 @@ import {
 } from '@react-navigation/native-stack';
 import type { RootParamList } from '../../navigation/linking';
 import { useDraftMessage } from '../../chat/application-layer/hooks/draft-message';
+import { QuoteCard } from './quote';
 import { GifPickedEvent } from '../../components/modal/gif-picker-modal';
 import { useSkipped } from '../../hide-and-block/hide-and-block';
 import { OnlineIndicator } from '../online-indicator';
@@ -545,10 +546,10 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
   const listRef = useRef<ScrollView>(null);
 
-  const onPressSend = useCallback((messageBody: string): void => {
+  const onPressSend = useCallback((messageBody: string, card?: QuoteCard): void => {
     const messageId = sendMessageAndNotify(
       personUuid,
-      { type: 'chat-text', text: messageBody }
+      { type: 'chat-text', text: messageBody, questionCard: card }
     );
 
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
@@ -916,6 +917,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
                 }
                 <ChatMessage
                   messageId={messageId}
+                  personUuid={personUuid}
                   name={name}
                   avatarUuid={photoUuid}
                 />

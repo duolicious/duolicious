@@ -16,6 +16,7 @@ from chatprotocol.outbound import (
     MamResult,
     Outbound,
     ReadReceipt,
+    answer_to_wire,
 )
 import uuid
 
@@ -30,6 +31,7 @@ INSERT INTO
         audio_uuid,
         body,
         stanza_id,
+        question_id,
         person_id
     )
 -- The sender's archive copy (direction 'O') is always stored. The recipient's
@@ -44,6 +46,7 @@ SELECT
     %(audio_uuid)s,
     %(body)s,
     %(stanza_id)s,
+    %(question_id)s::SMALLINT,
     (SELECT id FROM person WHERE uuid = uuid_or_null(%(from_username)s))
 UNION ALL
 SELECT
@@ -54,6 +57,7 @@ SELECT
     %(audio_uuid)s,
     %(body)s,
     %(stanza_id)s,
+    %(question_id)s::SMALLINT,
     (SELECT id FROM person WHERE uuid = uuid_or_null(%(to_username)s))
 WHERE
     %(deliver_to_recipient)s::BOOLEAN
@@ -61,6 +65,10 @@ WHERE
 
 
 Q_SELECT_MESSAGE = f"""
+-- The card answers are joined fresh on every fetch, so a partner answer that
+-- was deleted or made private since the message was sent disappears without
+-- any bookkeeping. The viewer's own answer is deliberately unfiltered: it's
+-- their own state and seeds the client's answer store.
 WITH page AS (
     SELECT
         mam_message.id,
@@ -68,7 +76,8 @@ WITH page AS (
         mam_message.stanza_id,
         mam_message.body,
         mam_message.audio_uuid,
-        mam_message.reaction
+        mam_message.reaction,
+        mam_message.question_id
     FROM
         mam_message
     JOIN
@@ -88,11 +97,57 @@ WITH page AS (
         LEAST(50, COALESCE(%(max)s, 50))
 )
 SELECT
-    *
+    page.*,
+    question.question AS question,
+    question.topic AS question_topic,
+    viewer_answer.answer AS viewer_answer,
+    viewer_answer.public_ AS viewer_answer_public,
+    partner_answer.answer AS partner_answer
 FROM
     page
+LEFT JOIN
+    question
+ON
+    question.id = page.question_id
+LEFT JOIN LATERAL (
+    SELECT
+        answer.answer,
+        answer.public_
+    FROM
+        answer
+    JOIN
+        person
+    ON
+        person.id = answer.person_id
+    WHERE
+        person.uuid = uuid_or_null(%(from_username)s)
+    AND
+        answer.question_id = page.question_id
+) AS viewer_answer
+ON
+    page.question_id IS NOT NULL
+LEFT JOIN LATERAL (
+    SELECT
+        answer.answer
+    FROM
+        answer
+    JOIN
+        person
+    ON
+        person.id = answer.person_id
+    WHERE
+        person.uuid = uuid_or_null(%(to_username)s)
+    AND
+        answer.question_id = page.question_id
+    AND
+        answer.public_
+    AND
+        answer.answer IS NOT NULL
+) AS partner_answer
+ON
+    page.question_id IS NOT NULL
 ORDER BY
-    id
+    page.id
 """
 
 
@@ -117,6 +172,7 @@ class StoreMamMessageJob:
     message_body: str
     audio_uuid: str | None
     deliver_to_recipient: bool = True
+    question_id: int | None = None
 
 
 async def get_conversation(
@@ -139,6 +195,7 @@ async def process_store_mam_message_batch(tx: Tx, batch: list[StoreMamMessageJob
             audio_uuid=message.audio_uuid,
             body=message.message_body,
             stanza_id=message.id,
+            question_id=message.question_id,
             deliver_to_recipient=message.deliver_to_recipient,
         )
         for message in batch
@@ -194,6 +251,12 @@ async def _get_conversation(
             audio_uuid=row['audio_uuid'],
             reaction=reaction,
             reaction_from=reaction_from,
+            question_id=row['question_id'],
+            question=row['question'],
+            question_topic=row['question_topic'],
+            viewer_answer=answer_to_wire(row['viewer_answer']),
+            viewer_answer_public=row['viewer_answer_public'],
+            partner_answer=answer_to_wire(row['partner_answer']),
         ))
 
     # The receipt belongs under the most recent outgoing message, so it's only

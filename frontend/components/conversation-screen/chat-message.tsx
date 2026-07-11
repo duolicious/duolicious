@@ -36,7 +36,15 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { setQuote, parseMarkdown, QuoteBlock, TextBlock } from './quote';
+import {
+  setQuote,
+  parseMarkdown,
+  QuoteBlock,
+  stripLeadingQuoteBlock,
+  TextBlock,
+} from './quote';
+import { usePartnerAnswer } from '../../chat/application-layer/hooks/partner-answer';
+import { AnsweredQuizCard } from '../quiz-card';
 import * as Haptics from 'expo-haptics';
 import { useSignedInUser } from '../../events/signed-in-user';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -305,10 +313,12 @@ const MessageStatusComponent = ({
 
 const ChatMessage = ({
   messageId,
+  personUuid,
   name,
   avatarUuid,
 }: {
   messageId: string
+  personUuid: string
   name: string | undefined
   avatarUuid: string | null | undefined
 }) => {
@@ -338,6 +348,29 @@ const ChatMessage = ({
   const mamId = chatMessage?.mamId;
 
   const reaction = useReaction(mamId);
+
+  const questionCard =
+    chatMessage?.type === 'chat-text' &&
+    chatMessage.questionId !== undefined &&
+    chatMessage.question !== undefined &&
+    chatMessage.questionTopic !== undefined
+      ? {
+          questionId: chatMessage.questionId,
+          question: chatMessage.question,
+          topic: chatMessage.questionTopic,
+        }
+      : undefined;
+
+  // The conversation partner's answer, regardless of who sent the message;
+  // updates live via `duo_answer_update`
+  const partnerAnswer = usePartnerAnswer(personUuid, questionCard?.questionId);
+
+  // When the quiz card renders, it replaces the message's leading blockquote
+  // (the card's fallback presentation), leaving just the typed text
+  const bubbleText =
+    chatMessage?.type !== 'chat-text' ? '' :
+    questionCard === undefined ? chatMessage.text :
+    stripLeadingQuoteBlock(chatMessage.text);
 
   const canReact = !!chatMessage && !chatMessage.fromCurrentUser && !!mamId;
 
@@ -402,7 +435,7 @@ const ChatMessage = ({
       return 'transparent';
     } else if (doRenderUrlAsImage) {
       return 'transparent';
-    } else if (isEmojiOnly(message.message.text)) {
+    } else if (isEmojiOnly(bubbleText)) {
       return 'transparent';
     } else if (message.message.fromCurrentUser) {
       return currentUserBackgroundColor;
@@ -544,6 +577,25 @@ const ChatMessage = ({
         },
       ]}
     >
+      {questionCard &&
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 450,
+            alignSelf: fromCurrentUser ? 'flex-end' : 'flex-start',
+          }}
+        >
+          <AnsweredQuizCard
+            questionNumber={questionCard.questionId}
+            topic={questionCard.topic}
+            user1={name ?? 'They'}
+            answer1={partnerAnswer}
+            user2="You"
+          >
+            {questionCard.question}
+          </AnsweredQuizCard>
+        </View>
+      }
       <View
         style={{
           position: 'relative',
@@ -592,7 +644,7 @@ const ChatMessage = ({
             {shownAvatarUuid &&
               <Avatar avatarUuid={shownAvatarUuid} />
             }
-            {message.message.type === 'chat-text' &&
+            {message.message.type === 'chat-text' && bubbleText.length > 0 &&
               <View
                 style={{
                   borderRadius: 10,
@@ -629,9 +681,9 @@ const ChatMessage = ({
                 }
                 {!doRenderUrlAsImage &&
                   <FormattedText
-                    text={message.message.text}
+                    text={bubbleText}
                     color={textColor}
-                    fontSize={isEmojiOnly(message.message.text) ? 50 : defaultFontSize}
+                    fontSize={isEmojiOnly(bubbleText) ? 50 : defaultFontSize}
                   />
                 }
                 {!doRenderUrlAsImage && !isMobile() &&

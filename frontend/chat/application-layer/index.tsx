@@ -14,6 +14,8 @@ import {
 } from '../websocket-layer';
 import { notifyOwnLastMessageAt } from './hooks/read-receipt';
 import { ingestMamReaction } from './hooks/reaction';
+import { ingestCardAttributes } from './hooks/partner-answer';
+import { QuoteCard } from '../../components/conversation-screen/quote';
 import {
   awaitFocusedConversationFetch,
   markConversationFetchDispatched,
@@ -121,6 +123,12 @@ type ChatAudioMessage = ChatBaseMessage & {
 type ChatTextMessage = ChatBaseMessage & {
   type: 'chat-text'
   text: string
+  // Set when the message replies to a quiz card. The current answers aren't
+  // stored on the message; they live in the answer stores so they can update
+  // in real time.
+  questionId?: number
+  question?: string
+  questionTopic?: string
 };
 
 type ChatMessage = ChatAudioMessage | ChatTextMessage;
@@ -469,6 +477,7 @@ const sendMessage = async (
   content: {
     type: 'chat-text',
     text: string,
+    questionCard?: QuoteCard,
   } | {
     type: 'chat-audio',
     audioBase64: string,
@@ -517,6 +526,11 @@ const sendMessage = async (
           '@from': personUuidToJid(credentials.username),
           '@to': personUuidToJid(recipientPersonUuid),
           '@id': id,
+          // Only the id goes on the wire; the server derives the question
+          // text and both answers itself
+          ...(content.questionCard !== undefined ? {
+            '@question_id': String(content.questionCard.questionId),
+          } : {}),
           body: content.text,
         },
       };
@@ -641,6 +655,8 @@ const sendMessage = async (
     };
   } else if (response.status === 'sent') {
     const text = content.type === 'chat-text' ? content.text : '';
+    const questionCard =
+      content.type === 'chat-text' ? content.questionCard : undefined;
     const timestamp = response.stamp ? new Date(response.stamp) : new Date();
 
     setInboxSent(recipientPersonUuid, text);
@@ -661,6 +677,11 @@ const sendMessage = async (
         text,
         timestamp,
         fromCurrentUser: true,
+        ...(questionCard !== undefined ? {
+          questionId: questionCard.questionId,
+          question: questionCard.question,
+          questionTopic: questionCard.topic,
+        } : {}),
       },
       status: response.status
     };
@@ -765,6 +786,9 @@ const onReceiveMessage = (
           '@id': id,
           '@audio_uuid': audioUuid,
           '@mam_id': mamId,
+          '@question_id': questionId,
+          '@question': question,
+          '@question_topic': questionTopic,
           body: text,
         }
       } = doc;
@@ -785,10 +809,19 @@ const onReceiveMessage = (
       }
 
       if (type === 'chat' && text){
+        if (questionId && question && questionTopic) {
+          ingestCardAttributes(jidToBareJid(from), doc.message);
+        }
+
         return {
           ...base,
           type: 'chat-text' as 'chat-text',
           text: text as string,
+          ...(questionId && question && questionTopic ? {
+            questionId: Number(questionId),
+            question: question as string,
+            questionTopic: questionTopic as string,
+          } : {}),
         };
       }
 
@@ -918,6 +951,9 @@ const fetchConversation = async (
                 '@audio_uuid': audioUuid,
                 '@reaction': reaction,
                 '@reaction_from': reactionFrom,
+                '@question_id': questionId,
+                '@question': question,
+                '@question_topic': questionTopic,
                 'body': text,
               }
             }
@@ -928,6 +964,13 @@ const fetchConversation = async (
       assert(receivedQueryId === queryId);
 
       ingestMamReaction(mamId, reaction, reactionFrom);
+
+      if (questionId && question && questionTopic) {
+        ingestCardAttributes(
+          withPersonUuid,
+          doc.message.result.forwarded.message,
+        );
+      }
 
       if (audioUuid) {
         return {
@@ -950,6 +993,11 @@ const fetchConversation = async (
           mamId: mamId || undefined,
           timestamp: new Date(timestamp),
           fromCurrentUser: jidMatchesSignedInUser(from),
+          ...(questionId && question && questionTopic ? {
+            questionId: Number(questionId),
+            question: question as string,
+            questionTopic: questionTopic as string,
+          } : {}),
         };
       }
     } catch {

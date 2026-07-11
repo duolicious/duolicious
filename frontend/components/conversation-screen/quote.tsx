@@ -48,7 +48,17 @@ type MarkdownBlock = QuoteBlock | TextBlock;
 
 // Domain entities --------------------------------------------------------
 
-type Quote = { text: string; attribution: string };
+// The quiz card a reply is about. Travels with the quote from the feed to the
+// composer, then onto the message as `@question_id`; the quote's markdown is
+// only the fallback for clients that can't render the card.
+type QuoteCard = {
+  questionId: number
+  question: string
+  topic: string
+  subjectAnswer: boolean | null
+};
+
+type Quote = { text: string; attribution: string; card?: QuoteCard };
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constants / Regexes
@@ -214,6 +224,26 @@ const quoteToMessageMarkdown = (quote: Quote | null) => {
   return _quoteToMarkdown({ text: portion, attribution: quote!.attribution }, false);
 };
 
+/**
+ * The typed part of a message whose leading blockquote is rendered some other
+ * way (e.g. as a live quiz card): everything after the message's first quote
+ * block.
+ */
+const stripLeadingQuoteBlock = (markdown: string): string => {
+  const lines = markdown.split(/\r?\n/);
+
+  let i = 0;
+  while (i < lines.length && lines[i].trim().startsWith('>')) {
+    i++;
+  }
+
+  if (i === 0) {
+    return markdown;
+  }
+
+  return lines.slice(i).join('\n').trim();
+};
+
 // ──────────────────────────────────────────────────────────────────────────
 // Event‑based Quote store (unchanged)
 // ──────────────────────────────────────────────────────────────────────────
@@ -246,9 +276,11 @@ export {
   parseMarkdown,
   Quote,
   QuoteBlock,
+  QuoteCard,
   quoteToMessageMarkdown,
   quoteToPreviewMarkdown,
   setQuote,
+  stripLeadingQuoteBlock,
   TextBlock,
   TextToken,
   tokenizeInline,

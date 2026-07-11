@@ -52,6 +52,11 @@ def store_message(
                 if isinstance(message, AudioMessage)
                 else None
             ),
+            question_id=(
+                message.question_id
+                if isinstance(message, ChatMessage)
+                else None
+            ),
             deliver_to_recipient=deliver_to_recipient,
         ),
         upsert_conversation_job=UpsertConversationJob(

@@ -17,6 +17,8 @@ import {
 } from '../index';
 import { getRandomString } from '../../../random/string';
 import { assertNever } from '../../../util/util';
+import { seedPartnerAnswer } from './partner-answer';
+import { QuoteCard } from '../../../components/conversation-screen/quote';
 
 type UseMessage =
   | { status: 'not unique', message: Message, usedCount: number }
@@ -55,6 +57,7 @@ const sendMessageAndNotify = (
   content: {
     type: 'chat-text',
     text: string,
+    questionCard?: QuoteCard,
   } | {
     type: 'chat-audio',
     audioBase64: string,
@@ -68,6 +71,17 @@ const sendMessageAndNotify = (
 ): string => {
   const id = getRandomString(40);
 
+  if (content.type === 'chat-text' && content.questionCard !== undefined) {
+    // The feed item's copy of the recipient's answer, so the sender's own
+    // card renders immediately; the server's copy takes over from the next
+    // fetch or live update
+    seedPartnerAnswer(
+      recipientPersonUuid,
+      content.questionCard.questionId,
+      content.questionCard.subjectAnswer,
+    );
+  }
+
   const initialMessage: Message = (() => {
     switch (content.type) {
       case 'chat-text':
@@ -79,6 +93,11 @@ const sendMessageAndNotify = (
           text: content.text,
           timestamp: new Date(),
           fromCurrentUser: true,
+          ...(content.questionCard !== undefined ? {
+            questionId: content.questionCard.questionId,
+            question: content.questionCard.question,
+            questionTopic: content.questionCard.topic,
+          } : {}),
         };
       case 'chat-audio':
         return {

@@ -1673,6 +1673,10 @@ CREATE TABLE IF NOT EXISTS mam_message(
   -- The stanza's XMPP `id` attribute.
   stanza_id TEXT NOT NULL,
   reaction TEXT,
+  -- The quiz question this message replies to. No FK: messages are inserted
+  -- in shared batches, and one bad reference would abort the whole batch. The
+  -- chat server validates ids before storing instead.
+  question_id SMALLINT,
   PRIMARY KEY(person_id, id)
 );
 

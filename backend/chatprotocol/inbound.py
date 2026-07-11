@@ -203,6 +203,14 @@ def message_from_element(el: Element) -> Message | None:
 
     to_username = jid_to_username(el.get('to'))
 
+    raw_question_id = el.get('question_id')
+    question_id = (
+        int(raw_question_id)
+        if raw_question_id and raw_question_id.isdigit()
+        else None
+    )
+    question_id = question_id if question_id and question_id <= 0x7fff else None
+
     if not stanza_id:
         return None
     if not to_username:
@@ -225,6 +233,7 @@ def message_from_element(el: Element) -> Message | None:
                 stanza_id=stanza_id,
                 to_username=to_username,
                 body=body,
+                question_id=question_id,
             )
 
     return None

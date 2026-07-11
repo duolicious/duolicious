@@ -1,3 +1,4 @@
+import dataclasses
 import os
 from database import (
     api_tx,
@@ -100,8 +101,13 @@ from chatprotocol.outbound import (
     ReadReceipt,
     RegistrationSuccessful,
     ServerError,
+    answer_to_wire,
     from_bus,
     to_bus,
+)
+from service.api.chat.questioncard import (
+    fetch_card,
+    fetch_question,
 )
 from service.api.chat.audiomessage import (
     transcode_and_put,
@@ -723,6 +729,17 @@ async def process_text(
     if not to_id:
         return None
 
+    # A reference to a question that doesn't exist degrades to a plain text
+    # message; the body's blockquote fallback still reads fine.
+    question_id = (
+        maybe_message.question_id
+        if isinstance(maybe_message, ChatMessage)
+        else None)
+
+    if question_id is not None and await fetch_question(question_id) is None:
+        maybe_message = dataclasses.replace(maybe_message, question_id=None)
+        question_id = None
+
     # Shadow-banned senders perceive the app as normal -- validation runs as
     # usual and their own client/storage behave normally -- but nothing they
     # send reaches the recipient: no real-time delivery, push notification, or
@@ -812,6 +829,18 @@ async def process_text(
         sender_mam_id = encode_mam_id(sender_copy_id)
         recipient_mam_id = encode_mam_id(sibling_mam_id(sender_copy_id))
 
+        # Runs after the message batch commits, so the card reflects committed
+        # answer state. Viewer/partner are from the recipient's perspective:
+        # they're the one this stanza is delivered to.
+        card = (
+            await fetch_card(
+                question_id=question_id,
+                viewer_id=to_id,
+                partner_id=from_id,
+            )
+            if question_id is not None
+            else None)
+
         delivery_message = IncomingChat(
             from_username=from_username,
             to_username=to_username,
@@ -819,6 +848,12 @@ async def process_text(
             body=maybe_message.body,
             audio_uuid=audio_uuid,
             mam_id=recipient_mam_id,
+            question_id=question_id if card else None,
+            question=card.question if card else None,
+            question_topic=card.topic if card else None,
+            viewer_answer=answer_to_wire(card.viewer_answer) if card else None,
+            viewer_answer_public=card.viewer_answer_public if card else None,
+            partner_answer=answer_to_wire(card.partner_answer) if card else None,
         )
 
         immediate_data = await fetch_immediate_data(

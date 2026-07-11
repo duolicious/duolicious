@@ -1,5 +1,6 @@
 import redis.asyncio as redis
 import traceback
+from answerspush import answers_channel
 from service.api.chat.chatutil import (
     fetch_is_public,
     fetch_is_skipped,
@@ -103,7 +104,12 @@ async def _redis_subscribe_online(
     key = FMT_KEY.format(username=username)
     val = await redis_client.get(key)
 
+    # Watching someone's online status also watches their quiz-answer changes;
+    # both carry only state the subscriber may see, and `should_subscribe` has
+    # already gated the subscription itself. There's no answer snapshot to
+    # send: MAM results carry current answers, so a fetch is the snapshot.
     await pubsub.subscribe(key)
+    await pubsub.subscribe(answers_channel(username))
 
     if isinstance(val, bytes):
         val = val.decode()
@@ -146,6 +152,7 @@ async def _redis_unsubscribe_online(
 ) -> None:
     key = FMT_KEY.format(username=username)
     await pubsub.unsubscribe(key)
+    await pubsub.unsubscribe(answers_channel(username))
 
 async def redis_publish_online(
     redis_client: redis.Redis,

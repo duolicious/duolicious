@@ -13,3 +13,6 @@ CREATE INDEX IF NOT EXISTS idx__answer__question_id_public_answer
 -- A strict prefix of idx__answer__question_id_public_answer, so it only adds
 -- write amplification on a hot table now
 DROP INDEX IF EXISTS idx__answer__question_id;
+
+ALTER TABLE mam_message
+    ADD COLUMN IF NOT EXISTS question_id SMALLINT;
