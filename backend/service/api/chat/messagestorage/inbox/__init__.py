@@ -463,8 +463,7 @@ WITH upsert_sender AS (
         direction = EXCLUDED.direction,
         timestamp = EXCLUDED.timestamp,
         unread_count = 0,
-        -- A message supersedes any reaction as the conversation's latest
-        -- activity.
+        -- A message supersedes any reaction as the latest activity.
         reaction = NULL,
         reaction_target_mam_id = NULL,
         reaction_body = NULL
@@ -512,15 +511,9 @@ SELECT 1
 """
 
 
-# A reaction rides on both people's existing inbox rows (which are guaranteed
-# to exist: the partner's row was created when they sent the reacted-to
-# message, and the reactor's when they received it) rather than overwriting
-# `body`, so clearing it never has to reconstruct the last message.
-#
-# The partner's unread count gains at most one outstanding bump per live
-# reaction: replacing the emoji on the same target keeps the count (or
-# revives it to 1 if the conversation was read in between), so the clear
-# query's decrement below is always sound.
+# Both rows are guaranteed to exist: they were created when the reacted-to
+# message was sent/received. The unread CASE keeps at most one outstanding
+# bump per live reaction, which makes the clear query's decrement sound.
 Q_SET_INBOX_REACTION = f"""
 WITH update_reactor AS (
     UPDATE inbox SET
@@ -555,11 +548,9 @@ AND
 """
 
 
-# The `reaction_target_mam_id` predicates prove each row still reflects the
-# reaction being cleared -- if a newer message or reaction has since taken
-# over a row, the clear correctly changes nothing there. The bumped
-# `timestamp` is deliberately left in place: reverting it would reorder the
-# inbox beneath an open client for an event it can't see.
+# The `reaction_target_mam_id` predicates make the clear a no-op on rows a
+# newer message or reaction has since taken over. `timestamp` is deliberately
+# not reverted: that would reorder the inbox beneath an open client.
 Q_CLEAR_INBOX_REACTION = f"""
 WITH update_reactor AS (
     UPDATE inbox SET
@@ -631,9 +622,7 @@ def reaction_inbox_body(emoji: str, target_body: str) -> str:
     return f'Reacted {emoji} to: {target_body}'
 
 
-# Previews are composed here rather than stored: `inbox.body` always holds
-# the conversation's last message, and a live reaction decorates it from the
-# row's `reaction` columns.
+# Composed at read time: `inbox.body` always holds the last message.
 def _composed_body(body: str, reaction: str | None, reaction_body: str | None) -> str:
     if reaction is None or reaction_body is None:
         return body
@@ -815,10 +804,8 @@ async def clear_inbox_reaction(
     deliver_to_recipient: bool,
 ) -> ClearedInboxReaction:
     """
-    Removes the reaction from both people's inbox rows, provided each row
-    still reflects this exact reaction (see Q_CLEAR_INBOX_REACTION). The
-    flags say whose rows changed, so the caller knows who needs a fresh
-    inbox entry.
+    Removes the reaction from each inbox row that still reflects it; the
+    flags say whose rows changed and so need a fresh inbox entry pushed.
     """
     async with api_tx('read committed') as tx:
         await tx.execute(

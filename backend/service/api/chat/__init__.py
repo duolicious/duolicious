@@ -468,11 +468,8 @@ async def _publish_inbox_entry(
     viewer_username: str,
     prospect_username: str,
 ) -> None:
-    # Skipped when nobody is subscribed to the viewer's channel: the publish
-    # would go nowhere, and an offline viewer gets the whole inbox via
-    # `duo_query_inbox` on reconnect anyway. That reconnect snapshot also
-    # covers the race where the viewer connects between this check and the
-    # publish.
+    # An offline viewer gets the whole inbox via `duo_query_inbox` on
+    # reconnect, which also covers a viewer connecting after this check.
     if not await redis_has_subscribers(REDIS_WORKER_CLIENT, viewer_username):
         return
 
@@ -490,9 +487,7 @@ async def _send_reaction_notification(
     emoji: str,
     target_body: str,
 ) -> None:
-    # Always a chat, never an intro, from the partner's perspective: they
-    # authored the reacted-to message, so they've messaged the reactor by
-    # definition.
+    # Never an intro: the partner authored the reacted-to message.
     immediate_data = await fetch_immediate_data(
         from_id=from_id,
         to_id=partner_id,
@@ -560,8 +555,6 @@ async def _handle_reaction(
     if not stored:
         return await reject()
 
-    # Re-sending the same emoji changes nothing the partner can see, so only
-    # a new visible reaction reaches the partner's inbox and notifications.
     is_new_visible_reaction = (
         bool(parsed.emoji) and parsed.emoji != target.previous_reaction)
 
@@ -577,9 +570,6 @@ async def _handle_reaction(
             deliver_to_recipient=deliver_to_partner,
         )
 
-    # A clear reverts both inbox previews to the last message, but only
-    # where the rows still reflect this reaction; whoever's row changed is
-    # pushed a fresh inbox entry below. No unread bump, no push.
     cleared = ClearedInboxReaction()
     if not parsed.emoji:
         cleared = await clear_inbox_reaction(
@@ -591,17 +581,13 @@ async def _handle_reaction(
 
     stamp = format_timestamp(now_microseconds())
 
-    # The inbox entry goes out before the reaction itself, mirroring the
-    # message path: by the time the partner's client reacts to the stanza,
-    # its inbox already reflects it.
+    # The entry must go out before the reaction itself, like the message path.
     if deliver_to_partner and (is_new_visible_reaction or cleared.partner_reverted):
         await _publish_inbox_entry(
             viewer_username=partner_username,
             prospect_username=from_username)
 
-    # The reactor's own devices get the entry too -- their inbox preview
-    # changed, and unlike sending a message, the client doesn't update its
-    # own inbox locally when reacting.
+    # The client doesn't update its own inbox locally when reacting.
     if is_new_visible_reaction or cleared.reactor_reverted:
         await _publish_inbox_entry(
             viewer_username=from_username,

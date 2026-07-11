@@ -79,14 +79,10 @@ async def store_reaction_conversation(
     deliver_to_recipient: bool,
 ) -> None:
     """
-    Surface a reaction in both people's inboxes, synchronously. Unlike
-    messages, reactions aren't batched: the caller publishes the updated inbox
-    entry immediately afterwards, so the row must already be committed.
-
-    The `messaged` upsert makes the partner's inbox entry visible when the
-    reactor never replied to them (the inbox queries hide conversations whose
-    prospect never messaged the viewer), treating a reaction as engagement the
-    same way a reply would be.
+    Surface a reaction in both people's inboxes, synchronously: the caller
+    publishes the updated entries immediately afterwards. The `messaged`
+    upsert unhides the conversation in the partner's inbox when the reactor
+    never replied.
     """
     async with api_tx('read committed') as tx:
         await set_inbox_reaction(

@@ -147,15 +147,10 @@ async def fetch_reaction_target(
     reactor_copy_id: int,
 ) -> ReactionTarget | None:
     """
-    The target of a reaction, taken from the reactor's own incoming archive
-    copy: the partner (whose message is being reacted to, from
-    `remote_bare_jid`), the reaction currently on the message, and the
-    message's body. Returns None when the target isn't a message the reactor
-    received (their own message, or a non-existent id), which the caller
-    should reject.
-
-    `previous_reaction` is read before `store_reaction` writes; concurrent
-    reactions from the same user can at worst notify twice.
+    The reaction's target, from the reactor's own incoming archive copy. None
+    when the target isn't a message the reactor received, which the caller
+    should reject. `previous_reaction` is read before `store_reaction`
+    writes; concurrent reactions can at worst notify twice.
     """
     async with api_tx('read committed') as tx:
         await tx.execute(

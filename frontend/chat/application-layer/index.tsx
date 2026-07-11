@@ -329,8 +329,7 @@ const setInboxRecieved = (conversation: Conversation) => {
 
   conversations.push(conversation);
 
-  // A read entry is the viewer's own doing (e.g. the server echoing their
-  // reaction back to their inbox) -- nothing to alert them about.
+  // A read entry is the viewer's own doing, e.g. their reaction echoed back.
   if (!conversation.lastMessageRead) {
     notifyOnWeb(conversation.name, conversation.lastMessage);
   }
@@ -432,9 +431,7 @@ const authenticate = async () => {
   ]);
 };
 
-// Conversation-scoped: the server zeroes the conversation's unread count
-// regardless of `messageId`, so this works even when the last message is the
-// viewer's own (e.g. the unread state came from a reaction to it).
+// The server marks the whole conversation displayed; `messageId` is inert.
 const markDisplayed = async (otherPersonUuid: string, messageId: string) => {
   if (!credentials) return;
 
@@ -795,9 +792,7 @@ const onReceiveMessage = (
     return null;
   };
 
-  // The server bumps the conversation's unread state for a reaction like it
-  // does for a message, so viewing one must mark the conversation displayed
-  // like viewing a message does.
+  // The server bumps the conversation's unread state for reactions too.
   const _onReceiveReaction = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const reaction = doc?.duo_reaction;
 
