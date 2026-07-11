@@ -21,8 +21,6 @@ from service.api.chat.mayberegister import register_push_token
 from service.api.chat.spam import is_spam_message
 from service.api.chat.upsertlastnotification import upsert_last_notification
 from service.api.chat.messagestorage.inbox import (
-    ClearedInboxReaction,
-    clear_inbox_reaction,
     get_inbox,
     get_inbox_entry,
     get_inbox_snapshot,
@@ -36,12 +34,9 @@ from service.api.chat.messagestorage.mam import (
 from chatprotocol.mam_id import encode_mam_id
 from service.api.chat.messagestorage import (
     store_message,
-    store_reaction_conversation,
-)
-from service.api.chat.messagestorage.reaction import (
-    fetch_reaction_target,
     store_reaction,
 )
+from service.api.chat.messagestorage.reaction import fetch_reaction_target
 from service.api.chat.session import (
     Session,
     maybe_get_session_response,
@@ -493,12 +488,16 @@ async def _send_reaction_notification(
     if immediate_data is None:
         return
 
+    from_name = row_str_or_none(immediate_data, 'name')
+    if from_name is None:
+        return
+
     await send_notification(
-        from_name=row_str_or_none(immediate_data, 'name'),
+        from_name=from_name,
         to_username=partner_username,
         message=target_body,
         is_intro=False,
-        title=f"{immediate_data['name']} reacted {emoji} to your message",
+        title=f"{from_name} reacted {emoji} to your message",
         data=_conversation_screen_data(immediate_data),
     )
 
@@ -544,46 +543,26 @@ async def _handle_reaction(
     stored = await store_reaction(
         reactor_username=from_username,
         partner_username=partner_username,
+        reactor_id=from_id,
+        partner_id=partner_id,
         reactor_copy_id=reactor_copy_id,
         emoji=parsed.emoji,
+        previous_reaction=target.previous_reaction,
+        target_body=target.target_body,
         deliver_to_recipient=deliver_to_partner,
     )
 
-    if not stored:
+    if stored is None:
         return await reject()
-
-    is_new_visible_reaction = (
-        bool(parsed.emoji) and parsed.emoji != target.previous_reaction)
-
-    if is_new_visible_reaction:
-        await store_reaction_conversation(
-            from_username=from_username,
-            to_username=partner_username,
-            from_id=from_id,
-            to_id=partner_id,
-            reaction_target_mam_id=reactor_copy_id,
-            emoji=parsed.emoji,
-            target_body=target.target_body,
-            deliver_to_recipient=deliver_to_partner,
-        )
-
-    cleared = ClearedInboxReaction()
-    if not parsed.emoji:
-        cleared = await clear_inbox_reaction(
-            reactor_username=from_username,
-            partner_username=partner_username,
-            reaction_target_mam_id=reactor_copy_id,
-            deliver_to_recipient=deliver_to_partner,
-        )
 
     stamp = format_timestamp(now_microseconds())
 
-    if deliver_to_partner and (is_new_visible_reaction or cleared.partner_reverted):
+    if stored.partner_inbox_updated:
         await _publish_inbox_entry(
             viewer_username=partner_username,
             prospect_username=from_username)
 
-    if is_new_visible_reaction or cleared.reactor_reverted:
+    if stored.reactor_inbox_updated:
         await _publish_inbox_entry(
             viewer_username=from_username,
             prospect_username=partner_username)
@@ -599,7 +578,7 @@ async def _handle_reaction(
             )
         ])
 
-    if deliver_to_partner and is_new_visible_reaction:
+    if deliver_to_partner and stored.is_new_visible_reaction:
         await _send_reaction_notification(
             from_id=from_id,
             partner_id=partner_id,

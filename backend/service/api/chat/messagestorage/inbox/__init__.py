@@ -790,6 +790,7 @@ class ClearedInboxReaction:
 
 
 async def clear_inbox_reaction(
+    tx: Tx,
     reactor_username: str,
     partner_username: str,
     reaction_target_mam_id: int,
@@ -799,19 +800,18 @@ async def clear_inbox_reaction(
     Removes the reaction from each inbox row that still reflects it; the
     flags say whose rows changed and so need a fresh inbox entry pushed.
     """
-    async with api_tx('read committed') as tx:
-        await tx.execute(
-            Q_CLEAR_INBOX_REACTION,
-            dict(
-                reactor_username=reactor_username,
-                partner_username=partner_username,
-                reactor_jid=f'{reactor_username}@{LSERVER}',
-                partner_jid=f'{partner_username}@{LSERVER}',
-                reaction_target_mam_id=reaction_target_mam_id,
-                deliver_to_recipient=deliver_to_recipient,
-            ),
-        )
-        row = await tx.fetchone()
+    await tx.execute(
+        Q_CLEAR_INBOX_REACTION,
+        dict(
+            reactor_username=reactor_username,
+            partner_username=partner_username,
+            reactor_jid=f'{reactor_username}@{LSERVER}',
+            partner_jid=f'{partner_username}@{LSERVER}',
+            reaction_target_mam_id=reaction_target_mam_id,
+            deliver_to_recipient=deliver_to_recipient,
+        ),
+    )
+    row = await tx.fetchone()
 
     return ClearedInboxReaction(
         reactor_reverted=bool(row and row['reactor_reverted']),

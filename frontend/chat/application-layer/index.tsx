@@ -321,6 +321,12 @@ const setInboxRecieved = (conversation: Conversation) => {
   const inbox = cloneInboxForUpdate();
   if (!inbox) return;
 
+  const existing =
+    (inbox.chats.conversationsMap[conversation.personUuid] ??
+     inbox.intros.conversationsMap[conversation.personUuid] ??
+     inbox.archive.conversationsMap[conversation.personUuid]) as
+      Conversation | undefined;
+
   const conversations = [
     ...inbox.chats.conversations,
     ...inbox.intros.conversations,
@@ -329,7 +335,13 @@ const setInboxRecieved = (conversation: Conversation) => {
 
   conversations.push(conversation);
 
-  if (!conversation.lastMessageRead) {
+  // A retraction (e.g. a cleared reaction) reuses the row's old timestamp, so
+  // only genuinely new activity notifies
+  const hasNewActivity =
+    existing === undefined ||
+    conversation.lastMessageTimestamp > existing.lastMessageTimestamp;
+
+  if (!conversation.lastMessageRead && hasNewActivity) {
     notifyOnWeb(conversation.name, conversation.lastMessage);
   }
 
