@@ -52,9 +52,9 @@ import { Flag } from "react-native-feather";
 import { AudioPlayer } from './audio-player';
 import { useSkipped } from '../hide-and-block/hide-and-block';
 import { TopNavBarButton } from './top-nav-bar-button';
-import { QuoteCard, setQuote } from './conversation-screen/quote';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faReply } from '@fortawesome/free-solid-svg-icons/faReply';
+import { quizCardQuoteText } from './conversation-screen/quote';
+import { useNavigationToConversation } from '../navigation/use-navigation-to-conversation';
+import { ReplyButton } from './reply-button';
 import { OnlineIndicator } from './online-indicator';
 import { useAppTheme } from '../app-theme/app-theme';
 import { usePressableAnimation } from '../animation/animation';
@@ -342,26 +342,6 @@ const useNavigationToProfileGallery = (photoUuid: string) => {
       }
     );
   }, [photoUuid]);
-};
-
-const useNavigationToConversation = (
-  personUuid: string,
-  name: string,
-  photoUuid: string | null,
-  photoBlurhash: string | null,
-  quote: string,
-  card?: QuoteCard,
-) => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
-
-  return useCallback((e: GestureResponderEvent) => {
-    e.preventDefault();
-
-    setQuote({ text: quote, attribution: name, card });
-
-    setProspectHint(personUuid, { name, photoUuid, photoBlurhash });
-    navigation.navigate('Conversation Screen', { personUuid });
-  }, [personUuid, name, photoUuid, photoBlurhash, quote, card]);
 };
 
 const AgeGenderLocation = ({
@@ -1153,41 +1133,6 @@ const QuestionFacepiles = ({
   );
 };
 
-const ReplyFooter = ({
-  onPress,
-}: {
-  onPress: (e: GestureResponderEvent) => void,
-}) => {
-  const { appTheme } = useAppTheme();
-
-  return (
-    <View style={{ alignItems: 'flex-end' }} >
-      <Pressable
-        style={{
-          flexDirection: 'row',
-          gap: 6,
-          paddingRight: 5,
-        }}
-        hitSlop={20}
-        onPress={onPress}
-      >
-        <DefaultText style={{ fontWeight: 700 }}>
-          Reply
-        </DefaultText>
-        <FontAwesomeIcon
-          icon={faReply}
-          size={16}
-          color={appTheme.secondaryColor}
-          style={{
-            /* @ts-ignore */
-            outline: 'none',
-          }}
-        />
-      </Pressable>
-    </View>
-  );
-};
-
 const FeedItemAnsweredQuestion = ({
   fields
 }: {
@@ -1220,9 +1165,8 @@ const FeedItemAnsweredQuestion = ({
     [fields.answered_question_id],
   );
 
-  const quoteText = fields.question_subject_answer === null
-    ? fields.question_text
-    : `${fields.question_text} — ${fields.question_subject_answer ? 'Yes' : 'No'}`;
+  const quoteText = quizCardQuoteText(
+    fields.question_text, fields.question_subject_answer);
 
   const onPressReply = useNavigationToConversation(
     fields.person_uuid,
@@ -1314,10 +1258,10 @@ const FeedItemAnsweredQuestion = ({
           }}
           maxFontSize={18}
           extraChildren={extraChildren}
+          onPressReply={onPressReply}
         >
           {fields.question_text}
         </NonInteractiveQuizCard>
-        <ReplyFooter onPress={onPressReply} />
       </Animated.View>
     </View>
   );
@@ -1554,7 +1498,7 @@ const FeedItemUpdatedBio = ({
               {fields.added_text}
             </DefaultText>
           </View>
-          <ReplyFooter onPress={onPressReply} />
+          <ReplyButton onPress={onPressReply} />
         </View>
       </Animated.View>
     </Pressable>

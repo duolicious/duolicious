@@ -60,6 +60,17 @@ type QuoteCard = {
 
 type Quote = { text: string; attribution: string; card?: QuoteCard };
 
+// The fallback markdown text a quiz-card reply quotes: the question, plus the
+// subject's answer when they have a visible one. Shared by every surface that
+// starts such a reply so the blockquote old clients see reads the same.
+const quizCardQuoteText = (
+  question: string,
+  subjectAnswer: boolean | null,
+): string =>
+  subjectAnswer === null
+    ? question
+    : `${question} — ${subjectAnswer ? 'Yes' : 'No'}`;
+
 // ──────────────────────────────────────────────────────────────────────────
 // Constants / Regexes
 // ──────────────────────────────────────────────────────────────────────────
@@ -277,6 +288,7 @@ export {
   Quote,
   QuoteBlock,
   QuoteCard,
+  quizCardQuoteText,
   quoteToMessageMarkdown,
   quoteToPreviewMarkdown,
   setQuote,

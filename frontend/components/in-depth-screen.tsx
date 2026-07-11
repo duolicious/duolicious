@@ -24,6 +24,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProspectParamList } from '../navigation/linking';
 import { useSignedInUser } from '../events/signed-in-user';
 import { getProspectHint, setProspectHint } from '../navigation/prospect-cache';
+import { useNavigationToConversation } from '../navigation/use-navigation-to-conversation';
+import { quizCardQuoteText } from './conversation-screen/quote';
 
 type CompareAnswer = {
   question_id: number,
@@ -257,7 +259,19 @@ const InDepthScreen = (navigationRef: ProspectNavigationRef) => {
   />;
 }
 
-const InDepthAnswer = ({personId, item}: {personId: number, item: CompareAnswer}) => {
+const InDepthAnswer = ({
+  personId,
+  personUuid,
+  photoUuid,
+  photoBlurhash,
+  item,
+}: {
+  personId: number,
+  personUuid: string | undefined,
+  photoUuid: string | null,
+  photoBlurhash: string | null,
+  item: CompareAnswer,
+}) => {
   const [signedInUser] = useSignedInUser();
   const isViewingSelf = personId === signedInUser?.personId;
 
@@ -268,6 +282,24 @@ const InDepthAnswer = ({personId, item}: {personId: number, item: CompareAnswer}
   const prospectAnswer =
     isViewingSelf ? viewerAnswer.answer : item.prospect_answer;
 
+  const onPressReply = useNavigationToConversation(
+    personUuid ?? '',
+    item.prospect_name,
+    photoUuid,
+    photoBlurhash,
+    quizCardQuoteText(item.question, prospectAnswer),
+    {
+      questionId: item.question_id,
+      question: item.question,
+      topic: item.topic,
+      subjectAnswer: prospectAnswer,
+    },
+  );
+
+  // No reply affordance when viewing your own answers, or before a deep-link
+  // has resolved who the prospect is.
+  const canReply = !isViewingSelf && !!personUuid;
+
   return (
     <AnsweredQuizCard
       questionNumber={item.question_id}
@@ -275,16 +307,35 @@ const InDepthAnswer = ({personId, item}: {personId: number, item: CompareAnswer}
       user1={item.prospect_name}
       answer1={prospectAnswer}
       user2="You"
+      onPressReply={canReply ? onPressReply : undefined}
     >
       {item.question}
     </AnsweredQuizCard>
   );
 };
 
-const InDepthItem = ({personId, item}: {personId: number, item: InDepthListItem}) => {
+const InDepthItem = ({
+  personId,
+  personUuid,
+  photoUuid,
+  photoBlurhash,
+  item,
+}: {
+  personId: number,
+  personUuid: string | undefined,
+  photoUuid: string | null,
+  photoBlurhash: string | null,
+  item: InDepthListItem,
+}) => {
   switch (item.kind) {
     case 'answer':
-      return <InDepthAnswer personId={personId} item={item.item} />;
+      return <InDepthAnswer
+        personId={personId}
+        personUuid={personUuid}
+        photoUuid={photoUuid}
+        photoBlurhash={photoBlurhash}
+        item={item.item}
+      />;
     case 'mbti':
     case 'big5':
     case 'politics':
@@ -311,6 +362,11 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
   // to fetching `/prospect-profile/:personUuid` here.
   const personUuid: string | undefined = route?.params?.personUuid;
   const initialHint = getProspectHint(personUuid) ?? {};
+
+  // Optimistic avatar data for the reply flow's prospect hint; the conversation
+  // screen fetches the authoritative copy either way.
+  const photoUuid = initialHint.photoUuid ?? null;
+  const photoBlurhash = initialHint.photoBlurhash ?? null;
 
   const [personId, setPersonId] = useState<number | undefined>(
     initialHint.personId);
@@ -437,7 +493,13 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
             />
           }
           renderItem={({item}) =>
-            <InDepthItemMemo personId={personId} item={item} />
+            <InDepthItemMemo
+              personId={personId}
+              personUuid={personUuid}
+              photoUuid={photoUuid}
+              photoBlurhash={photoBlurhash}
+              item={item}
+            />
           }
           disableRefresh={true}
         />

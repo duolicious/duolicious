@@ -1,6 +1,7 @@
 import {
   Animated,
   Dimensions,
+  GestureResponderEvent,
   ImageBackground,
   Pressable,
   View,
@@ -31,6 +32,7 @@ import {
 import { IndeterminateProgressBar } from './indeterminate-progress-bar';
 import { Logo14 } from './logo';
 import { useAppTheme } from '../app-theme/app-theme';
+import { ReplyButton } from './reply-button';
 import { formatCount } from '../util/util';
 import { SearchFilterAnswer } from '../navigation/search-filter-state';
 
@@ -265,6 +267,10 @@ const NonInteractiveQuizCard = ({children, ...props}: {
   imageBackgroundStyle?: ViewStyle,
   showAnswerPubliclyCheckBox?: boolean,
   showTutorial?: boolean,
+  // When set, a "Reply" button is rendered inside the card, so replying to a
+  // quiz card works the same wherever the card appears (the feed, the In-Depth
+  // screen). Omitted where a reply makes no sense, e.g. inside a conversation.
+  onPressReply?: (e: GestureResponderEvent) => void,
 }) => {
   const {
     extraChildren,
@@ -279,6 +285,7 @@ const NonInteractiveQuizCard = ({children, ...props}: {
     imageBackgroundStyle,
     showAnswerPubliclyCheckBox = true,
     showTutorial = false,
+    onPressReply,
   } = props;
 
   const { appTheme } = useAppTheme();
@@ -502,6 +509,11 @@ const NonInteractiveQuizCard = ({children, ...props}: {
             </StatelessCheckBox>
           }
           {extraChildren}
+          {onPressReply &&
+            <View style={{ paddingRight: 10, paddingBottom: 14 }}>
+              <ReplyButton onPress={onPressReply} />
+            </View>
+          }
           {!extraChildren &&
             <LinearGradient
               locations={[
@@ -631,6 +643,7 @@ const AnsweredQuizCard = ({
   user1,
   answer1,
   user2,
+  onPressReply,
 }: {
   children: string,
   questionNumber: number
@@ -638,6 +651,7 @@ const AnsweredQuizCard = ({
   user1: string,
   answer1: boolean | null,
   user2: string,
+  onPressReply?: (e: GestureResponderEvent) => void,
 }) => {
   const viewerAnswer = useViewerAnswer(questionNumber);
 
@@ -731,6 +745,7 @@ const AnsweredQuizCard = ({
       }}
       maxFontSize={18}
       extraChildren={extraChildren}
+      onPressReply={onPressReply}
     >
       {children}
     </NonInteractiveQuizCard>
