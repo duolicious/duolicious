@@ -56,23 +56,14 @@ Web push needs a VAPID keypair. The backend signs with
 stripped); the frontend subscribes with the
 matching public key in `DUO_WEB_PUSH_VAPID_PUBLIC_KEY`. When the private key is
 unset the backend sends no web push, and when the public key is unset the
-frontend never subscribes, so the feature is simply off. Generate a pair with:
+frontend never subscribes, so the feature is simply off. Generate a matching
+pair with `./generate-vapid-keys.sh` (it installs its own dependencies into a
+venv on first run), which prints both variables ready to paste into your env:
 
-```python
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
-import base64
-
-b64url = lambda b: base64.urlsafe_b64encode(b).rstrip(b'=').decode()
-priv = ec.generate_private_key(ec.SECP256R1())
-
-# DUO_VAPID_PRIVATE_KEY (backend)
-print(b64url(priv.private_numbers().private_value.to_bytes(32, 'big')))
-
-# DUO_WEB_PUSH_VAPID_PUBLIC_KEY (frontend)
-print(b64url(priv.public_key().public_bytes(
-    serialization.Encoding.X962,
-    serialization.PublicFormat.UncompressedPoint)))
+```
+$ ./generate-vapid-keys.sh
+DUO_VAPID_PRIVATE_KEY=...
+DUO_WEB_PUSH_VAPID_PUBLIC_KEY=...
 ```
 
 A subscription the push service reports as gone (HTTP 404/410) is cleared from

@@ -72,6 +72,7 @@ jobs:
           DUO_GOOGLE_WEB_CLIENT_ID: 443037492722-11ai555h9htk0h5jb7dt2er5rdbpfvp1.apps.googleusercontent.com
           DUO_APPLE_WEB_CLIENT_ID: app.duolicious.web
           DUO_APPLE_REDIRECT_URI: https://api.duolicious.app/auth/apple/callback
+          DUO_WEB_PUSH_VAPID_PUBLIC_KEY: BJx_Sk1NPo2v0FLbd3QSrJHe0Q5xZxUEJGVvDMUVn4DKDRaTkDeZsfkDN_hxtLYWd2gbqYt0TD_gqVDwmODoO0E
       # pages-action's `directory` is resolved from the workspace root, not
       # the job's working-directory, so it must include the subdir prefix.
       - uses: cloudflare/pages-action@v1
