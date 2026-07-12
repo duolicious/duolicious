@@ -2616,6 +2616,7 @@ VALUES
     ('pay me'),
     ('pay pig'),
     ('paypig'),
+    ('paypigs'),
     ('pcp'),
     ('pdf file'),
     ('pedbait'),
@@ -3121,6 +3122,7 @@ VALUES
     ('soyteen'),
     ('space asshole'),
     ('spartan bitches'),
+    ('spend on me'),
     ('spic'),
     ('spit on me'),
     ('spoiled'),
@@ -3415,6 +3417,7 @@ VALUES
     ('zipperhead beater'),
     ('zipperheads'),
     ('zoo'),
+    ('zoophillia'),
     ('zoophile')
 ON CONFLICT (name) DO NOTHING;
 
