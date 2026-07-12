@@ -22,3 +22,4 @@ services:
       # the API's :5000/chat WebSocket endpoint.
       # Browser requests run on the host, so no DUO_* overrides are needed
       # for the default local stack.
+      DUO_WEB_PUSH_VAPID_PUBLIC_KEY: "${DUO_WEB_PUSH_VAPID_PUBLIC_KEY:-}"

@@ -412,6 +412,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
     pending_social_provider TEXT,
     pending_social_sub TEXT,
     push_token TEXT,
+    web_push_subscription JSONB,
     last_online_time TIMESTAMP NOT NULL DEFAULT NOW(),
     answers JSONB,
     asns BIGINT[],

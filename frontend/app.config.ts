@@ -41,6 +41,7 @@ const config: ExpoConfig = {
     klipyApiKey: process.env.DUO_KLIPY_API_KEY,
     notificationIconUrl: process.env.NOTIFICATION_ICON_URL,
     notificationSoundUrl: process.env.NOTIFICATION_SOUND_URL,
+    webPushVapidPublicKey: process.env.DUO_WEB_PUSH_VAPID_PUBLIC_KEY,
     googleIosClientId: process.env.DUO_GOOGLE_IOS_CLIENT_ID,
     googleAndroidClientId: process.env.DUO_GOOGLE_ANDROID_CLIENT_ID,
     googleWebClientId: process.env.DUO_GOOGLE_WEB_CLIENT_ID,

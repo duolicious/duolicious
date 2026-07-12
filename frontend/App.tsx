@@ -47,6 +47,7 @@ import {
   getLastNotificationResponseOnMobile,
 } from './notifications/mobile';
 import { usePushTokenListenerOnMobile } from './notifications/notifications';
+import { useWebPushMessageListenerOnWeb } from './notifications/web-push';
 import { verificationWatcher } from './verification/verification';
 import { ClubItem } from './club/club';
 import { Toast } from './components/toast';
@@ -449,14 +450,20 @@ const App = () => {
     (stats?.numUnreadChats ?? 0) +
     (stats?.numUnreadIntros ?? 0);
 
-  useNotificationObserverOnMobile((screen: string, params: Record<string, unknown>) => {
+  const navigateFromNotification = (
+    screen: string,
+    params: Record<string, unknown>,
+  ) => {
     const navigationContainer = navigationContainerRef.current;
 
     if (!navigationContainer) return;
     if (!screen) return;
 
     navigationContainer.navigate(screen, params);
-  });
+  };
+
+  useNotificationObserverOnMobile(navigateFromNotification);
+  useWebPushMessageListenerOnWeb(navigateFromNotification);
 
   usePushTokenListenerOnMobile();
   useClearAppIconBadgeOnMobile();

@@ -68,6 +68,9 @@ services:
 
       DUO_CORS_ORIGINS: '*'
 
+      DUO_VAPID_PRIVATE_KEY: "${DUO_VAPID_PRIVATE_KEY:-}"
+      DUO_VAPID_SUBJECT: "${DUO_VAPID_SUBJECT:-mailto:support@duolicious.app}"
+
       DUO_R2_BUCKET_NAME: s3-mock-bucket
       DUO_R2_AUDIO_BUCKET_NAME: s3-mock-audio-bucket
       DUO_R2_ACCT_ID: unused-in-dev-env

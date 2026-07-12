@@ -20,6 +20,7 @@ from chatprotocol.inbound import (
     MarkVisitorsChecked,
     Ping,
     RegisterPushToken,
+    RegisterWebPushSubscription,
     SaslAuth,
     StreamOpenReq,
     SubscribeOnline,
@@ -221,6 +222,18 @@ class TestInboundParsing(unittest.TestCase):
     def test_register_push_token_clear(self) -> None:
         js = '{"duo_register_push_token": null}'
         self.assertEqual(parse_incoming(js), RegisterPushToken(token=None))
+
+    def test_register_web_push_subscription(self) -> None:
+        js = '{"duo_register_web_push_subscription": {"@subscription": "{}"}}'
+        self.assertEqual(
+            parse_incoming(js),
+            RegisterWebPushSubscription(subscription='{}'))
+
+    def test_register_web_push_subscription_clear(self) -> None:
+        js = '{"duo_register_web_push_subscription": null}'
+        self.assertEqual(
+            parse_incoming(js),
+            RegisterWebPushSubscription(subscription=None))
 
     def test_chat_message(self) -> None:
         js = (

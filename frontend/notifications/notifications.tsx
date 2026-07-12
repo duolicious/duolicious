@@ -3,34 +3,19 @@ import { registerPushToken } from '../chat/application-layer';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useEffect } from 'react';
-import { notifyOnWeb } from './web';
+import { requestAndRegisterWebPush } from './web-push';
 import { delay } from '../util/util';
 
 type MaybeToken = { token: string | null } | null;
 const expoPushTokenMaxAttempts = 3;
 const expoPushTokenInitialRetryDelayMs = 1000;
 
-const requestPermissionOnWeb = async (): Promise<MaybeToken> => {
+const refreshWebPushOnWeb = async (): Promise<MaybeToken> => {
   if (Platform.OS !== 'web') {
     return { token: null };
   }
 
-  if (Notification.permission === 'granted') {
-    return { token: null };
-  }
-
-  const permission = await Notification.requestPermission();
-
-  if (permission !== 'granted') {
-    console.warn('Permissions not granted');
-    return { token: null };
-  }
-
-  notifyOnWeb(
-    'Duolicious',
-    'Here’s what a message will look like 💜',
-    true
-  );
+  await requestAndRegisterWebPush();
 
   return { token: null };
 };
@@ -105,7 +90,7 @@ const getExpoPushToken = async (
 
 const getAndRegisterPushToken = async (): Promise<void> => {
   const maybeToken = Platform.OS === 'web'
-    ? await requestPermissionOnWeb()
+    ? await refreshWebPushOnWeb()
     : await requestPermissionOnMobile();
 
   if (!maybeToken) {

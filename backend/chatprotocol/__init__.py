@@ -22,6 +22,7 @@ from chatprotocol.inbound import (
     MarkVisitorsChecked,
     Ping,
     RegisterPushToken,
+    RegisterWebPushSubscription,
     SaslAuth,
     SessionRequest,
     StreamOpenReq,

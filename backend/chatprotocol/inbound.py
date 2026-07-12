@@ -76,6 +76,11 @@ class RegisterPushToken:
 
 
 @dataclass(frozen=True)
+class RegisterWebPushSubscription:
+    subscription: str | None
+
+
+@dataclass(frozen=True)
 class MamQuery:
     query_id: str
     with_username: str
@@ -121,6 +126,7 @@ Inbound = (
     | SubscribeOnline
     | UnsubscribeOnline
     | RegisterPushToken
+    | RegisterWebPushSubscription
     | MamQuery
     | InboxQuery
     | InboxSnapshotQuery
@@ -348,6 +354,9 @@ def _interpret(el: Element) -> Inbound | None:
 
     if el.tag == 'duo_register_push_token':
         return RegisterPushToken(token=el.get('token'))
+
+    if el.tag == 'duo_register_web_push_subscription':
+        return RegisterWebPushSubscription(subscription=el.get('subscription'))
 
     if el.tag == 'duo_query_visitors':
         return VisitorsQuery()

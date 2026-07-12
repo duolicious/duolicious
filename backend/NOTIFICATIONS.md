@@ -22,9 +22,67 @@ willing to be notified: immediately, daily, every 3 days, weekly, or never. A
 notification only goes out once that much time has elapsed since the last one for
 that type — and "never" means none at all.
 
+## Web push (online users only)
+
+The web app can't rely on its own JavaScript to raise notifications: a
+backgrounded browser tab is throttled, so the in-page chat WebSocket can't show
+a message promptly (they'd all arrive at once when the tab is refocused).
+Instead, the server sends a real **Web Push** (VAPID / RFC 8291), which the
+browser's push service delivers to a service worker even while the tab is
+throttled or closed.
+
+Web push is deliberately **online-only**: a push is sent to a web session's
+subscription only while that user has a connected client (the same
+`redis_has_subscribers` check the badge logic uses). An offline web user is left
+to the email fallback below — we don't trust web push for offline delivery.
+
+Two consequences of "online-only" fall out of this:
+
+- It sends for **every** received message to a connected web user, regardless of
+  their notification-frequency setting — it's the server-side replacement for
+  the old in-page notification, not part of the frequency-governed push/email
+  system. The service worker suppresses it when a tab is focused, so an actively
+  viewed conversation stays quiet.
+- It records **nothing** — not the last-notification time, not the unseen badge.
+  Because it only fires for online users and the cron only ever emails offline
+  users, the two never overlap, and skipping the bookkeeping ensures a web push
+  never suppresses the email a user should get once they go offline.
+
+### VAPID keys
+
+Web push needs a VAPID keypair. The backend signs with
+`DUO_VAPID_PRIVATE_KEY` (base64url-encoded raw P-256 private key) and
+`DUO_VAPID_SUBJECT` (a `mailto:` contact — the `mailto:` prefix is optional and
+stripped); the frontend subscribes with the
+matching public key in `DUO_WEB_PUSH_VAPID_PUBLIC_KEY`. When the private key is
+unset the backend sends no web push, and when the public key is unset the
+frontend never subscribes, so the feature is simply off. Generate a pair with:
+
+```python
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
+import base64
+
+b64url = lambda b: base64.urlsafe_b64encode(b).rstrip(b'=').decode()
+priv = ec.generate_private_key(ec.SECP256R1())
+
+# DUO_VAPID_PRIVATE_KEY (backend)
+print(b64url(priv.private_numbers().private_value.to_bytes(32, 'big')))
+
+# DUO_WEB_PUSH_VAPID_PUBLIC_KEY (frontend)
+print(b64url(priv.public_key().public_bytes(
+    serialization.Encoding.X962,
+    serialization.PublicFormat.UncompressedPoint)))
+```
+
+A subscription the push service reports as gone (HTTP 404/410) is cleared from
+its `duo_session` row automatically, so dead subscriptions self-heal.
+
 ## Which channel
 
-The channel depends on where the user was last active:
+The channel above (mobile push vs. email) is unchanged by web push, which is a
+separate, online-only path. The channel depends on where the user was last
+active:
 
 - **Mobile** — push to each of their signed-in phones.
 - **Web, more recently than any phone** — email as well, even if they have the

@@ -3,7 +3,6 @@ import { getRandomString } from '../../random/string';
 import { deleteFromArray, assert } from '../../util/util';
 import { listen, notify, lastEvent } from '../../events/events';
 import { getAndRegisterPushToken } from '../../notifications/notifications';
-import { notifyOnWeb } from '../../notifications/web';
 import * as _ from 'lodash';
 import {
   EV_CHAT_WS_CLOSE,
@@ -333,12 +332,6 @@ const setInboxRecieved = (conversation: Conversation) => {
   const inbox = cloneInboxForUpdate();
   if (!inbox) return;
 
-  const existing =
-    (inbox.chats.conversationsMap[conversation.personUuid] ??
-     inbox.intros.conversationsMap[conversation.personUuid] ??
-     inbox.archive.conversationsMap[conversation.personUuid]) as
-      Conversation | undefined;
-
   const conversations = [
     ...inbox.chats.conversations,
     ...inbox.intros.conversations,
@@ -346,16 +339,6 @@ const setInboxRecieved = (conversation: Conversation) => {
   ].filter((c) => c.personUuid !== conversation.personUuid);
 
   conversations.push(conversation);
-
-  // A retraction (e.g. a cleared reaction) reuses the row's old timestamp, so
-  // only genuinely new activity notifies
-  const hasNewActivity =
-    existing === undefined ||
-    conversation.lastMessageTimestamp > existing.lastMessageTimestamp;
-
-  if (!conversation.lastMessageRead && hasNewActivity) {
-    notifyOnWeb(conversation.name, conversation.lastMessage);
-  }
 
   notify<Inbox>('inbox', conversationsToInbox(conversations));
 };
@@ -419,6 +402,7 @@ const login = async (
 const logout = async () => {
   setCredentials(null);
   await registerPushToken(null);
+  await registerWebPushSubscription(null);
   notify(EV_CHAT_WS_SEND_CLOSE);
   notify<Inbox | null>('inbox', null);
 };
@@ -1083,11 +1067,9 @@ const refreshInbox = async (): Promise<void> => {
   notify<Inbox>('inbox', conversationsToInbox(response));
 };
 
-const registerPushToken = async (token: string | null) => {
-  const data = token ?
-    { duo_register_push_token: { '@token': token } } :
-    { duo_register_push_token: null };
+type WebsocketRegistration = Record<string, Record<string, string> | null>;
 
+const registerViaWebsocket = async (data: WebsocketRegistration) => {
   const responseDetector = (doc: any): true | null => { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (_.isEqual(doc, { duo_registration_successful: null })) {
       return true;
@@ -1096,12 +1078,21 @@ const registerPushToken = async (token: string | null) => {
     }
   };
 
-  // Retry once then give up
   const doTry = async () => send({ data, responseDetector });
   if (await doTry() === 'timeout') {
     await doTry();
   }
 };
+
+const registerPushToken = async (token: string | null) =>
+  registerViaWebsocket(token ?
+    { duo_register_push_token: { '@token': token } } :
+    { duo_register_push_token: null });
+
+const registerWebPushSubscription = async (subscription: string | null) =>
+  registerViaWebsocket(subscription ?
+    { duo_register_web_push_subscription: { '@subscription': subscription } } :
+    { duo_register_web_push_subscription: null });
 
 // Emit message events upon receiving a message
 onReceiveMessage();
@@ -1138,6 +1129,7 @@ export {
   onReceiveMessage,
   refreshInbox,
   registerPushToken,
+  registerWebPushSubscription,
   sendMessage,
   setConversationArchived,
   getInbox,
