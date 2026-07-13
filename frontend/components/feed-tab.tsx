@@ -619,6 +619,8 @@ const FacepileAvatar = ({
 }) => {
   const handle = member.url_slug || member.person_uuid;
 
+  const { appTheme } = useAppTheme();
+
   const navigateToProfile = useNavigationToProfile(
     handle,
     member.photo_blurhash,
@@ -644,7 +646,7 @@ const FacepileAvatar = ({
         }}
         placeholder={{ blurhash: member.photo_blurhash }}
         transition={150}
-        style={styles.facepileImage}
+        style={[styles.facepileImage, { borderColor: appTheme.primaryColor }]}
         contentFit="cover"
         recyclingKey={member.photo_uuid}
       />
@@ -709,6 +711,7 @@ const ViewerFacepileAvatar = ({
         fadeStyle,
         {
           backgroundColor: appTheme.avatarBackgroundColor,
+          borderColor: appTheme.primaryColor,
           // An invisible avatar shouldn't be pressable or follow its link.
           // Toggled instantly so a fading-out avatar isn't pressable either.
           pointerEvents: visible ? 'auto' : 'none',
@@ -1692,6 +1695,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   viewerFacepilePressable: {
     ...StyleSheet.absoluteFillObject,
