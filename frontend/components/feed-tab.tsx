@@ -594,6 +594,20 @@ const FACEPILE_GROUP_GAP = 8;
 // A question facepile row's horizontal padding, per side
 const FACEPILE_ROW_PADDING = 12;
 
+// A pile's laid-out width. `slotCount` counts every avatar, including the
+// always-rendered viewer slot. Collapsed, each slot past the first shows only
+// an un-overlapped sliver; spreading adds a step per slot. The pile is given
+// this width explicitly so that, while spread, its container grows to contain
+// the translated avatars: on Android a child rendered outside its parent's
+// bounds stops receiving touches, which left the outermost avatar unpressable.
+const facepileCollapsedWidth = (slotCount: number) =>
+  FACEPILE_AVATAR_SIZE
+  + (slotCount - 1) * (FACEPILE_AVATAR_SIZE - FACEPILE_OVERLAP);
+
+const facepileSpreadWidth = (slotCount: number) =>
+  facepileCollapsedWidth(slotCount)
+  + (slotCount - 1) * FACEPILE_SPREAD_STEP;
+
 const FacepileAvatar = ({
   member,
   spread,
@@ -792,6 +806,9 @@ const Facepile = ({
 }) => {
   const spreadDirection = viewerPosition === 'start' ? -1 : 1;
 
+  // The viewer slot is always rendered, so it always occupies layout width
+  const slotCount = members.length + 1;
+
   const anchorDistanceOf = (documentOrder: number) =>
     viewerPosition === 'start'
       ? members.length - documentOrder
@@ -824,7 +841,15 @@ const Facepile = ({
 
   return (
     <Pressable
-      style={{ flexDirection: 'row' }}
+      style={{
+        flexDirection: 'row',
+        // Spread grows away from the anchor; keep the anchored edge fixed so
+        // the collapsed cluster stays put and only the reserved side widens
+        justifyContent: viewerPosition === 'start' ? 'flex-end' : 'flex-start',
+        width: spread
+          ? facepileSpreadWidth(slotCount)
+          : facepileCollapsedWidth(slotCount),
+      }}
       onPress={onRequestSpread}
       // Raw DOM events rather than onHoverIn/onHoverOut: Pressable's
       // hover uses contain semantics, so hovering the nested avatar
