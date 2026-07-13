@@ -19,6 +19,7 @@ from unseennotificationcount import increment_unseen_notification_count
 import random
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
+from batcher import Batcher
 from service.api.chat.robot9000 import Q_SELECT_INTRO_HASH, upsert_intro_hash
 from service.api.chat.mayberegister import register_push_token
 from service.api.chat.maybewebpush import (
@@ -32,7 +33,7 @@ from service.api.chat.messagestorage.inbox import (
     get_inbox,
     get_inbox_entry,
     get_inbox_snapshot,
-    mark_displayed,
+    write_mark_displayed,
 )
 from service.api.chat.messagestorage.mam import (
     get_conversation,
@@ -63,6 +64,7 @@ from service.api.chat.chatutil import (
     fetch_is_skipped,
     fetch_is_shadow_banned,
     fetch_has_gold,
+    format_datetime,
     format_timestamp,
     now_microseconds,
     fetch_id_from_username,
@@ -252,6 +254,56 @@ async def redis_publish_many(
     for message in messages:
         await redis_publish(channel, to_bus(message))
     return None
+
+
+@dataclasses.dataclass(frozen=True)
+class MarkDisplayedJob:
+    from_username: str
+    to_username: str
+    publish_receipt: bool
+
+
+async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
+    publish_receipt = {
+        (job.from_username, job.to_username): job.publish_receipt
+        for job in batch
+    }
+
+    advanced = await write_mark_displayed(list(publish_receipt))
+
+    for (reader, sender), displayed_at in advanced.items():
+        if not publish_receipt.get((reader, sender)):
+            continue
+        await redis_publish_many(sender, [
+            ReadReceipt(
+                from_username=reader,
+                to_username=sender,
+                stamp=format_datetime(displayed_at),
+            )
+        ])
+
+
+_mark_displayed_batcher = Batcher[MarkDisplayedJob](
+    process_fn=_process_mark_displayed_batch,
+    flush_interval=0.1,
+    min_batch_size=1,
+    max_batch_size=1000,
+    retry=False,
+)
+
+
+def mark_displayed(
+    from_username: str,
+    to_username: str,
+    publish_receipt: bool,
+) -> None:
+    _mark_displayed_batcher.enqueue(
+        MarkDisplayedJob(
+            from_username=from_username,
+            to_username=to_username,
+            publish_receipt=publish_receipt,
+        )
+    )
 
 
 async def redis_forward_to_websocket(
@@ -790,30 +842,18 @@ async def process_text(
     if isinstance(parsed, MarkDisplayed):
         displayed_to = parsed.to_username
 
-        mark_displayed(from_username=from_username, to_username=displayed_to)
-
-        # Nudge the original sender that their messages were read, but only if
-        # they're a gold user (only gold users can view read receipts). The
-        # nudge carries no timestamp: the client stamps it with its own clock,
-        # and the authoritative read time is served from the database when the
-        # conversation is fetched from the archive. The sender may receive more
-        # than one nudge for the same message (e.g. on re-open); the client
-        # ignores nudges that don't acknowledge a newer outgoing message.
-        #
-        # A shadow-banned reader's activity must stay invisible to others, so
-        # the nudge is suppressed for them (their own read state is still
-        # updated above, so their app behaves normally).
         reader_id = await fetch_id_from_username(from_username)
-        if \
-                reader_id is not None and \
-                not await fetch_is_shadow_banned(reader_id) and \
-                await fetch_has_gold(displayed_to):
-            await redis_publish_many(displayed_to, [
-                ReadReceipt(
-                    from_username=from_username,
-                    to_username=displayed_to,
-                )
-            ])
+        publish_receipt = (
+            reader_id is not None and
+            not await fetch_is_shadow_banned(reader_id) and
+            await fetch_has_gold(displayed_to)
+        )
+
+        mark_displayed(
+            from_username=from_username,
+            to_username=displayed_to,
+            publish_receipt=publish_receipt,
+        )
         return None
 
     if isinstance(parsed, ReactionMessage):

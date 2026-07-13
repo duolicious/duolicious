@@ -9,6 +9,15 @@ const ownLastMessageEventKey = (personUuid: string) =>
 const readAtEventKey = (personUuid: string) =>
   `read-receipt-at-${personUuid}`;
 
+const advanceReadAt = (personUuid: string, readTime: Date) => {
+  const key = readAtEventKey(personUuid);
+  const prev = lastEvent<Date | null>(key) ?? null;
+  const next = !prev || readTime > prev ? readTime : prev;
+  if (next !== prev) {
+    notify<Date | null>(key, next);
+  }
+};
+
 /**
  * Publishes the timestamp of the conversation's last message, but only when the
  * current user is the one who sent it (null otherwise — including when the other
@@ -48,20 +57,9 @@ const clearOwnLastMessageOnIncoming = (doc: any) => { // eslint-disable-line @ty
 
 listen(EV_CHAT_WS_RECEIVE, clearOwnLastMessageOnIncoming);
 
-// Resolve every read receipt to an absolute read time, retained per person.
-//
-// This is a module-level listener (not a hook) so it's alive before the read
-// receipt UI mounts: the authoritative read time arrives, stamped, while the
-// conversation is still loading from the archive — well before the element that
-// displays it exists. Retaining it means the element picks it up whenever it
-// mounts.
-//
-//  - Stamped receipts (from the archive) are the database's source of truth;
-//    keep the latest.
-//  - Unstamped receipts are live nudges fired the moment the other person reads.
-//    We stamp them with the local clock, but only when they acknowledge a
-//    message newer than what we've already recorded, so a re-open (which fires
-//    another nudge) doesn't make the read time creep forward.
+// A module-level listener (not a hook) so it's alive before the read-receipt UI
+// mounts: the read time arrives while the conversation is still loading from the
+// archive, and retaining it means the element picks it up whenever it mounts.
 const resolveReadReceipt = (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
   const message = doc?.message;
 
@@ -76,25 +74,12 @@ const resolveReadReceipt = (doc: any) => { // eslint-disable-line @typescript-es
   }
 
   const stamp = message.displayed?.['@stamp'];
-  const incoming: Date | null = stamp ? new Date(stamp) : null;
 
-  const key = readAtEventKey(personUuid);
-  const prev = lastEvent<Date | null>(key) ?? null;
-
-  let next = prev;
-  if (incoming) {
-    next = !prev || incoming > prev ? incoming : prev;
-  } else {
-    const ownLastMessageAt =
-      lastEvent<Date | null>(ownLastMessageEventKey(personUuid)) ?? null;
-    if (ownLastMessageAt && (!prev || ownLastMessageAt > prev)) {
-      next = new Date();
-    }
+  if (!stamp) {
+    return;
   }
 
-  if (next !== prev) {
-    notify<Date | null>(key, next);
-  }
+  advanceReadAt(personUuid, new Date(stamp));
 };
 
 listen(EV_CHAT_WS_RECEIVE, resolveReadReceipt);

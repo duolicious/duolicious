@@ -183,7 +183,7 @@ async def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
 
 _store_message_batcher = Batcher[StoreMessageJob](
     process_fn=_process_store_message_batch,
-    flush_interval=0.5,
+    flush_interval=0.1,
     min_batch_size=1,
     max_batch_size=1000,
     retry=False,

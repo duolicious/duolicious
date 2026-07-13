@@ -1,8 +1,8 @@
 import traceback
 
-from batcher import Batcher
 from database import Row, Tx, api_tx
 from dataclasses import dataclass
+from datetime import datetime
 from service.api.chat.chatutil import (
     LSERVER,
     format_timestamp,
@@ -581,18 +581,27 @@ SELECT
 """
 
 
-Q_MARK_DISPLAYED = f"""
+Q_MARK_DISPLAYED = """
 UPDATE
     inbox
 SET
     displayed_at = NOW(),
     unread_count = 0
+FROM
+    unnest(
+        %(lusers)s::text[],
+        %(remote_bare_jids)s::text[]
+    ) AS target(luser, remote_bare_jid)
 WHERE
-    luser = %(luser)s
+    inbox.luser = target.luser
 AND
-    remote_bare_jid = %(remote_bare_jid)s
+    inbox.remote_bare_jid = target.remote_bare_jid
 AND
-    unread_count > 0
+    inbox.unread_count > 0
+RETURNING
+    inbox.luser,
+    inbox.remote_bare_jid,
+    inbox.displayed_at
 """
 
 
@@ -603,12 +612,6 @@ class UpsertConversationJob:
     msg_id: str
     body: str
     deliver_to_recipient: bool = True
-
-
-@dataclass(frozen=True)
-class MarkDisplayedJob:
-    from_username: str
-    to_username: str
 
 
 def reaction_inbox_body(emoji: str, target_body: str) -> str:
@@ -836,35 +839,34 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
     await tx.executemany(Q_UPSERT_CONVERSATION, params_seq)
 
 
-def mark_displayed(from_username: str, to_username: str) -> None:
+async def write_mark_displayed(
+    conversations: list[tuple[str, str]],
+) -> dict[tuple[str, str], datetime]:
     """
-    Marks the conversation as read. Whether the read actually advances the
-    stored read state is decided in the database: Q_MARK_DISPLAYED only touches
-    the row (and bumps displayed_at) when there are unread messages, so
-    re-opening an already-read conversation is a no-op.
+    Marks each (reader, sender) conversation as read, returning the recorded read
+    time only for conversations that had unread messages; an already-read
+    conversation is absent from the result.
     """
-    job = MarkDisplayedJob(from_username=from_username, to_username=to_username)
+    targets = list({
+        (reader, f'{sender}@{LSERVER}')
+        for reader, sender in conversations
+    })
 
-    _mark_displayed_batcher.enqueue(job)
+    if not targets:
+        return {}
 
+    try:
+        async with api_tx('read committed') as tx:
+            await tx.execute(Q_MARK_DISPLAYED, dict(
+                lusers=[luser for luser, _ in targets],
+                remote_bare_jids=[jid for _, jid in targets],
+            ))
+            rows = await tx.fetchall()
+    except Exception:
+        print(traceback.format_exc())
+        return {}
 
-async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
-    params_seq = [
-        dict(
-            luser=job.from_username,
-            remote_bare_jid=f'{job.to_username}@{LSERVER}',
-        )
-        for job in batch
-    ]
-
-    async with api_tx('read committed') as tx:
-        await tx.executemany(Q_MARK_DISPLAYED, params_seq)
-
-
-_mark_displayed_batcher = Batcher[MarkDisplayedJob](
-    process_fn=_process_mark_displayed_batch,
-    flush_interval=1.0,
-    min_batch_size=1,
-    max_batch_size=1000,
-    retry=False,
-)
+    return {
+        (row['luser'], row['remote_bare_jid'].split('@')[0]): row['displayed_at']
+        for row in rows
+    }
