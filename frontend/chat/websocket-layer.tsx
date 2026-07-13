@@ -1,7 +1,7 @@
 import { CHAT_URL } from '../env/env';
 import { listen, notify } from '../events/events';
 import { delay, jsonParseSilently } from '../util/util';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 
 type Pong = {
   preferredInterval: number
@@ -25,6 +25,13 @@ const pong: Pong = {
 
 let lastEnteredActiveState =  new Date();
 
+// On native platforms the socket is closed while the app is backgrounded so the
+// user isn't shown as online, and doesn't send read receipts, while their screen
+// is locked.
+const closeWhenBackgrounded = Platform.OS !== 'web';
+
+let isConnectionWanted = true;
+
 let ws: WebSocket | null = null;
 
 listen(EV_CHAT_WS_SEND_CLOSE, () => {
@@ -32,6 +39,14 @@ listen(EV_CHAT_WS_SEND_CLOSE, () => {
 });
 
 const connectChatWebSocket = (): void => {
+  if (!isConnectionWanted) {
+    return;
+  }
+
+  if (ws) {
+    return;
+  }
+
   ws = new WebSocket(CHAT_URL, ['json']);
 
   ws.onopen = () => {
@@ -49,6 +64,11 @@ const connectChatWebSocket = (): void => {
   ws.onclose = (event: CloseEvent) => {
     notify<CloseEvent>(EV_CHAT_WS_CLOSE, event);
     ws = null;
+
+    if (!isConnectionWanted) {
+      return;
+    }
+
     setTimeout(() => {
       reconnectDelay = Math.min(
         2 * (reconnectDelay + reconnectDelayStep),
@@ -229,6 +249,21 @@ const pingServerForever = async () => {
 const onChangeAppState = (state: AppStateStatus) => {
   if (state === 'active') {
     lastEnteredActiveState = new Date();
+  }
+
+  if (!closeWhenBackgrounded) {
+    return;
+  }
+
+  if (state === 'active') {
+    isConnectionWanted = true;
+    reconnectDelay = initialReconnectDelay;
+    connectChatWebSocket();
+  }
+
+  if (state === 'background') {
+    isConnectionWanted = false;
+    ws?.close();
   }
 };
 
