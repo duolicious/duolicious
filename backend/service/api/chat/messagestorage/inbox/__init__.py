@@ -618,6 +618,13 @@ class UpsertConversationJob:
     deliver_to_recipient: bool = True
 
 
+@dataclass(frozen=True)
+class MarkDisplayedJob:
+    from_username: str
+    to_username: str
+    publish_receipt: bool
+
+
 def reaction_inbox_body(emoji: str, target_body: str) -> str:
     return f'Reacted {emoji} to: {target_body}'
 
@@ -843,7 +850,21 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
     await tx.executemany(Q_UPSERT_CONVERSATION, params_seq)
 
 
-async def write_mark_displayed(
+def mark_displayed(
+    from_username: str,
+    to_username: str,
+    publish_receipt: bool,
+) -> None:
+    _mark_displayed_batcher.enqueue(
+        MarkDisplayedJob(
+            from_username=from_username,
+            to_username=to_username,
+            publish_receipt=publish_receipt,
+        )
+    )
+
+
+async def _write_mark_displayed(
     conversations: list[tuple[str, str]],
 ) -> dict[tuple[str, str], datetime]:
     """
@@ -876,20 +897,13 @@ async def write_mark_displayed(
     }
 
 
-@dataclass(frozen=True)
-class MarkDisplayedJob:
-    from_username: str
-    to_username: str
-    publish_receipt: bool
-
-
 async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
     publish_receipt = {
         (job.from_username, job.to_username): job.publish_receipt
         for job in batch
     }
 
-    advanced = await write_mark_displayed(list(publish_receipt))
+    advanced = await _write_mark_displayed(list(publish_receipt))
 
     for (reader, sender), displayed_at in advanced.items():
         if not publish_receipt.get((reader, sender)):
@@ -910,17 +924,3 @@ _mark_displayed_batcher = Batcher[MarkDisplayedJob](
     max_batch_size=1000,
     retry=False,
 )
-
-
-def mark_displayed(
-    from_username: str,
-    to_username: str,
-    publish_receipt: bool,
-) -> None:
-    _mark_displayed_batcher.enqueue(
-        MarkDisplayedJob(
-            from_username=from_username,
-            to_username=to_username,
-            publish_receipt=publish_receipt,
-        )
-    )
