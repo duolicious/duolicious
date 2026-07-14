@@ -1,11 +1,14 @@
 import traceback
 
+from batcher import Batcher
 from database import Row, Tx, api_tx
 from dataclasses import dataclass
 from datetime import datetime
 from service.api.chat.chatutil import (
     LSERVER,
+    format_datetime,
     format_timestamp,
+    redis_publish_many,
 )
 from chatprotocol.outbound import (
     InboxConversation,
@@ -14,6 +17,7 @@ from chatprotocol.outbound import (
     InboxResult,
     InboxSnapshot,
     Outbound,
+    ReadReceipt,
 )
 
 Q_GET_INBOX = f"""
@@ -870,3 +874,53 @@ async def write_mark_displayed(
         (row['luser'], row['remote_bare_jid'].split('@')[0]): row['displayed_at']
         for row in rows
     }
+
+
+@dataclass(frozen=True)
+class MarkDisplayedJob:
+    from_username: str
+    to_username: str
+    publish_receipt: bool
+
+
+async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
+    publish_receipt = {
+        (job.from_username, job.to_username): job.publish_receipt
+        for job in batch
+    }
+
+    advanced = await write_mark_displayed(list(publish_receipt))
+
+    for (reader, sender), displayed_at in advanced.items():
+        if not publish_receipt.get((reader, sender)):
+            continue
+        await redis_publish_many(sender, [
+            ReadReceipt(
+                from_username=reader,
+                to_username=sender,
+                stamp=format_datetime(displayed_at),
+            )
+        ])
+
+
+_mark_displayed_batcher = Batcher[MarkDisplayedJob](
+    process_fn=_process_mark_displayed_batch,
+    flush_interval=0.1,
+    min_batch_size=1,
+    max_batch_size=1000,
+    retry=False,
+)
+
+
+def mark_displayed(
+    from_username: str,
+    to_username: str,
+    publish_receipt: bool,
+) -> None:
+    _mark_displayed_batcher.enqueue(
+        MarkDisplayedJob(
+            from_username=from_username,
+            to_username=to_username,
+            publish_receipt=publish_receipt,
+        )
+    )

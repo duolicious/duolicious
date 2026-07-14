@@ -1,5 +1,4 @@
 import dataclasses
-import os
 from functools import partial
 from database import (
     api_tx,
@@ -17,9 +16,8 @@ import webpushsender
 from async_lru_cache import AsyncLruCache
 from unseennotificationcount import increment_unseen_notification_count
 import random
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from batcher import Batcher
 from service.api.chat.robot9000 import Q_SELECT_INTRO_HASH, upsert_intro_hash
 from service.api.chat.mayberegister import register_push_token
 from service.api.chat.maybewebpush import (
@@ -33,7 +31,7 @@ from service.api.chat.messagestorage.inbox import (
     get_inbox,
     get_inbox_entry,
     get_inbox_snapshot,
-    write_mark_displayed,
+    mark_displayed,
 )
 from service.api.chat.messagestorage.mam import (
     get_conversation,
@@ -64,11 +62,14 @@ from service.api.chat.chatutil import (
     fetch_is_skipped,
     fetch_is_shadow_banned,
     fetch_has_gold,
-    format_datetime,
     format_timestamp,
     now_microseconds,
     fetch_id_from_username,
     redis_has_subscribers,
+    redis_publish_many,
+    REDIS_HOST,
+    REDIS_PORT,
+    REDIS_WORKER_CLIENT,
 )
 from chatprotocol.message import (
     AudioMessage,
@@ -108,12 +109,10 @@ from chatprotocol.outbound import (
     Pong,
     ReactionBlocked,
     ReactionDelivered,
-    ReadReceipt,
     RegistrationSuccessful,
     ServerError,
     answer_to_wire,
     from_bus,
-    to_bus,
 )
 from service.api.chat.questioncard import (
     fetch_card,
@@ -132,14 +131,6 @@ from util import truncate_text, Json
 from service.api.chat.verification import (
     verification_required,
 )
-
-# Global publisher connection, created once per worker.
-REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
-REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
-REDIS_WORKER_CLIENT: redis.Redis = redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        decode_responses=True)
 
 Q_HAS_MESSAGE = """
 SELECT
@@ -241,69 +232,6 @@ MAX_MESSAGE_LEN = 5000
 
 NON_ALPHANUMERIC_RE = regex.compile(r'[^\p{L}\p{N}]')
 REPEATED_CHARACTERS_RE = regex.compile(r'(.)\1{1,}')
-
-
-async def redis_publish(channel: str, message: str) -> None:
-    await REDIS_WORKER_CLIENT.publish(channel, message)
-
-
-async def redis_publish_many(
-    channel: str,
-    messages: Iterable[Outbound],
-) -> object | None:
-    for message in messages:
-        await redis_publish(channel, to_bus(message))
-    return None
-
-
-@dataclasses.dataclass(frozen=True)
-class MarkDisplayedJob:
-    from_username: str
-    to_username: str
-    publish_receipt: bool
-
-
-async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
-    publish_receipt = {
-        (job.from_username, job.to_username): job.publish_receipt
-        for job in batch
-    }
-
-    advanced = await write_mark_displayed(list(publish_receipt))
-
-    for (reader, sender), displayed_at in advanced.items():
-        if not publish_receipt.get((reader, sender)):
-            continue
-        await redis_publish_many(sender, [
-            ReadReceipt(
-                from_username=reader,
-                to_username=sender,
-                stamp=format_datetime(displayed_at),
-            )
-        ])
-
-
-_mark_displayed_batcher = Batcher[MarkDisplayedJob](
-    process_fn=_process_mark_displayed_batch,
-    flush_interval=0.1,
-    min_batch_size=1,
-    max_batch_size=1000,
-    retry=False,
-)
-
-
-def mark_displayed(
-    from_username: str,
-    to_username: str,
-    publish_receipt: bool,
-) -> None:
-    _mark_displayed_batcher.enqueue(
-        MarkDisplayedJob(
-            from_username=from_username,
-            to_username=to_username,
-            publish_receipt=publish_receipt,
-        )
-    )
 
 
 async def redis_forward_to_websocket(

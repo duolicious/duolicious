@@ -1,6 +1,8 @@
+import os
 import redis.asyncio as redis
 
 from async_lru_cache import AsyncLruCache
+from collections.abc import Iterable
 from database import api_tx
 
 # Re-exported from the dependency-light module so existing
@@ -9,12 +11,37 @@ from chatprotocol.jid import (
     LSERVER,
     to_bare_jid,
 )
+from chatprotocol.outbound import (
+    Outbound,
+    to_bus,
+)
 from chatprotocol.timestamp import (
     FMT_ISO_8601_TIMESTAMP,
     format_datetime,
     format_timestamp,
     now_microseconds,
 )
+
+
+REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
+REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
+REDIS_WORKER_CLIENT: redis.Redis = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        decode_responses=True)
+
+
+async def redis_publish(channel: str, message: str) -> None:
+    await REDIS_WORKER_CLIENT.publish(channel, message)
+
+
+async def redis_publish_many(
+    channel: str,
+    messages: Iterable[Outbound],
+) -> object | None:
+    for message in messages:
+        await redis_publish(channel, to_bus(message))
+    return None
 
 
 Q_IS_SKIPPED = """
