@@ -1427,6 +1427,29 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
+    title: "Last Online",
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="time-outline" />,
+    description: "How recently should people in search results have been online?",
+    input: {
+      buttons: {
+        values: ['Now', 'A day ago', 'A week ago', 'A month ago', 'All time'],
+        submit: async (lastOnline: string) => {
+          const go = async () => {
+            const ok = (await japi(
+              'post',
+              '/search-filter',
+              { last_online: lastOnline }
+            )).ok;
+            return ok;
+          };
+          searchQueue.addTask(go);
+          patchSearchFilters({ last_online: lastOnline });
+          return true;
+        }
+      }
+    },
+  },
+  {
     title: "Orientation",
     Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="person" />,
     description: "Which orientations would you like to see in search results?",
@@ -2006,6 +2029,7 @@ const defaultSearchFilters = (): SearchFilters => {
   }
 
   // `buttons` filters have no "unset" state; these mirror the server defaults.
+  filters.last_online = 'A month ago';
   filters.people_you_messaged = 'Yes';
   filters.people_you_skipped = 'No';
 

@@ -631,6 +631,8 @@ class PostSearchFilter(BaseModel):
     religion: List[str] | None = Field(default=None, min_length=1)
     star_sign: List[str] | None = Field(default=None, min_length=1)
 
+    last_online: str | None = None
+
     people_you_messaged: str | None = None
     people_you_skipped: str | None = None
 

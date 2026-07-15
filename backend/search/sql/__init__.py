@@ -268,6 +268,28 @@ WHERE
 
 
 
+# The searcher's "Last online:" window, in seconds. Resolved in Python and
+# passed to the search as the `max_last_online_seconds` bound parameter (rather
+# than read inside the search query) so the cutoff is a plan-time constant and
+# the search can index-scan `idx__person__last_online_time`. Every person is
+# seeded a preference at signup (default 'A month ago'), so the row always
+# exists; 'All time' resolves to a ~100-year sentinel, so the window filter
+# never needs a NULL/OR case.
+Q_MAX_LAST_ONLINE_SECONDS = """
+SELECT
+    last_online.seconds AS max_last_online_seconds
+FROM
+    search_preference_last_online
+JOIN
+    last_online
+ON
+    last_online.id = search_preference_last_online.last_online_id
+WHERE
+    search_preference_last_online.person_id = %(searcher_person_id)s
+"""
+
+
+
 # The searcher's filter predicates (except club membership) are mirrored (by
 # hand) by the `matches_search_filters` column of the inbox snapshot query in
 # `service.api.chat.messagestorage.inbox`, which flags intros from senders outside
@@ -374,6 +396,9 @@ WITH searcher AS (
     WHERE
         prospect.activated
     AND
+        prospect.last_online_time >
+            now() - %(max_last_online_seconds)s * interval '1 second'
+    AND
         -- The prospect meets the searcher's gender preference
         prospect.gender_id = ANY(%(gender_preference)s::SMALLINT[])
     AND
@@ -431,8 +456,14 @@ WITH searcher AS (
         -- Shadow-banned prospects appear not to exist to other searchers. Done
         -- here (rather than in the per-source first passes) so the single
         -- `person` join covers both the club and non-club paths, and so
-        -- person_club needn't carry the column.
+        -- person_club needn't carry the column. The last-online window is
+        -- applied here for the same reason: person_club has no
+        -- last_online_time, so the club path is filtered on this join rather
+        -- than in its first pass.
         prospect.shadow_banned_at IS NULL
+    AND
+        prospect.last_online_time >
+            now() - %(max_last_online_seconds)s * interval '1 second'
     ORDER BY
         prospect.personality <#> searcher.personality
     LIMIT

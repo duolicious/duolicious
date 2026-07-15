@@ -16,6 +16,16 @@ DELIBERATELY_UNMIRRORED = frozenset([
     'search_preference_skipped',
 ])
 
+# Filters the inbox mirrors by reading the `search_preference_*` table inline,
+# but which the search query applies through a bound query parameter instead of
+# an inline read -- so the recency cutoff is a plan-time constant and the search
+# can index-scan `last_online_time`. `search.__init__` resolves the value from
+# the same table (via `Q_MAX_LAST_ONLINE_SECONDS`) before running the search.
+# These therefore appear in the inbox query but not in `Q_UNCACHED_SEARCH_2`.
+MIRRORED_VIA_SEARCH_PARAMETER = frozenset([
+    'search_preference_last_online',
+])
+
 
 def search_preference_tables(query: str) -> frozenset[str]:
     return frozenset(re.findall(r'\bsearch_preference_\w+', query))
@@ -37,12 +47,20 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
 
         self.assertEqual(
             inbox_tables,
-            search_tables - DELIBERATELY_UNMIRRORED,
+            (search_tables - DELIBERATELY_UNMIRRORED)
+                | MIRRORED_VIA_SEARCH_PARAMETER,
         )
 
         # If a deliberately-unmirrored table disappears from the search query,
         # its entry above is stale.
         self.assertLessEqual(DELIBERATELY_UNMIRRORED, search_tables)
+
+        # The parameter-mirrored filters are applied by the search through a
+        # bound parameter, so they must NOT appear inline in the search query.
+        self.assertEqual(
+            MIRRORED_VIA_SEARCH_PARAMETER & search_tables,
+            frozenset(),
+        )
 
 
 class TestComposedBody(unittest.TestCase):

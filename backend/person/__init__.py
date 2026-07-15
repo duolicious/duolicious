@@ -1867,6 +1867,18 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
             SELECT %(person_id)s, id
             FROM star_sign WHERE name = ANY(%(field_value)s)
             """
+        elif field_name == 'last_online':
+            q1 = """
+            DELETE FROM search_preference_last_online
+            WHERE person_id = %(person_id)s"""
+
+            q2 = """
+            INSERT INTO search_preference_last_online (
+                person_id, last_online_id
+            )
+            SELECT %(person_id)s, id
+            FROM last_online WHERE name = %(field_value)s
+            """
         elif field_name == 'people_you_messaged':
             q1 = """
             DELETE FROM search_preference_messaged

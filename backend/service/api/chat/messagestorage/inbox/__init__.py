@@ -80,6 +80,18 @@ WITH viewer AS (
             ),
             1e9
         ) AS distance_preference,
+        (
+            SELECT
+                last_online.seconds
+            FROM
+                search_preference_last_online
+            JOIN
+                last_online
+            ON
+                last_online.id = search_preference_last_online.last_online_id
+            WHERE
+                search_preference_last_online.person_id = person.id
+        ) AS max_last_online_seconds,
         -- The latest date of birth the viewer's minimum age allows
         (
             SELECT
@@ -414,6 +426,9 @@ SELECT
                     viewer_search_preferences AS prefs
                 WHERE
                     prospect.id = gated.prospect_id
+                AND
+                    prospect.last_online_time >
+                        now() - prefs.max_last_online_seconds * interval '1 second'
             ),
             FALSE
         )

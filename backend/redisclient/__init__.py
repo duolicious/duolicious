@@ -9,8 +9,8 @@ construction lives here rather than being copy-pasted three ways.
 The timeouts are not optional. Every caller treats Redis as a best-effort
 accelerator and swallows errors, degrading to a cache miss / no-op -- but that
 fallback only works if a call actually *returns*. Without socket timeouts a
-slow or unreachable Redis blocks the caller indefinitely. `autodeactivate2`
-awaits into Redis from inside the cron's single asyncio event loop, where one
+slow or unreachable Redis blocks the caller indefinitely. The cron jobs await
+into Redis from inside the cron's single asyncio event loop, where one
 unbounded call would stall *every* cron job. Bounding both timeouts turns a
 Redis stall into a fast, swallowed error.
 

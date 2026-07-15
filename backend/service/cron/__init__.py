@@ -1,4 +1,3 @@
-from service.cron.autodeactivate2 import autodeactivate2_forever
 from service.cron.checkphotos import check_photos_forever
 from service.cron.clubseo import (
     refresh_club_seo_forever,
@@ -42,10 +41,6 @@ async def main() -> None:
         await start_all()
 
         await asyncio.gather(
-            # Fetched: 11k, returned: 670k <- unoptimized
-            # Fetched:  1k, returned:  84k <- optimized
-            autodeactivate2_forever(),
-
             # Fetched: 0.1k, returned: 2k
             delete_garbage_records_forever(),
 

@@ -630,6 +630,11 @@ WITH onboardee_location AS (
     INSERT INTO search_preference_ethnicity (person_id, ethnicity_id)
     SELECT new_person.id, ethnicity.id
     FROM new_person, ethnicity
+), p21 AS (
+    INSERT INTO search_preference_last_online (person_id, last_online_id)
+    SELECT new_person.id, last_online.id
+    FROM new_person, last_online
+    WHERE last_online.name = 'A month ago'
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
@@ -1770,6 +1775,12 @@ WITH answer AS (
     FROM search_preference_skipped JOIN yes_no
     ON skipped_id = yes_no.id
     WHERE person_id = %(person_id)s
+), last_online_pref AS (
+    SELECT last_online.name AS j
+    FROM search_preference_last_online
+    JOIN last_online
+    ON last_online.id = search_preference_last_online.last_online_id
+    WHERE search_preference_last_online.person_id = %(person_id)s
 )
 SELECT
     json_build_object(
@@ -1780,6 +1791,7 @@ SELECT
         'ethnicity',              (SELECT j FROM ethnicity),
         'age',                    (SELECT j FROM age),
         'furthest_distance',      (SELECT j FROM furthest_distance),
+        'last_online',            (SELECT j FROM last_online_pref),
         'height',                 (SELECT j FROM height),
         'has_a_profile_picture',  (SELECT j FROM has_a_profile_picture),
         'looking_for',            (SELECT j FROM looking_for),
@@ -2241,6 +2253,8 @@ FROM
     person
 WHERE
     activated
+AND
+    last_online_time > now() - interval '30 days'
 """
 
 Q_STATS_BY_CLUB_NAME = """
@@ -2254,16 +2268,20 @@ WHERE
 
 Q_GENDER_STATS = """
 SELECT
-    count(*) FILTER (WHERE activated AND gender_id = 1)::real /
-    count(*) FILTER (WHERE activated AND gender_id = 2)::real
+    count(*) FILTER (WHERE gender_id = 1)::real /
+    count(*) FILTER (WHERE gender_id = 2)::real
     AS gender_ratio,
 
-    count(*) FILTER (WHERE activated AND gender_id NOT IN (1, 2))::real /
-    count(*) FILTER (WHERE activated)::real *
+    count(*) FILTER (WHERE gender_id NOT IN (1, 2))::real /
+    count(*)::real *
     100.0
     AS non_binary_percentage
 FROM
     person
+WHERE
+    activated
+AND
+    last_online_time > now() - interval '30 days'
 """
 
 Q_PERSON_ID_TO_UUID = """

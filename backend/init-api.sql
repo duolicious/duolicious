@@ -186,6 +186,13 @@ CREATE TABLE IF NOT EXISTS looking_for (
     UNIQUE (name)
 );
 
+CREATE TABLE IF NOT EXISTS last_online (
+    id SMALLSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    seconds BIGINT NOT NULL,
+    UNIQUE (name)
+);
+
 CREATE TABLE IF NOT EXISTS yes_no (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -692,6 +699,12 @@ CREATE TABLE IF NOT EXISTS search_preference_distance (
     PRIMARY KEY (person_id)
 );
 
+CREATE TABLE IF NOT EXISTS search_preference_last_online (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    last_online_id SMALLINT REFERENCES last_online(id) ON DELETE CASCADE,
+    PRIMARY KEY (person_id)
+);
+
 CREATE TABLE IF NOT EXISTS search_preference_height_cm (
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     min_height_cm SMALLINT,
@@ -1014,6 +1027,17 @@ INSERT INTO looking_for (name) VALUES ('Friends') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Short-term dating') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Long-term dating') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Marriage') ON CONFLICT (name) DO NOTHING;
+
+-- The "Last online:" search-filter windows (label, seconds). 'Now' mirrors
+-- `constants.VISITOR_ONLINE_TIMEOUT_SECONDS`; 'A month ago' is the default
+-- seeded for every new person; 'All time' is a ~100-year sentinel so the
+-- search's window filter needs no NULL/OR case.
+SELECT setval('last_online_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM last_online), FALSE);
+INSERT INTO last_online (name, seconds) VALUES ('Now',                  480) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A day ago',          86400) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A week ago',        604800) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A month ago',      2592000) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('All time',      3153600000) ON CONFLICT (name) DO NOTHING;
 
 SELECT setval('relationship_status_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM relationship_status), FALSE);
 INSERT INTO relationship_status (name) VALUES ('Unanswered') ON CONFLICT (name) DO NOTHING;

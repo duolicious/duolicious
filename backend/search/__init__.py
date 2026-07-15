@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from typing import Literal, Tuple
 from search.sql import (
     Q_CACHED_SEARCH,
+    Q_MAX_LAST_ONLINE_SECONDS,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
@@ -57,6 +58,11 @@ async def _uncached_search_results(
     )
 
     try:
+        await tx.execute(Q_MAX_LAST_ONLINE_SECONDS, params)
+        [seconds_row] = await tx.fetchall()
+        params['max_last_online_seconds'] = row_int(
+            seconds_row, 'max_last_online_seconds')
+
         await tx.execute(Q_UNCACHED_SEARCH_1, params)
         await tx.execute(Q_UNCACHED_SEARCH_2, params)
         await tx.execute(Q_CACHED_SEARCH, params)
