@@ -103,11 +103,15 @@ CLUB_OVERLAP_POLL_SECONDS = int(os.environ.get(
 # exercise the cron without an API key.
 CLUB_SEO_MOCK_DESCRIPTION = os.environ.get('DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION')
 
-_openai_client = (
-    AsyncOpenAI()
-    if not CLUB_SEO_MOCK_DESCRIPTION and os.environ.get('OPENAI_API_KEY')
-    else None
-)
+if not CLUB_SEO_MOCK_DESCRIPTION and not os.environ.get('OPENAI_API_KEY'):
+    raise RuntimeError(
+        'OPENAI_API_KEY is not set. The cron container needs it to generate '
+        'club SEO descriptions. Set OPENAI_API_KEY, or set '
+        'DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION to run without OpenAI, as the dev '
+        'and test stacks do.'
+    )
+
+_openai_client = AsyncOpenAI() if not CLUB_SEO_MOCK_DESCRIPTION else None
 
 
 async def refresh_club_stats_once() -> None:
@@ -363,8 +367,6 @@ async def _process_club_seo_row(
 
 
 async def refresh_club_seo_once() -> None:
-    if _openai_client is None and not CLUB_SEO_MOCK_DESCRIPTION:
-        return
     if not is_offpeak(CLUB_SEO_MAX_LOAD_PCT, 'refresh_club_seo_once'):
         return
 

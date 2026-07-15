@@ -87,10 +87,13 @@ The frontend's default API URLs already point at the backend's published
 localhost ports, so the web app talks to your local backend with no extra
 configuration.
 
-The stack runs without any secrets. `OPENAI_API_KEY` is optional: leave it
-unset for local development and the app still starts, but the OpenAI-backed
-features (account verification and club SEO descriptions) stay disabled until
-you export a key before `docker compose up`. See
+The local `docker compose up` stack runs without any secrets — it mocks the
+OpenAI-backed features (account verification and club SEO descriptions), so you
+don't need a key for development.
+
+A real deployment **requires** `OPENAI_API_KEY`: the cron container fails fast
+at startup with a clear error if it's unset, so a misconfigured deploy is
+obvious immediately rather than silently shipping broken verification. See
 [`backend/DEVELOPER.md`](backend/DEVELOPER.md) for the full list of environment
 variables.
 

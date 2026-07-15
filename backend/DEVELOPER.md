@@ -142,7 +142,7 @@ These environment variables specify where user-uploaded content is stored:
 
 These env vars get passed to the `boto3` library, so they're compatible with AWS S3 despite containing `R2` in their names. The `api` container needs to have permissions to upload files to these buckets. Deletion is handled by the `cron` container.
 
-* `OPENAI_API_KEY` - The OpenAI API key used to query ChatGPT while verifying accounts.
+* `OPENAI_API_KEY` - The OpenAI API key used to query ChatGPT while verifying accounts and generating club SEO descriptions. Required by the `cron` container, which fails fast at startup if it's unset (unless `DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION` is set, as it is in the dev and test stacks).
 
 #### Redis
 

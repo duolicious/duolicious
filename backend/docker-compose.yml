@@ -150,6 +150,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DUO_VERIFICATION_IMAGE_BASE_URL: http://s3mock:9090/s3-mock-bucket
       DUO_VERIFICATION_MOCK_RESPONSE_FILE: test/input/verification-mock-response-file
+      DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION: 'A friendly description for this club.'
 
       DUO_CRON_GARBAGE_RECORDS_POLL_SECONDS: '1'
 
