@@ -31,7 +31,7 @@ import { ReadReceipt } from './read-receipt';
 import { DefaultText } from '../default-text';
 import {
   Message,
-  markDisplayed,
+  markDisplayedIfActive,
 } from '../../chat/application-layer';
 import {
   fetchConversationAndNotify,
@@ -673,14 +673,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       return;
     }
 
-  if (
-    Platform.OS !== 'web' &&
-    ['background', 'inactive'].includes(AppState.currentState)
-  ) {
-    return;
-  }
-
-    await markDisplayed(personUuid, lastMessage.message.id);
+    await markDisplayedIfActive(personUuid, lastMessage.message.id);
   }, [_.last(messageIds)]);
 
   useSkipped(personUuid, () => navigation.popToTop());

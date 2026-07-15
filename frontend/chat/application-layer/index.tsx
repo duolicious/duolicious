@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { getRandomString } from '../../random/string';
 import { deleteFromArray, assert } from '../../util/util';
 import { listen, notify, lastEvent } from '../../events/events';
@@ -439,10 +439,17 @@ const authenticate = async () => {
 };
 
 // The server marks the whole conversation displayed; `messageId` is inert.
-const markDisplayed = async (otherPersonUuid: string, messageId: string) => {
+const markDisplayedIfActive = async (otherPersonUuid: string, messageId: string) => {
   if (!credentials) return;
 
   if (!isValidUuid(otherPersonUuid)) return;
+
+  if (
+    Platform.OS !== 'web' &&
+    ['background', 'inactive'].includes(AppState.currentState)
+  ) {
+    return;
+  }
 
   const data = {
     message: {
@@ -820,7 +827,7 @@ const onReceiveMessage = (
     if (!doMarkDisplayed) return;
     if (jidToBareJid(reaction['@from'] ?? '') !== otherPersonUuid) return;
 
-    await markDisplayed(otherPersonUuid, reaction['@mam_id'] ?? '');
+    await markDisplayedIfActive(otherPersonUuid, reaction['@mam_id'] ?? '');
   };
 
   const _onReceiveMessage = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -867,7 +874,7 @@ const onReceiveMessage = (
     }
 
     if (otherPersonUuid !== undefined && doMarkDisplayed && !message.fromCurrentUser) {
-      await markDisplayed(otherPersonUuid, message.id);
+      await markDisplayedIfActive(otherPersonUuid, message.id);
     }
 
     if (callback !== undefined) {
@@ -1009,7 +1016,7 @@ const fetchConversation = async (
 
   if (response !== 'timeout' && response.length > 0) {
     const lastMessage = response[response.length - 1];
-    await markDisplayed(withPersonUuid, lastMessage.id);
+    await markDisplayedIfActive(withPersonUuid, lastMessage.id);
   }
 
   // Reconcile whether our message is the conversation's last one against the
@@ -1125,7 +1132,7 @@ export {
   inboxStats,
   login,
   logout,
-  markDisplayed,
+  markDisplayedIfActive,
   onReceiveMessage,
   refreshInbox,
   registerPushToken,
