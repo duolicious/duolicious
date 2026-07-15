@@ -91,11 +91,10 @@ The local `docker compose up` stack runs without any secrets — it mocks the
 OpenAI-backed features (account verification and club SEO descriptions), so you
 don't need a key for development.
 
-A real deployment **requires** `OPENAI_API_KEY`: the cron container fails fast
-at startup with a clear error if it's unset, so a misconfigured deploy is
-obvious immediately rather than silently shipping broken verification. See
-[`backend/DEVELOPER.md`](backend/DEVELOPER.md) for the full list of environment
-variables.
+A real deployment **requires** `OPENAI_API_KEY`: the cron container won't start
+without it, so a misconfigured deploy fails fast instead of silently shipping
+broken verification. See [`backend/DEVELOPER.md`](backend/DEVELOPER.md) for the
+full list of environment variables.
 
 To seed a test user once the API is healthy:
 
