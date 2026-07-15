@@ -87,6 +87,13 @@ The frontend's default API URLs already point at the backend's published
 localhost ports, so the web app talks to your local backend with no extra
 configuration.
 
+The stack runs without any secrets. `OPENAI_API_KEY` is optional: leave it
+unset for local development and the app still starts, but the OpenAI-backed
+features (account verification and club SEO descriptions) stay disabled until
+you export a key before `docker compose up`. See
+[`backend/DEVELOPER.md`](backend/DEVELOPER.md) for the full list of environment
+variables.
+
 To seed a test user once the API is healthy:
 
 ```bash
