@@ -66,3 +66,9 @@ SELECT person.id, last_online.id
 FROM person, last_online
 WHERE last_online.name = 'A month ago'
 ON CONFLICT (person_id) DO NOTHING;
+
+CREATE INDEX IF NOT EXISTS
+    idx__person__personality
+    ON person
+    USING ivfflat (personality vector_ip_ops)
+    WITH (lists = 100);

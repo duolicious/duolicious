@@ -16,7 +16,7 @@ from search.sql import (
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
     Q_SEARCH_PREFERENCE,
-    Q_UNCACHED_SEARCH_1,
+    Q_DELETE_SEARCH_CACHE,
     Q_FEED,
     Q_FEED_V2,
     build_uncached_search,
@@ -64,7 +64,13 @@ async def _uncached_search_results(
     )
 
     try:
-        await tx.execute(Q_UNCACHED_SEARCH_1, params)
+        # The search filters inside the `idx__person__personality` scan, so an
+        # ivfflat scan limited to its initial probes would return far too few
+        # rows for a searcher with selective filters (often none at all).
+        # Iterating lets the scan keep visiting lists until the LIMIT is met.
+        await tx.execute("SET LOCAL ivfflat.iterative_scan = relaxed_order")
+
+        await tx.execute(Q_DELETE_SEARCH_CACHE, params)
         await tx.execute(uncached_search, params)
         await tx.execute(Q_CACHED_SEARCH, params)
         return await tx.fetchall()

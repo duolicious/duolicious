@@ -273,7 +273,7 @@ CREATE TABLE IF NOT EXISTS person (
     location_short_friendly TEXT NOT NULL,
     location_long_friendly TEXT NOT NULL,
 
-    -- TODO: CREATE INDEX ON person USING ivfflat (personality2 vector_ip_ops) WITH (lists = 100);
+    -- TODO: CREATE INDEX IF NOT EXISTS idx__person__personality ON person USING ivfflat (personality vector_ip_ops) WITH (lists = 100);
     -- There's 46 `trait`s. In principle, it's possible for someone to have a
     -- score of 0 for each trait. We add an extra, constant, non-zero dimension
     -- to avoid that.
@@ -973,6 +973,12 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS
+    idx__person__personality
+    ON person
+    USING ivfflat (personality vector_ip_ops)
+    WITH (lists = 100);
 
 
 --------------------------------------------------------------------------------

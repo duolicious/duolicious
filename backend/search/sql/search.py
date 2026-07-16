@@ -11,6 +11,7 @@ from database import (
     row_int,
     row_int_list_or_none,
     row_int_or_none,
+    row_str,
     row_str_or_none,
 )
 
@@ -68,7 +69,7 @@ WHERE
 
 
 
-Q_UNCACHED_SEARCH_1 = """
+Q_DELETE_SEARCH_CACHE = """
 DELETE FROM
     search_cache
 WHERE
@@ -176,7 +177,19 @@ SELECT
         SELECT 1
         FROM search_preference_answer
         WHERE person_id = %(searcher_person_id)s
-    ) AS has_answer_prefs
+    ) AS has_answer_prefs,
+    -- The searcher's own attributes. Passed back into the search as bound
+    -- parameters so that `personality` is a plan-time constant, which is what
+    -- lets the ORDER BY index-scan `idx__person__personality`; read from a
+    -- joined CTE instead, pgvector cannot use the index at all.
+    person.coordinates::TEXT AS searcher_coordinates,
+    person.personality::TEXT AS searcher_personality,
+    person.gender_id AS searcher_gender_id,
+    person.count_answers AS searcher_count_answers
+FROM
+    person
+WHERE
+    person.id = %(searcher_person_id)s
 """
 
 
@@ -189,7 +202,7 @@ _REVERSE_GENDER_EXISTS = """EXISTS (
             WHERE
                 preference.person_id = prospect.id
             AND
-                preference.gender_id = searcher.gender_id
+                preference.gender_id = %(searcher_gender_id)s
         )"""
 
 _ANSWER_NOT_EXISTS = """NOT EXISTS (
@@ -245,7 +258,7 @@ _ALWAYS_VERIFY = """-- Exclude users who should be verified but aren't
             NOT prospect.verification_required
         )"""
 
-_FOURTH_PASS_SELECT = """    SELECT
+_PROSPECT_SELECT = """    SELECT
         prospect.id AS prospect_person_id,
 
         uuid AS prospect_uuid,
@@ -277,22 +290,22 @@ _FOURTH_PASS_SELECT = """    SELECT
         CLAMP(
             0,
             99,
-            100 * (1 - (prospect.personality <#> searcher.personality)) / 2
+            100 * (1 - (prospect.personality <#> %(searcher_personality)s::VECTOR)) / 2
         ) AS match_percentage,
 
         roles"""
 
-_UNCACHED_SEARCH_TAIL = """), do_promote_verified AS (
+_SEARCH_CACHE_INSERT = """), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
-        prospects_fourth_pass
+        prospects
     WHERE
         profile_photo_uuid IS NOT NULL
     AND
         verified
     AND
-        (SELECT count_answers > 0 FROM searcher)
+        %(searcher_count_answers)s > 0
 )
 INSERT INTO search_cache (
     searcher_person_id,
@@ -330,11 +343,11 @@ SELECT
     personality,
     verified
 FROM
-    prospects_fourth_pass
+    prospects
 WHERE
-    prospects_fourth_pass.prospect_person_id != %(searcher_person_id)s
+    prospects.prospect_person_id != %(searcher_person_id)s
 AND
-    'bot' <> ALL(prospects_fourth_pass.roles)
+    'bot' <> ALL(prospects.roles)
 ORDER BY
     position
 LIMIT
@@ -353,46 +366,34 @@ ON CONFLICT (searcher_person_id, position) DO UPDATE SET
 """
 
 
-def _first_pass(club_preference: str | None, distance_meters: int | None) -> str:
-    distance = (
-        "    AND\n"
-        "        ST_DWithin(\n"
-        "            prospect.coordinates,\n"
-        "            searcher.coordinates,\n"
-        "            %(distance_meters)s\n"
-        "        )\n"
-        if distance_meters is not None else ""
-    )
+# The searcher's filter predicates (except club membership) are mirrored (by
+# hand) by the `matches_search_filters` column of the inbox snapshot query in
+# `service.api.chat.messagestorage.inbox`, which flags intros from senders
+# outside the viewer's search filters. If a filter is added or changed here or
+# in `Q_SEARCH_PARAMETERS`, change it there too. (A unit test beside the inbox
+# query fails when a `search_preference_*` table is consulted by the search and
+# not the inbox.)
+def _from_clause(club_preference: str | None) -> str:
+    """
+    What the single candidate scan reads. `person_club` supplies club
+    membership only; every filter reads `person`, whose row the scan is already
+    on, so the denormalized copies on `person_club` aren't needed.
+    """
     if club_preference is None:
-        return f"""    SELECT
-        id
-    FROM
-        person AS prospect
-    CROSS JOIN
-        searcher
-    WHERE
-        prospect.activated
+        return "        person AS prospect"
+    # `person_club.activated` is redundant with `prospect.activated` (a trigger
+    # keeps them equal), but naming it here is what lets the partial index
+    # `idx__person_club__activated__club_name__person_id` (WHERE activated)
+    # apply; without it the club path sequentially scans all of `person_club`.
+    return """        person AS prospect
+    JOIN
+        person_club
+    ON
+        person_club.person_id = prospect.id
     AND
-        prospect.last_online_time >
-            now() - %(max_last_online_seconds)s * interval '1 second'
+        person_club.club_name = %(club_preference)s
     AND
-        prospect.gender_id = ANY(%(gender_preference)s::SMALLINT[])
-{distance}    LIMIT
-        30000"""
-    return f"""    SELECT
-        person_id AS id
-    FROM
-        person_club AS prospect
-    CROSS JOIN
-        searcher
-    WHERE
-        prospect.activated
-    AND
-        prospect.gender_id = ANY(%(gender_preference)s::SMALLINT[])
-{distance}    AND
-        prospect.club_name = %(club_preference)s
-    LIMIT
-        30000"""
+        person_club.activated"""
 
 
 def build_uncached_search(
@@ -415,16 +416,34 @@ def build_uncached_search(
         o=o,
         gender_preference=gender_preference,
         max_last_online_seconds=row_int(prefs, 'max_last_online_seconds'),
+        searcher_coordinates=row_str(prefs, 'searcher_coordinates'),
+        searcher_personality=row_str(prefs, 'searcher_personality'),
+        searcher_gender_id=row_int(prefs, 'searcher_gender_id'),
+        searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
 
     club_preference = row_str_or_none(prefs, 'club_preference')
     distance_meters = row_int_or_none(prefs, 'distance_meters')
-    if distance_meters is not None:
-        params['distance_meters'] = distance_meters
     if club_preference is not None:
         params['club_preference'] = club_preference
 
-    clauses = []
+    clauses = [
+        "prospect.activated",
+        "prospect.shadow_banned_at IS NULL",
+        "prospect.last_online_time >\n"
+        "            now() - %(max_last_online_seconds)s * interval '1 second'",
+        "prospect.gender_id = ANY(%(gender_preference)s::SMALLINT[])",
+    ]
+
+    if distance_meters is not None:
+        params['distance_meters'] = distance_meters
+        clauses.append(
+            "ST_DWithin(\n"
+            "            prospect.coordinates,\n"
+            "            %(searcher_coordinates)s::GEOGRAPHY,\n"
+            "            %(distance_meters)s\n"
+            "        )"
+        )
 
     # The searcher meets the prospect's gender preference. When searching a
     # club this is not required (the shared club is the connection), so the
@@ -495,59 +514,24 @@ def build_uncached_search(
 
     where = '\n    AND\n        '.join(clauses)
 
+    # A single scan of `person`: every filter is applied here, so the ORDER BY
+    # can index-scan `idx__person__personality` and the scan filters as it
+    # goes. 502 rather than 500 leaves room for the searcher and the moderation
+    # bot, which the INSERT below drops.
     sql = f"""
-WITH searcher AS (
-    SELECT
-        coordinates,
-        personality,
-        gender_id,
-        count_answers
+WITH prospects AS (
+{_PROSPECT_SELECT}
     FROM
-        person
-    WHERE
-        person.id = %(searcher_person_id)s
-), prospects_first_pass AS (
-{_first_pass(club_preference, distance_meters)}
-), prospects_third_pass AS (
-    SELECT
-        prospect.id
-    FROM
-        person AS prospect
-    JOIN
-        prospects_first_pass
-    ON
-        prospects_first_pass.id = prospect.id
-    CROSS JOIN
-        searcher
-    WHERE
-        prospect.shadow_banned_at IS NULL
-    AND
-        prospect.last_online_time >
-            now() - %(max_last_online_seconds)s * interval '1 second'
-    ORDER BY
-        prospect.personality <#> searcher.personality
-    LIMIT
-        10000
-), prospects_fourth_pass AS (
-{_FOURTH_PASS_SELECT}
-    FROM
-        person AS prospect
-    JOIN
-        prospects_third_pass
-    ON
-        prospects_third_pass.id = prospect.id
-    CROSS JOIN
-        searcher
+{_from_clause(club_preference)}
     WHERE
         {where}
 
     ORDER BY
-        verified DESC,
-        match_percentage DESC
+        prospect.personality <#> %(searcher_personality)s::VECTOR
 
     LIMIT
         502
-{_UNCACHED_SEARCH_TAIL}"""
+{_SEARCH_CACHE_INSERT}"""
 
     return sql, params
 
