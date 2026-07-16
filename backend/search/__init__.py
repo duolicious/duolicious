@@ -9,9 +9,9 @@ from qanda.question import Q_QUESTION_SCORE_VECTORS
 from rediscache import redis_cache
 from collections.abc import Sequence
 from typing import Literal, Tuple
+from searchfilters import Q_SEARCH_PARAMETERS
 from search.sql import (
     Q_CACHED_SEARCH,
-    Q_SEARCH_PARAMETERS,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,

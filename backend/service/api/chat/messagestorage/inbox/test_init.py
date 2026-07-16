@@ -1,8 +1,8 @@
 import re
 import unittest
 
-from search.sql import build_uncached_search, prospect_filter_clauses
-from search.sql.search import _ENUM_FILTERS
+from search.sql import build_uncached_search
+from searchfilters import ENUM_FILTERS, prospect_filters
 from service.api.chat.messagestorage.inbox import _composed_body
 from database import Row
 
@@ -25,7 +25,7 @@ def search_preference_tables(query: str) -> frozenset[str]:
 
 def maximal_prefs() -> Row:
     """Preferences where every optional filter is active, so none is omitted."""
-    prefs: Row = {name: [1] for name, *_ in _ENUM_FILTERS}
+    prefs: Row = {enum.param: [1] for enum in ENUM_FILTERS}
     prefs.update(
         distance_meters=1,
         club_preference=None,
@@ -50,7 +50,7 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
     def test_search_applies_every_shared_filter(self) -> None:
         """
         The inbox builds `matches_search_filters` from
-        `prospect_filter_clauses`, so it applies exactly those predicates. This
+        `searchfilters.prospect_filters`, so it applies exactly those predicates. This
         fails if the search stops applying one of them -- at which point the
         inbox would be flagging intros against a filter the search no longer
         honours.
@@ -58,20 +58,20 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         prefs = maximal_prefs()
         search_sql, _ = build_uncached_search(1, 10, 0, prefs)
 
-        for clause in prospect_filter_clauses(prefs, {}):
+        for clause in prospect_filters(prefs).clauses:
             self.assertIn(clause, search_sql)
 
     def test_search_only_predicates_are_declared(self) -> None:
         """
         A new filter on a prospect's own attributes belongs in
-        `prospect_filter_clauses`, so that the search and the inbox both get
+        `searchfilters.prospect_filters`, so that the search and the inbox both get
         it. This fails when one is added to the search alone; if it genuinely
         can't apply to an intro, name it in SEARCH_ONLY and say why beside the
         inbox query.
         """
         prefs = maximal_prefs()
         search_sql, _ = build_uncached_search(1, 10, 0, prefs)
-        shared_sql = ' '.join(prospect_filter_clauses(prefs, {}))
+        shared_sql = ' '.join(prospect_filters(prefs).clauses)
 
         search_only = (
             search_preference_tables(search_sql)

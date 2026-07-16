@@ -2,10 +2,10 @@ import traceback
 
 from batcher import Batcher
 from database import Row, Tx, api_tx, row_int, row_str
-from search.sql import (
+from searchfilters import (
     Q_SEARCH_PARAMETERS_BY_UUID,
     SearchParam,
-    prospect_filter_clauses,
+    prospect_filters,
 )
 from dataclasses import dataclass
 from datetime import datetime
@@ -49,17 +49,17 @@ ORDER BY
 # parameterised `IS NULL` branch would defeat.
 #
 # `matches_search_filters` says whether an intro's sender passes the viewer's
-# search filters, so clients can sort and flag intros from outside them. The
-# predicates mirror the `/search` filters in `search.sql` (kept in sync by
-# hand; each notes the other, and `test_init` here fails when a preference
-# table is consulted by the search and not the inbox), except those that can't
-# apply to an intro: the
-# sender's own gender preference and `hide_me_from_strangers` (the sender
-# chose to message the viewer), skipped/messaged gating (the inbox `location`
-# rules already handle those), and platform verification requirements (not a
-# viewer-chosen filter). Searching within a club also deliberately doesn't
-# count: it scopes a search, but an intro from outside the club isn't the
-# kind of mismatch this flag is for. Non-intro conversations are always TRUE.
+# search filters, so clients can sort and flag intros from outside them. It is
+# built from `searchfilters.prospect_filters`, the same predicates the
+# `/search` filters are built from, so the two can't drift apart. The search
+# applies further predicates that can't apply to an intro, and so aren't in
+# that shared set: the sender's own gender preference and
+# `hide_me_from_strangers` (the sender chose to message the viewer),
+# skipped/messaged gating (the inbox `location` rules already handle those),
+# and platform verification requirements (not a viewer-chosen filter).
+# Searching within a club also deliberately doesn't count: it scopes a search,
+# but an intro from outside the club isn't the kind of mismatch this flag is
+# for. Non-intro conversations are always TRUE.
 def _q_inbox_snapshot(
     entry_predicate: str,
     matches_search_filters: str,
@@ -553,19 +553,19 @@ async def _fetch_inbox_conversations(
             dict(username=username),
         )
 
+        # The same filters the `/search` predicates are built from, so the two
+        # can't drift; a viewer whose preferences admit everyone gets no
+        # predicates at all.
+        filters = prospect_filters(prefs)
+
         params: dict[str, SearchParam] = dict(
             username=username,
-            searcher_person_id=row_int(prefs, 'searcher_person_id'),
-            max_last_online_seconds=row_int(prefs, 'max_last_online_seconds'),
-            searcher_coordinates=row_str(prefs, 'searcher_coordinates'),
+            **filters.params,
         )
         if prospect_username is not None:
             params['remote_bare_jid'] = f'{prospect_username}@{LSERVER}'
 
-        # The same clauses the `/search` filters are built from, so the two
-        # can't drift; a viewer whose preferences admit everyone gets no
-        # predicates at all.
-        clauses = prospect_filter_clauses(prefs, params)
+        clauses = filters.clauses
 
         query = _q_inbox_snapshot(
             entry_predicate=entry_predicate,
