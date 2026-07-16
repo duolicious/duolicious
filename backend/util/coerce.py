@@ -56,6 +56,17 @@ def string_list(value: object, field_name: str | None = None) -> list[str]:
     return cast(list[str], value)
 
 
+def optional_int_list(
+    value: object,
+    field_name: str | None = None,
+) -> list[int] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list) or not all(isinstance(x, int) for x in value):
+        raise RuntimeError(_message('a list of integers or None', field_name))
+    return cast(list[int], value)
+
+
 def mapping(value: object, field_name: str | None = None) -> Mapping[str, object]:
     if not isinstance(value, dict):
         raise RuntimeError(_message('mapping', field_name))

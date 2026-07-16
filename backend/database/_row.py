@@ -4,6 +4,7 @@ from util.coerce import (
     boolean,
     integer,
     optional_int,
+    optional_int_list,
     optional_str,
     string,
     string_list,
@@ -45,3 +46,7 @@ def row_str_or_none(row: Mapping[str, object], key: str) -> str | None:
 
 def row_str_list(row: Mapping[str, object], key: str) -> list[str]:
     return string_list(row_value(row, key), key)
+
+
+def row_int_list_or_none(row: Mapping[str, object], key: str) -> list[int] | None:
+    return optional_int_list(row_value(row, key), key)

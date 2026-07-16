@@ -11,15 +11,15 @@ from collections.abc import Sequence
 from typing import Literal, Tuple
 from search.sql import (
     Q_CACHED_SEARCH,
-    Q_MAX_LAST_ONLINE_SECONDS,
+    Q_SEARCH_PARAMETERS,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
     Q_SEARCH_PREFERENCE,
     Q_UNCACHED_SEARCH_1,
-    Q_UNCACHED_SEARCH_2,
     Q_FEED,
     Q_FEED_V2,
+    build_uncached_search,
 )
 from dataclasses import dataclass
 from datetime import datetime
@@ -50,21 +50,22 @@ async def _uncached_search_results(
 ) -> object:
     n, o = no
 
-    params = dict(
+    prefs = await tx.require_one(
+        Q_SEARCH_PARAMETERS,
+        dict(searcher_person_id=searcher_person_id),
+    )
+
+    uncached_search, params = build_uncached_search(
         searcher_person_id=searcher_person_id,
         n=n,
         o=o,
         gender_preference=gender_preference,
+        prefs=prefs,
     )
 
     try:
-        await tx.execute(Q_MAX_LAST_ONLINE_SECONDS, params)
-        [seconds_row] = await tx.fetchall()
-        params['max_last_online_seconds'] = row_int(
-            seconds_row, 'max_last_online_seconds')
-
         await tx.execute(Q_UNCACHED_SEARCH_1, params)
-        await tx.execute(Q_UNCACHED_SEARCH_2, params)
+        await tx.execute(uncached_search, params)
         await tx.execute(Q_CACHED_SEARCH, params)
         return await tx.fetchall()
     except psycopg.errors.QueryCanceled:

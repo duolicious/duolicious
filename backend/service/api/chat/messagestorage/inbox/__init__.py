@@ -45,9 +45,9 @@ ORDER BY
 #
 # `matches_search_filters` says whether an intro's sender passes the viewer's
 # search filters, so clients can sort and flag intros from outside them. The
-# predicates mirror `Q_UNCACHED_SEARCH_2` in `search.sql` (kept in sync by
+# predicates mirror the `/search` filters in `search.sql` (kept in sync by
 # hand; each notes the other, and `test_init` here fails when a preference
-# table is consulted by one query and not the other), except those that can't
+# table is consulted by the search and not the inbox), except those that can't
 # apply to an intro: the
 # sender's own gender preference and `hide_me_from_strangers` (the sender
 # chose to message the viewer), skipped/messaged gating (the inbox `location`
