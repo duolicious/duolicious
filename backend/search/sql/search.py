@@ -87,6 +87,7 @@ WHERE
 # row exists.
 _ENUM_FILTERS = [
     # (param name, preference table, id column, lookup table)
+    ('gender_ids',              'search_preference_gender',             'gender_id',              'gender'),
     ('orientation_ids',         'search_preference_orientation',        'orientation_id',         'orientation'),
     ('ethnicity_ids',           'search_preference_ethnicity',          'ethnicity_id',           'ethnicity'),
     ('has_profile_picture_ids', 'search_preference_has_profile_picture','has_profile_picture_id', 'yes_no'),
@@ -114,69 +115,71 @@ _PARAM_ENUM_SELECTS = ',\n'.join(
             ELSE COALESCE(array_agg({col}), ARRAY[]::SMALLINT[])
         END
         FROM {table}
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS {name}"""
     for name, table, col, lookup in _ENUM_FILTERS
 )
 
-Q_SEARCH_PARAMETERS = f"""
+def _q_search_parameters(person_predicate: str) -> str:
+    return f"""
 SELECT
+    person.id AS searcher_person_id,
 {_PARAM_ENUM_SELECTS},
     (
         SELECT 1000 * distance
         FROM search_preference_distance
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS distance_meters,
     (
         SELECT club_name
         FROM search_preference_club
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS club_preference,
     (
         SELECT min_age
         FROM search_preference_age
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS min_age,
     (
         SELECT max_age
         FROM search_preference_age
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS max_age,
     (
         SELECT min_height_cm
         FROM search_preference_height_cm
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS min_height_cm,
     (
         SELECT max_height_cm
         FROM search_preference_height_cm
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS max_height_cm,
     (
         SELECT last_online.seconds
         FROM search_preference_last_online
         JOIN last_online
         ON last_online.id = search_preference_last_online.last_online_id
-        WHERE search_preference_last_online.person_id = %(searcher_person_id)s
+        WHERE search_preference_last_online.person_id = person.id
     ) AS max_last_online_seconds,
     (
         SELECT yes_no.name = 'Yes'
         FROM search_preference_messaged
         JOIN yes_no
         ON yes_no.id = search_preference_messaged.messaged_id
-        WHERE search_preference_messaged.person_id = %(searcher_person_id)s
+        WHERE search_preference_messaged.person_id = person.id
     ) AS show_messaged,
     (
         SELECT yes_no.name = 'Yes'
         FROM search_preference_skipped
         JOIN yes_no
         ON yes_no.id = search_preference_skipped.skipped_id
-        WHERE search_preference_skipped.person_id = %(searcher_person_id)s
+        WHERE search_preference_skipped.person_id = person.id
     ) AS show_skipped,
     EXISTS (
         SELECT 1
         FROM search_preference_answer
-        WHERE person_id = %(searcher_person_id)s
+        WHERE person_id = person.id
     ) AS has_answer_prefs,
     -- The searcher's own attributes. Passed back into the search as bound
     -- parameters so that `personality` is a plan-time constant, which is what
@@ -189,8 +192,17 @@ SELECT
 FROM
     person
 WHERE
-    person.id = %(searcher_person_id)s
+    {person_predicate}
 """
+
+
+# Keyed by id for the search, and by uuid for the inbox, whose caller has
+# only the viewer's username.
+Q_SEARCH_PARAMETERS = _q_search_parameters(
+    'person.id = %(searcher_person_id)s')
+
+Q_SEARCH_PARAMETERS_BY_UUID = _q_search_parameters(
+    'person.uuid = %(username)s::uuid')
 
 
 
@@ -396,45 +408,30 @@ def _from_clause(club_preference: str | None) -> str:
         person_club.activated"""
 
 
-def build_uncached_search(
-    searcher_person_id: int,
-    n: int,
-    o: int,
-    gender_preference: list[int],
+def prospect_filter_clauses(
     prefs: Row,
-) -> tuple[str, dict[str, SearchParam]]:
+    params: dict[str, SearchParam],
+) -> list[str]:
     """
-    Assemble the uncached search and its bound parameters from `prefs` (one
-    `Q_SEARCH_PARAMETERS` row). Filters whose preference matches every prospect
-    -- all enum options selected, no distance/age/height bound, "show
-    messaged/skipped", no answer preferences -- are omitted entirely rather
-    than run as always-true predicates.
+    The predicates constraining a prospect's own attributes to the preferences
+    in `prefs` (one `Q_SEARCH_PARAMETERS` row), adding the values they bind to
+    `params`. A preference that admits every prospect -- all enum options
+    selected, no distance/age/height bound, no answer preferences -- yields no
+    clause at all, because the planner can't eliminate an always-true predicate
+    itself.
+
+    Shared by the `/search` filters and the inbox's `matches_search_filters`
+    (`service.api.chat.messagestorage.inbox`), which flags intros from senders
+    outside the viewer's filters. Building both from this one list is what
+    keeps them from drifting apart. These are exactly the filters the inbox
+    applies; the search adds its own on top (see `build_uncached_search`).
     """
-    params: dict[str, SearchParam] = dict(
-        searcher_person_id=searcher_person_id,
-        n=n,
-        o=o,
-        gender_preference=gender_preference,
-        max_last_online_seconds=row_int(prefs, 'max_last_online_seconds'),
-        searcher_coordinates=row_str(prefs, 'searcher_coordinates'),
-        searcher_personality=row_str(prefs, 'searcher_personality'),
-        searcher_gender_id=row_int(prefs, 'searcher_gender_id'),
-        searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
-    )
-
-    club_preference = row_str_or_none(prefs, 'club_preference')
-    distance_meters = row_int_or_none(prefs, 'distance_meters')
-    if club_preference is not None:
-        params['club_preference'] = club_preference
-
     clauses = [
-        "prospect.activated",
-        "prospect.shadow_banned_at IS NULL",
         "prospect.last_online_time >\n"
         "            now() - %(max_last_online_seconds)s * interval '1 second'",
-        "prospect.gender_id = ANY(%(gender_preference)s::SMALLINT[])",
     ]
 
+    distance_meters = row_int_or_none(prefs, 'distance_meters')
     if distance_meters is not None:
         params['distance_meters'] = distance_meters
         clauses.append(
@@ -444,12 +441,6 @@ def build_uncached_search(
             "            %(distance_meters)s\n"
             "        )"
         )
-
-    # The searcher meets the prospect's gender preference. When searching a
-    # club this is not required (the shared club is the connection), so the
-    # whole clause drops out.
-    if club_preference is None:
-        clauses.append(_REVERSE_GENDER_EXISTS)
 
     min_age = row_int_or_none(prefs, 'min_age')
     max_age = row_int_or_none(prefs, 'max_age')
@@ -487,6 +478,51 @@ def build_uncached_search(
         clauses.append(
             "COALESCE(prospect.height_cm, 999) <= %(max_height_cm)s")
 
+    if row_bool(prefs, 'has_answer_prefs'):
+        clauses.append(_ANSWER_NOT_EXISTS)
+
+    return clauses
+
+
+def build_uncached_search(
+    searcher_person_id: int,
+    n: int,
+    o: int,
+    prefs: Row,
+) -> tuple[str, dict[str, SearchParam]]:
+    """
+    Assemble the uncached search and its bound parameters from `prefs` (one
+    `Q_SEARCH_PARAMETERS` row): the filters `prospect_filter_clauses` shares
+    with the inbox, plus the ones only a search applies.
+    """
+    params: dict[str, SearchParam] = dict(
+        searcher_person_id=searcher_person_id,
+        n=n,
+        o=o,
+        max_last_online_seconds=row_int(prefs, 'max_last_online_seconds'),
+        searcher_coordinates=row_str(prefs, 'searcher_coordinates'),
+        searcher_personality=row_str(prefs, 'searcher_personality'),
+        searcher_gender_id=row_int(prefs, 'searcher_gender_id'),
+        searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
+    )
+
+    club_preference = row_str_or_none(prefs, 'club_preference')
+    if club_preference is not None:
+        params['club_preference'] = club_preference
+
+    clauses = [
+        "prospect.activated",
+        "prospect.shadow_banned_at IS NULL",
+    ]
+
+    clauses += prospect_filter_clauses(prefs, params)
+
+    # The searcher meets the prospect's gender preference. When searching a
+    # club this is not required (the shared club is the connection), so the
+    # whole clause drops out.
+    if club_preference is None:
+        clauses.append(_REVERSE_GENDER_EXISTS)
+
     clauses.append(_ALWAYS_HIDE_ME)
     clauses.append(_ALWAYS_DIDNT_SKIP_SEARCHER)
 
@@ -506,9 +542,6 @@ def build_uncached_search(
             "            WHERE subject_person_id = %(searcher_person_id)s\n"
             "        )"
         )
-
-    if row_bool(prefs, 'has_answer_prefs'):
-        clauses.append(_ANSWER_NOT_EXISTS)
 
     clauses.append(_ALWAYS_VERIFY)
 

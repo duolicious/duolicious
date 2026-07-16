@@ -46,7 +46,6 @@ async def _uncached_search_results(
     tx: Tx,
     searcher_person_id: int,
     no: Tuple[int, int],
-    gender_preference: list[int],
 ) -> object:
     n, o = no
 
@@ -59,7 +58,6 @@ async def _uncached_search_results(
         searcher_person_id=searcher_person_id,
         n=n,
         o=o,
-        gender_preference=gender_preference,
         prefs=prefs,
     )
 
@@ -141,10 +139,9 @@ async def get_search(
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
+        # Run for its side effects: it upserts the club preference and clears
+        # `pending_club_name`, so it must precede the read of the preferences.
         await tx.execute(Q_SEARCH_PREFERENCE, params)
-        rows = await tx.fetchall()
-
-        gender_preference = [row_int(row, 'gender_id') for row in rows]
 
         if search_type == 'quiz-search':
             result = await _quiz_search_results(
@@ -157,8 +154,7 @@ async def get_search(
             result = await _uncached_search_results(
                 tx=tx,
                 searcher_person_id=s.person_id,
-                no=no,
-                gender_preference=gender_preference)
+                no=no)
 
         elif search_type == 'cached-search':
             if no is None:

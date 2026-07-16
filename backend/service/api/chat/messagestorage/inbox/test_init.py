@@ -1,25 +1,21 @@
 import re
 import unittest
 
-from search.sql import (
-    Q_SEARCH_PARAMETERS,
-    Q_SEARCH_PREFERENCE,
-    build_uncached_search,
-)
+from search.sql import build_uncached_search, prospect_filter_clauses
 from search.sql.search import _ENUM_FILTERS
-from service.api.chat.messagestorage.inbox import (
-    Q_INBOX_SNAPSHOT,
-    _composed_body,
-)
+from service.api.chat.messagestorage.inbox import _composed_body
 from database import Row
 
-# The searcher's filter predicates that the inbox snapshot deliberately
-# doesn't mirror in `matches_search_filters` (the rationale for each is with
-# the query in `__init__`).
-DELIBERATELY_UNMIRRORED = frozenset([
+# `search_preference_*` tables the search reads for predicates of its own,
+# which `matches_search_filters` deliberately doesn't apply (the rationale for
+# each is with the inbox query in `__init__`).
+SEARCH_ONLY = frozenset([
     'search_preference_club',
     'search_preference_messaged',
     'search_preference_skipped',
+    # The reverse-gender check: an intro's sender chose to message the viewer,
+    # so their own gender preference isn't a mismatch.
+    'search_preference_gender',
 ])
 
 
@@ -27,14 +23,8 @@ def search_preference_tables(query: str) -> frozenset[str]:
     return frozenset(re.findall(r'\bsearch_preference_\w+', query))
 
 
-def search_consulted_tables() -> frozenset[str]:
-    """
-    Every `search_preference_*` table the `/search` endpoint consults: the
-    preferences resolved up front (`Q_SEARCH_PARAMETERS`), the gender/club read
-    done alongside the club upsert (`Q_SEARCH_PREFERENCE`), and the ones read
-    inline by the assembled search (reverse-gender and answers). The prefs are
-    maximal so every optional filter's clause is present.
-    """
+def maximal_prefs() -> Row:
+    """Preferences where every optional filter is active, so none is omitted."""
     prefs: Row = {name: [1] for name, *_ in _ENUM_FILTERS}
     prefs.update(
         distance_meters=1,
@@ -47,38 +37,48 @@ def search_consulted_tables() -> frozenset[str]:
         show_messaged=False,
         show_skipped=False,
         has_answer_prefs=True,
+        searcher_person_id=1,
+        searcher_coordinates='POINT(0 0)',
+        searcher_personality='[0]',
+        searcher_gender_id=1,
+        searcher_count_answers=1,
     )
-    uncached_search, _ = build_uncached_search(1, 10, 0, [1], prefs)
-
-    return (
-        search_preference_tables(Q_SEARCH_PARAMETERS)
-        | search_preference_tables(Q_SEARCH_PREFERENCE)
-        | search_preference_tables(uncached_search)
-    )
+    return prefs
 
 
 class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
-    def test_inbox_snapshot_mirrors_search_filter_predicates(self) -> None:
+    def test_search_applies_every_shared_filter(self) -> None:
         """
-        `matches_search_filters` in the inbox snapshot query mirrors the
-        searcher's filter predicates by hand. This drift alarm can't check the
-        predicates themselves, but it does fail when a search filter's
-        preference table is consulted by the search and not the inbox -- the
-        way a new filter would otherwise silently never flag intros. On a
-        genuinely one-sided filter, extend DELIBERATELY_UNMIRRORED and document
-        why beside the inbox query.
+        The inbox builds `matches_search_filters` from
+        `prospect_filter_clauses`, so it applies exactly those predicates. This
+        fails if the search stops applying one of them -- at which point the
+        inbox would be flagging intros against a filter the search no longer
+        honours.
         """
-        search_tables = search_consulted_tables()
-        inbox_tables = search_preference_tables(Q_INBOX_SNAPSHOT)
+        prefs = maximal_prefs()
+        search_sql, _ = build_uncached_search(1, 10, 0, prefs)
 
-        self.assertEqual(
-            inbox_tables,
-            search_tables - DELIBERATELY_UNMIRRORED,
+        for clause in prospect_filter_clauses(prefs, {}):
+            self.assertIn(clause, search_sql)
+
+    def test_search_only_predicates_are_declared(self) -> None:
+        """
+        A new filter on a prospect's own attributes belongs in
+        `prospect_filter_clauses`, so that the search and the inbox both get
+        it. This fails when one is added to the search alone; if it genuinely
+        can't apply to an intro, name it in SEARCH_ONLY and say why beside the
+        inbox query.
+        """
+        prefs = maximal_prefs()
+        search_sql, _ = build_uncached_search(1, 10, 0, prefs)
+        shared_sql = ' '.join(prospect_filter_clauses(prefs, {}))
+
+        search_only = (
+            search_preference_tables(search_sql)
+            - search_preference_tables(shared_sql)
         )
 
-        # If a deliberately-unmirrored table disappears from the search, its
-        # entry above is stale.
-        self.assertLessEqual(DELIBERATELY_UNMIRRORED, search_tables)
+        self.assertEqual(search_only, SEARCH_ONLY & search_only)
 
 
 class TestComposedBody(unittest.TestCase):
