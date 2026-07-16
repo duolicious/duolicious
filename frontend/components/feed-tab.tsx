@@ -787,15 +787,9 @@ const FacepileSlot = ({
 
 // While the pile is collapsed the avatars overlap, which makes them hard to
 // make out and to press, so the pile spreads on hover (desktop) or on a first
-// press (mobile) before individual avatars navigate anywhere. Spreading a pile
-// of one would only nudge its lone avatar, which reads as the press having done
-// nothing, so such a pile stays put and navigates on the first press instead.
-// The avatar beside `viewerPosition` is the anchor: the pile spreads away from
-// it, so a pile can sit against that edge of its container. The pile is a press
-// and hover region rather than a button, so it keeps the default cursor: the
-// avatars are the only things in it worth advertising as clickable, and they
-// bring their own. Without that, the invisible viewer slot would look pressable
-// even though the pointer falls straight through it to the pile.
+// press (mobile) before individual avatars navigate anywhere. The avatar
+// beside `viewerPosition` is the anchor: the pile spreads away from it, so a
+// pile can sit against that edge of its container.
 const Facepile = ({
   members,
   viewer,
