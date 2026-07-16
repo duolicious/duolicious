@@ -152,6 +152,10 @@ const AboutText = ({
     }
   }, [isFocused]);
 
+  useEffect(() => {
+    return () => setQuote(null);
+  }, []);
+
   return (
     <View style={{ position: 'relative', zIndex: 1000, marginBottom: 20 }}>
       {
