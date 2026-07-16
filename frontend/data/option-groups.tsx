@@ -719,101 +719,65 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   genderOptionGroup,
   locationOptionGroup,
   orientationOptionGroup,
-  ethnicityOptionGroup,
   {
-    title: 'Occupation',
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="briefcase" />,
-    description: "What’s your profession?",
+    title: 'Relationship Status',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="heart" />,
+    description: "What’s your relationship status?",
     input: {
-      textShort: {
-        submit: async (occupation: string) => {
-          const ok = (await japi('patch', '/profile-info', { occupation })).ok;
-          if (ok) patchProfileInfo({ occupation });
+      buttons: {
+        values: relationshipStatus,
+        submit: async (relationshipStatus: string) => {
+          const ok = (
+            await japi('patch', '/profile-info', { relationship_status: relationshipStatus })
+          ).ok;
+          if (ok) patchProfileInfo({ relationship_status: relationshipStatus });
           return ok;
         },
-        clear: clearProfileField('occupation', null),
-        invalidMsg: 'Try again',
+        clear: clearProfileField('relationship_status', 'Unanswered'),
       }
     }
   },
   {
-    title: 'Education',
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="school" />,
-    description: "Where did you study?",
-    input: {
-      textShort: {
-        submit: async (education: string) => {
-          const ok = (await japi('patch', '/profile-info', { education })).ok;
-          if (ok) patchProfileInfo({ education });
-          return ok;
-        },
-        clear: clearProfileField('education', null),
-        invalidMsg: 'Try again',
-      }
-    }
-  },
-  {
-    title: 'Height',
+    title: 'Wants Kids',
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
-        icon={faRulerVertical}
+        icon={faChildren}
         size={14}
         style={{ color }}
       />
     ),
-    description: "How tall are you?",
+    description: 'Do you want kids?',
     input: {
-      slider: {
-        sliderMin: 100,
-        sliderMax: 220,
-        defaultValue: 170,
-        step: 1,
-        unitsLabel: 'cm',
-        submit: async (height: number) => {
-          const ok = (await japi('patch', '/profile-info', { height })).ok;
-          if (ok) patchProfileInfo({ height });
+      buttons: {
+        values: yesNoMaybe,
+        submit: async (wantsKids: string) => {
+          const ok = (await japi('patch', '/profile-info', { wants_kids: wantsKids })).ok;
+          if (ok) patchProfileInfo({ wants_kids: wantsKids });
           return ok;
         },
-        clear: clearProfileField('height', null),
-      },
+        clear: clearProfileField('wants_kids', 'Unanswered'),
+      }
     },
   },
-  lookingForOptionGroup,
   {
-    title: 'Smoking',
+    title: 'Has Kids',
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
-        icon={faSmoking}
+        icon={faChild}
         size={14}
         style={{ color }}
       />
     ),
-    description: 'Do you smoke?',
+    description: 'Do you have kids?',
     input: {
       buttons: {
         values: yesNo,
-        submit: async (smoking: string) => {
-          const ok = (await japi('patch', '/profile-info', { smoking })).ok;
-          if (ok) patchProfileInfo({ smoking });
+        submit: async (hasKids: string) => {
+          const ok = (await japi('patch', '/profile-info', { has_kids: hasKids })).ok;
+          if (ok) patchProfileInfo({ has_kids: hasKids });
           return ok;
         },
-        clear: clearProfileField('smoking', 'Unanswered'),
-      }
-    },
-  },
-  {
-    title: 'Drinking',
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="wine" />,
-    description: 'How often do you drink?',
-    input: {
-      buttons: {
-        values: frequency,
-        submit: async (drinking: string) => {
-          const ok = (await japi('patch', '/profile-info', { drinking })).ok;
-          if (ok) patchProfileInfo({ drinking });
-          return ok;
-        },
-        clear: clearProfileField('drinking', 'Unanswered'),
+        clear: clearProfileField('has_kids', 'Unanswered'),
       }
     },
   },
@@ -855,81 +819,26 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       }
     },
   },
+  ethnicityOptionGroup,
   {
-    title: 'Relationship Status',
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="heart" />,
-    description: "What’s your relationship status?",
-    input: {
-      buttons: {
-        values: relationshipStatus,
-        submit: async (relationshipStatus: string) => {
-          const ok = (
-            await japi('patch', '/profile-info', { relationship_status: relationshipStatus })
-          ).ok;
-          if (ok) patchProfileInfo({ relationship_status: relationshipStatus });
-          return ok;
-        },
-        clear: clearProfileField('relationship_status', 'Unanswered'),
-      }
-    }
-  },
-  {
-    title: 'Has Kids',
+    title: 'Smoking',
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
-        icon={faChild}
+        icon={faSmoking}
         size={14}
         style={{ color }}
       />
     ),
-    description: 'Do you have kids?',
+    description: 'Do you smoke?',
     input: {
       buttons: {
         values: yesNo,
-        submit: async (hasKids: string) => {
-          const ok = (await japi('patch', '/profile-info', { has_kids: hasKids })).ok;
-          if (ok) patchProfileInfo({ has_kids: hasKids });
+        submit: async (smoking: string) => {
+          const ok = (await japi('patch', '/profile-info', { smoking })).ok;
+          if (ok) patchProfileInfo({ smoking });
           return ok;
         },
-        clear: clearProfileField('has_kids', 'Unanswered'),
-      }
-    },
-  },
-  {
-    title: 'Wants Kids',
-    Icon: ({ color = 'black' }) => (
-      <FontAwesomeIcon
-        icon={faChildren}
-        size={14}
-        style={{ color }}
-      />
-    ),
-    description: 'Do you want kids?',
-    input: {
-      buttons: {
-        values: yesNoMaybe,
-        submit: async (wantsKids: string) => {
-          const ok = (await japi('patch', '/profile-info', { wants_kids: wantsKids })).ok;
-          if (ok) patchProfileInfo({ wants_kids: wantsKids });
-          return ok;
-        },
-        clear: clearProfileField('wants_kids', 'Unanswered'),
-      }
-    },
-  },
-  {
-    title: 'Exercise',
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="barbell" />,
-    description: 'How often do you exercise?',
-    input: {
-      buttons: {
-        values: frequency,
-        submit: async (exercise: string) => {
-          const ok = (await japi('patch', '/profile-info', { exercise })).ok;
-          if (ok) patchProfileInfo({ exercise });
-          return ok;
-        },
-        clear: clearProfileField('exercise', 'Unanswered'),
+        clear: clearProfileField('smoking', 'Unanswered'),
       }
     },
   },
@@ -956,6 +865,64 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
+    title: 'Drinking',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="wine" />,
+    description: 'How often do you drink?',
+    input: {
+      buttons: {
+        values: frequency,
+        submit: async (drinking: string) => {
+          const ok = (await japi('patch', '/profile-info', { drinking })).ok;
+          if (ok) patchProfileInfo({ drinking });
+          return ok;
+        },
+        clear: clearProfileField('drinking', 'Unanswered'),
+      }
+    },
+  },
+  {
+    title: 'Height',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faRulerVertical}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "How tall are you?",
+    input: {
+      slider: {
+        sliderMin: 100,
+        sliderMax: 220,
+        defaultValue: 170,
+        step: 1,
+        unitsLabel: 'cm',
+        submit: async (height: number) => {
+          const ok = (await japi('patch', '/profile-info', { height })).ok;
+          if (ok) patchProfileInfo({ height });
+          return ok;
+        },
+        clear: clearProfileField('height', null),
+      },
+    },
+  },
+  {
+    title: 'Exercise',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="barbell" />,
+    description: 'How often do you exercise?',
+    input: {
+      buttons: {
+        values: frequency,
+        submit: async (exercise: string) => {
+          const ok = (await japi('patch', '/profile-info', { exercise })).ok;
+          if (ok) patchProfileInfo({ exercise });
+          return ok;
+        },
+        clear: clearProfileField('exercise', 'Unanswered'),
+      }
+    },
+  },
+  {
     title: 'Star Sign',
     Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="star" />,
     description: "What’s your star sign?",
@@ -970,6 +937,38 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         clear: clearProfileField('star_sign', 'Unanswered'),
       }
     },
+  },
+  {
+    title: 'Occupation',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="briefcase" />,
+    description: "What’s your profession?",
+    input: {
+      textShort: {
+        submit: async (occupation: string) => {
+          const ok = (await japi('patch', '/profile-info', { occupation })).ok;
+          if (ok) patchProfileInfo({ occupation });
+          return ok;
+        },
+        clear: clearProfileField('occupation', null),
+        invalidMsg: 'Try again',
+      }
+    }
+  },
+  {
+    title: 'Education',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="school" />,
+    description: "Where did you study?",
+    input: {
+      textShort: {
+        submit: async (education: string) => {
+          const ok = (await japi('patch', '/profile-info', { education })).ok;
+          if (ok) patchProfileInfo({ education });
+          return ok;
+        },
+        clear: clearProfileField('education', null),
+        invalidMsg: 'Try again',
+      }
+    }
   },
 ];
 
@@ -1324,6 +1323,8 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
+// The three filters nearly everyone sets: a gender (asked for during
+// onboarding), an age range and a distance.
 const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     ...yourPartnersGenderOptionGroup,
@@ -1356,6 +1357,36 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
             return await searchQueue.addTask(go);
           }
         }
+      }
+    },
+  },
+  {
+    title: "Age",
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faCalendar}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "What ages would you like to see in search results?",
+    input: {
+      rangeSlider: {
+        sliderMin: 18,
+        sliderMax: 99,
+        unitsLabel: 'years',
+        submit: async (sliderMin: number | null, sliderMax: number | null) => {
+          const age = { min_age: sliderMin, max_age: sliderMax };
+          const go = async () => {
+            const ok = (
+              await japi('post', '/search-filter', { age })
+            ).ok;
+            return ok;
+          };
+          searchQueue.addTask(go);
+          patchSearchFilters({ age });
+          return true;
+        },
       }
     },
   },
@@ -1396,36 +1427,12 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       },
     },
   },
-  {
-    title: "Age",
-    Icon: ({ color = 'black' }) => (
-      <FontAwesomeIcon
-        icon={faCalendar}
-        size={14}
-        style={{ color }}
-      />
-    ),
-    description: "What ages would you like to see in search results?",
-    input: {
-      rangeSlider: {
-        sliderMin: 18,
-        sliderMax: 99,
-        unitsLabel: 'years',
-        submit: async (sliderMin: number | null, sliderMax: number | null) => {
-          const age = { min_age: sliderMin, max_age: sliderMax };
-          const go = async () => {
-            const ok = (
-              await japi('post', '/search-filter', { age })
-            ).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ age });
-          return true;
-        },
-      }
-    },
-  },
+];
+
+// The rest of the filters, ordered by how many people narrow each one: fewer
+// than one in ten touch any of them, and the drop from the first to the last is
+// about eight-fold.
+const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     title: "Last Online",
     Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="time-outline" />,
@@ -1477,91 +1484,28 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: "Ethnicity",
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="globe-outline" />,
-    description: "Which ethnicities would you like to see in search results?",
+    title: "Relationship Status",
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="heart" />,
+    description: "Which relationship statuses are you willing to accept from people in your search results?",
     input: {
       checkChips: {
         values: [
-          ...ethnicities.map((x) => ({checked: true, label: x})),
+          ...relationshipStatus.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (ethnicity: string[]) => {
-          const go = async () => {
-            const ok = (await japi('post', '/search-filter', { ethnicity })).ok;
-            if (ok) patchSearchFilters({ ethnicity });
-            return ok;
-          };
-
-          if (ethnicity.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ ethnicity });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
-      }
-    },
-  },
-  {
-    title: "Height",
-    Icon: ({ color = 'black' }) => (
-      <FontAwesomeIcon
-        icon={faRulerVertical}
-        size={14}
-        style={{ color }}
-      />
-    ),
-    description: "What heights of people would you like to see in search results?",
-    input: {
-      rangeSlider: {
-        sliderMin: 50,
-        sliderMax: 220,
-        unitsLabel: 'cm',
-        submit: async (sliderMin: number | null, sliderMax: number | null) => {
-          const height = { min_height_cm: sliderMin, max_height_cm: sliderMax };
-          const go = async () => {
-            const ok = (
-              await japi('post', '/search-filter', { height })
-            ).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ height });
-          return true;
-        },
-      },
-    },
-  },
-  {
-    title: "Has a Profile Picture",
-    Icon: ({ color = 'black' }) => (
-      <FontAwesomeIcon
-        icon={faImage}
-        size={14}
-        style={{ color }}
-      />
-    ),
-    description: "Do you want to see people who have a profile picture? Selecting ‘Yes’ and ‘No’ includes everyone, though people who have pictures will be shown first.",
-    input: {
-      checkChips: {
-        values: [
-          ...yesNo.map((x) => ({checked: true, label: x})),
-        ],
-        submit: async (hasAProfilePicture: string[]) => {
+        submit: async (relationshipStatus: string[]) => {
           const go = async () => {
             const ok = (await japi(
               'post',
               '/search-filter',
-              { has_a_profile_picture: hasAProfilePicture }
+              { relationship_status: relationshipStatus }
             )).ok;
-            if (ok) patchSearchFilters({ has_a_profile_picture: hasAProfilePicture });
+            if (ok) patchSearchFilters({ relationship_status: relationshipStatus });
             return ok;
           };
-          if (hasAProfilePicture.length) {
+          if (relationshipStatus.length) {
             searchQueue.addTask(go);
-            patchSearchFilters({ has_a_profile_picture: hasAProfilePicture });
+            patchSearchFilters({ relationship_status: relationshipStatus });
             return true;
           } else {
             return await searchQueue.addTask(go);
@@ -1602,34 +1546,34 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: "Smoking",
+    title: "Wants Kids",
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
-        icon={faSmoking}
+        icon={faChildren}
         size={14}
         style={{ color }}
       />
     ),
-    description: "Do you want to include people who smoke in search results?",
+    description: "Do you want search results to include people who want kids?",
     input: {
       checkChips: {
         values: [
-          ...yesNo.map((x) => ({checked: true, label: x})),
+          ...yesNoMaybe.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (smoking: string[]) => {
+        submit: async (wantsKids: string[]) => {
           const go = async () => {
             const ok = (await japi(
               'post',
               '/search-filter',
-              { smoking }
+              { wants_kids: wantsKids }
             )).ok;
-            if (ok) patchSearchFilters({ smoking });
+            if (ok) patchSearchFilters({ wants_kids: wantsKids });
             return ok;
           };
-          if (smoking.length) {
+          if (wantsKids.length) {
             searchQueue.addTask(go);
-            patchSearchFilters({ smoking });
+            patchSearchFilters({ wants_kids: wantsKids });
             return true;
           } else {
             return await searchQueue.addTask(go);
@@ -1639,28 +1583,70 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: "Drinking",
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="wine" />,
-    description: "Do you want to include people who drink alcohol in search results?",
+    title: "Has Kids",
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faChild}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "Do you want search results to include people who had kids?",
     input: {
       checkChips: {
         values: [
-          ...frequency.map((x) => ({checked: true, label: x})),
+          ...yesNo.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (drinking: string[]) => {
+        submit: async (hasKids: string[]) => {
           const go = async () => {
             const ok = (await japi(
               'post',
               '/search-filter',
-              { drinking }
+              { has_kids: hasKids }
             )).ok;
-            if (ok) patchSearchFilters({ drinking });
+            if (ok) patchSearchFilters({ has_kids: hasKids });
             return ok;
           };
-          if (drinking.length) {
+          if (hasKids.length) {
             searchQueue.addTask(go);
-            patchSearchFilters({ drinking });
+            patchSearchFilters({ has_kids: hasKids });
+            return true;
+          } else {
+            return await searchQueue.addTask(go);
+          }
+        }
+      }
+    },
+  },
+  {
+    title: "Has a Profile Picture",
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faImage}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "Do you want to see people who have a profile picture? Selecting ‘Yes’ and ‘No’ includes everyone, though people who have pictures will be shown first.",
+    input: {
+      checkChips: {
+        values: [
+          ...yesNo.map((x) => ({checked: true, label: x})),
+        ],
+        submit: async (hasAProfilePicture: string[]) => {
+          const go = async () => {
+            const ok = (await japi(
+              'post',
+              '/search-filter',
+              { has_a_profile_picture: hasAProfilePicture }
+            )).ok;
+            if (ok) patchSearchFilters({ has_a_profile_picture: hasAProfilePicture });
+            return ok;
+          };
+          if (hasAProfilePicture.length) {
+            searchQueue.addTask(go);
+            patchSearchFilters({ has_a_profile_picture: hasAProfilePicture });
             return true;
           } else {
             return await searchQueue.addTask(go);
@@ -1738,28 +1724,25 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: "Relationship Status",
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="heart" />,
-    description: "Which relationship statuses are you willing to accept from people in your search results?",
+    title: "Ethnicity",
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="globe-outline" />,
+    description: "Which ethnicities would you like to see in search results?",
     input: {
       checkChips: {
         values: [
-          ...relationshipStatus.map((x) => ({checked: true, label: x})),
+          ...ethnicities.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (relationshipStatus: string[]) => {
+        submit: async (ethnicity: string[]) => {
           const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { relationship_status: relationshipStatus }
-            )).ok;
-            if (ok) patchSearchFilters({ relationship_status: relationshipStatus });
+            const ok = (await japi('post', '/search-filter', { ethnicity })).ok;
+            if (ok) patchSearchFilters({ ethnicity });
             return ok;
           };
-          if (relationshipStatus.length) {
+
+          if (ethnicity.length) {
             searchQueue.addTask(go);
-            patchSearchFilters({ relationship_status: relationshipStatus });
+            patchSearchFilters({ ethnicity });
             return true;
           } else {
             return await searchQueue.addTask(go);
@@ -1769,102 +1752,34 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: "Has Kids",
+    title: "Smoking",
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
-        icon={faChild}
+        icon={faSmoking}
         size={14}
         style={{ color }}
       />
     ),
-    description: "Do you want search results to include people who had kids?",
+    description: "Do you want to include people who smoke in search results?",
     input: {
       checkChips: {
         values: [
           ...yesNo.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (hasKids: string[]) => {
+        submit: async (smoking: string[]) => {
           const go = async () => {
             const ok = (await japi(
               'post',
               '/search-filter',
-              { has_kids: hasKids }
+              { smoking }
             )).ok;
-            if (ok) patchSearchFilters({ has_kids: hasKids });
+            if (ok) patchSearchFilters({ smoking });
             return ok;
           };
-          if (hasKids.length) {
+          if (smoking.length) {
             searchQueue.addTask(go);
-            patchSearchFilters({ has_kids: hasKids });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
-      }
-    },
-  },
-  {
-    title: "Wants Kids",
-    Icon: ({ color = 'black' }) => (
-      <FontAwesomeIcon
-        icon={faChildren}
-        size={14}
-        style={{ color }}
-      />
-    ),
-    description: "Do you want search results to include people who want kids?",
-    input: {
-      checkChips: {
-        values: [
-          ...yesNoMaybe.map((x) => ({checked: true, label: x})),
-          {checked: true, label: 'Unanswered'}
-        ],
-        submit: async (wantsKids: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { wants_kids: wantsKids }
-            )).ok;
-            if (ok) patchSearchFilters({ wants_kids: wantsKids });
-            return ok;
-          };
-          if (wantsKids.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ wants_kids: wantsKids });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
-      }
-    },
-  },
-  {
-    title: "Exercise",
-    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="barbell" />,
-    description: "Do you want search results to include people who exercise?",
-    input: {
-      checkChips: {
-        values: [
-          ...frequency.map((x) => ({checked: true, label: x})),
-          {checked: true, label: 'Unanswered'},
-        ],
-        submit: async (exercise: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { exercise }
-            )).ok;
-            if (ok) patchSearchFilters({ exercise });
-            return ok;
-          };
-          if (exercise.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ exercise });
+            patchSearchFilters({ smoking });
             return true;
           } else {
             return await searchQueue.addTask(go);
@@ -1902,6 +1817,98 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           if (religion.length) {
             searchQueue.addTask(go);
             patchSearchFilters({ religion });
+            return true;
+          } else {
+            return await searchQueue.addTask(go);
+          }
+        }
+      }
+    },
+  },
+  {
+    title: "Drinking",
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="wine" />,
+    description: "Do you want to include people who drink alcohol in search results?",
+    input: {
+      checkChips: {
+        values: [
+          ...frequency.map((x) => ({checked: true, label: x})),
+          {checked: true, label: 'Unanswered'}
+        ],
+        submit: async (drinking: string[]) => {
+          const go = async () => {
+            const ok = (await japi(
+              'post',
+              '/search-filter',
+              { drinking }
+            )).ok;
+            if (ok) patchSearchFilters({ drinking });
+            return ok;
+          };
+          if (drinking.length) {
+            searchQueue.addTask(go);
+            patchSearchFilters({ drinking });
+            return true;
+          } else {
+            return await searchQueue.addTask(go);
+          }
+        }
+      }
+    },
+  },
+  {
+    title: "Height",
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faRulerVertical}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "What heights of people would you like to see in search results?",
+    input: {
+      rangeSlider: {
+        sliderMin: 50,
+        sliderMax: 220,
+        unitsLabel: 'cm',
+        submit: async (sliderMin: number | null, sliderMax: number | null) => {
+          const height = { min_height_cm: sliderMin, max_height_cm: sliderMax };
+          const go = async () => {
+            const ok = (
+              await japi('post', '/search-filter', { height })
+            ).ok;
+            return ok;
+          };
+          searchQueue.addTask(go);
+          patchSearchFilters({ height });
+          return true;
+        },
+      },
+    },
+  },
+  {
+    title: "Exercise",
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="barbell" />,
+    description: "Do you want search results to include people who exercise?",
+    input: {
+      checkChips: {
+        values: [
+          ...frequency.map((x) => ({checked: true, label: x})),
+          {checked: true, label: 'Unanswered'},
+        ],
+        submit: async (exercise: string[]) => {
+          const go = async () => {
+            const ok = (await japi(
+              'post',
+              '/search-filter',
+              { exercise }
+            )).ok;
+            if (ok) patchSearchFilters({ exercise });
+            return ok;
+          };
+          if (exercise.length) {
+            searchQueue.addTask(go);
+            patchSearchFilters({ exercise });
             return true;
           } else {
             return await searchQueue.addTask(go);
@@ -2010,6 +2017,7 @@ const defaultSearchFilters = (): SearchFilters => {
 
   const optionGroups = [
     ...searchBasicsOptionGroups,
+    ...searchOtherBasicsOptionGroups,
     ...searchInteractionsOptionGroups,
   ];
 
@@ -2398,6 +2406,7 @@ export {
   notificationSettingsOptionGroups,
   privacySettingsOptionGroups,
   searchBasicsOptionGroups,
+  searchOtherBasicsOptionGroups,
   searchInteractionsOptionGroups,
   socialAccountOptionGroups,
   themePickerOptionGroups,

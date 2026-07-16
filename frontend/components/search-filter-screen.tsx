@@ -19,6 +19,7 @@ import {
   OptionGroup,
   OptionGroupInputs,
   searchBasicsOptionGroups,
+  searchOtherBasicsOptionGroups,
   searchInteractionsOptionGroups,
   defaultSearchFilters,
   getCurrentValue,
@@ -295,6 +296,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
   }, [isLocked]);
 
   const _searchBasicsOptionGroups = searchBasicsOptionGroups.map(withCurrent);
+  const _searchOtherBasicsOptionGroups = searchOtherBasicsOptionGroups.map(withCurrent);
   const _searchInteractionsOptionGroups = searchInteractionsOptionGroups.map(withCurrent);
 
   const goBack = useCallback(() => {
@@ -336,7 +338,29 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             paddingBottom: 50 + insets.bottom,
           }}
         >
-          <Title>Q&A Answers</Title>
+          <Title>Basics</Title>
+          {
+            _searchBasicsOptionGroups.map((og, i) =>
+              <Button_
+                key={i}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
+                optionGroups={_searchBasicsOptionGroups.slice(i)}
+              />
+            )
+          }
+
+          <Title style={{marginTop: 40}}>Other Basics</Title>
+          {
+            _searchOtherBasicsOptionGroups.map((og, i) =>
+              <Button_
+                key={i}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
+                optionGroups={_searchOtherBasicsOptionGroups.slice(i)}
+              />
+            )
+          }
+
+          <Title style={{marginTop: 40}}>Q&A Answers</Title>
           <ButtonForOption
             label="Q&A Answers"
             setting={
@@ -355,27 +379,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
               />
             }
           />
-          <DefaultText
-            style={{
-              color: '#999',
-              textAlign: 'center',
-              marginRight: 10,
-              marginLeft: 10,
-            }}
-          >
-            Set the Q&A answers you’ll accept from your matches
-          </DefaultText>
 
-          <Title style={{marginTop: 40}}>Basics</Title>
-          {
-            _searchBasicsOptionGroups.map((og, i) =>
-              <Button_
-                key={i}
-                setting={getCurrentValueAsLabel(og, signedInUser)}
-                optionGroups={_searchBasicsOptionGroups.slice(i)}
-              />
-            )
-          }
           <Title style={{marginTop: 40}}>Interactions</Title>
           {
             _searchInteractionsOptionGroups.map((og, i) =>
