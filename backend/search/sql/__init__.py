@@ -83,8 +83,6 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                     photo
                 WHERE
                     photo.person_id = member.id
-                AND
-                    COALESCE(photo.nsfw_score, 0) <= 0.2
                 ORDER BY
                     photo.position
                 LIMIT 1

@@ -610,11 +610,11 @@ const facepileSpreadWidth = (slotCount: number) =>
 
 const FacepileAvatar = ({
   member,
-  spread,
+  navigatesOnPress,
   onRequestSpread,
 }: {
   member: FacepileMember
-  spread: boolean
+  navigatesOnPress: boolean
   onRequestSpread: () => void
 }) => {
   const handle = member.url_slug || member.person_uuid;
@@ -627,14 +627,14 @@ const FacepileAvatar = ({
   );
 
   const onPress = useCallback((e: GestureResponderEvent) => {
-    if (spread) {
+    if (navigatesOnPress) {
       navigateToProfile(e);
     } else {
       // Stop the web link navigating; the first press only spreads the pile
       e.preventDefault();
       onRequestSpread();
     }
-  }, [spread, navigateToProfile, onRequestSpread]);
+  }, [navigatesOnPress, navigateToProfile, onRequestSpread]);
 
   return (
     <Pressable onPress={onPress} {...makeLinkProps(`/${handle}`)}>
@@ -665,12 +665,12 @@ const FacepileAvatar = ({
 const ViewerFacepileAvatar = ({
   viewer,
   visible,
-  spread,
+  navigatesOnPress,
   onRequestSpread,
 }: {
   viewer: FacepileViewer
   visible: boolean
-  spread: boolean
+  navigatesOnPress: boolean
   onRequestSpread: () => void
 }) => {
   const { appTheme } = useAppTheme();
@@ -683,13 +683,13 @@ const ViewerFacepileAvatar = ({
   );
 
   const onPress = useCallback((e: GestureResponderEvent) => {
-    if (spread) {
+    if (navigatesOnPress) {
       navigateToProfile(e);
     } else {
       e.preventDefault();
       onRequestSpread();
     }
-  }, [spread, navigateToProfile, onRequestSpread]);
+  }, [navigatesOnPress, navigateToProfile, onRequestSpread]);
 
   const opacity = useSharedValue(visible ? 1 : 0);
 
@@ -787,9 +787,12 @@ const FacepileSlot = ({
 
 // While the pile is collapsed the avatars overlap, which makes them hard to
 // make out and to press, so the pile spreads on hover (desktop) or on a first
-// press (mobile) before individual avatars navigate anywhere. The avatar
-// beside `viewerPosition` is the anchor: the pile spreads away from it, so a
-// pile can sit against that edge of its container.
+// press (mobile) before individual avatars navigate anywhere. A pile showing a
+// single avatar has nothing to separate, so it never spreads and its avatar
+// navigates on the first press: spreading it would only nudge the lone avatar,
+// which reads as the press having done nothing. The avatar beside
+// `viewerPosition` is the anchor: the pile spreads away from it, so a pile can
+// sit against that edge of its container.
 const Facepile = ({
   members,
   viewer,
@@ -812,6 +815,12 @@ const Facepile = ({
   // The viewer slot is always rendered, so it always occupies layout width
   const slotCount = members.length + 1;
 
+  const isSpreadable = members.length + (viewerVisible ? 1 : 0) > 1;
+
+  const isSpread = spread && isSpreadable;
+
+  const navigatesOnPress = isSpread || !isSpreadable;
+
   const anchorDistanceOf = (documentOrder: number) =>
     viewerPosition === 'start'
       ? members.length - documentOrder
@@ -820,7 +829,7 @@ const Facepile = ({
   const offsetOf = (documentOrder: number) =>
     spreadDirection
       * anchorDistanceOf(documentOrder)
-      * (spread ? FACEPILE_SPREAD_STEP : 0);
+      * (isSpread ? FACEPILE_SPREAD_STEP : 0);
 
   const zIndexOf = (documentOrder: number) =>
     viewerPosition === 'start'
@@ -836,7 +845,7 @@ const Facepile = ({
       <ViewerFacepileAvatar
         viewer={viewer}
         visible={viewerVisible}
-        spread={spread}
+        navigatesOnPress={navigatesOnPress}
         onRequestSpread={onRequestSpread}
       />
     </FacepileSlot>
@@ -849,7 +858,7 @@ const Facepile = ({
         // Spread grows away from the anchor; keep the anchored edge fixed so
         // the collapsed cluster stays put and only the reserved side widens
         justifyContent: viewerPosition === 'start' ? 'flex-end' : 'flex-start',
-        width: spread
+        width: isSpread
           ? facepileSpreadWidth(slotCount)
           : facepileCollapsedWidth(slotCount),
       }}
@@ -881,7 +890,7 @@ const Facepile = ({
           >
             <FacepileAvatar
               member={member}
-              spread={spread}
+              navigatesOnPress={navigatesOnPress}
               onRequestSpread={onRequestSpread}
             />
           </FacepileSlot>
