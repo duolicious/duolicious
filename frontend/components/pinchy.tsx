@@ -224,11 +224,19 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
   const pan = useMemo(
     () => Gesture.Pan()
       .manualActivation(true)
-      .onTouchesMove((_e, stateManager) => {
+      .onTouchesMove((e, stateManager) => {
         'worklet';
-        if (scale.value > 1 + 1e-5) {
+        // Activate the moment a second finger is down - i.e. a pinch - even
+        // before it has grown the scale past 1, so pan tracks the touch from
+        // the start of the gesture. React Native Gesture Handler then smooths
+        // out the discontinuity when a finger lifts; a pan that only activates
+        // partway through (once the pinch crosses scale 1) starts tracking the
+        // centroid mid-gesture, and the lift jumps the image instead. Also
+        // activate for a single finger once zoomed, so you can pan around.
+        if (e.numberOfTouches > 1 || scale.value > 1 + 1e-5) {
           stateManager.activate();
         } else {
+          // A single finger on an unzoomed image isn't a pan; let it through.
           stateManager.fail();
         }
       })
