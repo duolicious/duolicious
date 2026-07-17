@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Reanimated, {
   Easing,
@@ -16,7 +16,7 @@ import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-s
 import { Pinchy } from './pinchy';
 import { IMAGES_URL } from '../env/env';
 import { photoExpandFrame } from '../util/photos';
-import type { PhotoExpandFrame } from '../util/photos';
+import type { PhotoExpandFrame, Rect } from '../util/photos';
 import { getExpandedPhoto, setExpandedPhoto } from '../events/expanded-photo';
 import type { ExpandedPhoto } from '../events/expanded-photo';
 
@@ -41,19 +41,31 @@ const lerp = (a: number, b: number, t: number) => {
 const ExpandingPhoto = ({
   expandedPhoto,
   progress,
+  container,
   onCovered,
 }: {
   expandedPhoto: ExpandedPhoto,
   progress: SharedValue<number>,
+  container: Rect,
   onCovered: () => void,
 }) => {
   const { photoUuid, from, geometry } = expandedPhoto;
-  const viewport = useWindowDimensions();
 
-  const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => [
-    photoExpandFrame(geometry, from, viewport, 0),
-    photoExpandFrame(geometry, from, viewport, 1),
-  ], [geometry, from, viewport.width, viewport.height]);
+  const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => {
+    // `from` was measured in window coordinates, but this draws inside the
+    // gallery's container, which isn't necessarily the window: on Android the
+    // window excludes the system bars while the modal spans the whole screen.
+    const start: Rect = {
+      ...from,
+      x: from.x - container.x,
+      y: from.y - container.y,
+    };
+
+    return [
+      photoExpandFrame(geometry, start, container, 0),
+      photoExpandFrame(geometry, start, container, 1),
+    ];
+  }, [geometry, from, container]);
 
   const clipStyle = useAnimatedStyle(() => ({
     left: lerp(closed.clip.x, opened.clip.x, progress.value),
@@ -130,6 +142,31 @@ const GalleryScreen = ({
 
   const isFinishing = useRef(false);
 
+  // Everything here is positioned within this container rather than within the
+  // window, and it's measured rather than assumed to be the window: on Android
+  // the two differ by the system bars, and anything working in window
+  // coordinates ends up offset from anything working in the container's.
+  const containerRef = useRef<View>(null);
+  const [container, setContainer] = useState<Rect | null>(null);
+
+  const onContainerLayout = useCallback(() => {
+    containerRef.current?.measureInWindow((x, y, width, height) => {
+      if (width <= 0 || height <= 0) return;
+
+      // Keep the identity stable when nothing moved, so a repeat layout pass
+      // doesn't restart the animation.
+      setContainer((previous) =>
+        previous
+          && previous.x === x
+          && previous.y === y
+          && previous.width === width
+          && previous.height === height
+          ? previous
+          : { x, y, width, height }
+      );
+    });
+  }, []);
+
   // Until this screen has drawn the photo over the preview, the preview is
   // still the one on show and nothing may move: the first frame has to be
   // indistinguishable from the screen underneath.
@@ -149,6 +186,9 @@ const GalleryScreen = ({
   useEffect(() => {
     if (!expandedPhoto) return;
     if (!isCovering) return;
+    // Nothing is drawn over the preview until the container has been measured,
+    // so hiding it before then would leave the photo missing.
+    if (!container) return;
     // The photo can finish loading after a quick back-press has already
     // started closing. Opening from there would fight the closing animation,
     // and would re-hide a preview that nothing is left to reveal again.
@@ -164,7 +204,7 @@ const GalleryScreen = ({
         if (finished) runOnJS(setPhase)('open');
       },
     );
-  }, [expandedPhoto, isCovering]);
+  }, [expandedPhoto, isCovering, container]);
 
   const backdropStyle = useAnimatedStyle(() => ({
     // Runs ahead of the photo so the preview underneath is covered by the time
@@ -219,14 +259,19 @@ const GalleryScreen = ({
   }, [navigation]);
 
   return (
-    <>
+    <View
+      ref={containerRef}
+      onLayout={onContainerLayout}
+      style={StyleSheet.absoluteFill}
+    >
       <Reanimated.View
         style={[styles.backdrop, expandedPhoto ? backdropStyle : undefined]}
       />
-      {expandedPhoto &&
+      {expandedPhoto && container &&
         <ExpandingPhoto
           expandedPhoto={expandedPhoto}
           progress={progress}
+          container={container}
           onCovered={onCovered}
         />
       }
@@ -234,6 +279,10 @@ const GalleryScreen = ({
         <Pinchy
           uuid={photoUuid}
           naturalSize={expandedPhoto?.geometry}
+          // Both copies of the photo have to be sized and centred against the
+          // same box, or they land in different places and you see the two of
+          // them at the end of the expansion.
+          viewport={container ?? undefined}
           // The expanded photo is drawn underneath and is pixel-identical at
           // this point, so it - rather than a black box - is what shows while
           // Pinchy's own copy of the image paints.
@@ -242,7 +291,7 @@ const GalleryScreen = ({
       }
       <StatusBarSpacer/>
       <FloatingBackButton onPress={onPressBack}/>
-    </>
+    </View>
   );
 };
 

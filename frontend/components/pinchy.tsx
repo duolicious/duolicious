@@ -63,11 +63,13 @@ const FitWithinScreenImage = ({
   animatedStyle,
   onUpdateImageSize,
   naturalSize,
+  viewport,
 }: {
   source: { uri: string };
   animatedStyle: AnimatedStyle<ImageStyle>;
   onUpdateImageSize: (size: { imageWidth: number, imageHeight: number }) => void;
   naturalSize?: { width: number, height: number };
+  viewport: { width: number, height: number };
 }) => {
   const isFetchingSize = useRef(false);
   const [imageSize, setImageSize] = useState(
@@ -75,7 +77,7 @@ const FitWithinScreenImage = ({
   );
   const [imageWidth, setImageWidth] = useState<number | null>(null);
   const [imageHeight, setImageHeight] = useState<number | null>(null);
-  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const { width: viewportWidth, height: viewportHeight } = viewport;
 
   useEffect(() => {
     // Callers that already know the photo's dimensions (the API reports them)
@@ -135,12 +137,20 @@ const FitWithinScreenImage = ({
   return <LogoActivityIndicator size="large" color="white"/>;
 };
 
-const Pinchy = ({uuid, naturalSize, backgroundColor = 'black'}: {
+const Pinchy = ({uuid, naturalSize, viewport, backgroundColor = 'black'}: {
   uuid: string,
   naturalSize?: { width: number, height: number },
+  // The box to fit the photo within and centre it in. Defaults to the window,
+  // which is only the same thing when this fills the screen.
+  viewport?: { width: number, height: number },
   backgroundColor?: string,
 }) => {
-  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const window = useWindowDimensions();
+
+  const {
+    width: viewportWidth,
+    height: viewportHeight,
+  } = viewport ?? window;
 
   const scale = useSharedValue(1);
   const positionX = useSharedValue(0);
@@ -296,6 +306,7 @@ const Pinchy = ({uuid, naturalSize, backgroundColor = 'black'}: {
           animatedStyle={animatedStyle}
           onUpdateImageSize={onUpdateImageSize}
           naturalSize={naturalSize}
+          viewport={{ width: viewportWidth, height: viewportHeight }}
         />
       </View>
     </GestureDetector>
