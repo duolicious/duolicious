@@ -44,7 +44,6 @@ import { api } from '../../api/api';
 import { cmToFeetInchesStr } from '../../units/units';
 import { useSignedInUser } from '../../events/signed-in-user';
 import { postSkipped } from '../../hide-and-block/hide-and-block';
-import { Pinchy } from '../pinchy';
 import { Basic, Basics } from '../basic';
 import { themedSurface, legibleSurface } from '../../app-theme/surface';
 import { Club, Clubs } from '../club';
@@ -83,6 +82,7 @@ import { useOnline } from '../../chat/application-layer/hooks/online';
 import { HeartBackground } from '../heart-background';
 import { AudioPlayer } from '../audio-player';
 import { EnlargeablePhoto } from '../enlargeable-image';
+import type { PhotoGeometry } from '../../util/photos';
 import { commonStyles } from '../../styles';
 import { useSkipped, setSkipped } from '../../hide-and-block/hide-and-block';
 import { OnlineIndicator } from '../online-indicator';
@@ -129,20 +129,7 @@ const ProspectProfileScreen = () => {
     >
       <Stack.Screen name="Prospect Profile" component={ProspectProfileScreen_} />
       <Stack.Screen name="In-Depth" component={InDepthScreen_} />
-      <Stack.Screen name="Gallery Screen" component={GalleryScreen} />
     </Stack.Navigator>
-  );
-};
-
-const GalleryScreen = ({navigation, route}: NativeStackScreenProps<ProspectParamList, 'Gallery Screen'>) => {
-  const { photoUuid } = route.params;
-
-  return (
-    <>
-      <Pinchy uuid={photoUuid}/>
-      <StatusBarSpacer/>
-      <FloatingBackButton onPress={() => navigation.goBack()}/>
-    </>
   );
 };
 
@@ -757,6 +744,7 @@ type UserData = {
   photo_extra_exts: string[][],
   photo_blurhashes: string[],
   photo_verifications: boolean[],
+  photo_geometries: (PhotoGeometry | null)[],
   audio_bio_uuid: string | null,
   age: number | null,
   location: string | null
@@ -1012,6 +1000,8 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 
   const imageVerifications = data?.photo_verifications;
 
+  const photoGeometries = data?.photo_geometries;
+
   const photoUuid0 = (() => {
     if (photoUuids === undefined) {
       return undefined;
@@ -1123,6 +1113,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
                   photoUuid={photoUuid0}
                   photoExtraExts={photoExtraExts0}
                   photoBlurhash={photoBlurhash0}
+                  photoGeometry={photoGeometries?.[0]}
                   isPrimary={true}
                   isVerified={imageVerification0}
                   style={
@@ -1408,6 +1399,13 @@ const Body = ({
   const imageVerification5 = data?.photo_verifications && data?.photo_verifications[5] || false;
   const imageVerification6 = data?.photo_verifications && data?.photo_verifications[6] || false;
 
+  const photoGeometry1 = data?.photo_geometries && data?.photo_geometries[1];
+  const photoGeometry2 = data?.photo_geometries && data?.photo_geometries[2];
+  const photoGeometry3 = data?.photo_geometries && data?.photo_geometries[3];
+  const photoGeometry4 = data?.photo_geometries && data?.photo_geometries[4];
+  const photoGeometry5 = data?.photo_geometries && data?.photo_geometries[5];
+  const photoGeometry6 = data?.photo_geometries && data?.photo_geometries[6];
+
   // Compare on UUID rather than the numeric `personId` we lift out of `data`,
   // so the "Block" button doesn't briefly render before the API response lands.
   const isViewingSelf =
@@ -1598,6 +1596,7 @@ const Body = ({
           photoUuid={photoUuid1}
           photoExtraExts={photoExtraExts1}
           photoBlurhash={photoBlurhash1}
+          photoGeometry={photoGeometry1}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
           isPrimary={false}
@@ -1623,6 +1622,7 @@ const Body = ({
           photoUuid={photoUuid2}
           photoExtraExts={photoExtraExts2}
           photoBlurhash={photoBlurhash2}
+          photoGeometry={photoGeometry2}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
           isPrimary={false}
@@ -1633,6 +1633,7 @@ const Body = ({
           photoUuid={photoUuid3}
           photoExtraExts={photoExtraExts3}
           photoBlurhash={photoBlurhash3}
+          photoGeometry={photoGeometry3}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
           isPrimary={false}
@@ -1651,6 +1652,7 @@ const Body = ({
           photoUuid={photoUuid4}
           photoExtraExts={photoExtraExts4}
           photoBlurhash={photoBlurhash4}
+          photoGeometry={photoGeometry4}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
           isPrimary={false}
@@ -1661,6 +1663,7 @@ const Body = ({
           photoUuid={photoUuid5}
           photoExtraExts={photoExtraExts5}
           photoBlurhash={photoBlurhash5}
+          photoGeometry={photoGeometry5}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
           isPrimary={false}
@@ -1671,6 +1674,7 @@ const Body = ({
           photoUuid={photoUuid6}
           photoExtraExts={photoExtraExts6}
           photoBlurhash={photoBlurhash6}
+          photoGeometry={photoGeometry6}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
           isPrimary={false}
@@ -1770,7 +1774,6 @@ const styles = StyleSheet.create({
 
 export {
   FloatingBackButton,
-  GalleryScreen,
   InDepthScreen,
   ProspectProfileScreen,
 };

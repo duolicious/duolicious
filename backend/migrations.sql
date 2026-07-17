@@ -64,3 +64,27 @@ CREATE INDEX IF NOT EXISTS
     ON person
     USING ivfflat (personality vector_ip_ops)
     WITH (lists = 100);
+
+-- How the square renditions were cut out of `original-{uuid}.jpg`, in that
+-- image's (post-EXIF-rotation) coordinates. Lets clients expand a cropped
+-- preview into the uncropped original. NULL until `service/cron/photocrop`
+-- backfills photos uploaded before these columns existed; `crop_attempted_at`
+-- records that it tried, so photos it can't recover don't get retried forever.
+ALTER TABLE photo
+    ADD COLUMN IF NOT EXISTS width INT,
+    ADD COLUMN IF NOT EXISTS height INT,
+    ADD COLUMN IF NOT EXISTS crop_top INT,
+    ADD COLUMN IF NOT EXISTS crop_left INT,
+    ADD COLUMN IF NOT EXISTS crop_attempted_at TIMESTAMP;
+
+-- Must come after the ALTER TABLE above: the argument is the `photo` row type,
+-- so the columns it reads have to exist first.
+CREATE OR REPLACE FUNCTION photo_geometry(p photo)
+RETURNS JSON AS $$
+    SELECT CASE WHEN p.width IS NOT NULL THEN json_build_object(
+        'width',     p.width,
+        'height',    p.height,
+        'crop_top',  p.crop_top,
+        'crop_left', p.crop_left
+    ) END;
+$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;

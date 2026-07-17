@@ -817,7 +817,8 @@ WITH prospect_base AS (
         COALESCE(json_agg(photo.uuid       ORDER BY position), '[]'::json) AS uuids,
         COALESCE(json_agg(photo.extra_exts ORDER BY position), '[]'::json) AS extra_exts,
         COALESCE(json_agg(photo.blurhash   ORDER BY position), '[]'::json) AS blurhashes,
-        COALESCE(json_agg(photo.verified   ORDER BY position), '[]'::json) AS verifications
+        COALESCE(json_agg(photo.verified   ORDER BY position), '[]'::json) AS verifications,
+        COALESCE(json_agg(PHOTO_GEOMETRY(photo) ORDER BY position), '[]'::json) AS geometries
     FROM photo
     JOIN prospect
     ON   prospect.id = photo.person_id

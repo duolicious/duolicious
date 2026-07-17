@@ -98,10 +98,20 @@ const DataItemBaseSchema = z.object({
   location: z.string().nullable(),
 });
 
+// Absent for photos whose geometry the server hasn't recorded, which the
+// gallery reads as "“don't expand this one".
+const PhotoGeometrySchema = z.object({
+  width: z.number(),
+  height: z.number(),
+  crop_top: z.number(),
+  crop_left: z.number(),
+});
+
 const AddedPhotoFieldsSchema = DataItemBaseSchema.extend({
   added_photo_uuid: z.string(),
   added_photo_blurhash: z.string(),
   added_photo_extra_exts: z.array(z.string()),
+  added_photo_geometry: PhotoGeometrySchema.optional(),
 });
 
 const AddedVoiceBioFieldsSchema = DataItemBaseSchema.extend({
@@ -328,20 +338,6 @@ const useNavigationToProfile = (
       }
     );
   }, [handle, photoBlurhash]);
-};
-
-const useNavigationToProfileGallery = (photoUuid: string) => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
-
-  return useCallback(() => {
-    navigation.navigate(
-      'Prospect Profile Screen',
-      {
-        screen: 'Gallery Screen',
-        params: { photoUuid },
-      }
-    );
-  }, [photoUuid]);
 };
 
 const AgeGenderLocation = ({
@@ -1336,8 +1332,6 @@ const FeedItemAddedPhoto = ({
     fields.photo_blurhash,
   );
 
-  const onPressPhoto = useNavigationToProfileGallery(fields.added_photo_uuid);
-
   const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
 
   const props = isMobile() ? {
@@ -1375,10 +1369,10 @@ const FeedItemAddedPhoto = ({
           />
           <ActionTime action={action} time={new Date(fields.time)} />
           <EnlargeablePhoto
-            onPress={onPressPhoto}
             photoUuid={fields.added_photo_uuid}
             photoExtraExts={fields.added_photo_extra_exts}
             photoBlurhash={fields.added_photo_blurhash}
+            photoGeometry={fields.added_photo_geometry}
             isPrimary={true}
             style={{
               ...commonStyles.secondaryEnlargeablePhoto,

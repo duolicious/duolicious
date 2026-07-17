@@ -47,6 +47,7 @@ from async_lru_cache import AsyncLruCache
 from datetime import datetime, timezone
 from urllib.parse import quote
 from duoaudio import put_audio_in_object_store
+from duophoto import CropSize, orient_image, photo_geometry
 from person.aboutdiff import diff_addition_with_context
 from auth.session import sign_out, enforce_session_limit
 from auth.social import (
@@ -82,84 +83,28 @@ s3 = boto3.resource(
 
 bucket = s3.Bucket(R2_BUCKET_NAME)
 
-@dataclass
-class CropSize:
-    top: int
-    left: int
-
 def process_image_as_image(
     image: Image.Image,
     output_size: int | None = None,
     crop_size: CropSize | None = None,
 ) -> Image.Image:
-    # Rotate the image according to EXIF data
-    try:
-        exif = image.getexif()
-        orientation = exif[274] # 274 is the exif code for the orientation tag
-    except:
-        orientation = None
+    image = orient_image(image)
 
-    if orientation is None:
-        pass
-    elif orientation == 1:
-        # Normal, no changes needed
-        pass
-    elif orientation == 2:
-        # Mirrored horizontally
-        pass
-    elif orientation == 3:
-        # Rotated 180 degrees
-        image = image.rotate(180, expand=True)
-    elif orientation == 4:
-        # Mirrored vertically
-        pass
-    elif orientation == 5:
-        # Transposed
-        image = image.rotate(-90, expand=True)
-    elif orientation == 6:
-        # Rotated -90 degrees
-        image = image.rotate(-90, expand=True)
-    elif orientation == 7:
-        # Transverse
-        image = image.rotate(90, expand=True)
-    elif orientation == 8:
-        # Rotated 90 degrees
-        image = image.rotate(90, expand=True)
+    if output_size is None:
+        return image.convert('RGB')
 
-    # Crop the image to be square
-    if output_size is not None:
-        # Get the dimensions of the image
-        width, height = image.size
+    g = photo_geometry(*image.size, crop_size)
 
-        # Find the smaller dimension
-        min_dim = min(width, height)
+    min_dim = min(g.width, g.height)
 
-        # Compute the area to crop
-        if crop_size is None:
-            left = (width - min_dim) // 2
-            top = (height - min_dim) // 2
-            right = (width + min_dim) // 2
-            bottom = (height + min_dim) // 2
-        else:
-            # Ensure the top left point is within range
-            crop_size.top  = max(0, crop_size.top)
-            crop_size.left = max(0, crop_size.left)
+    image = image.crop((
+        g.crop_left,
+        g.crop_top,
+        g.crop_left + min_dim,
+        g.crop_top + min_dim,
+    ))
 
-            crop_size.top  = min(height - min_dim, crop_size.top)
-            crop_size.left = min(width  - min_dim, crop_size.left)
-
-            # Compute the area to crop
-            left = crop_size.left
-            top = crop_size.top
-            right = crop_size.left + min_dim
-            bottom = crop_size.top + min_dim
-
-        # Crop the image to be square
-        crop_box = (left, top, right, bottom)
-        image = image.crop(crop_box)
-
-    # Scale the image to the desired size
-    if output_size is not None and output_size != min_dim:
+    if output_size != min_dim:
         image = image.resize((output_size, output_size))
 
     return image.convert('RGB')
@@ -1185,6 +1130,10 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         uuid = secrets.token_hex(32)
         blurhash_ = compute_blurhash(base64_file.image, crop_size=crop_size)
         extra_exts = ['gif'] if base64_file.image.format == 'GIF' else []
+        geometry = photo_geometry(
+            *orient_image(base64_file.image).size,
+            crop_size,
+        )
 
         params = dict(
             person_id=s.person_id,
@@ -1193,6 +1142,10 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
             blurhash=blurhash_,
             extra_exts=extra_exts,
             hash=base64_file.md5_hash,
+            width=geometry.width,
+            height=geometry.height,
+            crop_top=geometry.crop_top,
+            crop_left=geometry.crop_left,
         )
 
         q1 = """
@@ -1220,19 +1173,31 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
                 uuid,
                 blurhash,
                 extra_exts,
-                hash
+                hash,
+                width,
+                height,
+                crop_top,
+                crop_left
             ) VALUES (
                 %(person_id)s,
                 %(position)s,
                 %(uuid)s,
                 %(blurhash)s,
                 %(extra_exts)s,
-                %(hash)s
+                %(hash)s,
+                %(width)s,
+                %(height)s,
+                %(crop_top)s,
+                %(crop_left)s
             ) ON CONFLICT (person_id, position) DO UPDATE SET
                 uuid = EXCLUDED.uuid,
                 blurhash = EXCLUDED.blurhash,
                 extra_exts = EXCLUDED.extra_exts,
                 hash = EXCLUDED.hash,
+                width = EXCLUDED.width,
+                height = EXCLUDED.height,
+                crop_top = EXCLUDED.crop_top,
+                crop_left = EXCLUDED.crop_left,
                 verified = FALSE
         ), updated_person AS (
             UPDATE person

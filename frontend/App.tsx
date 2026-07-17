@@ -27,6 +27,7 @@ import { SplashScreen } from './components/splash-screen';
 import { ConversationScreen } from './components/conversation-screen/conversation-screen';
 import { ServerStatus, UtilityScreen } from './components/utility-screen';
 import { ProspectProfileScreen } from './components/prospect-profile-screen/prospect-profile-screen';
+import { GalleryScreen } from './components/gallery-screen';
 import { InviteScreen, WelcomeScreen } from './components/welcome-screen';
 import { sessionToken, sessionPersonUuid } from './kv-storage/session-token';
 import { lastPath } from './kv-storage/last-path';
@@ -538,6 +539,16 @@ const App = () => {
                 <Stack.Screen
                   name="Prospect Profile Screen"
                   component={ProspectProfileScreen} />
+                <Stack.Screen
+                  name="Gallery Screen"
+                  component={GalleryScreen}
+                  // The gallery animates itself, expanding out of the preview
+                  // on the screen underneath - which it therefore has to let
+                  // show through, and mustn't slide over.
+                  options={{
+                    presentation: 'transparentModal',
+                    animation: 'none',
+                  }} />
                 <Stack.Screen
                   name="Invite Screen"
                   component={InviteScreen}

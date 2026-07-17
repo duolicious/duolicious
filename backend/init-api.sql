@@ -443,6 +443,17 @@ CREATE TABLE IF NOT EXISTS social_identity (
 CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
     ON social_identity (person_id);
 
+-- `width`, `height`, `crop_top` and `crop_left` describe how the square
+-- renditions (`900-{uuid}.jpg`, `450-{uuid}.jpg`) were cut out of
+-- `original-{uuid}.jpg`, so clients can animate between the two. All four are
+-- in the coordinates of `original-{uuid}.jpg`, i.e. after EXIF rotation was
+-- applied. The crop is always `min(width, height)` on a side, so only its
+-- origin varies. They're NULL for photos uploaded before the columns existed
+-- and not yet backfilled; see `service/cron/photocrop`.
+--
+-- `crop_attempted_at` is when that backfill last tried this photo, and is what
+-- stops it retrying one it can't recover (a missing rendition, say) on every
+-- pass forever. Clear it to have another go.
 CREATE TABLE IF NOT EXISTS photo (
     person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     position SMALLINT NOT NULL,
@@ -452,8 +463,25 @@ CREATE TABLE IF NOT EXISTS photo (
     nsfw_score FLOAT4,
     extra_exts TEXT[] NOT NULL DEFAULT '{}',
     hash TEXT NOT NULL,
+    width INT,
+    height INT,
+    crop_top INT,
+    crop_left INT,
+    crop_attempted_at TIMESTAMP,
     PRIMARY KEY (person_id, position)
 );
+
+-- NULL for a photo whose geometry isn't known yet, which clients read as "don't
+-- animate the crop".
+CREATE OR REPLACE FUNCTION photo_geometry(p photo)
+RETURNS JSON AS $$
+    SELECT CASE WHEN p.width IS NOT NULL THEN json_build_object(
+        'width',     p.width,
+        'height',    p.height,
+        'crop_top',  p.crop_top,
+        'crop_left', p.crop_left
+    ) END;
+$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
 CREATE TABLE IF NOT EXISTS undeleted_photo (
     uuid TEXT PRIMARY KEY

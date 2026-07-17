@@ -47,15 +47,18 @@ type HomeParamList = {
 
 type ProspectParamList = {
   'Prospect Profile': { personUuid: string };
-  'Gallery Screen': { photoUuid: string };
   'In-Depth': { personUuid: string };
 };
 
+// The gallery is a root screen rather than a prospect one because it's opened
+// from the feed as well, and has to draw over whichever screen opened it for
+// the photo to appear to expand out of that screen's preview.
 type RootParamList = {
   Welcome: NavigatorScreenParams<WelcomeParamList> | undefined;
   Home: NavigatorScreenParams<HomeParamList> | undefined;
   'Conversation Screen': { personUuid: string };
   'Prospect Profile Screen': NavigatorScreenParams<ProspectParamList> | undefined;
+  'Gallery Screen': { photoUuid: string };
   'Invite Screen': { clubName: string };
 };
 
@@ -177,17 +180,20 @@ const homeConfig: PathConfig<HomeParamList> = {
 const prospectConfig: PathConfig<ProspectParamList> = {
   screens: {
     'Prospect Profile': `:personUuid(${UUID_REGEX_SOURCE}|${SLUG_REGEX_SOURCE})`,
-    'Gallery Screen': 'gallery/:photoUuid',
     'In-Depth': `in-depth/:personUuid(${UUID_REGEX_SOURCE})`,
   },
 };
 
+// `Gallery Screen` keeps the `/gallery/:photoUuid` URL it had when it was a
+// prospect screen: `Prospect Profile Screen` contributes no path segment of its
+// own, so the path was never nested under one.
 const linkingConfig: LinkingOptions<RootParamList>['config'] = {
   screens: {
     Welcome: welcomeConfig,
     Home: homeConfig,
     'Conversation Screen': `chat/:personUuid(${UUID_REGEX_SOURCE})`,
     'Prospect Profile Screen': prospectConfig,
+    'Gallery Screen': 'gallery/:photoUuid',
     'Invite Screen': 'invite/:clubName',
   },
 };

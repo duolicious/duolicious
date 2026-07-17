@@ -637,9 +637,25 @@ SELECT
         'gender', gender,
         'location', location,
         'advertiser_friendly', advertiser_friendly
-    ) || mapped_last_event_data AS j
+    )
+    || mapped_last_event_data
+    || COALESCE(added_photo_geometry.j, '{{}}'::jsonb)
+    AS j
 FROM
     filtered_by_club
+LEFT JOIN LATERAL (
+    -- Read from `photo` rather than `last_event_data` so items whose event
+    -- predates the geometry columns still animate. Probes idx__photo__uuid.
+    SELECT
+        jsonb_build_object('added_photo_geometry', PHOTO_GEOMETRY(photo)) AS j
+    FROM
+        photo
+    WHERE
+        photo.uuid = filtered_by_club.mapped_last_event_data ->> 'added_photo_uuid'
+    AND
+        photo.width IS NOT NULL
+) AS added_photo_geometry
+ON TRUE
 ORDER BY
     last_event_time DESC
 """
@@ -1145,11 +1161,25 @@ SELECT
     || mapped_last_event_data
     || COALESCE(joined_club_data.j, '{{}}'::jsonb)
     || COALESCE(answered_question_data.j, '{{}}'::jsonb)
+    || COALESCE(added_photo_geometry.j, '{{}}'::jsonb)
     AS j
 FROM
     feed_page
 CROSS JOIN
     searcher
+LEFT JOIN LATERAL (
+    -- Read from `photo` rather than `last_event_data` so items whose event
+    -- predates the geometry columns still animate. Probes idx__photo__uuid.
+    SELECT
+        jsonb_build_object('added_photo_geometry', PHOTO_GEOMETRY(photo)) AS j
+    FROM
+        photo
+    WHERE
+        photo.uuid = feed_page.mapped_last_event_data ->> 'added_photo_uuid'
+    AND
+        photo.width IS NOT NULL
+) AS added_photo_geometry
+ON TRUE
 LEFT JOIN LATERAL (
     SELECT
         jsonb_build_object(

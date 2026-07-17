@@ -62,18 +62,30 @@ const FitWithinScreenImage = ({
   source,
   animatedStyle,
   onUpdateImageSize,
+  naturalSize,
 }: {
   source: { uri: string };
   animatedStyle: AnimatedStyle<ImageStyle>;
   onUpdateImageSize: (size: { imageWidth: number, imageHeight: number }) => void;
+  naturalSize?: { width: number, height: number };
 }) => {
   const isFetchingSize = useRef(false);
-  const [imageSize, setImageSize] = useState({width: 0, height: 0});
+  const [imageSize, setImageSize] = useState(
+    naturalSize ?? {width: 0, height: 0},
+  );
   const [imageWidth, setImageWidth] = useState<number | null>(null);
   const [imageHeight, setImageHeight] = useState<number | null>(null);
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
 
   useEffect(() => {
+    // Callers that already know the photo's dimensions (the API reports them)
+    // save the round trip, and with it the spinner that would otherwise appear
+    // for a frame in place of an image the caller has already drawn.
+    if (naturalSize) {
+      setImageSize(naturalSize);
+      return;
+    }
+
     if (isFetchingSize.current) {
       return;
     }
@@ -83,7 +95,7 @@ const FitWithinScreenImage = ({
       setImageSize({width, height});
       isFetchingSize.current = false;
     });
-  }, [source.uri]);
+  }, [source.uri, naturalSize?.width, naturalSize?.height]);
 
   useEffect(() => {
     let newWidth = imageSize.width;
@@ -123,7 +135,11 @@ const FitWithinScreenImage = ({
   return <LogoActivityIndicator size="large" color="white"/>;
 };
 
-const Pinchy = ({uuid}: {uuid: string}) => {
+const Pinchy = ({uuid, naturalSize, backgroundColor = 'black'}: {
+  uuid: string,
+  naturalSize?: { width: number, height: number },
+  backgroundColor?: string,
+}) => {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
 
   const scale = useSharedValue(1);
@@ -274,11 +290,12 @@ const Pinchy = ({uuid}: {uuid: string}) => {
 
   return (
     <GestureDetector gesture={composed}>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor }]}>
         <FitWithinScreenImage
           source={{ uri: `${IMAGES_URL}/original-${uuid}.jpg` }}
           animatedStyle={animatedStyle}
           onUpdateImageSize={onUpdateImageSize}
+          naturalSize={naturalSize}
         />
       </View>
     </GestureDetector>
@@ -291,7 +308,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'black',
     overflow: 'hidden',
     zIndex: 999,
     // @ts-ignore
