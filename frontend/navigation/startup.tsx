@@ -4,6 +4,7 @@ import { lastPath } from '../kv-storage/last-path';
 import { consumeLegacyNavigationState } from '../kv-storage/navigation-state';
 import { ClubItem } from '../club/club';
 import type { Linking } from './linking';
+import { focusedRouteIsUnrestorable } from './linking';
 
 type NavState = PartialState<NavigationState>;
 
@@ -125,7 +126,13 @@ export async function getPersistedState(
 
   const fromPath = (p: string): NavState | null => {
     try {
-      return linking.getStateFromPath(p, linking.config) ?? null;
+      const state = linking.getStateFromPath(p, linking.config) ?? null;
+      // Also checked before persisting, but a path stored by an older build -
+      // or by one that persisted a route later made unrestorable - is still
+      // out there. Restoring the gallery from one strands the user in a
+      // fullscreen photo with nothing underneath to close onto.
+      if (focusedRouteIsUnrestorable(state ?? undefined)) return null;
+      return state;
     } catch {
       return null;
     }

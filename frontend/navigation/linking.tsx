@@ -66,10 +66,19 @@ const SLUG_REGEX_SOURCE = '[a-z0-9_-]+';
 
 const PROFILE_SUBROUTES = ['settings', 'clubs', 'invites'];
 
-const WIZARD_ROUTE_NAMES = new Set([
+// Routes that must never be restored on a cold start.
+//
+// The OptionScreen-backed wizards depend on an in-memory payload that doesn't
+// survive a restart, and would `popToTop` immediately.
+//
+// `Gallery Screen` is an overlay drawn over whichever screen opened it, so
+// restoring it as the only route strands the user in a fullscreen photo with
+// nothing to go back to.
+const UNRESTORABLE_ROUTE_NAMES = new Set([
   'Create Account Or Sign In Screen',
   'Profile Option Screen',
   'Search Filter Option Screen',
+  'Gallery Screen',
 ]);
 
 const GATED_LOGGED_OUT_PATHS = new Set([
@@ -114,13 +123,13 @@ const isBannerRoute = (state: RouteState | undefined): boolean => {
   return false;
 };
 
-const focusedRouteIsWizard = (state: RouteState | undefined): boolean => {
+const focusedRouteIsUnrestorable = (state: RouteState | undefined): boolean => {
   let node: RouteState | undefined = state;
   while (node && Array.isArray(node.routes)) {
     const idx = typeof node.index === 'number' ? node.index : 0;
     const route = node.routes[idx];
     if (!route) return false;
-    if (WIZARD_ROUTE_NAMES.has(route.name)) return true;
+    if (UNRESTORABLE_ROUTE_NAMES.has(route.name)) return true;
     node = route.state;
   }
   return false;
@@ -260,7 +269,7 @@ const createLinking = () => {
 
 type Linking = ReturnType<typeof createLinking>;
 
-export { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsWizard, getTopRouteName };
+export { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsUnrestorable, getTopRouteName };
 export type {
   Linking,
   RootParamList,

@@ -53,7 +53,7 @@ import { verificationWatcher } from './verification/verification';
 import { ClubItem } from './club/club';
 import { Toast } from './components/toast';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsWizard, getTopRouteName } from './navigation/linking';
+import { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsUnrestorable, getTopRouteName } from './navigation/linking';
 import { useScrollbarStyle } from './components/navigation/scroll-bar-hooks';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -408,15 +408,12 @@ const App = () => {
     // identity (or vice versa).
     if (!getSignedInUser()) return;
 
-    // Don't persist transient wizard URLs. OptionScreen-backed routes
-    // (`Profile Option Screen`, `Search Filter Option Screen`,
-    // `Create Account Or Sign In Screen`) depend on an in-memory payload
-    // that doesn't survive a hard refresh. If we persisted the wizard URL,
-    // the next cold-start would hydrate the wizard with no payload and
-    // immediately `popToTop` to the parent screen — a visible flicker.
-    // Walking the focused route chain lets us detect this regardless of how
-    // deeply nested the wizard is.
-    if (focusedRouteIsWizard(state)) return;
+    // Don't persist URLs that can't be restored: the OptionScreen-backed
+    // wizards would hydrate with no payload and immediately `popToTop`, and
+    // the gallery would come back as the only route, with no screen under it
+    // to close onto. See `UNRESTORABLE_ROUTE_NAMES`. Walking the focused route
+    // chain detects these regardless of how deeply nested they are.
+    if (focusedRouteIsUnrestorable(state)) return;
 
     // Persist just the canonical path - not the full navigation tree - so we
     // can restore the user's last place on next startup. We let React

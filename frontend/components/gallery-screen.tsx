@@ -255,8 +255,16 @@ const GalleryScreen = ({
   }, [navigation, close, finishAndPop]);
 
   const onPressBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    // Opened straight from a `/gallery/:photoUuid` link, so there's no screen
+    // underneath to close onto. Going home beats leaving the user in a
+    // fullscreen photo with a back button that does nothing.
+    close(() => finishAndPop(() => navigation.reset({ routes: [{ name: 'Home' }] })));
+  }, [navigation, close, finishAndPop]);
 
   return (
     <View
