@@ -14,7 +14,7 @@ import type { RootParamList } from '../navigation/linking';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-screen';
 import { Pinchy } from './pinchy';
-import type { PinchyZoom } from './pinchy';
+import type { PinchyDismiss, PinchyZoom } from './pinchy';
 import { IMAGES_URL } from '../env/env';
 import { photoExpandFrame } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
@@ -24,6 +24,10 @@ import type { ExpandedPhoto } from '../events/expanded-photo';
 const DURATION_MS = 280;
 
 const EASING = Easing.bezier(0.33, 0, 0.15, 1);
+
+// How far (screen px) the photo has to be dragged for the backdrop to fade all
+// the way to transparent, revealing the profile it dismisses back to.
+const DISMISS_FADE_RANGE = 300;
 
 // 'opening' and 'closing' show the photo mid-expansion and own the screen;
 // 'open' hands over to Pinchy, which is the same photo at the same size but
@@ -44,12 +48,14 @@ const ExpandingPhoto = ({
   progress,
   container,
   zoom,
+  dismiss,
   onCovered,
 }: {
   expandedPhoto: ExpandedPhoto,
   progress: SharedValue<number>,
   container: Rect,
   zoom: PinchyZoom,
+  dismiss: PinchyDismiss,
   onCovered: () => void,
 }) => {
   const { photoUuid, from, geometry, borderRadius } = expandedPhoto;
@@ -85,6 +91,10 @@ const ExpandingPhoto = ({
     borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value),
     borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value),
     transform: [
+      // A dismiss drag carried in from the open photo, unwound as it closes -
+      // outermost and in screen space, so the zoom scale doesn't multiply it.
+      { translateX: dismiss.x.value },
+      { translateY: dismiss.y.value },
       { scale: lerp(1, zoom.scale.value, progress.value) },
       { translateX: lerp(0, zoom.translateX.value, progress.value) },
       { translateY: lerp(0, zoom.translateY.value, progress.value) },
@@ -169,6 +179,16 @@ const GalleryScreen = ({
     translateY: zoomTranslateY,
   }), [zoomScale, zoomTranslateX, zoomTranslateY]);
 
+  // Where a drag-to-dismiss has moved the photo. Owned here so the closing
+  // animation can unwind it and the backdrop can fade by how far it's dragged.
+  const dismissX = useSharedValue(0);
+  const dismissY = useSharedValue(0);
+
+  const dismiss: PinchyDismiss = useMemo(() => ({
+    x: dismissX,
+    y: dismissY,
+  }), [dismissX, dismissY]);
+
   const isFinishing = useRef(false);
 
   // Everything here is positioned within this container rather than within the
@@ -235,12 +255,19 @@ const GalleryScreen = ({
     );
   }, [expandedPhoto, isCovering, container]);
 
-  const backdropStyle = useAnimatedStyle(() => ({
+  const backdropStyle = useAnimatedStyle(() => {
     // Runs ahead of the photo so the preview underneath is covered by the time
     // the photo has moved off it, without blinking the profile out at the very
     // start of the press.
-    opacity: Math.min(1, progress.value * 2),
-  }));
+    const opened = Math.min(1, progress.value * 2);
+
+    // Fade as the photo is dragged away, so the profile it dismisses back to
+    // shows through.
+    const dragged = Math.sqrt(dismissX.value ** 2 + dismissY.value ** 2);
+    const notDragged = 1 - Math.min(1, dragged / DISMISS_FADE_RANGE);
+
+    return { opacity: opened * notDragged };
+  });
 
   const close = useCallback((finish: () => void) => {
     if (isFinishing.current) return;
@@ -295,6 +322,15 @@ const GalleryScreen = ({
     close(() => finishAndPop(() => navigation.reset({ routes: [{ name: 'Home' }] })));
   }, [navigation, close, finishAndPop]);
 
+  // A completed drag-to-dismiss. Unwind the drag over the same time as the
+  // reverse-morph close, so the photo travels from where it was let go back
+  // into the preview rather than snapping to centre first.
+  const onDismiss = useCallback(() => {
+    dismissX.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
+    dismissY.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
+    onPressBack();
+  }, [onPressBack, dismissX, dismissY]);
+
   return (
     <View
       ref={containerRef}
@@ -310,6 +346,7 @@ const GalleryScreen = ({
           progress={progress}
           container={container}
           zoom={zoom}
+          dismiss={dismiss}
           onCovered={onCovered}
         />
       }
@@ -318,6 +355,10 @@ const GalleryScreen = ({
           uuid={photoUuid}
           naturalSize={expandedPhoto?.geometry}
           zoom={zoom}
+          // Only offer drag-to-dismiss when there's a preview to return to;
+          // a deep-linked gallery has nothing underneath to reveal.
+          dismiss={expandedPhoto ? dismiss : undefined}
+          onDismiss={expandedPhoto ? onDismiss : undefined}
           // Both copies of the photo have to be sized and centred against the
           // same box, or they land in different places and you see the two of
           // them at the end of the expansion.

@@ -20,9 +20,11 @@ import {
 import Animated, {
   AnimatedStyle,
   Easing,
+  runOnJS,
   runOnUI,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
@@ -32,6 +34,12 @@ import { constrainPosition, focalZoomPosition } from './pinchy-math';
 // Double-tap zoom eases in rather than snapping. A pinch or pan writing the
 // shared values directly cancels it mid-flight, which is what you want.
 const ZOOM_TIMING = { duration: 220, easing: Easing.out(Easing.cubic) };
+
+// Dragging the zoomed-out photo at least this far (screen px) before lifting
+// dismisses the gallery; a shorter drag springs the photo back to centre.
+const DISMISS_THRESHOLD = 110;
+
+const DISMISS_SPRING = { damping: 22, stiffness: 220 };
 
 const FitWithinScreenImage = ({
   source,
@@ -121,13 +129,25 @@ type PinchyZoom = {
   translateY: SharedValue<number>
 };
 
-const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: {
+// The screen-space offset of a drag-to-dismiss in progress. Owned by the caller
+// so it can carry the same offset into the closing animation - and fade its
+// backdrop by how far the photo has been dragged.
+type PinchyDismiss = {
+  x: SharedValue<number>
+  y: SharedValue<number>
+};
+
+const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgroundColor = 'black'}: {
   uuid: string,
   naturalSize?: { width: number, height: number },
   // The box to fit the photo within and centre it in. Defaults to the window,
   // which is only the same thing when this fills the screen.
   viewport?: { width: number, height: number },
   zoom: PinchyZoom,
+  // When provided, a single-finger drag on the zoomed-out photo moves it by
+  // this offset, and `onDismiss` fires if it's dragged past the threshold.
+  dismiss?: PinchyDismiss,
+  onDismiss?: () => void,
   backgroundColor?: string,
 }) => {
   const window = useWindowDimensions();
@@ -146,6 +166,12 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
   const pinchBaseScale = useSharedValue(1);
   const panBaseX = useSharedValue(0);
   const panBaseY = useSharedValue(0);
+
+  // A single-finger drag on the zoomed-out photo is a drag-to-dismiss rather
+  // than a pan; this records that, and where the drag started from.
+  const isDismissing = useSharedValue(false);
+  const dismissBaseX = useSharedValue(0);
+  const dismissBaseY = useSharedValue(0);
 
   // The scale, position and finger focal point captured when a pinch begins, so
   // each update can keep the point that was under the fingers under them still.
@@ -237,22 +263,43 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
         // the start of the gesture. React Native Gesture Handler then smooths
         // out the discontinuity when a finger lifts; a pan that only activates
         // partway through (once the pinch crosses scale 1) starts tracking the
-        // centroid mid-gesture, and the lift jumps the image instead. Also
-        // activate for a single finger once zoomed, so you can pan around.
-        if (e.numberOfTouches > 1 || scale.value > 1 + 1e-5) {
+        // centroid mid-gesture, and the lift jumps the image instead. A single
+        // finger pans once zoomed, or drags to dismiss when zoomed out.
+        if (
+          e.numberOfTouches > 1 ||
+          scale.value > 1 + 1e-5 ||
+          dismiss !== undefined
+        ) {
           stateManager.activate();
         } else {
-          // A single finger on an unzoomed image isn't a pan; let it through.
           stateManager.fail();
         }
       })
-      .onStart(() => {
+      .onStart((e) => {
         'worklet';
-        panBaseX.value = positionX.value;
-        panBaseY.value = positionY.value;
+        // A single finger on the zoomed-out photo drags to dismiss; anything
+        // else (a pinch, or a drag while zoomed in) pans.
+        isDismissing.value =
+          dismiss !== undefined &&
+          e.numberOfPointers <= 1 &&
+          scale.value <= 1 + 1e-5;
+
+        if (isDismissing.value && dismiss) {
+          dismissBaseX.value = dismiss.x.value;
+          dismissBaseY.value = dismiss.y.value;
+        } else {
+          panBaseX.value = positionX.value;
+          panBaseY.value = positionY.value;
+        }
       })
       .onUpdate((e) => {
         'worklet';
+        if (isDismissing.value && dismiss) {
+          dismiss.x.value = dismissBaseX.value + e.translationX;
+          dismiss.y.value = dismissBaseY.value + e.translationY;
+          return;
+        }
+
         const newPos = constrainPosition(
           scale.value,
           imageWidth.value,
@@ -266,8 +313,26 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
         );
         positionX.value = newPos.x;
         positionY.value = newPos.y;
+      })
+      .onEnd(() => {
+        'worklet';
+        if (!isDismissing.value || !dismiss) {
+          return;
+        }
+
+        const dragged = Math.sqrt(
+          dismiss.x.value ** 2 + dismiss.y.value ** 2,
+        );
+
+        if (dragged > DISMISS_THRESHOLD && onDismiss) {
+          runOnJS(onDismiss)();
+        } else {
+          // Didn't drag far enough - spring back to centre.
+          dismiss.x.value = withSpring(0, DISMISS_SPRING);
+          dismiss.y.value = withSpring(0, DISMISS_SPRING);
+        }
       }),
-    [],
+    [dismiss, onDismiss],
   );
 
   const doubleTap = useMemo(
@@ -309,7 +374,11 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
   );
 
   const animatedStyle = useAnimatedStyle<ImageStyle>(() => ({
+    // The dismiss drag translates the whole photo in screen space, so it goes
+    // outermost (ahead of the zoom scale, which it must not be multiplied by).
     transform: [
+      { translateX: dismiss ? dismiss.x.value : 0 },
+      { translateY: dismiss ? dismiss.y.value : 0 },
       { scale: scale.value },
       { translateX: positionX.value },
       { translateY: positionY.value },
@@ -349,5 +418,6 @@ export {
 };
 
 export type {
+  PinchyDismiss,
   PinchyZoom,
 };
