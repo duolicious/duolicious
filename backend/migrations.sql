@@ -77,14 +77,7 @@ ALTER TABLE photo
     ADD COLUMN IF NOT EXISTS crop_left INT,
     ADD COLUMN IF NOT EXISTS crop_attempted_at TIMESTAMP;
 
--- Must come after the ALTER TABLE above: the argument is the `photo` row type,
--- so the columns it reads have to exist first.
-CREATE OR REPLACE FUNCTION photo_geometry(p photo)
-RETURNS JSON AS $$
-    SELECT CASE WHEN p.width IS NOT NULL THEN json_build_object(
-        'width',     p.width,
-        'height',    p.height,
-        'crop_top',  p.crop_top,
-        'crop_left', p.crop_left
-    ) END;
-$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
+-- The geometry JSON is now shaped in the application (`commonsql.PHOTO_GEOMETRY`)
+-- rather than by a database function; drop the function this migration used to
+-- create so already-migrated databases shed it too.
+DROP FUNCTION IF EXISTS photo_geometry(photo);

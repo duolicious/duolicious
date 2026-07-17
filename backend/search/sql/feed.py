@@ -1,5 +1,5 @@
 from constants import ONLINE_RECENTLY_SECONDS
-from commonsql import Q_COMPUTED_FLAIR
+from commonsql import PHOTO_GEOMETRY, Q_COMPUTED_FLAIR
 from qanda import ANSWER_VISIBLE_TO_OTHERS
 
 # How many feed results to send to the client per request
@@ -647,7 +647,7 @@ LEFT JOIN LATERAL (
     -- Read from `photo` rather than `last_event_data` so items whose event
     -- predates the geometry columns still animate. Probes idx__photo__uuid.
     SELECT
-        jsonb_build_object('added_photo_geometry', PHOTO_GEOMETRY(photo)) AS j
+        jsonb_build_object('added_photo_geometry', ({PHOTO_GEOMETRY})) AS j
     FROM
         photo
     WHERE
@@ -1171,7 +1171,7 @@ LEFT JOIN LATERAL (
     -- Read from `photo` rather than `last_event_data` so items whose event
     -- predates the geometry columns still animate. Probes idx__photo__uuid.
     SELECT
-        jsonb_build_object('added_photo_geometry', PHOTO_GEOMETRY(photo)) AS j
+        jsonb_build_object('added_photo_geometry', ({PHOTO_GEOMETRY})) AS j
     FROM
         photo
     WHERE

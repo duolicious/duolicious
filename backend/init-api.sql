@@ -471,18 +471,6 @@ CREATE TABLE IF NOT EXISTS photo (
     PRIMARY KEY (person_id, position)
 );
 
--- NULL for a photo whose geometry isn't known yet, which clients read as "don't
--- animate the crop".
-CREATE OR REPLACE FUNCTION photo_geometry(p photo)
-RETURNS JSON AS $$
-    SELECT CASE WHEN p.width IS NOT NULL THEN json_build_object(
-        'width',     p.width,
-        'height',    p.height,
-        'crop_top',  p.crop_top,
-        'crop_left', p.crop_left
-    ) END;
-$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
-
 CREATE TABLE IF NOT EXISTS undeleted_photo (
     uuid TEXT PRIMARY KEY
 );
