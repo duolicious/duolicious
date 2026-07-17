@@ -11,11 +11,11 @@ from collections.abc import Sequence
 from typing import Literal, Tuple
 from searchfilters import Q_SEARCH_PARAMETERS
 from search.sql import (
+    Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
-    Q_SEARCH_PREFERENCE,
     Q_DELETE_SEARCH_CACHE,
     Q_FEED,
     Q_FEED_V2,
@@ -141,7 +141,7 @@ async def get_search(
 
         # Run for its side effects: it upserts the club preference and clears
         # `pending_club_name`, so it must precede the read of the preferences.
-        await tx.execute(Q_SEARCH_PREFERENCE, params)
+        await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
         if search_type == 'quiz-search':
             result = await _quiz_search_results(
@@ -167,9 +167,9 @@ async def get_search(
         else:
             raise Exception('Unexpected quiz type')
 
-    # Q_SEARCH_PREFERENCE clears `pending_club_name` for this person, so drop the
-    # now-stale cached session (see the sessioncache correctness model). Skip the
-    # call when there was nothing pending to clear.
+    # Q_APPLY_CLUB_PREFERENCE clears `pending_club_name` for this person, so drop
+    # the now-stale cached session (see the sessioncache correctness model). Skip
+    # the call when there was nothing pending to clear.
     if s.pending_club_name is not None:
         await sessioncache.delete_session(s.session_token_hash)
 

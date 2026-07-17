@@ -14,6 +14,7 @@ services:
       postgres
       -c shared_preload_libraries=pg_stat_statements
       -c pg_stat_statements.track=all
+      -c random_page_cost=1.1
     ports:
       - "5432:5432"
     environment:

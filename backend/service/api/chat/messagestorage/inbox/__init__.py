@@ -5,6 +5,7 @@ from database import Row, Tx, api_tx, row_int, row_str
 from searchfilters import (
     Q_SEARCH_PARAMETERS_BY_UUID,
     SearchParam,
+    and_clauses,
     prospect_filters,
 )
 from dataclasses import dataclass
@@ -565,14 +566,9 @@ async def _fetch_inbox_conversations(
         if prospect_username is not None:
             params['remote_bare_jid'] = f'{prospect_username}@{LSERVER}'
 
-        clauses = filters.clauses
-
         query = _q_inbox_snapshot(
             entry_predicate=entry_predicate,
-            matches_search_filters=(
-                '\n                AND\n                    '.join(clauses)
-                if clauses else 'TRUE'
-            ),
+            matches_search_filters=and_clauses(filters.clauses, depth=20),
         )
 
         await tx.execute(query, params)

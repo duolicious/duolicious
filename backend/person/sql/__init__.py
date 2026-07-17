@@ -1,5 +1,9 @@
 import constants
-from constants import MIN_CLUB_PAGE_MEMBERS, MAX_RELATED_CLUBS
+from constants import (
+    LAST_ONLINE_DEFAULT_SECONDS,
+    MAX_RELATED_CLUBS,
+    MIN_CLUB_PAGE_MEMBERS,
+)
 from commonsql import (
     Q_COMPUTED_FLAIR,
     Q_IS_ALLOWED_CLUB_NAME,
@@ -2246,15 +2250,21 @@ ON
     inserted_undeleted_photo.uuid = deleted_photo.uuid
 """
 
-Q_STATS = """
+# Who the stats speak for: people a default search would actually turn up. The
+# window is the filter's own default, read from `constants` so the two can't
+# drift.
+_ACTIVE_PERSON = f"""    activated
+AND
+    last_online_time >
+        now() - {LAST_ONLINE_DEFAULT_SECONDS} * interval '1 second'"""
+
+Q_STATS = f"""
 SELECT
     count(*) AS num_active_users
 FROM
     person
 WHERE
-    activated
-AND
-    last_online_time > now() - interval '30 days'
+{_ACTIVE_PERSON}
 """
 
 Q_STATS_BY_CLUB_NAME = """
@@ -2266,7 +2276,7 @@ WHERE
     name = %(club_name)s
 """
 
-Q_GENDER_STATS = """
+Q_GENDER_STATS = f"""
 SELECT
     count(*) FILTER (WHERE gender_id = 1)::real /
     count(*) FILTER (WHERE gender_id = 2)::real
@@ -2279,9 +2289,7 @@ SELECT
 FROM
     person
 WHERE
-    activated
-AND
-    last_online_time > now() - interval '30 days'
+{_ACTIVE_PERSON}
 """
 
 Q_PERSON_ID_TO_UUID = """

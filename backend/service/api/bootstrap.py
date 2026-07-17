@@ -5,9 +5,14 @@ create the schema on a fresh database, apply migrations, load the domain and
 club seed data, and backfill normalized emails.
 """
 
+import re
 from pathlib import Path
 
 from antiabuse.antispam.signupemail import normalize_email
+from constants import (
+    LAST_ONLINE_DEFAULT_SECONDS,
+    LAST_ONLINE_NOW_SECONDS,
+)
 from database import api_tx
 
 _init_sql_file = (
@@ -24,6 +29,30 @@ _email_domains_good_file = (
 
 _banned_club_file = (
     Path(__file__).parent.parent.parent / 'banned-club.sql')
+
+# Values the schema seeds share with the application, substituted into the
+# `{{NAME}}` placeholders of init-api.sql and migrations.sql so a constant and
+# its seeded copy can't drift apart. A literal replacement, not a format string,
+# so the `%` and `{}` those files are full of are left alone.
+_SQL_CONSTANTS = {
+    'LAST_ONLINE_NOW_SECONDS': LAST_ONLINE_NOW_SECONDS,
+    'LAST_ONLINE_DEFAULT_SECONDS': LAST_ONLINE_DEFAULT_SECONDS,
+}
+
+
+def _read_sql(path: Path) -> str:
+    sql = path.read_text()
+
+    for name, value in _SQL_CONSTANTS.items():
+        sql = sql.replace('{{' + name + '}}', str(value))
+
+    # A placeholder that survives is a typo or a deleted constant. Failing here
+    # beats sending `{{...}}` to Postgres as a syntax error with no clue why.
+    unresolved = sorted(set(re.findall(r'\{\{(\w+)\}\}', sql)))
+    if unresolved:
+        raise RuntimeError(f'{path.name}: unresolved placeholders: {unresolved}')
+
+    return sql
 
 
 async def migrate_unnormalized_emails() -> None:
@@ -96,15 +125,13 @@ async def maybe_run_init() -> None:
         print('Database already initialized')
         return
 
-    with open(_init_sql_file, 'r') as f:
-        init_sql_file = f.read()
+    init_sql_file = _read_sql(_init_sql_file)
 
     async with api_tx() as tx:
         await tx.execute(init_sql_file)
 
 async def init_db() -> None:
-    with open(_migrations_sql_file, 'r') as f:
-        migrations_sql_file = f.read()
+    migrations_sql_file = _read_sql(_migrations_sql_file)
 
     with open(_email_domains_bad_file, 'r') as f:
         email_domains_bad_file = f.read()

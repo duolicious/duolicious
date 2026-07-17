@@ -37,8 +37,9 @@ ALTER TABLE duo_session
 -- The "Last online:" search filter (replaces automatic deactivation). The
 -- lookup table maps each option to the window, in seconds, a prospect's
 -- last_online_time must fall within; 'All time' is a ~100-year sentinel so the
--- search's interval arithmetic needs no NULL/OR special case. 'Now' mirrors
--- `constants.VISITOR_ONLINE_TIMEOUT_SECONDS`.
+-- search's interval arithmetic needs no NULL/OR special case. The two windows
+-- the application also reads are substituted from `constants` (see
+-- `service.api.bootstrap`) rather than spelled twice.
 CREATE TABLE IF NOT EXISTS last_online (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -52,11 +53,11 @@ CREATE TABLE IF NOT EXISTS search_preference_last_online (
     PRIMARY KEY (person_id)
 );
 
-INSERT INTO last_online (name, seconds) VALUES ('Now',                  480) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('A day ago',          86400) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('A week ago',        604800) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('A month ago',      2592000) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('All time',      3153600000) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('Now',    {{LAST_ONLINE_NOW_SECONDS}}) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A day ago',              86400) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A week ago',            604800) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A month ago', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('All time',          3153600000) ON CONFLICT (name) DO NOTHING;
 
 -- Backfill the default preference for persons who predate this filter. New
 -- persons get it at signup; a person's row is created once here and thereafter
@@ -67,6 +68,11 @@ FROM person, last_online
 WHERE last_online.name = 'A month ago'
 ON CONFLICT (person_id) DO NOTHING;
 
+-- Blocks writes to `person` while it builds, and `person` takes a write on every
+-- refresh of a signed-in user's `last_online_time`. To avoid that, build it with
+-- CONCURRENTLY by hand before deploying and this becomes a no-op. That is:
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS idx__person__personality
+--     ON person USING ivfflat (personality vector_ip_ops) WITH (lists = 100);
 CREATE INDEX IF NOT EXISTS
     idx__person__personality
     ON person

@@ -104,13 +104,12 @@ converge on the same number:
 
 - A push sent while the user has **no connected chat clients** increments the
   count once per user (not per device) and carries it as the badge. This holds
-  for every push the server sends — live chat messages, the periodic check,
-  and the auto-deactivation notice alike.
+  for every push the server sends — live chat messages and the periodic check
+  alike.
 - A push sent while **any client is connected** carries no badge — the user
   can see the message themselves — which leaves each device's badge untouched.
   Pushes from the periodic check always badge, since it only notifies users
-  who haven't been online for 10 minutes, as does the auto-deactivation
-  notice, which only targets users offline for at least 30 days.
+  who haven't been online for 10 minutes.
 - Connecting any client — web or mobile — zeroes the count. The opened device
   also clears its own badge locally right away; other devices keep a stale
   badge until their next push corrects it.

@@ -4,7 +4,12 @@ search that (re)builds `search_cache`, and the cached/quiz reads of it.
 """
 
 from database import Row, row_bool, row_int, row_str, row_str_or_none
-from searchfilters import SearchParam, prospect_filters
+from searchfilters import (
+    SearchParam,
+    and_clauses,
+    prospect_filters,
+    sql_fragment,
+)
 
 
 
@@ -26,7 +31,10 @@ ON CONFLICT (person_id) DO UPDATE SET
 
 
 
-Q_SEARCH_PREFERENCE = f"""
+# Run for its side effects alone. Data-modifying CTEs run to completion whether
+# or not the primary query reads them, so the trailing SELECT is just somewhere
+# to hang them.
+Q_APPLY_CLUB_PREFERENCE = f"""
 WITH delete_search_preference_club AS (
     DELETE FROM
         search_preference_club
@@ -46,12 +54,7 @@ WITH delete_search_preference_club AS (
 ), upsert_search_preference_club AS (
     {Q_UPSERT_SEARCH_PREFERENCE_CLUB}
 )
-SELECT
-    gender_id
-FROM
-    search_preference_gender
-WHERE
-    person_id = %(person_id)s
+SELECT 1
 """
 
 
@@ -65,47 +68,69 @@ WHERE
 
 
 
-_REVERSE_GENDER_EXISTS = """EXISTS (
-            SELECT
-                1
-            FROM
-                search_preference_gender AS preference
-            WHERE
-                preference.person_id = prospect.id
-            AND
-                preference.gender_id = %(searcher_gender_id)s
-        )"""
+_REVERSE_GENDER_EXISTS = sql_fragment("""
+    EXISTS (
+        SELECT
+            1
+        FROM
+            search_preference_gender AS preference
+        WHERE
+            preference.person_id = prospect.id
+        AND
+            preference.gender_id = %(searcher_gender_id)s
+    )
+""")
 
-_HIDE_ME = """-- The prospect wants to be shown to strangers or isn't a stranger
-        (
-            prospect.id IN (
-                SELECT
-                    subject_person_id
-                FROM
-                    messaged
-                WHERE
-                    object_person_id = %(searcher_person_id)s
-            )
-        OR
-            NOT prospect.hide_me_from_strangers
-        )"""
-
-_PROSPECT_DIDNT_SKIP_SEARCHER = """-- The prospect did not skip the searcher
-        prospect.id NOT IN (
+_HIDE_ME = sql_fragment("""
+    -- The prospect wants to be shown to strangers or isn't a stranger
+    (
+        prospect.id IN (
             SELECT
                 subject_person_id
             FROM
-                skipped
+                messaged
             WHERE
                 object_person_id = %(searcher_person_id)s
-        )"""
+        )
+    OR
+        NOT prospect.hide_me_from_strangers
+    )
+""")
 
-_VERIFICATION_SATISFIED = """-- Exclude users who should be verified but aren't
-        (
-            prospect.verification_level_id > 1
-        OR
-            NOT prospect.verification_required
-        )"""
+_PROSPECT_DIDNT_SKIP_SEARCHER = sql_fragment("""
+    -- The prospect did not skip the searcher
+    prospect.id NOT IN (
+        SELECT
+            subject_person_id
+        FROM
+            skipped
+        WHERE
+            object_person_id = %(searcher_person_id)s
+    )
+""")
+
+_SEARCHER_DIDNT_SKIP_PROSPECT = sql_fragment("""
+    prospect.id NOT IN (
+        SELECT object_person_id FROM skipped
+        WHERE subject_person_id = %(searcher_person_id)s
+    )
+""")
+
+_SEARCHER_DIDNT_MESSAGE_PROSPECT = sql_fragment("""
+    prospect.id NOT IN (
+        SELECT object_person_id FROM messaged
+        WHERE subject_person_id = %(searcher_person_id)s
+    )
+""")
+
+_VERIFICATION_SATISFIED = sql_fragment("""
+    -- Exclude users who should be verified but aren't
+    (
+        prospect.verification_level_id > 1
+    OR
+        NOT prospect.verification_required
+    )
+""")
 
 _PROSPECT_SELECT = """    SELECT
         prospect.id AS prospect_person_id,
@@ -140,15 +165,13 @@ _PROSPECT_SELECT = """    SELECT
             0,
             99,
             100 * (1 - (prospect.personality <#> %(searcher_personality)s::VECTOR)) / 2
-        ) AS match_percentage,
-
-        roles"""
+        ) AS match_percentage"""
 
 _SEARCH_CACHE_INSERT = """), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
-        prospects
+        candidates
     WHERE
         profile_photo_uuid IS NOT NULL
     AND
@@ -192,11 +215,7 @@ SELECT
     personality,
     verified
 FROM
-    prospects
-WHERE
-    prospects.prospect_person_id != %(searcher_person_id)s
-AND
-    'bot' <> ALL(prospects.roles)
+    candidates
 ORDER BY
     position
 LIMIT
@@ -238,6 +257,46 @@ def _from_clause(club_preference: str | None) -> str:
         person_club.activated"""
 
 
+def search_only_clauses(prefs: Row) -> list[str]:
+    """
+    The predicates a search applies that `searchfilters.prospect_filters`
+    doesn't share with the inbox -- the ones that only make sense when the
+    searcher went looking, rather than when a sender turned up in the inbox.
+
+    Named apart from the shared filters (rather than assembled inline) so the
+    split between the two is a thing the code states and a test can check; see
+    the drift alarm beside the inbox query.
+    """
+    clauses = [
+        # Neither is anyone's prospect: the searcher is themselves, and the
+        # moderation bot messages people without being someone to find.
+        'prospect.id != %(searcher_person_id)s',
+        "'bot' <> ALL(prospect.roles)",
+        'prospect.activated',
+        'prospect.shadow_banned_at IS NULL',
+    ]
+
+    # The searcher meets the prospect's gender preference. When searching a
+    # club this is not required (the shared club is the connection), so the
+    # whole clause drops out.
+    if row_str_or_none(prefs, 'club_preference') is None:
+        clauses.append(_REVERSE_GENDER_EXISTS)
+
+    clauses.append(_HIDE_ME)
+    clauses.append(_PROSPECT_DIDNT_SKIP_SEARCHER)
+
+    # The searcher did not skip / message the prospect, unless they've asked to
+    # see skipped / messaged people.
+    if not row_bool(prefs, 'show_skipped'):
+        clauses.append(_SEARCHER_DIDNT_SKIP_PROSPECT)
+    if not row_bool(prefs, 'show_messaged'):
+        clauses.append(_SEARCHER_DIDNT_MESSAGE_PROSPECT)
+
+    clauses.append(_VERIFICATION_SATISFIED)
+
+    return clauses
+
+
 def build_uncached_search(
     searcher_person_id: int,
     n: int,
@@ -267,48 +326,18 @@ def build_uncached_search(
     filters = prospect_filters(prefs)
     params.update(filters.params)
 
-    clauses = [
-        "prospect.activated",
-        "prospect.shadow_banned_at IS NULL",
-        *filters.clauses,
-    ]
-
-    # The searcher meets the prospect's gender preference. When searching a
-    # club this is not required (the shared club is the connection), so the
-    # whole clause drops out.
-    if club_preference is None:
-        clauses.append(_REVERSE_GENDER_EXISTS)
-
-    clauses.append(_HIDE_ME)
-    clauses.append(_PROSPECT_DIDNT_SKIP_SEARCHER)
-
-    # The searcher did not skip / message the prospect, unless they've asked to
-    # see skipped / messaged people.
-    if not row_bool(prefs, 'show_skipped'):
-        clauses.append(
-            "prospect.id NOT IN (\n"
-            "            SELECT object_person_id FROM skipped\n"
-            "            WHERE subject_person_id = %(searcher_person_id)s\n"
-            "        )"
-        )
-    if not row_bool(prefs, 'show_messaged'):
-        clauses.append(
-            "prospect.id NOT IN (\n"
-            "            SELECT object_person_id FROM messaged\n"
-            "            WHERE subject_person_id = %(searcher_person_id)s\n"
-            "        )"
-        )
-
-    clauses.append(_VERIFICATION_SATISFIED)
-
-    where = '\n    AND\n        '.join(clauses)
+    where = and_clauses(
+        [*search_only_clauses(prefs), *filters.clauses],
+        depth=8,
+    )
 
     # A single scan of `person`: every filter is applied here, so the ORDER BY
-    # can index-scan `idx__person__personality` and the scan filters as it
-    # goes. 502 rather than 500 leaves room for the searcher and the moderation
-    # bot, which the INSERT below drops.
+    # can index-scan `idx__person__personality` and the scan filters as it goes.
+    # `prospect` is the row being filtered; `candidates` is what survives, which
+    # is every row the INSERT below keeps -- so the LIMIT is the 500 wanted, with
+    # nothing fetched to be discarded later.
     sql = f"""
-WITH prospects AS (
+WITH candidates AS (
 {_PROSPECT_SELECT}
     FROM
 {_from_clause(club_preference)}
@@ -319,7 +348,7 @@ WITH prospects AS (
         prospect.personality <#> %(searcher_personality)s::VECTOR
 
     LIMIT
-        502
+        750
 {_SEARCH_CACHE_INSERT}"""
 
     return sql, params

@@ -76,6 +76,18 @@ sudo sed \
   "s|^# *idle_in_transaction_session_timeout =.*|idle_in_transaction_session_timeout = '5min'|" \
   /etc/postgresql/16/main/postgresql.conf
 
+# The default of 4 prices a random page read at four sequential ones, which is a
+# seek penalty this pool doesn't have -- it's SSD-backed (see `autotrim=on`
+# above). The search's ivfflat scan of `idx__person__personality` reads one
+# scattered `person` row per candidate, so the default overprices the plan that
+# usually wins, by a margin that grows with the query's LIMIT until the planner
+# drops the index and instead reads, scores and sorts every prospect the
+# searcher's filters admit.
+sudo sed \
+  -iE \
+  "s|^# *random_page_cost =.*|random_page_cost = 1.1|" \
+  /etc/postgresql/16/main/postgresql.conf
+
 sudo bash -c \
   "echo 'host    all             all             0.0.0.0/0               scram-sha-256' >> /etc/postgresql/16/main/pg_hba.conf"
 

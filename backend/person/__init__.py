@@ -19,7 +19,7 @@ import boto3
 import asyncio
 import asyncboto
 from person.sql import *
-from search.sql import *
+from search.sql import Q_UPSERT_SEARCH_PREFERENCE_CLUB
 from commonsql import *
 from qanda import _flush_session_answers
 from constants import VISITOR_ONLINE_TIMEOUT_SECONDS
@@ -1653,6 +1653,10 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         field_value=field_value,
     )
 
+    # A multi-valued preference is replaced wholesale, so `q1` clears it before
+    # `q2` writes the new selection. A preference `q2` can upsert needs no `q1`.
+    q1: str | None
+
     async with api_tx() as tx:
         if field_name == 'gender':
             q1 = """
@@ -1868,9 +1872,12 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
             FROM star_sign WHERE name = ANY(%(field_value)s)
             """
         elif field_name == 'last_online':
-            q1 = """
-            DELETE FROM search_preference_last_online
-            WHERE person_id = %(person_id)s"""
+            # Upserted rather than deleted-then-inserted: an unrecognised name
+            # selects no `last_online` row, and leaving the person without a
+            # preference would bind NULL into the search's window predicate,
+            # silently matching nobody. This way the worst an unrecognised name
+            # can do is leave the preference as it was.
+            q1 = None
 
             q2 = """
             INSERT INTO search_preference_last_online (
@@ -1878,6 +1885,8 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
             )
             SELECT %(person_id)s, id
             FROM last_online WHERE name = %(field_value)s
+            ON CONFLICT (person_id) DO UPDATE SET
+                last_online_id = EXCLUDED.last_online_id
             """
         elif field_name == 'people_you_messaged':
             q1 = """
@@ -1906,7 +1915,8 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         else:
             return f'Invalid field name {field_name}', 400
 
-        await tx.execute(q1, params)
+        if q1:
+            await tx.execute(q1, params)
         await tx.execute(q2, params)
 
     return None
