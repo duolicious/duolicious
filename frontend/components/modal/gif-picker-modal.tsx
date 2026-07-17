@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Platform,
   StyleSheet,
   View,
   ScrollView,
@@ -16,6 +17,7 @@ import { AutoResizingGif } from '../auto-resizing-gif';
 import { KLIPY_API_KEY } from '../../env/env';
 import { isMobile } from '../../util/util';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { ModalBottomSheet } from './modal-bottom-sheet';
 
 type GifPickedEvent = string;
 
@@ -93,6 +95,15 @@ const GifPickerModal: React.FC = () => {
     }
   }, [selectedGif]);
 
+  const onPressGif = useCallback((url: string) => {
+    if (isMobile()) {
+      notify<GifPickedEvent>('gif-picked', url);
+      setIsShowing(false);
+    } else {
+      setSelectedGif(url);
+    }
+  }, []);
+
   // Fetch gifs from Klipy when a search query is provided
   const fetchGifs = useCallback(async (query: string) => {
     setLoading(true);
@@ -133,15 +144,74 @@ const GifPickerModal: React.FC = () => {
     });
   }, [debouncedFetchGifs]);
 
-  if (!isShowing) {
-    return null;
-  }
-
   // Divide gifResults equally between three columns
   const columns = _.times<KlipyGif[]>(NUM_COLS, () => []);
   gifResults.forEach((item, index) => {
     columns[index % NUM_COLS].push(item);
   });
+
+  const grid = loading ? (
+    <LogoActivityIndicator
+      size="large"
+      color="#70f"
+      style={styles.loadingIndicator}
+    />
+  ) : (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollViewContainer}
+    >
+      {columns.map((column, i) =>
+        <View key={i} style={styles.column}>
+          {column.map((item, j) =>
+            <RenderGifItem
+              key={j}
+              priority={indexToPriority(j)}
+              gifUrl={item.file?.hd?.gif?.url}
+              previewUrl={
+                isMobile() ?
+                  item.file?.xs?.gif?.url :
+                  item.file?.sm?.gif?.url
+              }
+              isSelected={item.file?.hd?.gif?.url === selectedGif}
+              onPress={onPressGif}
+            />
+          )}
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  if (isMobile()) {
+    const searchInput = (
+      <DefaultTextInput
+        style={styles.sheetSearchInput}
+        placeholder="Search KLIPY"
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
+    );
+
+    const searchInputPlacement = Platform.OS === 'web'
+      ? { footer: searchInput }
+      : { header: searchInput };
+
+    return (
+      <ModalBottomSheet
+        visible={isShowing}
+        onRequestClose={cancel}
+        {...searchInputPlacement}
+      >
+        <View style={styles.sheetGrid}>
+          {grid}
+        </View>
+      </ModalBottomSheet>
+    );
+  }
+
+  if (!isShowing) {
+    return null;
+  }
 
   return (
     <Reanimated.View
@@ -169,37 +239,7 @@ const GifPickerModal: React.FC = () => {
             onChangeText={setSearchQuery}
             autoFocus={true}
           />
-          {loading ? (
-            <LogoActivityIndicator
-              size="large"
-              color="#70f"
-              style={styles.loadingIndicator}
-            />
-          ) : (
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollViewContainer}
-            >
-              {columns.map((column, i) =>
-                <View key={i} style={styles.column}>
-                  {column.map((item, j) =>
-                    <RenderGifItem
-                      key={j}
-                      priority={indexToPriority(j)}
-                      gifUrl={item.file?.hd?.gif?.url}
-                      previewUrl={
-                        isMobile() ?
-                          item.file?.xs?.gif?.url :
-                          item.file?.sm?.gif?.url
-                      }
-                      isSelected={item.file?.hd?.gif?.url === selectedGif}
-                      onPress={setSelectedGif}
-                    />
-                  )}
-                </View>
-              )}
-            </ScrollView>
-          )}
+          {grid}
         </View>
         <View style={styles.buttonContainer}>
           <ModalButton color="#999" onPress={cancel} title="Cancel" />
@@ -240,6 +280,18 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     marginLeft: 0,
     marginRight: 0,
+  },
+  sheetSearchInput: {
+    borderWidth: 0,
+    height: 40,
+    marginTop: 10,
+    marginLeft: 10,
+    marginRight: 10,
+    marginBottom: 8,
+  },
+  sheetGrid: {
+    flex: 1,
+    paddingHorizontal: 10,
   },
   scrollView: {
     flex: 1,
