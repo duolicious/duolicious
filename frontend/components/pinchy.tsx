@@ -25,39 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { IMAGES_URL } from '../env/env';
-
-const constrainPosition = (
-  currentScale: number,
-  imageWidth: number,
-  imageHeight: number,
-  viewportWidth: number,
-  viewportHeight: number,
-  x: number,
-  y: number,
-  dx: number = 0,
-  dy: number = 0,
-) => {
-  'worklet';
-  const adjustedWidth = imageWidth * currentScale;
-  const adjustedHeight = imageHeight * currentScale;
-
-  const maxTranslateX = (adjustedWidth > viewportWidth) ?
-    (adjustedWidth - viewportWidth) / 2 / currentScale :
-    (viewportWidth - adjustedWidth) / 2 / currentScale;
-
-  const maxTranslateY = (adjustedHeight > viewportHeight) ?
-    (adjustedHeight - viewportHeight) / 2 / currentScale :
-    (viewportHeight - adjustedHeight) / 2 / currentScale;
-
-  return {
-    x: (adjustedWidth > viewportWidth) ?
-       Math.min(maxTranslateX, Math.max(-maxTranslateX, x + dx / currentScale)) :
-       0,
-    y: (adjustedHeight > viewportHeight) ?
-       Math.min(maxTranslateY, Math.max(-maxTranslateY, y + dy / currentScale)) :
-       0,
-  };
-};
+import { constrainPosition, focalZoomPosition } from './pinchy-math';
 
 const FitWithinScreenImage = ({
   source,
@@ -173,6 +141,13 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
   const panBaseX = useSharedValue(0);
   const panBaseY = useSharedValue(0);
 
+  // The scale, position and finger focal point captured when a pinch begins, so
+  // each update can keep the point that was under the fingers under them still.
+  const pinchBaseX = useSharedValue(0);
+  const pinchBaseY = useSharedValue(0);
+  const focalBaseX = useSharedValue(0);
+  const focalBaseY = useSharedValue(0);
+
   const imageWidth = useSharedValue(0);
   const imageHeight = useSharedValue(0);
   const viewportWidthSv = useSharedValue(viewportWidth);
@@ -207,21 +182,37 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
 
   const pinch = useMemo(
     () => Gesture.Pinch()
-      .onStart(() => {
+      .onStart((e) => {
         'worklet';
         pinchBaseScale.value = scale.value;
+        pinchBaseX.value = positionX.value;
+        pinchBaseY.value = positionY.value;
+        focalBaseX.value = e.focalX;
+        focalBaseY.value = e.focalY;
       })
       .onUpdate((e) => {
         'worklet';
         const newScale = Math.max(1, e.scale * pinchBaseScale.value);
+
+        // Zoom towards the fingers rather than the middle of the photo.
+        const target = focalZoomPosition(
+          pinchBaseScale.value,
+          newScale,
+          { x: pinchBaseX.value, y: pinchBaseY.value },
+          { x: focalBaseX.value, y: focalBaseY.value },
+          { x: e.focalX, y: e.focalY },
+          viewportWidthSv.value,
+          viewportHeightSv.value,
+        );
+
         const newPos = constrainPosition(
           newScale,
           imageWidth.value,
           imageHeight.value,
           viewportWidthSv.value,
           viewportHeightSv.value,
-          positionX.value,
-          positionY.value,
+          target.x,
+          target.y,
         );
         scale.value = newScale;
         positionX.value = newPos.x;
@@ -340,7 +331,7 @@ const styles = StyleSheet.create({
 });
 
 export {
-  Pinchy
+  Pinchy,
 };
 
 export type {
