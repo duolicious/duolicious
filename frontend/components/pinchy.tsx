@@ -19,13 +19,19 @@ import {
 } from 'react-native-gesture-handler';
 import Animated, {
   AnimatedStyle,
+  Easing,
   runOnUI,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { IMAGES_URL } from '../env/env';
 import { constrainPosition, focalZoomPosition } from './pinchy-math';
+
+// Double-tap zoom eases in rather than snapping. A pinch or pan writing the
+// shared values directly cancels it mid-flight, which is what you want.
+const ZOOM_TIMING = { duration: 220, easing: Easing.out(Easing.cubic) };
 
 const FitWithinScreenImage = ({
   source,
@@ -274,9 +280,9 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
         if (!success) return;
         const isZoomed = scale.value > 1 + 1e-5;
         if (isZoomed) {
-          scale.value = 1;
-          positionX.value = 0;
-          positionY.value = 0;
+          scale.value = withTiming(1, ZOOM_TIMING);
+          positionX.value = withTiming(0, ZOOM_TIMING);
+          positionY.value = withTiming(0, ZOOM_TIMING);
         } else {
           const offsetX = imageWidth.value / 2 - e.x;
           const offsetY = imageHeight.value / 2 - e.y;
@@ -289,9 +295,9 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: 
             offsetX,
             offsetY,
           );
-          scale.value = 2;
-          positionX.value = newPos.x;
-          positionY.value = newPos.y;
+          scale.value = withTiming(2, ZOOM_TIMING);
+          positionX.value = withTiming(newPos.x, ZOOM_TIMING);
+          positionY.value = withTiming(newPos.y, ZOOM_TIMING);
         }
       }),
     [],
