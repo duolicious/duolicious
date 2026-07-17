@@ -14,6 +14,7 @@ import type { RootParamList } from '../navigation/linking';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-screen';
 import { Pinchy } from './pinchy';
+import type { PinchyZoom } from './pinchy';
 import { IMAGES_URL } from '../env/env';
 import { photoExpandFrame } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
@@ -42,11 +43,13 @@ const ExpandingPhoto = ({
   expandedPhoto,
   progress,
   container,
+  zoom,
   onCovered,
 }: {
   expandedPhoto: ExpandedPhoto,
   progress: SharedValue<number>,
   container: Rect,
+  zoom: PinchyZoom,
   onCovered: () => void,
 }) => {
   const { photoUuid, from, geometry } = expandedPhoto;
@@ -67,11 +70,20 @@ const ExpandingPhoto = ({
     ];
   }, [geometry, from, container]);
 
+  // At `progress` 1 this is the photo exactly as Pinchy has it, zoom and all,
+  // so closing carries it out from wherever the user left it rather than
+  // snapping back to fitted first. The zoom unwinds as the photo returns to the
+  // preview, where it has to be identity. Same order as Pinchy's own transform.
   const clipStyle = useAnimatedStyle(() => ({
     left: lerp(closed.clip.x, opened.clip.x, progress.value),
     top: lerp(closed.clip.y, opened.clip.y, progress.value),
     width: lerp(closed.clip.width, opened.clip.width, progress.value),
     height: lerp(closed.clip.height, opened.clip.height, progress.value),
+    transform: [
+      { scale: lerp(1, zoom.scale.value, progress.value) },
+      { translateX: lerp(0, zoom.translateX.value, progress.value) },
+      { translateY: lerp(0, zoom.translateY.value, progress.value) },
+    ],
   }));
 
   const imageStyle = useAnimatedStyle(() => ({
@@ -139,6 +151,18 @@ const GalleryScreen = ({
   );
 
   const progress = useSharedValue(expandedPhoto ? 0 : 1);
+
+  // Lives here rather than inside Pinchy so the photo can be animated out from
+  // wherever the user pinched it to, after Pinchy itself has gone.
+  const zoomScale = useSharedValue(1);
+  const zoomTranslateX = useSharedValue(0);
+  const zoomTranslateY = useSharedValue(0);
+
+  const zoom: PinchyZoom = useMemo(() => ({
+    scale: zoomScale,
+    translateX: zoomTranslateX,
+    translateY: zoomTranslateY,
+  }), [zoomScale, zoomTranslateX, zoomTranslateY]);
 
   const isFinishing = useRef(false);
 
@@ -280,6 +304,7 @@ const GalleryScreen = ({
           expandedPhoto={expandedPhoto}
           progress={progress}
           container={container}
+          zoom={zoom}
           onCovered={onCovered}
         />
       }
@@ -287,6 +312,7 @@ const GalleryScreen = ({
         <Pinchy
           uuid={photoUuid}
           naturalSize={expandedPhoto?.geometry}
+          zoom={zoom}
           // Both copies of the photo have to be sized and centred against the
           // same box, or they land in different places and you see the two of
           // them at the end of the expansion.

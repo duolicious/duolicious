@@ -23,6 +23,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { IMAGES_URL } from '../env/env';
 
 const constrainPosition = (
@@ -137,12 +138,22 @@ const FitWithinScreenImage = ({
   return <LogoActivityIndicator size="large" color="white"/>;
 };
 
-const Pinchy = ({uuid, naturalSize, viewport, backgroundColor = 'black'}: {
+// Where the user has pinched and panned the photo to. Owned by the caller
+// rather than in here, because closing the gallery has to animate the photo out
+// from wherever the zoom left it - starting from anywhere else is the jump.
+type PinchyZoom = {
+  scale: SharedValue<number>
+  translateX: SharedValue<number>
+  translateY: SharedValue<number>
+};
+
+const Pinchy = ({uuid, naturalSize, viewport, zoom, backgroundColor = 'black'}: {
   uuid: string,
   naturalSize?: { width: number, height: number },
   // The box to fit the photo within and centre it in. Defaults to the window,
   // which is only the same thing when this fills the screen.
   viewport?: { width: number, height: number },
+  zoom: PinchyZoom,
   backgroundColor?: string,
 }) => {
   const window = useWindowDimensions();
@@ -152,9 +163,11 @@ const Pinchy = ({uuid, naturalSize, viewport, backgroundColor = 'black'}: {
     height: viewportHeight,
   } = viewport ?? window;
 
-  const scale = useSharedValue(1);
-  const positionX = useSharedValue(0);
-  const positionY = useSharedValue(0);
+  const {
+    scale,
+    translateX: positionX,
+    translateY: positionY,
+  } = zoom;
 
   const pinchBaseScale = useSharedValue(1);
   const panBaseX = useSharedValue(0);
@@ -328,4 +341,8 @@ const styles = StyleSheet.create({
 
 export {
   Pinchy
+};
+
+export type {
+  PinchyZoom,
 };
