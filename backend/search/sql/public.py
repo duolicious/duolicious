@@ -1,7 +1,3 @@
-"""SQL for the `/public-search` endpoint (logged-out browsing)."""
-
-
-
 Q_PUBLIC_SEARCH = """
 SELECT
     prospect.id AS prospect_person_id,

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from antiabuse.antispam.signupemail import normalize_email
 from constants import (
+    LAST_ONLINE_DEFAULT_NAME,
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
@@ -30,12 +31,9 @@ _email_domains_good_file = (
 _banned_club_file = (
     Path(__file__).parent.parent.parent / 'banned-club.sql')
 
-# Values the schema seeds share with the application, substituted into the
-# `{{NAME}}` placeholders of init-api.sql and migrations.sql so a constant and
-# its seeded copy can't drift apart. A literal replacement, not a format string,
-# so the `%` and `{}` those files are full of are left alone.
 _SQL_CONSTANTS = {
     'LAST_ONLINE_NOW_SECONDS': LAST_ONLINE_NOW_SECONDS,
+    'LAST_ONLINE_DEFAULT_NAME': LAST_ONLINE_DEFAULT_NAME,
     'LAST_ONLINE_DEFAULT_SECONDS': LAST_ONLINE_DEFAULT_SECONDS,
 }
 
@@ -46,8 +44,6 @@ def _read_sql(path: Path) -> str:
     for name, value in _SQL_CONSTANTS.items():
         sql = sql.replace('{{' + name + '}}', str(value))
 
-    # A placeholder that survives is a typo or a deleted constant. Failing here
-    # beats sending `{{...}}` to Postgres as a syntax error with no clue why.
     unresolved = sorted(set(re.findall(r'\{\{(\w+)\}\}', sql)))
     if unresolved:
         raise RuntimeError(f'{path.name}: unresolved placeholders: {unresolved}')

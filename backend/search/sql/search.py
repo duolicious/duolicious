@@ -1,8 +1,3 @@
-"""
-SQL for the `/search` endpoint: search-preference upserts, the uncached
-search that (re)builds `search_cache`, and the cached/quiz reads of it.
-"""
-
 from database import Row, row_bool, row_int, row_str, row_str_or_none
 from searchfilters import (
     SearchParam,
@@ -31,9 +26,6 @@ ON CONFLICT (person_id) DO UPDATE SET
 
 
 
-# Run for its side effects alone. Data-modifying CTEs run to completion whether
-# or not the primary query reads them, so the trailing SELECT is just somewhere
-# to hang them.
 Q_APPLY_CLUB_PREFERENCE = f"""
 WITH delete_search_preference_club AS (
     DELETE FROM
@@ -235,17 +227,8 @@ ON CONFLICT (searcher_person_id, position) DO UPDATE SET
 
 
 def _from_clause(club_preference: str | None) -> str:
-    """
-    What the single candidate scan reads. `person_club` supplies club
-    membership only; every filter reads `person`, whose row the scan is already
-    on, so the denormalized copies on `person_club` aren't needed.
-    """
     if club_preference is None:
         return "        person AS prospect"
-    # `person_club.activated` is redundant with `prospect.activated` (a trigger
-    # keeps them equal), but naming it here is what lets the partial index
-    # `idx__person_club__activated__club_name__person_id` (WHERE activated)
-    # apply; without it the club path sequentially scans all of `person_club`.
     return """        person AS prospect
     JOIN
         person_club
@@ -258,35 +241,19 @@ def _from_clause(club_preference: str | None) -> str:
 
 
 def search_only_clauses(prefs: Row) -> list[str]:
-    """
-    The predicates a search applies that `searchfilters.prospect_filters`
-    doesn't share with the inbox -- the ones that only make sense when the
-    searcher went looking, rather than when a sender turned up in the inbox.
-
-    Named apart from the shared filters (rather than assembled inline) so the
-    split between the two is a thing the code states and a test can check; see
-    the drift alarm beside the inbox query.
-    """
     clauses = [
-        # Neither is anyone's prospect: the searcher is themselves, and the
-        # moderation bot messages people without being someone to find.
         'prospect.id != %(searcher_person_id)s',
         "'bot' <> ALL(prospect.roles)",
         'prospect.activated',
         'prospect.shadow_banned_at IS NULL',
     ]
 
-    # The searcher meets the prospect's gender preference. When searching a
-    # club this is not required (the shared club is the connection), so the
-    # whole clause drops out.
     if row_str_or_none(prefs, 'club_preference') is None:
         clauses.append(_REVERSE_GENDER_EXISTS)
 
     clauses.append(_HIDE_ME)
     clauses.append(_PROSPECT_DIDNT_SKIP_SEARCHER)
 
-    # The searcher did not skip / message the prospect, unless they've asked to
-    # see skipped / messaged people.
     if not row_bool(prefs, 'show_skipped'):
         clauses.append(_SEARCHER_DIDNT_SKIP_PROSPECT)
     if not row_bool(prefs, 'show_messaged'):
@@ -303,13 +270,6 @@ def build_uncached_search(
     o: int,
     prefs: Row,
 ) -> tuple[str, dict[str, SearchParam]]:
-    """
-    Assemble the uncached search and its bound parameters from `prefs` (one
-    `Q_SEARCH_PARAMETERS` row): the filters `searchfilters.prospect_filters`
-    shares with the inbox, plus the ones only a search applies.
-    """
-    # `max_last_online_seconds` and `searcher_coordinates` are bound by
-    # `prospect_filters` below, alongside the clauses that read them.
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
         n=n,
@@ -326,16 +286,8 @@ def build_uncached_search(
     filters = prospect_filters(prefs)
     params.update(filters.params)
 
-    where = and_clauses(
-        [*search_only_clauses(prefs), *filters.clauses],
-        depth=8,
-    )
+    where = and_clauses([*search_only_clauses(prefs), *filters.clauses])
 
-    # A single scan of `person`: every filter is applied here, so the ORDER BY
-    # can index-scan `idx__person__personality` and the scan filters as it goes.
-    # `prospect` is the row being filtered; `candidates` is what survives, which
-    # is every row the INSERT below keeps -- so the LIMIT is the 500 wanted, with
-    # nothing fetched to be discarded later.
     sql = f"""
 WITH candidates AS (
 {_PROSPECT_SELECT}

@@ -62,10 +62,6 @@ async def _uncached_search_results(
     )
 
     try:
-        # The search filters inside the `idx__person__personality` scan, so an
-        # ivfflat scan limited to its initial probes would return far too few
-        # rows for a searcher with selective filters (often none at all).
-        # Iterating lets the scan keep visiting lists until the LIMIT is met.
         await tx.execute("SET LOCAL ivfflat.iterative_scan = relaxed_order")
 
         await tx.execute(Q_DELETE_SEARCH_CACHE, params)
@@ -139,8 +135,6 @@ async def get_search(
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
-        # Run for its side effects: it upserts the club preference and clears
-        # `pending_club_name`, so it must precede the read of the preferences.
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
         if search_type == 'quiz-search':
@@ -167,9 +161,8 @@ async def get_search(
         else:
             raise Exception('Unexpected quiz type')
 
-    # Q_APPLY_CLUB_PREFERENCE clears `pending_club_name` for this person, so drop
-    # the now-stale cached session (see the sessioncache correctness model). Skip
-    # the call when there was nothing pending to clear.
+    # Q_APPLY_CLUB_PREFERENCE clears `pending_club_name`, so drop the now-stale
+    # cached session (see the sessioncache correctness model).
     if s.pending_club_name is not None:
         await sessioncache.delete_session(s.session_token_hash)
 

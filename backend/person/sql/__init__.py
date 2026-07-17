@@ -1,5 +1,6 @@
 import constants
 from constants import (
+    LAST_ONLINE_DEFAULT_NAME,
     LAST_ONLINE_DEFAULT_SECONDS,
     MAX_RELATED_CLUBS,
     MIN_CLUB_PAGE_MEMBERS,
@@ -638,7 +639,7 @@ WITH onboardee_location AS (
     INSERT INTO search_preference_last_online (person_id, last_online_id)
     SELECT new_person.id, last_online.id
     FROM new_person, last_online
-    WHERE last_online.name = 'A month ago'
+    WHERE last_online.name = '{LAST_ONLINE_DEFAULT_NAME}'
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
@@ -2250,9 +2251,6 @@ ON
     inserted_undeleted_photo.uuid = deleted_photo.uuid
 """
 
-# Who the stats speak for: people a default search would actually turn up. The
-# window is the filter's own default, read from `constants` so the two can't
-# drift.
 _ACTIVE_PERSON = f"""    activated
 AND
     last_online_time >

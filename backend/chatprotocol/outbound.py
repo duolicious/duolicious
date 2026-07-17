@@ -559,7 +559,7 @@ class InboxConversation(TypedDict):
     The wire shape of one inbox conversation: the whole of an `InboxEntry`
     payload, and each element of an `InboxSnapshot` payload's `conversations`.
     This is the single source of truth for that shape; the rows it's assembled
-    from come from `Q_INBOX_SNAPSHOT`/`Q_INBOX_ENTRY` in
+    from come from `_q_inbox_snapshot` in
     `service.api.chat.messagestorage.inbox`.
     """
     person_uuid: str

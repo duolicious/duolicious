@@ -13,9 +13,6 @@ services:
     build:
       context: .
       dockerfile: postgres.Dockerfile
-    # Parallel workers put `work_mem`-sized segments in /dev/shm, which Docker
-    # defaults to 64MB -- small enough that a parallel index build over `person`
-    # dies with "could not resize shared memory segment".
     shm_size: 1gb
     command: >
       postgres

@@ -1033,17 +1033,12 @@ INSERT INTO looking_for (name) VALUES ('Short-term dating') ON CONFLICT (name) D
 INSERT INTO looking_for (name) VALUES ('Long-term dating') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Marriage') ON CONFLICT (name) DO NOTHING;
 
--- The "Last online:" search-filter windows (label, seconds). 'A month ago' is
--- the default seeded for every new person; 'All time' is a ~100-year sentinel so
--- the search's window filter needs no NULL/OR case. The two windows the
--- application also reads are substituted from `constants` (see
--- `service.api.bootstrap`) rather than spelled twice.
 SELECT setval('last_online_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM last_online), FALSE);
-INSERT INTO last_online (name, seconds) VALUES ('Now',    {{LAST_ONLINE_NOW_SECONDS}}) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('A day ago',              86400) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('A week ago',            604800) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('A month ago', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
-INSERT INTO last_online (name, seconds) VALUES ('All time',          3153600000) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('Now', {{LAST_ONLINE_NOW_SECONDS}}) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A day ago', 86400) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('A week ago', 604800) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('{{LAST_ONLINE_DEFAULT_NAME}}', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
+INSERT INTO last_online (name, seconds) VALUES ('All time', 3153600000) ON CONFLICT (name) DO NOTHING;
 
 SELECT setval('relationship_status_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM relationship_status), FALSE);
 INSERT INTO relationship_status (name) VALUES ('Unanswered') ON CONFLICT (name) DO NOTHING;

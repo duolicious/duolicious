@@ -1,14 +1,3 @@
-"""
-A searcher's search preferences, and the predicates they imply about a
-prospect.
-
-Shared by the `/search` endpoint and the inbox's `matches_search_filters`
-(`service.api.chat.messagestorage.inbox`), which flags intros from senders
-outside the viewer's filters. Both build their predicates from
-`prospect_filters`, which is what keeps them from drifting apart; the search
-adds further predicates of its own.
-"""
-
 from collections.abc import Sequence
 from dataclasses import dataclass
 from textwrap import dedent, indent
@@ -23,33 +12,20 @@ from database import (
     row_str,
 )
 
-# A bound value for an assembled search: scalar filters, id-array filters, or
-# absent (None).
 SearchParam: TypeAlias = int | str | list[int] | None
 
 
 def sql_fragment(text: str) -> str:
-    """
-    A clause written as an indented triple-quoted literal, normalised to the
-    unindented form `and_clauses` indents into place. A clause carries its own
-    relative shape and nothing about where it's spliced, so the same one reads
-    correctly in the search and in the inbox, which lay their `WHERE`s out at
-    different depths.
-    """
     return dedent(text).strip()
 
 
 class EnumFilter(NamedTuple):
-    param: str   # bound parameter, and the `Q_SEARCH_PARAMETERS` column
-    table: str   # the `search_preference_*` table
-    column: str  # id column, named the same on the preference and the prospect
-    lookup: str  # every option, for deciding whether the searcher picked them all
+    param: str
+    table: str
+    column: str
+    lookup: str
 
 
-# A preference returns its selected id array, or NULL when the searcher selected
-# every option -- the signal to leave that filter out of the query, which the
-# planner can't work out for itself. Every person is seeded a full set of
-# preferences at signup, so each row exists.
 ENUM_FILTERS = [
     EnumFilter('gender_ids',              'search_preference_gender',              'gender_id',              'gender'),
     EnumFilter('orientation_ids',         'search_preference_orientation',         'orientation_id',         'orientation'),
@@ -70,17 +46,12 @@ ENUM_FILTERS = [
 
 
 class BoundFilter(NamedTuple):
-    param: str   # bound parameter, and the `Q_SEARCH_PARAMETERS` column
-    source: str  # the subquery yielding `param`, correlated to `person.id`
+    param: str
+    source: str
     clause: str
-    # A `min_age` of zero admits every prospect, so it contributes no clause.
-    # A `max_age` of zero doesn't.
     omit_when_zero: bool = False
 
 
-# Each row is the whole filter: where its value is read, and the predicate that
-# reads it back. A preference the searcher never set reads NULL and contributes
-# no clause, so a filter can only ever narrow the search -- never empty it.
 BOUND_FILTERS = [
     BoundFilter(
         param='max_last_online_seconds',
@@ -236,10 +207,6 @@ SELECT
         FROM search_preference_answer
         WHERE person_id = person.id
     ) AS has_answer_prefs,
-    -- The searcher's own attributes. Passed back into the search as bound
-    -- parameters so that `personality` is a plan-time constant, which is what
-    -- lets the ORDER BY index-scan `idx__person__personality`; read from a
-    -- joined CTE instead, pgvector cannot use the index at all.
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
     person.gender_id AS searcher_gender_id,
@@ -251,8 +218,6 @@ WHERE
 """
 
 
-# Keyed by id for the search, and by uuid for the inbox, whose caller has
-# only the viewer's username.
 Q_SEARCH_PARAMETERS = _q_search_parameters(
     'person.id = %(searcher_person_id)s')
 
@@ -260,39 +225,20 @@ Q_SEARCH_PARAMETERS_BY_UUID = _q_search_parameters(
     'person.uuid = %(username)s::uuid')
 
 
-def and_clauses(clauses: Sequence[str], depth: int) -> str:
-    """
-    `clauses` joined by `AND`, laid out `depth` spaces deep with the `AND`s
-    four spaces shallower. The result is spliced in at an already-indented
-    point, so its first line carries no padding of its own. `TRUE` when there
-    is nothing to apply.
-    """
+def and_clauses(clauses: Sequence[str]) -> str:
     if not clauses:
         return 'TRUE'
 
-    body = ' ' * depth
-    separator = f"\n{' ' * (depth - 4)}AND\n{body}"
-
-    return separator.join(indent(clause, body).lstrip() for clause in clauses)
+    return '\nAND\n'.join(f'({clause})' for clause in clauses)
 
 
 @dataclass(frozen=True)
 class ProspectFilters:
-    """The predicates to apply, and the values they bind."""
     clauses: list[str]
     params: dict[str, SearchParam]
 
 
 def prospect_filters(prefs: Row) -> ProspectFilters:
-    """
-    The predicates constraining a prospect's own attributes to the preferences
-    in `prefs` (one `Q_SEARCH_PARAMETERS` row). A preference that admits every
-    prospect yields no clause at all, because the planner can't eliminate an
-    always-true predicate itself.
-
-    These are exactly the filters the inbox applies; the search adds its own on
-    top (see `search.sql.search.build_uncached_search`).
-    """
     params: dict[str, SearchParam] = {}
     clauses: list[str] = []
 

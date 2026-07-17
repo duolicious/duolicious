@@ -437,6 +437,16 @@ const frequency = [
   'Never',
 ];
 
+const lastOnlineDefault = 'A month ago';
+
+const lastOnlineValues = [
+  'Now',
+  'A day ago',
+  'A week ago',
+  lastOnlineDefault,
+  'All time',
+];
+
 const immediacy = [
   'Immediately',
   'Daily',
@@ -1324,8 +1334,6 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
-// The three filters nearly everyone sets: a gender (asked for during
-// onboarding), an age range and a distance.
 const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     ...yourPartnersGenderOptionGroup,
@@ -1430,9 +1438,6 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
-// The rest of the filters, ordered by how many people narrow each one: fewer
-// than one in ten touch any of them, and the drop from the first to the last is
-// about eight-fold.
 const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
     title: "Last Online",
@@ -1440,7 +1445,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     description: "How recently should people in search results have been online?",
     input: {
       buttons: {
-        values: ['Now', 'A day ago', 'A week ago', 'A month ago', 'All time'],
+        values: lastOnlineValues,
         submit: async (lastOnline: string) => {
           const go = async () => {
             const ok = (await japi(
@@ -2038,7 +2043,7 @@ const defaultSearchFilters = (): SearchFilters => {
   }
 
   // `buttons` filters have no "unset" state; these mirror the server defaults.
-  filters.last_online = 'A month ago';
+  filters.last_online = lastOnlineDefault;
   filters.people_you_messaged = 'Yes';
   filters.people_you_skipped = 'No';
 

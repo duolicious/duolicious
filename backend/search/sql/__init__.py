@@ -1,8 +1,3 @@
-"""
-Search SQL, split by endpoint: `feed`, `search`, `public`. Re-exported here
-so `from search.sql import ...` keeps resolving every query by name.
-"""
-
 from search.sql.feed import (
     Q_FEED,
     Q_FEED_V2,

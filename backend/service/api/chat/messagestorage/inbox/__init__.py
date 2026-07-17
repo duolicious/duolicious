@@ -51,16 +51,10 @@ ORDER BY
 #
 # `matches_search_filters` says whether an intro's sender passes the viewer's
 # search filters, so clients can sort and flag intros from outside them. It is
-# built from `searchfilters.prospect_filters`, the same predicates the
-# `/search` filters are built from, so the two can't drift apart. The search
-# applies further predicates that can't apply to an intro, and so aren't in
-# that shared set: the sender's own gender preference and
-# `hide_me_from_strangers` (the sender chose to message the viewer),
-# skipped/messaged gating (the inbox `location` rules already handle those),
-# and platform verification requirements (not a viewer-chosen filter).
-# Searching within a club also deliberately doesn't count: it scopes a search,
-# but an intro from outside the club isn't the kind of mismatch this flag is
-# for. Non-intro conversations are always TRUE.
+# built from `searchfilters.prospect_filters`, so it can't drift from the
+# search, which applies those same predicates plus `search_only_clauses` --
+# the ones that can't apply to an intro. Non-intro conversations are always
+# TRUE.
 def _q_inbox_snapshot(
     entry_predicate: str,
     matches_search_filters: str,
@@ -509,9 +503,8 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
 
 
 # The wire shape itself is defined beside the stanzas that carry it
-# (`chatprotocol.outbound.InboxConversation`); `Q_INBOX_SNAPSHOT`/
-# `Q_INBOX_ENTRY` return the underlying columns and the query gates the
-# viewer-visible fields, but the payload is assembled here.
+# (`chatprotocol.outbound.InboxConversation`); `_q_inbox_snapshot` returns the
+# underlying columns, but the payload is assembled here.
 def _conversation_from_row(row: Row) -> InboxConversation:
     return InboxConversation(
         person_uuid=row['person_uuid'],
@@ -554,9 +547,6 @@ async def _fetch_inbox_conversations(
             dict(username=username),
         )
 
-        # The same filters the `/search` predicates are built from, so the two
-        # can't drift; a viewer whose preferences admit everyone gets no
-        # predicates at all.
         filters = prospect_filters(prefs)
 
         params: dict[str, SearchParam] = dict(
@@ -568,7 +558,7 @@ async def _fetch_inbox_conversations(
 
         query = _q_inbox_snapshot(
             entry_predicate=entry_predicate,
-            matches_search_filters=and_clauses(filters.clauses, depth=20),
+            matches_search_filters=and_clauses(filters.clauses),
         )
 
         await tx.execute(query, params)

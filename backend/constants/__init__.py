@@ -21,20 +21,10 @@ LAST_UPDATE_INTERVAL_SECONDS = 4 * 60  # 4 minutes
 # judged offline between refreshes and silently dropped from a live push.
 VISITOR_ONLINE_TIMEOUT_SECONDS = 2 * LAST_UPDATE_INTERVAL_SECONDS  # 8 minutes
 
-# Two of the "Last online:" search-filter windows, in seconds. The `last_online`
-# lookup table is seeded from these (init-api.sql and migrations.sql, via
-# `{{...}}` placeholders `service.api.bootstrap` substitutes), so anything that
-# has to agree with the filter reads them here rather than restating the number.
-# The other windows are plain values with no second reader, and are spelled in
-# the seed alone.
-#
-# 'Now' means what the rest of the app means by online, so it's the same
-# threshold -- not a copy of today's value of one.
 LAST_ONLINE_NOW_SECONDS = VISITOR_ONLINE_TIMEOUT_SECONDS
 
-# 'A month ago': seeded as every new person's filter, and so the window that
-# decides whether a person is one a default search would turn up at all.
-LAST_ONLINE_DEFAULT_SECONDS = 30 * 24 * 60 * 60  # 30 days
+LAST_ONLINE_DEFAULT_NAME = 'A month ago'
+LAST_ONLINE_DEFAULT_SECONDS = 30 * 24 * 60 * 60
 
 # Most online-status subscriptions a single chat connection may hold at once.
 # Once reached, the earliest subscriptions are evicted to make room for new

@@ -1,5 +1,3 @@
-"""SQL for the `/feed` endpoint: `Q_FEED`, `Q_FEED_V2`, and their facepiles."""
-
 from constants import ONLINE_RECENTLY_SECONDS
 from commonsql import Q_COMPUTED_FLAIR
 from qanda import ANSWER_VISIBLE_TO_OTHERS
