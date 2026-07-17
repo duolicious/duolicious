@@ -84,6 +84,7 @@ expected=$(jq -r . << EOF
   "person_uuid": "$user2_uuid",
   "photo_blurhashes": [],
   "photo_extra_exts": [],
+  "photo_geometries": [],
   "photo_uuids": [],
   "photo_verifications": [],
   "relationship_status": null,
@@ -178,6 +179,7 @@ expected=$(jq -r . << EOF
   "person_uuid": "$user2_uuid",
   "photo_blurhashes": [],
   "photo_extra_exts": [],
+  "photo_geometries": [],
   "photo_uuids": [],
   "photo_verifications": [],
   "relationship_status": null,
@@ -278,3 +280,19 @@ gives_reply_percentage=$(
 [[ "$gets_reply_percentage" = 'null' ]]
 
 [[ "$gives_reply_percentage" = '20.0' ]]
+
+# The expand animation can't run without the photo's geometry, and the field
+# going missing from the response is invisible to the client: it just quietly
+# stops animating. `rand_image` uploads a 100x100 square, so the crop is the
+# whole photo.
+../util/create-user.sh user7 0 1
+
+user7_uuid=$(q "select uuid from person where name = 'user7'")
+
+assume_role user1
+
+photo_geometries=$(
+  c GET /prospect-profile/$user7_uuid \
+    | jq -c '.photo_geometries | map({width, height, crop_top, crop_left})')
+
+[[ "$photo_geometries" = '[{"width":100,"height":100,"crop_top":0,"crop_left":0}]' ]]

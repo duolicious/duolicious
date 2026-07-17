@@ -969,6 +969,7 @@ SELECT
         'photo_extra_exts',          (SELECT extra_exts                FROM photos),
         'photo_blurhashes',          (SELECT blurhashes                FROM photos),
         'photo_verifications',       (SELECT verifications             FROM photos),
+        'photo_geometries',          (SELECT geometries                FROM photos),
         'audio_bio_uuid',            (SELECT j                         FROM audio_bio_uuid),
         'name',                      (SELECT name                      FROM prospect),
         'url_slug',                  (SELECT url_slug                  FROM prospect),
