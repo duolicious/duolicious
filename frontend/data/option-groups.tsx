@@ -737,6 +737,7 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       }
     }
   },
+  lookingForOptionGroup,
   {
     title: 'Wants Kids',
     Icon: ({ color = 'black' }) => (
