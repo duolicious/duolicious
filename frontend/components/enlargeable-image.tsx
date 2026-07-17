@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { GestureResponderEvent, Pressable, StyleProp, View, ViewStyle } from 'react-native';
+import { GestureResponderEvent, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { PhotoOrSkeleton } from './profile-card';
 import { VerificationBadge } from './verification-badge';
 import * as _ from 'lodash';
@@ -58,6 +58,13 @@ const EnlargeablePhoto = ({
       return navigation.navigate('Gallery Screen', { photoUuid });
     }
 
+    // So the gallery can animate the preview's rounded corners out to square as
+    // it fills the screen, and back on the way in. Only a plain pixel radius is
+    // animatable here; a percentage (rare, and not used by these styles) falls
+    // back to no rounding rather than a wrong number.
+    const flatRadius = StyleSheet.flatten(style)?.borderRadius;
+    const borderRadius = typeof flatRadius === 'number' ? flatRadius : 0;
+
     ref.current.measureInWindow((x, y, width, height) => {
       // A zero-sized measurement means the preview isn't laid out where we can
       // expand from - fall back rather than animate out of nothing.
@@ -66,13 +73,14 @@ const EnlargeablePhoto = ({
           photoUuid,
           from: { x, y, width, height },
           geometry: photoGeometry,
+          borderRadius,
           covered: false,
         });
       }
 
       navigation.navigate('Gallery Screen', { photoUuid });
     });
-  }, [photoUuid, photoGeometry, navigation]);
+  }, [photoUuid, photoGeometry, style, navigation]);
 
   const prefetchEnlargedImage = useCallback(() => {
     if (!photoUuid || isGif) return;

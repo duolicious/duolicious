@@ -19,6 +19,9 @@ type ExpandedPhoto = {
 
   geometry: PhotoGeometry
 
+  // The preview's corner radius, animated out to square as it fills the screen.
+  borderRadius: number
+
   // Whether the gallery has drawn its copy of the photo over the preview yet.
   // The preview only hides once this is set, because the gallery is a screen
   // and doesn't paint on the same frame as the press: hiding on the press

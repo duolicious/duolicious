@@ -52,7 +52,7 @@ const ExpandingPhoto = ({
   zoom: PinchyZoom,
   onCovered: () => void,
 }) => {
-  const { photoUuid, from, geometry } = expandedPhoto;
+  const { photoUuid, from, geometry, borderRadius } = expandedPhoto;
 
   const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => {
     // `from` was measured in window coordinates, but this draws inside the
@@ -79,6 +79,8 @@ const ExpandingPhoto = ({
     top: lerp(closed.clip.y, opened.clip.y, progress.value),
     width: lerp(closed.clip.width, opened.clip.width, progress.value),
     height: lerp(closed.clip.height, opened.clip.height, progress.value),
+    // Rounded like the preview at the start, square once it fills the screen.
+    borderRadius: lerp(borderRadius, 0, progress.value),
     transform: [
       { scale: lerp(1, zoom.scale.value, progress.value) },
       { translateX: lerp(0, zoom.translateX.value, progress.value) },
