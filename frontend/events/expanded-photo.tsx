@@ -4,6 +4,16 @@ import type { PhotoGeometry, Rect } from '../util/photos';
 
 const EVENT_KEY = 'expanded-photo';
 
+// Per-corner so a preview that rounds only some corners (the big-screen primary
+// photo rounds just its bottom two) animates each correctly, rather than
+// snapping the corners a single radius can't describe.
+type BorderRadii = {
+  topLeft: number
+  topRight: number
+  bottomLeft: number
+  bottomRight: number
+};
+
 // The photo the gallery is currently expanding out of, and back into when it
 // closes. Passing this through React Navigation's `route.params` would leak
 // measured pixel coordinates into the URL, so - as with `prospect-cache` - the
@@ -19,8 +29,8 @@ type ExpandedPhoto = {
 
   geometry: PhotoGeometry
 
-  // The preview's corner radius, animated out to square as it fills the screen.
-  borderRadius: number
+  // The preview's corner radii, animated out to square as it fills the screen.
+  borderRadius: BorderRadii
 
   // Whether the gallery has drawn its copy of the photo over the preview yet.
   // The preview only hides once this is set, because the gallery is a screen
@@ -63,6 +73,10 @@ export {
   getExpandedPhoto,
   setExpandedPhoto,
   useIsPhotoExpanded,
+};
+
+export type {
+  BorderRadii,
 };
 
 export type {

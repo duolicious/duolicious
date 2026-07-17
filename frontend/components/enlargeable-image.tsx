@@ -59,11 +59,21 @@ const EnlargeablePhoto = ({
     }
 
     // So the gallery can animate the preview's rounded corners out to square as
-    // it fills the screen, and back on the way in. Only a plain pixel radius is
-    // animatable here; a percentage (rare, and not used by these styles) falls
-    // back to no rounding rather than a wrong number.
-    const flatRadius = StyleSheet.flatten(style)?.borderRadius;
-    const borderRadius = typeof flatRadius === 'number' ? flatRadius : 0;
+    // it fills the screen, and back on the way in. Read each corner (the
+    // big-screen primary photo rounds only its bottom two), falling back to the
+    // `borderRadius` shorthand. Only plain pixel radii are animatable here; a
+    // percentage (rare, and not used by these styles) reads as no rounding
+    // rather than a wrong number.
+    const flat = StyleSheet.flatten(style) ?? {};
+    const px = (value: unknown, fallback: number): number =>
+      typeof value === 'number' ? value : fallback;
+    const shorthand = px(flat.borderRadius, 0);
+    const borderRadius = {
+      topLeft: px(flat.borderTopLeftRadius, shorthand),
+      topRight: px(flat.borderTopRightRadius, shorthand),
+      bottomLeft: px(flat.borderBottomLeftRadius, shorthand),
+      bottomRight: px(flat.borderBottomRightRadius, shorthand),
+    };
 
     ref.current.measureInWindow((x, y, width, height) => {
       // A zero-sized measurement means the preview isn't laid out where we can

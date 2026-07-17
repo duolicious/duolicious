@@ -80,7 +80,10 @@ const ExpandingPhoto = ({
     width: lerp(closed.clip.width, opened.clip.width, progress.value),
     height: lerp(closed.clip.height, opened.clip.height, progress.value),
     // Rounded like the preview at the start, square once it fills the screen.
-    borderRadius: lerp(borderRadius, 0, progress.value),
+    borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value),
+    borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value),
+    borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value),
+    borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value),
     transform: [
       { scale: lerp(1, zoom.scale.value, progress.value) },
       { translateX: lerp(0, zoom.translateX.value, progress.value) },
