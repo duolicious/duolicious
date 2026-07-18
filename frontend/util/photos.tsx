@@ -54,20 +54,11 @@ type Rect = {
   height: number
 };
 
-// One frame of the expand animation: where the uncropped original sits, and
-// which part of it is visible.
-//
-// `clip` is a window onto the photo; `image` is the whole original, positioned
-// relative to `clip`'s top-left and drawn behind it. At t=0 `clip` is the
-// on-screen preview and the crop fills it exactly, so the frame is
-// indistinguishable from the preview it replaces. At t=1 `clip` has grown to
-// contain the whole image, which is now fitted to the viewport. In between the
-// window widens and the photo scales, which reads as the crop opening up.
-//
-// `crop` is where the square rendition - the very image the preview is already
-// showing, so it's in cache and paints immediately - lines up within `clip`.
-// Drawing it under `image` means the photo is never missing while the original
-// decodes. At t=0 it covers `clip` exactly.
+// One frame of the expand animation. `clip` is a window onto the photo;
+// `image` is the whole original, positioned relative to `clip`'s top-left. At
+// t=0 `clip` is the on-screen preview; at t=1 it contains the whole image,
+// fitted to the viewport. `crop` is where the square rendition - cached, so it
+// paints while the original decodes - lines up within `clip`.
 type PhotoExpandFrame = {
   clip: Rect
   image: Rect
@@ -142,23 +133,7 @@ const photoExpandFrame = (
   };
 };
 
-// The on-screen size of a photo fitted within `viewport`, never enlarged past
-// its native resolution - the same rule `photoExpandFrame` and the zoomable
-// viewer use, so a photo is the same size however it's shown.
-const fittedPhotoSize = (
-  geometry: { width: number, height: number },
-  viewport: { width: number, height: number },
-): { width: number, height: number } => {
-  const scale = Math.min(
-    1,
-    viewport.width / geometry.width,
-    viewport.height / geometry.height,
-  );
-  return { width: geometry.width * scale, height: geometry.height * scale };
-};
-
 export {
-  fittedPhotoSize,
   hasGifExtraExt,
   photoExpandFrame,
   photoUri,

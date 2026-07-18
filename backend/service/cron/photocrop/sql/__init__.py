@@ -1,8 +1,7 @@
-# `crop_attempted_at` is what drains this queue. A photo whose crop can't be
-# recovered - a missing rendition, or renditions that don't match - would
-# otherwise stay `width IS NULL` and be re-fetched on every pass, and since the
-# batch isn't offset, a batch of them would sit at the head forever and the
-# backlog would never move.
+# `crop_attempted_at` drains the queue: photos whose crop can't be recovered
+# would otherwise stay `width IS NULL` and be re-fetched on every pass. The
+# keyset cursor (`after`) does the same for dry runs, which never mark
+# anything. Served by the partial index idx__photo__crop_backlog.
 Q_PHOTOS_WITHOUT_GEOMETRY = """
 SELECT
     uuid
@@ -12,6 +11,10 @@ WHERE
     width IS NULL
 AND
     crop_attempted_at IS NULL
+AND
+    uuid > %(after)s
+ORDER BY
+    uuid
 LIMIT
     %(limit)s
 """

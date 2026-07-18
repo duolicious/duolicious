@@ -77,6 +77,11 @@ ALTER TABLE photo
     ADD COLUMN IF NOT EXISTS crop_left INT,
     ADD COLUMN IF NOT EXISTS crop_attempted_at TIMESTAMP;
 
+-- The photocrop backfill's queue: tiny, and empties as the backlog drains.
+CREATE INDEX IF NOT EXISTS idx__photo__crop_backlog
+    ON photo(uuid)
+    WHERE width IS NULL AND crop_attempted_at IS NULL;
+
 -- The geometry JSON is now shaped in the application (`commonsql.PHOTO_GEOMETRY`)
 -- rather than by a database function; drop the function this migration used to
 -- create so already-migrated databases shed it too.

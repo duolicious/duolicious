@@ -6,11 +6,9 @@ EXISTS (SELECT 1 FROM person WHERE normalized_email = %(normalized_email)s)
 """
 
 
-# The JSON geometry describing how a photo's square renditions were cropped from
-# its original, or NULL when it hasn't been recorded (clients read NULL as
-# "don't animate the crop"). The row must be aliased `photo`. Interpolated into
-# the profile and feed queries rather than kept as a Postgres function, so the
-# shaping lives in the application instead of the database.
+# How a photo's square renditions were cropped from the original, or NULL when
+# unrecorded (clients read NULL as "don't animate the crop"). The row must be
+# aliased `photo`.
 PHOTO_GEOMETRY = """
     CASE WHEN photo.width IS NOT NULL THEN json_build_object(
         'width',     photo.width,

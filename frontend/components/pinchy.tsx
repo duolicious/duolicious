@@ -294,13 +294,11 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
       .manualActivation(true)
       .onTouchesMove((e, stateManager) => {
         'worklet';
-        // Activate the moment a second finger is down - i.e. a pinch - even
-        // before it has grown the scale past 1, so pan tracks the touch from
-        // the start of the gesture. React Native Gesture Handler then smooths
-        // out the discontinuity when a finger lifts; a pan that only activates
-        // partway through (once the pinch crosses scale 1) starts tracking the
-        // centroid mid-gesture, and the lift jumps the image instead. A single
-        // finger pans once zoomed, or drags to dismiss/page when zoomed out.
+        // Activate the moment a second finger is down - even before the pinch
+        // grows the scale past 1 - so pan tracks the touch from the start of
+        // the gesture; activating mid-gesture makes the finger lift jump the
+        // image. A single finger pans once zoomed, or drags to dismiss/page
+        // when zoomed out.
         if (
           e.numberOfTouches > 1 ||
           scale.value > 1 + 1e-5 ||

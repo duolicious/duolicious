@@ -56,19 +56,14 @@ const EnlargeablePhoto = ({
     }
 
     // Without a geometry there's nothing to uncrop the photo into, so the
-    // gallery just fades up instead. Measuring is what tells it where to
-    // expand from, and it can't be done from the layout alone: the preview
-    // scrolls, so only its position at the moment of the press will do.
+    // gallery just fades up instead.
     if (!photoGeometry || !ref.current) {
       return navigation.navigate('Gallery Screen', { photoUuid });
     }
 
-    // So the gallery can animate the preview's rounded corners out to square as
-    // it fills the screen, and back on the way in. Read each corner (the
-    // big-screen primary photo rounds only its bottom two), falling back to the
-    // `borderRadius` shorthand. Only plain pixel radii are animatable here; a
-    // percentage (rare, and not used by these styles) reads as no rounding
-    // rather than a wrong number.
+    // Per corner (the big-screen primary photo rounds only its bottom two),
+    // falling back to the shorthand. Only plain pixel radii are animatable; a
+    // percentage reads as no rounding rather than a wrong number.
     const flat = StyleSheet.flatten(style) ?? {};
     const px = (value: unknown, fallback: number): number =>
       typeof value === 'number' ? value : fallback;
@@ -80,13 +75,12 @@ const EnlargeablePhoto = ({
       bottomRight: px(flat.borderBottomRightRadius, shorthand),
     };
 
-    // The photos the gallery can page between. Fall back to just this one.
     const fullAlbum: AlbumPhoto[] =
       album && album.length ? album : [{ uuid: photoUuid, geometry: photoGeometry }];
 
+    // Measured at press time because the preview scrolls; a zero-sized
+    // measurement means there's nowhere to expand from, so fall back.
     ref.current.measureInWindow((x, y, width, height) => {
-      // A zero-sized measurement means the preview isn't laid out where we can
-      // expand from - fall back rather than animate out of nothing.
       if (width > 0 && height > 0) {
         setExpandedPhoto({
           photoUuid,

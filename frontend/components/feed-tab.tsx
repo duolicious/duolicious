@@ -99,7 +99,7 @@ const DataItemBaseSchema = z.object({
 });
 
 // Absent for photos whose geometry the server hasn't recorded, which the
-// gallery reads as "“don't expand this one".
+// gallery reads as "don't expand this one".
 const PhotoGeometrySchema = z.object({
   width: z.number(),
   height: z.number(),

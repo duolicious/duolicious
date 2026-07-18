@@ -101,9 +101,7 @@ const buildAlbum = (
   uuids: string[] | undefined,
   geometries: (PhotoGeometry | null)[] | undefined,
 ): AlbumPhoto[] =>
-  (uuids ?? [])
-    .map((uuid, i) => ({ uuid, geometry: geometries?.[i] ?? null }))
-    .filter((photo) => Boolean(photo.uuid));
+  (uuids ?? []).map((uuid, i) => ({ uuid, geometry: geometries?.[i] ?? null }));
 
 type ProspectNavigation = NativeStackNavigationProp<ProspectParamList>;
 type ProspectNavigationRef = MutableRefObject<ProspectNavigation | undefined>;
@@ -1011,8 +1009,6 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 
   const imageVerifications = data?.photo_verifications;
 
-  const photoGeometries = data?.photo_geometries;
-
   const album = useMemo(
     () => buildAlbum(data?.photo_uuids, data?.photo_geometries),
     [data?.photo_uuids, data?.photo_geometries],
@@ -1129,7 +1125,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
                   photoUuid={photoUuid0}
                   photoExtraExts={photoExtraExts0}
                   photoBlurhash={photoBlurhash0}
-                  photoGeometry={photoGeometries?.[0]}
+                  photoGeometry={album[0]?.geometry}
                   album={album}
                   isPrimary={true}
                   isVerified={imageVerification0}
@@ -1421,13 +1417,6 @@ const Body = ({
     [data?.photo_uuids, data?.photo_geometries],
   );
 
-  const photoGeometry1 = data?.photo_geometries && data?.photo_geometries[1];
-  const photoGeometry2 = data?.photo_geometries && data?.photo_geometries[2];
-  const photoGeometry3 = data?.photo_geometries && data?.photo_geometries[3];
-  const photoGeometry4 = data?.photo_geometries && data?.photo_geometries[4];
-  const photoGeometry5 = data?.photo_geometries && data?.photo_geometries[5];
-  const photoGeometry6 = data?.photo_geometries && data?.photo_geometries[6];
-
   // Compare on UUID rather than the numeric `personId` we lift out of `data`,
   // so the "Block" button doesn't briefly render before the API response lands.
   const isViewingSelf =
@@ -1618,7 +1607,7 @@ const Body = ({
           photoUuid={photoUuid1}
           photoExtraExts={photoExtraExts1}
           photoBlurhash={photoBlurhash1}
-          photoGeometry={photoGeometry1}
+          photoGeometry={album[1]?.geometry}
           album={album}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
@@ -1645,7 +1634,7 @@ const Body = ({
           photoUuid={photoUuid2}
           photoExtraExts={photoExtraExts2}
           photoBlurhash={photoBlurhash2}
-          photoGeometry={photoGeometry2}
+          photoGeometry={album[2]?.geometry}
           album={album}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
@@ -1657,7 +1646,7 @@ const Body = ({
           photoUuid={photoUuid3}
           photoExtraExts={photoExtraExts3}
           photoBlurhash={photoBlurhash3}
-          photoGeometry={photoGeometry3}
+          photoGeometry={album[3]?.geometry}
           album={album}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
@@ -1677,7 +1666,7 @@ const Body = ({
           photoUuid={photoUuid4}
           photoExtraExts={photoExtraExts4}
           photoBlurhash={photoBlurhash4}
-          photoGeometry={photoGeometry4}
+          photoGeometry={album[4]?.geometry}
           album={album}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
@@ -1689,7 +1678,7 @@ const Body = ({
           photoUuid={photoUuid5}
           photoExtraExts={photoExtraExts5}
           photoBlurhash={photoBlurhash5}
-          photoGeometry={photoGeometry5}
+          photoGeometry={album[5]?.geometry}
           album={album}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
@@ -1701,7 +1690,7 @@ const Body = ({
           photoUuid={photoUuid6}
           photoExtraExts={photoExtraExts6}
           photoBlurhash={photoBlurhash6}
-          photoGeometry={photoGeometry6}
+          photoGeometry={album[6]?.geometry}
           album={album}
           style={commonStyles.secondaryEnlargeablePhoto}
           innerStyle={commonStyles.secondaryEnlargeablePhotoInner}

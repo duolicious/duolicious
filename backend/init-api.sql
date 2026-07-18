@@ -946,6 +946,11 @@ CREATE INDEX IF NOT EXISTS idx__deleted_photo_admin_token__expires_at
 CREATE INDEX IF NOT EXISTS idx__photo__uuid
     ON photo(uuid);
 
+-- The photocrop backfill's queue: tiny, and empties as the backlog drains.
+CREATE INDEX IF NOT EXISTS idx__photo__crop_backlog
+    ON photo(uuid)
+    WHERE width IS NULL AND crop_attempted_at IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
     ON photo(nsfw_score);
 

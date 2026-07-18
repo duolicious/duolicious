@@ -10,6 +10,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootParamList } from '../navigation/linking';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { DefaultText } from './default-text';
@@ -29,7 +30,7 @@ const DURATION_MS = 280;
 const EASING = Easing.bezier(0.33, 0, 0.15, 1);
 
 // How far (screen px) the photo has to be dragged for the backdrop to fade all
-// the way to transparent, revealing the profile it dismisses back to.
+// the way to transparent.
 const DISMISS_FADE_RANGE = 300;
 
 // The back button and click-to-navigate zones are desktop-web only; on mobile
@@ -48,8 +49,7 @@ const lerp = (a: number, b: number, t: number) => {
 
 // The photo, expanding. Stands in for the preview - which hides itself - so
 // that only one instance of the photo is ever apparent. The frame is linear in
-// `progress`, so its endpoints are computed once here and lerped on the UI
-// thread. See `photoExpandFrame`.
+// `progress`, so its endpoints are computed once and lerped on the UI thread.
 const ExpandingPhoto = ({
   expandedPhoto,
   progress,
@@ -66,7 +66,7 @@ const ExpandingPhoto = ({
   zoom: PinchyZoom,
   dismiss: PinchyDismiss,
   // The pager's scroll, and this photo's resting scroll, so the morph tracks
-  // the pager and stays hidden under the current photo during a swipe.
+  // the pager during a swipe.
   scrollX: SharedValue<number>,
   openedX: number,
   onCovered: () => void,
@@ -75,8 +75,8 @@ const ExpandingPhoto = ({
 
   const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => {
     // `from` was measured in window coordinates, but this draws inside the
-    // gallery's container, which isn't necessarily the window: on Android the
-    // window excludes the system bars while the modal spans the whole screen.
+    // gallery's container: on Android the window excludes the system bars
+    // while the modal spans the whole screen.
     const start: Rect = {
       ...from,
       x: from.x - container.x,
@@ -90,13 +90,11 @@ const ExpandingPhoto = ({
   }, [geometry, from, container]);
 
   // At `progress` 1 this is the photo exactly as Pinchy has it, zoom and all,
-  // so closing carries it out from wherever the user left it rather than
-  // snapping back to fitted first. The zoom unwinds as the photo returns to the
-  // preview, where it has to be identity. Same order as Pinchy's own transform.
+  // so closing carries it out from wherever the user left it. Same transform
+  // order as Pinchy's.
   const clipStyle = useAnimatedStyle(() => {
-    // A dismiss drag rounds all four corners uniformly; it's added on top of
-    // the open/close rounding so the corners match the dragged photo at the
-    // hand-off, then unwinds to the preview's radii as the close plays out.
+    // A dismiss drag rounds all four corners on top of the open/close
+    // rounding, so the corners match the dragged photo at the hand-off.
     const dragRadius = dragDismissRadius(dismiss.x.value, dismiss.y.value);
 
     return {
@@ -104,16 +102,13 @@ const ExpandingPhoto = ({
     top: lerp(closed.clip.y, opened.clip.y, progress.value),
     width: lerp(closed.clip.width, opened.clip.width, progress.value),
     height: lerp(closed.clip.height, opened.clip.height, progress.value),
-    // Rounded like the preview at the start, square once it fills the screen.
     borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value) + dragRadius,
     borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value) + dragRadius,
     borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value) + dragRadius,
     borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value) + dragRadius,
     transform: [
-      // Track the pager so the morph slides with the current photo (and out of
-      // sight) as it's swiped, plus a dismiss drag carried in from the open
-      // photo. Both screen-space, outermost, so the zoom scale doesn't
-      // multiply them.
+      // The pager offset and dismiss drag are screen-space, so they go
+      // outermost, ahead of the zoom scale.
       { translateX: (openedX - scrollX.value) + dismiss.x.value },
       { translateY: dismiss.y.value },
       { scale: lerp(1, zoom.scale.value, progress.value) },
@@ -140,9 +135,9 @@ const ExpandingPhoto = ({
   return (
     <Reanimated.View style={[styles.clip, clipStyle]}>
       {/*
-        The square rendition the preview was already showing. It's in cache, so
-        it paints on the first frame - which it covers exactly - and holds the
-        photo's place while the original decodes.
+        The square rendition the preview was already showing: in cache, so it
+        paints on the first frame and holds the photo's place while the
+        original decodes.
       */}
       <Reanimated.View style={[styles.image, cropStyle]}>
         <ExpoImage
@@ -183,8 +178,7 @@ const GalleryScreen = ({
     return e?.photoUuid === photoUuid ? e : null;
   });
 
-  // The photos to page between, and where we started. A deep link with no
-  // album is a one-photo gallery.
+  // A deep link with no album is a one-photo gallery.
   const album: AlbumPhoto[] = useMemo(
     () => expandedPhoto?.album ?? [{ uuid: photoUuid, geometry: null }],
     [expandedPhoto, photoUuid],
@@ -195,11 +189,9 @@ const GalleryScreen = ({
   );
 
   const [index, setIndex] = useState(openedIndex);
-  const current = album[index] ?? album[0];
 
-  // Warm the cache for every photo's full-size original the moment the gallery
-  // opens. The profile only loaded the cropped preview renditions, so without
-  // this the first swipe to a neighbour flashes blank while its original loads.
+  // Warm the cache for every photo's full-size original, so the first swipe
+  // to a neighbour doesn't flash blank while its original loads.
   useEffect(() => {
     album.forEach((photo) => {
       try {
@@ -228,8 +220,8 @@ const GalleryScreen = ({
     translateY: zoomTranslateY,
   }), [zoomScale, zoomTranslateX, zoomTranslateY]);
 
-  // A fixed identity transform for the off-screen pages, which aren't zoomable.
-  // Only the current page gets the live `zoom`.
+  // A fixed identity transform for the off-screen pages, which aren't
+  // zoomable. Only the current page gets the live `zoom`.
   const identityScale = useSharedValue(1);
   const identityZero = useSharedValue(0);
   const identityZoom: PinchyZoom = useMemo(() => ({
@@ -254,10 +246,11 @@ const GalleryScreen = ({
 
   const isFinishing = useRef(false);
 
-  // Everything here is positioned within this container rather than within the
-  // window, and it's measured rather than assumed to be the window: on Android
-  // the two differ by the system bars, and anything working in window
-  // coordinates ends up offset from anything working in the container's.
+  const insets = useSafeAreaInsets();
+
+  // Everything here is positioned within this container, which is measured
+  // rather than assumed to be the window: on Android the two differ by the
+  // system bars.
   const containerRef = useRef<View>(null);
   const [container, setContainer] = useState<Rect | null>(null);
 
@@ -281,9 +274,9 @@ const GalleryScreen = ({
 
   const width = container?.width ?? 0;
 
-  // The pager's horizontal scroll, in px. Slots sit at absolute `i * width`, so
-  // this settles at `index * width`; changing `index` alone never shifts a slot
-  // and so never flickers.
+  // The pager's horizontal scroll, in px. Slots sit at absolute `i * width`,
+  // so this settles at `index * width`; changing `index` alone never shifts a
+  // slot and so never flickers.
   const scrollX = useSharedValue(0);
   useEffect(() => {
     scrollX.value = index * width;
@@ -300,8 +293,8 @@ const GalleryScreen = ({
     transform: [{ translateX: -scrollX.value }],
   }));
 
-  // Move to another photo, sliding the pager and resetting the zoom/dismiss of
-  // the photo we're leaving.
+  // Move to another photo, sliding the pager and resetting the zoom/dismiss
+  // of the photo we're leaving.
   const goTo = useCallback((next: number) => {
     const target = Math.max(0, Math.min(album.length - 1, next));
     if (target === index) {
@@ -318,15 +311,13 @@ const GalleryScreen = ({
   }, [album.length, index, width]);
 
   // Until this screen has drawn the photo over the preview, the preview is
-  // still the one on show and nothing may move: the first frame has to be
-  // indistinguishable from the screen underneath.
+  // still the one on show and nothing may move.
   const [isCovering, setIsCovering] = useState(!expandedPhoto);
 
   const onCovered = useCallback(() => setIsCovering(true), []);
 
-  // The square rendition is the one the preview is already displaying, so it
-  // comes from cache and this is a formality - but don't hang the animation on
-  // a load event that never arrives.
+  // The square rendition comes from cache, so its load event is a formality -
+  // but don't hang the animation on one that never arrives.
   useEffect(() => {
     if (!expandedPhoto) return;
     const timeout = setTimeout(onCovered, 250);
@@ -336,8 +327,8 @@ const GalleryScreen = ({
   useEffect(() => {
     if (!expandedPhoto) return;
     if (!isCovering) return;
-    // Nothing is drawn over the preview until the container has been measured,
-    // so hiding it before then would leave the photo missing.
+    // Nothing is drawn over the preview until the container has been
+    // measured, so hiding it before then would leave the photo missing.
     if (!container) return;
     if (isFinishing.current) return;
 
@@ -351,6 +342,11 @@ const GalleryScreen = ({
       },
     );
   }, [expandedPhoto, isCovering, container]);
+
+  // However this screen goes away, the preview it hid must come back.
+  useEffect(() => {
+    return () => setExpandedPhoto(null);
+  }, []);
 
   const backdropStyle = useAnimatedStyle(() => {
     const opened = Math.min(1, progress.value * 2);
@@ -367,27 +363,28 @@ const GalleryScreen = ({
     if (isFinishing.current) return;
     isFinishing.current = true;
 
+    // `finish` runs even if the timing is interrupted: better to cut the
+    // animation short than to leave the navigation permanently prevented.
     if (expandedPhoto && onOpenedPhoto) {
       // Reverse the expand back into the preview.
       setPhase('closing');
       progress.value = withTiming(
         0,
         { duration: DURATION_MS, easing: EASING },
-        (finished) => { if (finished) runOnJS(finish)(); },
+        () => { runOnJS(finish)(); },
       );
       return;
     }
 
     // No preview to return to (a deep link, or we paged away from the opened
-    // photo): fade the whole gallery out to reveal the screen underneath. Let
-    // the hidden preview show again now, at the start of the fade, so the
-    // profile is already there as the viewer dissolves rather than popping in
-    // once it's gone.
+    // photo): fade the whole gallery out. Let the hidden preview show again
+    // now, at the start of the fade, so the profile is already there as the
+    // viewer dissolves.
     setExpandedPhoto(null);
     fadeOut.value = withTiming(
       0,
       { duration: DURATION_MS, easing: EASING },
-      (finished) => { if (finished) runOnJS(finish)(); },
+      () => { runOnJS(finish)(); },
     );
   }, [expandedPhoto, onOpenedPhoto]);
 
@@ -412,18 +409,28 @@ const GalleryScreen = ({
     close(() => finishAndPop(() => navigation.reset({ routes: [{ name: 'Home' }] })));
   }, [navigation, close, finishAndPop]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onPressBack();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onPressBack]);
+
   const onDismiss = useCallback(() => {
-    // On the opened photo the reverse-morph carries the drag back into the
-    // preview, so unwind it over the same time. Paged away, the gallery just
-    // fades from where the photo was flicked - leave the offset be.
-    if (onOpenedPhoto) {
+    // The reverse-morph carries the drag back into the preview, so unwind it
+    // over the same time. Without a morph the gallery just fades from where
+    // the photo was flicked - leave the offset be.
+    if (expandedPhoto && onOpenedPhoto) {
       dismissX.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
       dismissY.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
     }
     onPressBack();
-  }, [onPressBack, onOpenedPhoto, dismissX, dismissY]);
+  }, [onPressBack, expandedPhoto, onOpenedPhoto, dismissX, dismissY]);
 
-  // A horizontal swipe past the threshold pages; onEnd hands us the direction.
   const onNavigate = useCallback((dir: number) => {
     goTo(index + dir);
   }, [goTo, index]);
@@ -435,16 +442,12 @@ const GalleryScreen = ({
       style={StyleSheet.absoluteFill}
     >
      <Reanimated.View style={[StyleSheet.absoluteFill, fadeStyle]}>
-      <Reanimated.View
-        style={[styles.backdrop, expandedPhoto ? backdropStyle : undefined]}
-      />
+      <Reanimated.View style={[styles.backdrop, backdropStyle]} />
 
       {/*
         Stays mounted under the pager for the opened photo, so it covers the
         moment the pager's interactive copy mounts (opening) and unmounts
-        (closing) - otherwise that hand-off flickers. It tracks the pager
-        scroll, so during a swipe it slides away with the photo rather than
-        peeking out from under it.
+        (closing) - otherwise that hand-off flickers.
       */}
       {expandedPhoto && container && onOpenedPhoto &&
         <ExpandingPhoto
@@ -470,12 +473,12 @@ const GalleryScreen = ({
                 uuid={photo.uuid}
                 naturalSize={photo.geometry ?? undefined}
                 zoom={i === index ? zoom : identityZoom}
-                dismiss={i === index && expandedPhoto ? dismiss : undefined}
-                onDismiss={i === index && expandedPhoto ? onDismiss : undefined}
+                dismiss={i === index ? dismiss : undefined}
+                onDismiss={i === index ? onDismiss : undefined}
                 page={i === index && album.length > 1 ? page : undefined}
                 onNavigate={i === index && album.length > 1 ? onNavigate : undefined}
                 viewport={container}
-                backgroundColor={i === index && onOpenedPhoto && expandedPhoto ? 'transparent' : 'black'}
+                backgroundColor={i === index ? 'transparent' : 'black'}
               />
             </View>
           ))}
@@ -499,7 +502,13 @@ const GalleryScreen = ({
       }
 
       {album.length > 1 &&
-        <View style={styles.counter} pointerEvents="none">
+        <View
+          style={[
+            styles.counter,
+            { top: 14 + (Platform.OS === 'web' ? 0 : insets.top) },
+          ]}
+          pointerEvents="none"
+        >
           <DefaultText style={styles.counterText}>
             {index + 1}/{album.length}
           </DefaultText>
@@ -538,7 +547,6 @@ const styles = StyleSheet.create({
   },
   counter: {
     position: 'absolute',
-    top: 14,
     right: 14,
     paddingVertical: 4,
     paddingHorizontal: 10,
