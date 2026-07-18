@@ -27,7 +27,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { IMAGES_URL } from '../env/env';
-import { constrainPosition, dragDismissRadius, dragDistance, focalZoomPosition } from './pinchy-math';
+import {
+  constrainPosition,
+  dragDismissRadius,
+  dragDistance,
+  focalZoomPosition,
+  lockedDragMode,
+  pageNavDirection,
+} from './pinchy-math';
 
 // Double-tap zoom eases in rather than snapping. A pinch or pan writing the
 // shared values directly cancels it mid-flight, which is what you want.
@@ -91,9 +98,6 @@ const FitWithinScreenImage = ({
   const [imageHeight, setImageHeight] = useState<number | null>(initialFit?.height ?? null);
 
   useEffect(() => {
-    // Callers that already know the photo's dimensions (the API reports them)
-    // save the round trip, and with it the spinner that would otherwise appear
-    // for a frame in place of an image the caller has already drawn.
     if (naturalSize) {
       setImageSize(naturalSize);
       return;
@@ -262,7 +266,6 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
         'worklet';
         const newScale = Math.max(1, e.scale * pinchBaseScale.value);
 
-        // Zoom towards the fingers rather than the middle of the photo.
         const target = focalZoomPosition(
           pinchBaseScale.value,
           newScale,
@@ -342,17 +345,15 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
           return;
         }
 
-        // Lock to whichever axis the drag commits to first: sideways pages,
-        // up/down dismisses. Only the modes the caller enabled are available.
-        if (dragMode.value === 'none') {
-          const moved = Math.max(Math.abs(e.translationX), Math.abs(e.translationY));
-          if (moved > 8) {
-            const horizontal = Math.abs(e.translationX) >= Math.abs(e.translationY);
-            if (horizontal && page) dragMode.value = 'page';
-            else if (!horizontal && dismiss) dragMode.value = 'dismiss';
-            else if (page) dragMode.value = 'page';
-            else if (dismiss) dragMode.value = 'dismiss';
-          }
+        const moved = Math.max(Math.abs(e.translationX), Math.abs(e.translationY));
+
+        // Lock to whichever axis the drag commits to first.
+        if (dragMode.value === 'none' && moved > 8) {
+          dragMode.value = lockedDragMode(
+            Math.abs(e.translationX) >= Math.abs(e.translationY),
+            page !== undefined,
+            dismiss !== undefined,
+          );
         }
 
         if (dragMode.value === 'page' && page) {
@@ -365,27 +366,38 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
       })
       .onEnd((e) => {
         'worklet';
-        if (dragMode.value === 'page' && page) {
+        const endPageDrag = () => {
+          if (!page) return;
+
           const atIndex = Math.round(page.homeX / page.width);
-          let dir = 0;
-          if (e.translationX <= -NAV_THRESHOLD && atIndex < page.count - 1) dir = 1;
-          else if (e.translationX >= NAV_THRESHOLD && atIndex > 0) dir = -1;
+          const dir = pageNavDirection(
+            e.translationX, NAV_THRESHOLD, atIndex, page.count,
+          );
 
           if (dir !== 0 && onNavigate) {
             runOnJS(onNavigate)(dir);
-          } else {
-            // Not far enough (or at an end): slide back in one motion.
-            page.scrollX.value = withTiming(page.homeX, DISMISS_RETURN);
+            return;
           }
-        } else if (dragMode.value === 'dismiss' && dismiss) {
+
+          page.scrollX.value = withTiming(page.homeX, DISMISS_RETURN);
+        };
+
+        const endDismissDrag = () => {
+          if (!dismiss) return;
+
           const dragged = dragDistance(dismiss.x.value, dismiss.y.value);
+
           if (dragged > DISMISS_THRESHOLD && onDismiss) {
             runOnJS(onDismiss)();
-          } else {
-            dismiss.x.value = withTiming(0, DISMISS_RETURN);
-            dismiss.y.value = withTiming(0, DISMISS_RETURN);
+            return;
           }
-        }
+
+          dismiss.x.value = withTiming(0, DISMISS_RETURN);
+          dismiss.y.value = withTiming(0, DISMISS_RETURN);
+        };
+
+        if (dragMode.value === 'page') endPageDrag();
+        if (dragMode.value === 'dismiss') endDismissDrag();
       }),
     [dismiss, onDismiss, page, onNavigate, scale, positionX, positionY],
   );
@@ -449,8 +461,6 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
     const dismissY = dismiss ? dismiss.y.value : 0;
 
     return {
-      // Round the corners as the photo is dragged away, so it never lifts off
-      // the screen looking square.
       borderRadius: dragDismissRadius(dismissX, dismissY),
       // The dismiss drag translates the whole photo in screen space, so it goes
       // outermost (ahead of the zoom scale, which it must not be multiplied by).

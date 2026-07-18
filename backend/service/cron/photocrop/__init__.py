@@ -85,12 +85,17 @@ async def _backfill(uuids: list[str]) -> None:
         originals: list[io.BytesIO | None],
         squares: list[io.BytesIO | None],
     ) -> list[dict[str, str | int]]:
-        return [
-            dict(uuid=uuid, **photo_geometry_params(geometry))
-            for uuid, original, square in zip(chunk, originals, squares)
-            for geometry in [_geometry_of(uuid, original, square)]
-            if geometry is not None
-        ]
+        params: list[dict[str, str | int]] = []
+
+        for uuid, original, square in zip(chunk, originals, squares):
+            geometry = _geometry_of(uuid, original, square)
+
+            if geometry is None:
+                continue
+
+            params.append(dict(uuid=uuid, **photo_geometry_params(geometry)))
+
+        return params
 
     params_seq: list[dict[str, str | int]] = []
 

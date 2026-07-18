@@ -31,10 +31,8 @@ describe('focalZoomPosition', () => {
   it('keeps the pinched point under the fingers as the scale grows', () => {
     const baseScale = 1;
     const basePosition = { x: 0, y: 0 };
-    // Fingers centred on a point up and to the left of the middle.
     const focal = { x: 120, y: 250 };
 
-    // The image point the fingers are on before zooming.
     const anchored = imagePointUnder(focal, baseScale, basePosition, viewport);
 
     const newScale = 2.5;
@@ -42,7 +40,6 @@ describe('focalZoomPosition', () => {
       baseScale, newScale, basePosition, focal, focal, viewport.width, viewport.height,
     );
 
-    // That same image point must still project to the focal after zooming.
     const after = screenOf(anchored, newScale, position, viewport);
     expect(after.x).toBeCloseTo(focal.x);
     expect(after.y).toBeCloseTo(focal.y);
@@ -55,14 +52,12 @@ describe('focalZoomPosition', () => {
 
     const anchored = imagePointUnder(baseFocal, baseScale, basePosition, viewport);
 
-    // Fingers spread AND slide to a new focal.
     const newScale = 3;
     const focal = { x: 260, y: 520 };
     const position = focalZoomPosition(
       baseScale, newScale, basePosition, baseFocal, focal, viewport.width, viewport.height,
     );
 
-    // The originally-anchored point follows the fingers to the new focal.
     const after = screenOf(anchored, newScale, position, viewport);
     expect(after.x).toBeCloseTo(focal.x);
     expect(after.y).toBeCloseTo(focal.y);
@@ -75,7 +70,6 @@ describe('focalZoomPosition', () => {
       1, 4, { x: 0, y: 0 }, centre, centre, viewport.width, viewport.height,
     );
 
-    // Pinching dead centre needs no translation - the old centre behaviour.
     expect(position.x).toBeCloseTo(0);
     expect(position.y).toBeCloseTo(0);
   });
@@ -102,8 +96,6 @@ describe('dragDismissRadius', () => {
   });
 
   it('grows with the drag distance, not the axis', () => {
-    // Uses Euclidean distance, so a diagonal drag rounds as much as a straight
-    // one of the same length.
     const straight = dragDismissRadius(0, 30);
     const diagonal = dragDismissRadius(18, 24); // 3-4-5 -> distance 30
 
@@ -115,7 +107,6 @@ describe('dragDismissRadius', () => {
     const atRange = dragDismissRadius(0, 60);
     const wellPast = dragDismissRadius(0, 600);
 
-    // Both maxed out - a far drag doesn't over-round.
     expect(atRange).toBeCloseTo(wellPast);
     expect(wellPast).toBeLessThanOrEqual(24);
   });

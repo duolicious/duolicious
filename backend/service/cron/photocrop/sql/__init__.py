@@ -26,8 +26,7 @@ SET
     width = %(width)s,
     height = %(height)s,
     crop_top = %(crop_top)s,
-    crop_left = %(crop_left)s,
-    crop_attempted_at = now()
+    crop_left = %(crop_left)s
 WHERE
     uuid = %(uuid)s
 """

@@ -34,8 +34,6 @@ const EASING = Easing.bezier(0.33, 0, 0.15, 1);
 // the way to transparent.
 const DISMISS_FADE_RANGE = 300;
 
-// The backdrop's opacity for a dismiss drag of `(x, y)`: 1 untouched, fading
-// to 0 as the photo is dragged away.
 const dragBackdropOpacity = (x: number, y: number) => {
   'worklet';
   return 1 - Math.min(1, dragDistance(x, y) / DISMISS_FADE_RANGE);
@@ -101,23 +99,23 @@ const ExpandingPhoto = ({
     const dragRadius = dragDismissRadius(dismiss.x.value, dismiss.y.value);
 
     return {
-    left: lerp(closed.clip.x, opened.clip.x, progress.value),
-    top: lerp(closed.clip.y, opened.clip.y, progress.value),
-    width: lerp(closed.clip.width, opened.clip.width, progress.value),
-    height: lerp(closed.clip.height, opened.clip.height, progress.value),
-    borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value) + dragRadius,
-    borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value) + dragRadius,
-    borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value) + dragRadius,
-    borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value) + dragRadius,
-    transform: [
-      // The pager offset and dismiss drag are screen-space, so they go
-      // outermost, ahead of the zoom scale.
-      { translateX: (openedX - scrollX.value) + dismiss.x.value },
-      { translateY: dismiss.y.value },
-      { scale: lerp(1, zoom.scale.value, progress.value) },
-      { translateX: lerp(0, zoom.translateX.value, progress.value) },
-      { translateY: lerp(0, zoom.translateY.value, progress.value) },
-    ],
+      left: lerp(closed.clip.x, opened.clip.x, progress.value),
+      top: lerp(closed.clip.y, opened.clip.y, progress.value),
+      width: lerp(closed.clip.width, opened.clip.width, progress.value),
+      height: lerp(closed.clip.height, opened.clip.height, progress.value),
+      borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value) + dragRadius,
+      borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value) + dragRadius,
+      borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value) + dragRadius,
+      borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value) + dragRadius,
+      transform: [
+        // The pager offset and dismiss drag are screen-space, so they go
+        // outermost, ahead of the zoom scale.
+        { translateX: (openedX - scrollX.value) + dismiss.x.value },
+        { translateY: dismiss.y.value },
+        { scale: lerp(1, zoom.scale.value, progress.value) },
+        { translateX: lerp(0, zoom.translateX.value, progress.value) },
+        { translateY: lerp(0, zoom.translateY.value, progress.value) },
+      ],
     };
   });
 
@@ -167,10 +165,6 @@ const ExpandingPhoto = ({
   );
 };
 
-// Desktop's paging affordance, standing in for the swipe gesture: a chevron at
-// the screen's edge, matching the counter pill's look. Rendered only when
-// there's a neighbour in that direction, so the buttons also read as "you're
-// at the end".
 const PagerChevron = ({
   direction,
   onNavigate,
@@ -214,7 +208,6 @@ const GalleryScreen = ({
     return e?.photoUuid === photoUuid ? e : null;
   });
 
-  // A deep link with no album is a one-photo gallery.
   const album: AlbumPhoto[] = useMemo(
     () => expandedPhoto?.album ?? [{ uuid: photoUuid, geometry: null }],
     [expandedPhoto, photoUuid],
@@ -257,7 +250,7 @@ const GalleryScreen = ({
   }), [zoomScale, zoomTranslateX, zoomTranslateY]);
 
   // A fixed identity transform for the off-screen pages, which aren't
-  // zoomable. Only the current page gets the live `zoom`.
+  // zoomable.
   const identityScale = useSharedValue(1);
   const identityZero = useSharedValue(0);
   const identityZoom: PinchyZoom = useMemo(() => ({
@@ -352,10 +345,8 @@ const GalleryScreen = ({
     setIndex(target);
   }, []);
 
-  // Move to another photo, sliding the pager and resetting the zoom/dismiss
-  // of the photo we're leaving. Leaving a zoomed photo unzooms it in step
-  // with the slide, deferring the index - and with it, which page owns the
-  // live zoom - until both land.
+  // Leaving a zoomed photo unzooms it in step with the slide, deferring the
+  // index - and with it, which page owns the live zoom - until both land.
   const goTo = useCallback((next: number) => {
     const target = Math.max(0, Math.min(album.length - 1, next));
     if (target === index) {
@@ -449,7 +440,6 @@ const GalleryScreen = ({
     // `finish` runs even if the timing is interrupted: better to cut the
     // animation short than to leave the navigation permanently prevented.
     if (morphOnClose) {
-      // Reverse the expand back into the preview.
       setPhase('closing');
       progress.value = withTiming(
         0,
@@ -528,79 +518,79 @@ const GalleryScreen = ({
       onLayout={onContainerLayout}
       style={StyleSheet.absoluteFill}
     >
-     <Reanimated.View style={[StyleSheet.absoluteFill, fadeStyle]}>
-      <Reanimated.View style={[styles.backdrop, backdropStyle]} />
+      <Reanimated.View style={[StyleSheet.absoluteFill, fadeStyle]}>
+        <Reanimated.View style={[styles.backdrop, backdropStyle]} />
 
-      {/*
-        Stays mounted under the pager for the opened photo, so it covers the
-        moment the pager's interactive copy mounts (opening) and unmounts
-        (closing) - otherwise that hand-off flickers.
-      */}
-      {expandedPhoto && container && onOpenedPhoto &&
-        <ExpandingPhoto
-          expandedPhoto={expandedPhoto}
-          progress={progress}
-          container={container}
-          zoom={zoom}
-          dismiss={dismiss}
-          scrollX={scrollX}
-          openedX={openedIndex * width}
-          onCovered={onCovered}
-        />
-      }
+        {/*
+          Stays mounted under the pager for the opened photo, so it covers the
+          moment the pager's interactive copy mounts (opening) and unmounts
+          (closing) - otherwise that hand-off flickers.
+        */}
+        {expandedPhoto && container && onOpenedPhoto &&
+          <ExpandingPhoto
+            expandedPhoto={expandedPhoto}
+            progress={progress}
+            container={container}
+            zoom={zoom}
+            dismiss={dismiss}
+            scrollX={scrollX}
+            openedX={openedIndex * width}
+            onCovered={onCovered}
+          />
+        }
 
-      {phase === 'open' && container &&
-        <Reanimated.View style={[StyleSheet.absoluteFill, rowStyle]}>
-          {album.map((photo, i) => Math.abs(i - index) > 1 ? null : (
-            <View
-              key={photo.uuid}
-              style={[styles.slot, { left: i * width, width, height: container.height }]}
-            >
-              <Pinchy
-                uuid={photo.uuid}
-                naturalSize={photo.geometry ?? undefined}
-                zoom={i === index ? zoom : identityZoom}
-                dismiss={i === index ? dismiss : undefined}
-                onDismiss={i === index ? onDismiss : undefined}
-                page={i === index && album.length > 1 ? page : undefined}
-                onNavigate={i === index && album.length > 1 ? onNavigate : undefined}
-                onTapEdge={
-                  isDesktopWeb && i === index && album.length > 1
-                    ? onNavigate
-                    : undefined
-                }
-                viewport={container}
-                backgroundColor={i === index ? 'transparent' : 'black'}
-              />
-            </View>
-          ))}
-        </Reanimated.View>
-      }
+        {phase === 'open' && container &&
+          <Reanimated.View style={[StyleSheet.absoluteFill, rowStyle]}>
+            {album.map((photo, i) => Math.abs(i - index) > 1 ? null : (
+              <View
+                key={photo.uuid}
+                style={[styles.slot, { left: i * width, width, height: container.height }]}
+              >
+                <Pinchy
+                  uuid={photo.uuid}
+                  naturalSize={photo.geometry ?? undefined}
+                  zoom={i === index ? zoom : identityZoom}
+                  dismiss={i === index ? dismiss : undefined}
+                  onDismiss={i === index ? onDismiss : undefined}
+                  page={i === index && album.length > 1 ? page : undefined}
+                  onNavigate={i === index && album.length > 1 ? onNavigate : undefined}
+                  onTapEdge={
+                    isDesktopWeb && i === index && album.length > 1
+                      ? onNavigate
+                      : undefined
+                  }
+                  viewport={container}
+                  backgroundColor={i === index ? 'transparent' : 'black'}
+                />
+              </View>
+            ))}
+          </Reanimated.View>
+        }
 
-      {isDesktopWeb && phase === 'open' && index > 0 &&
-        <PagerChevron direction={-1} onNavigate={onNavigate} />
-      }
-      {isDesktopWeb && phase === 'open' && index < album.length - 1 &&
-        <PagerChevron direction={1} onNavigate={onNavigate} />
-      }
+        {isDesktopWeb && phase === 'open' && index > 0 &&
+          <PagerChevron direction={-1} onNavigate={onNavigate} />
+        }
+        {isDesktopWeb && phase === 'open' && index < album.length - 1 &&
+          <PagerChevron direction={1} onNavigate={onNavigate} />
+        }
 
-      {album.length > 1 &&
-        <View
-          style={[
-            styles.counter,
-            { top: 14 + (Platform.OS === 'web' ? 0 : insets.top) },
-          ]}
-          pointerEvents="none"
-        >
-          <DefaultText style={styles.counterText}>
-            {index + 1}/{album.length}
-          </DefaultText>
-        </View>
-      }
+        {album.length > 1 &&
+          <View
+            style={[
+              styles.counter,
+              { top: 14 + (Platform.OS === 'web' ? 0 : insets.top) },
+            ]}
+            pointerEvents="none"
+          >
+            <DefaultText style={styles.counterText}>
+              {index + 1}/{album.length}
+            </DefaultText>
+          </View>
+        }
 
-      <StatusBarSpacer/>
-      {isDesktopWeb && <FloatingBackButton onPress={onPressBack}/>}
-     </Reanimated.View>
+        <StatusBarSpacer/>
+        {isDesktopWeb && <FloatingBackButton onPress={onPressBack}/>}
+      </Reanimated.View>
     </View>
   );
 };

@@ -68,6 +68,36 @@ const constrainPosition = (
   };
 };
 
+// The mode a fresh drag locks to once it commits to an axis: sideways pages,
+// up/down dismisses, and when the committed axis's mode isn't available the
+// drag falls through to whichever one is.
+const lockedDragMode = (
+  horizontal: boolean,
+  canPage: boolean,
+  canDismiss: boolean,
+): 'none' | 'page' | 'dismiss' => {
+  'worklet';
+  if (horizontal && canPage) return 'page';
+  if (!horizontal && canDismiss) return 'dismiss';
+  if (canPage) return 'page';
+  if (canDismiss) return 'dismiss';
+  return 'none';
+};
+
+// Which neighbour a finished page drag of `translationX` lands on: 1 (next),
+// -1 (previous), or 0 to slide back, clamped at the album's ends.
+const pageNavDirection = (
+  translationX: number,
+  threshold: number,
+  atIndex: number,
+  count: number,
+): -1 | 0 | 1 => {
+  'worklet';
+  if (translationX <= -threshold && atIndex < count - 1) return 1;
+  if (translationX >= threshold && atIndex > 0) return -1;
+  return 0;
+};
+
 // How far (screen px) a dismiss drag rounds the photo's corners over, and the
 // radius it reaches. The photo rounds as it's dragged away so the user never
 // sees square corners lifting off the screen.
@@ -93,4 +123,6 @@ export {
   dragDismissRadius,
   dragDistance,
   focalZoomPosition,
+  lockedDragMode,
+  pageNavDirection,
 };
