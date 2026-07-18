@@ -6,7 +6,14 @@ from duophoto import (
     orient_image,
     photo_geometry,
 )
-from duophoto.fixtures import jpeg, photo, renditions
+from duophoto.fixtures import (
+    flatten,
+    jpeg,
+    mismatched_matte_renditions,
+    photo,
+    renditions,
+    transparent_photo,
+)
 from PIL import Image
 import io
 import unittest
@@ -129,6 +136,44 @@ class TestFindCrop(unittest.TestCase):
         unrelated = _image(jpeg(photo(800, 800, seed=2).resize((450, 450))))
 
         _, difference = find_crop(original, unrelated)
+
+        self.assertGreater(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+class TestFindCropWithMismatchedMattes(unittest.TestCase):
+    # The pipeline flattened transparent uploads onto white for the original
+    # and black for the square renditions, so at the true offset most of the
+    # frame disagrees at full amplitude. The difference must see through the
+    # matte or every transparent upload's crop is rejected.
+    def test_recovers_a_crop_despite_mismatched_mattes(self) -> None:
+        original = transparent_photo(800, 1200, seed=3)
+        original_bytes, square_bytes = mismatched_matte_renditions(
+            original, crop_left=0, crop_top=250,
+        )
+
+        geometry, difference = find_crop(
+            _image(original_bytes),
+            _image(square_bytes),
+        )
+
+        self.assertLessEqual(abs(geometry.crop_top - 250), TestFindCrop.TOLERANCE_PX)
+        self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+    def test_still_rejects_an_unrelated_pair_with_mismatched_mattes(self) -> None:
+        original = jpeg(flatten(transparent_photo(1200, 800, seed=4), (255, 255, 255)))
+        unrelated = jpeg(
+            flatten(transparent_photo(800, 800, seed=5), (0, 0, 0)).resize((450, 450))
+        )
+
+        _, difference = find_crop(_image(original), _image(unrelated))
+
+        self.assertGreater(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+    def test_reports_a_pair_with_no_comparable_pixels_as_unmatchable(self) -> None:
+        # Pure white against pure black: entirely matte, nothing to match on.
+        white = jpeg(Image.new('RGB', (800, 1200), (255, 255, 255)))
+        black = jpeg(Image.new('RGB', (450, 450), (0, 0, 0)))
+
+        _, difference = find_crop(_image(white), _image(black))
 
         self.assertGreater(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
 

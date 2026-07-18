@@ -66,6 +66,15 @@ def _greyscale(image: Image.Image, size: tuple[int, int]) -> numpy.ndarray:
     resized = image.convert('L').resize(size, Image.Resampling.BILINEAR)
     return numpy.asarray(resized, dtype=numpy.float32)
 
+# A transparent upload's renditions can disagree about the matte: the pipeline
+# flattened alpha onto white for some renditions and black for others. Pixel
+# pairs at opposite extremes are the matte disagreeing, not the photo, so they
+# don't count towards the difference; `MIN_COMPARABLE_FRACTION` stops a window
+# with almost no photo in it from being judged on the scraps that remain.
+MATTE_LOW = 15.0
+MATTE_HIGH = 240.0
+MIN_COMPARABLE_FRACTION = 0.25
+
 def _difference(
     original: numpy.ndarray,
     square: numpy.ndarray,
@@ -83,7 +92,17 @@ def _difference(
     if window.shape != square.shape:
         return None
 
-    return float(numpy.abs(window - square).mean())
+    inverted_matte = (
+        ((window >= MATTE_HIGH) & (square <= MATTE_LOW))
+        | ((window <= MATTE_LOW) & (square >= MATTE_HIGH))
+    )
+
+    comparable = ~inverted_matte
+
+    if float(comparable.mean()) < MIN_COMPARABLE_FRACTION:
+        return None
+
+    return float(numpy.abs(window - square)[comparable].mean())
 
 # The scan quantises offsets to the match resolution, so above the finest
 # `MATCH_SCALES` entry the winner is only exact to `1 / scale` original px.
