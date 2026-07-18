@@ -6,7 +6,7 @@ import numpy
 # Lives here rather than in `person` so the crop backfill
 # (`service/cron/photocrop`) can share the definition without importing the API.
 
-@dataclass
+@dataclass(frozen=True)
 class CropSize:
     top: int
     left: int
@@ -40,6 +40,16 @@ def photo_geometry(
         left = min(width - min_dim, max(0, crop_size.left))
 
     return PhotoGeometry(width=width, height=height, crop_top=top, crop_left=left)
+
+# The only way to turn a geometry into query params, so the four columns are
+# always written together: a row can have all of them or none.
+def photo_geometry_params(geometry: PhotoGeometry) -> dict[str, int]:
+    return dict(
+        width=geometry.width,
+        height=geometry.height,
+        crop_top=geometry.crop_top,
+        crop_left=geometry.crop_left,
+    )
 
 # Progressively finer widths (px) for `find_crop`: a coarse scan of the whole
 # range, then narrow windows around the previous winner, so the cost stays flat

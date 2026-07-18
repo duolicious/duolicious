@@ -10,6 +10,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootParamList } from '../navigation/linking';
 import { StatusBarSpacer } from './status-bar-spacer';
@@ -166,6 +167,39 @@ const ExpandingPhoto = ({
   );
 };
 
+// Desktop's paging affordance, standing in for the swipe gesture: a chevron at
+// the screen's edge, matching the counter pill's look. Rendered only when
+// there's a neighbour in that direction, so the buttons also read as "you're
+// at the end".
+const PagerChevron = ({
+  direction,
+  onNavigate,
+}: {
+  direction: -1 | 1,
+  onNavigate: (dir: number) => void,
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Pressable
+      style={[
+        styles.chevron,
+        direction === -1 ? { left: 14 } : { right: 14 },
+        hovered ? styles.chevronHovered : null,
+      ]}
+      onPress={() => onNavigate(direction)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+    >
+      <Ionicons
+        name={direction === -1 ? 'chevron-back' : 'chevron-forward'}
+        size={26}
+        color="white"
+      />
+    </Pressable>
+  );
+};
+
 const GalleryScreen = ({
   navigation,
   route,
@@ -310,22 +344,45 @@ const GalleryScreen = ({
     transform: [{ translateX: -scrollX.value }],
   }));
 
+  // The live zoom belongs to the page at `index`, so the index can only
+  // change while the zoom is at identity - and not mid-close, where it would
+  // unmount the morphing photo.
+  const commitIndex = useCallback((target: number) => {
+    if (isFinishing.current) return;
+    setIndex(target);
+  }, []);
+
   // Move to another photo, sliding the pager and resetting the zoom/dismiss
-  // of the photo we're leaving.
+  // of the photo we're leaving. Leaving a zoomed photo unzooms it in step
+  // with the slide, deferring the index - and with it, which page owns the
+  // live zoom - until both land.
   const goTo = useCallback((next: number) => {
     const target = Math.max(0, Math.min(album.length - 1, next));
     if (target === index) {
       scrollX.value = withTiming(index * width, { duration: DURATION_MS, easing: EASING });
       return;
     }
+    dismissX.value = 0;
+    dismissY.value = 0;
+    if (zoomScale.value > 1 + 1e-5) {
+      zoomScale.value = withTiming(1, { duration: DURATION_MS, easing: EASING });
+      zoomTranslateX.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
+      zoomTranslateY.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
+      scrollX.value = withTiming(
+        target * width,
+        { duration: DURATION_MS, easing: EASING },
+        (finished) => {
+          if (finished) runOnJS(commitIndex)(target);
+        },
+      );
+      return;
+    }
     zoomScale.value = 1;
     zoomTranslateX.value = 0;
     zoomTranslateY.value = 0;
-    dismissX.value = 0;
-    dismissY.value = 0;
     setIndex(target);
     scrollX.value = withTiming(target * width, { duration: DURATION_MS, easing: EASING });
-  }, [album.length, index, width]);
+  }, [album.length, index, width, commitIndex]);
 
   // Until this screen has drawn the photo over the preview, the preview is
   // still the one on show and nothing may move.
@@ -435,17 +492,6 @@ const GalleryScreen = ({
     close(() => finishAndPop(() => navigation.reset({ routes: [{ name: 'Home' }] })));
   }, [navigation, close, finishAndPop]);
 
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onPressBack();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onPressBack]);
-
   const onDismiss = useCallback(() => {
     // The reverse-morph carries the drag back into the preview, so unwind it
     // over the same time. Without a morph the gallery just fades from where
@@ -460,6 +506,21 @@ const GalleryScreen = ({
   const onNavigate = useCallback((dir: number) => {
     goTo(index + dir);
   }, [goTo, index]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onPressBack();
+      // Not while the open/close morph owns the screen: paging then would pull
+      // the expanding photo out from under it.
+      if (e.key === 'ArrowLeft' && phase === 'open') onNavigate(-1);
+      if (e.key === 'ArrowRight' && phase === 'open') onNavigate(1);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onPressBack, onNavigate, phase]);
 
   return (
     <View
@@ -503,6 +564,11 @@ const GalleryScreen = ({
                 onDismiss={i === index ? onDismiss : undefined}
                 page={i === index && album.length > 1 ? page : undefined}
                 onNavigate={i === index && album.length > 1 ? onNavigate : undefined}
+                onTapEdge={
+                  isDesktopWeb && i === index && album.length > 1
+                    ? onNavigate
+                    : undefined
+                }
                 viewport={container}
                 backgroundColor={i === index ? 'transparent' : 'black'}
               />
@@ -511,20 +577,11 @@ const GalleryScreen = ({
         </Reanimated.View>
       }
 
-      {/* Desktop: click the left/right edge to page. */}
-      {isDesktopWeb && album.length > 1 && phase === 'open' &&
-        <>
-          <Pressable
-            style={[styles.edgeZone, { left: 0 }]}
-            onPress={() => onNavigate(-1)}
-            disabled={index === 0}
-          />
-          <Pressable
-            style={[styles.edgeZone, { right: 0 }]}
-            onPress={() => onNavigate(1)}
-            disabled={index === album.length - 1}
-          />
-        </>
+      {isDesktopWeb && phase === 'open' && index > 0 &&
+        <PagerChevron direction={-1} onNavigate={onNavigate} />
+      }
+      {isDesktopWeb && phase === 'open' && index < album.length - 1 &&
+        <PagerChevron direction={1} onNavigate={onNavigate} />
       }
 
       {album.length > 1 &&
@@ -564,12 +621,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
   },
-  edgeZone: {
+  chevron: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '30%',
-    zIndex: 998,
+    top: '50%',
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Above Pinchy's 999, like the counter - at 998 it would be unreachable
+    // beneath the photo's own stacking context.
+    zIndex: 1000,
+  },
+  chevronHovered: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
   },
   counter: {
     position: 'absolute',

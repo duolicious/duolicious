@@ -47,7 +47,12 @@ from async_lru_cache import AsyncLruCache
 from datetime import datetime, timezone
 from urllib.parse import quote
 from duoaudio import put_audio_in_object_store
-from duophoto import CropSize, orient_image, photo_geometry
+from duophoto import (
+    CropSize,
+    orient_image,
+    photo_geometry,
+    photo_geometry_params,
+)
 from person.aboutdiff import diff_addition_with_context
 from auth.session import sign_out, enforce_session_limit
 from auth.social import (
@@ -1142,10 +1147,7 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
             blurhash=blurhash_,
             extra_exts=extra_exts,
             hash=base64_file.md5_hash,
-            width=geometry.width,
-            height=geometry.height,
-            crop_top=geometry.crop_top,
-            crop_left=geometry.crop_left,
+            **photo_geometry_params(geometry),
         )
 
         q1 = """

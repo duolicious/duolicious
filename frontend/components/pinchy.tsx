@@ -167,7 +167,7 @@ type PinchyPage = {
   count: number
 };
 
-const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, backgroundColor = 'black'}: {
+const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black'}: {
   uuid: string,
   naturalSize?: { width: number, height: number },
   // The box to fit the photo within and centre it in.
@@ -180,6 +180,10 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
   // When provided, a sideways drag pages between photos instead of dismissing.
   page?: PinchyPage,
   onNavigate?: (dir: number) => void,
+  // When provided, a tap on the left or right third of the viewport pages to
+  // the neighbour. A gesture rather than overlay views, which would swallow
+  // the pan and double-tap wherever they sat.
+  onTapEdge?: (dir: number) => void,
   backgroundColor?: string,
 }) => {
   const {
@@ -419,9 +423,25 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
     [scale, positionX, positionY],
   );
 
+  const edgeTap = useMemo(
+    () => Gesture.Tap()
+      .maxDuration(300)
+      .maxDistance(10)
+      .onEnd((e, success) => {
+        'worklet';
+        if (!success || !onTapEdge) return;
+        const width = viewportWidthSv.value;
+        if (e.x < width / 3) runOnJS(onTapEdge)(-1);
+        else if (e.x > width * 2 / 3) runOnJS(onTapEdge)(1);
+      }),
+    [onTapEdge],
+  );
+
   const composed = useMemo(
-    () => Gesture.Simultaneous(pinch, pan, doubleTap),
-    [pinch, pan, doubleTap],
+    // Exclusive so a double-tap zooms without also paging: the edge tap only
+    // activates once the double-tap window has passed.
+    () => Gesture.Simultaneous(pinch, pan, Gesture.Exclusive(doubleTap, edgeTap)),
+    [pinch, pan, doubleTap, edgeTap],
   );
 
   const animatedStyle = useAnimatedStyle<ImageStyle>(() => {

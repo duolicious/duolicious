@@ -1,5 +1,10 @@
 from database import api_tx
-from duophoto import DEFAULT_MAX_MATCH_DIFFERENCE, PhotoGeometry, find_crop
+from duophoto import (
+    DEFAULT_MAX_MATCH_DIFFERENCE,
+    PhotoGeometry,
+    find_crop,
+    photo_geometry_params,
+)
 from service.cron.photocrop.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
@@ -81,13 +86,7 @@ async def _backfill(uuids: list[str]) -> None:
         squares: list[io.BytesIO | None],
     ) -> list[dict[str, str | int]]:
         return [
-            dict(
-                uuid=uuid,
-                width=geometry.width,
-                height=geometry.height,
-                crop_top=geometry.crop_top,
-                crop_left=geometry.crop_left,
-            )
+            dict(uuid=uuid, **photo_geometry_params(geometry))
             for uuid, original, square in zip(chunk, originals, squares)
             for geometry in [_geometry_of(uuid, original, square)]
             if geometry is not None
