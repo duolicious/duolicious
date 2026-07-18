@@ -18,23 +18,26 @@ type AlbumPhoto = {
   geometry: PhotoGeometry | null
 };
 
-// The photo the gallery is currently expanding out of, and back into when it
-// closes. Passing this through `route.params` would leak measured pixel
-// coordinates into the URL, so - as with `prospect-cache` - the press stashes
-// it here and the gallery reads it on mount. `null` while no photo is
-// expanded.
-type ExpandedPhoto = {
-  photoUuid: string
-
-  // Every photo of the same person, so the gallery can page between them.
-  album: AlbumPhoto[]
-
+type ExpandedPhotoMorph = {
   // Where the preview sits on screen, from `measureInWindow`.
   from: Rect
 
   geometry: PhotoGeometry
 
   borderRadius: BorderRadii
+};
+
+// The photo the gallery was opened from. Passing this through `route.params`
+// would leak measured pixel coordinates into the URL, so - as with
+// `prospect-cache` - the press stashes it here and the gallery reads it on
+// mount. `null` while the gallery is closed.
+type ExpandedPhoto = {
+  photoUuid: string
+
+  // Every photo of the same person, so the gallery can page between them.
+  album: AlbumPhoto[]
+
+  morph: ExpandedPhotoMorph | null
 
   // Whether the gallery has drawn its copy of the photo over the preview yet.
   // The preview only hides once this is set: the gallery doesn't paint on the
@@ -81,4 +84,5 @@ export type {
   AlbumPhoto,
   BorderRadii,
   ExpandedPhoto,
+  ExpandedPhotoMorph,
 };

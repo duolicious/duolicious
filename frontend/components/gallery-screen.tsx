@@ -23,7 +23,7 @@ import { IMAGES_URL } from '../env/env';
 import { lerp, photoExpandFrame } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
 import { getExpandedPhoto, setExpandedPhoto } from '../events/expanded-photo';
-import type { AlbumPhoto, ExpandedPhoto } from '../events/expanded-photo';
+import type { AlbumPhoto, ExpandedPhoto, ExpandedPhotoMorph } from '../events/expanded-photo';
 import { isMobile } from '../util/util';
 
 const DURATION_MS = 280;
@@ -52,7 +52,8 @@ type Phase = 'opening' | 'open' | 'closing';
 // that only one instance of the photo is ever apparent. The frame is linear in
 // `progress`, so its endpoints are computed once and lerped on the UI thread.
 const ExpandingPhoto = ({
-  expandedPhoto,
+  photoUuid,
+  morph,
   progress,
   container,
   zoom,
@@ -61,7 +62,8 @@ const ExpandingPhoto = ({
   openedX,
   onCovered,
 }: {
-  expandedPhoto: ExpandedPhoto,
+  photoUuid: string,
+  morph: ExpandedPhotoMorph,
   progress: SharedValue<number>,
   container: Rect,
   zoom: PinchyZoom,
@@ -72,7 +74,7 @@ const ExpandingPhoto = ({
   openedX: number,
   onCovered: () => void,
 }) => {
-  const { photoUuid, from, geometry, borderRadius } = expandedPhoto;
+  const { from, geometry, borderRadius } = morph;
 
   const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => {
     // `from` was measured in window coordinates, but this draws inside the
@@ -201,12 +203,13 @@ const GalleryScreen = ({
   const { photoUuid } = route.params;
 
   // Captured once: the press stashes this immediately before navigating. Deep
-  // links arrive without it, and photos whose geometry the server hasn't
-  // recorded can't be expanded, so both fall back to fading the gallery in.
+  // links arrive without it, which leaves a one-photo gallery.
   const [expandedPhoto] = useState<ExpandedPhoto | null>(() => {
     const e = getExpandedPhoto();
     return e?.photoUuid === photoUuid ? e : null;
   });
+
+  const morph = expandedPhoto?.morph ?? null;
 
   const album: AlbumPhoto[] = useMemo(
     () => expandedPhoto?.album ?? [{ uuid: photoUuid, geometry: null }],
@@ -232,10 +235,10 @@ const GalleryScreen = ({
   }, [album]);
 
   const [phase, setPhase] = useState<Phase>(
-    expandedPhoto ? 'opening' : 'open',
+    morph ? 'opening' : 'open',
   );
 
-  const progress = useSharedValue(expandedPhoto ? 0 : 1);
+  const progress = useSharedValue(morph ? 0 : 1);
 
   // Lives here rather than inside Pinchy so the photo can be animated out from
   // wherever the user pinched it to, after Pinchy itself has gone.
@@ -377,20 +380,20 @@ const GalleryScreen = ({
 
   // Until this screen has drawn the photo over the preview, the preview is
   // still the one on show and nothing may move.
-  const [isCovering, setIsCovering] = useState(!expandedPhoto);
+  const [isCovering, setIsCovering] = useState(!morph);
 
   const onCovered = useCallback(() => setIsCovering(true), []);
 
   // The square rendition comes from cache, so its load event is a formality -
   // but don't hang the animation on one that never arrives.
   useEffect(() => {
-    if (!expandedPhoto) return;
+    if (!morph) return;
     const timeout = setTimeout(onCovered, 250);
     return () => clearTimeout(timeout);
-  }, [expandedPhoto, onCovered]);
+  }, [morph, onCovered]);
 
   useEffect(() => {
-    if (!expandedPhoto) return;
+    if (!expandedPhoto || !morph) return;
     if (!isCovering) return;
     // Nothing is drawn over the preview until the container has been
     // measured, so hiding it before then would leave the photo missing.
@@ -428,7 +431,7 @@ const GalleryScreen = ({
   // away, there's nothing on the profile to morph back to.
   const onOpenedPhoto = index === openedIndex;
 
-  const morphOnClose = expandedPhoto !== null && onOpenedPhoto && !containerMoved;
+  const morphOnClose = morph !== null && onOpenedPhoto && !containerMoved;
 
   const close = useCallback((finish: () => void) => {
     if (isFinishing.current) return;
@@ -449,10 +452,10 @@ const GalleryScreen = ({
       return;
     }
 
-    // No preview to return to (a deep link, or we paged away from the opened
-    // photo): fade the whole gallery out. Let the hidden preview show again
-    // now, at the start of the fade, so the profile is already there as the
-    // viewer dissolves.
+    // No preview to morph back into (a deep link, a photo with no geometry,
+    // or we paged away from the opened photo): fade the whole gallery out.
+    // Let any hidden preview show again now, at the start of the fade, so the
+    // profile is already there as the viewer dissolves.
     setExpandedPhoto(null);
     fadeOut.value = withTiming(
       0,
@@ -526,9 +529,10 @@ const GalleryScreen = ({
           moment the pager's interactive copy mounts (opening) and unmounts
           (closing) - otherwise that hand-off flickers.
         */}
-        {expandedPhoto && container && onOpenedPhoto &&
+        {morph && container && onOpenedPhoto &&
           <ExpandingPhoto
-            expandedPhoto={expandedPhoto}
+            photoUuid={photoUuid}
+            morph={morph}
             progress={progress}
             container={container}
             zoom={zoom}

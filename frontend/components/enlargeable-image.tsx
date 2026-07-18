@@ -78,28 +78,38 @@ const EnlargeablePhoto = ({
       return;
     }
 
+    const fullAlbum: AlbumPhoto[] =
+      album && album.length
+        ? album
+        : [{ uuid: photoUuid, geometry: photoGeometry ?? null }];
+
     // Without a geometry there's nothing to uncrop the photo into, so the
-    // gallery just fades up instead.
+    // gallery opens without the morph.
     if (!photoGeometry || !ref.current) {
+      setExpandedPhoto({
+        photoUuid,
+        album: fullAlbum,
+        morph: null,
+        covered: false,
+      });
       return navigation.navigate('Gallery Screen', { photoUuid });
     }
 
-    const fullAlbum: AlbumPhoto[] =
-      album && album.length ? album : [{ uuid: photoUuid, geometry: photoGeometry }];
-
     // Measured at press time because the preview scrolls; a zero-sized
-    // measurement means there's nowhere to expand from, so fall back.
+    // measurement means there's nowhere to expand from.
     ref.current.measureInWindow((x, y, width, height) => {
-      if (width > 0 && height > 0) {
-        setExpandedPhoto({
-          photoUuid,
-          album: fullAlbum,
-          from: { x, y, width, height },
-          geometry: photoGeometry,
-          borderRadius: toBorderRadii(borderRadius),
-          covered: false,
-        });
-      }
+      setExpandedPhoto({
+        photoUuid,
+        album: fullAlbum,
+        morph: width > 0 && height > 0
+          ? {
+            from: { x, y, width, height },
+            geometry: photoGeometry,
+            borderRadius: toBorderRadii(borderRadius),
+          }
+          : null,
+        covered: false,
+      });
 
       navigation.navigate('Gallery Screen', { photoUuid });
     });
