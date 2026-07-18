@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { GestureResponderEvent, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { GestureResponderEvent, Pressable, StyleProp, View, ViewStyle } from 'react-native';
 import { PhotoOrSkeleton } from './profile-card';
 import { VerificationBadge } from './verification-badge';
 import * as _ from 'lodash';
@@ -11,7 +11,28 @@ import { IMAGES_URL } from '../env/env';
 import { hasGifExtraExt } from '../util/photos';
 import type { PhotoGeometry } from '../util/photos';
 import { setExpandedPhoto, useIsPhotoExpanded } from '../events/expanded-photo';
-import type { AlbumPhoto } from '../events/expanded-photo';
+import type { AlbumPhoto, BorderRadii } from '../events/expanded-photo';
+
+// This component owns the preview's corner rounding (rather than reading it
+// back out of `style`) because the gallery animates the same radii while the
+// photo expands. Corners a partial object omits are square.
+const toBorderRadii = (
+  borderRadius: number | Partial<BorderRadii> | undefined,
+): BorderRadii =>
+  typeof borderRadius === 'number'
+    ? {
+      topLeft: borderRadius,
+      topRight: borderRadius,
+      bottomLeft: borderRadius,
+      bottomRight: borderRadius,
+    }
+    : {
+      topLeft: 0,
+      topRight: 0,
+      bottomLeft: 0,
+      bottomRight: 0,
+      ...borderRadius,
+    };
 
 const EnlargeablePhoto = ({
   photoUuid,
@@ -19,6 +40,7 @@ const EnlargeablePhoto = ({
   photoBlurhash,
   photoGeometry,
   album,
+  borderRadius,
   style,
   innerStyle,
   isPrimary,
@@ -31,6 +53,7 @@ const EnlargeablePhoto = ({
   // Every photo of the same person, so the gallery can page between them. When
   // omitted (e.g. the feed), the tapped photo is the only one.
   album?: AlbumPhoto[] | undefined | null
+  borderRadius?: number | Partial<BorderRadii>
   style?: StyleProp<ViewStyle>
   innerStyle?: StyleProp<ViewStyle>
   isPrimary: boolean
@@ -61,20 +84,6 @@ const EnlargeablePhoto = ({
       return navigation.navigate('Gallery Screen', { photoUuid });
     }
 
-    // Per corner (the big-screen primary photo rounds only its bottom two),
-    // falling back to the shorthand. Only plain pixel radii are animatable; a
-    // percentage reads as no rounding rather than a wrong number.
-    const flat = StyleSheet.flatten(style) ?? {};
-    const px = (value: unknown, fallback: number): number =>
-      typeof value === 'number' ? value : fallback;
-    const shorthand = px(flat.borderRadius, 0);
-    const borderRadius = {
-      topLeft: px(flat.borderTopLeftRadius, shorthand),
-      topRight: px(flat.borderTopRightRadius, shorthand),
-      bottomLeft: px(flat.borderBottomLeftRadius, shorthand),
-      bottomRight: px(flat.borderBottomRightRadius, shorthand),
-    };
-
     const fullAlbum: AlbumPhoto[] =
       album && album.length ? album : [{ uuid: photoUuid, geometry: photoGeometry }];
 
@@ -87,14 +96,14 @@ const EnlargeablePhoto = ({
           album: fullAlbum,
           from: { x, y, width, height },
           geometry: photoGeometry,
-          borderRadius,
+          borderRadius: toBorderRadii(borderRadius),
           covered: false,
         });
       }
 
       navigation.navigate('Gallery Screen', { photoUuid });
     });
-  }, [photoUuid, photoGeometry, album, style, navigation]);
+  }, [photoUuid, photoGeometry, album, borderRadius, navigation]);
 
   const prefetchEnlargedImage = useCallback(() => {
     if (!photoUuid || isGif) return;
@@ -112,6 +121,8 @@ const EnlargeablePhoto = ({
     return <></>;
   }
 
+  const radii = toBorderRadii(borderRadius);
+
   return (
     <Pressable
       ref={ref}
@@ -121,6 +132,10 @@ const EnlargeablePhoto = ({
         {
           width: '100%',
           aspectRatio: 1,
+          borderTopLeftRadius: radii.topLeft,
+          borderTopRightRadius: radii.topRight,
+          borderBottomLeftRadius: radii.bottomLeft,
+          borderBottomRightRadius: radii.bottomRight,
         },
         style,
         isExpanded ? { opacity: 0 } : null,

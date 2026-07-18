@@ -65,7 +65,11 @@ type PhotoExpandFrame = {
   crop: Rect
 };
 
-const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+// Workletised so the gallery can lerp the same frames on the UI thread.
+const lerp = (a: number, b: number, t: number): number => {
+  'worklet';
+  return a + (b - a) * t;
+};
 
 const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
   x: lerp(a.x, b.x, t),
@@ -135,6 +139,7 @@ const photoExpandFrame = (
 
 export {
   hasGifExtraExt,
+  lerp,
   photoExpandFrame,
   photoUri,
   supportedExtraExt,

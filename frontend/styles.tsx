@@ -1,13 +1,12 @@
 import { StyleSheet } from 'react-native';
 
+// The photo styles carry no corner radii: EnlargeablePhoto rounds itself via
+// its `borderRadius` prop, which the gallery also animates.
 const commonStyles = StyleSheet.create({
   primaryEnlargeablePhotoBigScreen: {
     overflow: 'hidden',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
   },
   secondaryEnlargeablePhoto: {
-    borderRadius: 12,
     overflow: 'hidden',
     marginTop: 12,
     marginBottom: 12,

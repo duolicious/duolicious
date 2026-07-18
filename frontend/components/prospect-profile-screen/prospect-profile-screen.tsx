@@ -1129,6 +1129,11 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
                   album={album}
                   isPrimary={true}
                   isVerified={imageVerification0}
+                  borderRadius={
+                    width > 600 ?
+                    { bottomLeft: 12, bottomRight: 12 } :
+                    undefined
+                  }
                   style={
                     width > 600 ?
                     commonStyles.primaryEnlargeablePhotoBigScreen :
@@ -1384,37 +1389,24 @@ const Body = ({
   const [signedInUser] = useSignedInUser();
   const isOnline = useOnline(personUuid);
 
-  const photoUuid1 = data?.photo_uuids && data?.photo_uuids[1];
-  const photoUuid2 = data?.photo_uuids && data?.photo_uuids[2];
-  const photoUuid3 = data?.photo_uuids && data?.photo_uuids[3];
-  const photoUuid4 = data?.photo_uuids && data?.photo_uuids[4];
-  const photoUuid5 = data?.photo_uuids && data?.photo_uuids[5];
-  const photoUuid6 = data?.photo_uuids && data?.photo_uuids[6];
-
-  const photoExtraExts1 = data?.photo_extra_exts && data?.photo_extra_exts[1];
-  const photoExtraExts2 = data?.photo_extra_exts && data?.photo_extra_exts[2];
-  const photoExtraExts3 = data?.photo_extra_exts && data?.photo_extra_exts[3];
-  const photoExtraExts4 = data?.photo_extra_exts && data?.photo_extra_exts[4];
-  const photoExtraExts5 = data?.photo_extra_exts && data?.photo_extra_exts[5];
-  const photoExtraExts6 = data?.photo_extra_exts && data?.photo_extra_exts[6];
-
-  const photoBlurhash1 = data?.photo_blurhashes && data?.photo_blurhashes[1];
-  const photoBlurhash2 = data?.photo_blurhashes && data?.photo_blurhashes[2];
-  const photoBlurhash3 = data?.photo_blurhashes && data?.photo_blurhashes[3];
-  const photoBlurhash4 = data?.photo_blurhashes && data?.photo_blurhashes[4];
-  const photoBlurhash5 = data?.photo_blurhashes && data?.photo_blurhashes[5];
-  const photoBlurhash6 = data?.photo_blurhashes && data?.photo_blurhashes[6];
-
-  const imageVerification1 = data?.photo_verifications && data?.photo_verifications[1] || false;
-  const imageVerification2 = data?.photo_verifications && data?.photo_verifications[2] || false;
-  const imageVerification3 = data?.photo_verifications && data?.photo_verifications[3] || false;
-  const imageVerification4 = data?.photo_verifications && data?.photo_verifications[4] || false;
-  const imageVerification5 = data?.photo_verifications && data?.photo_verifications[5] || false;
-  const imageVerification6 = data?.photo_verifications && data?.photo_verifications[6] || false;
-
   const album = useMemo(
     () => buildAlbum(data?.photo_uuids, data?.photo_geometries),
     [data?.photo_uuids, data?.photo_geometries],
+  );
+
+  const profilePhoto = (position: number) => (
+    <EnlargeablePhoto
+      photoUuid={data?.photo_uuids?.[position]}
+      photoExtraExts={data?.photo_extra_exts?.[position]}
+      photoBlurhash={data?.photo_blurhashes?.[position]}
+      photoGeometry={album[position]?.geometry}
+      album={album}
+      borderRadius={12}
+      style={commonStyles.secondaryEnlargeablePhoto}
+      innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
+      isPrimary={false}
+      isVerified={data?.photo_verifications?.[position] ?? false}
+    />
   );
 
   // Compare on UUID rather than the numeric `personId` we lift out of `data`,
@@ -1603,17 +1595,7 @@ const Body = ({
           </DefaultText>
         </>}
 
-        <EnlargeablePhoto
-          photoUuid={photoUuid1}
-          photoExtraExts={photoExtraExts1}
-          photoBlurhash={photoBlurhash1}
-          photoGeometry={album[1]?.geometry}
-          album={album}
-          style={commonStyles.secondaryEnlargeablePhoto}
-          innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
-          isPrimary={false}
-          isVerified={imageVerification1}
-        />
+        {profilePhoto(1)}
 
         {!data?.name &&
           <Title style={{color: data?.theme?.title_color}}>About ...</Title>
@@ -1630,29 +1612,9 @@ const Body = ({
           </>
         }
 
-        <EnlargeablePhoto
-          photoUuid={photoUuid2}
-          photoExtraExts={photoExtraExts2}
-          photoBlurhash={photoBlurhash2}
-          photoGeometry={album[2]?.geometry}
-          album={album}
-          style={commonStyles.secondaryEnlargeablePhoto}
-          innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
-          isPrimary={false}
-          isVerified={imageVerification2}
-        />
+        {profilePhoto(2)}
 
-        <EnlargeablePhoto
-          photoUuid={photoUuid3}
-          photoExtraExts={photoExtraExts3}
-          photoBlurhash={photoBlurhash3}
-          photoGeometry={album[3]?.geometry}
-          album={album}
-          style={commonStyles.secondaryEnlargeablePhoto}
-          innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
-          isPrimary={false}
-          isVerified={imageVerification3}
-        />
+        {profilePhoto(3)}
 
         <AllClubs
           mutualClubs={data?.mutual_clubs ?? []}
@@ -1662,41 +1624,11 @@ const Body = ({
           titleColor={data?.theme?.title_color}
         />
 
-        <EnlargeablePhoto
-          photoUuid={photoUuid4}
-          photoExtraExts={photoExtraExts4}
-          photoBlurhash={photoBlurhash4}
-          photoGeometry={album[4]?.geometry}
-          album={album}
-          style={commonStyles.secondaryEnlargeablePhoto}
-          innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
-          isPrimary={false}
-          isVerified={imageVerification4}
-        />
+        {profilePhoto(4)}
 
-        <EnlargeablePhoto
-          photoUuid={photoUuid5}
-          photoExtraExts={photoExtraExts5}
-          photoBlurhash={photoBlurhash5}
-          photoGeometry={album[5]?.geometry}
-          album={album}
-          style={commonStyles.secondaryEnlargeablePhoto}
-          innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
-          isPrimary={false}
-          isVerified={imageVerification5}
-        />
+        {profilePhoto(5)}
 
-        <EnlargeablePhoto
-          photoUuid={photoUuid6}
-          photoExtraExts={photoExtraExts6}
-          photoBlurhash={photoBlurhash6}
-          photoGeometry={album[6]?.geometry}
-          album={album}
-          style={commonStyles.secondaryEnlargeablePhoto}
-          innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
-          isPrimary={false}
-          isVerified={imageVerification6}
-        />
+        {profilePhoto(6)}
 
         {hasAnyStats(data) && <>
           <Title style={{color: data?.theme?.title_color}}>Stats</Title>

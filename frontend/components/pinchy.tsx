@@ -10,7 +10,6 @@ import {
   ImageStyle,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
@@ -28,7 +27,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { IMAGES_URL } from '../env/env';
-import { constrainPosition, dragDismissRadius, focalZoomPosition } from './pinchy-math';
+import { constrainPosition, dragDismissRadius, dragDistance, focalZoomPosition } from './pinchy-math';
 
 // Double-tap zoom eases in rather than snapping. A pinch or pan writing the
 // shared values directly cancels it mid-flight, which is what you want.
@@ -171,9 +170,8 @@ type PinchyPage = {
 const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, backgroundColor = 'black'}: {
   uuid: string,
   naturalSize?: { width: number, height: number },
-  // The box to fit the photo within and centre it in. Defaults to the window,
-  // which is only the same thing when this fills the screen.
-  viewport?: { width: number, height: number },
+  // The box to fit the photo within and centre it in.
+  viewport: { width: number, height: number },
   zoom: PinchyZoom,
   // When provided, a single-finger drag on the zoomed-out photo moves it by
   // this offset, and `onDismiss` fires if it's dragged past the threshold.
@@ -184,12 +182,10 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
   onNavigate?: (dir: number) => void,
   backgroundColor?: string,
 }) => {
-  const window = useWindowDimensions();
-
   const {
     width: viewportWidth,
     height: viewportHeight,
-  } = viewport ?? window;
+  } = viewport;
 
   const {
     scale,
@@ -378,7 +374,7 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, on
             page.scrollX.value = withTiming(page.homeX, DISMISS_RETURN);
           }
         } else if (dragMode.value === 'dismiss' && dismiss) {
-          const dragged = Math.sqrt(dismiss.x.value ** 2 + dismiss.y.value ** 2);
+          const dragged = dragDistance(dismiss.x.value, dismiss.y.value);
           if (dragged > DISMISS_THRESHOLD && onDismiss) {
             runOnJS(onDismiss)();
           } else {

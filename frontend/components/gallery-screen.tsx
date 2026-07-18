@@ -17,9 +17,9 @@ import { DefaultText } from './default-text';
 import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-screen';
 import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
-import { dragDismissRadius } from './pinchy-math';
+import { dragDismissRadius, dragDistance } from './pinchy-math';
 import { IMAGES_URL } from '../env/env';
-import { photoExpandFrame } from '../util/photos';
+import { lerp, photoExpandFrame } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
 import { getExpandedPhoto, setExpandedPhoto } from '../events/expanded-photo';
 import type { AlbumPhoto, ExpandedPhoto } from '../events/expanded-photo';
@@ -41,11 +41,6 @@ const isDesktopWeb = Platform.OS === 'web' && !isMobile();
 // 'open' hands over to Pinchy, which is the same photo at the same size but
 // can be zoomed. A gallery with nothing to expand from starts 'open'.
 type Phase = 'opening' | 'open' | 'closing';
-
-const lerp = (a: number, b: number, t: number) => {
-  'worklet';
-  return a + (b - a) * t;
-};
 
 // The photo, expanding. Stands in for the preview - which hides itself - so
 // that only one instance of the photo is ever apparent. The frame is linear in
@@ -272,6 +267,21 @@ const GalleryScreen = ({
     });
   }, []);
 
+  // `from` was measured when the preview was pressed, so a resize or rotation
+  // since then leaves it pointing at where the preview used to be. Closing
+  // falls back to the fade rather than morphing to the wrong place.
+  const openContainer = useRef<Rect | null>(null);
+  const [containerMoved, setContainerMoved] = useState(false);
+
+  useEffect(() => {
+    if (!container) return;
+    if (openContainer.current === null) {
+      openContainer.current = container;
+      return;
+    }
+    if (container !== openContainer.current) setContainerMoved(true);
+  }, [container]);
+
   const width = container?.width ?? 0;
 
   // The pager's horizontal scroll, in px. Slots sit at absolute `i * width`,
@@ -350,7 +360,7 @@ const GalleryScreen = ({
 
   const backdropStyle = useAnimatedStyle(() => {
     const opened = Math.min(1, progress.value * 2);
-    const dragged = Math.sqrt(dismissX.value ** 2 + dismissY.value ** 2);
+    const dragged = dragDistance(dismissX.value, dismissY.value);
     const notDragged = 1 - Math.min(1, dragged / DISMISS_FADE_RANGE);
     return { opacity: opened * notDragged };
   });
@@ -359,13 +369,15 @@ const GalleryScreen = ({
   // away, there's nothing on the profile to morph back to.
   const onOpenedPhoto = index === openedIndex;
 
+  const morphOnClose = expandedPhoto !== null && onOpenedPhoto && !containerMoved;
+
   const close = useCallback((finish: () => void) => {
     if (isFinishing.current) return;
     isFinishing.current = true;
 
     // `finish` runs even if the timing is interrupted: better to cut the
     // animation short than to leave the navigation permanently prevented.
-    if (expandedPhoto && onOpenedPhoto) {
+    if (morphOnClose) {
       // Reverse the expand back into the preview.
       setPhase('closing');
       progress.value = withTiming(
@@ -386,7 +398,7 @@ const GalleryScreen = ({
       { duration: DURATION_MS, easing: EASING },
       () => { runOnJS(finish)(); },
     );
-  }, [expandedPhoto, onOpenedPhoto]);
+  }, [morphOnClose]);
 
   const finishAndPop = useCallback((pop: () => void) => {
     setExpandedPhoto(null);
@@ -424,12 +436,12 @@ const GalleryScreen = ({
     // The reverse-morph carries the drag back into the preview, so unwind it
     // over the same time. Without a morph the gallery just fades from where
     // the photo was flicked - leave the offset be.
-    if (expandedPhoto && onOpenedPhoto) {
+    if (morphOnClose) {
       dismissX.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
       dismissY.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
     }
     onPressBack();
-  }, [onPressBack, expandedPhoto, onOpenedPhoto, dismissX, dismissY]);
+  }, [onPressBack, morphOnClose, dismissX, dismissY]);
 
   const onNavigate = useCallback((dir: number) => {
     goTo(index + dir);

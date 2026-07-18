@@ -1374,6 +1374,7 @@ const FeedItemAddedPhoto = ({
             photoBlurhash={fields.added_photo_blurhash}
             photoGeometry={fields.added_photo_geometry}
             isPrimary={true}
+            borderRadius={12}
             style={{
               ...commonStyles.secondaryEnlargeablePhoto,
               marginTop: 0,

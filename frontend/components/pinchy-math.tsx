@@ -74,16 +74,23 @@ const constrainPosition = (
 const DRAG_DISMISS_RADIUS_RANGE = 60;
 const DRAG_DISMISS_MAX_RADIUS = 24;
 
+// How far (screen px) a dismiss drag of `(x, y)` has carried the photo.
+const dragDistance = (x: number, y: number): number => {
+  'worklet';
+  return Math.sqrt(x * x + y * y);
+};
+
 // The corner radius for a dismiss drag of `(x, y)` screen px. Shared by the
 // dragged photo and the closing one so the two agree at the hand-off.
 const dragDismissRadius = (x: number, y: number): number => {
   'worklet';
-  const dragged = Math.sqrt(x * x + y * y);
-  return Math.min(dragged / DRAG_DISMISS_RADIUS_RANGE, 1) * DRAG_DISMISS_MAX_RADIUS;
+  return Math.min(dragDistance(x, y) / DRAG_DISMISS_RADIUS_RANGE, 1)
+    * DRAG_DISMISS_MAX_RADIUS;
 };
 
 export {
   constrainPosition,
   dragDismissRadius,
+  dragDistance,
   focalZoomPosition,
 };

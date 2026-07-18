@@ -1,5 +1,5 @@
 from database import api_tx
-from duophoto import PhotoGeometry, find_crop
+from duophoto import DEFAULT_MAX_MATCH_DIFFERENCE, PhotoGeometry, find_crop
 from service.cron.photocrop.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
@@ -40,12 +40,9 @@ PHOTO_CROP_DOWNLOAD_CHUNK = int(os.environ.get(
     str(5),
 ))
 
-# Mean per-pixel difference (0-255) above which the best offset found isn't
-# believable. Recording a wrong crop would make the photo visibly jump when
-# expanded, which is worse than not animating it at all.
 MAX_MATCH_DIFFERENCE = float(os.environ.get(
     'DUO_CRON_PHOTO_CROP_MAX_MATCH_DIFFERENCE',
-    str(24.0),
+    str(DEFAULT_MAX_MATCH_DIFFERENCE),
 ))
 
 print(f'Hello from cron module: {__name__}')

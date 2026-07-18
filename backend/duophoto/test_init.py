@@ -1,4 +1,5 @@
 from duophoto import (
+    DEFAULT_MAX_MATCH_DIFFERENCE,
     CropSize,
     PhotoGeometry,
     find_crop,
@@ -39,7 +40,9 @@ class TestPhotoGeometry(unittest.TestCase):
         self.assertEqual((geometry.crop_top, geometry.crop_left), (0, 0))
 
 class TestFindCrop(unittest.TestCase):
-    # A couple of pixels of a multi-thousand-pixel photo is a fraction of a
+    # The parabolic refinement keeps the error to about a pixel of the
+    # original whatever its size; the slack covers JPEG artifacts. Even at the
+    # bound, two pixels of a multi-thousand-pixel photo is a fraction of a
     # screen pixel once the preview is drawn.
     TOLERANCE_PX = 2
 
@@ -61,7 +64,7 @@ class TestFindCrop(unittest.TestCase):
         self.assertEqual((geometry.width, geometry.height), (width, height))
         self.assertLessEqual(abs(geometry.crop_left - crop_left), self.TOLERANCE_PX)
         self.assertLessEqual(abs(geometry.crop_top - crop_top), self.TOLERANCE_PX)
-        self.assertLess(difference, 24.0)
+        self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
 
     def test_recovers_a_centred_landscape_crop(self) -> None:
         self.assert_recovers(1200, 800, crop_left=200, crop_top=0)
@@ -80,6 +83,13 @@ class TestFindCrop(unittest.TestCase):
 
     def test_recovers_a_crop_from_a_large_photo(self) -> None:
         self.assert_recovers(3000, 2000, crop_left=731, crop_top=0)
+
+    def test_recovers_a_crop_from_a_photo_coarser_than_the_finest_scale(
+        self,
+    ) -> None:
+        # min(width, height) is over triple the finest MATCH_SCALES entry, so
+        # without sub-pixel refinement the scan alone could be off by 3px.
+        self.assert_recovers(5000, 3400, crop_left=1237, crop_top=0)
 
     def test_reports_a_square_photo_as_uncropped(self) -> None:
         original = photo(900, 900, seed=1)
@@ -120,7 +130,7 @@ class TestFindCrop(unittest.TestCase):
 
         _, difference = find_crop(original, unrelated)
 
-        self.assertGreater(difference, 24.0)
+        self.assertGreater(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
 
 if __name__ == '__main__':
     unittest.main()

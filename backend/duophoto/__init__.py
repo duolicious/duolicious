@@ -46,6 +46,12 @@ def photo_geometry(
 # as the photo gets bigger.
 MATCH_SCALES = (64, 256, 1024)
 
+# Mean per-pixel difference (0-255) above which `find_crop`'s best offset isn't
+# believable. Callers that act on the result should treat anything worse as "no
+# match" rather than record a crop that would make the photo jump when
+# expanded.
+DEFAULT_MAX_MATCH_DIFFERENCE = 24.0
+
 def _greyscale(image: Image.Image, size: tuple[int, int]) -> numpy.ndarray:
     resized = image.convert('L').resize(size, Image.Resampling.BILINEAR)
     return numpy.asarray(resized, dtype=numpy.float32)
@@ -68,6 +74,44 @@ def _difference(
         return None
 
     return float(numpy.abs(window - square).mean())
+
+# The scan quantises offsets to the match resolution, so above the finest
+# `MATCH_SCALES` entry the winner is only exact to `1 / scale` original px.
+# Fitting a parabola through the difference at the winning scaled offset and
+# its neighbours places the minimum between scaled pixels, taking the error
+# back down to about a pixel however big the photo is.
+def _refined_offset(
+    original: numpy.ndarray,
+    square: numpy.ndarray,
+    scale: float,
+    limit: int,
+    horizontal: bool,
+    best_offset: int,
+    span: int,
+) -> int:
+    if scale >= 1:
+        return best_offset
+
+    scaled = min(limit, max(0, round(best_offset * scale)))
+
+    if scaled <= 0 or scaled >= limit:
+        return best_offset
+
+    below = _difference(original, square, scaled - 1, horizontal)
+    at = _difference(original, square, scaled, horizontal)
+    above = _difference(original, square, scaled + 1, horizontal)
+
+    if below is None or at is None or above is None:
+        return best_offset
+
+    curvature = below - 2 * at + above
+
+    if curvature <= 0:
+        return best_offset
+
+    vertex = min(1.0, max(-1.0, 0.5 * (below - above) / curvature))
+
+    return min(span, max(0, round((scaled + vertex) / scale)))
 
 # The inverse of `photo_geometry`, for photos uploaded before the crop was
 # recorded. Returns the geometry and the mean per-pixel difference (0-255) it
@@ -133,5 +177,15 @@ def find_crop(
 
         lo = max(0, best_offset - stride)
         hi = min(span, best_offset + stride)
+
+    best_offset = _refined_offset(
+        original_pixels,
+        square_pixels,
+        scale,
+        limit,
+        horizontal,
+        best_offset,
+        span,
+    )
 
     return geometry_at(best_offset), best_difference
