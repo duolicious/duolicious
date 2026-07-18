@@ -193,6 +193,23 @@ actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
 
 
+echo "An intro from a sender last online over a month ago is archived"
+
+q "update person set last_online_time = now() - interval '2 months' where id = ${user2id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S '[. | .location = "archive"]' <<< "$expected_entry")
+
+q "update person set last_online_time = now() where id = ${user2id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
+
+
 echo "A reply moves the conversation to chats on both sides"
 
 send_message user1 "$user1uuid" "$user2uuid" "reply from user 1"
@@ -287,3 +304,41 @@ q "update person set shadow_banned_at = now() where id = ${user2id}"
 actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 
 diff -u --color <(echo "$actual_snapshot") <(jq -S . <<< "$expected_snapshot")
+
+
+echo "A chat with a partner last online over a month ago is archived, info intact"
+
+q "update person set shadow_banned_at = null where id = ${user2id}"
+q "update person set last_online_time = now() - interval '2 months' where id = ${user2id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+expected_snapshot=$(cat << EOF
+[
+  {
+    "image_blurhash": "my-blurhash",
+    "image_uuid": "my-photo-uuid",
+    "is_available": true,
+    "is_verified": false,
+    "last_message": "reply from user 1",
+    "last_message_read": true,
+    "last_message_timestamp": "redacted",
+    "location": "archive",
+    "match_percentage": 50,
+    "matches_search_filters": true,
+    "name": "user2",
+    "person_uuid": "${user2uuid}"
+  }
+]
+EOF
+)
+
+diff -u --color <(echo "$actual_snapshot") <(jq -S . <<< "$expected_snapshot")
+
+q "update person set last_online_time = now() where id = ${user2id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S '[.[0] | .location = "chats"]' <<< "$expected_snapshot")

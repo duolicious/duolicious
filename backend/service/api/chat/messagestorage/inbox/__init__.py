@@ -103,6 +103,9 @@ WITH viewer AS (
         COALESCE(
             prospect.activated AND prospect.shadow_banned_at IS NULL, FALSE
         ) AS is_prospect_activated,
+        COALESCE(
+            prospect.last_online_time > NOW() - INTERVAL '1 month', FALSE
+        ) AS is_prospect_recently_online,
         -- Only for the final SELECT's `matches_search_filters` probe; never
         -- sent to the client.
         prospect.id AS prospect_id,
@@ -183,6 +186,8 @@ WITH viewer AS (
             WHEN
                     is_prospect_activated
                 AND
+                    is_prospect_recently_online
+                AND
                     NOT prospect_skipped_person
                 AND
                     NOT person_skipped_prospect
@@ -193,6 +198,8 @@ WITH viewer AS (
             THEN 'chats'
             WHEN
                     is_prospect_activated
+                AND
+                    is_prospect_recently_online
                 AND
                     NOT prospect_skipped_person
                 AND
