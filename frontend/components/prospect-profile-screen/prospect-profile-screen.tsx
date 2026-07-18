@@ -29,7 +29,6 @@ import {
 } from '@react-navigation/native-stack';
 import { CompositeNavigationProp, CompositeScreenProps } from '@react-navigation/native';
 import type { ProspectParamList, RootParamList } from '../../navigation/linking';
-import { StatusBarSpacer } from '../status-bar-spacer';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { DefaultText } from '../default-text';
 import { DonutChart } from '../donut-chart';
@@ -49,6 +48,8 @@ import { themedSurface, legibleSurface } from '../../app-theme/surface';
 import { Club, Clubs } from '../club';
 import { Stat, Stats } from '../stat';
 import { listen, notify } from '../../events/events';
+import { useBackButtonClaim } from '../../events/back-button';
+import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { ReportModalInitialData } from '../modal/report-modal';
 import { getProspectHint, setProspectHint } from '../../navigation/prospect-cache';
 import { setBannerProspectName } from '../../events/banner-prospect-name';
@@ -58,7 +59,6 @@ import {
 } from '../verification-badge';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
-import { faArrowLeft } from '@fortawesome/free-solid-svg-icons/faArrowLeft'
 import { faRulerVertical } from '@fortawesome/free-solid-svg-icons/faRulerVertical'
 import { faHandsPraying } from '@fortawesome/free-solid-svg-icons/faHandsPraying'
 import { faPills } from '@fortawesome/free-solid-svg-icons/faPills'
@@ -197,49 +197,6 @@ const ShareButton = ({personUuid, backgroundColor}: {
       <DefaultText style={profilePillButtonTextStyle(surface)}>
         Share profile
       </DefaultText>
-    </Pressable>
-  );
-};
-
-const FloatingBackButton = (props: {
-  onPress?: () => void,
-  navigationRef?: ProspectNavigationRef,
-  navigation?: ProspectNavigation,
-}) => {
-  const {
-    onPress,
-    navigationRef,
-    navigation,
-  } = props;
-
-  const { appTheme } = useAppTheme();
-
-  return (
-    <Pressable
-      style={{
-        zIndex: 999,
-        borderRadius: 999,
-        marginLeft: 10,
-        marginTop: 0,
-        width: 45,
-        height: 45,
-        backgroundColor: appTheme.primaryColor,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: appTheme.secondaryColor,
-      }}
-      onPress={onPress ?? (navigationRef?.current || navigation)?.goBack}
-    >
-      <FontAwesomeIcon
-        icon={faArrowLeft}
-        size={24}
-        style={{
-          color: appTheme.secondaryColor,
-          // @ts-ignore
-          outline: 'none',
-        }}
-      />
     </Pressable>
   );
 };
@@ -428,7 +385,7 @@ const AnonymousSignInCta = ({navigation, name}: {
         position: 'absolute',
         bottom: insets.bottom,
         width: '100%',
-        maxWidth: 600,
+        maxWidth: COLUMN_MAX_WIDTH,
         alignSelf: 'center',
         zIndex: 999,
         paddingLeft: 20,
@@ -915,6 +872,16 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       signedInUser.personUuid === personUuid ||
       signedInUser.personUuid === handle);
   const isAnonymousViewer = !signedInUser;
+
+  useBackButtonClaim(
+    !isAnonymousViewer || Platform.OS === 'web'
+      ? {
+        layout: 'column',
+        transition: 'instant',
+        onPress: () => navigationRef.current?.goBack(),
+      }
+      : null
+  );
   // Consume the `hideBottomButtons` hint when a new handle lands here so a
   // later visit from a different context (e.g. tapping the same person's
   // avatar in search) gets the default behaviour rather than inheriting a
@@ -1115,7 +1082,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
               <View
                 style={{
                   width: '100%',
-                  maxWidth: 600,
+                  maxWidth: COLUMN_MAX_WIDTH,
                   alignSelf: 'center',
                   paddingBottom:
                     showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100,
@@ -1169,7 +1136,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
               position: 'absolute',
               bottom: insets.bottom,
               width: '100%',
-              maxWidth: 600,
+              maxWidth: COLUMN_MAX_WIDTH,
               alignSelf: 'center',
               zIndex: 999,
               overflow: 'visible',
@@ -1203,21 +1170,6 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
           />
         }
       </>}
-      {(!isAnonymousViewer || Platform.OS === 'web') &&
-        <View
-          style={{
-            position: 'absolute',
-            height: 0,
-            width: '100%',
-            maxWidth: 600,
-            alignSelf: 'center',
-            zIndex: 999,
-          }}
-        >
-          <StatusBarSpacer/>
-          <FloatingBackButton navigationRef={navigationRef}/>
-        </View>
-      }
     </>
   );
 };
@@ -1722,7 +1674,6 @@ const styles = StyleSheet.create({
 });
 
 export {
-  FloatingBackButton,
   InDepthScreen,
   ProspectProfileScreen,
 };

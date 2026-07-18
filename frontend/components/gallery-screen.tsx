@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Reanimated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -13,9 +13,8 @@ import { Image as ExpoImage } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootParamList } from '../navigation/linking';
-import { StatusBarSpacer } from './status-bar-spacer';
 import { DefaultText } from './default-text';
-import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-screen';
+import { useBackButtonClaim } from '../events/back-button';
 import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
 import { dragDismissRadius, dragDistance } from './pinchy-math';
@@ -25,10 +24,7 @@ import type { PhotoExpandFrame, Rect } from '../util/photos';
 import { getExpandedPhoto, setExpandedPhoto } from '../events/expanded-photo';
 import type { AlbumPhoto, ExpandedPhoto, ExpandedPhotoMorph } from '../events/expanded-photo';
 import { isMobile } from '../util/util';
-
-const DURATION_MS = 280;
-
-const EASING = Easing.bezier(0.33, 0, 0.15, 1);
+import { TIMING } from '../util/animation';
 
 // How far (screen px) the photo has to be dragged for the backdrop to fade all
 // the way to transparent.
@@ -170,29 +166,43 @@ const ExpandingPhoto = ({
 const PagerChevron = ({
   direction,
   onNavigate,
+  opacity,
+  enabled,
 }: {
   direction: -1 | 1,
   onNavigate: (dir: number) => void,
+  opacity: SharedValue<number>,
+  enabled: boolean,
 }) => {
   const [hovered, setHovered] = useState(false);
 
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
   return (
-    <Pressable
+    <Reanimated.View
       style={[
         styles.chevron,
         direction === -1 ? { left: 14 } : { right: 14 },
-        hovered ? styles.chevronHovered : null,
+        fadeStyle,
       ]}
-      onPress={() => onNavigate(direction)}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
+      pointerEvents={enabled ? 'auto' : 'none'}
     >
-      <Ionicons
-        name={direction === -1 ? 'chevron-back' : 'chevron-forward'}
-        size={26}
-        color="white"
-      />
-    </Pressable>
+      <Pressable
+        style={[
+          styles.chevronButton,
+          hovered ? styles.chevronHovered : null,
+        ]}
+        onPress={() => onNavigate(direction)}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+      >
+        <Ionicons
+          name={direction === -1 ? 'chevron-back' : 'chevron-forward'}
+          size={26}
+          color="white"
+        />
+      </Pressable>
+    </Reanimated.View>
   );
 };
 
@@ -276,6 +286,29 @@ const GalleryScreen = ({
   const fadeOut = useSharedValue(1);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fadeOut.value }));
 
+  const chromeIn = useSharedValue(morph ? 1 : 0);
+  const chromeStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(chromeIn.value, progress.value),
+  }));
+
+  useEffect(() => {
+    if (morph) return;
+    chromeIn.value = withTiming(1, TIMING);
+  }, []);
+
+  const prevIn = useSharedValue(openedIndex > 0 ? 1 : 0);
+  const nextIn = useSharedValue(openedIndex < album.length - 1 ? 1 : 0);
+
+  useEffect(() => {
+    prevIn.value = withTiming(index > 0 ? 1 : 0, TIMING);
+    nextIn.value = withTiming(index < album.length - 1 ? 1 : 0, TIMING);
+  }, [index, album.length]);
+
+  const prevChevronOpacity = useDerivedValue(() =>
+    Math.min(chromeIn.value, progress.value) * prevIn.value);
+  const nextChevronOpacity = useDerivedValue(() =>
+    Math.min(chromeIn.value, progress.value) * nextIn.value);
+
   const isFinishing = useRef(false);
 
   const insets = useSafeAreaInsets();
@@ -353,18 +386,18 @@ const GalleryScreen = ({
   const goTo = useCallback((next: number) => {
     const target = Math.max(0, Math.min(album.length - 1, next));
     if (target === index) {
-      scrollX.value = withTiming(index * width, { duration: DURATION_MS, easing: EASING });
+      scrollX.value = withTiming(index * width, TIMING);
       return;
     }
     dismissX.value = 0;
     dismissY.value = 0;
     if (zoomScale.value > 1 + 1e-5) {
-      zoomScale.value = withTiming(1, { duration: DURATION_MS, easing: EASING });
-      zoomTranslateX.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
-      zoomTranslateY.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
+      zoomScale.value = withTiming(1, TIMING);
+      zoomTranslateX.value = withTiming(0, TIMING);
+      zoomTranslateY.value = withTiming(0, TIMING);
       scrollX.value = withTiming(
         target * width,
-        { duration: DURATION_MS, easing: EASING },
+        TIMING,
         (finished) => {
           if (finished) runOnJS(commitIndex)(target);
         },
@@ -375,7 +408,7 @@ const GalleryScreen = ({
     zoomTranslateX.value = 0;
     zoomTranslateY.value = 0;
     setIndex(target);
-    scrollX.value = withTiming(target * width, { duration: DURATION_MS, easing: EASING });
+    scrollX.value = withTiming(target * width, TIMING);
   }, [album.length, index, width, commitIndex]);
 
   // Until this screen has drawn the photo over the preview, the preview is
@@ -404,7 +437,7 @@ const GalleryScreen = ({
 
     progress.value = withTiming(
       1,
-      { duration: DURATION_MS, easing: EASING },
+      TIMING,
       (finished) => {
         if (finished) runOnJS(setPhase)('open');
       },
@@ -433,9 +466,17 @@ const GalleryScreen = ({
 
   const morphOnClose = morph !== null && onOpenedPhoto && !containerMoved;
 
+  const closeBackButtonClaim = useBackButtonClaim({
+    layout: 'window',
+    transition: 'fade',
+    onPress: () => onPressBack(),
+  });
+
   const close = useCallback((finish: () => void) => {
     if (isFinishing.current) return;
     isFinishing.current = true;
+
+    closeBackButtonClaim();
 
     backdropAtClose.value =
       dragBackdropOpacity(dismissX.value, dismissY.value);
@@ -446,7 +487,7 @@ const GalleryScreen = ({
       setPhase('closing');
       progress.value = withTiming(
         0,
-        { duration: DURATION_MS, easing: EASING },
+        TIMING,
         () => { runOnJS(finish)(); },
       );
       return;
@@ -459,7 +500,7 @@ const GalleryScreen = ({
     setExpandedPhoto(null);
     fadeOut.value = withTiming(
       0,
-      { duration: DURATION_MS, easing: EASING },
+      TIMING,
       () => { runOnJS(finish)(); },
     );
   }, [morphOnClose]);
@@ -490,8 +531,8 @@ const GalleryScreen = ({
     // over the same time. Without a morph the gallery just fades from where
     // the photo was flicked - leave the offset be.
     if (morphOnClose) {
-      dismissX.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
-      dismissY.value = withTiming(0, { duration: DURATION_MS, easing: EASING });
+      dismissX.value = withTiming(0, TIMING);
+      dismissY.value = withTiming(0, TIMING);
     }
     onPressBack();
   }, [onPressBack, morphOnClose, dismissX, dismissY]);
@@ -571,29 +612,36 @@ const GalleryScreen = ({
           </Reanimated.View>
         }
 
-        {isDesktopWeb && phase === 'open' && index > 0 &&
-          <PagerChevron direction={-1} onNavigate={onNavigate} />
-        }
-        {isDesktopWeb && phase === 'open' && index < album.length - 1 &&
-          <PagerChevron direction={1} onNavigate={onNavigate} />
-        }
+        {isDesktopWeb && album.length > 1 && <>
+          <PagerChevron
+            direction={-1}
+            onNavigate={onNavigate}
+            opacity={prevChevronOpacity}
+            enabled={phase === 'open' && index > 0}
+          />
+          <PagerChevron
+            direction={1}
+            onNavigate={onNavigate}
+            opacity={nextChevronOpacity}
+            enabled={phase === 'open' && index < album.length - 1}
+          />
+        </>}
 
         {album.length > 1 &&
-          <View
+          <Reanimated.View
             style={[
               styles.counter,
               { top: 14 + (Platform.OS === 'web' ? 0 : insets.top) },
+              chromeStyle,
             ]}
             pointerEvents="none"
           >
             <DefaultText style={styles.counterText}>
               {index + 1}/{album.length}
             </DefaultText>
-          </View>
+          </Reanimated.View>
         }
 
-        <StatusBarSpacer/>
-        <FloatingBackButton onPress={onPressBack}/>
       </Reanimated.View>
     </View>
   );
@@ -621,13 +669,17 @@ const styles = StyleSheet.create({
     marginTop: -22,
     width: 44,
     height: 44,
+    // Above Pinchy's 999, like the counter - at 998 it would be unreachable
+    // beneath the photo's own stacking context.
+    zIndex: 1000,
+  },
+  chevronButton: {
+    width: '100%',
+    height: '100%',
     borderRadius: 999,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    // Above Pinchy's 999, like the counter - at 998 it would be unreachable
-    // beneath the photo's own stacking context.
-    zIndex: 1000,
   },
   chevronHovered: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',

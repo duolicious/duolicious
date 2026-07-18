@@ -26,6 +26,7 @@ import { DefaultText } from './default-text';
 import { RenderedHoc } from './rendered-hoc';
 import { FlashList, FlashListProps, FlashListRef } from '@shopify/flash-list';
 import { useAppTheme } from '../app-theme/app-theme';
+import { COLUMN_MAX_WIDTH } from '../constants/constants';
 
 const styles = StyleSheet.create({
   activityIndicator: {
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     alignItems: 'stretch',
     width: '100%',
-    maxWidth: 600,
+    maxWidth: COLUMN_MAX_WIDTH,
     alignSelf: 'center',
   },
 });

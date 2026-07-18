@@ -28,6 +28,7 @@ import { ConversationScreen } from './components/conversation-screen/conversatio
 import { ServerStatus, UtilityScreen } from './components/utility-screen';
 import { ProspectProfileScreen } from './components/prospect-profile-screen/prospect-profile-screen';
 import { GalleryScreen } from './components/gallery-screen';
+import { GlobalBackButton } from './components/global-back-button';
 import { InviteScreen, WelcomeScreen } from './components/welcome-screen';
 import { sessionToken, sessionPersonUuid } from './kv-storage/session-token';
 import { lastPath } from './kv-storage/last-path';
@@ -552,6 +553,7 @@ const App = () => {
                   options={{ title: 'Invitation' }} />
               </Stack.Navigator>
             </NavigationContainer>
+            <GlobalBackButton/>
             {bannerVisible && <SignUpBanner prospectHandle={bannerProspectHandle}/>}
             <TooltipListener/>
             <ReportModal/>

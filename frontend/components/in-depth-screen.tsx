@@ -17,9 +17,8 @@ import { AnsweredQuizCard } from './quiz-card';
 import { DefaultFlatList } from './default-flat-list';
 import { Chart } from './chart';
 import { api } from '../api/api';
-import { StatusBarSpacer } from './status-bar-spacer';
-import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-screen';
 import type { ProspectNavigationRef } from './prospect-profile-screen/prospect-profile-screen';
+import { useBackButtonClaim } from '../events/back-button';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProspectParamList } from '../navigation/linking';
 import { useSignedInUser } from '../events/signed-in-user';
@@ -353,6 +352,12 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
   if (navigationRef)
     navigationRef.current = navigation;
 
+  useBackButtonClaim({
+    layout: 'column',
+    transition: 'instant',
+    onPress: () => (navigationRef?.current ?? navigation).goBack(),
+  });
+
   // Only `personUuid` lives in the URL. Numeric `personId` (used by the
   // `/compare-*` endpoints) and the prospect's display `name` come from the
   // prospect-cache hint that the parent profile screen populates after its
@@ -500,20 +505,6 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
           disableRefresh={true}
         />
       }
-      <View
-        style={{
-          position: 'absolute',
-          top: insets.top,
-          height: 0,
-          width: '100%',
-          maxWidth: 600,
-          alignSelf: 'center',
-          zIndex: 999,
-        }}
-      >
-        <StatusBarSpacer/>
-        <FloatingBackButton navigationRef={navigationRef}/>
-      </View>
     </>
   );
 };
