@@ -33,6 +33,13 @@ const EASING = Easing.bezier(0.33, 0, 0.15, 1);
 // the way to transparent.
 const DISMISS_FADE_RANGE = 300;
 
+// The backdrop's opacity for a dismiss drag of `(x, y)`: 1 untouched, fading
+// to 0 as the photo is dragged away.
+const dragBackdropOpacity = (x: number, y: number) => {
+  'worklet';
+  return 1 - Math.min(1, dragDistance(x, y) / DISMISS_FADE_RANGE);
+};
+
 // The back button and click-to-navigate zones are desktop-web only; on mobile
 // (native or mobile web) navigation and dismissal are gestures.
 const isDesktopWeb = Platform.OS === 'web' && !isMobile();
@@ -358,11 +365,15 @@ const GalleryScreen = ({
     return () => setExpandedPhoto(null);
   }, []);
 
+  // The backdrop opacity when the close began. Dismissing unwinds the drag
+  // offset while the photo morphs home, and without this cap the drag fade
+  // would recover with it, flashing the backdrop back to black mid-close.
+  const backdropAtClose = useSharedValue(1);
+
   const backdropStyle = useAnimatedStyle(() => {
     const opened = Math.min(1, progress.value * 2);
-    const dragged = dragDistance(dismissX.value, dismissY.value);
-    const notDragged = 1 - Math.min(1, dragged / DISMISS_FADE_RANGE);
-    return { opacity: opened * notDragged };
+    const notDragged = dragBackdropOpacity(dismissX.value, dismissY.value);
+    return { opacity: opened * Math.min(notDragged, backdropAtClose.value) };
   });
 
   // The open/close morph only makes sense for the photo we opened; once paged
@@ -374,6 +385,9 @@ const GalleryScreen = ({
   const close = useCallback((finish: () => void) => {
     if (isFinishing.current) return;
     isFinishing.current = true;
+
+    backdropAtClose.value =
+      dragBackdropOpacity(dismissX.value, dismissY.value);
 
     // `finish` runs even if the timing is interrupted: better to cut the
     // animation short than to leave the navigation permanently prevented.
