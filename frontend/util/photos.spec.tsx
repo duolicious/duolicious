@@ -196,6 +196,44 @@ describe('photoExpandFrame', () => {
     expect(frame.clip).toEqual({ x: 0, y: 0, width: 400, height: 800 });
   });
 
+  it('shows a photo smaller than the viewport at native size, not enlarged', () => {
+    // Both dimensions fit within 400x800, so it must not be scaled up - it
+    // ends at its own resolution, centred, matching the zoomable viewer.
+    const small: PhotoGeometry = {
+      width: 200,
+      height: 150,
+      crop_top: 0,
+      crop_left: 25,
+    };
+
+    const frame = photoExpandFrame(small, preview, viewport, 1);
+
+    // Native size (`image` fills its clip), and the clip is centred on screen.
+    expect(frame.image).toEqual({ x: 0, y: 0, width: 200, height: 150 });
+    expect(frame.clip).toEqual({
+      x: (viewport.width - 200) / 2,
+      y: (viewport.height - 150) / 2,
+      width: 200,
+      height: 150,
+    });
+  });
+
+  it('still fits a photo that overflows on only one axis', () => {
+    // Narrower than the viewport but taller: fit by height, not native size.
+    const tall: PhotoGeometry = {
+      width: 200,
+      height: 1600,
+      crop_top: 700,
+      crop_left: 0,
+    };
+
+    const frame = photoExpandFrame(tall, preview, viewport, 1);
+
+    // 200x1600 into 400x800 is height-bound: scale 0.5 -> 100x800, centred.
+    expect(frame.image).toEqual({ x: 0, y: 0, width: 100, height: 800 });
+    expect(frame.clip).toEqual({ x: 150, y: 0, width: 100, height: 800 });
+  });
+
   it('is a no-op expansion for a square photo, which has nothing to uncrop', () => {
     const square: PhotoGeometry = {
       width: 600,

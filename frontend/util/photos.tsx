@@ -98,8 +98,10 @@ const photoExpandFrame = (
   // Scale that makes the crop exactly fill the preview square...
   const fromScale = from.width / minDim;
 
-  // ...and the one that fits the whole original within the viewport.
-  const toScale = Math.min(viewport.width / width, viewport.height / height);
+  // ...and the one that fits the whole original within the viewport, but never
+  // enlarging it past its native resolution - a photo smaller than the screen
+  // shows at native size, matching how the zoomable viewer (Pinchy) fits it.
+  const toScale = Math.min(1, viewport.width / width, viewport.height / height);
 
   const fromImage: Rect = {
     x: -crop_left * fromScale,
