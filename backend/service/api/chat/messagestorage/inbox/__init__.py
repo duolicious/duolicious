@@ -1,6 +1,7 @@
 import traceback
 
 from batcher import Batcher
+from constants import LAST_ONLINE_DEFAULT_SECONDS
 from database import Row, Tx, api_tx, row_int, row_str
 from searchfilters import (
     Q_SEARCH_PARAMETERS_BY_UUID,
@@ -104,7 +105,9 @@ WITH viewer AS (
             prospect.activated AND prospect.shadow_banned_at IS NULL, FALSE
         ) AS is_prospect_activated,
         COALESCE(
-            prospect.last_online_time > NOW() - INTERVAL '1 month', FALSE
+            prospect.last_online_time >
+                NOW() - %(recently_online_seconds)s * INTERVAL '1 second',
+            FALSE
         ) AS is_prospect_recently_online,
         -- Only for the final SELECT's `matches_search_filters` probe; never
         -- sent to the client.
@@ -558,6 +561,7 @@ async def _fetch_inbox_conversations(
 
         params: dict[str, SearchParam] = dict(
             username=username,
+            recently_online_seconds=LAST_ONLINE_DEFAULT_SECONDS,
             **filters.params,
         )
         if prospect_username is not None:
