@@ -38,8 +38,30 @@ const ZOOM_TIMING = { duration: 220, easing: Easing.out(Easing.cubic) };
 // dismisses the gallery; a shorter drag returns the photo to centre.
 const DISMISS_THRESHOLD = 55;
 
+// Sideways drag this far (screen px) before lifting pages to the neighbour.
+const NAV_THRESHOLD = 55;
+
 // A drag that doesn't dismiss returns in one motion, no spring wobble.
 const DISMISS_RETURN = { duration: 200, easing: Easing.out(Easing.cubic) };
+
+// Shrink an image to fit the viewport, never enlarging it past native size.
+const fitWithin = (
+  size: { width: number, height: number },
+  viewportWidth: number,
+  viewportHeight: number,
+): { width: number, height: number } => {
+  let width = size.width;
+  let height = size.height;
+  if (width > viewportWidth) {
+    width = viewportWidth;
+    height = (viewportWidth / size.width) * size.height;
+  }
+  if (height > viewportHeight) {
+    height = viewportHeight;
+    width = (viewportHeight / size.height) * size.width;
+  }
+  return { width, height };
+};
 
 const FitWithinScreenImage = ({
   source,
@@ -58,9 +80,16 @@ const FitWithinScreenImage = ({
   const [imageSize, setImageSize] = useState(
     naturalSize ?? {width: 0, height: 0},
   );
-  const [imageWidth, setImageWidth] = useState<number | null>(null);
-  const [imageHeight, setImageHeight] = useState<number | null>(null);
   const { width: viewportWidth, height: viewportHeight } = viewport;
+
+  // Fit synchronously from the known size, so a photo the caller reports the
+  // dimensions of paints on its first frame - no spinner flash when a new page
+  // mounts.
+  const initialFit = naturalSize && naturalSize.width && naturalSize.height
+    ? fitWithin(naturalSize, viewportWidth, viewportHeight)
+    : null;
+  const [imageWidth, setImageWidth] = useState<number | null>(initialFit?.width ?? null);
+  const [imageHeight, setImageHeight] = useState<number | null>(initialFit?.height ?? null);
 
   useEffect(() => {
     // Callers that already know the photo's dimensions (the API reports them)
@@ -83,18 +112,10 @@ const FitWithinScreenImage = ({
   }, [source.uri, naturalSize?.width, naturalSize?.height]);
 
   useEffect(() => {
-    let newWidth = imageSize.width;
-    let newHeight = imageSize.height;
+    if (!imageSize.width || !imageSize.height) return;
 
-    if (imageSize.width > viewportWidth) {
-      newWidth = viewportWidth;
-      newHeight = (viewportWidth / imageSize.width) * imageSize.height;
-    }
-
-    if (newHeight > viewportHeight) {
-      newHeight = viewportHeight;
-      newWidth = (viewportHeight / imageSize.height) * imageSize.width;
-    }
+    const { width: newWidth, height: newHeight } =
+      fitWithin(imageSize, viewportWidth, viewportHeight);
 
     setImageWidth(newWidth);
     setImageHeight(newHeight);
@@ -137,7 +158,17 @@ type PinchyDismiss = {
   y: SharedValue<number>
 };
 
-const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgroundColor = 'black'}: {
+// The horizontal pager this photo sits in. A sideways drag on the zoomed-out
+// photo drives `scrollX` (settled at `homeX`); crossing the threshold fires
+// `onNavigate`, which the caller uses to slide to the neighbour.
+type PinchyPage = {
+  scrollX: SharedValue<number>
+  homeX: number
+  width: number
+  count: number
+};
+
+const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, backgroundColor = 'black'}: {
   uuid: string,
   naturalSize?: { width: number, height: number },
   // The box to fit the photo within and centre it in. Defaults to the window,
@@ -148,6 +179,9 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
   // this offset, and `onDismiss` fires if it's dragged past the threshold.
   dismiss?: PinchyDismiss,
   onDismiss?: () => void,
+  // When provided, a sideways drag pages between photos instead of dismissing.
+  page?: PinchyPage,
+  onNavigate?: (dir: number) => void,
   backgroundColor?: string,
 }) => {
   const window = useWindowDimensions();
@@ -167,11 +201,13 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
   const panBaseX = useSharedValue(0);
   const panBaseY = useSharedValue(0);
 
-  // A single-finger drag on the zoomed-out photo is a drag-to-dismiss rather
-  // than a pan; this records that, and where the drag started from.
-  const isDismissing = useSharedValue(false);
+  // A single-finger drag on the zoomed-out photo either dismisses (vertical) or
+  // pages (horizontal). `dragMode` is locked once the drag picks a direction:
+  // 'pan' zoomed in, else 'none' until it commits to 'dismiss' or 'page'.
+  const dragMode = useSharedValue<'none' | 'pan' | 'dismiss' | 'page'>('none');
   const dismissBaseX = useSharedValue(0);
   const dismissBaseY = useSharedValue(0);
+  const pageBaseX = useSharedValue(0);
 
   // The scale, position and finger focal point captured when a pinch begins, so
   // each update can keep the point that was under the fingers under them still.
@@ -202,7 +238,7 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
       positionX.value = newPos.x;
       positionY.value = newPos.y;
     })(viewportWidth, viewportHeight);
-  }, [viewportWidth, viewportHeight]);
+  }, [viewportWidth, viewportHeight, scale, positionX, positionY]);
 
   const onUpdateImageSize = useCallback(
     ({ imageWidth: w, imageHeight: h }: { imageWidth: number, imageHeight: number }) => {
@@ -250,7 +286,7 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
         positionX.value = newPos.x;
         positionY.value = newPos.y;
       }),
-    [],
+    [scale, positionX, positionY],
   );
 
   const pan = useMemo(
@@ -264,11 +300,12 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
         // out the discontinuity when a finger lifts; a pan that only activates
         // partway through (once the pinch crosses scale 1) starts tracking the
         // centroid mid-gesture, and the lift jumps the image instead. A single
-        // finger pans once zoomed, or drags to dismiss when zoomed out.
+        // finger pans once zoomed, or drags to dismiss/page when zoomed out.
         if (
           e.numberOfTouches > 1 ||
           scale.value > 1 + 1e-5 ||
-          dismiss !== undefined
+          dismiss !== undefined ||
+          page !== undefined
         ) {
           stateManager.activate();
         } else {
@@ -277,62 +314,82 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
       })
       .onStart((e) => {
         'worklet';
-        // A single finger on the zoomed-out photo drags to dismiss; anything
-        // else (a pinch, or a drag while zoomed in) pans.
-        isDismissing.value =
-          dismiss !== undefined &&
-          e.numberOfPointers <= 1 &&
-          scale.value <= 1 + 1e-5;
+        // Zoomed in, or a pinch: pan the image. Zoomed out with a single
+        // finger: wait for the drag to reveal its direction (dismiss/page).
+        const panning = scale.value > 1 + 1e-5 || e.numberOfPointers > 1;
+        dragMode.value = panning ? 'pan' : 'none';
 
-        if (isDismissing.value && dismiss) {
-          dismissBaseX.value = dismiss.x.value;
-          dismissBaseY.value = dismiss.y.value;
-        } else {
-          panBaseX.value = positionX.value;
-          panBaseY.value = positionY.value;
-        }
+        panBaseX.value = positionX.value;
+        panBaseY.value = positionY.value;
+        dismissBaseX.value = dismiss?.x.value ?? 0;
+        dismissBaseY.value = dismiss?.y.value ?? 0;
+        pageBaseX.value = page?.scrollX.value ?? 0;
       })
       .onUpdate((e) => {
         'worklet';
-        if (isDismissing.value && dismiss) {
+        if (dragMode.value === 'pan') {
+          const newPos = constrainPosition(
+            scale.value,
+            imageWidth.value,
+            imageHeight.value,
+            viewportWidthSv.value,
+            viewportHeightSv.value,
+            panBaseX.value,
+            panBaseY.value,
+            e.translationX,
+            e.translationY,
+          );
+          positionX.value = newPos.x;
+          positionY.value = newPos.y;
+          return;
+        }
+
+        // Lock to whichever axis the drag commits to first: sideways pages,
+        // up/down dismisses. Only the modes the caller enabled are available.
+        if (dragMode.value === 'none') {
+          const moved = Math.max(Math.abs(e.translationX), Math.abs(e.translationY));
+          if (moved > 8) {
+            const horizontal = Math.abs(e.translationX) >= Math.abs(e.translationY);
+            if (horizontal && page) dragMode.value = 'page';
+            else if (!horizontal && dismiss) dragMode.value = 'dismiss';
+            else if (page) dragMode.value = 'page';
+            else if (dismiss) dragMode.value = 'dismiss';
+          }
+        }
+
+        if (dragMode.value === 'page' && page) {
+          const max = (page.count - 1) * page.width;
+          page.scrollX.value = Math.min(max, Math.max(0, pageBaseX.value - e.translationX));
+        } else if (dragMode.value === 'dismiss' && dismiss) {
           dismiss.x.value = dismissBaseX.value + e.translationX;
           dismiss.y.value = dismissBaseY.value + e.translationY;
-          return;
         }
-
-        const newPos = constrainPosition(
-          scale.value,
-          imageWidth.value,
-          imageHeight.value,
-          viewportWidthSv.value,
-          viewportHeightSv.value,
-          panBaseX.value,
-          panBaseY.value,
-          e.translationX,
-          e.translationY,
-        );
-        positionX.value = newPos.x;
-        positionY.value = newPos.y;
       })
-      .onEnd(() => {
+      .onEnd((e) => {
         'worklet';
-        if (!isDismissing.value || !dismiss) {
-          return;
-        }
+        if (dragMode.value === 'page' && page) {
+          const atIndex = Math.round(page.homeX / page.width);
+          let dir = 0;
+          if (e.translationX <= -NAV_THRESHOLD && atIndex < page.count - 1) dir = 1;
+          else if (e.translationX >= NAV_THRESHOLD && atIndex > 0) dir = -1;
 
-        const dragged = Math.sqrt(
-          dismiss.x.value ** 2 + dismiss.y.value ** 2,
-        );
-
-        if (dragged > DISMISS_THRESHOLD && onDismiss) {
-          runOnJS(onDismiss)();
-        } else {
-          // Didn't drag far enough - ease back to centre in one motion.
-          dismiss.x.value = withTiming(0, DISMISS_RETURN);
-          dismiss.y.value = withTiming(0, DISMISS_RETURN);
+          if (dir !== 0 && onNavigate) {
+            runOnJS(onNavigate)(dir);
+          } else {
+            // Not far enough (or at an end): slide back in one motion.
+            page.scrollX.value = withTiming(page.homeX, DISMISS_RETURN);
+          }
+        } else if (dragMode.value === 'dismiss' && dismiss) {
+          const dragged = Math.sqrt(dismiss.x.value ** 2 + dismiss.y.value ** 2);
+          if (dragged > DISMISS_THRESHOLD && onDismiss) {
+            runOnJS(onDismiss)();
+          } else {
+            dismiss.x.value = withTiming(0, DISMISS_RETURN);
+            dismiss.y.value = withTiming(0, DISMISS_RETURN);
+          }
         }
       }),
-    [dismiss, onDismiss],
+    [dismiss, onDismiss, page, onNavigate, scale, positionX, positionY],
   );
 
   const doubleTap = useMemo(
@@ -365,7 +422,7 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
           positionY.value = withTiming(newPos.y, ZOOM_TIMING);
         }
       }),
-    [],
+    [scale, positionX, positionY],
   );
 
   const composed = useMemo(
@@ -427,5 +484,6 @@ export {
 
 export type {
   PinchyDismiss,
+  PinchyPage,
   PinchyZoom,
 };

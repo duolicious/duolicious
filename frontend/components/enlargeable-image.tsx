@@ -11,12 +11,14 @@ import { IMAGES_URL } from '../env/env';
 import { hasGifExtraExt } from '../util/photos';
 import type { PhotoGeometry } from '../util/photos';
 import { setExpandedPhoto, useIsPhotoExpanded } from '../events/expanded-photo';
+import type { AlbumPhoto } from '../events/expanded-photo';
 
 const EnlargeablePhoto = ({
   photoUuid,
   photoExtraExts,
   photoBlurhash,
   photoGeometry,
+  album,
   style,
   innerStyle,
   isPrimary,
@@ -26,6 +28,9 @@ const EnlargeablePhoto = ({
   photoExtraExts?: string[] | undefined | null
   photoBlurhash: string | undefined | null
   photoGeometry?: PhotoGeometry | undefined | null
+  // Every photo of the same person, so the gallery can page between them. When
+  // omitted (e.g. the feed), the tapped photo is the only one.
+  album?: AlbumPhoto[] | undefined | null
   style?: StyleProp<ViewStyle>
   innerStyle?: StyleProp<ViewStyle>
   isPrimary: boolean
@@ -75,12 +80,17 @@ const EnlargeablePhoto = ({
       bottomRight: px(flat.borderBottomRightRadius, shorthand),
     };
 
+    // The photos the gallery can page between. Fall back to just this one.
+    const fullAlbum: AlbumPhoto[] =
+      album && album.length ? album : [{ uuid: photoUuid, geometry: photoGeometry }];
+
     ref.current.measureInWindow((x, y, width, height) => {
       // A zero-sized measurement means the preview isn't laid out where we can
       // expand from - fall back rather than animate out of nothing.
       if (width > 0 && height > 0) {
         setExpandedPhoto({
           photoUuid,
+          album: fullAlbum,
           from: { x, y, width, height },
           geometry: photoGeometry,
           borderRadius,
@@ -90,7 +100,7 @@ const EnlargeablePhoto = ({
 
       navigation.navigate('Gallery Screen', { photoUuid });
     });
-  }, [photoUuid, photoGeometry, style, navigation]);
+  }, [photoUuid, photoGeometry, album, style, navigation]);
 
   const prefetchEnlargedImage = useCallback(() => {
     if (!photoUuid || isGif) return;

@@ -14,6 +14,12 @@ type BorderRadii = {
   bottomRight: number
 };
 
+// One photo in the album the gallery can page through.
+type AlbumPhoto = {
+  uuid: string
+  geometry: PhotoGeometry | null
+};
+
 // The photo the gallery is currently expanding out of, and back into when it
 // closes. Passing this through React Navigation's `route.params` would leak
 // measured pixel coordinates into the URL, so - as with `prospect-cache` - the
@@ -23,6 +29,11 @@ type BorderRadii = {
 // the screen it was opened from.
 type ExpandedPhoto = {
   photoUuid: string
+
+  // Every photo of the same person, so the gallery can page between them. The
+  // tapped one (`photoUuid`) is where it starts and what the open/close morph
+  // is anchored to.
+  album: AlbumPhoto[]
 
   // Where the preview being expanded sits on screen, from `measureInWindow`.
   from: Rect
@@ -76,9 +87,7 @@ export {
 };
 
 export type {
+  AlbumPhoto,
   BorderRadii,
-};
-
-export type {
   ExpandedPhoto,
 };

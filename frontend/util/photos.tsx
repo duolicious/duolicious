@@ -142,7 +142,23 @@ const photoExpandFrame = (
   };
 };
 
+// The on-screen size of a photo fitted within `viewport`, never enlarged past
+// its native resolution - the same rule `photoExpandFrame` and the zoomable
+// viewer use, so a photo is the same size however it's shown.
+const fittedPhotoSize = (
+  geometry: { width: number, height: number },
+  viewport: { width: number, height: number },
+): { width: number, height: number } => {
+  const scale = Math.min(
+    1,
+    viewport.width / geometry.width,
+    viewport.height / geometry.height,
+  );
+  return { width: geometry.width * scale, height: geometry.height * scale };
+};
+
 export {
+  fittedPhotoSize,
   hasGifExtraExt,
   photoExpandFrame,
   photoUri,
