@@ -39,8 +39,8 @@ const dragBackdropOpacity = (x: number, y: number) => {
   return 1 - Math.min(1, dragDistance(x, y) / DISMISS_FADE_RANGE);
 };
 
-// The back button and click-to-navigate zones are desktop-web only; on mobile
-// (native or mobile web) navigation and dismissal are gestures.
+// The click-to-navigate zones are desktop-web only; on mobile (native or
+// mobile web) navigation is a gesture.
 const isDesktopWeb = Platform.OS === 'web' && !isMobile();
 
 // 'opening' and 'closing' show the photo mid-expansion and own the screen;
@@ -593,7 +593,7 @@ const GalleryScreen = ({
         }
 
         <StatusBarSpacer/>
-        {isDesktopWeb && <FloatingBackButton onPress={onPressBack}/>}
+        <FloatingBackButton onPress={onPressBack}/>
       </Reanimated.View>
     </View>
   );
