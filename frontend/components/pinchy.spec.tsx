@@ -1,4 +1,4 @@
-import { focalZoomPosition } from './pinchy-math';
+import { dragDismissRadius, focalZoomPosition } from './pinchy-math';
 
 // The screen position of an image point, under the model the transform
 // implements: `screen = centre + scale * (imagePoint + position)`, where
@@ -93,5 +93,30 @@ describe('focalZoomPosition', () => {
     // A drag of (40, 30) screen px at scale 2 is (20, 15) image units.
     expect(position.x).toBeCloseTo(basePosition.x + 40 / baseScale);
     expect(position.y).toBeCloseTo(basePosition.y + 30 / baseScale);
+  });
+});
+
+describe('dragDismissRadius', () => {
+  it('is zero before the photo is dragged', () => {
+    expect(dragDismissRadius(0, 0)).toBe(0);
+  });
+
+  it('grows with the drag distance, not the axis', () => {
+    // Uses Euclidean distance, so a diagonal drag rounds as much as a straight
+    // one of the same length.
+    const straight = dragDismissRadius(0, 30);
+    const diagonal = dragDismissRadius(18, 24); // 3-4-5 -> distance 30
+
+    expect(straight).toBeGreaterThan(0);
+    expect(diagonal).toBeCloseTo(straight);
+  });
+
+  it('caps once dragged past the range rather than growing without bound', () => {
+    const atRange = dragDismissRadius(0, 60);
+    const wellPast = dragDismissRadius(0, 600);
+
+    // Both maxed out - a far drag doesn't over-round.
+    expect(atRange).toBeCloseTo(wellPast);
+    expect(wellPast).toBeLessThanOrEqual(24);
   });
 });

@@ -24,22 +24,22 @@ import Animated, {
   runOnUI,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { IMAGES_URL } from '../env/env';
-import { constrainPosition, focalZoomPosition } from './pinchy-math';
+import { constrainPosition, dragDismissRadius, focalZoomPosition } from './pinchy-math';
 
 // Double-tap zoom eases in rather than snapping. A pinch or pan writing the
 // shared values directly cancels it mid-flight, which is what you want.
 const ZOOM_TIMING = { duration: 220, easing: Easing.out(Easing.cubic) };
 
 // Dragging the zoomed-out photo at least this far (screen px) before lifting
-// dismisses the gallery; a shorter drag springs the photo back to centre.
-const DISMISS_THRESHOLD = 110;
+// dismisses the gallery; a shorter drag returns the photo to centre.
+const DISMISS_THRESHOLD = 55;
 
-const DISMISS_SPRING = { damping: 22, stiffness: 220 };
+// A drag that doesn't dismiss returns in one motion, no spring wobble.
+const DISMISS_RETURN = { duration: 200, easing: Easing.out(Easing.cubic) };
 
 const FitWithinScreenImage = ({
   source,
@@ -327,9 +327,9 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
         if (dragged > DISMISS_THRESHOLD && onDismiss) {
           runOnJS(onDismiss)();
         } else {
-          // Didn't drag far enough - spring back to centre.
-          dismiss.x.value = withSpring(0, DISMISS_SPRING);
-          dismiss.y.value = withSpring(0, DISMISS_SPRING);
+          // Didn't drag far enough - ease back to centre in one motion.
+          dismiss.x.value = withTiming(0, DISMISS_RETURN);
+          dismiss.y.value = withTiming(0, DISMISS_RETURN);
         }
       }),
     [dismiss, onDismiss],
@@ -373,17 +373,25 @@ const Pinchy = ({uuid, naturalSize, viewport, zoom, dismiss, onDismiss, backgrou
     [pinch, pan, doubleTap],
   );
 
-  const animatedStyle = useAnimatedStyle<ImageStyle>(() => ({
-    // The dismiss drag translates the whole photo in screen space, so it goes
-    // outermost (ahead of the zoom scale, which it must not be multiplied by).
-    transform: [
-      { translateX: dismiss ? dismiss.x.value : 0 },
-      { translateY: dismiss ? dismiss.y.value : 0 },
-      { scale: scale.value },
-      { translateX: positionX.value },
-      { translateY: positionY.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle<ImageStyle>(() => {
+    const dismissX = dismiss ? dismiss.x.value : 0;
+    const dismissY = dismiss ? dismiss.y.value : 0;
+
+    return {
+      // Round the corners as the photo is dragged away, so it never lifts off
+      // the screen looking square.
+      borderRadius: dragDismissRadius(dismissX, dismissY),
+      // The dismiss drag translates the whole photo in screen space, so it goes
+      // outermost (ahead of the zoom scale, which it must not be multiplied by).
+      transform: [
+        { translateX: dismissX },
+        { translateY: dismissY },
+        { scale: scale.value },
+        { translateX: positionX.value },
+        { translateY: positionY.value },
+      ],
+    };
+  });
 
   return (
     <GestureDetector gesture={composed}>

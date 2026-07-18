@@ -68,7 +68,22 @@ const constrainPosition = (
   };
 };
 
+// How far (screen px) a dismiss drag rounds the photo's corners over, and the
+// radius it reaches. The photo rounds as it's dragged away so the user never
+// sees square corners lifting off the screen.
+const DRAG_DISMISS_RADIUS_RANGE = 60;
+const DRAG_DISMISS_MAX_RADIUS = 24;
+
+// The corner radius for a dismiss drag of `(x, y)` screen px. Shared by the
+// dragged photo and the closing one so the two agree at the hand-off.
+const dragDismissRadius = (x: number, y: number): number => {
+  'worklet';
+  const dragged = Math.sqrt(x * x + y * y);
+  return Math.min(dragged / DRAG_DISMISS_RADIUS_RANGE, 1) * DRAG_DISMISS_MAX_RADIUS;
+};
+
 export {
   constrainPosition,
+  dragDismissRadius,
   focalZoomPosition,
 };

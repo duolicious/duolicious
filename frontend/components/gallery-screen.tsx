@@ -15,6 +15,7 @@ import { StatusBarSpacer } from './status-bar-spacer';
 import { FloatingBackButton } from './prospect-profile-screen/prospect-profile-screen';
 import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyZoom } from './pinchy';
+import { dragDismissRadius } from './pinchy-math';
 import { IMAGES_URL } from '../env/env';
 import { photoExpandFrame } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
@@ -80,16 +81,22 @@ const ExpandingPhoto = ({
   // so closing carries it out from wherever the user left it rather than
   // snapping back to fitted first. The zoom unwinds as the photo returns to the
   // preview, where it has to be identity. Same order as Pinchy's own transform.
-  const clipStyle = useAnimatedStyle(() => ({
+  const clipStyle = useAnimatedStyle(() => {
+    // A dismiss drag rounds all four corners uniformly; it's added on top of
+    // the open/close rounding so the corners match the dragged photo at the
+    // hand-off, then unwinds to the preview's radii as the close plays out.
+    const dragRadius = dragDismissRadius(dismiss.x.value, dismiss.y.value);
+
+    return {
     left: lerp(closed.clip.x, opened.clip.x, progress.value),
     top: lerp(closed.clip.y, opened.clip.y, progress.value),
     width: lerp(closed.clip.width, opened.clip.width, progress.value),
     height: lerp(closed.clip.height, opened.clip.height, progress.value),
     // Rounded like the preview at the start, square once it fills the screen.
-    borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value),
-    borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value),
-    borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value),
-    borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value),
+    borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value) + dragRadius,
+    borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value) + dragRadius,
+    borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value) + dragRadius,
+    borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value) + dragRadius,
     transform: [
       // A dismiss drag carried in from the open photo, unwound as it closes -
       // outermost and in screen space, so the zoom scale doesn't multiply it.
@@ -99,7 +106,8 @@ const ExpandingPhoto = ({
       { translateX: lerp(0, zoom.translateX.value, progress.value) },
       { translateY: lerp(0, zoom.translateY.value, progress.value) },
     ],
-  }));
+    };
+  });
 
   const imageStyle = useAnimatedStyle(() => ({
     left: lerp(closed.image.x, opened.image.x, progress.value),
