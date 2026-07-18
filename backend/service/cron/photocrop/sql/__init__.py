@@ -1,20 +1,33 @@
-# `crop_attempted_at` drains the queue: photos whose crop can't be recovered
-# would otherwise stay `width IS NULL` and be re-fetched on every pass. The
-# keyset cursor (`after`) does the same for dry runs, which never mark
-# anything. Served by the partial index idx__photo__crop_backlog.
+# Recently-online people first, so the photos most likely to be seen get their
+# geometry soonest. `crop_attempted_at` drains the queue: photos whose crop
+# can't be recovered would otherwise stay `width IS NULL` and be re-fetched on
+# every pass. The keyset cursor (`after_*`) does the same for dry runs, which
+# never mark anything. Served by the partial index
+# idx__photo__crop_backlog__person_id.
 Q_PHOTOS_WITHOUT_GEOMETRY = """
 SELECT
-    uuid
+    photo.uuid,
+    person.last_online_time
 FROM
     photo
+JOIN
+    person
+ON
+    person.id = photo.person_id
 WHERE
-    width IS NULL
+    photo.width IS NULL
 AND
-    crop_attempted_at IS NULL
-AND
-    uuid > %(after)s
+    photo.crop_attempted_at IS NULL
+AND (
+    %(after_uuid)s::TEXT IS NULL
+OR
+    (person.last_online_time, photo.uuid)
+    <
+    (%(after_last_online)s::TIMESTAMP, %(after_uuid)s::TEXT)
+)
 ORDER BY
-    uuid
+    person.last_online_time DESC,
+    photo.uuid DESC
 LIMIT
     %(limit)s
 """

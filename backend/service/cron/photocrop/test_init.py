@@ -1,10 +1,14 @@
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from unittest import mock
 import io
 import unittest
 
 import service.cron.photocrop as photocrop
 from duophoto.fixtures import jpeg, photo, renditions
+
+_SelectRow = dict[str, str | datetime]
+_SelectParams = dict[str, str | datetime | int | None]
 
 class TestGeometryOf(unittest.TestCase):
     def test_recovers_the_geometry_of_a_matching_pair(self) -> None:
@@ -165,6 +169,78 @@ class TestBackfill(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(tx.executed, [])
         self.assertEqual(tx.executed_many, [])
+
+class _FakeSelectCursor:
+    def __init__(self, rows: list[_SelectRow]) -> None:
+        self._rows = rows
+
+    async def fetchall(self) -> list[_SelectRow]:
+        return self._rows
+
+class _FakeSelectTx:
+    def __init__(self, rows: list[_SelectRow]) -> None:
+        self._rows = rows
+        self.params: list[_SelectParams | None] = []
+
+    async def execute(
+        self,
+        query: str,
+        params: _SelectParams | None = None,
+    ) -> _FakeSelectCursor:
+        self.params.append(params)
+        return _FakeSelectCursor(self._rows)
+
+class _FakeSelectApiTx:
+    def __init__(self, tx: _FakeSelectTx) -> None:
+        self._tx = tx
+
+    async def __aenter__(self) -> _FakeSelectTx:
+        return self._tx
+
+    async def __aexit__(self, *_: object) -> bool:
+        return False
+
+class TestBackfillOnce(unittest.IsolatedAsyncioTestCase):
+    async def test_cursor_follows_the_last_row_and_feeds_the_next_poll(self) -> None:
+        rows: list[_SelectRow] = [
+            dict(uuid='a', last_online_time=datetime(2026, 7, 18, 12)),
+            dict(uuid='b', last_online_time=datetime(2026, 7, 1, 9)),
+        ]
+        tx = _FakeSelectTx(rows)
+        backfilled: list[list[str]] = []
+
+        async def fake_backfill(uuids: list[str]) -> None:
+            backfilled.append(uuids)
+
+        with mock.patch.object(photocrop, 'api_tx', lambda: _FakeSelectApiTx(tx)), \
+             mock.patch.object(photocrop, '_backfill', fake_backfill):
+            cursor = await photocrop.backfill_photo_crops_once()
+            await photocrop.backfill_photo_crops_once(cursor)
+
+        self.assertEqual(backfilled, [['a', 'b'], ['a', 'b']])
+        self.assertEqual(cursor, (datetime(2026, 7, 1, 9), 'b'))
+
+        first, second = tx.params
+        assert first is not None and second is not None
+        self.assertIsNone(first['after_uuid'])
+        self.assertIsNone(first['after_last_online'])
+        self.assertEqual(second['after_last_online'], datetime(2026, 7, 1, 9))
+        self.assertEqual(second['after_uuid'], 'b')
+
+    async def test_an_empty_queue_leaves_the_cursor_where_it_was(self) -> None:
+        tx = _FakeSelectTx([])
+        cursor = (datetime(2026, 7, 1, 9), 'b')
+        backfilled: list[list[str]] = []
+
+        async def fake_backfill(uuids: list[str]) -> None:
+            backfilled.append(uuids)
+
+        with mock.patch.object(photocrop, 'api_tx', lambda: _FakeSelectApiTx(tx)), \
+             mock.patch.object(photocrop, '_backfill', fake_backfill):
+            result = await photocrop.backfill_photo_crops_once(cursor)
+
+        self.assertEqual(result, cursor)
+        self.assertEqual(backfilled, [])
 
 if __name__ == '__main__':
     unittest.main()

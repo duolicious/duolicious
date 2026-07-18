@@ -12,6 +12,7 @@ from service.cron.cronutil import (
     print_stacktrace,
 )
 from PIL import Image
+from datetime import datetime
 import asyncio
 import io
 import os
@@ -131,35 +132,44 @@ async def _backfill(uuids: list[str]) -> None:
         f'of {len(uuids)} photos'
     )
 
-async def backfill_photo_crops_once(after: str = '') -> str:
+Cursor = tuple[datetime, str]
+
+async def backfill_photo_crops_once(
+    after: Cursor | None = None,
+) -> Cursor | None:
     async with api_tx() as tx:
         cur = await tx.execute(
             Q_PHOTOS_WITHOUT_GEOMETRY,
-            dict(after=after, limit=PHOTO_CROP_BATCH_SIZE),
+            dict(
+                after_last_online=after[0] if after else None,
+                after_uuid=after[1] if after else None,
+                limit=PHOTO_CROP_BATCH_SIZE,
+            ),
         )
         rows = await cur.fetchall()
 
-    uuids = [row['uuid'] for row in rows]
-
-    if not uuids:
+    if not rows:
         return after
 
-    await _backfill(uuids)
+    await _backfill([row['uuid'] for row in rows])
 
-    return uuids[-1]
+    return (rows[-1]['last_online_time'], rows[-1]['uuid'])
 
 async def backfill_photo_crops_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
 
-    # The cursor only ever advances: a wet run drains the queue via
-    # `crop_attempted_at` anyway, and a dry run - which writes nothing - would
-    # otherwise re-download the same batch every poll. Restart to re-walk.
-    after = ''
+    # The cursor is only held between polls in a dry run - which writes nothing
+    # and would otherwise re-download the same batch every poll; restart to
+    # re-walk. A wet run drains the queue via `crop_attempted_at` and always
+    # takes the batch whose people were online most recently, so someone coming
+    # online mid-walk isn't skipped.
+    after: Cursor | None = None
 
     while True:
         async def advance() -> None:
             nonlocal after
-            after = await backfill_photo_crops_once(after)
+            cursor = await backfill_photo_crops_once(after)
+            after = cursor if DRY_RUN else None
 
         await print_stacktrace(advance)
         await asyncio.sleep(PHOTO_CROP_POLL_SECONDS)

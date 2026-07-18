@@ -947,8 +947,9 @@ CREATE INDEX IF NOT EXISTS idx__photo__uuid
     ON photo(uuid);
 
 -- The photocrop backfill's queue: tiny, and empties as the backlog drains.
-CREATE INDEX IF NOT EXISTS idx__photo__crop_backlog
-    ON photo(uuid)
+-- Covers the queue's join to `person`, whose `last_online_time` orders it.
+CREATE INDEX IF NOT EXISTS idx__photo__crop_backlog__person_id
+    ON photo(person_id, uuid)
     WHERE width IS NULL AND crop_attempted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
