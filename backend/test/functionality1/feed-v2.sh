@@ -196,6 +196,12 @@ test_json_format () {
   {
     "added_photo_blurhash": "redacted_nonnull_value",
     "added_photo_extra_exts": [],
+    "added_photo_geometry": {
+      "crop_left": 0,
+      "crop_top": 0,
+      "height": 100,
+      "width": 100
+    },
     "added_photo_uuid": "redacted_nonnull_value",
     "advertiser_friendly": false,
     "age": 26,
@@ -291,6 +297,12 @@ test_json_format () {
   {
     "added_photo_blurhash": "redacted_nonnull_value",
     "added_photo_extra_exts": [],
+    "added_photo_geometry": {
+      "crop_left": 0,
+      "crop_top": 0,
+      "height": 100,
+      "width": 100
+    },
     "added_photo_uuid": "redacted_nonnull_value",
     "advertiser_friendly": false,
     "age": 26,
@@ -315,6 +327,12 @@ test_json_format () {
   {
     "added_photo_blurhash": "redacted_nonnull_value",
     "added_photo_extra_exts": [],
+    "added_photo_geometry": {
+      "crop_left": 0,
+      "crop_top": 0,
+      "height": 100,
+      "width": 100
+    },
     "added_photo_uuid": "redacted_nonnull_value",
     "advertiser_friendly": false,
     "age": 26,
@@ -339,6 +357,12 @@ test_json_format () {
   {
     "added_photo_blurhash": "redacted_nonnull_value",
     "added_photo_extra_exts": [],
+    "added_photo_geometry": {
+      "crop_left": 0,
+      "crop_top": 0,
+      "height": 100,
+      "width": 100
+    },
     "added_photo_uuid": "redacted_nonnull_value",
     "advertiser_friendly": false,
     "age": 26,
