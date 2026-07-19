@@ -69,7 +69,7 @@ const RenderGifItem = ({
         <AutoResizingGif
           priority={priority}
           uri={previewUrl}
-          showActivityIndicator={false}
+          activityIndicator="default"
           style={[
             styles.gifImage,
             isSelected ? styles.selectedGif : styles.unselectedGif,
