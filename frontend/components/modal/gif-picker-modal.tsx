@@ -9,6 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { FlashList } from '@shopify/flash-list';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import * as _ from "lodash";
 import { ModalButton } from '../button/modal';
@@ -188,6 +189,26 @@ const GifPickerModal: React.FC = () => {
     }
   }, [fetchMoreGifs]);
 
+  const renderGifItem = useCallback((
+    { item, index }: { item: KlipyGif, index: number }
+  ) => (
+    <View style={styles.flashListItem}>
+      <RenderGifItem
+        priority={indexToPriority(Math.floor(index / NUM_COLS))}
+        gifUrl={item.file?.hd?.gif?.url}
+        previewUrl={item.file?.xs?.gif?.url}
+        isSelected={item.file?.hd?.gif?.url === selectedGif}
+        onPress={onPressGif}
+      />
+    </View>
+  ), [selectedGif, onPressGif]);
+
+  const keyExtractor = useCallback(
+    (item: KlipyGif, index: number) =>
+      item.file?.hd?.gif?.url ?? String(index),
+    [],
+  );
+
   // Use lodash debounce to delay search requests
   const debouncedFetchGifs = useCallback(
     _.debounce((query: string) => {
@@ -216,13 +237,15 @@ const GifPickerModal: React.FC = () => {
     columns[index % NUM_COLS].push(item);
   });
 
-  const grid = loading ? (
+  const loadingMoreIndicator = loadingMore ? (
     <LogoActivityIndicator
       size="large"
       color="#70f"
-      style={styles.loadingIndicator}
+      style={styles.loadingMoreIndicator}
     />
-  ) : (
+  ) : null;
+
+  const webGrid = (
     <ScrollView
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContainer}
@@ -249,15 +272,34 @@ const GifPickerModal: React.FC = () => {
           </View>
         )}
       </View>
-      {loadingMore &&
-        <LogoActivityIndicator
-          size="large"
-          color="#70f"
-          style={styles.loadingMoreIndicator}
-        />
-      }
+      {loadingMoreIndicator}
     </ScrollView>
   );
+
+  const nativeGrid = (
+    <FlashList
+      data={gifResults}
+      numColumns={NUM_COLS}
+      masonry
+      renderItem={renderGifItem}
+      keyExtractor={keyExtractor}
+      onEndReached={fetchMoreGifs}
+      onEndReachedThreshold={2}
+      contentContainerStyle={styles.flashListContent}
+      ListFooterComponent={loadingMoreIndicator}
+      showsVerticalScrollIndicator={false}
+    />
+  );
+
+  const gridList = Platform.OS === 'web' ? webGrid : nativeGrid;
+
+  const grid = loading ? (
+    <LogoActivityIndicator
+      size="large"
+      color="#70f"
+      style={styles.loadingIndicator}
+    />
+  ) : gridList;
 
   if (isMobile()) {
     const searchInput = (
@@ -405,6 +447,12 @@ const styles = StyleSheet.create({
   loadingMoreIndicator: {
     marginVertical: 10,
     alignSelf: 'center',
+  },
+  flashListContent: {
+    paddingHorizontal: 5,
+  },
+  flashListItem: {
+    padding: 5,
   },
 });
 
