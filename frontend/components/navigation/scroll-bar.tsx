@@ -15,6 +15,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { noSelect } from '../../styles';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { listen } from '../../events/events';
 
@@ -352,12 +353,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
 
-    userSelect: 'none',          // prevent selection on web
-    ...(Platform.OS === 'web' ? {
-      WebkitUserSelect: 'none',
-      WebkitTouchCallout: 'none',
-      WebkitUserDrag: 'none',
-    } : {}),
+    ...noSelect,
   },
   thumb: {
     width: '100%',

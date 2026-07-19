@@ -18,6 +18,7 @@ import {
 } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DefaultText } from './default-text';
+import { noSelect } from '../styles';
 import { photoUri } from '../util/photos';
 import {
   CompositeNavigationProp,
@@ -156,6 +157,7 @@ const PhotoOrSkeleton_ = ({
           width: '100%',
           aspectRatio: 1,
           backgroundColor: photoUuid ? undefined : appTheme.avatarBackgroundColor,
+          ...noSelect,
       }}
       contentFit="contain"
       placeholderContentFit="contain"
@@ -178,6 +180,7 @@ const PhotoOrSkeleton_ = ({
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
+          ...noSelect,
         }}
         dither={false}
       >

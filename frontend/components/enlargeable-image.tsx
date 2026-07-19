@@ -12,6 +12,7 @@ import { hasGifExtraExt } from '../util/photos';
 import type { PhotoGeometry } from '../util/photos';
 import { setExpandedPhoto, useIsPhotoExpanded } from '../events/expanded-photo';
 import type { AlbumPhoto, BorderRadii } from '../events/expanded-photo';
+import { noSelect } from '../styles';
 
 // This component owns the preview's corner rounding (rather than reading it
 // back out of `style`) because the gallery animates the same radii while the
@@ -146,6 +147,7 @@ const EnlargeablePhoto = ({
           borderTopRightRadius: radii.topRight,
           borderBottomLeftRadius: radii.bottomLeft,
           borderBottomRightRadius: radii.bottomRight,
+          ...noSelect,
         },
         style,
         isExpanded ? { opacity: 0 } : null,

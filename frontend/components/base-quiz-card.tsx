@@ -27,6 +27,7 @@ import Animated, {
   SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { noSelect } from '../styles';
 
 type Direction = 'left' | 'right' | 'up' | 'down' | 'none'
 type SwipeHandler = (direction: Direction) => void
@@ -98,8 +99,6 @@ interface Props {
 }
 
 const { height, width } = Dimensions.get('window');
-
-const noTextSelect: ViewStyle & { userSelect?: 'none' } = { userSelect: 'none' };
 
 const settings = {
   maxTilt: 20, // in deg
@@ -495,7 +494,7 @@ const BaseQuizCard = forwardRef(
       <Animated.View
         {...panResponder.panHandlers}
         style={[
-          noTextSelect,
+          noSelect,
           cardStyle,
           containerStyle
         ]}

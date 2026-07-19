@@ -14,6 +14,7 @@ import {
 import {
   LinearGradient,
 } from 'expo-linear-gradient';
+import { noSelect } from '../../../styles';
 import {
   clamp,
 } from './util';
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     borderColor: '#fff',
-    userSelect: 'none',
+    ...noSelect,
     // @ts-ignore
     touchAction: 'none',
   },
