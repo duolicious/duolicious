@@ -2,6 +2,7 @@ import {
   dragDismissRadius,
   focalZoomPosition,
   lockedDragMode,
+  pageNavDirection,
 } from './pinchy-math';
 
 // The screen position of an image point, under the model the transform
@@ -146,5 +147,30 @@ describe('lockedDragMode', () => {
 
   it('still dismisses on an up/down drag right after paging', () => {
     expect(lockedDragMode(false, 0, 0, 3, true, true)).toBe('dismiss');
+  });
+});
+
+describe('pageNavDirection', () => {
+  it('pages on a drag past the distance threshold, however slow', () => {
+    expect(pageNavDirection(-100, 0, 55, 500, 1, 3)).toBe(1);
+    expect(pageNavDirection(100, 0, 55, 500, 1, 3)).toBe(-1);
+  });
+
+  it('pages on a short flick faster than the fling velocity', () => {
+    expect(pageNavDirection(-20, -800, 55, 500, 1, 3)).toBe(1);
+    expect(pageNavDirection(20, 800, 55, 500, 1, 3)).toBe(-1);
+  });
+
+  it('slides back on a short slow drag', () => {
+    expect(pageNavDirection(-20, -100, 55, 500, 1, 3)).toBe(0);
+  });
+
+  it('ignores a fast flick that opposes the drag direction', () => {
+    expect(pageNavDirection(-20, 800, 55, 500, 1, 3)).toBe(0);
+  });
+
+  it('slides back at the album ends even when flung', () => {
+    expect(pageNavDirection(100, 900, 55, 500, 0, 3)).toBe(0);
+    expect(pageNavDirection(-100, -900, 55, 500, 2, 3)).toBe(0);
   });
 });

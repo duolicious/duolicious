@@ -104,16 +104,22 @@ const lockedDragMode = (
   return 'none';
 };
 
-// Which neighbour a finished page drag of `translationX` lands on: 1 (next),
-// -1 (previous), or 0 to slide back, clamped at the album's ends.
+// Which neighbour a finished page drag lands on: 1 (next), -1 (previous), or
+// 0 to slide back, clamped at the album's ends. A drag pages by travelling
+// `threshold` px, or by being flicked faster than `flingVelocity` px/s in the
+// direction it travelled - a short sharp flick turns the page too.
 const pageNavDirection = (
   translationX: number,
+  velocityX: number,
   threshold: number,
+  flingVelocity: number,
   atIndex: number,
   count: number,
 ): -1 | 0 | 1 => {
   'worklet';
-  if (Math.abs(translationX) < threshold) return 0;
+  const flung = Math.abs(velocityX) >= flingVelocity
+    && velocityX * translationX > 0;
+  if (Math.abs(translationX) < threshold && !flung) return 0;
   if (!towardNeighbour(translationX, atIndex, count)) return 0;
   return translationX < 0 ? 1 : -1;
 };

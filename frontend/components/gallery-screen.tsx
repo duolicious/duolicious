@@ -39,6 +39,10 @@ import { TIMING } from '../util/animation';
 // the way to transparent.
 const DISMISS_FADE_RANGE = 300;
 
+// Page slides run quicker than the open/close morph so that swiping through
+// the album in quick succession doesn't feel like queueing.
+const PAGE_TIMING = { ...TIMING, duration: 180 };
+
 const dragBackdropOpacity = (x: number, y: number) => {
   'worklet';
   return 1 - Math.min(1, dragDistance(x, y) / DISMISS_FADE_RANGE);
@@ -398,18 +402,18 @@ const GalleryScreen = ({
   const goTo = useCallback((next: number) => {
     const target = Math.max(0, Math.min(album.length - 1, next));
     if (target === index) {
-      scrollX.value = withTiming(index * width, TIMING);
+      scrollX.value = withTiming(index * width, PAGE_TIMING);
       return;
     }
     dismissX.value = 0;
     dismissY.value = 0;
     if (zoomScale.value > 1 + 1e-5) {
-      zoomScale.value = withTiming(1, TIMING);
-      zoomTranslateX.value = withTiming(0, TIMING);
-      zoomTranslateY.value = withTiming(0, TIMING);
+      zoomScale.value = withTiming(1, PAGE_TIMING);
+      zoomTranslateX.value = withTiming(0, PAGE_TIMING);
+      zoomTranslateY.value = withTiming(0, PAGE_TIMING);
       scrollX.value = withTiming(
         target * width,
-        TIMING,
+        PAGE_TIMING,
         (finished) => {
           if (finished) runOnJS(commitIndex)(target);
         },
@@ -420,7 +424,7 @@ const GalleryScreen = ({
     zoomTranslateX.value = 0;
     zoomTranslateY.value = 0;
     setIndex(target);
-    scrollX.value = withTiming(target * width, TIMING);
+    scrollX.value = withTiming(target * width, PAGE_TIMING);
   }, [album.length, index, width, commitIndex]);
 
   // Until this screen has drawn the photo over the preview, the preview is
@@ -611,8 +615,8 @@ const GalleryScreen = ({
                   zoom={i === index ? zoom : identityZoom}
                   dismiss={i === index ? dismiss : undefined}
                   onDismiss={i === index ? onDismiss : undefined}
-                  page={i === index ? page : undefined}
-                  onNavigate={i === index ? onNavigate : undefined}
+                  page={page}
+                  onNavigate={onNavigate}
                   onTapEdge={
                     isDesktopWeb && i === index && album.length > 1
                       ? onNavigate

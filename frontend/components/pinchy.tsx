@@ -48,6 +48,10 @@ const DISMISS_THRESHOLD = 55;
 // Sideways drag this far (screen px) before lifting pages to the neighbour.
 const NAV_THRESHOLD = 55;
 
+// A sideways flick released faster than this (screen px/s) pages even when it
+// travelled less than NAV_THRESHOLD.
+const NAV_FLING_VELOCITY = 500;
+
 // A drag that doesn't dismiss returns in one motion, no spring wobble.
 const DISMISS_RETURN = { duration: 200, easing: Easing.out(Easing.cubic) };
 
@@ -405,7 +409,9 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
           if (!page) return;
 
           const dir = pageNavDirection(
-            e.translationX, NAV_THRESHOLD, page.index, page.count,
+            e.translationX, e.velocityX,
+            NAV_THRESHOLD, NAV_FLING_VELOCITY,
+            page.index, page.count,
           );
 
           if (dir !== 0 && onNavigate) {
