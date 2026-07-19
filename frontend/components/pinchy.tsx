@@ -178,11 +178,11 @@ type PinchyDismiss = {
 };
 
 // The horizontal pager this photo sits in. A sideways drag on the zoomed-out
-// photo drives `scrollX` (settled at `homeX`); crossing the threshold fires
-// `onNavigate`, which the caller uses to slide to the neighbour.
+// photo drives `scrollX` (settled at `index * width`); crossing the threshold
+// fires `onNavigate`, which the caller uses to slide to the neighbour.
 type PinchyPage = {
   scrollX: SharedValue<number>
-  homeX: number
+  index: number
   width: number
   count: number
   // Whether the most recent drag ended in a page navigation, in which case
@@ -378,21 +378,19 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
           dragMode.value = lockedDragMode(
             Math.abs(e.translationX) >= Math.abs(e.translationY),
             e.translationX,
-            page ? Math.round(page.homeX / page.width) : 0,
+            page?.index ?? 0,
             page?.count ?? 0,
-            page !== undefined,
             dismiss !== undefined,
             page?.justNavigated.value ?? false,
           );
         }
 
-        const dismissing =
-          dragMode.value === 'dismiss' || dragMode.value === 'guardedDismiss';
+        const mode = dragMode.value;
 
-        if (dragMode.value === 'page' && page) {
+        if (mode === 'page' && page) {
           const max = (page.count - 1) * page.width;
           page.scrollX.value = Math.min(max, Math.max(0, pageBaseX.value - e.translationX));
-        } else if (dismissing && dismiss) {
+        } else if ((mode === 'dismiss' || mode === 'guardedDismiss') && dismiss) {
           dismiss.x.value = dismissBaseX.value + e.translationX;
           dismiss.y.value = dismissBaseY.value + e.translationY;
         }
@@ -406,9 +404,8 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
         const endPageDrag = () => {
           if (!page) return;
 
-          const atIndex = Math.round(page.homeX / page.width);
           const dir = pageNavDirection(
-            e.translationX, NAV_THRESHOLD, atIndex, page.count,
+            e.translationX, NAV_THRESHOLD, page.index, page.count,
           );
 
           if (dir !== 0 && onNavigate) {
@@ -417,13 +414,15 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
             return;
           }
 
-          page.scrollX.value = withTiming(page.homeX, DISMISS_RETURN);
+          page.scrollX.value = withTiming(page.index * page.width, DISMISS_RETURN);
         };
 
-        const endDismissDrag = (canComplete: boolean) => {
+        const endDismissDrag = () => {
           if (!dismiss) return;
 
           const dragged = dragDistance(dismiss.x.value, dismiss.y.value);
+
+          const canComplete = dragMode.value === 'dismiss';
 
           if (canComplete && dragged > DISMISS_THRESHOLD && onDismiss) {
             runOnJS(onDismiss)();
@@ -435,8 +434,9 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
         };
 
         if (dragMode.value === 'page') endPageDrag();
-        if (dragMode.value === 'dismiss') endDismissDrag(true);
-        if (dragMode.value === 'guardedDismiss') endDismissDrag(false);
+        if (dragMode.value === 'dismiss' || dragMode.value === 'guardedDismiss') {
+          endDismissDrag();
+        }
       }),
     [dismiss, onDismiss, page, onNavigate, scale, positionX, positionY],
   );

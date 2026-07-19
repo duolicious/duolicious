@@ -68,6 +68,17 @@ const constrainPosition = (
   };
 };
 
+// Whether a sideways drag of `translationX` heads toward a photo that exists:
+// the next when dragging left, the previous when dragging right.
+const towardNeighbour = (
+  translationX: number,
+  atIndex: number,
+  count: number,
+): boolean => {
+  'worklet';
+  return translationX < 0 ? atIndex < count - 1 : atIndex > 0;
+};
+
 // The mode a fresh drag locks to once it commits to an axis: sideways pages,
 // up/down dismisses. A sideways drag away from the album - past either end, or
 // anywhere in a one-photo gallery - dismisses instead. Straight after a page
@@ -81,18 +92,15 @@ const lockedDragMode = (
   translationX: number,
   atIndex: number,
   count: number,
-  canPage: boolean,
   canDismiss: boolean,
   justNavigated: boolean,
 ): 'none' | 'page' | 'dismiss' | 'guardedDismiss' => {
   'worklet';
-  const towardNeighbour = canPage && (
-    translationX < 0 ? atIndex < count - 1 : atIndex > 0
-  );
-  if (horizontal && towardNeighbour) return 'page';
+  const paging = towardNeighbour(translationX, atIndex, count);
+  if (horizontal && paging) return 'page';
   if (horizontal && canDismiss && justNavigated) return 'guardedDismiss';
   if (canDismiss) return 'dismiss';
-  if (towardNeighbour) return 'page';
+  if (paging) return 'page';
   return 'none';
 };
 
@@ -105,9 +113,9 @@ const pageNavDirection = (
   count: number,
 ): -1 | 0 | 1 => {
   'worklet';
-  if (translationX <= -threshold && atIndex < count - 1) return 1;
-  if (translationX >= threshold && atIndex > 0) return -1;
-  return 0;
+  if (Math.abs(translationX) < threshold) return 0;
+  if (!towardNeighbour(translationX, atIndex, count)) return 0;
+  return translationX < 0 ? 1 : -1;
 };
 
 // How far (screen px) a dismiss drag rounds the photo's corners over, and the

@@ -375,7 +375,7 @@ const GalleryScreen = ({
 
   const page: PinchyPage = useMemo(() => ({
     scrollX,
-    homeX: index * width,
+    index,
     width,
     count: album.length,
     justNavigated,
