@@ -371,12 +371,15 @@ const GalleryScreen = ({
     scrollX.value = index * width;
   }, [width]); // re-home only on a resize; navigation animates scrollX itself
 
+  const justNavigated = useSharedValue(false);
+
   const page: PinchyPage = useMemo(() => ({
     scrollX,
     homeX: index * width,
     width,
     count: album.length,
-  }), [scrollX, index, width, album.length]);
+    justNavigated,
+  }), [scrollX, index, width, album.length, justNavigated]);
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: -scrollX.value }],
@@ -608,8 +611,8 @@ const GalleryScreen = ({
                   zoom={i === index ? zoom : identityZoom}
                   dismiss={i === index ? dismiss : undefined}
                   onDismiss={i === index ? onDismiss : undefined}
-                  page={i === index && album.length > 1 ? page : undefined}
-                  onNavigate={i === index && album.length > 1 ? onNavigate : undefined}
+                  page={i === index ? page : undefined}
+                  onNavigate={i === index ? onNavigate : undefined}
                   onTapEdge={
                     isDesktopWeb && i === index && album.length > 1
                       ? onNavigate

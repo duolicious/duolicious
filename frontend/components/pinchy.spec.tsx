@@ -1,4 +1,8 @@
-import { dragDismissRadius, focalZoomPosition } from './pinchy-math';
+import {
+  dragDismissRadius,
+  focalZoomPosition,
+  lockedDragMode,
+} from './pinchy-math';
 
 // The screen position of an image point, under the model the transform
 // implements: `screen = centre + scale * (imagePoint + position)`, where
@@ -109,5 +113,38 @@ describe('dragDismissRadius', () => {
 
     expect(atRange).toBeCloseTo(wellPast);
     expect(wellPast).toBeLessThanOrEqual(24);
+  });
+});
+
+describe('lockedDragMode', () => {
+  it('pages on a sideways drag toward a neighbour', () => {
+    expect(lockedDragMode(true, -30, 0, 3, true, true, false)).toBe('page');
+    expect(lockedDragMode(true, 30, 2, 3, true, true, false)).toBe('page');
+  });
+
+  it('dismisses on an up/down drag', () => {
+    expect(lockedDragMode(false, 0, 1, 3, true, true, false)).toBe('dismiss');
+  });
+
+  it('dismisses on a sideways drag past the first photo', () => {
+    expect(lockedDragMode(true, 30, 0, 3, true, true, false)).toBe('dismiss');
+  });
+
+  it('dismisses on a sideways drag past the last photo', () => {
+    expect(lockedDragMode(true, -30, 2, 3, true, true, false)).toBe('dismiss');
+  });
+
+  it('dismisses on any sideways drag in a one-photo gallery', () => {
+    expect(lockedDragMode(true, 30, 0, 1, true, true, false)).toBe('dismiss');
+    expect(lockedDragMode(true, -30, 0, 1, true, true, false)).toBe('dismiss');
+  });
+
+  it('guards a sideways drag past the ends right after paging', () => {
+    expect(lockedDragMode(true, 30, 0, 3, true, true, true)).toBe('guardedDismiss');
+    expect(lockedDragMode(true, -30, 2, 3, true, true, true)).toBe('guardedDismiss');
+  });
+
+  it('still dismisses on an up/down drag right after paging', () => {
+    expect(lockedDragMode(false, 0, 0, 3, true, true, true)).toBe('dismiss');
   });
 });

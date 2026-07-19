@@ -69,18 +69,30 @@ const constrainPosition = (
 };
 
 // The mode a fresh drag locks to once it commits to an axis: sideways pages,
-// up/down dismisses, and when the committed axis's mode isn't available the
-// drag falls through to whichever one is.
+// up/down dismisses. A sideways drag away from the album - past either end, or
+// anywhere in a one-photo gallery - dismisses instead. Straight after a page
+// navigation that dismissal is guarded: the drag still carries the photo,
+// showing it can be pulled away, but snaps back on release rather than
+// completing, so flicking quickly through the album can't fling the whole
+// gallery away on an overshoot. When the committed axis's mode isn't
+// available the drag falls through to whichever one is.
 const lockedDragMode = (
   horizontal: boolean,
+  translationX: number,
+  atIndex: number,
+  count: number,
   canPage: boolean,
   canDismiss: boolean,
-): 'none' | 'page' | 'dismiss' => {
+  justNavigated: boolean,
+): 'none' | 'page' | 'dismiss' | 'guardedDismiss' => {
   'worklet';
-  if (horizontal && canPage) return 'page';
-  if (!horizontal && canDismiss) return 'dismiss';
-  if (canPage) return 'page';
+  const towardNeighbour = canPage && (
+    translationX < 0 ? atIndex < count - 1 : atIndex > 0
+  );
+  if (horizontal && towardNeighbour) return 'page';
+  if (horizontal && canDismiss && justNavigated) return 'guardedDismiss';
   if (canDismiss) return 'dismiss';
+  if (towardNeighbour) return 'page';
   return 'none';
 };
 

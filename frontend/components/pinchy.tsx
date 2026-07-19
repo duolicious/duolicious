@@ -185,6 +185,10 @@ type PinchyPage = {
   homeX: number
   width: number
   count: number
+  // Whether the most recent drag ended in a page navigation, in which case
+  // the next sideways drag never dismisses - it carries the photo but snaps
+  // back on release.
+  justNavigated: SharedValue<boolean>
 };
 
 const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black'}: {
@@ -198,7 +202,9 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
   // this offset, and `onDismiss` fires if it's dragged past the threshold.
   dismiss?: PinchyDismiss,
   onDismiss?: () => void,
-  // When provided, a sideways drag pages between photos instead of dismissing.
+  // When provided, a sideways drag toward a neighbouring photo pages to it
+  // instead of dismissing; a sideways drag past either end of the album still
+  // dismisses, unless the drag before it paged, in which case it snaps back.
   page?: PinchyPage,
   onNavigate?: (dir: number) => void,
   // When provided, a tap on the left or right third of the viewport pages to
@@ -224,8 +230,11 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
 
   // A single-finger drag on the zoomed-out photo either dismisses (vertical) or
   // pages (horizontal). `dragMode` is locked once the drag picks a direction:
-  // 'pan' zoomed in, else 'none' until it commits to 'dismiss' or 'page'.
-  const dragMode = useSharedValue<'none' | 'pan' | 'dismiss' | 'page'>('none');
+  // 'pan' zoomed in, else 'none' until it commits to 'dismiss', 'page', or
+  // 'guardedDismiss' - a dismiss drag that snaps back instead of completing.
+  const dragMode = useSharedValue<
+    'none' | 'pan' | 'dismiss' | 'page' | 'guardedDismiss'
+  >('none');
   const dismissBaseX = useSharedValue(0);
   const dismissBaseY = useSharedValue(0);
   const pageBaseX = useSharedValue(0);
@@ -368,21 +377,32 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
         if (dragMode.value === 'none' && moved > 8) {
           dragMode.value = lockedDragMode(
             Math.abs(e.translationX) >= Math.abs(e.translationY),
+            e.translationX,
+            page ? Math.round(page.homeX / page.width) : 0,
+            page?.count ?? 0,
             page !== undefined,
             dismiss !== undefined,
+            page?.justNavigated.value ?? false,
           );
         }
+
+        const dismissing =
+          dragMode.value === 'dismiss' || dragMode.value === 'guardedDismiss';
 
         if (dragMode.value === 'page' && page) {
           const max = (page.count - 1) * page.width;
           page.scrollX.value = Math.min(max, Math.max(0, pageBaseX.value - e.translationX));
-        } else if (dragMode.value === 'dismiss' && dismiss) {
+        } else if (dismissing && dismiss) {
           dismiss.x.value = dismissBaseX.value + e.translationX;
           dismiss.y.value = dismissBaseY.value + e.translationY;
         }
       })
       .onEnd((e) => {
         'worklet';
+        if (page && dragMode.value !== 'none') {
+          page.justNavigated.value = false;
+        }
+
         const endPageDrag = () => {
           if (!page) return;
 
@@ -392,6 +412,7 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
           );
 
           if (dir !== 0 && onNavigate) {
+            page.justNavigated.value = true;
             runOnJS(onNavigate)(dir);
             return;
           }
@@ -399,12 +420,12 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
           page.scrollX.value = withTiming(page.homeX, DISMISS_RETURN);
         };
 
-        const endDismissDrag = () => {
+        const endDismissDrag = (canComplete: boolean) => {
           if (!dismiss) return;
 
           const dragged = dragDistance(dismiss.x.value, dismiss.y.value);
 
-          if (dragged > DISMISS_THRESHOLD && onDismiss) {
+          if (canComplete && dragged > DISMISS_THRESHOLD && onDismiss) {
             runOnJS(onDismiss)();
             return;
           }
@@ -414,7 +435,8 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
         };
 
         if (dragMode.value === 'page') endPageDrag();
-        if (dragMode.value === 'dismiss') endDismissDrag();
+        if (dragMode.value === 'dismiss') endDismissDrag(true);
+        if (dragMode.value === 'guardedDismiss') endDismissDrag(false);
       }),
     [dismiss, onDismiss, page, onNavigate, scale, positionX, positionY],
   );
