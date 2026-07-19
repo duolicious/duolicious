@@ -64,22 +64,24 @@ const getExpandedPhoto = (): ExpandedPhoto | null =>
 // Whether the gallery has this preview's photo covered. Such a preview hides
 // itself, so only one instance of the photo is ever apparent.
 const useIsPhotoExpanded = (photoUuid: string | undefined | null): boolean => {
-  const [expandedPhoto, setExpandedPhoto_] = useState<ExpandedPhoto | null>(
-    () => getExpandedPhoto(),
+  const isExpanded = (e: ExpandedPhoto | null | undefined): boolean =>
+    !!photoUuid && e?.photoUuid === photoUuid && e.covered;
+
+  const [expanded, setExpanded] = useState<boolean>(
+    () => isExpanded(getExpandedPhoto()),
   );
 
   useLayoutEffect(() => {
+    setExpanded(isExpanded(getExpandedPhoto()));
+
     return listen<ExpandedPhoto | null>(
       EVENT_KEY,
-      (e) => setExpandedPhoto_(e ?? null),
+      (e) => setExpanded(isExpanded(e)),
       true,
     );
-  }, []);
+  }, [photoUuid]);
 
-  if (!photoUuid) return false;
-  if (expandedPhoto?.photoUuid !== photoUuid) return false;
-
-  return expandedPhoto.covered;
+  return expanded;
 };
 
 export {
