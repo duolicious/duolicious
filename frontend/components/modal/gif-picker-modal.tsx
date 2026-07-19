@@ -36,6 +36,7 @@ const KLIPY_SEARCH_URL =
   `https://api.klipy.com/api/v1/${KLIPY_API_KEY}/gifs/search`;
 const NUM_COLS = 3;
 const PER_PAGE = NUM_COLS * 8;
+const MAX_PAGES = 4;
 
 const fadeIn = FadeIn.duration(200);
 const fadeOut = FadeOut.duration(200);
@@ -160,7 +161,11 @@ const GifPickerModal: React.FC = () => {
 
   const fetchMoreGifs = useCallback(async () => {
     const pagination = paginationRef.current;
-    if (!pagination.hasNext || pagination.isFetchingMore) {
+    if (
+      !pagination.hasNext ||
+      pagination.isFetchingMore ||
+      pagination.page >= MAX_PAGES
+    ) {
       return;
     }
     pagination.isFetchingMore = true;
