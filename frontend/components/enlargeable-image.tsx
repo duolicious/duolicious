@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { GestureResponderEvent, Pressable, StyleProp, View, ViewStyle } from 'react-native';
 import { PhotoOrSkeleton } from './profile-card';
 import { VerificationBadge } from './verification-badge';
@@ -35,7 +35,7 @@ const toBorderRadii = (
       ...borderRadius,
     };
 
-const EnlargeablePhoto = ({
+const EnlargeablePhoto = memo(({
   photoUuid,
   photoExtraExts,
   photoBlurhash,
@@ -132,6 +132,8 @@ const EnlargeablePhoto = ({
     }, 500);
   }, [photoUuid, photoExtraExts]);
 
+  console.log('EnlargeablePhoto render ', photoUuid); // TODO
+
   if (photoUuid === undefined && !isPrimary) {
     return <></>;
   }
@@ -179,7 +181,7 @@ const EnlargeablePhoto = ({
       }
     </Pressable>
   );
-};
+});
 
 export {
   EnlargeablePhoto,

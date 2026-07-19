@@ -231,6 +231,7 @@ const GalleryScreen = ({
   navigation,
   route,
 }: NativeStackScreenProps<RootParamList, 'Gallery Screen'>) => {
+  console.log('GalleryScreen'); // TODO
   const { photoUuid } = route.params;
 
   // Captured once: the press stashes this immediately before navigating. Deep

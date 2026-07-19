@@ -1375,11 +1375,7 @@ const FeedItemAddedPhoto = ({
             photoGeometry={fields.added_photo_geometry}
             isPrimary={true}
             borderRadius={12}
-            style={{
-              ...commonStyles.secondaryEnlargeablePhoto,
-              marginTop: 0,
-              marginBottom: 0,
-            }}
+            style={styles.addedPhoto}
           />
         </View>
       </Animated.View>
@@ -1646,6 +1642,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     padding: 10,
+  },
+  addedPhoto: {
+    ...commonStyles.secondaryEnlargeablePhoto,
+    marginTop: 0,
+    marginBottom: 0,
   },
   pressableStyle: {
     marginBottom: 20,
