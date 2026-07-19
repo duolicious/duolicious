@@ -133,6 +133,19 @@ const EnlargeablePhoto = memo(({
   }, [photoUuid, photoExtraExts]);
 
   console.log('EnlargeablePhoto render ', photoUuid); // TODO
+  // TODO: Logs which props broke memoization; none means context/state did it
+  const currentProps: Record<string, unknown> = {
+    photoUuid, photoExtraExts, photoBlurhash, photoGeometry, album,
+    borderRadius, style, innerStyle, isPrimary, isVerified,
+    navigation, isExpanded,
+  };
+  const previousProps = useRef<Record<string, unknown> | null>(null);
+  if (previousProps.current) {
+    const changed = Object.keys(currentProps).filter(
+      (k) => currentProps[k] !== previousProps.current?.[k]);
+    console.log('EnlargeablePhoto changed props:', changed, photoUuid);
+  }
+  previousProps.current = currentProps;
 
   if (photoUuid === undefined && !isPrimary) {
     return <></>;

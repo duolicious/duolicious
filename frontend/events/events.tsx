@@ -1,5 +1,8 @@
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 
+import { useLayoutEffect, useRef, useState } from 'react';
+import type { DependencyList } from 'react';
+
 type Listener<T = any> = (data?: T) => void;
 
 type ListenersWithLastEvent<T = any> = {
@@ -87,10 +90,40 @@ const notify = <T = any>(key: string, data?: T) => {
   );
 };
 
+// Subscribes to `key`, re-rendering only when the value `derive`d from the
+// event changes. The change check matters: calling a state setter even with
+// an unchanged value isn't free, as React can still render the component once
+// before bailing out. `deps` are the values `derive` closes over.
+const useDerivedEvent = <T, U>(
+  key: string,
+  derive: (e: T | undefined) => U,
+  deps: DependencyList,
+): U => {
+  const [value, setValue] = useState<U>(() => derive(lastEvent<T>(key)));
+
+  const valueRef = useRef(value);
+
+  useLayoutEffect(() => {
+    const update = (e: T | undefined) => {
+      const next = derive(e);
+      if (next === valueRef.current) return;
+      valueRef.current = next;
+      setValue(next);
+    };
+
+    update(lastEvent<T>(key));
+
+    return listen<T>(key, update);
+  }, [key, ...deps]);
+
+  return value;
+};
+
 export {
   lastEvent,
   listen,
   nextEvent,
   notify,
   unlisten,
+  useDerivedEvent,
 };
