@@ -19,7 +19,13 @@ import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
 import { dragDismissRadius, dragDistance } from './pinchy-math';
 import { IMAGES_URL } from '../env/env';
-import { lerp, photoExpandFrame } from '../util/photos';
+import {
+  hasGifExtraExt,
+  lerp,
+  photoContainFrame,
+  photoExpandFrame,
+  photoUri,
+} from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
 import { getExpandedPhoto, setExpandedPhoto } from '../events/expanded-photo';
 import type { AlbumPhoto, ExpandedPhoto, ExpandedPhotoMorph } from '../events/expanded-photo';
@@ -49,6 +55,7 @@ type Phase = 'opening' | 'open' | 'closing';
 // `progress`, so its endpoints are computed once and lerped on the UI thread.
 const ExpandingPhoto = ({
   photoUuid,
+  photoExtraExts,
   morph,
   progress,
   container,
@@ -59,6 +66,7 @@ const ExpandingPhoto = ({
   onCovered,
 }: {
   photoUuid: string,
+  photoExtraExts: string[],
   morph: ExpandedPhotoMorph,
   progress: SharedValue<number>,
   container: Rect,
@@ -72,6 +80,14 @@ const ExpandingPhoto = ({
 }) => {
   const { from, geometry, borderRadius } = morph;
 
+  const isGif = hasGifExtraExt(photoExtraExts);
+
+  const frameAt = isGif ? photoContainFrame : photoExpandFrame;
+
+  const radii = isGif && geometry.width !== geometry.height
+    ? { topLeft: 0, topRight: 0, bottomLeft: 0, bottomRight: 0 }
+    : borderRadius;
+
   const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => {
     // `from` was measured in window coordinates, but this draws inside the
     // gallery's container: on Android the window excludes the system bars
@@ -83,10 +99,10 @@ const ExpandingPhoto = ({
     };
 
     return [
-      photoExpandFrame(geometry, start, container, 0),
-      photoExpandFrame(geometry, start, container, 1),
+      frameAt(geometry, start, container, 0),
+      frameAt(geometry, start, container, 1),
     ];
-  }, [geometry, from, container]);
+  }, [geometry, from, container, frameAt]);
 
   // At `progress` 1 this is the photo exactly as Pinchy has it, zoom and all,
   // so closing carries it out from wherever the user left it. Same transform
@@ -101,10 +117,10 @@ const ExpandingPhoto = ({
       top: lerp(closed.clip.y, opened.clip.y, progress.value),
       width: lerp(closed.clip.width, opened.clip.width, progress.value),
       height: lerp(closed.clip.height, opened.clip.height, progress.value),
-      borderTopLeftRadius: lerp(borderRadius.topLeft, 0, progress.value) + dragRadius,
-      borderTopRightRadius: lerp(borderRadius.topRight, 0, progress.value) + dragRadius,
-      borderBottomLeftRadius: lerp(borderRadius.bottomLeft, 0, progress.value) + dragRadius,
-      borderBottomRightRadius: lerp(borderRadius.bottomRight, 0, progress.value) + dragRadius,
+      borderTopLeftRadius: lerp(radii.topLeft, 0, progress.value) + dragRadius,
+      borderTopRightRadius: lerp(radii.topRight, 0, progress.value) + dragRadius,
+      borderBottomLeftRadius: lerp(radii.bottomLeft, 0, progress.value) + dragRadius,
+      borderBottomRightRadius: lerp(radii.bottomRight, 0, progress.value) + dragRadius,
       transform: [
         // The pager offset and dismiss drag are screen-space, so they go
         // outermost, ahead of the zoom scale.
@@ -130,6 +146,23 @@ const ExpandingPhoto = ({
     width: lerp(closed.crop.width, opened.crop.width, progress.value),
     height: lerp(closed.crop.height, opened.crop.height, progress.value),
   }));
+
+  if (isGif) {
+    return (
+      <Reanimated.View style={[styles.clip, clipStyle]}>
+        <Reanimated.View style={[styles.image, imageStyle]}>
+          <ExpoImage
+            source={{ uri: photoUri(photoUuid, 'original', photoExtraExts) }}
+            style={StyleSheet.absoluteFill}
+            contentFit="fill"
+            transition={0}
+            cachePolicy="memory-disk"
+            onLoad={onCovered}
+          />
+        </Reanimated.View>
+      </Reanimated.View>
+    );
+  }
 
   return (
     <Reanimated.View style={[styles.clip, clipStyle]}>
@@ -222,7 +255,8 @@ const GalleryScreen = ({
   const morph = expandedPhoto?.morph ?? null;
 
   const album: AlbumPhoto[] = useMemo(
-    () => expandedPhoto?.album ?? [{ uuid: photoUuid, geometry: null }],
+    () => expandedPhoto?.album
+      ?? [{ uuid: photoUuid, extraExts: [], geometry: null }],
     [expandedPhoto, photoUuid],
   );
   const openedIndex = useMemo(
@@ -237,7 +271,7 @@ const GalleryScreen = ({
   useEffect(() => {
     album.forEach((photo) => {
       try {
-        ExpoImage.prefetch(`${IMAGES_URL}/original-${photo.uuid}.jpg`);
+        ExpoImage.prefetch(photoUri(photo.uuid, 'original', photo.extraExts));
       } catch (e) {
         console.warn(e);
       }
@@ -573,6 +607,7 @@ const GalleryScreen = ({
         {morph && container && onOpenedPhoto &&
           <ExpandingPhoto
             photoUuid={photoUuid}
+            photoExtraExts={album[openedIndex].extraExts}
             morph={morph}
             progress={progress}
             container={container}
@@ -593,6 +628,7 @@ const GalleryScreen = ({
               >
                 <Pinchy
                   uuid={photo.uuid}
+                  extraExts={photo.extraExts}
                   naturalSize={photo.geometry ?? undefined}
                   zoom={i === index ? zoom : identityZoom}
                   dismiss={i === index ? dismiss : undefined}

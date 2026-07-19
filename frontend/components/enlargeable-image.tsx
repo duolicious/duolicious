@@ -82,7 +82,11 @@ const EnlargeablePhoto = ({
     const fullAlbum: AlbumPhoto[] =
       album && album.length
         ? album
-        : [{ uuid: photoUuid, geometry: photoGeometry ?? null }];
+        : [{
+          uuid: photoUuid,
+          extraExts: photoExtraExts ?? [],
+          geometry: photoGeometry ?? null,
+        }];
 
     // Without a geometry there's nothing to uncrop the photo into, so the
     // gallery opens without the morph.
@@ -114,7 +118,7 @@ const EnlargeablePhoto = ({
 
       navigation.navigate('Gallery Screen', { photoUuid });
     });
-  }, [photoUuid, photoGeometry, album, borderRadius, navigation]);
+  }, [photoUuid, photoExtraExts, photoGeometry, album, borderRadius, navigation]);
 
   const prefetchEnlargedImage = useCallback(() => {
     if (!photoUuid || isGif) return;
@@ -137,7 +141,7 @@ const EnlargeablePhoto = ({
   return (
     <Pressable
       ref={ref}
-      disabled={isGif || !photoUuid}
+      disabled={!photoUuid}
       onPress={internalOnPress}
       style={[
         {

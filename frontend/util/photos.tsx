@@ -21,11 +21,21 @@ const hasGifExtraExt = (
 ): boolean =>
   supportedExtraExt(extraExts) === 'gif';
 
-const photoUri = (
+function photoUri(
+  photoUuid: string,
+  resolution: number | string,
+  extraExts?: string[] | undefined | null,
+): string;
+function photoUri(
   photoUuid: string | undefined | null,
   resolution: number | string,
   extraExts?: string[] | undefined | null,
-): string | null => {
+): string | null;
+function photoUri(
+  photoUuid: string | undefined | null,
+  resolution: number | string,
+  extraExts?: string[] | undefined | null,
+): string | null {
   if (!photoUuid) {
     return null;
   }
@@ -35,7 +45,7 @@ const photoUri = (
   return ext
     ? `${IMAGES_URL}/${photoUuid}.${ext}`
     : `${IMAGES_URL}/${resolution}-${photoUuid}.jpg`;
-};
+}
 
 // How `900-{uuid}.jpg` was cut out of `original-{uuid}.jpg`, as reported by the
 // API. In the original's pixels, after EXIF rotation. Null for photos the
@@ -137,9 +147,42 @@ const photoExpandFrame = (
   };
 };
 
+const photoContainFrame = (
+  geometry: PhotoGeometry,
+  from: Rect,
+  viewport: { width: number, height: number },
+  t: number,
+): PhotoExpandFrame => {
+  const { width, height } = geometry;
+
+  const fromScale = Math.min(from.width / width, from.height / height);
+  const toScale = Math.min(1, viewport.width / width, viewport.height / height);
+
+  const fromClip: Rect = {
+    x: from.x + (from.width - width * fromScale) / 2,
+    y: from.y + (from.height - height * fromScale) / 2,
+    width: width * fromScale,
+    height: height * fromScale,
+  };
+
+  const toClip: Rect = {
+    x: (viewport.width - width * toScale) / 2,
+    y: (viewport.height - height * toScale) / 2,
+    width: width * toScale,
+    height: height * toScale,
+  };
+
+  const clip = lerpRect(fromClip, toClip, t);
+
+  const image: Rect = { x: 0, y: 0, width: clip.width, height: clip.height };
+
+  return { clip, image, crop: image };
+};
+
 export {
   hasGifExtraExt,
   lerp,
+  photoContainFrame,
   photoExpandFrame,
   photoUri,
   supportedExtraExt,

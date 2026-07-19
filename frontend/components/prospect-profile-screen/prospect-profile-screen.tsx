@@ -99,9 +99,14 @@ import { copyProfileLink } from '../../util/util';
 // through the rest.
 const buildAlbum = (
   uuids: string[] | undefined,
+  extraExts: string[][] | undefined,
   geometries: (PhotoGeometry | null)[] | undefined,
 ): AlbumPhoto[] =>
-  (uuids ?? []).map((uuid, i) => ({ uuid, geometry: geometries?.[i] ?? null }));
+  (uuids ?? []).map((uuid, i) => ({
+    uuid,
+    extraExts: extraExts?.[i] ?? [],
+    geometry: geometries?.[i] ?? null,
+  }));
 
 type ProspectNavigation = NativeStackNavigationProp<ProspectParamList>;
 type ProspectNavigationRef = MutableRefObject<ProspectNavigation | undefined>;
@@ -977,8 +982,12 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
   const imageVerifications = data?.photo_verifications;
 
   const album = useMemo(
-    () => buildAlbum(data?.photo_uuids, data?.photo_geometries),
-    [data?.photo_uuids, data?.photo_geometries],
+    () => buildAlbum(
+      data?.photo_uuids,
+      data?.photo_extra_exts,
+      data?.photo_geometries,
+    ),
+    [data?.photo_uuids, data?.photo_extra_exts, data?.photo_geometries],
   );
 
   const photoUuid0 = (() => {
@@ -1342,8 +1351,12 @@ const Body = ({
   const isOnline = useOnline(personUuid);
 
   const album = useMemo(
-    () => buildAlbum(data?.photo_uuids, data?.photo_geometries),
-    [data?.photo_uuids, data?.photo_geometries],
+    () => buildAlbum(
+      data?.photo_uuids,
+      data?.photo_extra_exts,
+      data?.photo_geometries,
+    ),
+    [data?.photo_uuids, data?.photo_extra_exts, data?.photo_geometries],
   );
 
   const profilePhoto = (position: number) => (

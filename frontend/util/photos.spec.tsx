@@ -1,5 +1,6 @@
 import {
   hasGifExtraExt,
+  photoContainFrame,
   photoExpandFrame,
   photoUri,
   supportedExtraExt,
@@ -249,5 +250,101 @@ describe('photoExpandFrame', () => {
     expect(start.clip.width / start.image.width).toBeCloseTo(1);
     expect(end.clip.width / end.image.width).toBeCloseTo(1);
     expect(end.clip.width).toBe(400);
+  });
+});
+
+describe('photoContainFrame', () => {
+  const viewport = { width: 400, height: 800 };
+
+  const preview: Rect = { x: 20, y: 100, width: 200, height: 200 };
+
+  const landscape: PhotoGeometry = {
+    width: 1000,
+    height: 500,
+    crop_top: 0,
+    crop_left: 400,
+  };
+
+  it('starts at the letterboxed rect the preview shows', () => {
+    const frame = photoContainFrame(landscape, preview, viewport, 0);
+
+    expect(frame.clip).toEqual({ x: 20, y: 150, width: 200, height: 100 });
+  });
+
+  it('ends with the whole image fitted and centred in the viewport', () => {
+    const frame = photoContainFrame(landscape, preview, viewport, 1);
+
+    expect(frame.clip).toEqual({ x: 0, y: 300, width: 400, height: 200 });
+  });
+
+  it('always shows the whole image, with nothing cropped away', () => {
+    for (const t of [0, 0.3, 0.7, 1]) {
+      const frame = photoContainFrame(landscape, preview, viewport, t);
+
+      expect(frame.image.x).toBe(0);
+      expect(frame.image.y).toBe(0);
+      expect(frame.image.width).toBeCloseTo(frame.clip.width);
+      expect(frame.image.height).toBeCloseTo(frame.clip.height);
+      expect(frame.crop).toEqual(frame.image);
+    }
+  });
+
+  it('starts as the whole preview square for a square image', () => {
+    const square: PhotoGeometry = {
+      width: 600,
+      height: 600,
+      crop_top: 0,
+      crop_left: 0,
+    };
+
+    const frame = photoContainFrame(square, preview, viewport, 0);
+
+    expect(frame.clip).toEqual(preview);
+  });
+
+  it('starts upscaled, as the preview upscales images smaller than itself', () => {
+    const tiny: PhotoGeometry = {
+      width: 100,
+      height: 50,
+      crop_top: 0,
+      crop_left: 0,
+    };
+
+    const frame = photoContainFrame(tiny, preview, viewport, 0);
+
+    expect(frame.clip).toEqual({ x: 20, y: 150, width: 200, height: 100 });
+  });
+
+  it('ends at native size for an image smaller than the viewport', () => {
+    const small: PhotoGeometry = {
+      width: 200,
+      height: 150,
+      crop_top: 0,
+      crop_left: 0,
+    };
+
+    const frame = photoContainFrame(small, preview, viewport, 1);
+
+    expect(frame.clip).toEqual({
+      x: (viewport.width - 200) / 2,
+      y: (viewport.height - 150) / 2,
+      width: 200,
+      height: 150,
+    });
+  });
+
+  it('handles portrait images, which fit the preview by height', () => {
+    const portrait: PhotoGeometry = {
+      width: 500,
+      height: 1000,
+      crop_top: 100,
+      crop_left: 0,
+    };
+
+    const start = photoContainFrame(portrait, preview, viewport, 0);
+    const end = photoContainFrame(portrait, preview, viewport, 1);
+
+    expect(start.clip).toEqual({ x: 70, y: 100, width: 100, height: 200 });
+    expect(end.clip).toEqual({ x: 0, y: 0, width: 400, height: 800 });
   });
 });

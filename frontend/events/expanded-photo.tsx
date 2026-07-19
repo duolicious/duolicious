@@ -15,6 +15,7 @@ type BorderRadii = {
 
 type AlbumPhoto = {
   uuid: string
+  extraExts: string[]
   geometry: PhotoGeometry | null
 };
 
