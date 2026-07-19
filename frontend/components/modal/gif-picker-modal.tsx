@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   StyleSheet,
   View,
@@ -32,6 +34,7 @@ type KlipyGif = {
 const KLIPY_SEARCH_URL =
   `https://api.klipy.com/api/v1/${KLIPY_API_KEY}/gifs/search`;
 const NUM_COLS = 3;
+const PER_PAGE = NUM_COLS * 8;
 
 const fadeIn = FadeIn.duration(200);
 const fadeOut = FadeOut.duration(200);
@@ -66,6 +69,7 @@ const RenderGifItem = ({
         <AutoResizingGif
           priority={priority}
           uri={previewUrl}
+          showActivityIndicator={false}
           style={[
             styles.gifImage,
             isSelected ? styles.selectedGif : styles.unselectedGif,
@@ -83,6 +87,14 @@ const GifPickerModal: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [gifResults, setGifResults] = useState<KlipyGif[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const paginationRef = useRef({
+    fetchId: 0,
+    query: '',
+    page: 1,
+    hasNext: false,
+    isFetchingMore: false,
+  });
 
   const cancel = useCallback(() => {
     setIsShowing(false);
@@ -104,23 +116,77 @@ const GifPickerModal: React.FC = () => {
     }
   }, []);
 
-  // Fetch gifs from Klipy when a search query is provided
-  const fetchGifs = useCallback(async (query: string) => {
-    setLoading(true);
+  const fetchGifPage = useCallback(async (
+    query: string,
+    page: number,
+  ): Promise<{ gifs: KlipyGif[], hasNext: boolean }> => {
     try {
       const response = await fetch(
         `${KLIPY_SEARCH_URL}` +
           `?q=${encodeURIComponent(query)}` +
-          `&page=1` +
-          `&per_page=${NUM_COLS * 16}`
+          `&page=${page}` +
+          `&per_page=${PER_PAGE}`
       );
       const json = await response.json();
-      setGifResults(json?.data?.data || []);
+      return {
+        gifs: json?.data?.data ?? [],
+        hasNext: Boolean(json?.data?.has_next),
+      };
     } catch (error) {
       console.error('Error fetching gifs:', error);
+      return { gifs: [], hasNext: false };
     }
-    setLoading(false);
   }, []);
+
+  // Fetch gifs from Klipy when a search query is provided
+  const fetchGifs = useCallback(async (query: string) => {
+    const pagination = paginationRef.current;
+    pagination.fetchId += 1;
+    pagination.query = query;
+    pagination.page = 1;
+    pagination.hasNext = false;
+    const fetchId = pagination.fetchId;
+    setLoading(true);
+    const { gifs, hasNext } = await fetchGifPage(query, 1);
+    if (fetchId !== pagination.fetchId) {
+      return;
+    }
+    pagination.hasNext = hasNext;
+    setGifResults(gifs);
+    setLoading(false);
+    setLoadingMore(false);
+  }, [fetchGifPage]);
+
+  const fetchMoreGifs = useCallback(async () => {
+    const pagination = paginationRef.current;
+    if (!pagination.hasNext || pagination.isFetchingMore) {
+      return;
+    }
+    pagination.isFetchingMore = true;
+    const fetchId = pagination.fetchId;
+    const nextPage = pagination.page + 1;
+    setLoadingMore(true);
+    const { gifs, hasNext } = await fetchGifPage(pagination.query, nextPage);
+    pagination.isFetchingMore = false;
+    if (fetchId !== pagination.fetchId) {
+      return;
+    }
+    pagination.page = nextPage;
+    pagination.hasNext = hasNext;
+    setGifResults((existingGifs) => [...existingGifs, ...gifs]);
+    setLoadingMore(false);
+  }, [fetchGifPage]);
+
+  const onScrollGrid = useCallback((
+    event: NativeSyntheticEvent<NativeScrollEvent>
+  ) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - contentOffset.y - layoutMeasurement.height;
+    if (distanceFromBottom < layoutMeasurement.height * 2) {
+      fetchMoreGifs();
+    }
+  }, [fetchMoreGifs]);
 
   // Use lodash debounce to delay search requests
   const debouncedFetchGifs = useCallback(
@@ -160,25 +226,36 @@ const GifPickerModal: React.FC = () => {
     <ScrollView
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContainer}
+      onScroll={onScrollGrid}
+      scrollEventThrottle={100}
     >
-      {columns.map((column, i) =>
-        <View key={i} style={styles.column}>
-          {column.map((item, j) =>
-            <RenderGifItem
-              key={j}
-              priority={indexToPriority(j)}
-              gifUrl={item.file?.hd?.gif?.url}
-              previewUrl={
-                isMobile() ?
-                  item.file?.xs?.gif?.url :
-                  item.file?.sm?.gif?.url
-              }
-              isSelected={item.file?.hd?.gif?.url === selectedGif}
-              onPress={onPressGif}
-            />
-          )}
-        </View>
-      )}
+      <View style={styles.columnsContainer}>
+        {columns.map((column, i) =>
+          <View key={i} style={styles.column}>
+            {column.map((item, j) =>
+              <RenderGifItem
+                key={j}
+                priority={indexToPriority(j)}
+                gifUrl={item.file?.hd?.gif?.url}
+                previewUrl={
+                  isMobile() ?
+                    item.file?.xs?.gif?.url :
+                    item.file?.sm?.gif?.url
+                }
+                isSelected={item.file?.hd?.gif?.url === selectedGif}
+                onPress={onPressGif}
+              />
+            )}
+          </View>
+        )}
+      </View>
+      {loadingMore &&
+        <LogoActivityIndicator
+          size="large"
+          color="#70f"
+          style={styles.loadingMoreIndicator}
+        />
+      }
     </ScrollView>
   );
 
@@ -297,6 +374,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContainer: {
+    gap: 10,
+  },
+  columnsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
@@ -320,6 +400,10 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginTop: 20,
+    alignSelf: 'center',
+  },
+  loadingMoreIndicator: {
+    marginVertical: 10,
     alignSelf: 'center',
   },
 });

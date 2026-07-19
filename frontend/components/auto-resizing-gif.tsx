@@ -18,12 +18,14 @@ const AutoResizingGif = ({
   style,
   requirePress = false,
   priority,
+  showActivityIndicator = true,
 }: {
   uri: string
   onError?: () => void
   style?: StyleProp<ImageStyle>,
   requirePress?: boolean
   priority?: null | 'low' | 'normal' | 'high'
+  showActivityIndicator?: boolean
 }) => {
   const [shouldLoad, setShouldLoad] = useState(!requirePress);
 
@@ -78,7 +80,7 @@ const AutoResizingGif = ({
             }
           </View>
         }
-        {!requirePress &&
+        {!requirePress && showActivityIndicator &&
           <LogoActivityIndicator size="large" color="white" />
         }
         <DefaultText
