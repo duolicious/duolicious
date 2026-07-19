@@ -26,7 +26,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { Image as ExpoImage } from 'expo-image';
+import { FillImage } from './fill-image';
 import { hasGifExtraExt, photoUri } from '../util/photos';
 import {
   constrainPosition,
@@ -142,13 +142,7 @@ const FitWithinScreenImage = ({
           { width: imageWidth, height: imageHeight, overflow: 'hidden' },
         ]}
       >
-        <ExpoImage
-          source={source}
-          style={StyleSheet.absoluteFill}
-          contentFit="fill"
-          transition={0}
-          cachePolicy="memory-disk"
-        />
+        <FillImage uri={source.uri} />
       </Animated.View>
     );
   }
@@ -195,7 +189,7 @@ type PinchyPage = {
 
 const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black'}: {
   uuid: string,
-  extraExts?: string[],
+  extraExts: string[],
   naturalSize?: { width: number, height: number },
   // The box to fit the photo within and centre it in.
   viewport: { width: number, height: number },

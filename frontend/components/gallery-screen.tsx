@@ -18,7 +18,7 @@ import { useBackButtonClaim } from '../events/back-button';
 import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
 import { dragDismissRadius, dragDistance } from './pinchy-math';
-import { IMAGES_URL } from '../env/env';
+import { FillImage } from './fill-image';
 import {
   hasGifExtraExt,
   lerp,
@@ -27,7 +27,11 @@ import {
   photoUri,
 } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
-import { getExpandedPhoto, setExpandedPhoto } from '../events/expanded-photo';
+import {
+  ZERO_BORDER_RADII,
+  getExpandedPhoto,
+  setExpandedPhoto,
+} from '../events/expanded-photo';
 import type { AlbumPhoto, ExpandedPhoto, ExpandedPhotoMorph } from '../events/expanded-photo';
 import { isMobile } from '../util/util';
 import { TIMING } from '../util/animation';
@@ -85,7 +89,7 @@ const ExpandingPhoto = ({
   const frameAt = isGif ? photoContainFrame : photoExpandFrame;
 
   const radii = isGif && geometry.width !== geometry.height
-    ? { topLeft: 0, topRight: 0, bottomLeft: 0, bottomRight: 0 }
+    ? ZERO_BORDER_RADII
     : borderRadius;
 
   const [closed, opened] = useMemo((): [PhotoExpandFrame, PhotoExpandFrame] => {
@@ -151,12 +155,8 @@ const ExpandingPhoto = ({
     return (
       <Reanimated.View style={[styles.clip, clipStyle]}>
         <Reanimated.View style={[styles.image, imageStyle]}>
-          <ExpoImage
-            source={{ uri: photoUri(photoUuid, 'original', photoExtraExts) }}
-            style={StyleSheet.absoluteFill}
-            contentFit="fill"
-            transition={0}
-            cachePolicy="memory-disk"
+          <FillImage
+            uri={photoUri(photoUuid, 'original', photoExtraExts)}
             onLoad={onCovered}
           />
         </Reanimated.View>
@@ -172,25 +172,13 @@ const ExpandingPhoto = ({
         original decodes.
       */}
       <Reanimated.View style={[styles.image, cropStyle]}>
-        <ExpoImage
-          source={{ uri: `${IMAGES_URL}/900-${photoUuid}.jpg` }}
-          style={StyleSheet.absoluteFill}
-          contentFit="fill"
-          transition={0}
-          cachePolicy="memory-disk"
+        <FillImage
+          uri={photoUri(photoUuid, 900)}
           onLoad={onCovered}
         />
       </Reanimated.View>
       <Reanimated.View style={[styles.image, imageStyle]}>
-        <ExpoImage
-          source={{ uri: `${IMAGES_URL}/original-${photoUuid}.jpg` }}
-          style={StyleSheet.absoluteFill}
-          // The frame already has the photo's aspect ratio, so `fill` matches
-          // `contain` without risking a sub-pixel letterbox down one edge.
-          contentFit="fill"
-          transition={0}
-          cachePolicy="memory-disk"
-        />
+        <FillImage uri={photoUri(photoUuid, 'original')} />
       </Reanimated.View>
     </Reanimated.View>
   );

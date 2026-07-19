@@ -7,10 +7,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../navigation/linking';
 import { Image as ExpoImage } from 'expo-image';
-import { IMAGES_URL } from '../env/env';
-import { hasGifExtraExt } from '../util/photos';
+import { photoUri } from '../util/photos';
 import type { PhotoGeometry } from '../util/photos';
-import { setExpandedPhoto, useIsPhotoExpanded } from '../events/expanded-photo';
+import {
+  ZERO_BORDER_RADII,
+  setExpandedPhoto,
+  useIsPhotoExpanded,
+} from '../events/expanded-photo';
 import type { AlbumPhoto, BorderRadii } from '../events/expanded-photo';
 import { noSelect } from '../styles';
 
@@ -28,10 +31,7 @@ const toBorderRadii = (
       bottomRight: borderRadius,
     }
     : {
-      topLeft: 0,
-      topRight: 0,
-      bottomLeft: 0,
-      bottomRight: 0,
+      ...ZERO_BORDER_RADII,
       ...borderRadius,
     };
 
@@ -61,7 +61,6 @@ const EnlargeablePhoto = ({
   isVerified?: boolean
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
-  const isGif = hasGifExtraExt(photoExtraExts);
   const ref = useRef<View>(null);
 
   // The gallery draws this same photo over the top of this preview and expands
@@ -121,16 +120,17 @@ const EnlargeablePhoto = ({
   }, [photoUuid, photoExtraExts, photoGeometry, album, borderRadius, navigation]);
 
   const prefetchEnlargedImage = useCallback(() => {
-    if (!photoUuid || isGif) return;
-    const originalUri = `${IMAGES_URL}/original-${photoUuid}.jpg`;
+    const enlargedUri = photoUri(photoUuid, 'original', photoExtraExts);
+    const previewUri = photoUri(photoUuid, 900, photoExtraExts);
+    if (!enlargedUri || enlargedUri === previewUri) return;
     setTimeout(() => {
       try {
-        ExpoImage.prefetch(originalUri);
+        ExpoImage.prefetch(enlargedUri);
       } catch (e) {
         console.warn(e);
       }
     }, 500);
-  }, [photoUuid, isGif]);
+  }, [photoUuid, photoExtraExts]);
 
   if (photoUuid === undefined && !isPrimary) {
     return <></>;
