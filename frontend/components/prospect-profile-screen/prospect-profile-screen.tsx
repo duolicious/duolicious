@@ -125,7 +125,6 @@ type ProspectScreenProps = CompositeScreenProps<
 const Stack = createNativeStackNavigator();
 
 const ProspectProfileScreen = () => {
-  console.log('ProspectProfileScreen'); // TODO
   const navigationRef = useRef<ProspectNavigation | undefined>(undefined);
 
   const ProspectProfileScreen_ = useMemo(() => {
