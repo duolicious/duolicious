@@ -540,11 +540,8 @@ const App = () => {
                 <Stack.Screen
                   name="Gallery Screen"
                   component={GalleryScreen}
-                  // The gallery animates itself, expanding out of the preview
-                  // on the screen underneath - which it therefore has to let
-                  // show through, and mustn't slide over.
                   options={{
-                    presentation: 'transparentModal',
+                    presentation: 'containedTransparentModal',
                     animation: 'none',
                   }} />
                 <Stack.Screen
