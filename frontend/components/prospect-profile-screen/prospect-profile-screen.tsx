@@ -884,7 +884,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
     !isAnonymousViewer || Platform.OS === 'web'
       ? {
         layout: 'column',
-        transition: 'instant',
+        transition: Platform.OS === 'web' ? 'instant' : 'fade',
         onPress: () => navigationRef.current?.goBack(),
       }
       : null
