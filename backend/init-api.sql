@@ -997,8 +997,7 @@ CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
 CREATE INDEX IF NOT EXISTS
     idx__person__personality
     ON person
-    USING ivfflat (personality vector_ip_ops)
-    WITH (lists = 100);
+    USING hnsw (personality vector_ip_ops);
 
 
 --------------------------------------------------------------------------------
