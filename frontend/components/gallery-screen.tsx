@@ -9,7 +9,6 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { Image as ExpoImage } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootParamList } from '../navigation/linking';
@@ -254,18 +253,6 @@ const GalleryScreen = ({
   );
 
   const [index, setIndex] = useState(openedIndex);
-
-  // Warm the cache for every photo's full-size original, so the first swipe
-  // to a neighbour doesn't flash blank while its original loads.
-  useEffect(() => {
-    album.forEach((photo) => {
-      try {
-        ExpoImage.prefetch(photoUri(photo.uuid, 'original', photo.extraExts));
-      } catch (e) {
-        console.warn(e);
-      }
-    });
-  }, [album]);
 
   const [phase, setPhase] = useState<Phase>(
     morph ? 'opening' : 'open',
