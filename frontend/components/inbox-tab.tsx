@@ -22,6 +22,7 @@ import { DefaultText } from './default-text';
 import { ButtonGroup } from './button-group';
 import { useInboxStats } from '../chat/application-layer/hooks/inbox-stats';
 import {
+  MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
   useConversations,
 } from '../chat/application-layer/hooks/conversations';
 import { TopNavBarButton } from './top-nav-bar-button';
@@ -132,7 +133,7 @@ const InboxTab = () => {
 
   const canApplySearchFilters =
     sectionIndex === 0 &&
-    numIntros > 0;
+    numIntros >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
 
   const introsNumericalLabel = (
     numUnreadIntros ?

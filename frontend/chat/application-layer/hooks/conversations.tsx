@@ -5,6 +5,8 @@ import { listen } from '../../../events/events';
 import * as _ from 'lodash';
 
 
+const MIN_INTROS_TO_APPLY_SEARCH_FILTERS = 1;
+
 const shouldApplySearchFilters = (
   conversations: Conversation[],
   section: 'intros' | 'chats' | 'archive',
@@ -12,7 +14,7 @@ const shouldApplySearchFilters = (
 ): boolean =>
   section === 'intros' &&
   applySearchFilters &&
-  conversations.length > 0;
+  conversations.length >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
 
 const getSection = (sectionIndex: number, showArchive: boolean) => {
   if (showArchive) {
@@ -231,6 +233,7 @@ const useConversations = () => {
 };
 
 export {
+  MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
   computeConversationIds,
   sortConversations,
   useConversations,
