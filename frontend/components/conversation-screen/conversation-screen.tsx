@@ -27,7 +27,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { TopNavBar } from '../top-nav-bar';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { ChatMessage, TypingIndicator } from './chat-message';
-import { ReadReceipt } from './read-receipt';
 import { DefaultText } from '../default-text';
 import {
   Message,
@@ -902,7 +901,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
               }
             </>
           }
-          {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i) => {
+          {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i, uniqueMessageIds) => {
             const [previousMessage, message] = [
               getMessage(messageIds[i - 1]),
               getMessage(messageId)];
@@ -920,6 +919,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
                   personUuid={personUuid}
                   name={name}
                   avatarUuid={photoUuid}
+                  isLastMessage={i === uniqueMessageIds.length - 1}
                 />
               </Fragment>
             );
@@ -927,7 +927,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           <View
             style={{
               flexDirection: 'row',
-              justifyContent: 'space-between',
               alignItems: 'flex-start',
             }}
           >
@@ -935,7 +934,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
               personUuid={personUuid}
               avatarUuid={photoUuid}
             />
-            <ReadReceipt personUuid={personUuid} />
           </View>
         </ScrollView>
       }

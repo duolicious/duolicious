@@ -75,6 +75,7 @@ type AudioPlayerProps = {
   uuid: string | null | undefined,
   sending: boolean,
   presentation: 'conversation',
+  onPressBody?: () => void
   style?: ViewStyle
 };
 
@@ -225,12 +226,48 @@ const AudioPlayer = (props: AudioPlayerProps) => {
   const bodyColor = props.presentation === 'profile' ? props.bodyColor : undefined;
 
   const isConversation = props.presentation === 'conversation';
+  const onPressBody = props.presentation === 'conversation'
+    ? props.onPressBody
+    : undefined;
   const surface = isConversation
     ? {
         backgroundColor: 'rgba(255, 255, 255, 0.3)',
         borderColor: 'rgba(0, 0, 0, 0.1)',
       }
     : themedSurface(appThemeName, appTheme.surface, bodyColor);
+
+  const body = (
+    <>
+      <View style={styles.middleContainer}>
+        <DefaultText
+          style={[
+            styles.middleText,
+            showLoader ? styles.transparent : null,
+            bodyColor ? { color: bodyColor } : null,
+          ]}
+        >
+          {middleText}
+        </DefaultText>
+
+        {showLoader &&
+          <LoadingBar/>
+        }
+      </View>
+
+      <DefaultText
+        style={[
+          {
+            textAlign: 'right',
+            paddingRight: isConversation ? 10 : 5,
+            width: 50,
+          },
+          bodyColor ? { color: bodyColor } : null,
+        ]}
+      >
+        {`${minutes}:${seconds}`}
+      </DefaultText>
+    </>
+  );
 
   const playButtonColor = bodyColor ?? appTheme.secondaryColor;
   const playIconColor = bodyColor
@@ -281,39 +318,22 @@ const AudioPlayer = (props: AudioPlayerProps) => {
         </View>
       </Pressable>
 
-      <View style={styles.middleContainer}>
-        <DefaultText
-          style={[
-            styles.middleText,
-            showLoader ? styles.transparent : null,
-            bodyColor ? { color: bodyColor } : null,
-          ]}
-        >
-          {middleText}
-        </DefaultText>
-
-        {showLoader &&
-          <LoadingBar/>
-        }
-      </View>
-
-      <DefaultText
-        style={[
-          {
-            textAlign: 'right',
-            paddingRight: props.presentation === 'conversation' ? 10 : 5,
-            width: 50,
-          },
-          bodyColor ? { color: bodyColor } : null,
-        ]}
-      >
-        {`${minutes}:${seconds}`}
-      </DefaultText>
+      {onPressBody ?
+        <Pressable style={styles.body} onPress={onPressBody}>{body}</Pressable>
+      :
+        <View style={styles.body}>{body}</View>
+      }
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  body: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
   middleContainer: {
     flex: 3,
     justifyContent: 'center',

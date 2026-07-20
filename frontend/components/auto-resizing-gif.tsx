@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
+  useEffect,
   useState,
 } from 'react';
 import { DefaultText } from './default-text';
@@ -20,6 +21,7 @@ const AutoResizingGif = ({
   requirePress = false,
   priority,
   activityIndicator = 'logo',
+  onLoadedChange,
 }: {
   uri: string
   onError?: () => void
@@ -27,6 +29,7 @@ const AutoResizingGif = ({
   requirePress?: boolean
   priority?: null | 'low' | 'normal' | 'high'
   activityIndicator?: 'logo' | 'default'
+  onLoadedChange?: (isLoaded: boolean) => void
 }) => {
   const [shouldLoad, setShouldLoad] = useState(!requirePress);
 
@@ -36,6 +39,12 @@ const AutoResizingGif = ({
       onError: shouldLoad ? onError : () => {},
     }
   );
+
+  const isLoaded = !!image;
+
+  useEffect(() => {
+    onLoadedChange?.(isLoaded);
+  }, [isLoaded]);
 
   if (!image) {
     return (
