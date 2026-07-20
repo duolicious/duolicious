@@ -44,6 +44,7 @@ import {
   TextBlock,
 } from './quote';
 import { usePartnerAnswer } from '../../chat/application-layer/hooks/partner-answer';
+import { useReadReceipt } from '../../chat/application-layer/hooks/read-receipt';
 import { AnsweredQuizCard } from '../quiz-card';
 import * as Haptics from 'expo-haptics';
 import { useSignedInUser } from '../../events/signed-in-user';
@@ -316,11 +317,13 @@ const ChatMessage = ({
   personUuid,
   name,
   avatarUuid,
+  isLastMessage,
 }: {
   messageId: string
   personUuid: string
   name: string | undefined
   avatarUuid: string | null | undefined
+  isLastMessage: boolean
 }) => {
   const { appTheme } = useAppTheme();
   const opacity = useSharedValue(0);
@@ -339,6 +342,7 @@ const ChatMessage = ({
   } = useAnchorMeasurement();
   const message = useMessage(messageId);
   const [signedInUser] = useSignedInUser();
+  const readAt = useReadReceipt(personUuid);
 
   const chatMessage =
     message && message.message.type !== 'typing'
@@ -558,6 +562,12 @@ const ChatMessage = ({
   const { fromCurrentUser } = message.message;
   const shownAvatarUuid = fromCurrentUser ? undefined : avatarUuid;
 
+  const doShowDeliveryReceipt =
+    isLastMessage &&
+    fromCurrentUser &&
+    message.status === 'sent' &&
+    !readAt;
+
   return (
     <View
       style={[
@@ -743,7 +753,7 @@ const ChatMessage = ({
           }}
         />
       }
-      {doShowTimestamp &&
+      {(doShowTimestamp || doShowDeliveryReceipt) &&
         <DefaultText
           selectable={true}
           style={{
