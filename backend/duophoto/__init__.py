@@ -61,9 +61,39 @@ MATCH_SCALES = (64, 256, 1024)
 # isn't believable. Callers that act on the result should treat anything worse
 # as "no match" rather than record a crop that would make the photo jump when
 # expanded. Over 130 photos the backfill had skipped, correct offsets scored a
-# median of 17 and never worse than 75; a square belonging to a different photo
-# never scored better than 81, so the two populations don't overlap.
+# median of 17 and never worse than 75; across 680 pairings of an original with
+# a different photo's square, nothing scored better than 80.
 DEFAULT_MAX_MATCH_DIFFERENCE = 75.0
+
+# How far the square can slide, as a fraction of the frame, before which offset
+# we pick starts to matter. A photo 520px on its short side and 521 on its long
+# one has exactly two candidate crops one pixel apart: there is no answer that
+# would make it jump, so there's nothing for a match score to protect against.
+# Demanding a convincing match there just rejects photos whose crop was never in
+# question - and a near-square photo is where the matcher has the least to go on,
+# because every candidate window looks like every other.
+#
+# This is the one path that records a crop nothing confirmed, so what it costs
+# is worth stating: the recorded offset can be wrong by the whole span, and the
+# span is what this bounds. At a twentieth, the worst a photo can do on expand
+# is shift by a twentieth of its frame - against not animating at all, which is
+# what these photos do today.
+NEGLIGIBLE_SPAN_FRACTION = 0.05
+
+# The single place that decides whether a recovered crop is worth recording, so
+# the backfill can't drift from what the tests pin down.
+def is_crop_believable(
+    geometry: PhotoGeometry,
+    difference: float,
+    max_difference: float = DEFAULT_MAX_MATCH_DIFFERENCE,
+) -> bool:
+    shorter = min(geometry.width, geometry.height)
+    span = max(geometry.width, geometry.height) - shorter
+
+    return (
+        difference <= max_difference
+        or span <= NEGLIGIBLE_SPAN_FRACTION * shorter
+    )
 
 def _greyscale(image: Image.Image, size: tuple[int, int]) -> numpy.ndarray:
     resized = image.convert('L').resize(size, Image.Resampling.BILINEAR)
@@ -236,10 +266,14 @@ def find_crop(
                 best_offset = offset
                 best_difference = difference
 
-        lo = max(0, best_offset - stride)
-        hi = min(span, best_offset + stride)
+        # Two strides rather than one: a coarse scan can only place the winner
+        # to within a stride, so a window of exactly one stride can sit just
+        # off a sharply peaked minimum and the next scale, searching only
+        # inside it, never gets back to the real one.
+        lo = max(0, best_offset - 2 * stride)
+        hi = min(span, best_offset + 2 * stride)
 
-    best_offset = _refined_offset(
+    refined = _refined_offset(
         original_pixels,
         square_pixels,
         scale,
@@ -249,4 +283,18 @@ def find_crop(
         span,
     )
 
-    return geometry_at(best_offset), best_difference
+    # Score the offset actually being returned. Refinement moves it after the
+    # scan recorded its difference, and on a sharply peaked match the two can
+    # disagree wildly - which is a photo skipped over a number describing an
+    # offset nobody is proposing.
+    refined_difference = _difference(
+        original_pixels,
+        square_pixels,
+        min(limit, max(0, round(refined * scale))),
+        horizontal,
+    )
+
+    if refined_difference is None or refined_difference > best_difference:
+        return geometry_at(best_offset), best_difference
+
+    return geometry_at(refined), refined_difference

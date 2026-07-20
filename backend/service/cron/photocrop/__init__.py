@@ -3,6 +3,7 @@ from duophoto import (
     DEFAULT_MAX_MATCH_DIFFERENCE,
     PhotoGeometry,
     find_crop,
+    is_crop_believable,
     photo_geometry_params,
 )
 from service.cron.photocrop.sql import *
@@ -73,7 +74,7 @@ def _geometry_of(
         print(f'photocrop: {uuid} could not be matched:', e)
         return None
 
-    if difference > MAX_MATCH_DIFFERENCE:
+    if not is_crop_believable(geometry, difference, MAX_MATCH_DIFFERENCE):
         print(f'photocrop: {uuid} matched too poorly ({difference:.1f}); skipping')
         return None
 

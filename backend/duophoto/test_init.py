@@ -3,6 +3,7 @@ from duophoto import (
     CropSize,
     PhotoGeometry,
     find_crop,
+    is_crop_believable,
     orient_image,
     photo_geometry,
 )
@@ -11,6 +12,7 @@ from duophoto.fixtures import (
     flatten,
     jpeg,
     mismatched_matte_renditions,
+    patterned_photo,
     photo,
     renditions,
     transparent_photo,
@@ -145,6 +147,51 @@ class TestFindCrop(unittest.TestCase):
         self.assertLessEqual(abs(geometry.crop_top - 250), self.TOLERANCE_PX)
         self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
 
+    def test_recovers_a_crop_whose_match_falls_away_steeply(self) -> None:
+        # A repeating pattern makes the difference spike a pixel either side of
+        # the truth. The coarse scan lands near the answer rather than on it,
+        # and a search window of one stride could sit just off the real minimum
+        # with no way back - leaving a photo skipped, at an offset whose score
+        # described somewhere else entirely.
+        original = patterned_photo(1200, 1448, seed=13)
+        original_bytes, square_bytes = renditions(original, 0, 246)
+
+        geometry, difference = find_crop(
+            _image(original_bytes),
+            _image(square_bytes),
+        )
+
+        # Looser than TOLERANCE_PX: at this pattern's period neighbouring
+        # offsets really are near-indistinguishable, which is the point.
+        self.assertLessEqual(abs(geometry.crop_top - 246), 4)
+        self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+    def test_scores_the_offset_it_actually_returns(self) -> None:
+        # Refinement moves the offset after the scan recorded its difference,
+        # so the two could describe different places. Re-cutting the square at
+        # the offset it returned has to reproduce the score it reported.
+        original = patterned_photo(1200, 1448, seed=14)
+        original_bytes, square_bytes = renditions(original, 0, 246)
+
+        geometry, difference = find_crop(
+            _image(original_bytes),
+            _image(square_bytes),
+        )
+
+        _, at_returned_offset = find_crop(
+            _image(original_bytes),
+            _image(jpeg(
+                original.crop((
+                    geometry.crop_left,
+                    geometry.crop_top,
+                    geometry.crop_left + 1200,
+                    geometry.crop_top + 1200,
+                )).resize((450, 450))
+            )),
+        )
+
+        self.assertAlmostEqual(difference, at_returned_offset, delta=5.0)
+
     def test_reports_a_bad_match_rather_than_guessing(self) -> None:
         # A square that isn't from this photo at all. The reported difference
         # is what stops the backfill recording a crop that would make the
@@ -155,6 +202,34 @@ class TestFindCrop(unittest.TestCase):
         _, difference = find_crop(original, unrelated)
 
         self.assertGreater(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+class TestIsCropBelievable(unittest.TestCase):
+    def test_trusts_a_convincing_match(self) -> None:
+        geometry = PhotoGeometry(width=1200, height=800, crop_top=0, crop_left=200)
+
+        self.assertTrue(is_crop_believable(geometry, 12.0))
+        self.assertFalse(is_crop_believable(geometry, 90.0))
+
+    def test_records_a_near_square_crop_the_matcher_cannot_confirm(self) -> None:
+        # 521 against 520: two candidate crops, one pixel apart. There is no
+        # answer here that would make the photo jump, so a weak score is not a
+        # reason to leave the photo without geometry - and a near-square photo
+        # is where the matcher has least to distinguish offsets by.
+        geometry = PhotoGeometry(width=520, height=521, crop_top=1, crop_left=0)
+
+        self.assertTrue(is_crop_believable(geometry, 90.0))
+
+    def test_still_demands_a_match_once_the_crop_can_move(self) -> None:
+        # A tenth of the frame is enough to put a different subject in it.
+        geometry = PhotoGeometry(width=1100, height=1000, crop_top=0, crop_left=50)
+
+        self.assertFalse(is_crop_believable(geometry, 90.0))
+
+    def test_takes_the_threshold_the_caller_configured(self) -> None:
+        geometry = PhotoGeometry(width=1200, height=800, crop_top=0, crop_left=200)
+
+        self.assertFalse(is_crop_believable(geometry, 40.0, max_difference=30.0))
+        self.assertTrue(is_crop_believable(geometry, 40.0, max_difference=50.0))
 
 class TestFindCropWithMismatchedMattes(unittest.TestCase):
     # The pipeline flattened transparent uploads onto white for the original

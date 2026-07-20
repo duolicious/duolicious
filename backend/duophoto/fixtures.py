@@ -38,6 +38,29 @@ def detailed_photo(width: int, height: int, seed: int) -> Image.Image:
 
     return image
 
+# Brickwork, blinds, a knitted jumper. A repeating pattern makes the match fall
+# away steeply either side of the true offset, so a coarse scan lands near it
+# rather than on it and the finer scans have to be able to walk back.
+def patterned_photo(width: int, height: int, seed: int) -> Image.Image:
+    rng = random.Random(seed)
+    image = photo(width, height, seed)
+    draw = ImageDraw.Draw(image)
+
+    for y in range(0, height, 4):
+        draw.line([0, y, width, y], fill=(240, 240, 240), width=1)
+
+    for x in range(0, width, 4):
+        draw.line([x, 0, x, height], fill=(20, 20, 20), width=1)
+
+    for _ in range(400):
+        x, y = rng.randint(0, width), rng.randint(0, height)
+        draw.ellipse(
+            [x, y, x + rng.randint(4, 20), y + rng.randint(4, 20)],
+            fill=(rng.randint(0, 255), rng.randint(0, 255), rng.randint(0, 255)),
+        )
+
+    return image
+
 def jpeg(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format='jpeg', quality=85, subsampling=2)
