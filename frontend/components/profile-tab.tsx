@@ -882,6 +882,33 @@ const AboutDuolicious = () => {
         queries you have.
       </DefaultText>
 
+      <View
+        style={{
+          marginTop: 25,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: 20,
+        }}
+      >
+        {([
+          ['Guidelines', 'https://duolicious.app/guidelines/'],
+          ['Terms', 'https://duolicious.app/terms/'],
+          ['Privacy', 'https://duolicious.app/privacy/'],
+        ] as const).map(([label, href]) =>
+          <DefaultText
+            key={href}
+            onPress={() => Linking.openURL(href)}
+            style={{
+              fontWeight: '600',
+              color: '#37f',
+            }}
+          >
+            {label}
+          </DefaultText>
+        )}
+      </View>
+
       {Platform.OS === 'web' &&
         <DefaultText
           style={{
