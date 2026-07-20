@@ -902,7 +902,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
               }
             </>
           }
-          {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i, ids) => {
+          {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i) => {
             const [previousMessage, message] = [
               getMessage(messageIds[i - 1]),
               getMessage(messageId)];
@@ -920,7 +920,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
                   personUuid={personUuid}
                   name={name}
                   avatarUuid={photoUuid}
-                  isLastMessage={i === ids.length - 1}
                 />
               </Fragment>
             );
