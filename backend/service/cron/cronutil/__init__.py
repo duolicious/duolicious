@@ -145,13 +145,6 @@ async def download_450_images(
     uuids: list[str],
     max_workers: int = 5,
 ) -> list[io.BytesIO | None]:
-    return await download_images(uuids, '450-', max_workers)
-
-async def download_images(
-    uuids: list[str],
-    prefix: str,
-    max_workers: int = 5,
-) -> list[io.BytesIO | None]:
     if not uuids:
         return []
 
@@ -166,7 +159,7 @@ async def download_images(
 
     def download_one(uuid: str) -> io.BytesIO | None:
         buffer = io.BytesIO()
-        key = f'{prefix}{uuid}.jpg'
+        key = f'450-{uuid}.jpg'
         retries = 3
         for attempt in range(retries):
             try:

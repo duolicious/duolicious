@@ -448,12 +448,10 @@ CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
 -- `original-{uuid}.jpg`, so clients can animate between the two. All four are
 -- in the coordinates of `original-{uuid}.jpg`, i.e. after EXIF rotation was
 -- applied. The crop is always `min(width, height)` on a side, so only its
--- origin varies. They're NULL for photos uploaded before the columns existed
--- and not yet backfilled; see `service/cron/photocrop`.
---
--- `crop_attempted_at` is when that backfill last tried this photo, and is what
--- stops it retrying one it can't recover (a missing rendition, say) on every
--- pass forever. Clear it to have another go.
+-- origin varies. Every upload records them. They stay NULL for the few photos
+-- which predate the columns and whose crop the (since-removed) `photocrop`
+-- backfill couldn't recover - a permanent state now, not a pending one, which
+-- clients render as opening without the expand animation.
 CREATE TABLE IF NOT EXISTS photo (
     person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     position SMALLINT NOT NULL,
@@ -467,7 +465,6 @@ CREATE TABLE IF NOT EXISTS photo (
     height INT,
     crop_top INT,
     crop_left INT,
-    crop_attempted_at TIMESTAMP,
     PRIMARY KEY (person_id, position)
 );
 
@@ -945,11 +942,6 @@ CREATE INDEX IF NOT EXISTS idx__deleted_photo_admin_token__expires_at
 
 CREATE INDEX IF NOT EXISTS idx__photo__uuid
     ON photo(uuid);
-
--- The photocrop backfill's queue: tiny, and empties as the backlog drains.
-CREATE INDEX IF NOT EXISTS idx__photo__crop_backlog
-    ON photo(uuid)
-    WHERE width IS NULL AND crop_attempted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
     ON photo(nsfw_score);

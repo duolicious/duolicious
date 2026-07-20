@@ -9,7 +9,6 @@ from service.cron.garbagerecords import delete_garbage_records_forever
 from service.cron.notifications import send_notifications_forever
 from service.cron.nsfwphotorunner import predict_nsfw_photos_forever
 from service.cron.photocleaner import clean_photos_forever
-from service.cron.photocrop import backfill_photo_crops_forever
 from service.cron.audiocleaner import clean_audio_forever
 from service.cron.verificationjobrunner import verify_forever
 from service.cron.profilereporter import report_profiles_forever
@@ -47,10 +46,6 @@ async def main() -> None:
 
             # Fetched: 0.1k, returned: 100k
             clean_photos_forever(),
-
-            # Backfills photos uploaded before `photo.width` and friends
-            # existed. Runs itself out of work once the backlog is done.
-            backfill_photo_crops_forever(),
 
             clean_audio_forever(),
 
