@@ -5,10 +5,8 @@ import { listen } from '../../../events/events';
 import * as _ from 'lodash';
 
 
-const MIN_INTROS_TO_APPLY_SEARCH_FILTERS = 10;
+const MIN_INTROS_TO_APPLY_SEARCH_FILTERS = 1;
 
-// Intros sections smaller than the minimum aren't worth triaging, so applying
-// search filters only reorders (and divides) sections at least that big.
 const shouldApplySearchFilters = (
   conversations: Conversation[],
   section: 'intros' | 'chats' | 'archive',

@@ -13,7 +13,6 @@ import { AppStoreBadges } from '../badges/app-store/app-store';
 import { listen, notify } from '../../events/events';
 import { setSignedInUser } from '../../events/signed-in-user';
 import { getCurrentOfferingCached } from '../../purchases/purchases';
-import { maybeRequestReview } from '../../store-review/store-review';
 import { pluralize, isMobileWeb } from '../../util/util';
 
 const cardPadding = 20;
@@ -188,8 +187,6 @@ const Offering = ({
     });
 
     onPressClose();
-
-    maybeRequestReview(1000);
   };
 
   const isCompact = isMobileWeb() && windowHeight < 620;
