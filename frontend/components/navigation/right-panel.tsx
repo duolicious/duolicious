@@ -50,7 +50,7 @@ const DuoliciousRightPanelContent = () => {
           padding: 14,
         }}
       >
-        Do you have a Discord server, Reddit sub, forum or other social group
+        Do you have a Discord server, subreddit, forum, or other social group
         you want to promote? You can do it here, for free!
         {'\n\n'}
         What’s the catch? You’ll have to promote Duolicious back. (Plus your
