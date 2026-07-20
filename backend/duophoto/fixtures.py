@@ -20,6 +20,24 @@ def photo(width: int, height: int, seed: int) -> Image.Image:
 
     return image
 
+# Fine detail rather than broad shapes: hair, foliage, fabric weave. The 450
+# square can't hold it, so the two renditions of the same frame genuinely differ
+# pixel for pixel however well the crop is aligned.
+def detailed_photo(width: int, height: int, seed: int) -> Image.Image:
+    rng = random.Random(seed)
+    image = photo(width, height, seed)
+    draw = ImageDraw.Draw(image)
+
+    for _ in range(45000):
+        x, y = rng.randint(0, width), rng.randint(0, height)
+        draw.line(
+            [x, y, x + rng.randint(-14, 14), y + rng.randint(-14, 14)],
+            fill=(rng.randint(0, 255), rng.randint(0, 255), rng.randint(0, 255)),
+            width=2,
+        )
+
+    return image
+
 def jpeg(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format='jpeg', quality=85, subsampling=2)
@@ -64,18 +82,22 @@ def flatten(image: Image.Image, matte: tuple[int, int, int]) -> Image.Image:
     return canvas
 
 # Renditions as the historical pipeline left them for transparent uploads: the
-# original matted onto one colour, the square crop onto another.
+# original matted onto one colour, the square crop onto another. The colours
+# aren't fixed in prod - whatever RGB sat under the alpha channel is what the
+# rendition kept - so they're a parameter here too.
 def mismatched_matte_renditions(
     original: Image.Image,
     crop_left: int,
     crop_top: int,
+    original_matte: tuple[int, int, int] = (255, 255, 255),
+    square_matte: tuple[int, int, int] = (0, 0, 0),
 ) -> tuple[bytes, bytes]:
     min_dim = min(original.size)
-    square = flatten(original, (0, 0, 0)).crop((
+    square = flatten(original, square_matte).crop((
         crop_left,
         crop_top,
         crop_left + min_dim,
         crop_top + min_dim,
     )).resize((450, 450))
 
-    return jpeg(flatten(original, (255, 255, 255))), jpeg(square)
+    return jpeg(flatten(original, original_matte)), jpeg(square)

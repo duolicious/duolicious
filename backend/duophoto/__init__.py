@@ -53,28 +53,60 @@ def photo_geometry_params(geometry: PhotoGeometry) -> dict[str, int]:
 
 # Progressively finer widths (px) for `find_crop`: a coarse scan of the whole
 # range, then narrow windows around the previous winner, so the cost stays flat
-# as the photo gets bigger.
+# as the photo gets bigger. Capped at the square's own resolution in
+# `find_crop`: comparing above it compares interpolation rather than content.
 MATCH_SCALES = (64, 256, 1024)
 
-# Mean per-pixel difference (0-255) above which `find_crop`'s best offset isn't
-# believable. Callers that act on the result should treat anything worse as "no
-# match" rather than record a crop that would make the photo jump when
-# expanded.
-DEFAULT_MAX_MATCH_DIFFERENCE = 24.0
+# Mismatch (0-100, an anti-correlation) above which `find_crop`'s best offset
+# isn't believable. Callers that act on the result should treat anything worse
+# as "no match" rather than record a crop that would make the photo jump when
+# expanded. Over 130 photos the backfill had skipped, correct offsets scored a
+# median of 17 and never worse than 75; a square belonging to a different photo
+# never scored better than 81, so the two populations don't overlap.
+DEFAULT_MAX_MATCH_DIFFERENCE = 75.0
 
 def _greyscale(image: Image.Image, size: tuple[int, int]) -> numpy.ndarray:
     resized = image.convert('L').resize(size, Image.Resampling.BILINEAR)
     return numpy.asarray(resized, dtype=numpy.float32)
 
-# A transparent upload's renditions can disagree about the matte: the pipeline
-# flattened alpha onto white for some renditions and black for others. Pixel
-# pairs at opposite extremes are the matte disagreeing, not the photo, so they
-# don't count towards the difference; `MIN_COMPARABLE_FRACTION` stops a window
-# with almost no photo in it from being judged on the scraps that remain.
-MATTE_LOW = 15.0
-MATTE_HIGH = 240.0
-MIN_COMPARABLE_FRACTION = 0.25
+# Renditions of the same photo agree about where its edges are and disagree
+# about almost everything else. Brightness drifts between encodes; a transparent
+# upload's renditions were flattened onto whatever colour happened to sit under
+# the alpha, so the same frame comes back white in one and black, grey or orange
+# in another. Matching edges rather than pixels sidesteps all of it: a flat matte
+# has no edges to contribute whatever its colour, and the subject's silhouette
+# against it is an edge in both.
+#
+# Sobel rather than a bare difference of neighbours: the smoothing the operator
+# carries is what keeps JPEG ringing and single-pixel texture - which the two
+# renditions were never going to agree about - from swamping the real edges.
+def _blur(pixels: numpy.ndarray, axis: int) -> numpy.ndarray:
+    shifted = numpy.moveaxis(pixels, axis, 0)
+    blurred = shifted.copy()
+    blurred[1:-1] = (shifted[:-2] + 2 * shifted[1:-1] + shifted[2:]) / 4.0
 
+    return numpy.moveaxis(blurred, 0, axis)
+
+def _slope(pixels: numpy.ndarray, axis: int) -> numpy.ndarray:
+    shifted = numpy.moveaxis(pixels, axis, 0)
+    sloped = numpy.zeros_like(shifted)
+    sloped[1:-1] = shifted[2:] - shifted[:-2]
+
+    return numpy.moveaxis(sloped, 0, axis)
+
+def _edges(pixels: numpy.ndarray) -> numpy.ndarray:
+    return numpy.hypot(
+        _slope(_blur(pixels, axis=0), axis=1),
+        _slope(_blur(pixels, axis=1), axis=0),
+    )
+
+# Correlation rather than a mean absolute difference, because the two renditions
+# are never the same picture pixel for pixel: the square has been through a
+# smaller JPEG, so its edges are softer and shorter than the original's even
+# where they're in exactly the right place. An absolute difference reads that
+# softening as disagreement and grows with the resolution it's measured at,
+# which made the score depend on how big the photo was rather than on whether
+# the crop was right. Both arguments are `_edges` output.
 def _difference(
     original: numpy.ndarray,
     square: numpy.ndarray,
@@ -92,17 +124,17 @@ def _difference(
     if window.shape != square.shape:
         return None
 
-    inverted_matte = (
-        ((window >= MATTE_HIGH) & (square <= MATTE_LOW))
-        | ((window <= MATTE_LOW) & (square >= MATTE_HIGH))
-    )
+    ours = window - window.mean()
+    theirs = square - square.mean()
 
-    comparable = ~inverted_matte
+    norm = numpy.sqrt(float((ours * ours).sum()) * float((theirs * theirs).sum()))
 
-    if float(comparable.mean()) < MIN_COMPARABLE_FRACTION:
+    # One of the two is a flat expanse with no edges at all, so there's nothing
+    # to line up and no offset is more believable than any other.
+    if norm <= 0.0:
         return None
 
-    return float(numpy.abs(window - square)[comparable].mean())
+    return (1.0 - float((ours * theirs).sum()) / norm) * 100.0
 
 # The scan quantises offsets to the match resolution, so above the finest
 # `MATCH_SCALES` entry the winner is only exact to `1 / scale` original px.
@@ -173,7 +205,7 @@ def find_crop(
     best_difference = float('inf')
 
     for scale_size in MATCH_SCALES:
-        size = min(scale_size, min_dim)
+        size = min(scale_size, min_dim, min(square.size))
         scale = size / min_dim
 
         scaled = (
@@ -181,8 +213,8 @@ def find_crop(
             max(size, round(height * scale)),
         )
 
-        original_pixels = _greyscale(original, scaled)
-        square_pixels = _greyscale(square, (size, size))
+        original_pixels = _edges(_greyscale(original, scaled))
+        square_pixels = _edges(_greyscale(square, (size, size)))
 
         limit = (scaled[0] if horizontal else scaled[1]) - size
 

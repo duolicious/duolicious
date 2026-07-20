@@ -7,6 +7,7 @@ from duophoto import (
     photo_geometry,
 )
 from duophoto.fixtures import (
+    detailed_photo,
     flatten,
     jpeg,
     mismatched_matte_renditions,
@@ -128,6 +129,22 @@ class TestFindCrop(unittest.TestCase):
             self.TOLERANCE_PX,
         )
 
+    def test_accepts_a_detailed_photo_the_square_cannot_hold(self) -> None:
+        # The square is 450px, so a finely textured photo's renditions can't
+        # agree pixel for pixel however well the crop lines up: one is sharp
+        # and the other has been through a smaller JPEG. Scoring that as
+        # disagreement rejected photos for being detailed.
+        original = detailed_photo(800, 1200, seed=11)
+        original_bytes, square_bytes = renditions(original, 0, 250)
+
+        geometry, difference = find_crop(
+            _image(original_bytes),
+            _image(square_bytes),
+        )
+
+        self.assertLessEqual(abs(geometry.crop_top - 250), self.TOLERANCE_PX)
+        self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
     def test_reports_a_bad_match_rather_than_guessing(self) -> None:
         # A square that isn't from this photo at all. The reported difference
         # is what stops the backfill recording a crop that would make the
@@ -156,6 +173,57 @@ class TestFindCropWithMismatchedMattes(unittest.TestCase):
         )
 
         self.assertLessEqual(abs(geometry.crop_top - 250), TestFindCrop.TOLERANCE_PX)
+        self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+    def test_recovers_a_crop_whatever_colours_the_mattes_are(self) -> None:
+        # Nothing chose these colours: an alpha-0 pixel keeps whatever RGB the
+        # upload happened to store under it, so the matte comes back grey,
+        # orange or green as readily as white. Matching can't be told which
+        # colours to expect.
+        for original_matte in [
+            (127, 127, 127),
+            (244, 172, 78),
+            (25, 238, 25),
+            (255, 255, 255),
+        ]:
+            with self.subTest(matte=original_matte):
+                original = transparent_photo(800, 1200, seed=6)
+                original_bytes, square_bytes = mismatched_matte_renditions(
+                    original,
+                    crop_left=0,
+                    crop_top=250,
+                    original_matte=original_matte,
+                    square_matte=(0, 0, 0),
+                )
+
+                geometry, difference = find_crop(
+                    _image(original_bytes),
+                    _image(square_bytes),
+                )
+
+                self.assertLessEqual(
+                    abs(geometry.crop_top - 250),
+                    TestFindCrop.TOLERANCE_PX,
+                )
+                self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
+
+    def test_recovers_a_crop_of_a_photo_that_is_mostly_matte(self) -> None:
+        # A small subject on a big transparent canvas: most of the frame is
+        # matte, so judging the match on the pixels the mattes agree about
+        # leaves too few to judge on and the crop was abandoned.
+        original = Image.new('RGBA', (900, 1400), (0, 0, 0, 0))
+        original.paste(transparent_photo(300, 300, seed=7), (300, 700))
+
+        original_bytes, square_bytes = mismatched_matte_renditions(
+            original, crop_left=0, crop_top=420,
+        )
+
+        geometry, difference = find_crop(
+            _image(original_bytes),
+            _image(square_bytes),
+        )
+
+        self.assertLessEqual(abs(geometry.crop_top - 420), TestFindCrop.TOLERANCE_PX)
         self.assertLess(difference, DEFAULT_MAX_MATCH_DIFFERENCE)
 
     def test_still_rejects_an_unrelated_pair_with_mismatched_mattes(self) -> None:
