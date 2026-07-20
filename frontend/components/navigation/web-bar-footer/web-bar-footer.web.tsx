@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AppStoreBadges } from '../../badges/app-store/app-store';
 const twitterIcon = require('../../../assets/social/twitter-white.svg');
 const redditIcon = require('../../../assets/social/reddit-white.svg');
@@ -40,6 +41,8 @@ const SocialBadges = () => {
 };
 
 const LegalLinks = () => {
+  const [hoveredHref, setHoveredHref] = useState<string | null>(null);
+
   return (
     <ul
       style={{
@@ -64,11 +67,13 @@ const LegalLinks = () => {
           <a
             target="_blank"
             href={href}
+            onMouseEnter={() => setHoveredHref(href)}
+            onMouseLeave={() => setHoveredHref(null)}
             style={{
               color: 'white',
-              fontFamily: 'MontserratRegular',
-              fontSize: '13px',
-              textDecoration: 'none',
+              fontFamily: 'MontserratSemiBold',
+              fontSize: '15px',
+              textDecoration: hoveredHref === href ? 'underline' : 'none',
             }}
           >
             {label}
