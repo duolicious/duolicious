@@ -13,12 +13,13 @@ type Content =
   | { kind: 'unread' }
   | { kind: 'upsell' };
 
+type Side = 'delivered' | 'status';
+
 type ReceiptState = {
   deliveredAt: Date | null
   readAt: Date | null
   hasGold: boolean
-  isDelayElapsed: boolean
-  isSwapped: boolean
+  side: Side
 };
 
 const contentKey = (content: Content): string =>
@@ -43,87 +44,92 @@ const receiptContent = ({
   deliveredAt,
   readAt,
   hasGold,
-  isDelayElapsed,
-  isSwapped,
+  side,
 }: ReceiptState): Content => {
   if (!deliveredAt) {
     return { kind: 'blank' };
   }
 
-  const delivered: Content = { kind: 'delivered', timestamp: deliveredAt };
+  if (side === 'delivered') {
+    return { kind: 'delivered', timestamp: deliveredAt };
+  }
 
-  const read: Content =
+  return (
     readAt ? { kind: 'read', timestamp: readAt } :
     hasGold ? { kind: 'unread' } :
-    { kind: 'upsell' };
-
-  const settled = readAt || isDelayElapsed ? read : delivered;
-
-  if (!isSwapped) {
-    return settled;
-  }
-
-  return settled.kind === 'delivered' ? read : delivered;
+    { kind: 'upsell' }
+  );
 };
 
-// A press swaps the slot away from whatever it had settled on. Delivery or an
-// arriving receipt is news, and takes the slot back off what the user pressed
-// to see: the baseline resets, so the swap starts over from the new value.
-const useIsSwapped = (isPressed: boolean, newsKey: string): boolean => {
-  const [baseline, setBaseline] = useState({ isPressed, newsKey });
-
-  if (baseline.newsKey !== newsKey) {
-    setBaseline({ isPressed, newsKey });
-
-    return false;
-  }
-
-  return isPressed !== baseline.isPressed;
-};
-
-// The read status only takes the slot a few seconds after delivery, so the
-// delivery time is seen before it's replaced. A press settles the slot by hand,
-// which cancels the swap for good rather than letting it land on top.
+// The status only takes the slot a few seconds after delivery, so the delivery
+// time is seen before it's replaced. Pinning the slot by hand stops the wait,
+// so the status can't land on top of what the user chose to see.
 const useIsDelayElapsed = (
   deliveredAt: Date | null,
-  isPressed: boolean,
+  isPinned: boolean,
 ): boolean => {
   const [isDelayElapsed, setIsDelayElapsed] = useState(false);
-  const [isCancelled, setIsCancelled] = useState(false);
-
-  // Keyed on `isPressed` alone so it reads the delivery state at the moment of
-  // the press: pressing a blank slot isn't a choice about a status that isn't
-  // there yet, so it mustn't cancel the swap the delivery goes on to start.
-  useEffect(() => {
-    if (!isPressed || !deliveredAt) {
-      return;
-    }
-
-    setIsCancelled(true);
-  }, [isPressed]);
 
   useEffect(() => {
-    if (!deliveredAt || isCancelled) {
+    if (!deliveredAt || isPinned) {
       return;
     }
 
     const timeout = setTimeout(() => setIsDelayElapsed(true), readStatusDelayMs);
 
     return () => clearTimeout(timeout);
-  }, [deliveredAt?.getTime(), isCancelled]);
+  }, [deliveredAt?.getTime(), isPinned]);
 
   return isDelayElapsed;
+};
+
+// The slot settles on a side by itself, and each press pins it to the other
+// one. Delivery or an arriving receipt is news, which unpins the slot: it
+// settles afresh rather than staying on what the user last pressed to see.
+const useReceiptSide = (
+  deliveredAt: Date | null,
+  readAt: Date | null,
+  pressToggle: boolean,
+): Side => {
+  const news = newsKey(deliveredAt, readAt);
+
+  const [pin, setPin] = useState<{
+    side: Side | null
+    news: string
+    pressToggle: boolean
+  }>({ side: null, news, pressToggle });
+
+  const isDelayElapsed = useIsDelayElapsed(deliveredAt, pin.side !== null);
+
+  const settled: Side = readAt || isDelayElapsed ? 'status' : 'delivered';
+
+  if (pin.news !== news) {
+    setPin({ side: null, news, pressToggle });
+
+    return settled;
+  }
+
+  if (pin.pressToggle !== pressToggle) {
+    const side: Side =
+      (pin.side ?? settled) === 'delivered' ? 'status' : 'delivered';
+
+    setPin({ side, news, pressToggle });
+
+    return side;
+  }
+
+  return pin.side ?? settled;
 };
 
 export {
   Content,
   ReceiptState,
+  Side,
   contentKey,
   contentText,
   deliveredText,
   newsKey,
   readStatusDelayMs,
   receiptContent,
-  useIsDelayElapsed,
-  useIsSwapped,
+  useReceiptSide,
 };

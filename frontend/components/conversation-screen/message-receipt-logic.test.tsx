@@ -2,13 +2,13 @@ import { describe, expect, jest, test } from '@jest/globals';
 import {
   Content,
   ReceiptState,
+  Side,
   contentKey,
   contentText,
   newsKey,
   readStatusDelayMs,
   receiptContent,
-  useIsDelayElapsed,
-  useIsSwapped,
+  useReceiptSide,
 } from './message-receipt-logic';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -21,8 +21,7 @@ const state = (overrides: Partial<ReceiptState> = {}): ReceiptState => ({
   deliveredAt: DELIVERED_AT,
   readAt: null,
   hasGold: false,
-  isDelayElapsed: false,
-  isSwapped: false,
+  side: 'delivered',
   ...overrides,
 });
 
@@ -35,76 +34,37 @@ describe('receiptContent', () => {
       expect(kindOf({ deliveredAt: null })).toEqual('blank');
     });
 
-    test('the slot stays blank when pressed', () => {
-      expect(kindOf({ deliveredAt: null, isSwapped: true })).toEqual('blank');
-    });
-
-    test('the slot stays blank once the delay elapses', () => {
-      expect(kindOf({ deliveredAt: null, isDelayElapsed: true }))
-        .toEqual('blank');
+    test('the slot stays blank on the status side', () => {
+      expect(kindOf({ deliveredAt: null, side: 'status' })).toEqual('blank');
     });
   });
 
-  describe('once delivered, before the delay elapses', () => {
+  describe('on the delivered side', () => {
     test('the delivery time shows', () => {
       expect(kindOf()).toEqual('delivered');
     });
 
-    test('a gold user can swap to the read status', () => {
-      expect(kindOf({ hasGold: true, isSwapped: true }))
-        .toEqual('unread');
-    });
-
-    test('a non-gold user can swap to the upsell', () => {
-      expect(kindOf({ isSwapped: true })).toEqual('upsell');
+    test('the delivery time shows even once the message is read', () => {
+      expect(kindOf({ readAt: READ_AT, hasGold: true })).toEqual('delivered');
     });
   });
 
-  describe('once the delay elapses', () => {
+  describe('on the status side', () => {
     test('a gold user is told the message is unread', () => {
-      expect(kindOf({ hasGold: true, isDelayElapsed: true }))
-        .toEqual('unread');
+      expect(kindOf({ side: 'status', hasGold: true })).toEqual('unread');
     });
 
     test('a non-gold user is shown the upsell', () => {
-      expect(kindOf({ isDelayElapsed: true })).toEqual('upsell');
-    });
-
-    test('a gold user can swap to the delivery time', () => {
-      expect(kindOf({
-        hasGold: true,
-        isDelayElapsed: true,
-        isSwapped: true,
-      })).toEqual('delivered');
-    });
-
-    test('a non-gold user can swap to the delivery time', () => {
-      expect(kindOf({ isDelayElapsed: true, isSwapped: true }))
-        .toEqual('delivered');
-    });
-  });
-
-  describe('once the message is read', () => {
-    test('the read time shows without waiting for the delay', () => {
-      expect(kindOf({ readAt: READ_AT, hasGold: true }))
-        .toEqual('read');
+      expect(kindOf({ side: 'status' })).toEqual('upsell');
     });
 
     test('the read time outranks the unread status', () => {
-      expect(kindOf({
-        readAt: READ_AT,
-        hasGold: true,
-        isDelayElapsed: true,
-      })).toEqual('read');
+      expect(kindOf({ side: 'status', readAt: READ_AT, hasGold: true }))
+        .toEqual('read');
     });
 
     test('the read time outranks the upsell', () => {
-      expect(kindOf({ readAt: READ_AT, isDelayElapsed: true })).toEqual('read');
-    });
-
-    test('swapping shows the delivery time', () => {
-      expect(kindOf({ readAt: READ_AT, hasGold: true, isSwapped: true }))
-        .toEqual('delivered');
+      expect(kindOf({ side: 'status', readAt: READ_AT })).toEqual('read');
     });
   });
 
@@ -115,24 +75,22 @@ describe('receiptContent', () => {
     });
 
     test('the read time is the receipt\'s', () => {
-      expect(receiptContent(state({ readAt: READ_AT }))).toEqual(
-        { kind: 'read', timestamp: READ_AT });
+      expect(receiptContent(state({ side: 'status', readAt: READ_AT })))
+        .toEqual({ kind: 'read', timestamp: READ_AT });
     });
   });
 
-  test('swapping always changes what is shown, whatever the state', () => {
-    const swappable: Partial<ReceiptState>[] = [
+  test('the two sides never show the same thing', () => {
+    const cases: Partial<ReceiptState>[] = [
       { hasGold: true },
-      { hasGold: true, isDelayElapsed: true },
       { readAt: READ_AT, hasGold: true },
       {},
-      { isDelayElapsed: true },
       { readAt: READ_AT },
     ];
 
-    for (const overrides of swappable) {
-      expect(kindOf({ ...overrides, isSwapped: true }))
-        .not.toEqual(kindOf(overrides));
+    for (const overrides of cases) {
+      expect(kindOf({ ...overrides, side: 'delivered' }))
+        .not.toEqual(kindOf({ ...overrides, side: 'status' }));
     }
   });
 });
@@ -190,126 +148,6 @@ describe('contentText', () => {
   });
 });
 
-describe('useIsDelayElapsed', () => {
-  let latest: boolean;
-
-  const Probe = ({
-    deliveredAt,
-    isPressed,
-  }: {
-    deliveredAt: Date | null
-    isPressed: boolean
-  }) => {
-    latest = useIsDelayElapsed(deliveredAt, isPressed);
-    return null;
-  };
-
-  const render = (deliveredAt: Date | null, isPressed: boolean = false) => {
-    let renderer: { update: (element: React.ReactNode) => void };
-
-    act(() => {
-      renderer = create(
-        <Probe deliveredAt={deliveredAt} isPressed={isPressed} />);
-    });
-
-    return (
-      nextIsPressed: boolean,
-      nextDeliveredAt: Date | null = deliveredAt,
-    ) => act(() => {
-      renderer.update(
-        <Probe deliveredAt={nextDeliveredAt} isPressed={nextIsPressed} />);
-    });
-  };
-
-  const wait = (ms: number) => act(() => { jest.advanceTimersByTime(ms) });
-
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  test('the delay has not elapsed to begin with', () => {
-    render(DELIVERED_AT);
-
-    expect(latest).toEqual(false);
-  });
-
-  test('the delay elapses once the wait is up', () => {
-    render(DELIVERED_AT);
-
-    wait(readStatusDelayMs);
-
-    expect(latest).toEqual(true);
-  });
-
-  test('the delay does not elapse early', () => {
-    render(DELIVERED_AT);
-
-    wait(readStatusDelayMs - 1);
-
-    expect(latest).toEqual(false);
-  });
-
-  test('an undelivered message never starts the wait', () => {
-    render(null);
-
-    wait(readStatusDelayMs * 10);
-
-    expect(latest).toEqual(false);
-  });
-
-  test('a press cancels the wait', () => {
-    const press = render(DELIVERED_AT);
-
-    press(true);
-    wait(readStatusDelayMs * 10);
-
-    expect(latest).toEqual(false);
-  });
-
-  test('pressing again does not restart the wait', () => {
-    const press = render(DELIVERED_AT);
-
-    press(true);
-    press(false);
-    wait(readStatusDelayMs * 10);
-
-    expect(latest).toEqual(false);
-  });
-
-  test('a press after the wait is up leaves the delay elapsed', () => {
-    const press = render(DELIVERED_AT);
-
-    wait(readStatusDelayMs);
-    press(true);
-
-    expect(latest).toEqual(true);
-  });
-
-  test('a press before delivery does not cancel the wait', () => {
-    const press = render(null);
-
-    press(true);
-    press(false, DELIVERED_AT);
-    wait(readStatusDelayMs);
-
-    expect(latest).toEqual(true);
-  });
-
-  test('a press held through delivery does not cancel the wait', () => {
-    const press = render(null);
-
-    press(true);
-    press(true, DELIVERED_AT);
-    wait(readStatusDelayMs);
-
-    expect(latest).toEqual(true);
-  });
-});
-
 describe('newsKey', () => {
   test('the same delivery and read times keep the same key', () => {
     expect(newsKey(DELIVERED_AT, READ_AT))
@@ -326,80 +164,184 @@ describe('newsKey', () => {
   });
 });
 
-describe('useIsSwapped', () => {
-  let latest: boolean;
+describe('useReceiptSide', () => {
+  let latest: Side;
 
-  const Probe = ({
-    isPressed,
-    newsKey,
-  }: {
-    isPressed: boolean
-    newsKey: string
-  }) => {
-    latest = useIsSwapped(isPressed, newsKey);
+  type Props = {
+    deliveredAt: Date | null
+    readAt: Date | null
+    pressToggle: boolean
+  };
+
+  const Probe = ({ deliveredAt, readAt, pressToggle }: Props) => {
+    latest = useReceiptSide(deliveredAt, readAt, pressToggle);
     return null;
   };
 
-  const render = (newsKey: string) => {
+  const render = (initial: Partial<Props> = {}) => {
+    let props: Props = {
+      deliveredAt: DELIVERED_AT,
+      readAt: null,
+      pressToggle: false,
+      ...initial,
+    };
+
     let renderer: { update: (element: React.ReactNode) => void };
 
     act(() => {
-      renderer = create(<Probe isPressed={false} newsKey={newsKey} />);
+      renderer = create(<Probe {...props} />);
     });
 
-    return (nextIsPressed: boolean, nextNewsKey: string = newsKey) => act(() => {
-      renderer.update(
-        <Probe isPressed={nextIsPressed} newsKey={nextNewsKey} />);
-    });
+    const set = (next: Partial<Props> = {}) => {
+      props = { ...props, ...next };
+
+      act(() => {
+        renderer.update(<Probe {...props} />);
+      });
+    };
+
+    return {
+      set,
+      press: (next: Partial<Props> = {}) =>
+        set({ ...next, pressToggle: !props.pressToggle }),
+    };
   };
 
-  test('the slot starts on the value it settled on', () => {
-    render('delivered');
+  const wait = (ms: number) => act(() => { jest.advanceTimersByTime(ms) });
 
-    expect(latest).toEqual(false);
+  beforeEach(() => {
+    jest.useFakeTimers();
   });
 
-  test('a press swaps the slot', () => {
-    const press = render('delivered');
-
-    press(true);
-
-    expect(latest).toEqual(true);
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  test('pressing again swaps the slot back', () => {
-    const press = render('delivered');
+  describe('settling on its own', () => {
+    test('the slot starts on the delivery time', () => {
+      render();
 
-    press(true);
-    press(false);
+      expect(latest).toEqual('delivered');
+    });
 
-    expect(latest).toEqual(false);
+    test('the status takes the slot once the wait is up', () => {
+      render();
+
+      wait(readStatusDelayMs);
+
+      expect(latest).toEqual('status');
+    });
+
+    test('the status does not take the slot early', () => {
+      render();
+
+      wait(readStatusDelayMs - 1);
+
+      expect(latest).toEqual('delivered');
+    });
+
+    test('an arriving receipt takes the slot without waiting', () => {
+      const { set } = render();
+
+      set({ readAt: READ_AT });
+
+      expect(latest).toEqual('status');
+    });
+
+    test('an undelivered message never starts the wait', () => {
+      render({ deliveredAt: null });
+
+      wait(readStatusDelayMs * 10);
+
+      expect(latest).toEqual('delivered');
+    });
   });
 
-  test('news takes the slot back off what the user pressed to see', () => {
-    const press = render('delivered');
+  describe('pinning by hand', () => {
+    test('a press pins the other side', () => {
+      const { press } = render();
 
-    press(true);
-    press(true, 'read');
+      press();
 
-    expect(latest).toEqual(false);
+      expect(latest).toEqual('status');
+    });
+
+    test('pressing again pins it back', () => {
+      const { press } = render();
+
+      press();
+      press();
+
+      expect(latest).toEqual('delivered');
+    });
+
+    test('a pinned slot does not lose the wait to the status', () => {
+      const { press } = render();
+
+      press();
+      press();
+      wait(readStatusDelayMs * 10);
+
+      expect(latest).toEqual('delivered');
+    });
+
+    test('a press after the wait is up pins the delivery time', () => {
+      const { press } = render();
+
+      wait(readStatusDelayMs);
+      press();
+
+      expect(latest).toEqual('delivered');
+    });
+
+    test('a press before delivery does not stop the wait', () => {
+      const { set, press } = render({ deliveredAt: null });
+
+      press();
+      set({ deliveredAt: DELIVERED_AT });
+      wait(readStatusDelayMs);
+
+      expect(latest).toEqual('status');
+    });
   });
 
-  test('the slot can be pressed again once news has reset it', () => {
-    const press = render('delivered');
+  describe('news unpinning the slot', () => {
+    test('delivery settles the slot afresh', () => {
+      const { set, press } = render({ deliveredAt: null });
 
-    press(true);
-    press(true, 'read');
-    press(false, 'read');
+      press();
+      set({ deliveredAt: DELIVERED_AT });
 
-    expect(latest).toEqual(true);
-  });
+      expect(latest).toEqual('delivered');
+    });
 
-  test('news leaves an unpressed slot alone', () => {
-    const press = render('delivered');
+    test('an arriving receipt takes the slot off what was pinned', () => {
+      const { set, press } = render();
 
-    press(false, 'read');
+      press();
+      press();
+      set({ readAt: READ_AT });
 
-    expect(latest).toEqual(false);
+      expect(latest).toEqual('status');
+    });
+
+    test('the slot can be pinned again once news has settled it', () => {
+      const { set, press } = render();
+
+      press();
+      press();
+      set({ readAt: READ_AT });
+      press();
+
+      expect(latest).toEqual('delivered');
+    });
+
+    test('news leaves an unpinned slot alone', () => {
+      const { set } = render();
+
+      set({ readAt: READ_AT });
+
+      expect(latest).toEqual('status');
+    });
   });
 });

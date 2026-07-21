@@ -332,7 +332,7 @@ const ChatMessage = ({
   const dragTriggered = useSharedValue(false);
 
   const [isHovering, setIsHovering] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
+  const [isTimestampShown, setIsTimestampShown] = useState(false);
   const [showReactionBar, setShowReactionBar] = useState(false);
   const [speechBubbleImageError, setSpeechBubbleImageError] = useState(false);
   const [isGifLoaded, setIsGifLoaded] = useState(false);
@@ -365,7 +365,7 @@ const ChatMessage = ({
   // rather than carried over to whatever the bubble shows next.
   if (hasReceipt !== hadReceipt) {
     setHadReceipt(hasReceipt);
-    setIsPressed(false);
+    setIsTimestampShown(false);
   }
 
   const mamId = chatMessage?.mamId;
@@ -474,14 +474,14 @@ const ChatMessage = ({
     ? 'white'
     : appTheme.speechBubbleOtherUserColor;
 
-  const togglePressed = useCallback(() => {
+  const toggleTimestamp = useCallback(() => {
     if (window.getSelection?.()?.toString()) {
       return;
     }
 
     setShowReactionBar(false);
-    setIsPressed(p => !p);
-  }, [setIsPressed]);
+    setIsTimestampShown(t => !t);
+  }, [setIsTimestampShown]);
 
   const setQuoteToThisSpeechBubble = useCallback(() => {
     if (!message) {
@@ -539,7 +539,7 @@ const ChatMessage = ({
     .maxDistance(10)
     .enabled(canTap)
     .onEnd(() => {
-      runOnJS(togglePressed)()
+      runOnJS(toggleTimestamp)()
     });
 
   const longPress = Gesture
@@ -746,7 +746,7 @@ const ChatMessage = ({
                 sending={message.status === 'sending'}
                 uuid={message.message.audioUuid}
                 presentation="conversation"
-                onPressBody={togglePressed}
+                onPressBody={toggleTimestamp}
               />
             }
           </Animated.View>
@@ -770,10 +770,10 @@ const ChatMessage = ({
           personUuid={personUuid}
           deliveredAt={deliveredAt}
           hasGold={!!signedInUser?.hasGold}
-          isPressed={isPressed}
+          pressToggle={isTimestampShown}
         />
       }
-      {!hasReceipt && isPressed && isDelivered &&
+      {!hasReceipt && isTimestampShown && isDelivered &&
         <DefaultText
           selectable={true}
           style={{

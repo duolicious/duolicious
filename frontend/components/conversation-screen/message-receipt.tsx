@@ -10,35 +10,26 @@ import { useReadReceipt } from '../../chat/application-layer/hooks/read-receipt'
 import {
   contentKey,
   contentText,
-  newsKey,
   receiptContent,
-  useIsDelayElapsed,
-  useIsSwapped,
+  useReceiptSide,
 } from './message-receipt-logic';
 
 const MessageReceipt = ({
   personUuid,
   deliveredAt,
   hasGold,
-  isPressed,
+  pressToggle,
 }: {
   personUuid: string
   deliveredAt: Date | null
   hasGold: boolean
-  isPressed: boolean
+  pressToggle: boolean
 }) => {
   const { appTheme } = useAppTheme();
   const readAt = useReadReceipt(personUuid, deliveredAt);
-  const isDelayElapsed = useIsDelayElapsed(deliveredAt, isPressed);
-  const isSwapped = useIsSwapped(isPressed, newsKey(deliveredAt, readAt));
+  const side = useReceiptSide(deliveredAt, readAt, pressToggle);
 
-  const content = receiptContent({
-    deliveredAt,
-    readAt,
-    hasGold,
-    isDelayElapsed,
-    isSwapped,
-  });
+  const content = receiptContent({ deliveredAt, readAt, hasGold, side });
 
   const upsellGesture = useMemo(
     () => Gesture.Tap().onEnd(() => runOnJS(showPointOfSale)(true)),
