@@ -64,7 +64,6 @@ import {
 } from '../modal/emoji-picker-modal';
 import { MessageReceipt } from './message-receipt';
 import { deliveredText } from './message-receipt-logic';
-import { useReadReceipt } from '../../chat/application-layer/hooks/read-receipt';
 
 const currentUserBackgroundColor = '#70f';
 
@@ -333,7 +332,7 @@ const ChatMessage = ({
   const dragTriggered = useSharedValue(false);
 
   const [isHovering, setIsHovering] = useState(false);
-  const [doShowTimestamp, setDoShowTimestamp] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
   const [showReactionBar, setShowReactionBar] = useState(false);
   const [speechBubbleImageError, setSpeechBubbleImageError] = useState(false);
   const [isGifLoaded, setIsGifLoaded] = useState(false);
@@ -360,17 +359,13 @@ const ChatMessage = ({
   const deliveredAt =
     hasReceipt && isDelivered && chatMessage ? chatMessage.timestamp : null;
 
-  const readAt = useReadReceipt(personUuid, deliveredAt);
+  const [hadReceipt, setHadReceipt] = useState(hasReceipt);
 
-  const receiptInputs = `${deliveredAt?.getTime()}-${readAt?.getTime()}`;
-
-  const [shownReceiptInputs, setShownReceiptInputs] = useState(receiptInputs);
-
-  // Delivery or an arriving receipt is news: it takes the slot back off
-  // whatever the user pressed to see.
-  if (receiptInputs !== shownReceiptInputs) {
-    setShownReceiptInputs(receiptInputs);
-    setDoShowTimestamp(false);
+  // Gaining or losing the slot makes a press about it stale, so it's dropped
+  // rather than carried over to whatever the bubble shows next.
+  if (hasReceipt !== hadReceipt) {
+    setHadReceipt(hasReceipt);
+    setIsPressed(false);
   }
 
   const mamId = chatMessage?.mamId;
@@ -479,14 +474,14 @@ const ChatMessage = ({
     ? 'white'
     : appTheme.speechBubbleOtherUserColor;
 
-  const showTimestamp = useCallback(() => {
+  const togglePressed = useCallback(() => {
     if (window.getSelection?.()?.toString()) {
       return;
     }
 
     setShowReactionBar(false);
-    setDoShowTimestamp(t => !t);
-  }, [setDoShowTimestamp]);
+    setIsPressed(p => !p);
+  }, [setIsPressed]);
 
   const setQuoteToThisSpeechBubble = useCallback(() => {
     if (!message) {
@@ -544,7 +539,7 @@ const ChatMessage = ({
     .maxDistance(10)
     .enabled(canTap)
     .onEnd(() => {
-      runOnJS(showTimestamp)()
+      runOnJS(togglePressed)()
     });
 
   const longPress = Gesture
@@ -751,7 +746,7 @@ const ChatMessage = ({
                 sending={message.status === 'sending'}
                 uuid={message.message.audioUuid}
                 presentation="conversation"
-                onPressBody={showTimestamp}
+                onPressBody={togglePressed}
               />
             }
           </Animated.View>
@@ -772,13 +767,13 @@ const ChatMessage = ({
       }
       {hasReceipt &&
         <MessageReceipt
+          personUuid={personUuid}
           deliveredAt={deliveredAt}
-          readAt={readAt}
           hasGold={!!signedInUser?.hasGold}
-          isPressed={doShowTimestamp}
+          isPressed={isPressed}
         />
       }
-      {!hasReceipt && doShowTimestamp && isDelivered &&
+      {!hasReceipt && isPressed && isDelivered &&
         <DefaultText
           selectable={true}
           style={{

@@ -45,9 +45,8 @@ const resolveReadReceipt = (doc: any) => { // eslint-disable-line @typescript-es
 
 listen(EV_CHAT_WS_RECEIVE, resolveReadReceipt);
 
-// Every message in the conversation calls this, so it derives before comparing:
-// the messages with nothing to show settle on null and never re-render when a
-// receipt arrives.
+// The time the other person read the message delivered at `deliveredAt`, or
+// null when the receipt predates it and so belongs to an earlier message.
 const useReadReceipt = (
   personUuid: string,
   deliveredAt: Date | null,

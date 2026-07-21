@@ -4,9 +4,11 @@ import {
   ReceiptState,
   contentKey,
   contentText,
+  newsKey,
   readStatusDelayMs,
   receiptContent,
   useIsDelayElapsed,
+  useIsSwapped,
 } from './message-receipt-logic';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -20,7 +22,7 @@ const state = (overrides: Partial<ReceiptState> = {}): ReceiptState => ({
   readAt: null,
   hasGold: false,
   isDelayElapsed: false,
-  isPressed: false,
+  isSwapped: false,
   ...overrides,
 });
 
@@ -34,7 +36,7 @@ describe('receiptContent', () => {
     });
 
     test('the slot stays blank when pressed', () => {
-      expect(kindOf({ deliveredAt: null, isPressed: true })).toEqual('blank');
+      expect(kindOf({ deliveredAt: null, isSwapped: true })).toEqual('blank');
     });
 
     test('the slot stays blank once the delay elapses', () => {
@@ -48,13 +50,13 @@ describe('receiptContent', () => {
       expect(kindOf()).toEqual('delivered');
     });
 
-    test('a gold user can press for the read status', () => {
-      expect(kindOf({ hasGold: true, isPressed: true }))
+    test('a gold user can swap to the read status', () => {
+      expect(kindOf({ hasGold: true, isSwapped: true }))
         .toEqual('unread');
     });
 
-    test('a non-gold user can press for the upsell', () => {
-      expect(kindOf({ isPressed: true })).toEqual('upsell');
+    test('a non-gold user can swap to the upsell', () => {
+      expect(kindOf({ isSwapped: true })).toEqual('upsell');
     });
   });
 
@@ -68,16 +70,16 @@ describe('receiptContent', () => {
       expect(kindOf({ isDelayElapsed: true })).toEqual('upsell');
     });
 
-    test('a gold user can press for the delivery time', () => {
+    test('a gold user can swap to the delivery time', () => {
       expect(kindOf({
         hasGold: true,
         isDelayElapsed: true,
-        isPressed: true,
+        isSwapped: true,
       })).toEqual('delivered');
     });
 
-    test('a non-gold user can press for the delivery time', () => {
-      expect(kindOf({ isDelayElapsed: true, isPressed: true }))
+    test('a non-gold user can swap to the delivery time', () => {
+      expect(kindOf({ isDelayElapsed: true, isSwapped: true }))
         .toEqual('delivered');
     });
   });
@@ -100,8 +102,8 @@ describe('receiptContent', () => {
       expect(kindOf({ readAt: READ_AT, isDelayElapsed: true })).toEqual('read');
     });
 
-    test('pressing shows the delivery time', () => {
-      expect(kindOf({ readAt: READ_AT, hasGold: true, isPressed: true }))
+    test('swapping shows the delivery time', () => {
+      expect(kindOf({ readAt: READ_AT, hasGold: true, isSwapped: true }))
         .toEqual('delivered');
     });
   });
@@ -118,7 +120,7 @@ describe('receiptContent', () => {
     });
   });
 
-  test('pressing always swaps what is shown, whatever the state', () => {
+  test('swapping always changes what is shown, whatever the state', () => {
     const swappable: Partial<ReceiptState>[] = [
       { hasGold: true },
       { hasGold: true, isDelayElapsed: true },
@@ -129,7 +131,7 @@ describe('receiptContent', () => {
     ];
 
     for (const overrides of swappable) {
-      expect(kindOf({ ...overrides, isPressed: true }))
+      expect(kindOf({ ...overrides, isSwapped: true }))
         .not.toEqual(kindOf(overrides));
     }
   });
@@ -166,7 +168,7 @@ describe('contentKey', () => {
 
 describe('contentText', () => {
   test('the blank slot still occupies a line', () => {
-    expect(contentText({ kind: 'blank' })).toEqual(' ');
+    expect(contentText({ kind: 'blank' })).toEqual('\xa0');
   });
 
   test('the delivery time is labelled', () => {
@@ -305,5 +307,99 @@ describe('useIsDelayElapsed', () => {
     wait(readStatusDelayMs);
 
     expect(latest).toEqual(true);
+  });
+});
+
+describe('newsKey', () => {
+  test('the same delivery and read times keep the same key', () => {
+    expect(newsKey(DELIVERED_AT, READ_AT))
+      .toEqual(newsKey(new Date(DELIVERED_AT), new Date(READ_AT)));
+  });
+
+  test('delivery is news', () => {
+    expect(newsKey(null, null)).not.toEqual(newsKey(DELIVERED_AT, null));
+  });
+
+  test('an arriving receipt is news', () => {
+    expect(newsKey(DELIVERED_AT, null))
+      .not.toEqual(newsKey(DELIVERED_AT, READ_AT));
+  });
+});
+
+describe('useIsSwapped', () => {
+  let latest: boolean;
+
+  const Probe = ({
+    isPressed,
+    newsKey,
+  }: {
+    isPressed: boolean
+    newsKey: string
+  }) => {
+    latest = useIsSwapped(isPressed, newsKey);
+    return null;
+  };
+
+  const render = (newsKey: string) => {
+    let renderer: { update: (element: React.ReactNode) => void };
+
+    act(() => {
+      renderer = create(<Probe isPressed={false} newsKey={newsKey} />);
+    });
+
+    return (nextIsPressed: boolean, nextNewsKey: string = newsKey) => act(() => {
+      renderer.update(
+        <Probe isPressed={nextIsPressed} newsKey={nextNewsKey} />);
+    });
+  };
+
+  test('the slot starts on the value it settled on', () => {
+    render('delivered');
+
+    expect(latest).toEqual(false);
+  });
+
+  test('a press swaps the slot', () => {
+    const press = render('delivered');
+
+    press(true);
+
+    expect(latest).toEqual(true);
+  });
+
+  test('pressing again swaps the slot back', () => {
+    const press = render('delivered');
+
+    press(true);
+    press(false);
+
+    expect(latest).toEqual(false);
+  });
+
+  test('news takes the slot back off what the user pressed to see', () => {
+    const press = render('delivered');
+
+    press(true);
+    press(true, 'read');
+
+    expect(latest).toEqual(false);
+  });
+
+  test('the slot can be pressed again once news has reset it', () => {
+    const press = render('delivered');
+
+    press(true);
+    press(true, 'read');
+    press(false, 'read');
+
+    expect(latest).toEqual(true);
+  });
+
+  test('news leaves an unpressed slot alone', () => {
+    const press = render('delivered');
+
+    press(false, 'read');
+
+    expect(latest).toEqual(false);
   });
 });

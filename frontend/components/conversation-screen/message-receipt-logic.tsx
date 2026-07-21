@@ -3,6 +3,9 @@ import { longFriendlyTimestamp } from '../../util/util';
 
 const readStatusDelayMs = 3000;
 
+const newsKey = (deliveredAt: Date | null, readAt: Date | null): string =>
+  `${deliveredAt?.getTime() ?? 0}-${readAt?.getTime() ?? 0}`;
+
 type Content =
   | { kind: 'blank' }
   | { kind: 'delivered', timestamp: Date }
@@ -15,7 +18,7 @@ type ReceiptState = {
   readAt: Date | null
   hasGold: boolean
   isDelayElapsed: boolean
-  isPressed: boolean
+  isSwapped: boolean
 };
 
 const contentKey = (content: Content): string =>
@@ -28,7 +31,7 @@ const deliveredText = (timestamp: Date): string =>
 
 const contentText = (content: Content): string => {
   switch (content.kind) {
-    case 'blank': return ' ';
+    case 'blank': return '\xa0';
     case 'delivered': return deliveredText(content.timestamp);
     case 'read': return `Seen ${longFriendlyTimestamp(content.timestamp)}`;
     case 'unread': return 'Not seen yet';
@@ -41,7 +44,7 @@ const receiptContent = ({
   readAt,
   hasGold,
   isDelayElapsed,
-  isPressed,
+  isSwapped,
 }: ReceiptState): Content => {
   if (!deliveredAt) {
     return { kind: 'blank' };
@@ -54,14 +57,28 @@ const receiptContent = ({
     hasGold ? { kind: 'unread' } :
     { kind: 'upsell' };
 
-  const unpressed = readAt || isDelayElapsed ? read : delivered;
+  const settled = readAt || isDelayElapsed ? read : delivered;
 
-  if (!isPressed) {
-    return unpressed;
+  if (!isSwapped) {
+    return settled;
   }
 
-  // Pressing swaps the delivery time for the read status and back
-  return unpressed.kind === 'delivered' ? read : delivered;
+  return settled.kind === 'delivered' ? read : delivered;
+};
+
+// A press swaps the slot away from whatever it had settled on. Delivery or an
+// arriving receipt is news, and takes the slot back off what the user pressed
+// to see: the baseline resets, so the swap starts over from the new value.
+const useIsSwapped = (isPressed: boolean, newsKey: string): boolean => {
+  const [baseline, setBaseline] = useState({ isPressed, newsKey });
+
+  if (baseline.newsKey !== newsKey) {
+    setBaseline({ isPressed, newsKey });
+
+    return false;
+  }
+
+  return isPressed !== baseline.isPressed;
 };
 
 // The read status only takes the slot a few seconds after delivery, so the
@@ -104,7 +121,9 @@ export {
   contentKey,
   contentText,
   deliveredText,
+  newsKey,
   readStatusDelayMs,
   receiptContent,
   useIsDelayElapsed,
+  useIsSwapped,
 };

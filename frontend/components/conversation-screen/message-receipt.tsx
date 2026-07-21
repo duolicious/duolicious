@@ -6,33 +6,38 @@ import { DefaultText } from '../default-text';
 import { showPointOfSale } from '../modal/point-of-sale-modal';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { CrossFadeText } from '../cross-fade';
+import { useReadReceipt } from '../../chat/application-layer/hooks/read-receipt';
 import {
   contentKey,
   contentText,
+  newsKey,
   receiptContent,
   useIsDelayElapsed,
+  useIsSwapped,
 } from './message-receipt-logic';
 
 const MessageReceipt = ({
+  personUuid,
   deliveredAt,
-  readAt,
   hasGold,
   isPressed,
 }: {
+  personUuid: string
   deliveredAt: Date | null
-  readAt: Date | null
   hasGold: boolean
   isPressed: boolean
 }) => {
   const { appTheme } = useAppTheme();
+  const readAt = useReadReceipt(personUuid, deliveredAt);
   const isDelayElapsed = useIsDelayElapsed(deliveredAt, isPressed);
+  const isSwapped = useIsSwapped(isPressed, newsKey(deliveredAt, readAt));
 
   const content = receiptContent({
     deliveredAt,
     readAt,
     hasGold,
     isDelayElapsed,
-    isPressed,
+    isSwapped,
   });
 
   const upsellGesture = useMemo(

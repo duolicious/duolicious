@@ -8,6 +8,7 @@ import {
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { DefaultText } from './default-text';
@@ -42,8 +43,14 @@ const AutoResizingGif = ({
 
   const isLoaded = !!image;
 
+  const onLoadedChangeRef = useRef(onLoadedChange);
+
   useEffect(() => {
-    onLoadedChange?.(isLoaded);
+    onLoadedChangeRef.current = onLoadedChange;
+  });
+
+  useEffect(() => {
+    onLoadedChangeRef.current?.(isLoaded);
   }, [isLoaded]);
 
   if (!image) {
