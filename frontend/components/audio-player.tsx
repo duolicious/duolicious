@@ -226,9 +226,7 @@ const AudioPlayer = (props: AudioPlayerProps) => {
   const bodyColor = props.presentation === 'profile' ? props.bodyColor : undefined;
 
   const isConversation = props.presentation === 'conversation';
-  const onPressBody = props.presentation === 'conversation'
-    ? props.onPressBody
-    : undefined;
+  const onPressBody = isConversation ? props.onPressBody : undefined;
   const surface = isConversation
     ? {
         backgroundColor: 'rgba(255, 255, 255, 0.3)',

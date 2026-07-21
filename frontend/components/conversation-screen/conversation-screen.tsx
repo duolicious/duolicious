@@ -903,7 +903,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           }
           {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i, uniqueMessageIds) => {
             const [previousMessage, message] = [
-              getMessage(messageIds[i - 1]),
+              getMessage(uniqueMessageIds[i - 1]),
               getMessage(messageId)];
 
             return (
