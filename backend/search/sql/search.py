@@ -4,6 +4,7 @@ from searchfilters import (
     and_clauses,
     prospect_filters,
     sql_fragment,
+    two_way_filters,
 )
 
 
@@ -59,19 +60,6 @@ WHERE
 """
 
 
-
-_REVERSE_GENDER_EXISTS = sql_fragment("""
-    EXISTS (
-        SELECT
-            1
-        FROM
-            search_preference_gender AS preference
-        WHERE
-            preference.person_id = prospect.id
-        AND
-            preference.gender_id = %(searcher_gender_id)s
-    )
-""")
 
 _HIDE_ME = sql_fragment("""
     -- The prospect wants to be shown to strangers or isn't a stranger
@@ -248,9 +236,6 @@ def search_only_clauses(prefs: Row) -> list[str]:
         'prospect.shadow_banned_at IS NULL',
     ]
 
-    if row_str_or_none(prefs, 'club_preference') is None:
-        clauses.append(_REVERSE_GENDER_EXISTS)
-
     clauses.append(_HIDE_ME)
     clauses.append(_PROSPECT_DIDNT_SKIP_SEARCHER)
 
@@ -275,7 +260,6 @@ def build_uncached_search(
         n=n,
         o=o,
         searcher_personality=row_str(prefs, 'searcher_personality'),
-        searcher_gender_id=row_int(prefs, 'searcher_gender_id'),
         searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
 
@@ -283,10 +267,17 @@ def build_uncached_search(
     if club_preference is not None:
         params['club_preference'] = club_preference
 
+    reverse = two_way_filters(prefs)
+    params.update(reverse.params)
+
     filters = prospect_filters(prefs)
     params.update(filters.params)
 
-    where = and_clauses([*search_only_clauses(prefs), *filters.clauses])
+    where = and_clauses([
+        *search_only_clauses(prefs),
+        *reverse.clauses,
+        *filters.clauses,
+    ])
 
     sql = f"""
 WITH candidates AS (

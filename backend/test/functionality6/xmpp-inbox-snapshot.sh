@@ -193,6 +193,32 @@ actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
 
 
+echo "An intro whose sender's own filters exclude a two-way viewer is flagged"
+
+# The sender (user2) only wants to see 90-99 year olds, which excludes the
+# ~26yo viewer (user1).
+q "update search_preference_age set min_age = 90, max_age = 99 where person_id = ${user2id}"
+
+# One-way (default): the sender's own age filter is ignored, so still matches.
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
+
+# Turn the viewer's age filter two-way.
+assume_role user1
+jc POST /search-filter -d '{ "two_way_filters": { "age": true } }'
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S '[. | .matches_search_filters = false]' <<< "$expected_entry")
+
+jc POST /search-filter -d '{ "two_way_filters": { "age": false } }'
+q "update search_preference_age set min_age = null, max_age = null where person_id = ${user2id}"
+
+actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
+diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
+
+
 echo "An intro from a sender last online over a month ago is archived"
 
 q "update person set last_online_time = now() - interval '2 months' where id = ${user2id}"

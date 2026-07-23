@@ -14,5 +14,31 @@
 -- its life, so both are dropped; `photo.width` and friends stay, because the
 -- upload path fills them for every new photo.
 
-ALTER TABLE person
-ADD COLUMN IF NOT EXISTS show_my_online_status BOOLEAN NOT NULL DEFAULT TRUE;
+CREATE TABLE IF NOT EXISTS search_preference_two_way_filters (
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    PRIMARY KEY (person_id)
+);
+
+ALTER TABLE search_preference_two_way_filters
+    ADD COLUMN IF NOT EXISTS gender                BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS age                   BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS furthest_distance     BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS orientation           BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS relationship_status   BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS looking_for           BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS wants_kids            BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS has_kids              BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS has_a_profile_picture BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS drugs                 BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS long_distance         BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS ethnicity             BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS smoking               BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS religion              BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS drinking              BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS height                BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS exercise              BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS star_sign             BOOLEAN NOT NULL DEFAULT FALSE;
+
+INSERT INTO search_preference_two_way_filters (person_id)
+SELECT id FROM person
+ON CONFLICT (person_id) DO NOTHING;

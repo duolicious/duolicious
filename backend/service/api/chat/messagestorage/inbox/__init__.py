@@ -8,6 +8,7 @@ from searchfilters import (
     SearchParam,
     and_clauses,
     prospect_filters,
+    two_way_filters,
 )
 from dataclasses import dataclass
 from datetime import datetime
@@ -55,10 +56,10 @@ ORDER BY
 #
 # `matches_search_filters` says whether an intro's sender passes the viewer's
 # search filters, so clients can sort and flag intros from outside them. It is
-# built from `searchfilters.prospect_filters`, so it can't drift from the
-# search, which applies those same predicates plus `search_only_clauses` --
-# the ones that can't apply to an intro. Non-intro conversations are always
-# TRUE.
+# built from `searchfilters.prospect_filters` and `two_way_filters` (the same
+# prospect-level predicates the search applies), so it can't drift from the
+# search, which additionally applies `search_only_clauses` -- the ones that
+# can't apply to an intro. Non-intro conversations are always TRUE.
 def _q_inbox_snapshot(
     entry_predicate: str,
     matches_search_filters: str,
@@ -561,18 +562,23 @@ async def _fetch_inbox_conversations(
         )
 
         filters = prospect_filters(prefs)
+        reverse = two_way_filters(prefs)
 
         params: dict[str, SearchParam] = dict(
             username=username,
             recently_online_seconds=LAST_ONLINE_DEFAULT_SECONDS,
             **filters.params,
+            **reverse.params,
         )
         if prospect_username is not None:
             params['remote_bare_jid'] = f'{prospect_username}@{LSERVER}'
 
         query = _q_inbox_snapshot(
             entry_predicate=entry_predicate,
-            matches_search_filters=and_clauses(filters.clauses),
+            matches_search_filters=and_clauses([
+                *filters.clauses,
+                *reverse.clauses,
+            ]),
         )
 
         await tx.execute(query, params)

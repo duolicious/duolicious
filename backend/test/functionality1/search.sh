@@ -823,6 +823,104 @@ test_one_way_age_filter () {
   assert_search_names 'user1 user2'
 }
 
+# With `two_way_filters` on, the searcher additionally hides prospects whose own
+# location filter excludes the searcher.
+test_two_way_location_filter () {
+  setup
+
+  assume_role user1
+  jc PATCH /profile-info  -d '{ "location": "Brisbane, Queensland, Australia" }'
+  jc POST  /search-filter -d '{ "furthest_distance": 100 }'
+
+  assume_role searcher
+  jc POST  /search-filter -d '{ "furthest_distance": null }'
+
+  # One-way (default): searcher sees user1 despite user1's 100km filter.
+  assert_search_names 'user1 user2'
+
+  jc POST  /search-filter -d '{ "two_way_filters": { "furthest_distance": true } }'
+
+  # Two-way: user1's 100km filter now excludes the far-away searcher, so user1
+  # drops out. user2 has no distance filter, so they remain.
+  assert_search_names 'user2'
+
+  jc POST  /search-filter -d '{ "two_way_filters": { "furthest_distance": false } }'
+  assert_search_names 'user1 user2'
+}
+
+# With `two_way_filters` on, the searcher additionally hides prospects whose own
+# age filter excludes the searcher.
+test_two_way_age_filter () {
+  setup
+
+  assume_role user1
+  jc POST  /search-filter -d '{ "age": { "min_age": 40, "max_age": 60 }}'
+
+  assume_role searcher
+  jc POST  /search-filter -d '{ "age": { "min_age": null, "max_age": null }}'
+
+  # One-way (default): searcher sees user1 despite user1's 40-60 age filter.
+  assert_search_names 'user1 user2'
+
+  jc POST  /search-filter -d '{ "two_way_filters": { "age": true } }'
+
+  # Two-way: user1's 40-60 age filter now excludes the ~26yo searcher, so user1
+  # drops out. user2's default age filter accepts the searcher, so they remain.
+  assert_search_names 'user2'
+
+  jc POST  /search-filter -d '{ "two_way_filters": { "age": false } }'
+  assert_search_names 'user1 user2'
+}
+
+# `two_way_filters` applies inside clubs too, unlike the default gender filter.
+test_two_way_filters_in_club () {
+  setup
+
+  assume_role user1
+  jc POST /join-club     -d '{ "name": "Anime" }'
+  jc POST /search-filter -d '{ "age": { "min_age": 40, "max_age": 60 }}'
+
+  assume_role user2
+  jc POST /join-club     -d '{ "name": "Anime" }'
+
+  assume_role searcher
+
+  # One-way (default): in-club search shows user1 despite user1's 40-60 age
+  # filter excluding the ~26yo searcher.
+  local response=$(
+    c GET "/search?n=10&o=0&club=Anime" | jq -r '[.[].name] | sort | join(" ")'
+  )
+  [[ "$response" = "user1 user2" ]]
+
+  jc POST /search-filter -d '{ "two_way_filters": { "age": true } }'
+
+  # Two-way: user1's age filter now excludes the searcher inside the club too.
+  local response=$(
+    c GET "/search?n=10&o=0&club=Anime" | jq -r '[.[].name] | sort | join(" ")'
+  )
+  [[ "$response" = "user2" ]]
+}
+
+# `two_way_filters` defaults to gender-only, round-trips per filter, and
+# leaves filters that a partial update doesn't mention unchanged.
+test_two_way_filters_persist () {
+  setup
+
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.gender')" = true ]]
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.age')" = false ]]
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.star_sign')" = false ]]
+
+  jc POST /search-filter -d '{ "two_way_filters": { "gender": false, "age": true } }'
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.gender')" = false ]]
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.age')" = true ]]
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.star_sign')" = false ]]
+
+  jc POST /search-filter -d '{ "two_way_filters": { "star_sign": true } }'
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.gender')" = false ]]
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.age')" = true ]]
+  [[ "$(c GET /search-filters | jq -r '.two_way_filters.star_sign')" = true ]]
+}
+
 test_search_page_size_limit () {
   setup
 
@@ -939,6 +1037,10 @@ test_basic star_sign 'Leo'
 test_bidirectional_gender_filter
 test_one_way_location_filter
 test_one_way_age_filter
+test_two_way_location_filter
+test_two_way_age_filter
+test_two_way_filters_in_club
+test_two_way_filters_persist
 
 test_json_format
 

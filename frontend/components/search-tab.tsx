@@ -45,6 +45,7 @@ import { useAppTheme } from '../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { anonymousAnswers } from '../events/anonymous-answers';
 import { consumeStaleSearchResults } from '../events/stale-search-results';
+import { flushSearchFilterWrites } from '../events/search-filters';
 
 type SearchScreenProps = CompositeScreenProps<
   NativeStackScreenProps<SearchParamList, 'Search Screen'>,
@@ -606,9 +607,14 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   // we last fetched.
   useFocusEffect(
     useCallback(() => {
-      if (consumeStaleSearchResults()) {
-        onPressRefresh();
-      }
+      let active = true;
+      (async () => {
+        await flushSearchFilterWrites();
+        if (active && consumeStaleSearchResults()) {
+          onPressRefresh();
+        }
+      })();
+      return () => { active = false; };
     }, [onPressRefresh])
   );
 

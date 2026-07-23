@@ -643,6 +643,10 @@ WITH onboardee_location AS (
     SELECT new_person.id, last_online.id
     FROM new_person, last_online
     WHERE last_online.name = '{LAST_ONLINE_DEFAULT_NAME}'
+), p22 AS (
+    INSERT INTO search_preference_two_way_filters (person_id)
+    SELECT new_person.id
+    FROM new_person
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
@@ -1805,6 +1809,29 @@ WITH answer AS (
     JOIN last_online
     ON last_online.id = search_preference_last_online.last_online_id
     WHERE search_preference_last_online.person_id = %(person_id)s
+), two_way_filters AS (
+    SELECT json_build_object(
+        'gender',                gender,
+        'age',                   age,
+        'furthest_distance',     furthest_distance,
+        'orientation',           orientation,
+        'relationship_status',   relationship_status,
+        'looking_for',           looking_for,
+        'wants_kids',            wants_kids,
+        'has_kids',              has_kids,
+        'has_a_profile_picture', has_a_profile_picture,
+        'drugs',                 drugs,
+        'long_distance',         long_distance,
+        'ethnicity',             ethnicity,
+        'smoking',               smoking,
+        'religion',              religion,
+        'drinking',              drinking,
+        'height',                height,
+        'exercise',              exercise,
+        'star_sign',             star_sign
+    ) AS j
+    FROM search_preference_two_way_filters
+    WHERE person_id = %(person_id)s
 )
 SELECT
     json_build_object(
@@ -1831,7 +1858,9 @@ SELECT
         'star_sign',              (SELECT j FROM star_sign),
 
         'people_you_messaged',    (SELECT j FROM people_you_messaged),
-        'people_you_skipped',     (SELECT j FROM people_you_skipped)
+        'people_you_skipped',     (SELECT j FROM people_you_skipped),
+
+        'two_way_filters',        (SELECT j FROM two_way_filters)
     ) AS j
 """
 

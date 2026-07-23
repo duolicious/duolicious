@@ -178,6 +178,64 @@ _PARAM_BOUND_SELECTS = ',\n'.join(
 )
 
 
+_ENUM_FILTER_BY_COLUMN = {enum.column: enum for enum in ENUM_FILTERS}
+
+# Two-way filter key -> the id column shared by person.<column> and
+# search_preference_*.<column>. When a key's two-way flag is on, the searcher
+# only sees prospects whose own preference for that attribute accepts the
+# searcher.
+_TWO_WAY_ENUM_COLUMNS = {
+    'gender':                'gender_id',
+    'orientation':           'orientation_id',
+    'ethnicity':             'ethnicity_id',
+    'has_a_profile_picture': 'has_profile_picture_id',
+    'looking_for':           'looking_for_id',
+    'smoking':               'smoking_id',
+    'drinking':              'drinking_id',
+    'drugs':                 'drugs_id',
+    'long_distance':         'long_distance_id',
+    'relationship_status':   'relationship_status_id',
+    'has_kids':              'has_kids_id',
+    'wants_kids':            'wants_kids_id',
+    'exercise':              'exercise_id',
+    'religion':              'religion_id',
+    'star_sign':             'star_sign_id',
+}
+
+# Every two-way filter key, ordered to match the Search Filters screen. Only
+# `gender` is two-way by default.
+TWO_WAY_FILTER_KEYS = [
+    'gender',
+    'age',
+    'furthest_distance',
+    'orientation',
+    'relationship_status',
+    'looking_for',
+    'wants_kids',
+    'has_kids',
+    'has_a_profile_picture',
+    'drugs',
+    'long_distance',
+    'ethnicity',
+    'smoking',
+    'religion',
+    'drinking',
+    'height',
+    'exercise',
+    'star_sign',
+]
+
+_SEARCHER_ATTR_SELECTS = ',\n'.join(
+    f'    person.{column} AS searcher_{column}'
+    for column in _TWO_WAY_ENUM_COLUMNS.values()
+)
+
+_TWO_WAY_FLAG_SELECTS = ',\n'.join(
+    f'    two_way.{key} AS two_way_{key}'
+    for key in TWO_WAY_FILTER_KEYS
+)
+
+
 def _q_search_parameters(person_predicate: str) -> str:
     return f"""
 SELECT
@@ -215,10 +273,17 @@ SELECT
     ) AS has_answer_prefs,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
-    person.gender_id AS searcher_gender_id,
+    person.date_of_birth::TEXT AS searcher_date_of_birth,
+    person.height_cm AS searcher_height_cm,
+{_SEARCHER_ATTR_SELECTS},
+{_TWO_WAY_FLAG_SELECTS},
     person.count_answers AS searcher_count_answers
 FROM
     person
+JOIN
+    search_preference_two_way_filters AS two_way
+ON
+    two_way.person_id = person.id
 WHERE
     {person_predicate}
 """
@@ -275,5 +340,95 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
     if row_bool(prefs, 'has_answer_prefs'):
         params['searcher_person_id'] = row_int(prefs, 'searcher_person_id')
         clauses.append(_ANSWER_NOT_EXISTS)
+
+    return ProspectFilters(clauses=clauses, params=params)
+
+
+def _reverse_enum_clause(table: str, column: str) -> str:
+    return sql_fragment(f"""
+        EXISTS (
+            SELECT 1
+            FROM {table} AS reverse_preference
+            WHERE
+                reverse_preference.person_id = prospect.id
+            AND
+                reverse_preference.{column} = %(searcher_{column})s
+        )
+    """)
+
+
+_REVERSE_AGE = sql_fragment("""
+    EXISTS (
+        SELECT 1
+        FROM search_preference_age AS reverse_preference
+        WHERE
+            reverse_preference.person_id = prospect.id
+        AND
+            %(searcher_date_of_birth)s::DATE <= (
+                CURRENT_DATE - INTERVAL '1 year' * COALESCE(reverse_preference.min_age, 0)
+            )::DATE
+        AND
+            %(searcher_date_of_birth)s::DATE > (
+                CURRENT_DATE -
+                INTERVAL '1 year' * (COALESCE(reverse_preference.max_age, 999) + 1)
+            )::DATE
+    )
+""")
+
+
+_REVERSE_DISTANCE = sql_fragment("""
+    ST_DWithin(
+        prospect.coordinates,
+        %(searcher_coordinates)s::GEOGRAPHY,
+        COALESCE(
+            (
+                SELECT 1000 * distance
+                FROM search_preference_distance
+                WHERE person_id = prospect.id
+            ),
+            1e9
+        )
+    )
+""")
+
+
+_REVERSE_HEIGHT = sql_fragment("""
+    EXISTS (
+        SELECT 1
+        FROM search_preference_height_cm AS reverse_preference
+        WHERE
+            reverse_preference.person_id = prospect.id
+        AND
+            COALESCE(%(searcher_height_cm)s, 0) >=
+                COALESCE(reverse_preference.min_height_cm, 0)
+        AND
+            COALESCE(%(searcher_height_cm)s, 999) <=
+                COALESCE(reverse_preference.max_height_cm, 999)
+    )
+""")
+
+
+def two_way_filters(prefs: Row) -> ProspectFilters:
+    clauses: list[str] = []
+    params: dict[str, SearchParam] = {}
+
+    for key in TWO_WAY_FILTER_KEYS:
+        if not row_bool(prefs, f'two_way_{key}'):
+            continue
+
+        column = _TWO_WAY_ENUM_COLUMNS.get(key)
+        if column is not None:
+            table = _ENUM_FILTER_BY_COLUMN[column].table
+            clauses.append(_reverse_enum_clause(table, column))
+            params[f'searcher_{column}'] = row_int(prefs, f'searcher_{column}')
+        elif key == 'age':
+            clauses.append(_REVERSE_AGE)
+            params['searcher_date_of_birth'] = row_str(prefs, 'searcher_date_of_birth')
+        elif key == 'furthest_distance':
+            clauses.append(_REVERSE_DISTANCE)
+            params['searcher_coordinates'] = row_str(prefs, 'searcher_coordinates')
+        elif key == 'height':
+            clauses.append(_REVERSE_HEIGHT)
+            params['searcher_height_cm'] = row_int_or_none(prefs, 'searcher_height_cm')
 
     return ProspectFilters(clauses=clauses, params=params)

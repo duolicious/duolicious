@@ -4,6 +4,8 @@ import { listen, notify, lastEvent } from './events';
 import { markSearchResultsStale } from './stale-search-results';
 import { markInboxStale } from './stale-inbox';
 import { markFeedStale } from './stale-feed';
+import { japi } from '../api/api';
+import { searchQueue } from '../api/queue';
 import type { SearchFilterAnswer } from '../navigation/search-filter-state';
 
 type SearchFilters = {
@@ -48,6 +50,39 @@ const resetSearchFilters = () => {
   notify<SearchFilters | undefined>(EVENT_KEY, undefined);
 };
 
+let pendingTwoWayFilterWrite: Promise<unknown> | null = null;
+
+const sendTwoWayFilters = _.debounce((value: Record<string, boolean>) => {
+  pendingTwoWayFilterWrite = searchQueue.addTask(async () => {
+    const ok = (await japi(
+      'post',
+      '/search-filter',
+      { two_way_filters: value },
+    )).ok;
+    if (ok) {
+      markSearchResultsStale();
+      markInboxStale();
+    }
+    return ok;
+  });
+}, 1000);
+
+const setTwoWayFilter = (key: string, value: boolean) => {
+  const prev = getSearchFilters();
+  if (!prev) return;
+
+  const prevTwoWay = (prev.two_way_filters ?? {}) as Record<string, boolean>;
+  const next = { ...prevTwoWay, [key]: value };
+
+  notify<SearchFilters>(EVENT_KEY, { ...prev, two_way_filters: next });
+  sendTwoWayFilters(next);
+};
+
+const flushSearchFilterWrites = async (): Promise<void> => {
+  sendTwoWayFilters.flush();
+  await pendingTwoWayFilterWrite;
+};
+
 const useSearchFilters = () => {
   const [value, setValue] = useState<SearchFilters | undefined>(
     getSearchFilters());
@@ -61,9 +96,11 @@ const useSearchFilters = () => {
 
 export {
   SearchFilters,
+  flushSearchFilterWrites,
   getSearchFilters,
   patchSearchFilters,
   resetSearchFilters,
   setSearchFilters,
+  setTwoWayFilter,
   useSearchFilters,
 };

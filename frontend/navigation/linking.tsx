@@ -22,6 +22,7 @@ type SearchFilterParamList = {
   'Search Filter Tab': undefined;
   'Search Filter Option Screen': undefined;
   'Q&A Filter Screen': undefined;
+  'Two-way Filters Screen': undefined;
 };
 
 type SearchParamList = {
@@ -152,6 +153,7 @@ const searchFilterConfig: PathConfig<SearchFilterParamList> = {
     'Search Filter Tab': '',
     'Search Filter Option Screen': 'edit',
     'Q&A Filter Screen': 'qa',
+    'Two-way Filters Screen': 'two-way',
   },
 };
 

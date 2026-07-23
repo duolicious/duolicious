@@ -26,6 +26,7 @@ import {
   isOptionGroupCheckChips,
   isOptionGroupRangeSlider,
   isOptionGroupSlider,
+  twoWayFilterList,
 } from '../data/option-groups';
 import {
   NativeStackScreenProps,
@@ -33,6 +34,8 @@ import {
 } from '@react-navigation/native-stack';
 import type { SearchFilterParamList } from '../navigation/linking';
 import { OptionScreen } from './option-screen';
+import { Toggle } from './toggle';
+import { descriptionStyle } from './option-styles';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DefaultTextInput } from './default-text-input';
 import { SearchQuizCard } from './quiz-card';
@@ -64,8 +67,11 @@ import {
 } from '../navigation/search-filter-state';
 import {
   SearchFilters,
+  flushSearchFilterWrites,
+  getSearchFilters,
   patchSearchFilters,
   setSearchFilters,
+  setTwoWayFilter,
   useSearchFilters,
 } from '../events/search-filters';
 
@@ -173,6 +179,11 @@ const SearchFilterScreen = () => {
         component={QandQFilterScreen}
         options={{ title: 'Q&A filters' }}
       />
+      <Stack.Screen
+        name="Two-way Filters Screen"
+        component={TwoWayFilterScreen}
+        options={{ title: 'Two-way filters' }}
+      />
     </Stack.Navigator>
   );
 };
@@ -199,6 +210,21 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
     setSearchFilterAnswers(answers);
     navigation.navigate("Q&A Filter Screen");
   }, [navigation, answers, isLocked, promptSignUp]);
+
+  const onPressTwoWayFilters = useCallback(() => {
+    if (isLocked) {
+      promptSignUp();
+      return;
+    }
+    navigation.navigate("Two-way Filters Screen");
+  }, [navigation, isLocked, promptSignUp]);
+
+  const twoWay = (data?.two_way_filters ?? {}) as Record<string, boolean>;
+  const twoWayOn = twoWayFilterList.filter((f) => twoWay[f.key]);
+  const twoWaySetting =
+    twoWayOn.length === twoWayFilterList.length ? 'All' :
+    twoWayOn.length ? twoWayOn.map((f) => f.label).join(', ') :
+    undefined;
 
   useEffect(() => {
     return listen<AnswerItem[]>('search-filter-answers-updated', (next) => {
@@ -338,7 +364,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             paddingBottom: 50 + insets.bottom,
           }}
         >
-          <Title>Basics</Title>
+          <Title style={{marginTop: 0}}>Basics</Title>
           {
             _searchBasicsOptionGroups.map((og, i) =>
               <Button_
@@ -359,6 +385,17 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
               />
             )
           }
+
+          <Title style={{marginTop: 40}}>Two-way Filters</Title>
+          <ButtonForOption
+            label="Two-way Filters"
+            setting={twoWaySetting}
+            noSettingText="None"
+            onPress={onPressTwoWayFilters}
+            icon={({ color }) =>
+              <Ionicons style={{ fontSize: 16, color }} name="swap-horizontal" />
+            }
+          />
 
           <Title style={{marginTop: 40}}>Q&A Answers</Title>
           <ButtonForOption
@@ -640,10 +677,134 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
   );
 };
 
+const TwoWayFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterParamList, 'Two-way Filters Screen'>) => {
+  const { appTheme } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const isLocked = useIsWebLoggedOut();
+  const data = useSearchFilters();
+
+  const twoWay = (data?.two_way_filters ?? {}) as Record<string, boolean>;
+
+  // Cold-start cases (direct deep link / page refresh) bypass the parent
+  // `Search Filter Tab`, which normally populates the search filter store.
+  useEffect(() => {
+    if (getSearchFilters()) return;
+    if (isLocked) {
+      setSearchFilters(defaultSearchFilters());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const response = await api<SearchFilters>('get', '/search-filters');
+      if (!cancelled && response.json) {
+        setSearchFilters(response.json);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isLocked]);
+
+  useEffect(() => {
+    return () => { flushSearchFilterWrites(); };
+  }, []);
+
+  const onToggle = useCallback((key: string, value: boolean) => {
+    if (isLocked) {
+      showSignUp(true, 'Join or sign in to filter matches');
+      return;
+    }
+    setTwoWayFilter(key, value);
+  }, [isLocked]);
+
+  const goBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  return (
+    <View style={styles.safeAreaView}>
+      <TopNavBar
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <TopNavBarButton
+          onPress={goBack}
+          iconName="arrow-back"
+          position="left"
+          secondary={true}
+        />
+        <DefaultText
+          style={{
+            fontWeight: '700',
+            fontSize: 20,
+          }}
+        >
+          Two-way Filters
+        </DefaultText>
+      </TopNavBar>
+
+      {data &&
+        <ScrollView
+          contentContainerStyle={{
+            maxWidth: 600,
+            width: '100%',
+            alignSelf: 'center',
+            alignItems: 'stretch',
+            padding: 10,
+            paddingBottom: 50 + insets.bottom,
+          }}
+        >
+          <DefaultText style={{ ...descriptionStyle.style, marginBottom: 10 }}>
+            Making a filter two-way means you’ll only see people whose search
+            preferences you match. So if you make age two-way, you’ll only see
+            people whose preferred age range includes you. Two-way filters don’t
+            hide you from other members.
+          </DefaultText>
+          {twoWayFilterList.map((f) => {
+            const Icon = f.Icon;
+            return (
+              <View key={f.key} style={styles.twoWayRow}>
+                {Icon && <Icon color={appTheme.secondaryColor} />}
+                <DefaultText style={styles.twoWayLabel}>{f.label}</DefaultText>
+                <Toggle
+                  value={twoWay[f.key] ?? false}
+                  onValueChange={(v) => onToggle(f.key, v)}
+                />
+              </View>
+            );
+          })}
+        </ScrollView>
+      }
+      {!data &&
+        <View
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexGrow: 1,
+          }}
+        >
+          <LogoActivityIndicator size="large" color={appTheme.brandColor} />
+        </View>
+      }
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   safeAreaView: {
     flex: 1
-  }
+  },
+  twoWayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  twoWayLabel: {
+    flex: 1,
+    fontSize: 16,
+  },
 });
 
 export {

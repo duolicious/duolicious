@@ -20,6 +20,7 @@ import asyncio
 import asyncboto
 from person.sql import *
 from search.sql import Q_UPSERT_SEARCH_PREFERENCE_CLUB
+from searchfilters import TWO_WAY_FILTER_KEYS
 from commonsql import *
 from qanda import _flush_session_answers
 from constants import VISITOR_ONLINE_TIMEOUT_SECONDS
@@ -1635,7 +1636,7 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
     field_value = req.dict()[field_name]
 
     # Modify `field_value` for certain `field_name`s
-    if field_name in ['age', 'height']:
+    if field_name in ['age', 'height', 'two_way_filters']:
         field_value = json.dumps(field_value)
 
     params = dict(
@@ -1897,6 +1898,23 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         )
         SELECT %(person_id)s, id
         FROM yes_no WHERE name = %(field_value)s
+        """
+    elif field_name == 'two_way_filters':
+        q1 = """
+        INSERT INTO search_preference_two_way_filters (person_id)
+        VALUES (%(person_id)s)
+        ON CONFLICT (person_id) DO NOTHING"""
+
+        two_way_updates = ',\n'.join(
+            f"            {key} = COALESCE((json_data->>'{key}')::BOOLEAN, {key})"
+            for key in TWO_WAY_FILTER_KEYS
+        )
+
+        q2 = f"""
+        UPDATE search_preference_two_way_filters SET
+{two_way_updates}
+        FROM to_json(%(field_value)s::json) AS json_data
+        WHERE person_id = %(person_id)s
         """
     else:
         return f'Invalid field name {field_name}', 400

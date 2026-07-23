@@ -823,6 +823,29 @@ CREATE TABLE IF NOT EXISTS search_preference_skipped (
     PRIMARY KEY (person_id)
 );
 
+CREATE TABLE IF NOT EXISTS search_preference_two_way_filters (
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    gender                BOOLEAN NOT NULL DEFAULT TRUE,
+    age                   BOOLEAN NOT NULL DEFAULT FALSE,
+    furthest_distance     BOOLEAN NOT NULL DEFAULT FALSE,
+    orientation           BOOLEAN NOT NULL DEFAULT FALSE,
+    relationship_status   BOOLEAN NOT NULL DEFAULT FALSE,
+    looking_for           BOOLEAN NOT NULL DEFAULT FALSE,
+    wants_kids            BOOLEAN NOT NULL DEFAULT FALSE,
+    has_kids              BOOLEAN NOT NULL DEFAULT FALSE,
+    has_a_profile_picture BOOLEAN NOT NULL DEFAULT FALSE,
+    drugs                 BOOLEAN NOT NULL DEFAULT FALSE,
+    long_distance         BOOLEAN NOT NULL DEFAULT FALSE,
+    ethnicity             BOOLEAN NOT NULL DEFAULT FALSE,
+    smoking               BOOLEAN NOT NULL DEFAULT FALSE,
+    religion              BOOLEAN NOT NULL DEFAULT FALSE,
+    drinking              BOOLEAN NOT NULL DEFAULT FALSE,
+    height                BOOLEAN NOT NULL DEFAULT FALSE,
+    exercise              BOOLEAN NOT NULL DEFAULT FALSE,
+    star_sign             BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (person_id)
+);
+
 CREATE TABLE IF NOT EXISTS messaged (
     subject_person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     object_person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,

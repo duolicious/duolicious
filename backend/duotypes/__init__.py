@@ -617,6 +617,26 @@ class PostSearchFilter(BaseModel):
         min_height_cm: int | None
         max_height_cm: int | None
 
+    class TwoWayFilters(BaseModel):
+        gender: bool | None = None
+        age: bool | None = None
+        furthest_distance: bool | None = None
+        orientation: bool | None = None
+        relationship_status: bool | None = None
+        looking_for: bool | None = None
+        wants_kids: bool | None = None
+        has_kids: bool | None = None
+        has_a_profile_picture: bool | None = None
+        drugs: bool | None = None
+        long_distance: bool | None = None
+        ethnicity: bool | None = None
+        smoking: bool | None = None
+        religion: bool | None = None
+        drinking: bool | None = None
+        height: bool | None = None
+        exercise: bool | None = None
+        star_sign: bool | None = None
+
     gender: List[str] | None = Field(default=None, min_length=1)
     orientation: List[str] | None = Field(default=None, min_length=1)
     ethnicity: List[str] | None = Field(default=None, min_length=1)
@@ -640,6 +660,8 @@ class PostSearchFilter(BaseModel):
 
     people_you_messaged: str | None = None
     people_you_skipped: str | None = None
+
+    two_way_filters: TwoWayFilters | None = None
 
     @model_validator(mode='after')
     def check_exactly_one(self) -> "PostSearchFilter":

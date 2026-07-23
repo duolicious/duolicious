@@ -2025,6 +2025,28 @@ const searchInteractionsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   },
 ];
 
+// Every filter that can be made two-way, in Search Filters screen order. Kept
+// in sync with the screen by deriving key/label/icon straight from the option
+// groups. Last Online is excluded: a searcher is online at the moment they
+// search, so a reverse last-online filter could never exclude anyone.
+const twoWayFilterList = [
+  ...searchBasicsOptionGroups,
+  ...searchOtherBasicsOptionGroups,
+].filter((og) => og.title !== 'Last Online').map((og) => ({
+  key: og.title.toLowerCase().replaceAll(' ', '_'),
+  label: og.title,
+  Icon: og.Icon,
+}));
+
+const defaultTwoWayFilters = (): Record<string, boolean> => {
+  const twoWayFilters: Record<string, boolean> = {};
+  for (const f of twoWayFilterList) {
+    twoWayFilters[f.key] = false;
+  }
+  twoWayFilters.gender = true;
+  return twoWayFilters;
+};
+
 const defaultSearchFilters = (): SearchFilters => {
   const filters: SearchFilters = { answer: [] };
 
@@ -2053,6 +2075,7 @@ const defaultSearchFilters = (): SearchFilters => {
   filters.last_online = lastOnlineDefault;
   filters.people_you_messaged = 'Yes';
   filters.people_you_skipped = 'No';
+  filters.two_way_filters = defaultTwoWayFilters();
 
   return filters;
 };
@@ -2449,6 +2472,7 @@ export {
   searchOtherBasicsOptionGroups,
   searchInteractionsOptionGroups,
   socialAccountOptionGroups,
+  twoWayFilterList,
   themePickerOptionGroups,
   verificationOptionGroups,
 };
