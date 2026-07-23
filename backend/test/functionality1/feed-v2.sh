@@ -162,10 +162,12 @@ test_json_format () {
      where person_id = (select id from person where name = 'user13')"
 
   q "update person
-     set show_my_country_only = true
+     set show_my_location_id = (
+       select id from yes_country_only_no where name = 'Country only')
      where name = 'user1'"
   q "update person
-     set show_my_location = false
+     set show_my_location_id = (
+       select id from yes_country_only_no where name = 'No')
      where name = 'user2'"
 
   # The feed is ordered by came_online_time, so make the ordering

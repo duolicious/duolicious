@@ -406,33 +406,35 @@ test_verification_required () {
   [[ "$(q "select COUNT(*) from person where verification_required")" -eq 1 ]]
 }
 
-test_location_visibility () {
+test_show_my_location () {
+  [[ "$(q "select string_agg(id || ':' || name, ',' order by id) from yes_country_only_no")" == "1:Yes,2:Country only,3:No" ]]
+
   q "update person set has_gold = true where uuid = '$USER_UUID'::uuid"
 
-  jc PATCH /profile-info -d '{ "location_visibility": "Country only" }'
-  [[ "$(get_field location_visibility)" == "Country only" ]]
-  [[ "$(get_field show_my_location)" == "Yes" ]]
-  [[ "$(q "select show_my_location from person where uuid = '$USER_UUID'::uuid")" == "t" ]]
-  [[ "$(q "select show_my_country_only from person where uuid = '$USER_UUID'::uuid")" == "t" ]]
+  jc PATCH /profile-info -d '{ "show_my_location": "Country only" }'
+  [[ "$(get_field show_my_location)" == "Country only" ]]
+  [[ "$(q "
+    select yes_country_only_no.name
+    from person
+    join yes_country_only_no
+      on yes_country_only_no.id = person.show_my_location_id
+    where person.uuid = '$USER_UUID'::uuid")" == "Country only" ]]
 
   # Moving countries updates the denormalized country used by public views.
   jc PATCH /profile-info -d '{ "location": "London, England, United Kingdom" }'
   [[ "$(q "select location_country from person where uuid = '$USER_UUID'::uuid")" == "United Kingdom" ]]
 
-  # Legacy clients still see a Yes/No setting and explicitly selecting either
-  # legacy value clears country-only mode.
+  # Legacy clients can still submit either value through the existing field.
   jc PATCH /profile-info -d '{ "show_my_location": "No" }'
-  [[ "$(get_field location_visibility)" == "Hidden" ]]
-  [[ "$(q "select show_my_country_only from person where uuid = '$USER_UUID'::uuid")" == "f" ]]
+  [[ "$(get_field show_my_location)" == "No" ]]
 
   jc PATCH /profile-info -d '{ "show_my_location": "Yes" }'
-  [[ "$(get_field location_visibility)" == "Full location" ]]
-  [[ "$(q "select show_my_country_only from person where uuid = '$USER_UUID'::uuid")" == "f" ]]
+  [[ "$(get_field show_my_location)" == "Yes" ]]
 
-  ! jc PATCH /profile-info -d '{ "location_visibility": "City only" }' || exit 1
+  ! jc PATCH /profile-info -d '{ "show_my_location": "City only" }' || exit 1
 
   q "update person set has_gold = false where uuid = '$USER_UUID'::uuid"
-  ! jc PATCH /profile-info -d '{ "location_visibility": "Country only" }' || exit 1
+  ! jc PATCH /profile-info -d '{ "show_my_location": "Country only" }' || exit 1
   q "update person set has_gold = true where uuid = '$USER_UUID'::uuid"
 
   # Leave the fixture in its original location and visibility state.
@@ -539,7 +541,7 @@ test_verification_loss_photo_removed
 
 test_verification_required
 
-test_location_visibility
+test_show_my_location
 
 test_clear
 

@@ -113,8 +113,8 @@ diff <(echo "$response") <(echo "$expected")
 # Location precision is enforced by the profile query for both signed-in and
 # anonymous public-profile viewers.
 q "update person
-   set show_my_location = true,
-       show_my_country_only = true
+   set show_my_location_id = (
+     select id from yes_country_only_no where name = 'Country only')
    where id = $user2_id"
 
 [[ "$(c GET /prospect-profile/$user2_uuid | jq -r '.location')" == "United States" ]]
@@ -124,14 +124,14 @@ q "update person set public_profile = true where id = $user2_id"
 
 q "update person
    set public_profile = false,
-       show_my_location = false,
-       show_my_country_only = false
+       show_my_location_id = (
+         select id from yes_country_only_no where name = 'No')
    where id = $user2_id"
 [[ "$(c GET /prospect-profile/$user2_uuid | jq -r '.location')" == "null" ]]
 
 q "update person
-   set show_my_location = true,
-       show_my_country_only = false
+   set show_my_location_id = (
+     select id from yes_country_only_no where name = 'Yes')
    where id = $user2_id"
 
 

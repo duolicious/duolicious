@@ -425,10 +425,10 @@ const yesNo = [
   'No',
 ];
 
-const locationVisibility = [
-  'Full location',
+const yesCountryOnlyNo = [
+  'Yes',
   'Country only',
-  'Hidden',
+  'No',
 ];
 
 const yesNoMaybe = [
@@ -2295,7 +2295,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: 'Location Visibility',
+    title: 'Show My Location',
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
         icon={faLocationDot}
@@ -2318,8 +2318,8 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
     input: {
       buttons: {
-        values: locationVisibility,
-        submit: async (locationVisibility: string) => {
+        values: yesCountryOnlyNo,
+        submit: async (showMyLocation: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
             showPointOfSale(true);
@@ -2330,10 +2330,10 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
             await japi(
               'patch',
               '/profile-info',
-              { location_visibility: locationVisibility }
+              { show_my_location: showMyLocation }
             )
           ).ok;
-          if (ok) patchProfileInfo({ location_visibility: locationVisibility });
+          if (ok) patchProfileInfo({ show_my_location: showMyLocation });
           return ok;
         },
       }

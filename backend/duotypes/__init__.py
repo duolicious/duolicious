@@ -545,11 +545,10 @@ class PatchProfileInfo(BaseModel):
     chats: str | None = None
     intros: str | None = None
     verification_level: str | None = None
-    show_my_location: str | None = None
-    location_visibility: Literal[
-        'Full location',
+    show_my_location: Literal[
+        'Yes',
         'Country only',
-        'Hidden',
+        'No',
     ] | None = None
     show_my_age: str | None = None
     show_my_looking_for: str | None = None

@@ -36,10 +36,10 @@ visited_pass_3 AS (
 
         gender.name AS gender,
 
-        CASE
-            WHEN NOT prospect.show_my_location THEN NULL
-            WHEN prospect.show_my_country_only THEN prospect.location_country
-            ELSE prospect.location_short_friendly
+        CASE show_my_location.name
+            WHEN 'Yes' THEN prospect.location_short_friendly
+            WHEN 'Country only' THEN prospect.location_country
+            ELSE NULL
         END AS location,
 
         prospect.verification_level_id > 1 AS is_verified,
@@ -72,6 +72,10 @@ visited_pass_3 AS (
         person AS prospect
     ON
         prospect.id = visited_pass_2.other_person_id
+    JOIN
+        yes_country_only_no AS show_my_location
+    ON
+        show_my_location.id = prospect.show_my_location_id
     LEFT JOIN
         gender
     ON

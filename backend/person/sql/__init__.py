@@ -711,10 +711,10 @@ WITH prospect_base AS (
             WHERE prospect.show_my_age
         ) AS age,
 
-        CASE
-            WHEN NOT prospect.show_my_location THEN NULL
-            WHEN prospect.show_my_country_only THEN prospect.location_country
-            ELSE prospect.location_short_friendly
+        CASE show_my_location.name
+            WHEN 'Yes' THEN prospect.location_short_friendly
+            WHEN 'Country only' THEN prospect.location_country
+            ELSE NULL
         END AS location,
 
         (
@@ -727,7 +727,12 @@ WITH prospect_base AS (
 
         viewer_rel.prospect_has_messaged_person
     FROM
-        prospect_base AS prospect,
+        prospect_base AS prospect
+    JOIN
+        yes_country_only_no AS show_my_location
+    ON
+        show_my_location.id = prospect.show_my_location_id
+    CROSS JOIN
         viewer_rel
     WHERE
         -- Signed-in viewer: gated by hide_me_from_strangers, verification
@@ -1488,19 +1493,11 @@ WITH photo_ AS (
     ON verification_level.id = person.privacy_verification_level_id
     WHERE person.id = %(person_id)s
 ), show_my_location AS (
-    SELECT
-        CASE WHEN show_my_location THEN 'Yes' ELSE 'No' END AS j
+    SELECT yes_country_only_no.name AS j
     FROM person
-    WHERE id = %(person_id)s
-), location_visibility AS (
-    SELECT
-        CASE
-            WHEN NOT show_my_location THEN 'Hidden'
-            WHEN show_my_country_only THEN 'Country only'
-            ELSE 'Full location'
-        END AS j
-    FROM person
-    WHERE id = %(person_id)s
+    JOIN yes_country_only_no
+    ON yes_country_only_no.id = person.show_my_location_id
+    WHERE person.id = %(person_id)s
 ), show_my_age AS (
     SELECT
         CASE WHEN show_my_age THEN 'Yes' ELSE 'No' END AS j
@@ -1581,7 +1578,6 @@ SELECT
         'verification level',     (SELECT j FROM privacy_verification_level),
         'public profile',         (SELECT j FROM public_profile),
         'show my location',       (SELECT j FROM show_my_location),
-        'location visibility',    (SELECT j FROM location_visibility),
         'show my age',            (SELECT j FROM show_my_age),
         'show my looking for',    (SELECT j FROM show_my_looking_for),
         'hide me from strangers', (SELECT j FROM hide_me_from_strangers),
@@ -2465,7 +2461,8 @@ SELECT json_build_object(
                 unit.name AS unit_name,
                 chats_notification.name AS chats_notification_name,
                 intros_notification.name AS intros_notification_name,
-                privacy_verification_level.name AS privacy_verification_level_name
+                privacy_verification_level.name AS privacy_verification_level_name,
+                show_my_location.name AS show_my_location_name
             FROM
                 person
             LEFT JOIN
@@ -2540,6 +2537,10 @@ SELECT json_build_object(
                 verification_level AS
                 privacy_verification_level ON
                 privacy_verification_level.id = person.privacy_verification_level_id
+            LEFT JOIN
+                yes_country_only_no AS
+                show_my_location ON
+                show_my_location.id = person.show_my_location_id
 
             WHERE
                 person.id = %(person_id)s
@@ -2828,6 +2829,7 @@ WITH updated_person_with_gold AS (
         body_color = DEFAULT,
         background_color = DEFAULT,
 
+        show_my_location_id = DEFAULT,
         show_my_age = DEFAULT,
         show_my_looking_for = DEFAULT,
         hide_me_from_strangers = DEFAULT,

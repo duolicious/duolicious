@@ -199,6 +199,12 @@ CREATE TABLE IF NOT EXISTS yes_no (
     UNIQUE (name)
 );
 
+CREATE TABLE IF NOT EXISTS yes_country_only_no (
+    id SMALLSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    UNIQUE (name)
+);
+
 CREATE TABLE IF NOT EXISTS yes_no_optional (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -321,8 +327,7 @@ CREATE TABLE IF NOT EXISTS person (
     intros_notification SMALLINT REFERENCES immediacy(id) NOT NULL DEFAULT 2,
 
     -- Privacy Settings
-    show_my_location BOOLEAN NOT NULL DEFAULT TRUE,
-    show_my_country_only BOOLEAN NOT NULL DEFAULT FALSE,
+    show_my_location_id SMALLINT REFERENCES yes_country_only_no(id) NOT NULL DEFAULT 1,
     show_my_age BOOLEAN NOT NULL DEFAULT TRUE,
     show_my_looking_for BOOLEAN NOT NULL DEFAULT TRUE,
     hide_me_from_strangers BOOLEAN NOT NULL DEFAULT FALSE,
@@ -1111,6 +1116,11 @@ INSERT INTO frequency (name) VALUES ('Never') ON CONFLICT (name) DO NOTHING;
 SELECT setval('yes_no_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM yes_no), FALSE);
 INSERT INTO yes_no (name) VALUES ('Yes') ON CONFLICT (name) DO NOTHING;
 INSERT INTO yes_no (name) VALUES ('No') ON CONFLICT (name) DO NOTHING;
+
+SELECT setval('yes_country_only_no_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM yes_country_only_no), FALSE);
+INSERT INTO yes_country_only_no (name) VALUES ('Yes') ON CONFLICT (name) DO NOTHING;
+INSERT INTO yes_country_only_no (name) VALUES ('Country only') ON CONFLICT (name) DO NOTHING;
+INSERT INTO yes_country_only_no (name) VALUES ('No') ON CONFLICT (name) DO NOTHING;
 
 SELECT setval('yes_no_optional_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM yes_no_optional), FALSE);
 INSERT INTO yes_no_optional (name) VALUES ('Unanswered') ON CONFLICT (name) DO NOTHING;

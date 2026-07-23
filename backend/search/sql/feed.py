@@ -285,10 +285,10 @@ WITH searcher AS (
             WHERE prospect.show_my_age
         ) AS age,
         gender.name AS gender,
-        CASE
-            WHEN NOT prospect.show_my_location THEN NULL
-            WHEN prospect.show_my_country_only THEN prospect.location_country
-            ELSE prospect.location_short_friendly
+        CASE show_my_location.name
+            WHEN 'Yes' THEN prospect.location_short_friendly
+            WHEN 'Country only' THEN prospect.location_country
+            ELSE NULL
         END AS location
     FROM
         recent_person AS prospect
@@ -296,6 +296,10 @@ WITH searcher AS (
         gender
     ON
         gender.id = prospect.gender_id
+    JOIN
+        yes_country_only_no AS show_my_location
+    ON
+        show_my_location.id = prospect.show_my_location_id
     LEFT JOIN LATERAL (
         SELECT
             photo.uuid,
@@ -746,10 +750,10 @@ WITH searcher AS (
             WHERE prospect.show_my_age
         ) AS age,
         gender.name AS gender,
-        CASE
-            WHEN NOT prospect.show_my_location THEN NULL
-            WHEN prospect.show_my_country_only THEN prospect.location_country
-            ELSE prospect.location_short_friendly
+        CASE show_my_location.name
+            WHEN 'Yes' THEN prospect.location_short_friendly
+            WHEN 'Country only' THEN prospect.location_country
+            ELSE NULL
         END AS location
     FROM
         recent_person AS prospect
@@ -757,6 +761,10 @@ WITH searcher AS (
         gender
     ON
         gender.id = prospect.gender_id
+    JOIN
+        yes_country_only_no AS show_my_location
+    ON
+        show_my_location.id = prospect.show_my_location_id
     LEFT JOIN LATERAL (
         SELECT
             photo.uuid,

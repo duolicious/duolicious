@@ -176,7 +176,7 @@ expiration_resets_settings() {
 
   say "Set non-default theme and privacy settings"
   jc PATCH /profile-info -d '{ "theme": { "title_color": "#111111", "body_color": "#222222", "background_color": "#333333" } }'
-  jc PATCH /profile-info -d '{ "location_visibility": "Country only" }'
+  jc PATCH /profile-info -d '{ "show_my_location": "Country only" }'
   jc PATCH /profile-info -d '{ "show_my_age": "No" }'
   jc PATCH /profile-info -d '{ "show_my_looking_for": "No" }'
   jc PATCH /profile-info -d '{ "hide_me_from_strangers": "Yes" }'
@@ -185,14 +185,18 @@ expiration_resets_settings() {
   [[ "$(q "select title_color from person where uuid = '$useruuid'::uuid")" == "#111111" ]]
   [[ "$(q "select body_color from person where uuid = '$useruuid'::uuid")" == "#222222" ]]
   [[ "$(q "select background_color from person where uuid = '$useruuid'::uuid")" == "#333333" ]]
-  [[ "$(q "select show_my_location from person where uuid = '$useruuid'::uuid")" == t ]]
-  [[ "$(q "select show_my_country_only from person where uuid = '$useruuid'::uuid")" == t ]]
+  [[ "$(q "
+    select yes_country_only_no.name
+    from person
+    join yes_country_only_no
+      on yes_country_only_no.id = person.show_my_location_id
+    where person.uuid = '$useruuid'::uuid")" == "Country only" ]]
   [[ "$(q "select show_my_age from person where uuid = '$useruuid'::uuid")" == f ]]
   [[ "$(q "select show_my_looking_for from person where uuid = '$useruuid'::uuid")" == f ]]
   [[ "$(q "select hide_me_from_strangers from person where uuid = '$useruuid'::uuid")" == t ]]
   [[ "$(q "select browse_invisibly from person where uuid = '$useruuid'::uuid")" == t ]]
 
-  say "EXPIRATION resets non-location settings but preserves location privacy"
+  say "EXPIRATION resets theme and privacy settings"
   export SESSION_TOKEN=""
   c POST /revenuecat \
     --header "Authorization: Bearer valid-revenuecat-token" \
@@ -203,8 +207,12 @@ expiration_resets_settings() {
   [[ "$(q "select title_color from person where uuid = '$useruuid'::uuid")" == "#000000" ]]
   [[ "$(q "select body_color from person where uuid = '$useruuid'::uuid")" == "#000000" ]]
   [[ "$(q "select background_color from person where uuid = '$useruuid'::uuid")" == "#ffffff" ]]
-  [[ "$(q "select show_my_location from person where uuid = '$useruuid'::uuid")" == t ]]
-  [[ "$(q "select show_my_country_only from person where uuid = '$useruuid'::uuid")" == t ]]
+  [[ "$(q "
+    select yes_country_only_no.name
+    from person
+    join yes_country_only_no
+      on yes_country_only_no.id = person.show_my_location_id
+    where person.uuid = '$useruuid'::uuid")" == "Yes" ]]
   [[ "$(q "select show_my_age from person where uuid = '$useruuid'::uuid")" == t ]]
   [[ "$(q "select show_my_looking_for from person where uuid = '$useruuid'::uuid")" == t ]]
   [[ "$(q "select hide_me_from_strangers from person where uuid = '$useruuid'::uuid")" == f ]]
@@ -228,7 +236,7 @@ premium_features_require_gold() {
   jc PATCH /profile-info -d '{ "theme": { "title_color": "#123456", "body_color": "#234567", "background_color": "#345678" } }' && exit 1
   jc PATCH /profile-info -d '{ "browse_invisibly": "Yes" }' && exit 1
   jc PATCH /profile-info -d '{ "show_my_location": "No" }' && exit 1
-  jc PATCH /profile-info -d '{ "location_visibility": "Country only" }' && exit 1
+  jc PATCH /profile-info -d '{ "show_my_location": "Country only" }' && exit 1
   jc PATCH /profile-info -d '{ "show_my_age": "No" }' && exit 1
   jc PATCH /profile-info -d '{ "show_my_looking_for": "No" }' && exit 1
   jc PATCH /profile-info -d '{ "hide_me_from_strangers": "Yes" }' && exit 1

@@ -43,7 +43,10 @@ q "delete from visited"
 # Privacy gating (verification levels) would otherwise blank out fields and
 # complicate the assertions; this feature is tested separately.
 q "update person set privacy_verification_level_id = 1"
-q "update person set show_my_country_only = true where name = 'prospect'"
+q "update person
+   set show_my_location_id = (
+     select id from yes_country_only_no where name = 'Country only')
+   where name = 'prospect'"
 
 assume_role viewer   ; viewer_token=$SESSION_TOKEN
 assume_role prospect ; prospect_token=$SESSION_TOKEN

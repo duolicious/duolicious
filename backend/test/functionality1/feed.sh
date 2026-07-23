@@ -114,10 +114,12 @@ test_json_format () {
   c POST "/skip/by-uuid/$(q "select uuid from person where name = 'user12'")"
 
   q "update person
-     set show_my_country_only = true
+     set show_my_location_id = (
+       select id from yes_country_only_no where name = 'Country only')
      where name = 'user14'"
   q "update person
-     set show_my_location = false
+     set show_my_location_id = (
+       select id from yes_country_only_no where name = 'No')
      where name = 'user11'"
 
   before=$(q "select iso8601_utc(now()::timestamp)")
