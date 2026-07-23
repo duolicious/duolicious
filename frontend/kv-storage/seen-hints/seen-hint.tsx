@@ -1,5 +1,5 @@
-import { storeKv } from './kv-storage';
-import { getSignedInUser } from '../events/signed-in-user';
+import { storeKv } from '../kv-storage';
+import { getSignedInUser } from '../../events/signed-in-user';
 
 // A persisted "has this account seen this one-time hint?" flag, shared by the
 // app's one-time hints (e.g. `seenReplyHint`, `seenInboxFilterHint`).

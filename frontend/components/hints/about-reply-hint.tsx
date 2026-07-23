@@ -4,9 +4,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faHighlighter } from '@fortawesome/free-solid-svg-icons/faHighlighter';
 import { faReply } from '@fortawesome/free-solid-svg-icons/faReply';
 import { DefaultText } from '../default-text';
-import { HintBubble } from '../hint-bubble';
+import { HintBubble } from './hint-bubble';
 import { useQuote } from '../conversation-screen/quote';
-import { seenReplyHint } from '../../kv-storage/seen-reply-hint';
+import { seenReplyHint } from '../../kv-storage/seen-hints/seen-reply-hint';
 
 const AboutReplyHint = ({ color }: { color: string }) => {
   const [visible, setVisible] = useState(false);

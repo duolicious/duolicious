@@ -28,8 +28,6 @@ import { ProfileCard }  from './profile-card';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { SearchFilterScreen } from './search-filter-screen';
 import { DefaultText } from './default-text';
-import { QAndADevice } from './q-and-a-device';
-import { Notice } from './notice';
 import { DefaultFlatList } from './default-flat-list';
 import { japi } from '../api/api';
 import { TopNavBarButton } from './top-nav-bar-button';
@@ -46,6 +44,8 @@ import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { anonymousAnswers } from '../events/anonymous-answers';
 import { consumeStaleSearchResults } from '../events/stale-search-results';
 import { flushSearchFilterWrites } from '../events/search-filters';
+import { SearchFiltersHint } from './hints/search-filters-hint';
+import { seenSearchFiltersHint } from '../kv-storage/seen-hints/seen-search-filters-hint';
 
 type SearchScreenProps = CompositeScreenProps<
   NativeStackScreenProps<SearchParamList, 'Search Screen'>,
@@ -526,20 +526,14 @@ const ClubSelector = (props: ClubSelectorProps) => {
 };
 
 const ListHeaderComponent = ({
-  navigation,
   hasClubs,
   selectedClub,
   setSelectedClub,
-  isPublic,
 }: {
-  navigation: SearchScreenProps['navigation'],
   hasClubs: boolean,
   selectedClub: string | null,
   setSelectedClub: Dispatch<SetStateAction<string | null>>,
-  isPublic: boolean,
 }) => {
-  const { appTheme } = useAppTheme();
-
   if (hasClubs) {
     return <ClubSelector
       selectedClub={selectedClub}
@@ -547,26 +541,7 @@ const ListHeaderComponent = ({
     />;
   }
 
-  if (isPublic) {
-    return null;
-  }
-
-  return (
-    <Notice
-      onPress={() => navigation.navigate('Q&A')}
-      style={{
-        marginTop: 10,
-      }}
-    >
-      <DefaultText style={{ color: appTheme.brandColor }}>
-        Get better matches by playing Q&A{' '}
-      </DefaultText>
-      <QAndADevice
-        color={appTheme.brandColor}
-        backgroundColor={appTheme.avatarBackgroundColor}
-      />
-    </Notice>
-  );
+  return null;
 };
 
 const SearchScreen_ = ({navigation}: SearchScreenProps) => {
@@ -597,6 +572,21 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     setSelectedClub,
   ] = useState<string | null>(initialSelectedClub ?? null);
 
+  const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (!(await seenSearchFiltersHint())) {
+        setIsFiltersHintDismissed(false);
+      }
+    })();
+  }, []);
+
+  const dismissFiltersHint = useCallback(() => {
+    setIsFiltersHintDismissed(true);
+    seenSearchFiltersHint(true);
+  }, []);
+
   const onPressRefresh = useCallback(() => {
     const refresh = listRef?.current?.refresh;
     refresh && refresh();
@@ -619,10 +609,11 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   );
 
   const onPressOptions = useCallback(() => {
+    dismissFiltersHint();
     navigation.navigate('Search Filter Screen', {
       screen: 'Search Filter Tab',
     });
-  }, [selectedClub]);
+  }, [selectedClub, dismissFiltersHint]);
 
   useEffect(() => {
     const refresh = listRef?.current?.refresh;
@@ -679,13 +670,18 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
               label="Invite"
             />
           }
-          <TopNavBarButton
-            onPress={onPressOptions}
-            iconName="options-outline"
-            position={null}
-            secondary={false}
-            label="Filters"
-          />
+          <View>
+            <TopNavBarButton
+              onPress={onPressOptions}
+              iconName="options-outline"
+              position={null}
+              secondary={false}
+              label="Filters"
+            />
+            {!isFiltersHintDismissed && !isPublic &&
+              <SearchFiltersHint onDismiss={dismissFiltersHint} />
+            }
+          </View>
         </View>
       </DuoliciousTopNavBar>
       <DefaultFlatList
@@ -715,11 +711,9 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         contentContainerStyle={styles.listContainerStyle}
         ListHeaderComponent={
           <ListHeaderComponent
-            navigation={navigation}
             hasClubs={hasClubs}
             selectedClub={selectedClub}
             setSelectedClub={setSelectedClub}
-            isPublic={isPublic}
           />
         }
         renderItem={({item}: ListRenderItemInfo<PageItem>) => <ProfileCardMemo item={item} />}

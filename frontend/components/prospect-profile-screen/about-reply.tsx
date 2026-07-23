@@ -8,7 +8,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { DefaultText, defaultFontFamily, defaultFontSize } from '../default-text';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { setQuote } from '../conversation-screen/quote';
-import { AboutReplyHint } from './about-reply-hint';
+import { AboutReplyHint } from '../hints/about-reply-hint';
 
 const WebAboutText = ({
   name,

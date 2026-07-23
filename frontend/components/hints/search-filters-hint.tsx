@@ -1,19 +1,19 @@
 import { useIsFocused } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { DefaultText } from './default-text';
+import { DefaultText } from '../default-text';
 import { HintBubble } from './hint-bubble';
-import { useAppTheme } from '../app-theme/app-theme';
+import { useAppTheme } from '../../app-theme/app-theme';
 
-// A one-time callout pointing up at the inbox's search-filter button, teaching
-// that the filters set on the search tab can be applied to intros here. The
-// caller decides whether it should show (the seen-flag lives in
-// `kv-storage/seen-inbox-filter-hint`) and marks it seen via `onDismiss`.
-const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
+// A one-time callout pointing up at the search tab's filters button, showing
+// new users where to narrow down who they see. The caller decides whether it
+// should show (the seen-flag lives in `kv-storage/seen-hints/
+// seen-search-filters-hint`) and marks it seen via `onDismiss`.
+const SearchFiltersHint = ({ onDismiss }: { onDismiss: () => void }) => {
   const { appTheme } = useAppTheme();
   const isFocused = useIsFocused();
 
   // Hidden (not dismissed) while another screen has focus, so it's still
-  // there the next time the inbox is.
+  // there the next time the search tab is.
   if (!isFocused) {
     return null;
   }
@@ -22,12 +22,13 @@ const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
     <HintBubble
       color={appTheme.brandColor}
       pointerPosition="right"
-      style={{ right: -11, width: 240 }}
+      pointerOffset={0}
+      style={{ right: 5, width: 240 }}
       onPress={onDismiss}
     >
       {(inkColor) => <>
         <Ionicons
-          name="funnel-outline"
+          name="options-outline"
           style={{ color: inkColor, fontSize: 14 }}
         />
         <DefaultText
@@ -38,7 +39,7 @@ const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
             textAlign: 'center',
           }}
         >
-          Press here to see intros that match your search filters first
+          Set your search filters here to find better matches
         </DefaultText>
       </>}
     </HintBubble>
@@ -46,5 +47,5 @@ const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
 };
 
 export {
-  InboxFilterHint,
+  SearchFiltersHint,
 };

@@ -15,6 +15,7 @@ const KEYS = [
   'person_uuid',
   'seen_inbox_filter_hint',
   'seen_reply_hint',
+  'seen_search_filters_hint',
   'session_token',
   'was_review_requested',
 ] as const;

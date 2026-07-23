@@ -33,8 +33,8 @@ import {
 } from '../kv-storage/inbox';
 import { listen } from '../events/events';
 import { consumeStaleInbox } from '../events/stale-inbox';
-import { seenInboxFilterHint } from '../kv-storage/seen-inbox-filter-hint';
-import { InboxFilterHint } from './inbox-filter-hint';
+import { seenInboxFilterHint } from '../kv-storage/seen-hints/seen-inbox-filter-hint';
+import { InboxFilterHint } from './hints/inbox-filter-hint';
 import { useFocusEffect } from '@react-navigation/native';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
