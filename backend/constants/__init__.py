@@ -38,9 +38,14 @@ MAX_SIGNED_IN_SESSIONS = 100
 
 # Refreshing someone's 'answered-question' feed event on every public answer
 # would rewrite their (heavily indexed) person row once per swipe while they
-# play Q&A. Refreshing at most this often caps that churn; the advertised
-# question is at most this stale.
-ANSWERED_QUESTION_EVENT_REFRESH_SECONDS = 60 * 60  # 1 hour
+# play Q&A, and flood the feed with Q&A answers. Refreshing at most this often
+# caps that churn; the advertised question is at most this stale.
+ANSWERED_QUESTION_EVENT_REFRESH_SECONDS = 60 * 60 * 24  # 1 day
+
+# The first questions in the quiz are shown to everyone in the same order, so
+# advertising them in the feed would surface the same handful of answers over
+# and over. Questions with an id at or below this aren't advertised.
+ANSWERED_QUESTION_EVENT_MIN_QUESTION_ID = 10
 
 # Club SEO page tunables. Shared by person/sql (API reads) and
 # service/cron/clubseo/sql (cron aggregation); kept in this dependency-free

@@ -746,7 +746,9 @@ test_answered_question () {
   q "update person set privacy_verification_level_id = 1"
   q "update person set background_color = '#aaaaaa'"
 
-  question_id=10
+  # Above the first-10 quiz questions, which are deliberately kept out of the
+  # feed (see ANSWERED_QUESTION_EVENT_MIN_QUESTION_ID).
+  question_id=11
   question_text=$(q "select question from question where id = ${question_id}")
   question_topic=$(q "select topic from question where id = ${question_id}")
 

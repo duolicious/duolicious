@@ -26,7 +26,10 @@ import numpy
 import psycopg
 from answerspush import publish_answer_update
 from batcher import Batcher
-from constants import ANSWERED_QUESTION_EVENT_REFRESH_SECONDS
+from constants import (
+    ANSWERED_QUESTION_EVENT_MIN_QUESTION_ID,
+    ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
+)
 from database import Row, Tx, api_tx
 import duotypes as t
 from qanda import personality
@@ -261,7 +264,9 @@ async def _set_answer(
 
     is_visible = not delete and answer is not None and bool(public)
 
-    if write_event and is_visible:
+    advertise = is_visible and question_id > ANSWERED_QUESTION_EVENT_MIN_QUESTION_ID
+
+    if write_event and advertise:
         await tx.execute(Q_SET_ANSWERED_QUESTION_EVENT, dict(
             person_id=person_id,
             question_id=question_id,
