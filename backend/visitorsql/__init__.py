@@ -36,10 +36,11 @@ visited_pass_3 AS (
 
         gender.name AS gender,
 
-        (
-            SELECT prospect.location_short_friendly
-            WHERE prospect.show_my_location
-        ) AS location,
+        CASE
+            WHEN NOT prospect.show_my_location THEN NULL
+            WHEN prospect.show_my_country_only THEN prospect.location_country
+            ELSE prospect.location_short_friendly
+        END AS location,
 
         prospect.verification_level_id > 1 AS is_verified,
 

@@ -18,3 +18,26 @@ DROP INDEX IF EXISTS idx__photo__crop_backlog__person_id;
 
 ALTER TABLE photo
     DROP COLUMN IF EXISTS crop_attempted_at;
+
+-- Keep the country alongside the other denormalized location labels so feed
+-- and visitor queries can enforce country-only visibility without joining the
+-- full location catalogue for every candidate.
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS location_country TEXT;
+
+UPDATE person AS p
+SET location_country = location.country
+FROM location
+WHERE
+    p.location_country IS NULL
+AND
+    p.location_long_friendly = location.long_friendly;
+
+ALTER TABLE person
+    ALTER COLUMN location_country SET NOT NULL;
+
+-- `show_my_location` remains the legacy visible/hidden flag. This additional
+-- flag narrows visible locations to their country while preserving old-client
+-- Yes/No semantics.
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS show_my_country_only BOOLEAN NOT NULL DEFAULT FALSE;

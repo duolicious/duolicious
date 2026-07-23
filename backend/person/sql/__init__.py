@@ -373,7 +373,8 @@ WITH onboardee_location AS (
         intros_notification,
         verification_required,
         location_short_friendly,
-        location_long_friendly
+        location_long_friendly,
+        location_country
     ) SELECT
         email,
         %(normalized_email)s,
@@ -398,7 +399,8 @@ WITH onboardee_location AS (
         2 AS intros_notification,
         verification_required,
         short_friendly,
-        long_friendly
+        long_friendly,
+        country
     FROM
         onboardee,
         onboardee_location
@@ -709,10 +711,11 @@ WITH prospect_base AS (
             WHERE prospect.show_my_age
         ) AS age,
 
-        (
-            SELECT prospect.location_short_friendly
-            WHERE prospect.show_my_location
-        ) AS location,
+        CASE
+            WHEN NOT prospect.show_my_location THEN NULL
+            WHEN prospect.show_my_country_only THEN prospect.location_country
+            ELSE prospect.location_short_friendly
+        END AS location,
 
         (
             ROUND(EXTRACT(EPOCH FROM NOW() - last_online_time))
@@ -1489,6 +1492,15 @@ WITH photo_ AS (
         CASE WHEN show_my_location THEN 'Yes' ELSE 'No' END AS j
     FROM person
     WHERE id = %(person_id)s
+), location_visibility AS (
+    SELECT
+        CASE
+            WHEN NOT show_my_location THEN 'Hidden'
+            WHEN show_my_country_only THEN 'Country only'
+            ELSE 'Full location'
+        END AS j
+    FROM person
+    WHERE id = %(person_id)s
 ), show_my_age AS (
     SELECT
         CASE WHEN show_my_age THEN 'Yes' ELSE 'No' END AS j
@@ -1569,6 +1581,7 @@ SELECT
         'verification level',     (SELECT j FROM privacy_verification_level),
         'public profile',         (SELECT j FROM public_profile),
         'show my location',       (SELECT j FROM show_my_location),
+        'location visibility',    (SELECT j FROM location_visibility),
         'show my age',            (SELECT j FROM show_my_age),
         'show my looking for',    (SELECT j FROM show_my_looking_for),
         'hide me from strangers', (SELECT j FROM hide_me_from_strangers),
@@ -2815,7 +2828,6 @@ WITH updated_person_with_gold AS (
         body_color = DEFAULT,
         background_color = DEFAULT,
 
-        show_my_location = DEFAULT,
         show_my_age = DEFAULT,
         show_my_looking_for = DEFAULT,
         hide_me_from_strangers = DEFAULT,

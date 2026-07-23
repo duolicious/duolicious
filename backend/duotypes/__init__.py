@@ -546,6 +546,11 @@ class PatchProfileInfo(BaseModel):
     intros: str | None = None
     verification_level: str | None = None
     show_my_location: str | None = None
+    location_visibility: Literal[
+        'Full location',
+        'Country only',
+        'Hidden',
+    ] | None = None
     show_my_age: str | None = None
     show_my_looking_for: str | None = None
     hide_me_from_strangers: str | None = None

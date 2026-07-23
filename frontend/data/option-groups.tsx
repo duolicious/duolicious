@@ -425,6 +425,12 @@ const yesNo = [
   'No',
 ];
 
+const locationVisibility = [
+  'Full location',
+  'Country only',
+  'Hidden',
+];
+
 const yesNoMaybe = [
   'Yes',
   'No',
@@ -2289,7 +2295,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     },
   },
   {
-    title: 'Show My Location',
+    title: 'Location Visibility',
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
         icon={faLocationDot}
@@ -2303,17 +2309,17 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
 
       return (
         <DefaultText style={descriptionStyle.style}>
-          Would you like your location to appear on your profile? Note that if
-          you set this option to ‘No’, other people will still be able to filter
-          your profile by distance when searching.
+          Choose how your location appears on your profile. ‘Country only’
+          hides your city. Other people can still filter your profile by
+          distance when searching.
           {!signedInUser?.hasGold && ' Unlock this feature with Gold.'}
         </DefaultText>
       )
     },
     input: {
       buttons: {
-        values: yesNo,
-        submit: async (showMyLocation: string) => {
+        values: locationVisibility,
+        submit: async (locationVisibility: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
             showPointOfSale(true);
@@ -2324,10 +2330,10 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
             await japi(
               'patch',
               '/profile-info',
-              { show_my_location: showMyLocation }
+              { location_visibility: locationVisibility }
             )
           ).ok;
-          if (ok) patchProfileInfo({ show_my_location: showMyLocation });
+          if (ok) patchProfileInfo({ location_visibility: locationVisibility });
           return ok;
         },
       }

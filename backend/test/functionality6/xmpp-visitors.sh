@@ -43,6 +43,7 @@ q "delete from visited"
 # Privacy gating (verification levels) would otherwise blank out fields and
 # complicate the assertions; this feature is tested separately.
 q "update person set privacy_verification_level_id = 1"
+q "update person set show_my_country_only = true where name = 'prospect'"
 
 assume_role viewer   ; viewer_token=$SESSION_TOKEN
 assume_role prospect ; prospect_token=$SESSION_TOKEN
@@ -169,6 +170,10 @@ snapshot_over_websocket () {
     || { echo "visited_you should describe the prospect"; exit 1; }
   [[ "$(echo "$payload" | jq -r '.you_visited[0].person_uuid')" == "$prospect_uuid" ]] \
     || { echo "you_visited should describe the prospect"; exit 1; }
+  [[ "$(echo "$payload" | jq -r '.visited_you[0].location')" == "United States" ]] \
+    || { echo "visited_you should expose only the prospect country"; exit 1; }
+  [[ "$(echo "$payload" | jq -r '.you_visited[0].location')" == "United States" ]] \
+    || { echo "you_visited should expose only the prospect country"; exit 1; }
 
 }
 

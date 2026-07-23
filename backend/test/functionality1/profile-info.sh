@@ -406,6 +406,39 @@ test_verification_required () {
   [[ "$(q "select COUNT(*) from person where verification_required")" -eq 1 ]]
 }
 
+test_location_visibility () {
+  q "update person set has_gold = true where uuid = '$USER_UUID'::uuid"
+
+  jc PATCH /profile-info -d '{ "location_visibility": "Country only" }'
+  [[ "$(get_field location_visibility)" == "Country only" ]]
+  [[ "$(get_field show_my_location)" == "Yes" ]]
+  [[ "$(q "select show_my_location from person where uuid = '$USER_UUID'::uuid")" == "t" ]]
+  [[ "$(q "select show_my_country_only from person where uuid = '$USER_UUID'::uuid")" == "t" ]]
+
+  # Moving countries updates the denormalized country used by public views.
+  jc PATCH /profile-info -d '{ "location": "London, England, United Kingdom" }'
+  [[ "$(q "select location_country from person where uuid = '$USER_UUID'::uuid")" == "United Kingdom" ]]
+
+  # Legacy clients still see a Yes/No setting and explicitly selecting either
+  # legacy value clears country-only mode.
+  jc PATCH /profile-info -d '{ "show_my_location": "No" }'
+  [[ "$(get_field location_visibility)" == "Hidden" ]]
+  [[ "$(q "select show_my_country_only from person where uuid = '$USER_UUID'::uuid")" == "f" ]]
+
+  jc PATCH /profile-info -d '{ "show_my_location": "Yes" }'
+  [[ "$(get_field location_visibility)" == "Full location" ]]
+  [[ "$(q "select show_my_country_only from person where uuid = '$USER_UUID'::uuid")" == "f" ]]
+
+  ! jc PATCH /profile-info -d '{ "location_visibility": "City only" }' || exit 1
+
+  q "update person set has_gold = false where uuid = '$USER_UUID'::uuid"
+  ! jc PATCH /profile-info -d '{ "location_visibility": "Country only" }' || exit 1
+  q "update person set has_gold = true where uuid = '$USER_UUID'::uuid"
+
+  # Leave the fixture in its original location and visibility state.
+  jc PATCH /profile-info -d '{ "location": "New York, New York, United States" }'
+}
+
 get_field () {
   set +x
   c GET /profile-info | jq -r ".[\"${1//_/\ }\"]"
@@ -505,6 +538,8 @@ test_verification_loss_photo_changed
 test_verification_loss_photo_removed
 
 test_verification_required
+
+test_location_visibility
 
 test_clear
 

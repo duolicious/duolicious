@@ -113,6 +113,13 @@ test_json_format () {
   assume_role searcher
   c POST "/skip/by-uuid/$(q "select uuid from person where name = 'user12'")"
 
+  q "update person
+     set show_my_country_only = true
+     where name = 'user14'"
+  q "update person
+     set show_my_location = false
+     where name = 'user11'"
+
   before=$(q "select iso8601_utc(now()::timestamp)")
 
   response=$(
@@ -159,7 +166,7 @@ test_json_format () {
     ],
     "gender": "Other",
     "is_verified": false,
-    "location": "New York, New York, United States",
+    "location": "United States",
     "match_percentage": 50,
     "name": "user14",
     "url_slug": "redacted_nonnull_value",
@@ -186,7 +193,7 @@ test_json_format () {
     ],
     "gender": "Other",
     "is_verified": false,
-    "location": "New York, New York, United States",
+    "location": null,
     "match_percentage": 50,
     "name": "user11",
     "url_slug": "redacted_nonnull_value",

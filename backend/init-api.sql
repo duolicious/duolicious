@@ -272,6 +272,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- Denormalized location names
     location_short_friendly TEXT NOT NULL,
     location_long_friendly TEXT NOT NULL,
+    location_country TEXT NOT NULL,
 
     -- There's 46 `trait`s. In principle, it's possible for someone to have a
     -- score of 0 for each trait. We add an extra, constant, non-zero dimension
@@ -321,6 +322,7 @@ CREATE TABLE IF NOT EXISTS person (
 
     -- Privacy Settings
     show_my_location BOOLEAN NOT NULL DEFAULT TRUE,
+    show_my_country_only BOOLEAN NOT NULL DEFAULT FALSE,
     show_my_age BOOLEAN NOT NULL DEFAULT TRUE,
     show_my_looking_for BOOLEAN NOT NULL DEFAULT TRUE,
     hide_me_from_strangers BOOLEAN NOT NULL DEFAULT FALSE,

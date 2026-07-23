@@ -285,10 +285,11 @@ WITH searcher AS (
             WHERE prospect.show_my_age
         ) AS age,
         gender.name AS gender,
-        (
-            SELECT prospect.location_short_friendly
-            WHERE prospect.show_my_location
-        ) AS location
+        CASE
+            WHEN NOT prospect.show_my_location THEN NULL
+            WHEN prospect.show_my_country_only THEN prospect.location_country
+            ELSE prospect.location_short_friendly
+        END AS location
     FROM
         recent_person AS prospect
     JOIN
@@ -745,10 +746,11 @@ WITH searcher AS (
             WHERE prospect.show_my_age
         ) AS age,
         gender.name AS gender,
-        (
-            SELECT prospect.location_short_friendly
-            WHERE prospect.show_my_location
-        ) AS location
+        CASE
+            WHEN NOT prospect.show_my_location THEN NULL
+            WHEN prospect.show_my_country_only THEN prospect.location_country
+            ELSE prospect.location_short_friendly
+        END AS location
     FROM
         recent_person AS prospect
     JOIN

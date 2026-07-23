@@ -1359,7 +1359,10 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
                 = location.short_friendly,
 
             location_long_friendly
-                = location.long_friendly
+                = location.long_friendly,
+
+            location_country
+                = location.country
         FROM location
         WHERE person.id = %(person_id)s
         AND long_friendly = %(field_value)s
@@ -1485,14 +1488,27 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         WHERE person.id = %(person_id)s AND
         verification_level.name = %(field_value)s
         """
+    elif field_name == 'location_visibility':
+        if not await _has_gold(person_id=s.person_id):
+            return 'Requires gold', 403
+
+        q1 = """
+        UPDATE person
+        SET
+            show_my_location = %(field_value)s <> 'Hidden',
+            show_my_country_only = %(field_value)s = 'Country only'
+        WHERE id = %(person_id)s
+        """
     elif field_name == 'show_my_location':
         if not await _has_gold(person_id=s.person_id):
             return 'Requires gold', 403
 
         q1 = """
         UPDATE person
-        SET show_my_location = (
-            CASE WHEN %(field_value)s = 'Yes' THEN TRUE ELSE FALSE END)
+        SET
+            show_my_location = (
+                CASE WHEN %(field_value)s = 'Yes' THEN TRUE ELSE FALSE END),
+            show_my_country_only = FALSE
         WHERE id = %(person_id)s
         """
     elif field_name == 'show_my_age':
