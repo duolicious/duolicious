@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Image,
   ImageStyle,
   StyleSheet,
@@ -28,6 +29,7 @@ import Animated, {
 import type { SharedValue } from 'react-native-reanimated';
 import { FillImage } from './fill-image';
 import { hasGifExtraExt, photoUri } from '../util/photos';
+import type { PhotoGeometry } from '../util/photos';
 import {
   constrainPosition,
   dragDismissRadius,
@@ -74,39 +76,76 @@ const fitWithin = (
   return { width, height };
 };
 
+// Where the square rendition sits within the fitted original, in the fitted
+// frame's pixels - the same placement the gallery's expanding photo gives its
+// crop layer.
+const cropRectWithin = (
+  geometry: PhotoGeometry,
+  imageWidth: number,
+): { left: number, top: number, width: number, height: number } => {
+  const scale = imageWidth / geometry.width;
+  const minDim = Math.min(geometry.width, geometry.height);
+  return {
+    left: geometry.crop_left * scale,
+    top: geometry.crop_top * scale,
+    width: minDim * scale,
+    height: minDim * scale,
+  };
+};
+
 const FitWithinScreenImage = ({
   source,
+  cropUri,
+  blurhash,
   isGif,
   animatedStyle,
   onUpdateImageSize,
-  naturalSize,
+  geometry,
   viewport,
 }: {
   source: { uri: string };
+  cropUri: string | null;
+  blurhash: string | null;
   isGif: boolean;
   animatedStyle: AnimatedStyle<ImageStyle>;
   onUpdateImageSize: (size: { imageWidth: number, imageHeight: number }) => void;
-  naturalSize?: { width: number, height: number };
+  geometry?: PhotoGeometry;
   viewport: { width: number, height: number };
 }) => {
   const isFetchingSize = useRef(false);
   const [imageSize, setImageSize] = useState(
-    naturalSize ?? {width: 0, height: 0},
+    geometry ?? {width: 0, height: 0},
   );
   const { width: viewportWidth, height: viewportHeight } = viewport;
 
   // Fit synchronously from the known size, so a photo the caller reports the
   // dimensions of paints on its first frame - no spinner flash when a new page
   // mounts.
-  const initialFit = naturalSize && naturalSize.width && naturalSize.height
-    ? fitWithin(naturalSize, viewportWidth, viewportHeight)
+  const initialFit = geometry && geometry.width && geometry.height
+    ? fitWithin(geometry, viewportWidth, viewportHeight)
     : null;
   const [imageWidth, setImageWidth] = useState<number | null>(initialFit?.width ?? null);
   const [imageHeight, setImageHeight] = useState<number | null>(initialFit?.height ?? null);
 
+  // On a slow connection the original can take long enough that a correctly
+  // sized but still-empty photo reads as broken; the spinner says it's
+  // loading. It waits out a grace period so a cache hit shows no spinner
+  // flash.
+  const [originalLoaded, setOriginalLoaded] = useState(false);
+  const [spinnerDelayElapsed, setSpinnerDelayElapsed] = useState(false);
+
+  const onOriginalLoad = useCallback(() => setOriginalLoaded(true), []);
+
   useEffect(() => {
-    if (naturalSize) {
-      setImageSize(naturalSize);
+    const timeout = setTimeout(() => setSpinnerDelayElapsed(true), 500);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const showSpinner = spinnerDelayElapsed && !originalLoaded;
+
+  useEffect(() => {
+    if (geometry) {
+      setImageSize(geometry);
       return;
     }
 
@@ -119,7 +158,7 @@ const FitWithinScreenImage = ({
       setImageSize({width, height});
       isFetchingSize.current = false;
     });
-  }, [source.uri, naturalSize?.width, naturalSize?.height]);
+  }, [source.uri, geometry?.width, geometry?.height]);
 
   useEffect(() => {
     if (!imageSize.width || !imageSize.height) return;
@@ -138,6 +177,12 @@ const FitWithinScreenImage = ({
     viewportHeight
   ]);
 
+  const spinner = showSpinner && (
+    <View style={styles.spinnerOverlay} pointerEvents="none">
+      <ActivityIndicator size="large" color="white"/>
+    </View>
+  );
+
   if (imageWidth && imageHeight && isGif) {
     return (
       <Animated.View
@@ -146,18 +191,40 @@ const FitWithinScreenImage = ({
           { width: imageWidth, height: imageHeight, overflow: 'hidden' },
         ]}
       >
-        <FillImage uri={source.uri} />
+        <FillImage
+          uri={source.uri}
+          blurhash={blurhash}
+          onLoad={onOriginalLoad}
+        />
+        {spinner}
       </Animated.View>
     );
   }
 
   if (imageWidth && imageHeight) {
     return (
-      <Animated.Image
-        source={source}
-        style={[animatedStyle, { width: imageWidth, height: imageHeight }]}
-        resizeMode="contain"
-      />
+      <Animated.View
+        style={[
+          animatedStyle,
+          { width: imageWidth, height: imageHeight, overflow: 'hidden' },
+        ]}
+      >
+        {/*
+          The square rendition - usually cached from the profile - and its
+          blurhash under it, sitting exactly where the crop lines up within
+          the original, so there's a photo to show while the original
+          downloads. The original covers them when it arrives.
+        */}
+        {geometry && cropUri &&
+          <View
+            style={[styles.crop, cropRectWithin(geometry, imageWidth)]}
+          >
+            <FillImage uri={cropUri} blurhash={blurhash} />
+          </View>
+        }
+        <FillImage uri={source.uri} onLoad={onOriginalLoad} />
+        {spinner}
+      </Animated.View>
     );
   }
 
@@ -195,10 +262,11 @@ type PinchyPage = {
   justNavigated: SharedValue<boolean>
 };
 
-const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black'}: {
+const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black'}: {
   uuid: string,
   extraExts: string[],
-  naturalSize?: { width: number, height: number },
+  blurhash?: string | null,
+  geometry?: PhotoGeometry,
   // The box to fit the photo within and centre it in.
   viewport: { width: number, height: number },
   zoom: PinchyZoom,
@@ -524,10 +592,12 @@ const Pinchy = ({uuid, extraExts, naturalSize, viewport, zoom, dismiss, onDismis
       <View style={[styles.container, { backgroundColor }]}>
         <FitWithinScreenImage
           source={{ uri: photoUri(uuid, 'original', extraExts) }}
+          cropUri={hasGifExtraExt(extraExts) ? null : photoUri(uuid, 900)}
+          blurhash={blurhash ?? null}
           isGif={hasGifExtraExt(extraExts)}
           animatedStyle={animatedStyle}
           onUpdateImageSize={onUpdateImageSize}
-          naturalSize={naturalSize}
+          geometry={geometry}
           viewport={{ width: viewportWidth, height: viewportHeight }}
         />
       </View>
@@ -545,6 +615,14 @@ const styles = StyleSheet.create({
     zIndex: 999,
     // @ts-ignore
     touchAction: 'none',
+  },
+  crop: {
+    position: 'absolute',
+  },
+  spinnerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

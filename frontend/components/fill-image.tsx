@@ -6,15 +6,19 @@ import { Image as ExpoImage } from 'expo-image';
 // edge.
 const FillImage = ({
   uri,
+  blurhash,
   onLoad,
 }: {
   uri: string
+  blurhash?: string | null
   onLoad?: () => void
 }) => (
   <ExpoImage
     source={{ uri }}
     style={StyleSheet.absoluteFill}
     contentFit="fill"
+    placeholder={blurhash ? { blurhash } : undefined}
+    placeholderContentFit="fill"
     transition={0}
     cachePolicy="memory-disk"
     onLoad={onLoad}

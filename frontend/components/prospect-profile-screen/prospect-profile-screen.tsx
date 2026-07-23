@@ -101,11 +101,13 @@ const buildAlbum = (
   uuids: string[] | undefined,
   extraExts: string[][] | undefined,
   geometries: (PhotoGeometry | null)[] | undefined,
+  blurhashes: string[] | undefined,
 ): AlbumPhoto[] =>
   (uuids ?? []).map((uuid, i) => ({
     uuid,
     extraExts: extraExts?.[i] ?? [],
     geometry: geometries?.[i] ?? null,
+    blurhash: blurhashes?.[i] ?? null,
   }));
 
 const primaryPhotoBigScreenRadii = { bottomLeft: 12, bottomRight: 12 };
@@ -988,8 +990,14 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       data?.photo_uuids,
       data?.photo_extra_exts,
       data?.photo_geometries,
+      data?.photo_blurhashes,
     ),
-    [data?.photo_uuids, data?.photo_extra_exts, data?.photo_geometries],
+    [
+      data?.photo_uuids,
+      data?.photo_extra_exts,
+      data?.photo_geometries,
+      data?.photo_blurhashes,
+    ],
   );
 
   const photoUuid0 = (() => {
@@ -1357,8 +1365,14 @@ const Body = ({
       data?.photo_uuids,
       data?.photo_extra_exts,
       data?.photo_geometries,
+      data?.photo_blurhashes,
     ),
-    [data?.photo_uuids, data?.photo_extra_exts, data?.photo_geometries],
+    [
+      data?.photo_uuids,
+      data?.photo_extra_exts,
+      data?.photo_geometries,
+      data?.photo_blurhashes,
+    ],
   );
 
   const profilePhoto = (position: number) => (

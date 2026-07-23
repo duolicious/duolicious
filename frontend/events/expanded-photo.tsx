@@ -23,6 +23,7 @@ type AlbumPhoto = {
   uuid: string
   extraExts: string[]
   geometry: PhotoGeometry | null
+  blurhash: string | null
 };
 
 type ExpandedPhotoMorph = {

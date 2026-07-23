@@ -63,6 +63,7 @@ type Phase = 'opening' | 'open' | 'closing';
 const ExpandingPhoto = ({
   photoUuid,
   photoExtraExts,
+  photoBlurhash,
   morph,
   progress,
   container,
@@ -74,6 +75,7 @@ const ExpandingPhoto = ({
 }: {
   photoUuid: string,
   photoExtraExts: string[],
+  photoBlurhash: string | null,
   morph: ExpandedPhotoMorph,
   progress: SharedValue<number>,
   container: Rect,
@@ -160,6 +162,7 @@ const ExpandingPhoto = ({
         <Reanimated.View style={[styles.image, imageStyle]}>
           <FillImage
             uri={photoUri(photoUuid, 'original', photoExtraExts)}
+            blurhash={photoBlurhash}
             onLoad={onCovered}
           />
         </Reanimated.View>
@@ -177,6 +180,7 @@ const ExpandingPhoto = ({
       <Reanimated.View style={[styles.image, cropStyle]}>
         <FillImage
           uri={photoUri(photoUuid, 900)}
+          blurhash={photoBlurhash}
           onLoad={onCovered}
         />
       </Reanimated.View>
@@ -247,7 +251,7 @@ const GalleryScreen = ({
 
   const album: AlbumPhoto[] = useMemo(
     () => expandedPhoto?.album
-      ?? [{ uuid: photoUuid, extraExts: [], geometry: null }],
+      ?? [{ uuid: photoUuid, extraExts: [], geometry: null, blurhash: null }],
     [expandedPhoto, photoUuid],
   );
   const openedIndex = useMemo(
@@ -590,6 +594,7 @@ const GalleryScreen = ({
           <ExpandingPhoto
             photoUuid={photoUuid}
             photoExtraExts={album[openedIndex].extraExts}
+            photoBlurhash={album[openedIndex].blurhash}
             morph={morph}
             progress={progress}
             container={container}
@@ -611,7 +616,8 @@ const GalleryScreen = ({
                 <Pinchy
                   uuid={photo.uuid}
                   extraExts={photo.extraExts}
-                  naturalSize={photo.geometry ?? undefined}
+                  blurhash={photo.blurhash}
+                  geometry={photo.geometry ?? undefined}
                   zoom={i === index ? zoom : identityZoom}
                   dismiss={i === index ? dismiss : undefined}
                   onDismiss={i === index ? onDismiss : undefined}

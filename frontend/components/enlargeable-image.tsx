@@ -85,6 +85,7 @@ const EnlargeablePhoto = memo(({
           uuid: photoUuid,
           extraExts: photoExtraExts ?? [],
           geometry: photoGeometry ?? null,
+          blurhash: photoBlurhash ?? null,
         }];
 
     // Without a geometry there's nothing to uncrop the photo into, so the
@@ -117,7 +118,7 @@ const EnlargeablePhoto = memo(({
 
       navigation.navigate('Gallery Screen', { photoUuid });
     });
-  }, [photoUuid, photoExtraExts, photoGeometry, album, borderRadius, navigation]);
+  }, [photoUuid, photoExtraExts, photoBlurhash, photoGeometry, album, borderRadius, navigation]);
 
   const prefetchEnlargedImage = useCallback(() => {
     const enlargedUri = photoUri(photoUuid, 'original', photoExtraExts);
