@@ -28,7 +28,7 @@ from util import IPAddress
 
 RIPE_URL = os.environ.get("DUO_RIPE_URL", "https://stat.ripe.net")
 
-RIPE_TIMEOUT = float(os.environ.get("DUO_RIPE_TIMEOUT", "1"))
+RIPE_TIMEOUT = float(os.environ.get("DUO_RIPE_TIMEOUT", "3"))
 
 # A JSON list of ASNs as bare numbers.
 _blocked_asns_file = Path(__file__).parent / "blocked-asns.json"
