@@ -7,7 +7,8 @@ import { useAppTheme } from '../../app-theme/app-theme';
 // A one-time callout pointing up at the inbox's search-filter button, teaching
 // that the filters set on the search tab can be applied to intros here. The
 // caller decides whether it should show (the seen-flag lives in
-// `kv-storage/seen-inbox-filter-hint`) and marks it seen via `onDismiss`.
+// `kv-storage/seen-hints/seen-inbox-filter-hint`) and marks it seen via
+// `onDismiss`.
 const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
   const { appTheme } = useAppTheme();
   const isFocused = useIsFocused();
@@ -22,7 +23,7 @@ const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
     <HintBubble
       color={appTheme.brandColor}
       pointerPosition="right"
-      style={{ right: -11, width: 240 }}
+      style={{ right: -3, width: 240 }}
       onPress={onDismiss}
     >
       {(inkColor) => <>

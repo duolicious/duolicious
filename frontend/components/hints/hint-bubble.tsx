@@ -29,14 +29,12 @@ import { safeBestTextOn } from '../../util/util';
 const HintBubble = ({
   color,
   pointerPosition,
-  pointerOffset = 16,
   style,
   onPress,
   children,
 }: {
   color: string,
   pointerPosition: 'left' | 'right',
-  pointerOffset?: number,
   style?: ViewStyle,
   onPress: () => void,
   children: (inkColor: string) => React.ReactNode,
@@ -100,8 +98,8 @@ const HintBubble = ({
       <View
         style={{
           ...(pointerPosition === 'left'
-            ? { marginLeft: pointerOffset }
-            : { marginRight: pointerOffset }),
+            ? { marginLeft: 8 }
+            : { marginRight: 8 }),
           marginBottom: -3,
           zIndex: 2,
         }}

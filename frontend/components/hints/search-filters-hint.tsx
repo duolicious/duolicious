@@ -22,8 +22,7 @@ const SearchFiltersHint = ({ onDismiss }: { onDismiss: () => void }) => {
     <HintBubble
       color={appTheme.brandColor}
       pointerPosition="right"
-      pointerOffset={0}
-      style={{ right: 5, width: 240 }}
+      style={{ right: -3, width: 240 }}
       onPress={onDismiss}
     >
       {(inkColor) => <>

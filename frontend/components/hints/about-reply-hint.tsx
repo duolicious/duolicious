@@ -52,7 +52,7 @@ const AboutReplyHint = ({ color }: { color: string }) => {
     <HintBubble
       color={color}
       pointerPosition="left"
-      style={{ left: 5, right: -5 }}
+      style={{ left: 13, right: -5 }}
       onPress={dismiss}
     >
       {(inkColor) => <>
