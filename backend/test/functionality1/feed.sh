@@ -260,4 +260,47 @@ EOF
   diff -u --color <(echo "$response") <(echo "$expected")
 }
 
+test_hide_online_status () {
+  q "delete from duo_session"
+  q "delete from person"
+  q "delete from club"
+  q "delete from onboardee"
+  q "delete from undeleted_photo"
+
+  ../util/create-user.sh searcher 0
+  ../util/create-user.sh user1 0 1
+
+  q "update person set privacy_verification_level_id = 1"
+
+  assume_role user1
+  jc PATCH /profile-info \
+    -d "{
+            \"base64_file\": {
+                \"position\": 1,
+                \"base64\": \"$(rand_image)\",
+                \"top\": 0,
+                \"left\": 0
+            }
+        }"
+
+  q "update person set last_online_time = now() where name = 'user1'"
+
+  assume_role searcher
+
+  feed_type () {
+    c GET "/feed?before=$(q "select iso8601_utc(now()::timestamp)")" \
+      | jq -r '.[] | select(.name == "user1").type'
+  }
+
+  [[ "$(feed_type)" == recently-online-with-photo ]]
+
+  q "update person set show_my_online_status = false where name = 'user1'"
+
+  hidden_type="$(feed_type)"
+  [[ -n "$hidden_type" ]]
+  [[ "$hidden_type" != recently-online-* ]]
+}
+
 test_json_format
+
+test_hide_online_status

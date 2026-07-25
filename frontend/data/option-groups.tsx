@@ -2067,7 +2067,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         style={{ color }}
       />
     ),
-    description: "With this option set to ‘No’, other people won’t see your online indicator or when you were last online.",
+    description: "With this option set to ‘No’, other people won’t see your online indicator or when you were last online. Other people can still filter your profile by how recently you were online when searching.",
     input: {
       buttons: {
         values: yesNo,

@@ -612,6 +612,16 @@ test_joined_club () {
   )
   [[ "$user1_type" == recently-online-with-photo ]]
 
+  q "update person set show_my_online_status = false where name = 'user1'"
+
+  user1_type=$(
+    c GET "/feed-v2?before=$(q "select iso8601_utc(now()::timestamp)")" \
+      | jq -r '.[] | select(.name == "user1").type'
+  )
+  [[ -z "$user1_type" ]]
+
+  q "update person set show_my_online_status = true where name = 'user1'"
+
   # Banning the club hides the events
   q "insert into banned_club (name) values ('cats')"
 

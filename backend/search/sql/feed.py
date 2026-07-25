@@ -335,6 +335,7 @@ WITH searcher AS (
         SELECT
             prospect.last_online_time
             > now() - interval '{ONLINE_RECENTLY_SECONDS} seconds'
+            AND prospect.show_my_online_status
             AS was_recently_online
     )
     ON TRUE
@@ -842,6 +843,9 @@ WITH searcher AS (
 
             WHEN event_is_fresh
             THEN content_event_name
+
+            WHEN NOT prospect.show_my_online_status
+            THEN NULL
 
             WHEN content_event_name = 'added-photo'
             THEN 'recently-online-with-photo'
