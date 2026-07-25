@@ -297,8 +297,7 @@ async def send_notification(
     if not to_tokens:
         return
 
-    truncated_message = truncate_text(
-        gif_aware_body(message), MAX_NOTIFICATION_LENGTH)
+    truncated_message = _notification_body(message)
 
     online = await _is_online(to_username, has_subscribers)
 
@@ -329,6 +328,10 @@ def _default_notification_title(from_name: str) -> str:
 
 def _reaction_notification_title(from_name: str, emoji: str) -> str:
     return f"{from_name} reacted {emoji} to your message"
+
+
+def _notification_body(message: str) -> str:
+    return truncate_text(gif_aware_body(message), MAX_NOTIFICATION_LENGTH)
 
 
 def _conversation_screen_data(
@@ -503,7 +506,7 @@ async def send_web_push_notification(
         _reaction_notification_title(from_name, emoji)
         if emoji is not None
         else _default_notification_title(from_name))
-    body = truncate_text(gif_aware_body(message), MAX_NOTIFICATION_LENGTH)
+    body = _notification_body(message)
     routing = _conversation_screen_data(data)
 
     for session_token_hash, subscription in subscriptions:
