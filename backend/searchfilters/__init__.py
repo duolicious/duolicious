@@ -63,14 +63,9 @@ BOUND_FILTERS = [
             ON last_online.id = search_preference_last_online.last_online_id
             WHERE search_preference_last_online.person_id = person.id
         """),
-        clause=sql_fragment(f"""
+        clause=sql_fragment("""
             prospect.last_online_time >
                 now() - %(max_last_online_seconds)s * interval '1 second'
-            AND (
-                prospect.show_my_online_status
-                OR
-                %(max_last_online_seconds)s > {LAST_ONLINE_NOW_SECONDS}
-            )
         """),
     ),
     BoundFilter(
@@ -131,6 +126,11 @@ _ST_DWITHIN = sql_fragment("""
         %(searcher_coordinates)s::GEOGRAPHY,
         %(distance_meters)s
     )
+""")
+
+
+_SHOWS_ONLINE_STATUS = sql_fragment("""
+    prospect.show_my_online_status
 """)
 
 
@@ -260,6 +260,10 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
             continue
         params[bound.param] = value
         clauses.append(bound.clause)
+
+    max_last_online = row_int_or_none(prefs, 'max_last_online_seconds')
+    if max_last_online is not None and max_last_online <= LAST_ONLINE_NOW_SECONDS:
+        clauses.append(_SHOWS_ONLINE_STATUS)
 
     for enum in ENUM_FILTERS:
         ids = row_int_list_or_none(prefs, enum.param)
