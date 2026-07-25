@@ -1,5 +1,6 @@
 from antiabuse.normalize import normalize_string
 from antiabuse.antispam.urldetector.tld import tlds
+from gifproviders import GIF_PROVIDERS
 import re
 import unicodedata
 from enum import Enum
@@ -24,10 +25,7 @@ EXTRANEOUS_SPACES = re.compile(r'\s+')
 # A set of TLDs we consider "common" and always safe to unify
 COMMON_TLDS = {'com', 'net', 'org', 'gg', 'co', 'io'}
 
-VERY_SAFE_DOMAINS = {
-    'klipy.com',
-    'tenor.com',
-}
+VERY_SAFE_DOMAINS = set(GIF_PROVIDERS)
 
 # These domains are typically used to help users describe who they are
 SOMEWHAT_SAFE_DOMAINS = {

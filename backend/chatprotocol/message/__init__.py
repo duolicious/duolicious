@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from constants import (
     MAX_NOTIFICATION_LENGTH,
 )
+from gifproviders import GIF_PROVIDERS
 
 # Non-breaking spaces are inserted so that only the first line shows on old
 # clients, in inboxes, and in notifications
@@ -17,7 +18,9 @@ Upgrade to the latest version of Duolicious to hear this message
 GIF_MESSAGE_BODY = '🖼️ GIF'
 
 _GIF_URL_REGEX = re.compile(
-    r'^https://(media\.tenor\.com|static\.klipy\.com)/\S+\.(gif|webp)$',
+    r'^https://('
+    + '|'.join(re.escape(host) for host in GIF_PROVIDERS.values())
+    + r')/\S+\.(gif|webp)$',
     re.IGNORECASE,
 )
 
