@@ -2,6 +2,7 @@ import redis.asyncio as redis
 import traceback
 from answerspush import answers_channel
 from service.api.chat.chatutil import (
+    fetch_hides_online_status,
     fetch_is_public,
     fetch_is_skipped,
     fetch_id_from_username,
@@ -174,7 +175,8 @@ async def should_subscribe(from_username: str | None, to_username: str) -> bool:
 
         return (
                 to_id is not None and
-                await fetch_is_public(to_id))
+                await fetch_is_public(to_id) and
+                not await fetch_hides_online_status(to_id))
     else:
         from_id, to_id = (
                 await fetch_id_from_username(from_username),
@@ -184,7 +186,8 @@ async def should_subscribe(from_username: str | None, to_username: str) -> bool:
                 from_id is not None and
                 to_id is not None and
                 not await fetch_is_skipped(
-                    from_id=from_id, to_id=to_id))
+                    from_id=from_id, to_id=to_id) and
+                not await fetch_hides_online_status(to_id))
 
 
 async def _evict_oldest_online_subscriptions(

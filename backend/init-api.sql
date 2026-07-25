@@ -328,6 +328,7 @@ CREATE TABLE IF NOT EXISTS person (
 
     -- Privacy Settings
     show_my_location_id SMALLINT REFERENCES yes_country_only_no(id) NOT NULL DEFAULT 1,
+    show_my_online_status BOOLEAN NOT NULL DEFAULT TRUE,
     show_my_age BOOLEAN NOT NULL DEFAULT TRUE,
     show_my_looking_for BOOLEAN NOT NULL DEFAULT TRUE,
     hide_me_from_strangers BOOLEAN NOT NULL DEFAULT FALSE,

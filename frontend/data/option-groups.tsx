@@ -27,6 +27,7 @@ import { faCalendar } from '@fortawesome/free-solid-svg-icons/faCalendar'
 import { faHeart } from '@fortawesome/free-solid-svg-icons/faHeart'
 import { faGhost } from '@fortawesome/free-solid-svg-icons/faGhost'
 import { faGlobe } from '@fortawesome/free-solid-svg-icons/faGlobe'
+import { faCircle } from '@fortawesome/free-solid-svg-icons/faCircle'
 import { faChild } from '@fortawesome/free-solid-svg-icons/faChild'
 import { faChildren } from '@fortawesome/free-solid-svg-icons/faChildren'
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -2057,6 +2058,33 @@ const defaultSearchFilters = (): SearchFilters => {
 };
 
 const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
+  {
+    title: 'Show My Online Status',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faCircle}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "With this option set to ‘No’, other people won’t see your online indicator or when you were last online.",
+    input: {
+      buttons: {
+        values: yesNo,
+        submit: async (showMyOnlineStatus: string) => {
+          const ok = (
+            await japi(
+              'patch',
+              '/profile-info',
+              { show_my_online_status: showMyOnlineStatus }
+            )
+          ).ok;
+          if (ok) patchProfileInfo({ show_my_online_status: showMyOnlineStatus });
+          return ok;
+        },
+      }
+    },
+  },
   {
     title: 'Public Profile',
     Icon: ({ color = 'black' }) => (

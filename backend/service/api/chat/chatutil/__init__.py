@@ -76,6 +76,11 @@ SELECT public_profile FROM person WHERE id = %(person_id)s
 """
 
 
+Q_FETCH_HIDES_ONLINE_STATUS = """
+SELECT NOT show_my_online_status AS j FROM person WHERE id = %(person_id)s
+"""
+
+
 async def redis_has_subscribers(
     redis_client: redis.Redis,
     channel: str,
@@ -122,6 +127,15 @@ async def fetch_is_public(person_id: int) -> bool:
         row = await tx.fetchone()
 
     return bool(row and row.get('public_profile'))
+
+
+@AsyncLruCache(ttl=5)  # 5 seconds
+async def fetch_hides_online_status(person_id: int) -> bool:
+    async with api_tx('read committed') as tx:
+        await tx.execute(Q_FETCH_HIDES_ONLINE_STATUS, dict(person_id=person_id))
+        row = await tx.fetchone()
+
+    return bool(row and row.get('j'))
 
 
 @AsyncLruCache(ttl=60)  # 60 seconds

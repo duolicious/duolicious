@@ -1539,6 +1539,13 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
             CASE WHEN %(field_value)s = 'Yes' THEN TRUE ELSE FALSE END)
         WHERE id = %(person_id)s
         """
+    elif field_name == 'show_my_online_status':
+        q1 = """
+        UPDATE person
+        SET show_my_online_status = (
+            CASE WHEN %(field_value)s = 'Yes' THEN TRUE ELSE FALSE END)
+        WHERE id = %(person_id)s
+        """
     elif field_name == 'public_profile':
         q1 = """
         UPDATE person

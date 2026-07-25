@@ -62,3 +62,12 @@ new_secs=$( c GET "/prospect-profile/${target_uuid}" | jq '.seconds_since_last_o
 # Ensure it actually decreased
 [[ $new_secs -lt $old_secs ]]
 
+# ---------------------------------------------------------------------------
+# 4) With `show_my_online_status = false`, the last-online time is hidden
+# ---------------------------------------------------------------------------
+q "update person set show_my_online_status = false where uuid = '${target_uuid}'"
+
+hidden_secs=$( c GET "/prospect-profile/${target_uuid}" | jq '.seconds_since_last_online' )
+
+[[ $hidden_secs == null ]]
+

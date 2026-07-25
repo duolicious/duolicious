@@ -518,6 +518,8 @@ test_set chats 'Every 3 days'
 test_set intros Weekly
 test_set verification_level 'Basics only'
 test_set show_my_location Yes
+test_set show_my_online_status No
+test_set show_my_online_status Yes false
 test_set show_my_age No
 test_set show_my_looking_for No
 test_set hide_me_from_strangers Yes

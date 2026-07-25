@@ -16,6 +16,7 @@ const SPACE_TO_SNAKE: Record<string, string> = {
   'verification level': 'verification_level',
   'public profile': 'public_profile',
   'show my location': 'show_my_location',
+  'show my online status': 'show_my_online_status',
   'show my age': 'show_my_age',
   'show my looking for': 'show_my_looking_for',
   'hide me from strangers': 'hide_me_from_strangers',

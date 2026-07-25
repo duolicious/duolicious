@@ -30,6 +30,7 @@ q "delete from skipped"
 ../util/create-user.sh blockd 0 0   # public, but skipped by the viewer
 ../util/create-user.sh capa   0 0   # public, for the cap test
 ../util/create-user.sh capb   0 0   # public, for the cap test
+../util/create-user.sh hidden 0 0   # public, but hides their online status
 
 q "
 update person
@@ -38,8 +39,14 @@ where email in (
   'pub@example.com',
   'blockd@example.com',
   'capa@example.com',
-  'capb@example.com'
+  'capb@example.com',
+  'hidden@example.com'
 )"
+
+q "
+update person
+set show_my_online_status = false
+where email = 'hidden@example.com'"
 
 q "
 update person
@@ -57,6 +64,7 @@ blockd_uuid=$(get_uuid 'blockd@example.com')
 blockd_id=$(get_id 'blockd@example.com')
 capa_uuid=$(get_uuid 'capa@example.com')
 capb_uuid=$(get_uuid 'capb@example.com')
+hidden_uuid=$(get_uuid 'hidden@example.com')
 
 # The viewer has skipped `blockd`, so an authenticated subscription to them must
 # be refused even though `blockd` has a public profile.
@@ -128,6 +136,10 @@ echo "A logged-out viewer cannot subscribe to a non-public profile"
 open_anon
 assert_not_subscribed "$(subscribe_and_pop "$priv_uuid")"
 
+echo "A logged-out viewer cannot subscribe to someone who hides their online status"
+open_anon
+assert_not_subscribed "$(subscribe_and_pop "$hidden_uuid")"
+
 # ---------------------------------------------------------------------------
 # 2) Authenticated viewer (unchanged behaviour)
 # ---------------------------------------------------------------------------
@@ -141,6 +153,11 @@ echo "An authenticated viewer cannot subscribe to someone they've skipped"
 chat_auth "$viewer_uuid" "$viewer_token"
 sleep 1
 assert_not_subscribed "$(subscribe_and_pop "$blockd_uuid")"
+
+echo "An authenticated viewer cannot subscribe to someone who hides their online status"
+chat_auth "$viewer_uuid" "$viewer_token"
+sleep 1
+assert_not_subscribed "$(subscribe_and_pop "$hidden_uuid")"
 
 # ---------------------------------------------------------------------------
 # 3) Per-connection subscription cap evicts the earliest subscriptions

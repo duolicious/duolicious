@@ -718,7 +718,8 @@ WITH prospect_base AS (
         END AS location,
 
         (
-            ROUND(EXTRACT(EPOCH FROM NOW() - last_online_time))
+            SELECT ROUND(EXTRACT(EPOCH FROM NOW() - prospect.last_online_time))
+            WHERE prospect.show_my_online_status
         ) AS seconds_since_last_online,
 
         (
@@ -1498,6 +1499,11 @@ WITH photo_ AS (
     JOIN yes_country_only_no
     ON yes_country_only_no.id = person.show_my_location_id
     WHERE person.id = %(person_id)s
+), show_my_online_status AS (
+    SELECT
+        CASE WHEN show_my_online_status THEN 'Yes' ELSE 'No' END AS j
+    FROM person
+    WHERE id = %(person_id)s
 ), show_my_age AS (
     SELECT
         CASE WHEN show_my_age THEN 'Yes' ELSE 'No' END AS j
@@ -1578,6 +1584,7 @@ SELECT
         'verification level',     (SELECT j FROM privacy_verification_level),
         'public profile',         (SELECT j FROM public_profile),
         'show my location',       (SELECT j FROM show_my_location),
+        'show my online status',  (SELECT j FROM show_my_online_status),
         'show my age',            (SELECT j FROM show_my_age),
         'show my looking for',    (SELECT j FROM show_my_looking_for),
         'hide me from strangers', (SELECT j FROM hide_me_from_strangers),

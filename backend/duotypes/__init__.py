@@ -550,6 +550,7 @@ class PatchProfileInfo(BaseModel):
         'Country only',
         'No',
     ] | None = None
+    show_my_online_status: str | None = None
     show_my_age: str | None = None
     show_my_looking_for: str | None = None
     hide_me_from_strangers: str | None = None

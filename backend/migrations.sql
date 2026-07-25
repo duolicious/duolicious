@@ -13,3 +13,6 @@
 -- index and bookkeeping column with it. The index shipped under two names over
 -- its life, so both are dropped; `photo.width` and friends stay, because the
 -- upload path fills them for every new photo.
+
+ALTER TABLE person
+ADD COLUMN IF NOT EXISTS show_my_online_status BOOLEAN NOT NULL DEFAULT TRUE;
