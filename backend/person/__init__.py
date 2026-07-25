@@ -23,6 +23,8 @@ from search.sql import Q_UPSERT_SEARCH_PREFERENCE_CLUB
 from commonsql import *
 from qanda import _flush_session_answers
 from constants import VISITOR_ONLINE_TIMEOUT_SECONDS
+from service.api.chat.chatutil import REDIS_WORKER_CLIENT
+from service.api.chat.online import redis_publish_offline
 from visitorspush import publish_visit
 from person.template import otp_template
 import traceback
@@ -1587,6 +1589,16 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
     async with api_tx() as tx:
         if q1: await tx.execute(q1, params)
         if q2: await tx.execute(q2, params)
+
+    if (
+        field_name == 'show_my_online_status' and
+        field_value == 'No' and
+        s.person_uuid is not None
+    ):
+        await redis_publish_offline(
+            redis_client=REDIS_WORKER_CLIENT,
+            username=s.person_uuid,
+        )
 
     if uuid and base64_file and crop_size:
         try:

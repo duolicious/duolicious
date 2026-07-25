@@ -2059,33 +2059,6 @@ const defaultSearchFilters = (): SearchFilters => {
 
 const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
-    title: 'Show My Online Status',
-    Icon: ({ color = 'black' }) => (
-      <FontAwesomeIcon
-        icon={faCircle}
-        size={14}
-        style={{ color }}
-      />
-    ),
-    description: "With this option set to ‘No’, other people won’t see your online indicator or when you were last online, and you won’t appear when they filter their search for people who are online now. You can still appear when they filter by less recent activity, though.",
-    input: {
-      buttons: {
-        values: yesNo,
-        submit: async (showMyOnlineStatus: string) => {
-          const ok = (
-            await japi(
-              'patch',
-              '/profile-info',
-              { show_my_online_status: showMyOnlineStatus }
-            )
-          ).ok;
-          if (ok) patchProfileInfo({ show_my_online_status: showMyOnlineStatus });
-          return ok;
-        },
-      }
-    },
-  },
-  {
     title: 'Public Profile',
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
@@ -2114,6 +2087,33 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
             )
           ).ok;
           if (ok) patchProfileInfo({ public_profile: publicProfile });
+          return ok;
+        },
+      }
+    },
+  },
+  {
+    title: 'Show My Online Status',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faCircle}
+        size={14}
+        style={{ color }}
+      />
+    ),
+    description: "With this option set to ‘No’, other people won’t see your online indicator or when you were last online, and you won’t appear when they filter their search for people who are online now. You can still appear when they filter by less recent activity, though.",
+    input: {
+      buttons: {
+        values: yesNo,
+        submit: async (showMyOnlineStatus: string) => {
+          const ok = (
+            await japi(
+              'patch',
+              '/profile-info',
+              { show_my_online_status: showMyOnlineStatus }
+            )
+          ).ok;
+          if (ok) patchProfileInfo({ show_my_online_status: showMyOnlineStatus });
           return ok;
         },
       }

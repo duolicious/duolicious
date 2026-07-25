@@ -151,16 +151,11 @@ async def _redis_unsubscribe_online(
     await pubsub.unsubscribe(key)
     await pubsub.unsubscribe(answers_channel(username))
 
-async def redis_publish_online(
+async def _redis_publish_status(
     redis_client: redis.Redis,
     username: str,
-    online: bool
+    status: str,
 ) -> None:
-    status = (
-        OnlineStatus.ONLINE.value
-        if online
-        else OnlineStatus.ONLINE_RECENTLY.value)
-
     key = FMT_KEY.format(username=username)
     val = to_bus(OnlineEvent(username=username, status=status))
 
@@ -168,6 +163,31 @@ async def redis_publish_online(
         pipe.publish(key, val)
         pipe.set(key, val, ex=ONLINE_RECENTLY_SECONDS)
         await pipe.execute()
+
+
+async def redis_publish_online(
+    redis_client: redis.Redis,
+    username: str,
+    online: bool
+) -> None:
+    to_id = await fetch_id_from_username(username)
+
+    if to_id is not None and await fetch_hides_online_status(to_id):
+        status = OnlineStatus.OFFLINE.value
+    elif online:
+        status = OnlineStatus.ONLINE.value
+    else:
+        status = OnlineStatus.ONLINE_RECENTLY.value
+
+    await _redis_publish_status(redis_client, username, status)
+
+
+async def redis_publish_offline(
+    redis_client: redis.Redis,
+    username: str,
+) -> None:
+    await _redis_publish_status(
+        redis_client, username, OnlineStatus.OFFLINE.value)
 
 async def should_subscribe(from_username: str | None, to_username: str) -> bool:
     if from_username is None:
