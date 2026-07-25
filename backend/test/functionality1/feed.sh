@@ -271,6 +271,7 @@ test_hide_online_status () {
   ../util/create-user.sh user1 0 1
 
   q "update person set privacy_verification_level_id = 1"
+  q "update person set background_color = '#aaaaaa'"
 
   assume_role user1
   jc PATCH /profile-info \
