@@ -165,21 +165,24 @@ async def _redis_publish_status(
         await pipe.execute()
 
 
+def _presence_status(hidden: bool, online: bool) -> OnlineStatus:
+    if hidden:
+        return OnlineStatus.OFFLINE
+    if online:
+        return OnlineStatus.ONLINE
+    return OnlineStatus.ONLINE_RECENTLY
+
+
 async def redis_publish_online(
     redis_client: redis.Redis,
     username: str,
     online: bool
 ) -> None:
     to_id = await fetch_id_from_username(username)
+    hidden = to_id is not None and await fetch_hides_online_status(to_id)
 
-    if to_id is not None and await fetch_hides_online_status(to_id):
-        status = OnlineStatus.OFFLINE
-    elif online:
-        status = OnlineStatus.ONLINE
-    else:
-        status = OnlineStatus.ONLINE_RECENTLY
-
-    await _redis_publish_status(redis_client, username, status)
+    await _redis_publish_status(
+        redis_client, username, _presence_status(hidden=hidden, online=online))
 
 
 async def redis_publish_online_status(
@@ -187,14 +190,10 @@ async def redis_publish_online_status(
     username: str,
     visible: bool,
 ) -> None:
-    if not visible:
-        status = OnlineStatus.OFFLINE
-    elif await redis_has_subscribers(redis_client, username):
-        status = OnlineStatus.ONLINE
-    else:
-        status = OnlineStatus.ONLINE_RECENTLY
+    online = await redis_has_subscribers(redis_client, username)
 
-    await _redis_publish_status(redis_client, username, status)
+    await _redis_publish_status(
+        redis_client, username, _presence_status(hidden=not visible, online=online))
 
 async def should_subscribe(from_username: str | None, to_username: str) -> bool:
     if from_username is None:
