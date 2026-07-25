@@ -24,7 +24,7 @@ from commonsql import *
 from qanda import _flush_session_answers
 from constants import VISITOR_ONLINE_TIMEOUT_SECONDS
 from service.api.chat.chatutil import REDIS_WORKER_CLIENT
-from service.api.chat.online import redis_publish_online_status
+from service.api.chat.online import redis_publish_online
 from visitorspush import publish_visit
 from person.template import otp_template
 import traceback
@@ -1591,7 +1591,7 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         if q2: await tx.execute(q2, params)
 
     if field_name == 'show_my_online_status' and s.person_uuid is not None:
-        await redis_publish_online_status(
+        await redis_publish_online(
             redis_client=REDIS_WORKER_CLIENT,
             username=s.person_uuid,
             visible=field_value == 'Yes',
