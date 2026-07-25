@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from constants import (
     MAX_NOTIFICATION_LENGTH,
@@ -12,6 +13,19 @@ Voice message
 {NON_BREAKING_SPACES}
 Upgrade to the latest version of Duolicious to hear this message
 """.strip()
+
+GIF_MESSAGE_BODY = '🖼️ GIF'
+
+_GIF_URL_REGEX = re.compile(
+    r'^https://(media\.tenor\.com|static\.klipy\.com)/\S+\.(gif|webp)$',
+    re.IGNORECASE,
+)
+
+def is_gif_url(body: str) -> bool:
+    return bool(_GIF_URL_REGEX.match(body))
+
+def gif_aware_body(body: str) -> str:
+    return GIF_MESSAGE_BODY if is_gif_url(body) else body
 
 @dataclass(frozen=True)
 class BaseMessage:

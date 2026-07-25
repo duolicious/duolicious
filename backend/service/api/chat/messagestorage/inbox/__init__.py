@@ -17,6 +17,9 @@ from service.api.chat.chatutil import (
     format_timestamp,
     redis_publish_many,
 )
+from chatprotocol.message import (
+    gif_aware_body,
+)
 from chatprotocol.outbound import (
     InboxConversation,
     InboxEntry,
@@ -460,9 +463,9 @@ def reaction_inbox_body(emoji: str, target_body: str) -> str:
 
 def _composed_body(body: str, reaction: str | None, reaction_body: str | None) -> str:
     if reaction is None or reaction_body is None:
-        return body
+        return gif_aware_body(body)
 
-    return reaction_inbox_body(reaction, reaction_body)
+    return reaction_inbox_body(reaction, gif_aware_body(reaction_body))
 
 
 async def get_inbox(query_id: str, username: str) -> list[Outbound]:

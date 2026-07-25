@@ -1,6 +1,7 @@
 import { AppState, Platform } from 'react-native';
 import { getRandomString } from '../../random/string';
 import { deleteFromArray, assert } from '../../util/util';
+import { GIF_MESSAGE, isGifUrl } from '../../util/gif';
 import { listen, notify, lastEvent } from '../../events/events';
 import { getAndRegisterPushToken } from '../../notifications/notifications';
 import * as _ from 'lodash';
@@ -649,7 +650,7 @@ const sendMessage = async (
       content.type === 'chat-text' ? content.questionCard : undefined;
     const timestamp = response.stamp ? new Date(response.stamp) : new Date();
 
-    setInboxSent(recipientPersonUuid, text);
+    setInboxSent(recipientPersonUuid, isGifUrl(text) ? GIF_MESSAGE : text);
 
     notify(`message-to-${recipientPersonUuid}`);
 

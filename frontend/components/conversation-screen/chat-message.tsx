@@ -52,6 +52,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../../navigation/linking';
 import { assertNever, formatCount } from '../../util/util';
+import { isGifUrl } from '../../util/gif';
 import { useAppTheme } from '../../app-theme/app-theme';
 import {
   ReactionChip,
@@ -74,12 +75,6 @@ const defaultFontSize = 15;
 const avatarSize = 24;
 
 const avatarGap = 5;
-
-const isSafeImageUrl = (str: string): boolean => {
-  // Tenor remains for messages sent before the switch to Klipy
-  const urlRegex = /^https:\/\/(media\.tenor\.com|static\.klipy\.com)\/\S+\.(gif|webp)$/i;
-  return urlRegex.test(str);
-};
 
 const isEmojiOnly = (str: string): boolean => {
   const emojiRegex = /^\p{Emoji_Presentation}+$/u;
@@ -447,7 +442,7 @@ const ChatMessage = ({
   const doRenderUrlAsImage = (
     message &&
     message.message.type === 'chat-text' &&
-    isSafeImageUrl(message.message.text) &&
+    isGifUrl(message.message.text) &&
     !speechBubbleImageError
   );
 

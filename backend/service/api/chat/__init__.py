@@ -77,6 +77,7 @@ from chatprotocol.message import (
     Message,
     ReactionMessage,
     TypingMessage,
+    gif_aware_body,
 )
 from chatprotocol import (
     InboxQuery,
@@ -296,7 +297,8 @@ async def send_notification(
     if not to_tokens:
         return
 
-    truncated_message = truncate_text(message, MAX_NOTIFICATION_LENGTH)
+    truncated_message = truncate_text(
+        gif_aware_body(message), MAX_NOTIFICATION_LENGTH)
 
     online = await _is_online(to_username, has_subscribers)
 
@@ -501,7 +503,7 @@ async def send_web_push_notification(
         _reaction_notification_title(from_name, emoji)
         if emoji is not None
         else _default_notification_title(from_name))
-    body = truncate_text(message, MAX_NOTIFICATION_LENGTH)
+    body = truncate_text(gif_aware_body(message), MAX_NOTIFICATION_LENGTH)
     routing = _conversation_screen_data(data)
 
     for session_token_hash, subscription in subscriptions:
