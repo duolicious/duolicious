@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from textwrap import dedent, indent
 from typing import NamedTuple, TypeAlias
 
+from constants import LAST_ONLINE_NOW_SECONDS
 from database import (
     Row,
     row_bool,
@@ -62,9 +63,14 @@ BOUND_FILTERS = [
             ON last_online.id = search_preference_last_online.last_online_id
             WHERE search_preference_last_online.person_id = person.id
         """),
-        clause=sql_fragment("""
+        clause=sql_fragment(f"""
             prospect.last_online_time >
                 now() - %(max_last_online_seconds)s * interval '1 second'
+            AND (
+                prospect.show_my_online_status
+                OR
+                %(max_last_online_seconds)s > {LAST_ONLINE_NOW_SECONDS}
+            )
         """),
     ),
     BoundFilter(

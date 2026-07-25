@@ -182,6 +182,23 @@ test_basic_furthest_distance () {
   assert_search_names 'user1 user2'
 }
 
+test_last_online_hides_online_status () {
+  setup
+
+  jc POST /search-filter -d '{ "last_online": "Now" }'
+  assert_search_names 'user1 user2'
+
+  q "update person set show_my_online_status = false
+     where email = 'user1@example.com'"
+
+  assert_search_names 'user2'
+
+  jc POST /search-filter -d '{ "last_online": "A week ago" }'
+  assert_search_names 'user1 user2'
+
+  jc POST /search-filter -d '{ "last_online": "A month ago" }'
+}
+
 test_search_cache () {
   setup
   q "delete from search_cache"
@@ -904,6 +921,7 @@ test_basic orientation Straight
 test_basic ethnicity 'Middle Eastern'
 test_basic_age
 test_basic_furthest_distance
+test_last_online_hides_online_status
 test_basic_height
 test_basic has_profile_picture 'No' yes_no
 test_basic looking_for 'Long-term dating'
