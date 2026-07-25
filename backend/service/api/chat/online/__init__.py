@@ -182,12 +182,19 @@ async def redis_publish_online(
     await _redis_publish_status(redis_client, username, status)
 
 
-async def redis_publish_offline(
+async def redis_publish_online_status(
     redis_client: redis.Redis,
     username: str,
+    visible: bool,
 ) -> None:
-    await _redis_publish_status(
-        redis_client, username, OnlineStatus.OFFLINE.value)
+    if not visible:
+        status = OnlineStatus.OFFLINE.value
+    elif await redis_has_subscribers(redis_client, username):
+        status = OnlineStatus.ONLINE.value
+    else:
+        status = OnlineStatus.ONLINE_RECENTLY.value
+
+    await _redis_publish_status(redis_client, username, status)
 
 async def should_subscribe(from_username: str | None, to_username: str) -> bool:
     if from_username is None:

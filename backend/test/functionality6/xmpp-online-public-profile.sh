@@ -250,3 +250,15 @@ echo "$offline_events" | grep -q "$pub_uuid" \
   || { echo "Expected pub's offline event to reach the subscriber"; exit 1; }
 echo "$offline_events" | grep -q offline \
   || { echo "Expected pub to be reported offline after hiding"; exit 1; }
+
+echo "Un-hiding online status re-publishes their status to subscribers"
+
+drain
+jc PATCH /profile-info -d '{ "show_my_online_status": "Yes" }'
+sleep 1
+unhidden_events=$(curl -sX GET http://localhost:3001/pop)
+
+echo "$unhidden_events" | grep -q "$pub_uuid" \
+  || { echo "Expected pub's status event to reach the subscriber after un-hiding"; exit 1; }
+echo "$unhidden_events" | grep -q offline \
+  && { echo "Did not expect pub to be offline after un-hiding"; exit 1; } || true
