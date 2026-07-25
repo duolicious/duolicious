@@ -77,7 +77,7 @@ SELECT public_profile FROM person WHERE id = %(person_id)s
 
 
 Q_FETCH_HIDES_ONLINE_STATUS = """
-SELECT NOT show_my_online_status AS j FROM person WHERE id = %(person_id)s
+SELECT show_my_online_status FROM person WHERE id = %(person_id)s
 """
 
 
@@ -135,7 +135,7 @@ async def fetch_hides_online_status(person_id: int) -> bool:
         await tx.execute(Q_FETCH_HIDES_ONLINE_STATUS, dict(person_id=person_id))
         row = await tx.fetchone()
 
-    return bool(row and row.get('j'))
+    return row is not None and not row.get('show_my_online_status')
 
 
 @AsyncLruCache(ttl=60)  # 60 seconds
