@@ -154,10 +154,10 @@ async def _redis_unsubscribe_online(
 async def _redis_publish_status(
     redis_client: redis.Redis,
     username: str,
-    status: str,
+    status: OnlineStatus,
 ) -> None:
     key = FMT_KEY.format(username=username)
-    val = to_bus(OnlineEvent(username=username, status=status))
+    val = to_bus(OnlineEvent(username=username, status=status.value))
 
     async with redis_client.pipeline(transaction=True) as pipe:
         pipe.publish(key, val)
@@ -173,11 +173,11 @@ async def redis_publish_online(
     to_id = await fetch_id_from_username(username)
 
     if to_id is not None and await fetch_hides_online_status(to_id):
-        status = OnlineStatus.OFFLINE.value
+        status = OnlineStatus.OFFLINE
     elif online:
-        status = OnlineStatus.ONLINE.value
+        status = OnlineStatus.ONLINE
     else:
-        status = OnlineStatus.ONLINE_RECENTLY.value
+        status = OnlineStatus.ONLINE_RECENTLY
 
     await _redis_publish_status(redis_client, username, status)
 
@@ -188,11 +188,11 @@ async def redis_publish_online_status(
     visible: bool,
 ) -> None:
     if not visible:
-        status = OnlineStatus.OFFLINE.value
+        status = OnlineStatus.OFFLINE
     elif await redis_has_subscribers(redis_client, username):
-        status = OnlineStatus.ONLINE.value
+        status = OnlineStatus.ONLINE
     else:
-        status = OnlineStatus.ONLINE_RECENTLY.value
+        status = OnlineStatus.ONLINE_RECENTLY
 
     await _redis_publish_status(redis_client, username, status)
 
