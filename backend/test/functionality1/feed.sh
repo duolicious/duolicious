@@ -269,9 +269,16 @@ test_hide_online_status () {
 
   ../util/create-user.sh searcher 0
   ../util/create-user.sh user1 0 1
+  ../util/create-user.sh user2 0 1
 
   q "update person set privacy_verification_level_id = 1"
   q "update person set background_color = '#aaaaaa'"
+
+  q "update person set gender_id = 1 where name = 'user1'"
+  q "update person set gender_id = 2 where name = 'user2'"
+  q "delete from search_preference_gender
+     where person_id = (select id from person where name = 'searcher')
+     and gender_id <> 1"
 
   assume_role user1
   jc PATCH /profile-info \
@@ -284,7 +291,7 @@ test_hide_online_status () {
             }
         }"
 
-  q "update person set last_online_time = now() where name = 'user1'"
+  q "update person set last_online_time = now() where name in ('user1', 'user2')"
 
   assume_role searcher
 
@@ -297,9 +304,7 @@ test_hide_online_status () {
 
   q "update person set show_my_online_status = false where name = 'user1'"
 
-  hidden_type="$(feed_type)"
-  [[ -n "$hidden_type" ]]
-  [[ "$hidden_type" != recently-online-* ]]
+  [[ "$(feed_type)" == added-photo ]]
 }
 
 test_json_format
