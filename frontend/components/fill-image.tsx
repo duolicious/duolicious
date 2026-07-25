@@ -21,6 +21,7 @@ const FillImage = ({
     placeholderContentFit="fill"
     transition={0}
     cachePolicy="memory-disk"
+    draggable={false}
     onLoad={onLoad}
   />
 );
