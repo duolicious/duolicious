@@ -171,9 +171,10 @@ test_sad_shadow_banned_viewer () {
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
 }
 
-# The visitors tab hides a visit when either person has skipped the other, so
-# there is nobody the push could name.
-test_sad_viewer_skipped_by_prospect () {
+# Somebody who has skipped the viewer has no profile from the viewer's side at
+# all: `/prospect-profile` 404s, so the visit is never recorded and there is
+# nothing for any of this to act on.
+test_sad_prospect_skipped_the_viewer () {
   setup
   give_prospect_a_phone
   put_prospect_offline
@@ -183,13 +184,19 @@ test_sad_viewer_skipped_by_prospect () {
        (select id from person where uuid::text = '$prospect_uuid'),
        (select id from person where uuid::text = '$viewer_uuid')"
 
-  visit_as_viewer
+  assume_role viewer
+  ! c GET "/prospect-profile/${prospect_uuid}" > /dev/null
+  sleep 2
 
+  [[ "$(q "select count(*) from visited")" = 0 ]]
   [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
 }
 
-test_sad_prospect_skipped_by_viewer () {
+# The other direction does record a visit -- the viewer can still see somebody
+# they skipped -- but the visitors tab hides it from the person visited, so
+# there is nobody to name.
+test_sad_viewer_skipped_the_prospect () {
   setup
   give_prospect_a_phone
   put_prospect_offline
@@ -263,8 +270,8 @@ test_pushed_to_each_phone
 test_sad_not_set_to_immediately
 test_sad_invisible_visit
 test_sad_shadow_banned_viewer
-test_sad_viewer_skipped_by_prospect
-test_sad_prospect_skipped_by_viewer
+test_sad_prospect_skipped_the_viewer
+test_sad_viewer_skipped_the_prospect
 test_sad_no_phone_defers_to_the_cron
 test_sad_web_more_recent_than_phone_defers_to_the_cron
 test_sad_self_visit
