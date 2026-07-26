@@ -19,6 +19,7 @@ setup () {
   q "delete from person"
   q "delete from duo_session"
   q "delete from visited"
+  q "delete from skipped"
 
   ../util/create-user.sh viewer   0 0
   ../util/create-user.sh prospect 0 0
@@ -79,7 +80,8 @@ test_pushed_immediately () {
 
   visit_as_viewer
 
-  [[ "$(pushes_to 'visitor_push_token')" = '[{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
+  # Named, since an immediate push knows exactly who visited.
+  [[ "$(pushes_to 'visitor_push_token')" = '[{"title":"viewer visited your profile 👀","body":"Open the app to see your visitors","screen":"Visitors"}]' ]]
   [[ "$(visitor_seconds_of_prospect)" != 0 ]]
 
   # Sent while they had no client open, so it carries the badge.
@@ -169,6 +171,40 @@ test_sad_shadow_banned_viewer () {
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
 }
 
+# The visitors tab hides a visit when either person has skipped the other, so
+# there is nobody the push could name.
+test_sad_viewer_skipped_by_prospect () {
+  setup
+  give_prospect_a_phone
+  put_prospect_offline
+
+  q "insert into skipped (subject_person_id, object_person_id)
+     select
+       (select id from person where uuid::text = '$prospect_uuid'),
+       (select id from person where uuid::text = '$viewer_uuid')"
+
+  visit_as_viewer
+
+  [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
+  [[ "$(visitor_seconds_of_prospect)" = 0 ]]
+}
+
+test_sad_prospect_skipped_by_viewer () {
+  setup
+  give_prospect_a_phone
+  put_prospect_offline
+
+  q "insert into skipped (subject_person_id, object_person_id)
+     select
+       (select id from person where uuid::text = '$viewer_uuid'),
+       (select id from person where uuid::text = '$prospect_uuid')"
+
+  visit_as_viewer
+
+  [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
+  [[ "$(visitor_seconds_of_prospect)" = 0 ]]
+}
+
 # Nobody's phone is reachable, so the visit is left to the cron: no push now,
 # and crucially the visitor clock stays at zero so the cron still finds it.
 test_sad_no_phone_defers_to_the_cron () {
@@ -227,6 +263,8 @@ test_pushed_to_each_phone
 test_sad_not_set_to_immediately
 test_sad_invisible_visit
 test_sad_shadow_banned_viewer
+test_sad_viewer_skipped_by_prospect
+test_sad_prospect_skipped_by_viewer
 test_sad_no_phone_defers_to_the_cron
 test_sad_web_more_recent_than_phone_defers_to_the_cron
 test_sad_self_visit

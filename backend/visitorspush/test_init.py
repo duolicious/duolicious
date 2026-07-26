@@ -27,7 +27,7 @@ def fake_api_tx(executed: list[str]) -> object:
 
 
 def run_notify_immediately(
-    wants: bool,
+    visitor_name: str | None,
     tokens: list[str],
     prospect_online: bool = False,
     badge: int = 1,
@@ -40,8 +40,8 @@ def run_notify_immediately(
     executed: list[str] = []
 
     with (
-        patch('visitorspush._wants_immediate_notification',
-              new_callable=AsyncMock, return_value=wants),
+        patch('visitorspush._immediate_visitor_name',
+              new_callable=AsyncMock, return_value=visitor_name),
         patch('visitorspush.fetch_push_tokens',
               new_callable=AsyncMock, return_value=tokens),
         patch('visitorspush.increment_unseen_notification_count',
@@ -64,12 +64,12 @@ class TestNotifyImmediately(unittest.TestCase):
 
     def test_pushes_and_stamps_the_visitor_clock(self) -> None:
         pushes, executed = run_notify_immediately(
-                wants=True, tokens=['phone'])
+                visitor_name='Alice', tokens=['phone'])
 
         [push] = pushes
         self.assertEqual(push['token'], 'phone')
-        self.assertEqual(push['title'], 'Someone visited your profile 👀')
-        self.assertEqual(push['body'], 'Someone visited your profile!')
+        self.assertEqual(push['title'], 'Alice visited your profile 👀')
+        self.assertEqual(push['body'], 'Open the app to see your visitors')
         self.assertEqual(
                 push['data'],
                 {'screen': 'Home', 'params': {'screen': 'Visitors'}})
@@ -79,28 +79,37 @@ class TestNotifyImmediately(unittest.TestCase):
 
     def test_badges_when_the_prospect_is_away(self) -> None:
         pushes, _ = run_notify_immediately(
-                wants=True, tokens=['phone'], prospect_online=False, badge=7)
+                visitor_name='Alice',
+                tokens=['phone'],
+                prospect_online=False,
+                badge=7)
 
         self.assertEqual(pushes[0]['badge'], 7)
 
     def test_no_badge_while_the_prospect_is_around(self) -> None:
         # They can watch the visit land in their visitors tab themselves.
         pushes, _ = run_notify_immediately(
-                wants=True, tokens=['phone'], prospect_online=True)
+                visitor_name='Alice', tokens=['phone'], prospect_online=True)
 
         self.assertIsNone(pushes[0]['badge'])
 
     def test_every_phone_is_pushed_to(self) -> None:
         pushes, _ = run_notify_immediately(
-                wants=True, tokens=['phone-a', 'phone-b'])
+                visitor_name='Alice', tokens=['phone-a', 'phone-b'])
 
         self.assertEqual(
                 sorted(str(push['token']) for push in pushes),
                 ['phone-a', 'phone-b'])
 
-    def test_silent_unless_set_to_immediately(self) -> None:
+    def test_the_visitor_is_named(self) -> None:
+        pushes, _ = run_notify_immediately(
+                visitor_name='Zoë 🌸', tokens=['phone'])
+
+        self.assertEqual(pushes[0]['title'], 'Zoë 🌸 visited your profile 👀')
+
+    def test_silent_when_the_visit_is_not_worth_announcing(self) -> None:
         pushes, executed = run_notify_immediately(
-                wants=False, tokens=['phone'])
+                visitor_name=None, tokens=['phone'])
 
         self.assertEqual(pushes, [])
         self.assertEqual(executed, [])
@@ -108,7 +117,8 @@ class TestNotifyImmediately(unittest.TestCase):
     def test_no_reachable_phone_leaves_the_visit_to_the_cron(self) -> None:
         # The clock must be left alone: stamping it here would suppress the
         # email the periodic check sends once the visit is ten minutes old.
-        pushes, executed = run_notify_immediately(wants=True, tokens=[])
+        pushes, executed = run_notify_immediately(
+                visitor_name='Alice', tokens=[])
 
         self.assertEqual(pushes, [])
         self.assertEqual(executed, [])

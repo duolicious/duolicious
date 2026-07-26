@@ -306,9 +306,9 @@ FROM
 LIMIT 1
 """
 
-Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION = """
+Q_IMMEDIATE_VISITOR_NOTIFICATION = """
 SELECT
-    1
+    visitor.name AS name
 FROM
     visited
 JOIN
@@ -335,6 +335,30 @@ AND
     prospect.activated
 AND
     prospect.visitors_notification = 1 -- Immediate notification ID
+AND
+    -- Naming the visitor means only naming one the visitors tab is willing to
+    -- show, and it hides a visit when either person has skipped the other.
+    NOT EXISTS (
+        SELECT
+            1
+        FROM
+            skipped
+        WHERE
+            subject_person_id = %(viewer_id)s
+        AND
+            object_person_id = %(prospect_id)s
+    )
+AND
+    NOT EXISTS (
+        SELECT
+            1
+        FROM
+            skipped
+        WHERE
+            subject_person_id = %(prospect_id)s
+        AND
+            object_person_id = %(viewer_id)s
+    )
 """
 
 Q_MARK_VISITORS_CHECKED = """

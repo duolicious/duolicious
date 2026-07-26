@@ -3,17 +3,17 @@ import traceback
 import notify
 from commonsql import Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME
 from constants import (
-    VISITOR_NOTIFICATION_BODY,
-    VISITOR_NOTIFICATION_TITLE,
+    IMMEDIATE_VISITOR_NOTIFICATION_BODY,
+    IMMEDIATE_VISITOR_NOTIFICATION_TITLE,
 )
-from database import api_tx
+from database import api_tx, row_str_or_none
 from pushtokens import fetch_push_tokens
 from redisclient import make_redis_client
 from chatprotocol.outbound import Visitor, to_bus
 from unseennotificationcount import increment_unseen_notification_count
 from visitorsql import (
+    Q_IMMEDIATE_VISITOR_NOTIFICATION,
     Q_VISITOR_ITEM,
-    Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
 )
 
 _redis = make_redis_client()
@@ -33,16 +33,22 @@ async def _publish(channel: str, section: str, item: dict) -> None:
         print(traceback.format_exc())
 
 
-async def _wants_immediate_notification(
+async def _immediate_visitor_name(
     viewer_id: int,
     prospect_id: int,
-) -> bool:
+) -> str | None:
+    """
+    The visitor's name when this visit is worth pushing about right now, and
+    None when it isn't.
+    """
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(
-            Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
+            Q_IMMEDIATE_VISITOR_NOTIFICATION,
             dict(viewer_id=viewer_id, prospect_id=prospect_id))
 
-        return await tx.fetchone() is not None
+        row = await tx.fetchone()
+
+    return row_str_or_none(row, 'name') if row else None
 
 
 async def notify_immediately(
@@ -56,7 +62,9 @@ async def notify_immediately(
     visitors immediately. Everyone else -- and anyone no push can reach -- is
     left to the periodic check, which waits ten minutes and may email instead.
     """
-    if not await _wants_immediate_notification(viewer_id, prospect_id):
+    name = await _immediate_visitor_name(viewer_id, prospect_id)
+
+    if not name:
         return
 
     tokens = await fetch_push_tokens(username=prospect_uuid)
@@ -77,8 +85,8 @@ async def notify_immediately(
     for token in tokens:
         notify.enqueue_mobile_notification(
             token=token,
-            title=VISITOR_NOTIFICATION_TITLE,
-            body=VISITOR_NOTIFICATION_BODY,
+            title=IMMEDIATE_VISITOR_NOTIFICATION_TITLE.format(name=name),
+            body=IMMEDIATE_VISITOR_NOTIFICATION_BODY,
             data={'screen': 'Home', 'params': {'screen': 'Visitors'}},
             badge=badge,
         )

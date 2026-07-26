@@ -81,8 +81,11 @@ MIN_NOTABLE_TRAIT_SCORE = 10
 # cap only bites at the top of that quota.
 MAX_CLUBS_PER_PERSON_FOR_OVERLAP = 100
 
-# What a visitor notification says. The same visit is announced by an immediate
-# push and, when no push can reach the person, by the periodic check's push or
-# email, so the wording lives in one place.
+# What a visitor notification says. The periodic check reads the newest visit
+# out of a whole window of them and so can only speak of "someone", while a push
+# sent as the visit happens knows exactly who it was.
 VISITOR_NOTIFICATION_TITLE = 'Someone visited your profile 👀'
 VISITOR_NOTIFICATION_BODY = 'Someone visited your profile!'
+
+IMMEDIATE_VISITOR_NOTIFICATION_TITLE = '{name} visited your profile 👀'
+IMMEDIATE_VISITOR_NOTIFICATION_BODY = 'Open the app to see your visitors'
