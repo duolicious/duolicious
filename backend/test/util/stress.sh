@@ -8,12 +8,14 @@
 #   ./test/util/stress.sh ./functionality1/shadow-banned.sh 20
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-cd "$script_dir/.."
+test_dir="$( readlink -m "$script_dir/.." )"
 
-source ./util/setup.sh
-
-test_path=$1
+test_path="$( readlink -m "$test_dir/$1" )"
 iterations=${2:-20}
+
+source "$script_dir/setup.sh"
+
+cd "$test_dir"
 
 diagnostics () {
   echo '--- person'
