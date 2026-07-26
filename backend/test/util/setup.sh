@@ -21,10 +21,24 @@ PERSON_ID=""
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$script_dir"
 
-mkdir ../../test/input 2>/dev/null
-printf 1 > ../../test/input/enable-mocking
-printf 1 > ../../test/input/disable-ip-rate-limit
-printf 1 > ../../test/input/disable-account-rate-limit
+# `>` truncates before it writes, and the API re-reads these sentinels on
+# every request, so a plain redirect lets a concurrent request see an empty
+# file and switch mocking off. Rename instead: it's atomic.
+write_input_file () {
+  local path=$input_dir/$1
+  local tmp=$path.$$
+
+  printf '%s' "$2" > "$tmp"
+  chmod 644 "$tmp"
+  mv -f "$tmp" "$path"
+}
+
+input_dir="$( readlink -m "$script_dir/../../test/input" )"
+
+mkdir "$input_dir" 2>/dev/null
+write_input_file enable-mocking 1
+write_input_file disable-ip-rate-limit 1
+write_input_file disable-account-rate-limit 1
 
 # Read from stdin and strip leading and trailing spaces. Useful for psql output.
 # Example: echo '  value  ' | trim  # => 'value'

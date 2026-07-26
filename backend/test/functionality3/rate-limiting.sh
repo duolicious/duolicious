@@ -5,19 +5,19 @@ cd "$script_dir"
 
 source ../util/setup.sh
 
-printf 1 > ../../test/input/enable-mocking
+write_input_file enable-mocking 1
 sleep 1 # Wait for the TTL caches of the test/input files to expire
 
 set -xe
 
 # $1/$2 disable the IP-keyed/account-keyed rate limits ('1' to disable).
 disable_rate_limits () {
-  printf "$1" > ../../test/input/disable-ip-rate-limit
-  printf "$2" > ../../test/input/disable-account-rate-limit
+  write_input_file disable-ip-rate-limit "$1"
+  write_input_file disable-account-rate-limit "$2"
 }
 
 mock_ip () {
-  printf "$1" > ../../test/input/mock-ip-address
+  write_input_file mock-ip-address "$1"
 }
 
 request_otp () {
