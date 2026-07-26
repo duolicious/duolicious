@@ -93,6 +93,13 @@ async def redis_has_subscribers(
     return count > 0
 
 
+async def is_online(username: str, has_subscribers: bool | None) -> bool:
+    if has_subscribers is not None:
+        return has_subscribers
+
+    return await redis_has_subscribers(REDIS_WORKER_CLIENT, username)
+
+
 @AsyncLruCache(ttl=5)  # 5 seconds
 async def fetch_is_skipped(from_id: int, to_id: int) -> bool:
     async with api_tx('read committed') as tx:
