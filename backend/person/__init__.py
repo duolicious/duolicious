@@ -26,6 +26,7 @@ from qanda import _flush_session_answers
 from constants import VISITOR_ONLINE_TIMEOUT_SECONDS
 from service.api.chat.chatutil import REDIS_WORKER_CLIENT
 from service.api.chat.online import redis_publish_online
+from visitornotification import notify_of_visit
 from visitorspush import publish_visit
 from person.template import otp_template
 import traceback
@@ -847,6 +848,13 @@ async def get_prospect_profile(
         await publish_visit(
             viewer_id=s.person_id,
             viewer_uuid=s.person_uuid,
+            prospect_id=prospect_id,
+            prospect_uuid=str(prospect_uuid),
+            prospect_online=prospect_online,
+        )
+
+        await notify_of_visit(
+            viewer_id=s.person_id,
             prospect_id=prospect_id,
             prospect_uuid=str(prospect_uuid),
             prospect_online=prospect_online,
