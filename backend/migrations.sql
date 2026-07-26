@@ -39,6 +39,25 @@ ALTER TABLE search_preference_two_way_filters
     ADD COLUMN IF NOT EXISTS exercise              BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS star_sign             BOOLEAN NOT NULL DEFAULT FALSE;
 
-INSERT INTO search_preference_two_way_filters (person_id)
-SELECT id FROM person
-ON CONFLICT (person_id) DO NOTHING;
+DO $$
+DECLARE
+    batch_size CONSTANT INT := 10000;
+    inserted INT;
+BEGIN
+    LOOP
+        INSERT INTO search_preference_two_way_filters (person_id)
+        SELECT id
+        FROM person
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM search_preference_two_way_filters
+            WHERE person_id = person.id
+        )
+        LIMIT batch_size
+        ON CONFLICT (person_id) DO NOTHING;
+
+        GET DIAGNOSTICS inserted = ROW_COUNT;
+
+        EXIT WHEN inserted = 0;
+    END LOOP;
+END $$;
