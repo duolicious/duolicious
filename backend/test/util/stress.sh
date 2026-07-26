@@ -33,6 +33,39 @@ diagnostics () {
        from search_cache order by searcher_person_id, position"
   echo '--- photo'
   q "select person_id, position, nsfw_score from photo order by person_id, position"
+  echo '--- live people passing the search-only filters'
+  q "select id, name from person
+      where activated
+        and shadow_banned_at is null
+        and 'bot' <> all(roles)
+        and not hide_me_from_strangers
+        and show_my_online_status
+        and last_online_time > now() - interval '480 seconds'
+      order by id"
+  echo '--- person rows total (dead tuples build up in the hnsw index)'
+  q "select count(*) from person"
+  echo '--- hnsw index size'
+  q "select pg_size_pretty(pg_relation_size('idx__person__personality'))"
+  echo '--- distinct personality vectors among live people'
+  q "select count(distinct personality::text), count(*) from person"
+
+  # Is the vector ORDER BY dropping rows the filters accept? Re-run the same
+  # search with and without the hnsw index available to the planner.
+  for email in searcher@example.com user1@example.com user2@example.com
+  do
+    sign_in "$email" > /dev/null 2>&1 || continue
+    echo "--- /search as $email, hnsw index present"
+    c GET '/search?n=10&o=0' | jq -r '[.[].name] | sort | join(" ")'
+  done
+
+  q "drop index idx__person__personality"
+
+  for email in searcher@example.com user1@example.com user2@example.com
+  do
+    sign_in "$email" > /dev/null 2>&1 || continue
+    echo "--- /search as $email, hnsw index dropped"
+    c GET '/search?n=10&o=0' | jq -r '[.[].name] | sort | join(" ")'
+  done
 }
 
 for i in $(seq "$iterations")

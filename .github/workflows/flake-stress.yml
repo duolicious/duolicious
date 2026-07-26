@@ -17,8 +17,7 @@ jobs:
       matrix:
         test:
           - ./functionality1/shadow-banned.sh
-          - ./functionality5/data-export.sh
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4
@@ -26,7 +25,7 @@ jobs:
       - name: Stress one test
         run: |
           ./test/util/with-container.sh \
-            ./test/util/stress.sh '${{ matrix.test }}' 25
+            ./test/util/stress.sh '${{ matrix.test }}' 40
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
