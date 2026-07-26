@@ -29,13 +29,23 @@ quietly_assume_role () {
   q "delete from presence_histogram"
 }
 
+# The nsfw photo runner polls every second for photos whose `nsfw_score` is
+# still NULL and fills it in. Both the snapshot and the restored database
+# start out with unscored photos, so the export has to wait for the runner to
+# settle them, or it races the runner and the diff is a coin toss.
+wait_for_nsfw_scores () {
+  while [[ "$(q "select count(*) from photo where nsfw_score is null")" != 0 ]]
+  do
+    sleep 0.1
+  done
+}
+
 update_snapshot () {
   q "delete from person"
 
   ../util/create-user.sh user1 2 2
 
-  # Wait for images to be given nsfw scores
-  sleep 13
+  wait_for_nsfw_scores
 
   qdump data-export
 
@@ -63,6 +73,8 @@ update_snapshot_or_restore () {
 
 setup () {
   update_snapshot_or_restore "$@"
+
+  wait_for_nsfw_scores
 
   quietly_assume_role user1
 }
