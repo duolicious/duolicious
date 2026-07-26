@@ -1,7 +1,8 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { StyleProp, View, ViewStyle } from 'react-native';
 import Animated, {
   SharedValue,
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -82,13 +83,52 @@ type CrossFadeTextProps = {
   style?: StyleProp<ViewStyle>
 };
 
+type FadeTransitionProps = {
+  front: ReactNode
+  back: ReactNode
+  duration: number
+  onFinish: () => void
+  style?: StyleProp<ViewStyle>
+};
+
+// Mounted afresh for each transition, so the layers' starting opacities travel
+// with the layers themselves. Setting them on a surviving layer instead sends
+// them to the UI thread on their own, which lets Android paint a frame where
+// the outgoing text has yet to mount and the incoming text is already hidden.
+const FadeTransition = ({
+  front,
+  back,
+  duration,
+  onFinish,
+  style,
+}: FadeTransitionProps) => {
+  const progress = useSharedValue(back === null ? 1 : 0);
+
+  useEffect(() => {
+    if (back === null) {
+      return;
+    }
+
+    progress.value = withTiming(1, { duration }, (finished) => {
+      if (finished) {
+        runOnJS(onFinish)();
+      }
+    });
+
+    return () => cancelAnimation(progress);
+  }, []);
+
+  return (
+    <FadeLayers progress={progress} front={front} back={back} style={style} />
+  );
+};
+
 const CrossFadeText = ({
   triggerKey,
   children,
   duration = 300,
   style,
 }: CrossFadeTextProps) => {
-  const progress = useSharedValue(1);
   const [tx, setTx] = useState<{ key: string, outgoing: ReactNode }>({
     key: triggerKey,
     outgoing: null,
@@ -97,25 +137,24 @@ const CrossFadeText = ({
 
   if (tx.key !== triggerKey) {
     setTx({ key: triggerKey, outgoing: lastChildren.current });
-    progress.value = 0;
   }
 
   useEffect(() => {
     lastChildren.current = children;
   });
 
-  useEffect(() => {
-    if (tx.outgoing === null) return;
-    progress.value = withTiming(1, { duration }, (finished) => {
-      if (finished) runOnJS(setTx)((t) => ({ ...t, outgoing: null }));
-    });
-  }, [tx.key]);
+  const clearOutgoing = useCallback(
+    () => setTx((t) => ({ ...t, outgoing: null })),
+    []
+  );
 
   return (
-    <FadeLayers
-      progress={progress}
+    <FadeTransition
+      key={tx.key}
       front={children}
       back={tx.outgoing}
+      duration={duration}
+      onFinish={clearOutgoing}
       style={style}
     />
   );
