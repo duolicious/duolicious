@@ -1,16 +1,25 @@
 import unittest
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from unittest.mock import patch, AsyncMock, MagicMock
+from commonsql import (
+    Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
+    Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
+)
 from service.cron.notifications import (
     NotificationKind,
     PersonNotification,
     compute_badges,
     do_send_notification,
+    is_chat_sendable,
+    is_intro_sendable,
     is_visitor_sendable,
     maybe_send_notification,
     notification_screen,
     send_mobile_notification,
     send_notification,
     sendable_kinds,
+    update_last_notification_time,
 )
 import asyncio
 import json
@@ -193,6 +202,66 @@ class TestVisitorNotifications(unittest.TestCase):
         self.assertEqual(
                 notification_screen('message'),
                 {'screen': 'Home', 'params': {'screen': 'Inbox'}})
+
+
+class TestMessageNotificationsCoverTheWholeInbox(unittest.TestCase):
+
+    def capped_intro_row(self) -> PersonNotification:
+        # A due chat and an unread intro that the query found but that is still
+        # inside its weekly cap, having been notified about a minute before it
+        # arrived.
+        return make_person_notification(
+            intros_drift_seconds=604800,
+            last_intro_notification_seconds=1693786064,
+            last_intro_seconds=1693786124,
+            chats_drift_seconds=0,
+            last_chat_notification_seconds=0,
+            last_chat_seconds=1693786124,
+        )
+
+    def test_the_capped_intro_is_not_due_on_its_own(self) -> None:
+        row = self.capped_intro_row()
+
+        self.assertFalse(is_intro_sendable(row))
+        self.assertTrue(is_chat_sendable(row))
+
+    @patch('service.cron.notifications.disable_mobile_notifications')
+    @patch('service.cron.notifications.notify.enqueue_mobile_notification')
+    def test_one_notification_names_both_kinds(
+        self,
+        mock_enqueue: MagicMock,
+        mock_disable: MagicMock,
+    ) -> None:
+        mock_disable.return_value = False
+
+        send_mobile_notification(self.capped_intro_row(), 'message', badge=1)
+
+        [kwargs] = [call.kwargs for call in mock_enqueue.call_args_list]
+        self.assertEqual(
+                kwargs['body'],
+                'You have new messages in your chats and intros!')
+
+    def test_both_clocks_are_stamped(self) -> None:
+        # Whatever the notification named, it stamped, so the intro doesn't come
+        # back as a second notification once its cap elapses.
+        executed = []
+
+        class Tx:
+            async def execute(self, query: str, params: object) -> None:
+                executed.append(query)
+
+        @asynccontextmanager
+        async def api_tx(isolation: str) -> AsyncIterator[Tx]:
+            yield Tx()
+
+        with patch('service.cron.notifications.api_tx', api_tx):
+            asyncio.run(update_last_notification_time(
+                self.capped_intro_row(), 'message'))
+
+        self.assertEqual(executed, [
+            Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
+            Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
+        ])
 
 
 class TestMessagesAndVisitsAreNotifiedSeparately(unittest.TestCase):

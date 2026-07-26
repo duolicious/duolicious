@@ -138,7 +138,11 @@ def notification_subject(kind: NotificationKind) -> str:
 def notification_body(row: PersonNotification, kind: NotificationKind) -> str:
     if kind == 'visitor':
         return VISITOR_BIG_PART
-    return big_part(is_intro_sendable(row), is_chat_sendable(row))
+    # Every unread kind the query found, not only the ones whose frequency cap
+    # has elapsed: one notification covers the whole inbox, so an intro still
+    # inside its cap is mentioned here rather than being held back for a
+    # notification of its own.
+    return big_part(row.has_intro, row.has_chat)
 
 def notification_screen(kind: NotificationKind) -> Json:
     if kind == 'visitor':
@@ -153,8 +157,8 @@ def notification_email_body(
         return visitor_emailtemplate(email=row.email)
     return emailtemplate(
             email=row.email,
-            has_intro=is_intro_sendable(row),
-            has_chat=is_chat_sendable(row),
+            has_intro=row.has_intro,
+            has_chat=row.has_chat,
     )
 
 async def send_email_notification(
@@ -241,10 +245,12 @@ async def update_last_notification_time(
     params = dict(username=row.person_uuid)
     is_message = kind == 'message'
 
+    # Stamped to match what the notification said: a message notification names
+    # every unread kind the query found, so it resets the clock of each.
     async with api_tx('read committed') as tx:
-        if is_message and is_intro_sendable(row):
+        if is_message and row.has_intro:
             await tx.execute(Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME, params)
-        if is_message and is_chat_sendable(row):
+        if is_message and row.has_chat:
             await tx.execute(Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME, params)
         if kind == 'visitor':
             await tx.execute(Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME, params)
