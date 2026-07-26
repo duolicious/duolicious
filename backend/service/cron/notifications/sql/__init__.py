@@ -5,17 +5,13 @@ WITH ten_minutes_ago AS (
             NOW() - INTERVAL '10 minutes'))::bigint AS seconds
 ), inbox_first_pass AS (
     SELECT
-        person.id AS person_id,
+        luser AS username,
         MAX(CASE WHEN box = 'inbox' THEN timestamp ELSE 0 END) / 1000000 AS last_intro_seconds,
         MAX(CASE WHEN box = 'chats' THEN timestamp ELSE 0 END) / 1000000 AS last_chat_seconds,
         BOOL_OR(box = 'inbox')  AS has_intro,
         BOOL_OR(box = 'chats')  AS has_chat
     FROM
         inbox
-    JOIN
-        person
-    ON
-        person.uuid = uuid_or_null(inbox.luser)
     WHERE
         unread_count > 0
     AND
@@ -23,7 +19,7 @@ WITH ten_minutes_ago AS (
             -- ten days ago as microseconds
             EXTRACT(EPOCH FROM (NOW() - INTERVAL '10 days'))::bigint * 1000000
     GROUP BY
-        person.id
+        luser
 ), visitor_first_pass AS (
     -- The most recent visit each person received. `visited` holds one row per
     -- (visitor, visited) pair, updated in place, so the ten-day window covers
@@ -49,23 +45,36 @@ WITH ten_minutes_ago AS (
         visitor.shadow_banned_at IS NULL
     GROUP BY
         visited.object_person_id
+), visitor_by_username AS (
+    -- Keyed like the inbox pass so the two can be joined. The lookup is done
+    -- after aggregating, so it costs one index hit per visited person rather
+    -- than one per visit.
+    SELECT
+        person.uuid::TEXT AS username,
+        visitor_first_pass.last_visitor_seconds
+    FROM
+        visitor_first_pass
+    JOIN
+        person
+    ON
+        person.id = visitor_first_pass.person_id
 ), first_pass AS (
     -- A person is a candidate if they have an unread message, a recent
     -- visitor, or both, so the two passes are joined rather than intersected.
     SELECT
-        COALESCE(inbox_first_pass.person_id, visitor_first_pass.person_id) AS person_id,
+        COALESCE(inbox_first_pass.username, visitor_by_username.username) AS username,
         COALESCE(inbox_first_pass.last_intro_seconds, 0) AS last_intro_seconds,
         COALESCE(inbox_first_pass.last_chat_seconds, 0) AS last_chat_seconds,
         COALESCE(inbox_first_pass.has_intro, FALSE) AS has_intro,
         COALESCE(inbox_first_pass.has_chat, FALSE) AS has_chat,
-        COALESCE(visitor_first_pass.last_visitor_seconds, 0) AS last_visitor_seconds,
-        visitor_first_pass.person_id IS NOT NULL AS has_visitor
+        COALESCE(visitor_by_username.last_visitor_seconds, 0) AS last_visitor_seconds,
+        visitor_by_username.username IS NOT NULL AS has_visitor
     FROM
         inbox_first_pass
     FULL OUTER JOIN
-        visitor_first_pass
+        visitor_by_username
     ON
-        visitor_first_pass.person_id = inbox_first_pass.person_id
+        visitor_by_username.username = inbox_first_pass.username
 ), notifiable AS (
     -- Decide, per person, whether they're due an intro, chat and/or visitor
     -- notification. This depends only on the person, their inbox and their
@@ -175,7 +184,7 @@ WITH ten_minutes_ago AS (
     JOIN
         person
     ON
-        person.id = first_pass.person_id
+        person.uuid = uuid_or_null(first_pass.username)
     LEFT JOIN
         immediacy AS im_chats
     ON
