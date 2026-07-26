@@ -53,7 +53,7 @@ c () {
   local method=$1
   local endpoint=$2
 
-  local response_file=/tmp/response.$RANDOM
+  local response_file=$(mktemp)
 
   if [[ ! "$endpoint" == http* ]];
   then
@@ -71,7 +71,7 @@ c () {
 
   args+=( "$@" )
 
-  status_code=$(
+  local status_code=$(
     curl \
       -s \
       -w "%{http_code}" \
