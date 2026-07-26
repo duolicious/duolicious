@@ -269,37 +269,67 @@ async def _is_online(username: str, has_subscribers: bool | None) -> bool:
     return await redis_has_subscribers(REDIS_WORKER_CLIENT, username)
 
 
-async def send_notification(
-    from_name: str | None,
-    to_username: str | None,
-    message: str | None,
+async def send_notifications(
+    from_id: int,
+    to_username: str,
+    message: str,
     is_intro: bool,
-    data: object,
-    title: str | None = None,
+    immediate_data: Mapping[str, Json] | None,
+    emoji: str | None = None,
     has_subscribers: bool | None = None,
 ) -> None:
-    if from_name is None:
-        return None
-
-    if to_username is None:
-        return
-
-    if message is None:
-        return
-
+    data = (
+        immediate_data
+        if immediate_data is not None
+        else await fetch_web_push_data(from_id=from_id))
     if data is None:
         return
 
+    from_name = row_str_or_none(data, 'name')
+    if from_name is None:
+        return
+
+    online = await _is_online(to_username, has_subscribers)
+
+    title = _notification_title(from_name, emoji)
+    body = _notification_body(message)
+    routing = _conversation_screen_data(data)
+
+    if immediate_data is not None:
+        await _send_mobile_push(
+            to_username=to_username,
+            title=title,
+            body=body,
+            routing=routing,
+            is_intro=is_intro,
+            online=online,
+        )
+
+    if not online:
+        return
+
+    await _send_web_push(
+        to_username=to_username,
+        title=title,
+        body=body,
+        routing=routing,
+    )
+
+
+async def _send_mobile_push(
+    to_username: str,
+    title: str,
+    body: str,
+    routing: Json,
+    is_intro: bool,
+    online: bool,
+) -> None:
     to_tokens = await fetch_push_tokens(username=to_username)
 
     # No device is reachable by push notification. Leave the last-notification
     # time untouched so the cron job falls back to emailing the user.
     if not to_tokens:
         return
-
-    truncated_message = _notification_body(message)
-
-    online = await _is_online(to_username, has_subscribers)
 
     # The app-icon badge counts pushes sent while the user had no connected
     # clients. With a client open, the user can see the message themselves, so
@@ -313,9 +343,9 @@ async def send_notification(
     for to_token in to_tokens:
         notify.enqueue_mobile_notification(
             token=to_token,
-            title=title if title is not None else _default_notification_title(from_name),
-            body=truncated_message,
-            data=data,
+            title=title,
+            body=body,
+            data=routing,
             badge=badge,
         )
 
@@ -328,6 +358,12 @@ def _default_notification_title(from_name: str) -> str:
 
 def _reaction_notification_title(from_name: str, emoji: str) -> str:
     return f"{from_name} reacted {emoji} to your message"
+
+
+def _notification_title(from_name: str, emoji: str | None) -> str:
+    if emoji is None:
+        return _default_notification_title(from_name)
+    return _reaction_notification_title(from_name, emoji)
 
 
 def _notification_body(message: str) -> str:
@@ -470,44 +506,15 @@ async def fetch_web_push_data(from_id: int) -> Mapping[str, Json] | None:
     return row if row else None
 
 
-async def send_web_push_notification(
-    from_id: int,
-    to_username: str | None,
-    message: str | None,
-    immediate_data: Mapping[str, Json] | None,
-    emoji: str | None = None,
-    has_subscribers: bool | None = None,
+async def _send_web_push(
+    to_username: str,
+    title: str,
+    body: str,
+    routing: Json,
 ) -> None:
-    if to_username is None:
-        return
-
-    if message is None:
-        return
-
-    if not await _is_online(to_username, has_subscribers):
-        return
-
     subscriptions = await fetch_web_push_subscriptions(username=to_username)
     if not subscriptions:
         return
-
-    data = (
-        immediate_data
-        if immediate_data is not None
-        else await fetch_web_push_data(from_id=from_id))
-    if data is None:
-        return
-
-    from_name = row_str_or_none(data, 'name')
-    if from_name is None:
-        return
-
-    title = (
-        _reaction_notification_title(from_name, emoji)
-        if emoji is not None
-        else _default_notification_title(from_name))
-    body = _notification_body(message)
-    routing = _conversation_screen_data(data)
 
     for session_token_hash, subscription in subscriptions:
         webpushsender.enqueue_web_push(
@@ -568,29 +575,13 @@ async def _send_reaction_notification(
         to_id=partner_id,
         is_intro=False)
 
-    await send_web_push_notification(
+    await send_notifications(
         from_id=from_id,
         to_username=partner_username,
         message=target_body,
+        is_intro=False,
         immediate_data=immediate_data,
         emoji=emoji,
-        has_subscribers=has_subscribers,
-    )
-
-    if immediate_data is None:
-        return
-
-    from_name = row_str_or_none(immediate_data, 'name')
-    if from_name is None:
-        return
-
-    await send_notification(
-        from_name=from_name,
-        to_username=partner_username,
-        message=target_body,
-        is_intro=False,
-        title=_reaction_notification_title(from_name, emoji),
-        data=_conversation_screen_data(immediate_data),
         has_subscribers=has_subscribers,
     )
 
@@ -952,16 +943,6 @@ async def process_text(
             if is_shadow_banned
             else await redis_has_subscribers(REDIS_WORKER_CLIENT, to_username))
 
-        if immediate_data is not None and not is_shadow_banned:
-            await send_notification(
-                from_name=row_str_or_none(immediate_data, 'name'),
-                to_username=to_username,
-                message=maybe_message.body,
-                is_intro=is_intro,
-                data=_conversation_screen_data(immediate_data),
-                has_subscribers=to_has_subscribers,
-            )
-
         response = MessageDelivered(
             stanza_id=stanza_id,
             stamp=sent_at_stamp,
@@ -986,10 +967,11 @@ async def process_text(
 
             await redis_publish_many(to_username, [delivery_message])
 
-            await send_web_push_notification(
+            await send_notifications(
                 from_id=from_id,
                 to_username=to_username,
                 message=maybe_message.body,
+                is_intro=is_intro,
                 immediate_data=immediate_data,
                 has_subscribers=to_has_subscribers,
             )
