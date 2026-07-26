@@ -1027,6 +1027,15 @@ CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
     ON visited(updated_at DESC, object_person_id, subject_person_id)
     WHERE NOT invisible;
 
+CREATE INDEX IF NOT EXISTS idx__search_preference_age__person_id__bounds
+    ON search_preference_age(person_id) INCLUDE (min_age, max_age);
+
+CREATE INDEX IF NOT EXISTS idx__search_preference_distance__person_id__distance
+    ON search_preference_distance(person_id) INCLUDE (distance);
+
+CREATE INDEX IF NOT EXISTS idx__search_preference_height_cm__person_id__bounds
+    ON search_preference_height_cm(person_id) INCLUDE (min_height_cm, max_height_cm);
+
 CREATE INDEX IF NOT EXISTS
     idx__person__personality
     ON person

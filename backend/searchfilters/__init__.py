@@ -273,7 +273,7 @@ SELECT
     ) AS has_answer_prefs,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
-    person.date_of_birth::TEXT AS searcher_date_of_birth,
+    EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
     person.height_cm AS searcher_height_cm,
 {_SEARCHER_ATTR_SELECTS},
 {_TWO_WAY_FLAG_SELECTS},
@@ -364,14 +364,9 @@ _REVERSE_AGE = sql_fragment("""
         WHERE
             reverse_preference.person_id = prospect.id
         AND
-            %(searcher_date_of_birth)s::DATE <= (
-                CURRENT_DATE - INTERVAL '1 year' * COALESCE(reverse_preference.min_age, 0)
-            )::DATE
+            COALESCE(reverse_preference.min_age, 0) <= %(searcher_age)s
         AND
-            %(searcher_date_of_birth)s::DATE > (
-                CURRENT_DATE -
-                INTERVAL '1 year' * (COALESCE(reverse_preference.max_age, 999) + 1)
-            )::DATE
+            COALESCE(reverse_preference.max_age, 999) >= %(searcher_age)s
     )
 """)
 
@@ -423,7 +418,7 @@ def two_way_filters(prefs: Row) -> ProspectFilters:
             params[f'searcher_{column}'] = row_int(prefs, f'searcher_{column}')
         elif key == 'age':
             clauses.append(_REVERSE_AGE)
-            params['searcher_date_of_birth'] = row_str(prefs, 'searcher_date_of_birth')
+            params['searcher_age'] = row_int(prefs, 'searcher_age')
         elif key == 'furthest_distance':
             clauses.append(_REVERSE_DISTANCE)
             params['searcher_coordinates'] = row_str(prefs, 'searcher_coordinates')
