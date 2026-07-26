@@ -306,59 +306,19 @@ FROM
 LIMIT 1
 """
 
-Q_IMMEDIATE_VISITOR_NOTIFICATION = """
+# Whether a visit is worth announcing at all is `Q_VISITOR_ITEM`'s business: it
+# decides what the visitors tab shows, and a notification about a visit the tab
+# hides would be one the person can't act on. All that's left to ask is whether
+# they want to hear about it the moment it happens.
+Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION = """
 SELECT
-    visitor.name AS name
+    1
 FROM
-    visited
-JOIN
-    person AS prospect
-ON
-    prospect.id = visited.object_person_id
-JOIN
-    person AS visitor
-ON
-    visitor.id = visited.subject_person_id
+    person
 WHERE
-    visited.subject_person_id = %(viewer_id)s
+    id = %(person_id)s
 AND
-    visited.object_person_id = %(prospect_id)s
-AND
-    -- The conditions the periodic check applies to a visit, so one it would
-    -- never mention isn't announced here either.
-    NOT visited.invisible
-AND
-    visitor.activated
-AND
-    visitor.shadow_banned_at IS NULL
-AND
-    prospect.activated
-AND
-    prospect.visitors_notification = 1 -- Immediate notification ID
-AND
-    -- Naming the visitor means only naming one the visitors tab is willing to
-    -- show, and it hides a visit when either person has skipped the other.
-    NOT EXISTS (
-        SELECT
-            1
-        FROM
-            skipped
-        WHERE
-            subject_person_id = %(viewer_id)s
-        AND
-            object_person_id = %(prospect_id)s
-    )
-AND
-    NOT EXISTS (
-        SELECT
-            1
-        FROM
-            skipped
-        WHERE
-            subject_person_id = %(prospect_id)s
-        AND
-            object_person_id = %(viewer_id)s
-    )
+    visitors_notification = 1 -- Immediate notification ID
 """
 
 Q_MARK_VISITORS_CHECKED = """
