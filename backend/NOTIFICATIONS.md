@@ -36,6 +36,11 @@ the three: a profile can be visited far more often than it's messaged. There is
 no immediate path for visits either — even "immediately" waits for the periodic
 check below, so a visit is never pushed while the visitor is still reading.
 
+Only visits made after the feature shipped are notified about. Everyone who
+already existed had their visitor clock set to the moment the migration ran, so
+nobody was told about the backlog of visits that had piled up before there was
+anything to tell them with.
+
 Visits are never folded into a message notification. Somebody who was visited
 and then messaged gets **two** notifications: one headed "you have a new
 message", which opens the inbox, and one headed "someone visited your profile",

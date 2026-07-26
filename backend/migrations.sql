@@ -64,8 +64,30 @@ END $$;
 
 ALTER TABLE person
     ADD COLUMN IF NOT EXISTS visitors_notification SMALLINT
-        REFERENCES immediacy(id) NOT NULL DEFAULT 4,
-    ADD COLUMN IF NOT EXISTS visitor_seconds INT NOT NULL DEFAULT 0;
+        REFERENCES immediacy(id) NOT NULL DEFAULT 4;
+
+-- Existing people start with their visitor clock set to the moment this ran, so
+-- only visits made after the feature shipped are notified about. Starting from
+-- zero instead would treat ten days of accumulated visits as unannounced and
+-- notify roughly nineteen thousand people at once. The default drops back to
+-- zero afterwards, so somebody who signs up later is still told about their
+-- first visitor. The clock has to be interpolated as a literal for the ALTER to
+-- stay metadata-only rather than rewriting the table.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'person' AND column_name = 'visitor_seconds'
+    ) THEN
+        EXECUTE format(
+            'ALTER TABLE person '
+            'ADD COLUMN visitor_seconds INT NOT NULL DEFAULT %s',
+            EXTRACT(EPOCH FROM NOW())::int);
+
+        ALTER TABLE person ALTER COLUMN visitor_seconds SET DEFAULT 0;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
     ON visited(updated_at DESC, object_person_id, subject_person_id)
