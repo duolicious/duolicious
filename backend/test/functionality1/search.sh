@@ -25,7 +25,7 @@ setup () {
 
   q "update photo set blurhash = 'the-blurhash'"
   q "update person set privacy_verification_level_id = 1"
-  q "update person set personality = array_full(47, 1e-5)"
+  q "update person set personality = array_full(47, (1e-5 + id * 1e-8)::FLOAT4)"
 
   searcher_id=$(q "select id from person where email = 'searcher@example.com'")
   user1_id=$(q "select id from person where email = 'user1@example.com'")
@@ -340,7 +340,7 @@ test_photos_promoted () {
   setup
   ../util/create-user.sh user3 0
   ../util/create-user.sh user4 0
-  q "update person set personality = array_full(47, 1e-5)"
+  q "update person set personality = array_full(47, (1e-5 + id * 1e-8)::FLOAT4)"
 
   assert_search_names 'user1 user2 user3 user4' 10 0
 
@@ -390,7 +390,7 @@ test_verified_promoted () {
   where name = 'searcher'"
   q "
   update person
-  set personality = array_full(47, 1e-3)"
+  set personality = array_full(47, (1e-3 + id * 1e-6)::FLOAT4)"
   q "
   update person
   set personality = array_full(47, 9e-2)
@@ -453,7 +453,7 @@ test_verified_promoted () {
 test_quiz_filters () {
   setup
   ../util/create-user.sh user3 2
-  q "update person set personality = array_full(47, 1e-5)"
+  q "update person set personality = array_full(47, (1e-5 + id * 1e-8)::FLOAT4)"
 
   # Gotta set answers to something non-null; ../util/create-user.sh sometimes gives
   # null answers

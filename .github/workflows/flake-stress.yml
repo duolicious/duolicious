@@ -15,9 +15,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test:
-          - ./functionality1/shadow-banned.sh
-        shard: [1, 2, 3, 4, 5, 6]
+        include:
+          - test: ./functionality1/shadow-banned.sh
+            iterations: 40
+            shard: 1
+          - test: ./functionality1/shadow-banned.sh
+            iterations: 40
+            shard: 2
+          - test: ./functionality1/shadow-banned.sh
+            iterations: 40
+            shard: 3
+          - test: ./functionality1/search.sh
+            iterations: 4
+            shard: 1
+          - test: ./functionality1/search.sh
+            iterations: 4
+            shard: 2
+          - test: ./functionality1/search.sh
+            iterations: 4
+            shard: 3
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4
@@ -25,7 +41,7 @@ jobs:
       - name: Stress one test
         run: |
           ./test/util/with-container.sh \
-            ./test/util/stress.sh '${{ matrix.test }}' 40
+            ./test/util/stress.sh '${{ matrix.test }}' '${{ matrix.iterations }}'
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
