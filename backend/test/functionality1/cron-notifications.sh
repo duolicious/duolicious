@@ -717,6 +717,60 @@ test_pushed_to_each_signed_in_device () {
   [[ "$(badges_of_pushes_to 'token_dev_b')" = '[1]' ]]
 }
 
+# Each kind of notification is capped by its own drift period. A chat
+# notification that goes out while an intro is still inside its (weekly) drift
+# period says nothing about the intro and leaves the intro's clock alone.
+#
+# That untouched clock can't turn into a second notification moments later: the
+# drift check compares the last intro notification against the newest unread
+# intro, and time advances neither. The intro waits for one newer than the drift
+# period, which is exactly what "weekly" asks for.
+test_chat_notification_leaves_a_drifting_intro_alone () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_drifting_intro'
+
+  # Both messages must land after the user was last online.
+  q "update person set last_online_time = now() - interval '60 minutes'
+     where uuid = '$user1id'"
+
+  # Weekly intros, immediate chats.
+  q "update person set intros_notification = 4, chats_notification = 1
+     where uuid = '$user1id'"
+
+  local last_intro_notification=$(db_now as-seconds '- 40 minutes')
+  q "update person set intro_seconds = $last_intro_notification
+     where uuid::text = '$user1id'"
+
+  q "
+  insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
+  values
+    ('$user1id', 'sender1', '', 'inbox', $(db_now as-microseconds '- 30 minutes'), 42, '', 'I'),
+    ('$user1id', 'sender2', '', 'chats', $(db_now as-microseconds '- 20 minutes'), 43, '', 'I')
+  "
+
+  sleep 4
+
+  # One notification, and it claims nothing about the intro.
+  [[ "$(pushes_to 'token_drifting_intro')" = '[{"title":"You have a new message 😍","body":"You have a new message in your chats!","screen":"Inbox"}]' ]]
+
+  # The chat's notification didn't reset the intro's clock ...
+  [[ "$(q " \
+    select count(*) \
+    from person \
+    where \
+    uuid::text = '$user1id' and \
+    intro_seconds = $last_intro_notification and \
+    chat_seconds > 0")" = 1 ]]
+
+  # ... and the intro still doesn't produce a follow-up on later polls.
+  sleep 4
+  [[ "$(count_pushes_to 'token_drifting_intro')" = 1 ]]
+}
+
 # A visit is worth notifying about all on its own, even when the inbox is
 # empty, and it sends the user to the visitors tab rather than the inbox. The
 # default frequency is weekly, and nobody has been notified about visitors
@@ -904,6 +958,8 @@ test_visitors_emailed_when_no_phone () {
 test_happy_path_intros
 test_happy_path_chats
 test_happy_path_chat_not_deferred_by_intro
+
+test_chat_notification_leaves_a_drifting_intro_alone
 
 test_happy_path_visitors
 test_happy_path_visitor_and_intro_are_separate
