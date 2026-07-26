@@ -111,6 +111,15 @@ WHERE
     uuid = uuid_or_null(%(username)s)
 """
 
+Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME = """
+UPDATE
+    person
+SET
+    visitor_seconds = extract(epoch from now() + INTERVAL '5 seconds')::int
+WHERE
+    uuid = uuid_or_null(%(username)s)
+"""
+
 Q_IS_ALLOWED_CLUB_NAME = """
 WITH similar_banned_club AS (
     SELECT

@@ -1489,6 +1489,10 @@ WITH photo_ AS (
     SELECT immediacy.name AS j
     FROM immediacy JOIN person ON intros_notification = immediacy.id
     WHERE person.id = %(person_id)s
+), visitor AS (
+    SELECT immediacy.name AS j
+    FROM immediacy JOIN person ON visitors_notification = immediacy.id
+    WHERE person.id = %(person_id)s
 
 ), privacy_verification_level AS (
     SELECT
@@ -1584,6 +1588,7 @@ SELECT
 
         'chats',                  (SELECT j FROM chat),
         'intros',                 (SELECT j FROM intro),
+        'visitors',               (SELECT j FROM visitor),
 
         'verification level',     (SELECT j FROM privacy_verification_level),
         'public profile',         (SELECT j FROM public_profile),
@@ -2157,6 +2162,26 @@ FROM
     updated_rows
 """
 
+Q_UPDATE_VISITORS_NOTIFICATIONS = """
+WITH updated_rows AS (
+    UPDATE
+        person
+    SET
+        visitors_notification = immediacy.id
+    FROM
+        immediacy
+    WHERE
+        person.email = %(email)s
+    AND
+        immediacy.name = %(frequency)s
+    RETURNING 1
+)
+SELECT
+    count(*) > 0 AS ok
+FROM
+    updated_rows
+"""
+
 Q_CHECK_ADMIN_BAN_TOKEN = """
 SELECT 1 FROM banned_person_admin_token WHERE token = %(token)s
 """
@@ -2497,6 +2522,7 @@ SELECT json_build_object(
                 unit.name AS unit_name,
                 chats_notification.name AS chats_notification_name,
                 intros_notification.name AS intros_notification_name,
+                visitors_notification.name AS visitors_notification_name,
                 privacy_verification_level.name AS privacy_verification_level_name,
                 show_my_location.name AS show_my_location_name
             FROM
@@ -2569,6 +2595,10 @@ SELECT json_build_object(
                 immediacy AS
                 intros_notification ON
                 intros_notification.id = person.intros_notification
+            LEFT JOIN
+                immediacy AS
+                visitors_notification ON
+                visitors_notification.id = person.visitors_notification
             LEFT JOIN
                 verification_level AS
                 privacy_verification_level ON

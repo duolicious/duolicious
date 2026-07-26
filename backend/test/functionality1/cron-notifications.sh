@@ -9,6 +9,7 @@ set -ex
 
 setup () {
   q "delete from inbox"
+  # Cascades to `visited`
   q "delete from person"
 
   delete_emails
@@ -45,6 +46,48 @@ db_now () {
   fi
 
   q "select (extract(epoch from now() + interval '${interval}') * ${conversion_factor})::bigint"
+}
+
+# Record a visit of one user's profile by another, as though it happened
+# `age` ago.
+# Example: insert_visit "$user2id" "$user1id" '11 minutes' true
+insert_visit () {
+  local visitor_uuid=$1
+  local visited_uuid=$2
+  local age=$3
+  local invisible=${4:-false}
+
+  q "
+  insert into visited (subject_person_id, object_person_id, updated_at, invisible)
+  select
+    (select id from person where uuid::text = '$visitor_uuid'),
+    (select id from person where uuid::text = '$visited_uuid'),
+    now() - interval '${age}',
+    ${invisible}
+  "
+}
+
+# The pushes sent to a token, as a compact JSON array of the fields a test
+# cares about.
+# Example: [[ "$(pushes_to 'some_token')" = '[{"title":"...",...}]' ]]
+pushes_to () {
+  local token=$1
+  curl -s 'http://localhost:3002/messages' \
+    | jq -c "[.[]
+        | select(.to == \"${token}\")
+        | {title, body, screen: .data.params.screen}]"
+}
+
+# Give user1 a reachable push token and put them offline, so the cron pushes to
+# them rather than emailing.
+give_user1_a_phone () {
+  local token=$1
+
+  q "update person set last_online_time = now() - interval '20 minutes' where uuid = '$user1id'"
+  q "update duo_session
+     set push_token = '$token', last_online_time = now() - interval '20 minutes'
+     where signed_in
+     and person_id = (select id from person where uuid::text = '$user1id')"
 }
 
 test_happy_path_intros () {
@@ -674,9 +717,198 @@ test_pushed_to_each_signed_in_device () {
   [[ "$(badges_of_pushes_to 'token_dev_b')" = '[1]' ]]
 }
 
+# A visit is worth notifying about all on its own, even when the inbox is
+# empty, and it sends the user to the visitors tab rather than the inbox. The
+# default frequency is weekly, and nobody has been notified about visitors
+# before, so the visit is due immediately.
+test_happy_path_visitors () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_visitors'
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  is_inbox_empty
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  sleep 4
+
+  # Only the visitor notification was recorded; there were no messages.
+  [[ "$(q " \
+    select count(*) \
+    from person \
+    where \
+    uuid::text = '$user1id' and \
+    visitor_seconds > 0 and \
+    intro_seconds = 0 and \
+    chat_seconds = 0")" = 1 ]]
+
+  [[ "$(pushes_to 'token_visitors')" = '[{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
+
+  # The visit is announced once; the next poll finds nothing new to say.
+  sleep 4
+  [[ "$(count_pushes_to 'token_visitors')" = 1 ]]
+}
+
+# A message and a visit arriving in the same window are announced together, in
+# one notification that opens the inbox.
+test_happy_path_visitor_and_intro_together () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_both'
+
+  q "
+  insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
+  values ('$user1id', '', '', 'inbox', $(db_now as-microseconds '- 11 minutes'), 42, '', 'I')
+  "
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  sleep 4
+
+  [[ "$(q " \
+    select count(*) \
+    from person \
+    where \
+    uuid::text = '$user1id' and \
+    visitor_seconds > 0 and \
+    intro_seconds > 0")" = 1 ]]
+
+  [[ "$(pushes_to 'token_both')" = '[{"title":"You have a new message 😍","body":"You have a new message in your intros! Someone visited your profile!","screen":"Inbox"}]' ]]
+}
+
+# A visit made while browsing invisibly never shows up in the visitors tab, so
+# it must not produce a notification either.
+test_sad_invisible_visit () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_invisible'
+
+  insert_visit "$user2id" "$user1id" '11 minutes' true
+
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_invisible')" = 0 ]]
+  is_inbox_empty
+}
+
+# A shadow-banned visitor doesn't exist from anyone else's perspective, so their
+# visit isn't notified about.
+test_sad_shadow_banned_visitor () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_shadow_banned'
+
+  q "update person set shadow_banned_at = now() where uuid = '$user2id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_shadow_banned')" = 0 ]]
+}
+
+# "Never" means no visitor notifications at all.
+test_sad_visitors_notification_never () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_never'
+
+  q "update person set visitors_notification = 5 where uuid = '$user1id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_never')" = 0 ]]
+}
+
+# Like messages, a visit is left alone for ten minutes: the user may still be
+# looking at their visitors tab.
+test_sad_visited_9_minutes_ago () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_too_recent'
+
+  insert_visit "$user2id" "$user1id" '9 minutes'
+
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_too_recent')" = 0 ]]
+}
+
+# A user who was online after the visit has already seen it in their visitors
+# tab.
+test_sad_online_after_visit () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  # The helper leaves user1 last online twenty minutes ago, after the visit.
+  give_user1_a_phone 'token_seen_it'
+
+  insert_visit "$user2id" "$user1id" '30 minutes'
+
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_seen_it')" = 0 ]]
+}
+
+# A user with no push device is emailed about their visitors instead, and the
+# email points at the visitors page.
+test_visitors_emailed_when_no_phone () {
+  setup
+
+  q "delete from duo_session
+     where person_id = (select id from person where uuid::text = '$user1id')"
+  q "update person set last_online_time = now() - interval '20 minutes' where uuid = '$user1id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  sleep 4
+
+  [[ "$(q "select count(*) from person where uuid::text = '$user1id' and visitor_seconds > 0")" = 1 ]]
+  [[ "$(count_emails_to 'user1@duolicious.app')" = 1 ]]
+
+  get_emails | grep -q 'Someone visited your profile!'
+  get_emails | grep -q 'get.duolicious.app/visitors'
+}
+
 test_happy_path_intros
 test_happy_path_chats
 test_happy_path_chat_not_deferred_by_intro
+
+test_happy_path_visitors
+test_happy_path_visitor_and_intro_together
+test_sad_invisible_visit
+test_sad_shadow_banned_visitor
+test_sad_visitors_notification_never
+test_sad_visited_9_minutes_ago
+test_sad_online_after_visit
+test_visitors_emailed_when_no_phone
 
 test_recently_active_mobile_user_pushed
 test_pushed_to_each_signed_in_device

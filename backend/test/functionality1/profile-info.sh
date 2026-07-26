@@ -516,6 +516,7 @@ test_set star_sign Sagittarius
 test_set units Imperial
 test_set chats 'Every 3 days'
 test_set intros Weekly
+test_set visitors Daily
 test_set verification_level 'Basics only'
 test_set show_my_location Yes
 test_set show_my_online_status No

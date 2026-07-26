@@ -3,6 +3,9 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from service.cron.notifications import (
     PersonNotification,
     compute_badges,
+    do_send_notification,
+    is_visitor_sendable,
+    notification_screen,
     send_mobile_notification,
     send_notification,
 )
@@ -14,14 +17,18 @@ def make_person_notification(**overrides: str | int | bool | None) -> PersonNoti
         person_uuid='2',
         last_intro_notification_seconds=1693786048,
         last_chat_notification_seconds=1693786048,
+        last_visitor_notification_seconds=1693786048,
         has_intro=True,
         has_chat=True,
+        has_visitor=False,
         last_intro_seconds=1693786124,
         last_chat_seconds=100,
+        last_visitor_seconds=0,
         name='jk',
         email='user.1@gmail.com',
         chats_drift_seconds=0,
         intros_drift_seconds=86400,
+        visitors_drift_seconds=604800,
         token='asdf',
     )
     for key, value in overrides.items():
@@ -121,6 +128,67 @@ class TestComputeBadges(unittest.TestCase):
 
         mock_increment.assert_not_awaited()
         self.assertEqual(badges, {})
+
+
+def make_visitor_only_notification(
+    **overrides: str | int | bool | None,
+) -> PersonNotification:
+    return make_person_notification(
+        has_intro=False,
+        has_chat=False,
+        has_visitor=True,
+        last_visitor_notification_seconds=0,
+        last_visitor_seconds=1693786124,
+        **overrides,
+    )
+
+
+class TestVisitorNotifications(unittest.TestCase):
+
+    def test_visitor_alone_is_worth_notifying_about(self) -> None:
+        row = make_visitor_only_notification()
+
+        self.assertTrue(is_visitor_sendable(row))
+        self.assertTrue(do_send_notification(row))
+
+    def test_never_suppresses_visitor_notifications(self) -> None:
+        row = make_visitor_only_notification(visitors_drift_seconds=-1)
+
+        self.assertFalse(is_visitor_sendable(row))
+        self.assertFalse(do_send_notification(row))
+
+    def test_drift_period_defers_visitor_notifications(self) -> None:
+        # The last visit landed a minute after the last notification, well
+        # inside the weekly drift period, so it waits.
+        row = make_visitor_only_notification(
+                last_visitor_notification_seconds=1693786064)
+
+        self.assertFalse(is_visitor_sendable(row))
+
+    @patch('service.cron.notifications.disable_mobile_notifications')
+    @patch('service.cron.notifications.notify.enqueue_mobile_notification')
+    def test_visitor_only_push_opens_the_visitors_tab(
+        self,
+        mock_enqueue: MagicMock,
+        mock_disable: MagicMock,
+    ) -> None:
+        mock_disable.return_value = False
+        row = make_visitor_only_notification()
+
+        send_mobile_notification(row, badge=1)
+
+        [kwargs] = [call.kwargs for call in mock_enqueue.call_args_list]
+        self.assertEqual(kwargs['title'], 'Someone visited your profile 👀')
+        self.assertEqual(kwargs['body'], 'Someone visited your profile!')
+        self.assertEqual(
+                kwargs['data'],
+                {'screen': 'Home', 'params': {'screen': 'Visitors'}})
+
+    def test_a_message_sends_the_reader_to_the_inbox(self) -> None:
+        self.assertEqual(
+                notification_screen(
+                    has_intro=False, has_chat=True, has_visitor=True),
+                {'screen': 'Home', 'params': {'screen': 'Inbox'}})
 
 
 if __name__ == '__main__':

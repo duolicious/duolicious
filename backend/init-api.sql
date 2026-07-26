@@ -325,6 +325,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- Notification Settings
     chats_notification SMALLINT REFERENCES immediacy(id) NOT NULL DEFAULT 1,
     intros_notification SMALLINT REFERENCES immediacy(id) NOT NULL DEFAULT 2,
+    visitors_notification SMALLINT REFERENCES immediacy(id) NOT NULL DEFAULT 4,
 
     -- Privacy Settings
     show_my_location_id SMALLINT REFERENCES yes_country_only_no(id) NOT NULL DEFAULT 1,
@@ -374,6 +375,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- Notifications
     intro_seconds INT NOT NULL DEFAULT 0,
     chat_seconds INT NOT NULL DEFAULT 0,
+    visitor_seconds INT NOT NULL DEFAULT 0,
     -- How many push notifications were sent while the user had no connected
     -- chat clients. Stamped into each push as the iOS app-icon badge and
     -- zeroed when the user goes from zero connected clients to one.
@@ -1016,6 +1018,14 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
+
+-- Serves the visitor-notification cron, which sweeps every recent visit rather
+-- than looking one person up. Both person ids are in the index so the sweep
+-- needn't touch the heap, and invisible visits are excluded because they never
+-- reach the visitors tab and so are never notified about.
+CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
+    ON visited(updated_at DESC, object_person_id, subject_person_id)
+    WHERE NOT invisible;
 
 CREATE INDEX IF NOT EXISTS
     idx__person__personality

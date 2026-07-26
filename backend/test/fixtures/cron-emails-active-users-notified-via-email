@@ -76,6 +76,15 @@ Body: <!DOCTYPE html>
                                     <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Intros&frequency=Weekly"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
                                     <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Intros&frequency=Never"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
                                 </span>
+                                <br/>
+                                <br/>
+                                <span>Visitors:
+                                    <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Visitors&frequency=Immediately"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
+                                    <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Visitors&frequency=Daily"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
+                                    <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Visitors&frequency=Every+3+days" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
+                                    <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Visitors&frequency=Weekly"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
+                                    <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Visitors&frequency=Never"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
+                                </span>
                                 <p>
                                     <a href="https://api.duolicious.app/update-notifications?email=user2%40duolicious.app&type=Every&frequency=Never" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Unsubscribe all</a>
                                 </p>

@@ -1,7 +1,8 @@
 # Notifications
 
-When a user has an unread intro or chat, Duolicious notifies them — by push
-notification to their phone, or by email as a fallback.
+When a user has an unread intro or chat, or somebody has visited their profile,
+Duolicious notifies them — by push notification to their phone, or by email as a
+fallback.
 
 ## When a user is notified
 
@@ -17,10 +18,26 @@ Otherwise, the user is notified once **all** of these hold:
 - they haven't already been notified about it, and
 - the message is less than 10 days old.
 
-Each user also chooses, separately for intros and chats, how often they're
-willing to be notified: immediately, daily, every 3 days, weekly, or never. A
-notification only goes out once that much time has elapsed since the last one for
-that type — and "never" means none at all.
+Each user also chooses, separately for intros, chats and visitors, how often
+they're willing to be notified: immediately, daily, every 3 days, weekly, or
+never. A notification only goes out once that much time has elapsed since the
+last one for that type — and "never" means none at all.
+
+## Visitors
+
+Visits are notified about under exactly the rules above, reading the newest
+visit a person received in place of the newest message they were sent. Two kinds
+of visit are skipped, because neither one appears in the visitors tab and a
+notification the user can't act on is worse than none: visits made while
+browsing invisibly, and visits by somebody deactivated or shadow banned.
+
+Visitors default to **weekly**, which is deliberately the quietest default of
+the three: a profile can be visited far more often than it's messaged. There is
+no immediate path for visits either — even "immediately" waits for the periodic
+check below, so a visit is never pushed while the visitor is still reading.
+
+A notification that mentions a message opens the inbox. One about nothing but
+visitors opens the visitors tab instead.
 
 ## Web push (online users only)
 
@@ -88,9 +105,9 @@ A device that has been signed out is never pushed to.
 ## Immediate vs. delayed
 
 Immediate notifications are pushed the instant a qualifying message arrives.
-Everything else — every other frequency, the email fallback, and anyone an
-immediate push couldn't reach — is handled by a periodic check that applies all
-the rules above.
+Everything else — every other frequency, every visitor notification, the email
+fallback, and anyone an immediate push couldn't reach — is handled by a periodic
+check that applies all the rules above.
 
 ## The app-icon badge
 

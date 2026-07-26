@@ -1148,6 +1148,21 @@ const notificationSettingsOptionGroups: OptionGroup<OptionGroupButtons>[] = [
       }
     }
   },
+  {
+    title: 'Visitors',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="people" />,
+    description: "When do you want to be notified if someone visits your profile? (“Daily” still sends the first notification of the day immediately, but snoozes later notifications so that you get at-most one notification per 24 hours.)",
+    input: {
+      buttons: {
+        values: immediacy,
+        submit: async (visitors: string) => {
+          const ok = (await japi('patch', '/profile-info', { visitors })).ok;
+          if (ok) patchProfileInfo({ visitors });
+          return ok;
+        },
+      }
+    }
+  },
 ];
 
 const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [

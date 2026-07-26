@@ -1,17 +1,21 @@
-Q_UNREAD_INBOX = """
+Q_PENDING_NOTIFICATIONS = """
 WITH ten_minutes_ago AS (
     SELECT
         EXTRACT(EPOCH FROM (
             NOW() - INTERVAL '10 minutes'))::bigint AS seconds
 ), inbox_first_pass AS (
     SELECT
-        luser AS username,
+        person.id AS person_id,
         MAX(CASE WHEN box = 'inbox' THEN timestamp ELSE 0 END) / 1000000 AS last_intro_seconds,
         MAX(CASE WHEN box = 'chats' THEN timestamp ELSE 0 END) / 1000000 AS last_chat_seconds,
         BOOL_OR(box = 'inbox')  AS has_intro,
         BOOL_OR(box = 'chats')  AS has_chat
     FROM
         inbox
+    JOIN
+        person
+    ON
+        person.uuid = uuid_or_null(inbox.luser)
     WHERE
         unread_count > 0
     AND
@@ -19,35 +23,80 @@ WITH ten_minutes_ago AS (
             -- ten days ago as microseconds
             EXTRACT(EPOCH FROM (NOW() - INTERVAL '10 days'))::bigint * 1000000
     GROUP BY
-        luser
-), notifiable AS (
-    -- Decide, per person, whether they're due an intro and/or chat
-    -- notification. This depends only on the person and their inbox, never on
-    -- their sessions, so it's done before the (more expensive) session summary
-    -- below: only the handful of people who survive this filter need it.
+        person.id
+), visitor_first_pass AS (
+    -- The most recent visit each person received. `visited` holds one row per
+    -- (visitor, visited) pair, updated in place, so the ten-day window covers
+    -- the pairs whose latest visit is recent rather than every visit ever
+    -- made. Invisible visits are excluded because they never show up in the
+    -- visitors tab, and so are visits from people the tab hides.
     SELECT
-        inbox_first_pass.username AS person_uuid,
+        visited.object_person_id AS person_id,
+        EXTRACT(EPOCH FROM MAX(visited.updated_at))::bigint AS last_visitor_seconds
+    FROM
+        visited
+    JOIN
+        person AS visitor
+    ON
+        visitor.id = visited.subject_person_id
+    WHERE
+        NOT visited.invisible
+    AND
+        visited.updated_at > NOW() - INTERVAL '10 days'
+    AND
+        visitor.activated
+    AND
+        visitor.shadow_banned_at IS NULL
+    GROUP BY
+        visited.object_person_id
+), first_pass AS (
+    -- A person is a candidate if they have an unread message, a recent
+    -- visitor, or both, so the two passes are joined rather than intersected.
+    SELECT
+        COALESCE(inbox_first_pass.person_id, visitor_first_pass.person_id) AS person_id,
+        COALESCE(inbox_first_pass.last_intro_seconds, 0) AS last_intro_seconds,
+        COALESCE(inbox_first_pass.last_chat_seconds, 0) AS last_chat_seconds,
+        COALESCE(inbox_first_pass.has_intro, FALSE) AS has_intro,
+        COALESCE(inbox_first_pass.has_chat, FALSE) AS has_chat,
+        COALESCE(visitor_first_pass.last_visitor_seconds, 0) AS last_visitor_seconds,
+        visitor_first_pass.person_id IS NOT NULL AS has_visitor
+    FROM
+        inbox_first_pass
+    FULL OUTER JOIN
+        visitor_first_pass
+    ON
+        visitor_first_pass.person_id = inbox_first_pass.person_id
+), notifiable AS (
+    -- Decide, per person, whether they're due an intro, chat and/or visitor
+    -- notification. This depends only on the person, their inbox and their
+    -- visitors, never on their sessions, so it's done before the (more
+    -- expensive) session summary below: only the handful of people who survive
+    -- this filter need it.
+    SELECT
+        person.uuid::TEXT AS person_uuid,
         person.id AS person_id,
         person.last_online_time,
-        inbox_first_pass.last_intro_seconds,
-        inbox_first_pass.last_chat_seconds,
+        first_pass.last_intro_seconds,
+        first_pass.last_chat_seconds,
+        first_pass.last_visitor_seconds,
         COALESCE(person.intro_seconds, 0) AS last_intro_notification_seconds,
         COALESCE(person.chat_seconds, 0) AS last_chat_notification_seconds,
+        COALESCE(person.visitor_seconds, 0) AS last_visitor_notification_seconds,
         (
-                inbox_first_pass.has_intro
+                first_pass.has_intro
             AND
                 -- only notify users we haven't already notified
-                inbox_first_pass.last_intro_seconds >
+                first_pass.last_intro_seconds >
                     COALESCE(person.intro_seconds, 0)
             AND
                 -- only notify users about messages sent longer than ten minutes
                 -- ago
-                inbox_first_pass.last_intro_seconds <
+                first_pass.last_intro_seconds <
                     (SELECT seconds FROM ten_minutes_ago)
             AND
                 -- only notify users about messages sent after their last
                 -- activity
-                extract(epoch from person.last_online_time) < inbox_first_pass.last_intro_seconds
+                extract(epoch from person.last_online_time) < first_pass.last_intro_seconds
             AND
                 -- only notify users whose last activity was longer than ten
                 -- minutes ago
@@ -55,26 +104,46 @@ WITH ten_minutes_ago AS (
                     (SELECT seconds FROM ten_minutes_ago)
         ) AS has_intro,
         (
-                inbox_first_pass.has_chat
+                first_pass.has_chat
             AND
                 -- only notify users we haven't already notified
-                inbox_first_pass.last_chat_seconds >
+                first_pass.last_chat_seconds >
                     COALESCE(person.chat_seconds, 0)
             AND
                 -- only notify users about messages sent longer than ten minutes
                 -- ago
-                inbox_first_pass.last_chat_seconds <
+                first_pass.last_chat_seconds <
                     (SELECT seconds FROM ten_minutes_ago)
             AND
                 -- only notify users about messages sent after their last
                 -- activity
-                extract(epoch from person.last_online_time) < inbox_first_pass.last_chat_seconds
+                extract(epoch from person.last_online_time) < first_pass.last_chat_seconds
             AND
                 -- only notify users whose last activity was longer than ten
                 -- minutes ago
                 extract(epoch from person.last_online_time) <
                     (SELECT seconds FROM ten_minutes_ago)
         ) AS has_chat,
+        (
+                first_pass.has_visitor
+            AND
+                -- only notify users we haven't already notified
+                first_pass.last_visitor_seconds >
+                    COALESCE(person.visitor_seconds, 0)
+            AND
+                -- only notify users about visits made longer than ten minutes
+                -- ago
+                first_pass.last_visitor_seconds <
+                    (SELECT seconds FROM ten_minutes_ago)
+            AND
+                -- only notify users about visits made after their last activity
+                extract(epoch from person.last_online_time) < first_pass.last_visitor_seconds
+            AND
+                -- only notify users whose last activity was longer than ten
+                -- minutes ago
+                extract(epoch from person.last_online_time) <
+                    (SELECT seconds FROM ten_minutes_ago)
+        ) AS has_visitor,
         person.name,
         person.email,
         CASE
@@ -92,13 +161,21 @@ WITH ten_minutes_ago AS (
             WHEN im_intros.name = 'Weekly'       THEN 604800
             WHEN im_intros.name = 'Never'        THEN -1
             ELSE                                      0
-        END AS intros_drift_seconds
+        END AS intros_drift_seconds,
+        CASE
+            WHEN im_visitors.name = 'Immediately'  THEN 0
+            WHEN im_visitors.name = 'Daily'        THEN 86400
+            WHEN im_visitors.name = 'Every 3 days' THEN 259200
+            WHEN im_visitors.name = 'Weekly'       THEN 604800
+            WHEN im_visitors.name = 'Never'        THEN -1
+            ELSE                                        604800
+        END AS visitors_drift_seconds
     FROM
-        inbox_first_pass
+        first_pass
     JOIN
         person
     ON
-        person.uuid = uuid_or_null(inbox_first_pass.username)
+        person.id = first_pass.person_id
     LEFT JOIN
         immediacy AS im_chats
     ON
@@ -107,10 +184,14 @@ WITH ten_minutes_ago AS (
         immediacy AS im_intros
     ON
         im_intros.id = person.intros_notification
+    LEFT JOIN
+        immediacy AS im_visitors
+    ON
+        im_visitors.id = person.visitors_notification
     WHERE
         person.activated
 ), filtered AS (
-    SELECT * FROM notifiable WHERE has_intro OR has_chat
+    SELECT * FROM notifiable WHERE has_intro OR has_chat OR has_visitor
 ), session_summary AS (
     -- Per person, summarise their logged-in sessions. A signed-in `duo_session`
     -- with a NULL `push_token` is a push-less (web) client: only the mobile app
@@ -142,17 +223,21 @@ SELECT
     filtered.person_uuid,
     filtered.last_intro_seconds,
     filtered.last_chat_seconds,
+    filtered.last_visitor_seconds,
     filtered.last_intro_notification_seconds,
     filtered.last_chat_notification_seconds,
+    filtered.last_visitor_notification_seconds,
     filtered.has_intro,
     filtered.has_chat,
+    filtered.has_visitor,
     -- One row per notification to send (see the LATERAL join below): a
     -- non-NULL token produces a push, a NULL token produces an email.
     notification_target.token,
     filtered.name,
     filtered.email,
     filtered.chats_drift_seconds,
-    filtered.intros_drift_seconds
+    filtered.intros_drift_seconds,
+    filtered.visitors_drift_seconds
 FROM
     filtered
 LEFT JOIN

@@ -158,6 +158,7 @@
         "last_event_name": "added-photo",
         "last_event_time": "2026-07-26T09:36:02.789518",
         "verified_gender": false,
+        "visitor_seconds": 0,
         "wants_kids_name": "Unanswered",
         "background_color": "#ffffff",
         "browse_invisibly": false,
@@ -178,6 +179,7 @@
         "show_my_online_status": true,
         "verification_level_id": 1,
         "verification_required": false,
+        "visitors_notification": 4,
         "has_profile_picture_id": 1,
         "hide_me_from_strangers": false,
         "location_long_friendly": "New York, New York, United States",
@@ -190,6 +192,7 @@
         "intros_notification_name": "Daily",
         "relationship_status_name": "Unanswered",
         "unseen_notification_count": 0,
+        "visitors_notification_name": "Weekly",
         "privacy_verification_level_id": 1,
         "privacy_verification_level_name": "No verification"
       }

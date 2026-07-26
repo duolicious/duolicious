@@ -1483,6 +1483,13 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         WHERE person.id = %(person_id)s
         AND immediacy.name = %(field_value)s
         """
+    elif field_name == 'visitors':
+        q1 = """
+        UPDATE person SET visitors_notification = immediacy.id
+        FROM immediacy
+        WHERE person.id = %(person_id)s
+        AND immediacy.name = %(field_value)s
+        """
     elif field_name == 'verification_level':
         q1 = """
         UPDATE person
@@ -2110,8 +2117,14 @@ async def get_update_notifications(
         queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
     elif type == 'Chats':
         queries = [Q_UPDATE_CHATS_NOTIFICATIONS]
+    elif type == 'Visitors':
+        queries = [Q_UPDATE_VISITORS_NOTIFICATIONS]
     elif type == 'Every':
-        queries = [Q_UPDATE_INTROS_NOTIFICATIONS, Q_UPDATE_CHATS_NOTIFICATIONS]
+        queries = [
+            Q_UPDATE_INTROS_NOTIFICATIONS,
+            Q_UPDATE_CHATS_NOTIFICATIONS,
+            Q_UPDATE_VISITORS_NOTIFICATIONS,
+        ]
     else:
         return 'Invalid type', 400
 

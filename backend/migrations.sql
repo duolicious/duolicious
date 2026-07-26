@@ -61,3 +61,12 @@ BEGIN
         EXIT WHEN inserted = 0;
     END LOOP;
 END $$;
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS visitors_notification SMALLINT
+        REFERENCES immediacy(id) NOT NULL DEFAULT 4,
+    ADD COLUMN IF NOT EXISTS visitor_seconds INT NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
+    ON visited(updated_at DESC, object_person_id, subject_person_id)
+    WHERE NOT invisible;

@@ -544,6 +544,7 @@ class PatchProfileInfo(BaseModel):
     units: str | None = None
     chats: str | None = None
     intros: str | None = None
+    visitors: str | None = None
     verification_level: str | None = None
     show_my_location: Literal[
         'Yes',
