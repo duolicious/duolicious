@@ -63,7 +63,6 @@ async def _uncached_search_results(
 
     try:
         await tx.execute("SET LOCAL hnsw.iterative_scan = strict_order")
-        await tx.execute("SET LOCAL hnsw.ef_search = 1000")
 
         await tx.execute(Q_DELETE_SEARCH_CACHE, params)
         await tx.execute(uncached_search, params)
