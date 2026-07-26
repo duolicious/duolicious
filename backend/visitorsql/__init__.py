@@ -306,6 +306,37 @@ FROM
 LIMIT 1
 """
 
+Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION = """
+SELECT
+    1
+FROM
+    visited
+JOIN
+    person AS prospect
+ON
+    prospect.id = visited.object_person_id
+JOIN
+    person AS visitor
+ON
+    visitor.id = visited.subject_person_id
+WHERE
+    visited.subject_person_id = %(viewer_id)s
+AND
+    visited.object_person_id = %(prospect_id)s
+AND
+    -- The conditions the periodic check applies to a visit, so one it would
+    -- never mention isn't announced here either.
+    NOT visited.invisible
+AND
+    visitor.activated
+AND
+    visitor.shadow_banned_at IS NULL
+AND
+    prospect.activated
+AND
+    prospect.visitors_notification = 1 -- Immediate notification ID
+"""
+
 Q_MARK_VISITORS_CHECKED = """
 UPDATE
     person

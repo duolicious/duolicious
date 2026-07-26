@@ -6,8 +6,8 @@ fallback.
 
 ## When a user is notified
 
-If the user has opted into immediate notifications (for intros and/or chats),
-the push is sent the moment a qualifying message arrives.
+If the user has opted into immediate notifications, the push is sent the moment
+a qualifying message arrives or their profile is visited.
 
 Otherwise, the user is notified once **all** of these hold:
 
@@ -32,9 +32,14 @@ notification the user can't act on is worse than none: visits made while
 browsing invisibly, and visits by somebody deactivated or shadow banned.
 
 Visitors default to **weekly**, which is deliberately the quietest default of
-the three: a profile can be visited far more often than it's messaged. There is
-no immediate path for visits either — even "immediately" waits for the periodic
-check below, so a visit is never pushed while the visitor is still reading.
+the three: a profile can be visited far more often than it's messaged.
+
+Somebody on "immediately" is pushed as the visit happens, but only to a phone.
+If no push can reach them — no signed-in mobile device, or the web more recently
+than any phone — their visitor clock is left alone and the visit falls to the
+periodic check, which emails once it's ten minutes old. That's the same split
+the immediate message path makes, and for the same reason: an email sent the
+instant somebody opens a profile would arrive while they're still reading it.
 
 Visits are never folded into a message notification. Somebody who was visited
 and then messaged gets **two** notifications: one headed "you have a new
@@ -108,8 +113,8 @@ A device that has been signed out is never pushed to.
 
 ## Immediate vs. delayed
 
-Immediate notifications are pushed the instant a qualifying message arrives.
-Everything else — every other frequency, every visitor notification, the email
+Immediate notifications are pushed the instant a qualifying message arrives or
+the profile is visited. Everything else — every other frequency, the email
 fallback, and anyone an immediate push couldn't reach — is handled by a periodic
 check that applies all the rules above.
 

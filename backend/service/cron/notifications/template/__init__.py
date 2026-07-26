@@ -1,10 +1,14 @@
+from constants import (
+    VISITOR_NOTIFICATION_BODY,
+    VISITOR_NOTIFICATION_TITLE,
+)
 from urllib.parse import urlencode
 
 MESSAGE_SUBJECT = 'You have a new message 😍'
 
-VISITOR_SUBJECT = 'Someone visited your profile 👀'
+VISITOR_SUBJECT = VISITOR_NOTIFICATION_TITLE
 
-VISITOR_BIG_PART = 'Someone visited your profile!'
+VISITOR_BIG_PART = VISITOR_NOTIFICATION_BODY
 
 VISITOR_LITTLE_PART = 'Open the app to see who'
 

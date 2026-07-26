@@ -80,3 +80,9 @@ MIN_NOTABLE_TRAIT_SCORE = 10
 # noise. Set to the gold-tier club quota (free is 50, gold is 100), so the
 # cap only bites at the top of that quota.
 MAX_CLUBS_PER_PERSON_FOR_OVERLAP = 100
+
+# What a visitor notification says. The same visit is announced by an immediate
+# push and, when no push can reach the person, by the periodic check's push or
+# email, so the wording lives in one place.
+VISITOR_NOTIFICATION_TITLE = 'Someone visited your profile 👀'
+VISITOR_NOTIFICATION_BODY = 'Someone visited your profile!'

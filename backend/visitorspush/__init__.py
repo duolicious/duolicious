@@ -1,9 +1,20 @@
 import json
 import traceback
+import notify
+from commonsql import Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME
+from constants import (
+    VISITOR_NOTIFICATION_BODY,
+    VISITOR_NOTIFICATION_TITLE,
+)
 from database import api_tx
+from pushtokens import fetch_push_tokens
 from redisclient import make_redis_client
 from chatprotocol.outbound import Visitor, to_bus
-from visitorsql import Q_VISITOR_ITEM
+from unseennotificationcount import increment_unseen_notification_count
+from visitorsql import (
+    Q_VISITOR_ITEM,
+    Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
+)
 
 _redis = make_redis_client()
 
@@ -20,6 +31,62 @@ async def _publish(channel: str, section: str, item: dict) -> None:
         )
     except Exception:
         print(traceback.format_exc())
+
+
+async def _wants_immediate_notification(
+    viewer_id: int,
+    prospect_id: int,
+) -> bool:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(
+            Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
+            dict(viewer_id=viewer_id, prospect_id=prospect_id))
+
+        return await tx.fetchone() is not None
+
+
+async def notify_immediately(
+    viewer_id: int,
+    prospect_id: int,
+    prospect_uuid: str,
+    prospect_online: bool,
+) -> None:
+    """
+    Push the moment the visit happens, for people who asked to hear about
+    visitors immediately. Everyone else -- and anyone no push can reach -- is
+    left to the periodic check, which waits ten minutes and may email instead.
+    """
+    if not await _wants_immediate_notification(viewer_id, prospect_id):
+        return
+
+    tokens = await fetch_push_tokens(username=prospect_uuid)
+
+    # No device is reachable by push, or the person was last seen on the web.
+    # Leaving their visitor clock untouched hands the visit to the periodic
+    # check, which emails them once it's ten minutes old.
+    if not tokens:
+        return
+
+    # A push sent while the person has a client open carries no badge: they can
+    # see the visit arrive in their visitors tab themselves.
+    badge = (
+        None
+        if prospect_online
+        else await increment_unseen_notification_count(username=prospect_uuid))
+
+    for token in tokens:
+        notify.enqueue_mobile_notification(
+            token=token,
+            title=VISITOR_NOTIFICATION_TITLE,
+            body=VISITOR_NOTIFICATION_BODY,
+            data={'screen': 'Home', 'params': {'screen': 'Visitors'}},
+            badge=badge,
+        )
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(
+            Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
+            dict(username=prospect_uuid))
 
 
 async def publish_visit(
@@ -57,5 +124,12 @@ async def publish_visit(
 
         if owner_item:
             await _publish(prospect_uuid, 'visited_you', owner_item)
+
+        await notify_immediately(
+            viewer_id=viewer_id,
+            prospect_id=prospect_id,
+            prospect_uuid=prospect_uuid,
+            prospect_online=prospect_online,
+        )
     except Exception:
         print(traceback.format_exc())
