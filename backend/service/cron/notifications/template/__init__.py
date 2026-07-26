@@ -1,41 +1,32 @@
 from urllib.parse import urlencode
 
-VISITOR_PART = 'Someone visited your profile!'
+MESSAGE_SUBJECT = 'You have a new message 😍'
 
-def message_part(has_intro: bool, has_chat: bool) -> str | None:
+VISITOR_SUBJECT = 'Someone visited your profile 👀'
+
+VISITOR_BIG_PART = 'Someone visited your profile!'
+
+VISITOR_LITTLE_PART = 'Open the app to see who'
+
+MESSAGE_URL = 'https://get.duolicious.app/inbox'
+
+VISITOR_URL = 'https://get.duolicious.app/visitors'
+
+def big_part(has_intro: bool, has_chat: bool) -> str:
     if has_intro and has_chat:
         return 'You have new messages in your chats and intros!'
     if has_intro:
         return 'You have a new message in your intros!'
     if has_chat:
         return 'You have a new message in your chats!'
-    return None
-
-def big_part(has_intro: bool, has_chat: bool, has_visitor: bool) -> str:
-    message = message_part(has_intro, has_chat)
-    if message and has_visitor:
-        return f'{message} {VISITOR_PART}'
-    if message:
-        return message
-    if has_visitor:
-        return VISITOR_PART
     return (
         "Our notifier is broken 😵‍💫. Please report this "
         "to support@duolicious.app")
 
-def little_part(has_intro: bool, has_chat: bool, has_visitor: bool) -> str:
-    if has_visitor and not has_intro and not has_chat:
-        return 'Open the app to see who'
-    if has_visitor:
-        return 'Open the app to catch up'
+def little_part(has_intro: bool, has_chat: bool) -> str:
     if has_intro and has_chat:
         return 'Open the app to read them'
     return 'Open the app to read it'
-
-def subject_line(has_intro: bool, has_chat: bool, has_visitor: bool) -> str:
-    if has_visitor and not has_intro and not has_chat:
-        return 'Someone visited your profile 👀'
-    return 'You have a new message 😍'
 
 def frequency_url(email: str, type: str, frequency: str) -> str:
     base_url = 'https://api.duolicious.app/update-notifications'
@@ -47,16 +38,30 @@ def frequency_url(email: str, type: str, frequency: str) -> str:
     encoded_params = urlencode(params)
     return f'{base_url}?{encoded_params}'
 
-def open_url(has_intro: bool, has_chat: bool, has_visitor: bool) -> str:
-    if has_visitor and not has_intro and not has_chat:
-        return 'https://get.duolicious.app/visitors'
-    return 'https://get.duolicious.app/inbox'
+def emailtemplate(email: str, has_intro: bool, has_chat: bool) -> str:
+    return _emailtemplate(
+        email=email,
+        subject=MESSAGE_SUBJECT,
+        big=big_part(has_intro, has_chat),
+        little=little_part(has_intro, has_chat),
+        url=MESSAGE_URL,
+    )
 
-def emailtemplate(
+def visitor_emailtemplate(email: str) -> str:
+    return _emailtemplate(
+        email=email,
+        subject=VISITOR_SUBJECT,
+        big=VISITOR_BIG_PART,
+        little=VISITOR_LITTLE_PART,
+        url=VISITOR_URL,
+    )
+
+def _emailtemplate(
     email: str,
-    has_intro: bool,
-    has_chat: bool,
-    has_visitor: bool,
+    subject: str,
+    big: str,
+    little: str,
+    url: str,
 ) -> str:
     return f"""
 <!DOCTYPE html>
@@ -64,7 +69,7 @@ def emailtemplate(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{subject_line(has_intro, has_chat, has_visitor)}</title>
+    <title>{subject}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif;">
     <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center">
@@ -81,8 +86,8 @@ def emailtemplate(
                     </tr>
                     <tr>
                         <td bgcolor="#f1e5ff" align="center" style="color: #70f; padding-left: 20px; padding-right: 20px; padding-bottom: 40px;">
-                            <p style="color: #70f; font-size: 24px; font-weight: 900;">{big_part(has_intro, has_chat, has_visitor)}</p>
-                            <p style="color: #70f; font-size: 16px">{little_part(has_intro, has_chat, has_visitor)}</p>
+                            <p style="color: #70f; font-size: 24px; font-weight: 900;">{big}</p>
+                            <p style="color: #70f; font-size: 16px">{little}</p>
                         </td>
                     </tr>
                     <tr>
@@ -90,7 +95,7 @@ def emailtemplate(
                         <table border="0" cellspacing="0" cellpadding="0">
                           <tbody><tr>
                             <td style="border-radius:50px; border:3px solid #70f; font-size: 20px; line-height:26px; color: #70f; text-align:center; min-width:auto!important">
-                              <a href="{open_url(has_intro, has_chat, has_visitor)}" style="display:block;padding:11px 40px;text-decoration:none;color:#70f" target="_blank">
+                              <a href="{url}" style="display:block;padding:11px 40px;text-decoration:none;color:#70f" target="_blank">
                                 <span style="text-decoration:none;color:#70f">
                                   <strong>
                                     Open Duolicious

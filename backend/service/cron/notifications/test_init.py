@@ -1,13 +1,16 @@
 import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 from service.cron.notifications import (
+    NotificationKind,
     PersonNotification,
     compute_badges,
     do_send_notification,
     is_visitor_sendable,
+    maybe_send_notification,
     notification_screen,
     send_mobile_notification,
     send_notification,
+    sendable_kinds,
 )
 import asyncio
 import json
@@ -48,11 +51,11 @@ class TestSendNotification(unittest.TestCase):
         mock_send_email_notification: MagicMock,
     ) -> None:
         # Call the send_notification function
-        asyncio.run(send_notification(person_notification, badge=5))
+        asyncio.run(send_notification(person_notification, 'message', badge=5))
 
         # Assert that send_mobile_notification was called with the badge
         mock_send_mobile_notification.assert_called_once_with(
-                person_notification, badge=5)
+                person_notification, 'message', badge=5)
 
         # Assert that send_email_notification was not called
         mock_send_email_notification.assert_not_called()
@@ -68,10 +71,10 @@ class TestSendNotification(unittest.TestCase):
         # the query returns a NULL token, so we email instead of pushing.
         row = make_person_notification(token=None)
 
-        asyncio.run(send_notification(row, badge=None))
+        asyncio.run(send_notification(row, 'message', badge=None))
 
         mock_send_mobile_notification.assert_not_called()
-        mock_send_email_notification.assert_called_once_with(row)
+        mock_send_email_notification.assert_called_once_with(row, 'message')
 
 
 class TestComputeBadges(unittest.TestCase):
@@ -97,7 +100,7 @@ class TestComputeBadges(unittest.TestCase):
         badges = asyncio.run(compute_badges([row_a, row_b]))
 
         mock_increment.assert_awaited_once_with(username=row_a.person_uuid)
-        self.assertEqual(badges, {row_a.person_uuid: 5})
+        self.assertEqual(badges, {(row_a.person_uuid, 'message'): 5})
 
     @patch(
         'service.cron.notifications.increment_unseen_notification_count',
@@ -150,12 +153,14 @@ class TestVisitorNotifications(unittest.TestCase):
 
         self.assertTrue(is_visitor_sendable(row))
         self.assertTrue(do_send_notification(row))
+        self.assertEqual(sendable_kinds(row), ['visitor'])
 
     def test_never_suppresses_visitor_notifications(self) -> None:
         row = make_visitor_only_notification(visitors_drift_seconds=-1)
 
         self.assertFalse(is_visitor_sendable(row))
         self.assertFalse(do_send_notification(row))
+        self.assertEqual(sendable_kinds(row), [])
 
     def test_drift_period_defers_visitor_notifications(self) -> None:
         # The last visit landed a minute after the last notification, well
@@ -167,7 +172,7 @@ class TestVisitorNotifications(unittest.TestCase):
 
     @patch('service.cron.notifications.disable_mobile_notifications')
     @patch('service.cron.notifications.notify.enqueue_mobile_notification')
-    def test_visitor_only_push_opens_the_visitors_tab(
+    def test_visitor_push_opens_the_visitors_tab(
         self,
         mock_enqueue: MagicMock,
         mock_disable: MagicMock,
@@ -175,7 +180,7 @@ class TestVisitorNotifications(unittest.TestCase):
         mock_disable.return_value = False
         row = make_visitor_only_notification()
 
-        send_mobile_notification(row, badge=1)
+        send_mobile_notification(row, 'visitor', badge=1)
 
         [kwargs] = [call.kwargs for call in mock_enqueue.call_args_list]
         self.assertEqual(kwargs['title'], 'Someone visited your profile 👀')
@@ -186,9 +191,91 @@ class TestVisitorNotifications(unittest.TestCase):
 
     def test_a_message_sends_the_reader_to_the_inbox(self) -> None:
         self.assertEqual(
-                notification_screen(
-                    has_intro=False, has_chat=True, has_visitor=True),
+                notification_screen('message'),
                 {'screen': 'Home', 'params': {'screen': 'Inbox'}})
+
+
+class TestMessagesAndVisitsAreNotifiedSeparately(unittest.TestCase):
+
+    def message_and_visitor_row(self) -> PersonNotification:
+        # An unread intro and a visit, both newer than the last notification of
+        # their kind, so both are due at once.
+        return make_person_notification(
+            has_chat=False,
+            has_visitor=True,
+            last_intro_notification_seconds=0,
+            last_visitor_notification_seconds=0,
+            last_visitor_seconds=1693786124,
+        )
+
+    def test_both_kinds_are_due(self) -> None:
+        self.assertEqual(
+                sendable_kinds(self.message_and_visitor_row()),
+                ['message', 'visitor'])
+
+    @patch('service.cron.notifications.disable_mobile_notifications')
+    @patch('service.cron.notifications.notify.enqueue_mobile_notification')
+    @patch(
+        'service.cron.notifications.update_last_notification_time',
+        new_callable=AsyncMock,
+    )
+    def test_two_pushes_are_sent(
+        self,
+        mock_update: AsyncMock,
+        mock_enqueue: MagicMock,
+        mock_disable: MagicMock,
+    ) -> None:
+        mock_disable.return_value = False
+        row = self.message_and_visitor_row()
+        badges: dict[tuple[str, NotificationKind], int | None] = {
+            (row.person_uuid, 'message'): 1,
+            (row.person_uuid, 'visitor'): 2,
+        }
+
+        asyncio.run(maybe_send_notification(row, badges))
+
+        sent = [
+            (call.kwargs['title'], call.kwargs['body'], call.kwargs['badge'],
+             call.kwargs['data']['params']['screen'])
+            for call in mock_enqueue.call_args_list
+        ]
+        self.assertEqual(sent, [
+            (
+                'You have a new message 😍',
+                'You have a new message in your intros!',
+                1,
+                'Inbox',
+            ),
+            (
+                'Someone visited your profile 👀',
+                'Someone visited your profile!',
+                2,
+                'Visitors',
+            ),
+        ])
+
+        # Each notification stamps only its own last-notification time.
+        self.assertEqual(
+                [call.args[1] for call in mock_update.await_args_list],
+                ['message', 'visitor'])
+
+    @patch(
+        'service.cron.notifications.increment_unseen_notification_count',
+        new_callable=AsyncMock,
+        side_effect=[1, 2],
+    )
+    def test_badges_count_each_notification(
+        self,
+        mock_increment: AsyncMock,
+    ) -> None:
+        row = self.message_and_visitor_row()
+
+        badges = asyncio.run(compute_badges([row]))
+
+        self.assertEqual(badges, {
+            (row.person_uuid, 'message'): 1,
+            (row.person_uuid, 'visitor'): 2,
+        })
 
 
 if __name__ == '__main__':

@@ -1,78 +1,50 @@
 import unittest
-from service.cron.notifications.template import emailtemplate, subject_line
+from service.cron.notifications.template import (
+    emailtemplate,
+    visitor_emailtemplate,
+)
 
 class TestEmailTemplate(unittest.TestCase):
 
     def test_stuff(self) -> None:
-        e1 = emailtemplate(
-                'mail@example.com',
-                has_intro=True,
-                has_chat=True,
-                has_visitor=False)
-        e2 = emailtemplate(
-                'mail@example.com',
-                has_intro=True,
-                has_chat=False,
-                has_visitor=False)
-        e3 = emailtemplate(
-                'mail@example.com',
-                has_intro=False,
-                has_chat=True,
-                has_visitor=False)
-        e4 = emailtemplate(
-                'mail@example.com',
-                has_intro=False,
-                has_chat=False,
-                has_visitor=False)
+        e1 = emailtemplate('mail@example.com', has_intro=True, has_chat=True)
+        e2 = emailtemplate('mail@example.com', has_intro=True, has_chat=False)
+        e3 = emailtemplate('mail@example.com', has_intro=False, has_chat=True)
+        e4 = emailtemplate('mail@example.com', has_intro=False, has_chat=False)
 
         self.assertIn('new messages', e1)
         self.assertIn('a new message', e2)
         self.assertIn('a new message', e3)
         self.assertIn('support@duolicious.app', e4)
 
-    def test_visitors(self) -> None:
-        visitor_only = emailtemplate(
-                'mail@example.com',
-                has_intro=False,
-                has_chat=False,
-                has_visitor=True)
-        visitor_and_chat = emailtemplate(
-                'mail@example.com',
-                has_intro=False,
-                has_chat=True,
-                has_visitor=True)
+    def test_visitors_get_their_own_email(self) -> None:
+        visitor = visitor_emailtemplate('mail@example.com')
+        message = emailtemplate(
+                'mail@example.com', has_intro=False, has_chat=True)
 
-        self.assertIn('Someone visited your profile!', visitor_only)
-        self.assertIn('get.duolicious.app/visitors', visitor_only)
-        self.assertNotIn('get.duolicious.app/inbox', visitor_only)
+        self.assertIn('Someone visited your profile', visitor)
+        self.assertIn('get.duolicious.app/visitors', visitor)
+        self.assertNotIn('get.duolicious.app/inbox', visitor)
+        self.assertNotIn('message', visitor)
 
-        self.assertIn('Someone visited your profile!', visitor_and_chat)
-        self.assertIn('a new message in your chats!', visitor_and_chat)
-        self.assertIn('get.duolicious.app/inbox', visitor_and_chat)
+        # Conversely, a message email says nothing about visitors beyond the
+        # frequency links in its footer.
+        self.assertNotIn('Someone visited your profile', message)
+        self.assertIn('get.duolicious.app/inbox', message)
 
     def test_every_notification_type_can_be_capped(self) -> None:
-        email = emailtemplate(
-                'mail@example.com',
-                has_intro=True,
-                has_chat=True,
-                has_visitor=True)
+        emails = [
+            emailtemplate('mail@example.com', has_intro=True, has_chat=True),
+            visitor_emailtemplate('mail@example.com'),
+        ]
 
-        for notification_type in ['Chats', 'Intros', 'Visitors']:
-            for frequency in ['Immediately', 'Daily', 'Every+3+days',
-                              'Weekly', 'Never']:
-                self.assertIn(
-                        f'type={notification_type}&frequency={frequency}',
-                        email)
-
-    def test_subject_line(self) -> None:
-        self.assertEqual(
-                subject_line(
-                    has_intro=False, has_chat=False, has_visitor=True),
-                'Someone visited your profile 👀')
-        self.assertEqual(
-                subject_line(
-                    has_intro=False, has_chat=True, has_visitor=True),
-                'You have a new message 😍')
+        for email in emails:
+            for notification_type in ['Chats', 'Intros', 'Visitors']:
+                for frequency in ['Immediately', 'Daily', 'Every+3+days',
+                                  'Weekly', 'Never']:
+                    self.assertIn(
+                            f'type={notification_type}&frequency={frequency}',
+                            email)
 
 if __name__ == '__main__':
     unittest.main()

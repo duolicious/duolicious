@@ -36,8 +36,12 @@ the three: a profile can be visited far more often than it's messaged. There is
 no immediate path for visits either — even "immediately" waits for the periodic
 check below, so a visit is never pushed while the visitor is still reading.
 
-A notification that mentions a message opens the inbox. One about nothing but
-visitors opens the visitors tab instead.
+Visits are never folded into a message notification. Somebody who was visited
+and then messaged gets **two** notifications: one headed "you have a new
+message", which opens the inbox, and one headed "someone visited your profile",
+which opens the visitors tab. Neither has to share a headline or a destination
+with the other, and each is governed by its own frequency setting, so silencing
+one leaves the other alone.
 
 ## Web push (online users only)
 
@@ -120,7 +124,8 @@ into every push as an absolute badge value, so all of a user's devices
 converge on the same number:
 
 - A push sent while the user has **no connected chat clients** increments the
-  count once per user (not per device) and carries it as the badge. This holds
+  count once per notification (not per device) and carries it as the badge, so a
+  user due both a message and a visitor notification counts twice. This holds
   for every push the server sends — live chat messages and the periodic check
   alike.
 - A push sent while **any client is connected** carries no badge — the user

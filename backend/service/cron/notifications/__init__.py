@@ -4,9 +4,12 @@ from service.cron.notifications.sql import (
     Q_PENDING_NOTIFICATIONS,
 )
 from service.cron.notifications.template import (
+    MESSAGE_SUBJECT,
+    VISITOR_BIG_PART,
+    VISITOR_SUBJECT,
     big_part,
     emailtemplate,
-    subject_line,
+    visitor_emailtemplate,
 )
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
@@ -17,6 +20,7 @@ from commonsql import (
     Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
     Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
 )
+from typing import Literal
 from unseennotificationcount import increment_unseen_notification_count
 from util import Json
 import asyncio
@@ -40,6 +44,11 @@ _disable_mobile_notifications_file = (
     'disable-mobile-notifications')
 
 print(f'Hello from cron module: {__name__}')
+
+# Messages and visits are notified about separately: somebody who was visited
+# and then messaged gets one notification for each, so neither has to share a
+# headline or a destination with the other.
+NotificationKind = Literal['message', 'visitor']
 
 @dataclass
 class PersonNotification:
@@ -103,34 +112,61 @@ def is_visitor_sendable(row: PersonNotification) -> bool:
         last_seconds=row.last_visitor_seconds,
     )
 
+def sendable_kinds(row: PersonNotification) -> list[NotificationKind]:
+    kinds: list[NotificationKind] = []
+
+    if is_intro_sendable(row) or is_chat_sendable(row):
+        kinds.append('message')
+    if is_visitor_sendable(row):
+        kinds.append('visitor')
+
+    return kinds
+
 def do_send_notification(row: PersonNotification) -> bool:
-    return (
-        is_intro_sendable(row) or
-        is_chat_sendable(row) or
-        is_visitor_sendable(row)
-    )
+    return bool(sendable_kinds(row))
 
 def do_send_email_notification(row: PersonNotification) -> bool:
     is_example = row.email.lower().endswith('@example.com')
 
     return do_send_notification(row) and not is_example
 
-async def send_email_notification(row: PersonNotification) -> None:
+def notification_subject(kind: NotificationKind) -> str:
+    if kind == 'visitor':
+        return VISITOR_SUBJECT
+    return MESSAGE_SUBJECT
+
+def notification_body(row: PersonNotification, kind: NotificationKind) -> str:
+    if kind == 'visitor':
+        return VISITOR_BIG_PART
+    return big_part(is_intro_sendable(row), is_chat_sendable(row))
+
+def notification_screen(kind: NotificationKind) -> Json:
+    if kind == 'visitor':
+        return {'screen': 'Home', 'params': {'screen': 'Visitors'}}
+    return {'screen': 'Home', 'params': {'screen': 'Inbox'}}
+
+def notification_email_body(
+    row: PersonNotification,
+    kind: NotificationKind,
+) -> str:
+    if kind == 'visitor':
+        return visitor_emailtemplate(email=row.email)
+    return emailtemplate(
+            email=row.email,
+            has_intro=is_intro_sendable(row),
+            has_chat=is_chat_sendable(row),
+    )
+
+async def send_email_notification(
+    row: PersonNotification,
+    kind: NotificationKind,
+) -> None:
     if not do_send_email_notification(row):
         print('Email notification failed because it ends with @example.com')
         return
 
-    has_intro = is_intro_sendable(row)
-    has_chat = is_chat_sendable(row)
-    has_visitor = is_visitor_sendable(row)
-
-    subject = subject_line(has_intro, has_chat, has_visitor)
-    body = emailtemplate(
-            email=row.email,
-            has_intro=has_intro,
-            has_chat=has_chat,
-            has_visitor=has_visitor,
-    )
+    subject = notification_subject(kind)
+    body = notification_email_body(row, kind)
     to_addr = row.email
 
     aws_smtp = make_aws_smtp()
@@ -139,25 +175,11 @@ async def send_email_notification(row: PersonNotification) -> None:
 
     await asyncio.to_thread(send)
 
-def notification_screen(
-    has_intro: bool,
-    has_chat: bool,
-    has_visitor: bool,
-) -> Json:
-    # A notification about nothing but visitors opens the visitors tab; anything
-    # mentioning a message opens the inbox, where the message is.
-    if has_visitor and not has_intro and not has_chat:
-        return {'screen': 'Home', 'params': {'screen': 'Visitors'}}
-    return {'screen': 'Home', 'params': {'screen': 'Inbox'}}
-
 def send_mobile_notification(
     row: PersonNotification,
+    kind: NotificationKind,
     badge: int | None,
 ) -> None:
-    has_intro = is_intro_sendable(row)
-    has_chat = is_chat_sendable(row)
-    has_visitor = is_visitor_sendable(row)
-
     if disable_mobile_notifications():
         print(
             'File prevented mobile notifications',
@@ -166,68 +188,74 @@ def send_mobile_notification(
     else:
         notify.enqueue_mobile_notification(
             token=row.token,
-            title=subject_line(has_intro, has_chat, has_visitor),
-            body=big_part(has_intro, has_chat, has_visitor),
-            data=notification_screen(has_intro, has_chat, has_visitor),
+            title=notification_subject(kind),
+            body=notification_body(row, kind),
+            data=notification_screen(kind),
             badge=badge,
         )
 
 async def compute_badges(
     person_notifications: list[PersonNotification],
-) -> dict[str, int | None]:
+) -> dict[tuple[str, NotificationKind], int | None]:
     """
-    Q_PENDING_NOTIFICATIONS fans a person out into one row per push token, but the
-    unseen-notification count (the app-icon badge) must increment once per
-    person, not once per device, so every device shows the same badge. The
-    conditions here mirror the ones under which `maybe_send_notification`
-    sends a push rather than an email or nothing.
+    Q_PENDING_NOTIFICATIONS fans a person out into one row per push token, but
+    the unseen-notification count (the app-icon badge) must increment once per
+    notification, not once per device, so every device shows the same badge for
+    the same notification. A person due both a message and a visitor
+    notification gets two pushes, and so counts twice. The conditions here
+    mirror the ones under which `maybe_send_notification` sends a push rather
+    than an email or nothing.
     """
-    badges: dict[str, int | None] = {}
+    badges: dict[tuple[str, NotificationKind], int | None] = {}
 
     for row in person_notifications:
         if not row.token:
             continue
-        if not do_send_notification(row):
-            continue
-        if row.person_uuid in badges:
-            continue
 
-        badges[row.person_uuid] = await increment_unseen_notification_count(
-                username=row.person_uuid)
+        for kind in sendable_kinds(row):
+            if (row.person_uuid, kind) in badges:
+                continue
+
+            badges[(row.person_uuid, kind)] = (
+                    await increment_unseen_notification_count(
+                        username=row.person_uuid))
 
     return badges
 
 async def send_notification(
     row: PersonNotification,
+    kind: NotificationKind,
     badge: int | None,
 ) -> None:
     if not row.token:
-        print('Sending email notification:', str(row))
-        return await send_email_notification(row)
+        print(f'Sending {kind} email notification:', str(row))
+        return await send_email_notification(row, kind)
 
-    print('Sending mobile notification:', str(row))
-    send_mobile_notification(row, badge=badge)
+    print(f'Sending {kind} mobile notification:', str(row))
+    send_mobile_notification(row, kind, badge=badge)
 
-async def update_last_notification_time(row: PersonNotification) -> None:
+async def update_last_notification_time(
+    row: PersonNotification,
+    kind: NotificationKind,
+) -> None:
     params = dict(username=row.person_uuid)
+    is_message = kind == 'message'
 
     async with api_tx('read committed') as tx:
-        if is_intro_sendable(row):
+        if is_message and is_intro_sendable(row):
             await tx.execute(Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME, params)
-        if is_chat_sendable(row):
+        if is_message and is_chat_sendable(row):
             await tx.execute(Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME, params)
-        if is_visitor_sendable(row):
+        if kind == 'visitor':
             await tx.execute(Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME, params)
 
 async def maybe_send_notification(
     row: PersonNotification,
-    badge: int | None,
+    badges: dict[tuple[str, NotificationKind], int | None],
 ) -> None:
-    if not do_send_notification(row):
-        return
-
-    await send_notification(row, badge)
-    await update_last_notification_time(row)
+    for kind in sendable_kinds(row):
+        await send_notification(row, kind, badges.get((row.person_uuid, kind)))
+        await update_last_notification_time(row, kind)
 
 async def send_notifications_once() -> None:
     async with api_tx('read committed') as tx:
@@ -240,7 +268,7 @@ async def send_notifications_once() -> None:
     badges = await compute_badges(person_notifications)
 
     for row in person_notifications:
-        await maybe_send_notification(row, badges.get(row.person_uuid))
+        await maybe_send_notification(row, badges)
 
 async def send_notifications_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))

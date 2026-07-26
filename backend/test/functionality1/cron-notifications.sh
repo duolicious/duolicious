@@ -753,9 +753,10 @@ test_happy_path_visitors () {
   [[ "$(count_pushes_to 'token_visitors')" = 1 ]]
 }
 
-# A message and a visit arriving in the same window are announced together, in
-# one notification that opens the inbox.
-test_happy_path_visitor_and_intro_together () {
+# A message and a visit arriving in the same window are announced separately:
+# two notifications, each with its own headline and destination, and each
+# counting towards the app-icon badge.
+test_happy_path_visitor_and_intro_are_separate () {
   setup
 
   echo 0 > ../../test/input/disable-mobile-notifications
@@ -779,7 +780,10 @@ test_happy_path_visitor_and_intro_together () {
     visitor_seconds > 0 and \
     intro_seconds > 0")" = 1 ]]
 
-  [[ "$(pushes_to 'token_both')" = '[{"title":"You have a new message 😍","body":"You have a new message in your intros! Someone visited your profile!","screen":"Inbox"}]' ]]
+  [[ "$(count_pushes_to 'token_both')" = 2 ]]
+  [[ "$(pushes_to 'token_both')" = '[{"title":"You have a new message 😍","body":"You have a new message in your intros!","screen":"Inbox"},{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
+  [[ "$(badges_of_pushes_to 'token_both')" = '[1,2]' ]]
+  [[ "$(q "select unseen_notification_count from person where uuid::text = '$user1id'")" = 2 ]]
 }
 
 # A visit made while browsing invisibly never shows up in the visitors tab, so
@@ -902,7 +906,7 @@ test_happy_path_chats
 test_happy_path_chat_not_deferred_by_intro
 
 test_happy_path_visitors
-test_happy_path_visitor_and_intro_together
+test_happy_path_visitor_and_intro_are_separate
 test_sad_invisible_visit
 test_sad_shadow_banned_visitor
 test_sad_visitors_notification_never
