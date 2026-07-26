@@ -29,10 +29,7 @@ quietly_assume_role () {
   q "delete from presence_histogram"
 }
 
-# The nsfw photo runner polls every second for photos whose `nsfw_score` is
-# still NULL and fills it in. Both the snapshot and the restored database
-# start out with unscored photos, so the export has to wait for the runner to
-# settle them, or it races the runner and the diff is a coin toss.
+# Wait for images to be given nsfw scores, rather than racing the runner
 wait_for_nsfw_scores () {
   while [[ "$(q "select count(*) from photo where nsfw_score is null")" != 0 ]]
   do
