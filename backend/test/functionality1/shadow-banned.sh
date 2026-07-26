@@ -28,7 +28,7 @@ setup () {
 
   # Make everyone mutually visible/searchable
   q "update person set privacy_verification_level_id = 1"
-  q "update person set personality = array_full(47, 1e-5)"
+  q "update person set personality = array_full(47, (1e-5 * id)::FLOAT4)"
 
   searcher_id=$(q "select id from person where name = 'searcher'")
   user1_id=$(q "select id from person where name = 'user1'")
