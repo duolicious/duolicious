@@ -416,7 +416,7 @@ curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "
 
 sleep 0.5
 
-curl -sX GET http://localhost:3001/pop | grep -qF '"body": "hello user 2"'
+curl -sX GET http://localhost:3001/pop | grep -qF '"body": "hello once more"'
 
 
 
