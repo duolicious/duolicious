@@ -1,4 +1,4 @@
-import { AppState, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { getRandomString } from '../../random/string';
 import { deleteFromArray, assert } from '../../util/util';
 import { GIF_MESSAGE, isGifUrl } from '../../util/gif';
@@ -439,17 +439,10 @@ const authenticate = async () => {
 };
 
 // The server marks the whole conversation displayed; `messageId` is inert.
-const markDisplayedIfActive = async (otherPersonUuid: string, messageId: string) => {
+const markDisplayed = async (otherPersonUuid: string, messageId: string) => {
   if (!credentials) return;
 
   if (!isValidUuid(otherPersonUuid)) return;
-
-  if (
-    Platform.OS !== 'web' &&
-    ['background', 'inactive'].includes(AppState.currentState)
-  ) {
-    return;
-  }
 
   const data = {
     message: {
@@ -819,7 +812,7 @@ const onReceiveMessage = (
     if (!doMarkDisplayed) return;
     if (jidToBareJid(reaction['@from'] ?? '') !== otherPersonUuid) return;
 
-    await markDisplayedIfActive(otherPersonUuid, reaction['@mam_id'] ?? '');
+    await markDisplayed(otherPersonUuid, reaction['@mam_id'] ?? '');
   };
 
   const _onReceiveMessage = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -866,7 +859,7 @@ const onReceiveMessage = (
     }
 
     if (otherPersonUuid !== undefined && doMarkDisplayed && !message.fromCurrentUser) {
-      await markDisplayedIfActive(otherPersonUuid, message.id);
+      await markDisplayed(otherPersonUuid, message.id);
     }
 
     if (callback !== undefined) {
@@ -1008,7 +1001,7 @@ const fetchConversation = async (
 
   if (response !== 'timeout' && response.length > 0) {
     const lastMessage = response[response.length - 1];
-    await markDisplayedIfActive(withPersonUuid, lastMessage.id);
+    await markDisplayed(withPersonUuid, lastMessage.id);
   }
 
   return response;
@@ -1113,7 +1106,7 @@ export {
   inboxStats,
   login,
   logout,
-  markDisplayedIfActive,
+  markDisplayed,
   onReceiveMessage,
   refreshInbox,
   registerPushToken,

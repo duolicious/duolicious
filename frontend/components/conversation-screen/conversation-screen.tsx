@@ -30,7 +30,7 @@ import { ChatMessage, TypingIndicator } from './chat-message';
 import { DefaultText } from '../default-text';
 import {
   Message,
-  markDisplayedIfActive,
+  markDisplayed,
 } from '../../chat/application-layer';
 import {
   fetchConversationAndNotify,
@@ -672,7 +672,14 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       return;
     }
 
-    await markDisplayedIfActive(personUuid, lastMessage.message.id);
+  if (
+    Platform.OS !== 'web' &&
+    ['background', 'inactive'].includes(AppState.currentState)
+  ) {
+    return;
+  }
+
+    await markDisplayed(personUuid, lastMessage.message.id);
   }, [_.last(messageIds)]);
 
   useSkipped(personUuid, () => navigation.popToTop());
