@@ -1,4 +1,4 @@
-Q_PENDING_MESSAGE_NOTIFICATIONS = """
+Q_UNREAD_INBOX = """
 WITH ten_minutes_ago AS (
     SELECT
         EXTRACT(EPOCH FROM (

@@ -1,7 +1,7 @@
 from database import api_tx
 from dataclasses import dataclass
 from service.cron.notifications.sql import (
-    Q_PENDING_MESSAGE_NOTIFICATIONS,
+    Q_UNREAD_INBOX,
 )
 from service.cron.notifications.template import (
     MESSAGE_SUBJECT,
@@ -131,11 +131,11 @@ async def compute_badges(
     person_notifications: list[PersonNotification],
 ) -> dict[str, int | None]:
     """
-    Q_PENDING_MESSAGE_NOTIFICATIONS fans a person out into one row per push
-    token, but the unseen-notification count (the app-icon badge) must
-    increment once per person, not once per device, so every device shows the
-    same badge. The conditions here mirror the ones under which
-    `maybe_send_notification` sends a push rather than an email or nothing.
+    Q_UNREAD_INBOX fans a person out into one row per push token, but the
+    unseen-notification count (the app-icon badge) must increment once per
+    person, not once per device, so every device shows the same badge. The
+    conditions here mirror the ones under which `maybe_send_notification`
+    sends a push rather than an email or nothing.
     """
     badges: dict[str, int | None] = {}
 
@@ -187,7 +187,7 @@ async def maybe_send_notification(
 async def send_notifications_once() -> None:
     async with api_tx('read committed') as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
-        cur = await tx.execute(Q_PENDING_MESSAGE_NOTIFICATIONS)
+        cur = await tx.execute(Q_UNREAD_INBOX)
         rows = await cur.fetchall()
 
     person_notifications = [PersonNotification(**j) for j in rows]
