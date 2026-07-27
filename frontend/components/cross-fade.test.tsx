@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { CrossFadeText } from './cross-fade';
@@ -28,6 +28,10 @@ const opacities = (renderer: {
     .filter((opacity): opacity is number => opacity !== undefined);
 
 describe('CrossFadeText', () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+
+  afterEach(() => { jest.useRealTimers(); });
+
   test('the only layer is opaque before anything changes', () => {
     let renderer: ReturnType<typeof create>;
 
@@ -68,5 +72,30 @@ describe('CrossFadeText', () => {
 
     expect(mounts.sort()).toEqual(['a', 'b']);
     expect(opacities(renderer!)).toEqual([0, 1]);
+  });
+
+  test('the outgoing layer is dropped once the fade is done', () => {
+    const render = (key: string) => (
+      <CrossFadeText triggerKey={key} duration={300}>
+        <Label text={key} onMount={() => {}} />
+      </CrossFadeText>
+    );
+
+    let renderer: ReturnType<typeof create>;
+
+    act(() => {
+      renderer = create(render('a'));
+    });
+
+    act(() => {
+      renderer.update(render('b'));
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(renderer!.root.findAllByProps({ testID: 'a' })).toEqual([]);
+    expect(opacities(renderer!)).toEqual([1]);
   });
 });

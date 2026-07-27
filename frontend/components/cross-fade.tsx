@@ -1,9 +1,7 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { StyleProp, View, ViewStyle } from 'react-native';
 import Animated, {
   SharedValue,
-  cancelAnimation,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -76,30 +74,24 @@ const CrossFade = ({
   );
 };
 
-type CrossFadeTextProps = {
-  triggerKey: string
-  children: ReactNode
-  duration?: number
-  style?: StyleProp<ViewStyle>
-};
-
 type FadeTransitionProps = {
   front: ReactNode
   back: ReactNode
   duration: number
-  onFinish: () => void
+  onDone: () => void
   style?: StyleProp<ViewStyle>
 };
 
-// Mounted afresh for each transition, so the layers' starting opacities travel
-// with the layers themselves. Setting them on a surviving layer instead sends
-// them to the UI thread on their own, which lets Android paint a frame where
-// the outgoing text has yet to mount and the incoming text is already hidden.
+// One of these per transition, so that the layers carry their own starting
+// opacities into the commit that mounts them. Setting those opacities on layers
+// that are already mounted sends them to the UI thread by a separate route,
+// which lets Android paint a frame where the incoming layer is hidden and the
+// outgoing layer has yet to arrive.
 const FadeTransition = ({
   front,
   back,
   duration,
-  onFinish,
+  onDone,
   style,
 }: FadeTransitionProps) => {
   const progress = useSharedValue(back === null ? 1 : 0);
@@ -109,18 +101,23 @@ const FadeTransition = ({
       return;
     }
 
-    progress.value = withTiming(1, { duration }, (finished) => {
-      if (finished) {
-        runOnJS(onFinish)();
-      }
-    });
+    progress.value = withTiming(1, { duration });
 
-    return () => cancelAnimation(progress);
+    const timeout = setTimeout(onDone, duration);
+
+    return () => clearTimeout(timeout);
   }, []);
 
   return (
     <FadeLayers progress={progress} front={front} back={back} style={style} />
   );
+};
+
+type CrossFadeTextProps = {
+  triggerKey: string
+  children: ReactNode
+  duration?: number
+  style?: StyleProp<ViewStyle>
 };
 
 const CrossFadeText = ({
@@ -143,18 +140,13 @@ const CrossFadeText = ({
     lastChildren.current = children;
   });
 
-  const clearOutgoing = useCallback(
-    () => setTx((t) => ({ ...t, outgoing: null })),
-    []
-  );
-
   return (
     <FadeTransition
       key={tx.key}
       front={children}
       back={tx.outgoing}
       duration={duration}
-      onFinish={clearOutgoing}
+      onDone={() => setTx((t) => ({ ...t, outgoing: null }))}
       style={style}
     />
   );
