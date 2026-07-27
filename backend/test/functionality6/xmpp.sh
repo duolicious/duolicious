@@ -195,6 +195,28 @@ curl -sX GET http://localhost:3001/pop \
 
 
 
+echo "A second message without a reply stays in user 2's intros"
+
+send_message "$user1uuid" "$user1token" "$user2uuid" "hello once more" "id1b"
+
+sleep 4 # MongooseIM takes some time to flush messages to the DB
+
+curl -sX GET http://localhost:3001/pop \
+  | assert_any 'has("duo_message_delivered") and .duo_message_delivered["@id"] == "id1b"'
+
+[[ "$(q "select count(*) from inbox where \
+    luser = '${user1uuid}' and \
+    remote_bare_jid = '${user2uuid}@duolicious.app' and \
+    box = 'chats'")" = 1 ]]
+
+[[ "$(q "select count(*) from inbox where \
+    luser = '${user2uuid}' and \
+    remote_bare_jid = '${user1uuid}@duolicious.app' and \
+    box = 'inbox' and \
+    unread_count = 2")" = 1 ]]
+
+
+
 echo The push token user-x-token should be acknowledged and inserted into the database
 
 register_push_token "$user1uuid" "$user1token" 'user-x-token'
@@ -309,6 +331,11 @@ curl -sX GET http://localhost:3001/pop \
 
 [[ "$(q "select count(*) from mam_message where \
     body like '%hello user 2%'")" = 4 ]]
+
+[[ "$(q "select count(*) from inbox where \
+    luser = '${user3uuid}' and \
+    remote_bare_jid = '${user1uuid}@duolicious.app' and \
+    box = 'chats'")" = 1 ]]
 
 [[ "$(q " \
   select count(*) \

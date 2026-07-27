@@ -334,7 +334,6 @@ WITH upsert_sender AS (
     ON CONFLICT (luser, remote_bare_jid)
     DO UPDATE SET
         msg_id = EXCLUDED.msg_id,
-        box = 'chats',
         body = EXCLUDED.body,
         direction = EXCLUDED.direction,
         timestamp = EXCLUDED.timestamp,
