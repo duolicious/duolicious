@@ -1,7 +1,7 @@
 import { CHAT_URL } from '../env/env';
 import { listen, notify } from '../events/events';
 import { delay, jsonParseSilently } from '../util/util';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 
 type Pong = {
   preferredInterval: number
@@ -31,7 +31,18 @@ listen(EV_CHAT_WS_SEND_CLOSE, () => {
   ws?.close();
 });
 
+const isBackgrounded = (state: AppStateStatus): boolean =>
+  Platform.OS !== 'web' && ['background', 'inactive'].includes(state);
+
 const connectChatWebSocket = (): void => {
+  if (ws) {
+    return;
+  }
+
+  if (isBackgrounded(AppState.currentState)) {
+    return;
+  }
+
   ws = new WebSocket(CHAT_URL, ['json']);
 
   ws.onopen = () => {
@@ -229,6 +240,11 @@ const pingServerForever = async () => {
 const onChangeAppState = (state: AppStateStatus) => {
   if (state === 'active') {
     lastEnteredActiveState = new Date();
+    connectChatWebSocket();
+  }
+
+  if (isBackgrounded(state)) {
+    ws?.close();
   }
 };
 
