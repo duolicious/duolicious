@@ -835,8 +835,8 @@ test_happy_path_visitor_and_intro_are_separate () {
     intro_seconds > 0")" = 1 ]]
 
   [[ "$(count_pushes_to 'token_both')" = 2 ]]
-  [[ "$(pushes_to 'token_both')" = '[{"title":"You have a new message 😍","body":"You have a new message in your intros!","screen":"Inbox"},{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
-  [[ "$(badges_of_pushes_to 'token_both')" = '[1,2]' ]]
+  [[ "$(pushes_to 'token_both' | jq -c 'sort_by(.title)')" = '[{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"},{"title":"You have a new message 😍","body":"You have a new message in your intros!","screen":"Inbox"}]' ]]
+  [[ "$(badges_of_pushes_to 'token_both' | jq -c 'sort')" = '[1,2]' ]]
   [[ "$(q "select unseen_notification_count from person where uuid::text = '$user1id'")" = 2 ]]
 }
 

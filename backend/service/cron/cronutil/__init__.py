@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from botocore.exceptions import ClientError
 from service.cron.cronutil.sql import *
+from pathlib import Path
 import asyncboto
 import asyncio
 import boto3
@@ -26,6 +27,19 @@ MAX_RANDOM_START_DELAY = int(os.environ.get(
     'DUO_CRON_MAX_RANDOM_START_DELAY',
     15,
 ))
+
+DISABLE_MOBILE_NOTIFICATIONS_FILE = (
+    Path(__file__).parent.parent.parent.parent /
+    'test' /
+    'input' /
+    'disable-mobile-notifications')
+
+def disable_mobile_notifications() -> bool:
+    if DISABLE_MOBILE_NOTIFICATIONS_FILE.is_file():
+        with DISABLE_MOBILE_NOTIFICATIONS_FILE.open() as file:
+            if file.read().strip() == '1':
+                return True
+    return False
 
 async def print_stacktrace(fun: Callable[[], Awaitable[object]]) -> None:
     try:

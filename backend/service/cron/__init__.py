@@ -8,6 +8,9 @@ from service.cron.clubseo import (
 from service.cron.garbagerecords import delete_garbage_records_forever
 from service.cron.notifications import send_notifications_forever
 from service.cron.nsfwphotorunner import predict_nsfw_photos_forever
+from service.cron.visitornotifications import (
+    send_visitor_notifications_forever,
+)
 from service.cron.photocleaner import clean_photos_forever
 from service.cron.audiocleaner import clean_audio_forever
 from service.cron.verificationjobrunner import verify_forever
@@ -57,6 +60,8 @@ async def main() -> None:
 
             # Fetched: 9k, returned: 70k
             send_notifications_forever(),
+
+            send_visitor_notifications_forever(),
 
             verify_forever(),
 
