@@ -1,9 +1,10 @@
 import unittest
 from typing import TypedDict
 from service.cron.messagenotifications import (
+    MESSAGE_NOTIFICATIONS,
     PersonNotification,
-    do_send_email_notification,
 )
+from service.cron.notificationdispatch import do_send_email_notification
 
 
 class BaseNotificationKwargs(TypedDict):
@@ -21,7 +22,7 @@ class TestDoSend(unittest.TestCase):
             token=None,
         )
 
-        self.assertFalse(do_send_email_notification(PersonNotification(
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@exaMPle.com',
             has_intro=True,
@@ -33,7 +34,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=0,
             chats_drift_seconds=0)))
 
-        self.assertFalse(do_send_email_notification(PersonNotification(
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=True,
@@ -45,7 +46,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=-1,
             chats_drift_seconds=-1)))
 
-        self.assertFalse(do_send_email_notification(PersonNotification(
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=False,
@@ -57,7 +58,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=0,
             chats_drift_seconds=-1)))
 
-        self.assertFalse(do_send_email_notification(PersonNotification(
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=True,
@@ -69,7 +70,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=-1,
             chats_drift_seconds=0)))
 
-        self.assertTrue(do_send_email_notification(PersonNotification(
+        self.assertTrue(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=True,
@@ -81,7 +82,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=0,
             chats_drift_seconds=0)))
 
-        self.assertTrue(do_send_email_notification(PersonNotification(
+        self.assertTrue(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=True,
@@ -93,7 +94,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=5,
             chats_drift_seconds=50)))
 
-        self.assertTrue(do_send_email_notification(PersonNotification(
+        self.assertTrue(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=False,
@@ -105,7 +106,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=50,
             chats_drift_seconds=5)))
 
-        self.assertFalse(do_send_email_notification(PersonNotification(
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=True,
@@ -117,7 +118,7 @@ class TestDoSend(unittest.TestCase):
             intros_drift_seconds=50,
             chats_drift_seconds=5)))
 
-        self.assertFalse(do_send_email_notification(PersonNotification(
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, PersonNotification(
             **dont_care,
             email='asdf@notexample.com',
             has_intro=False,
@@ -144,7 +145,7 @@ class TestDoSend(unittest.TestCase):
             token=None,
         )
 
-        self.assertFalse(do_send_email_notification(real_notification))
+        self.assertFalse(do_send_email_notification(MESSAGE_NOTIFICATIONS, real_notification))
 
 if __name__ == '__main__':
     unittest.main()

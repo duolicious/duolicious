@@ -1,17 +1,18 @@
 import unittest
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, MagicMock
 from commonsql import (
     Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
 )
-from service.cron.visitornotifications import (
-    VisitorNotification,
-    compute_badges,
+from service.cron.notificationdispatch import (
     do_send_email_notification,
-    do_send_notification,
     send_mobile_notification,
-    send_notification,
+)
+from service.cron.visitornotifications import (
+    VISITOR_NOTIFICATIONS,
+    VisitorNotification,
+    do_send_notification,
     update_last_notification_time,
 )
 import asyncio
@@ -53,43 +54,14 @@ class TestDoSendNotification(unittest.TestCase):
         row = make_visitor_notification(email='user.1@exaMPle.com')
 
         self.assertTrue(do_send_notification(row))
-        self.assertFalse(do_send_email_notification(row))
+        self.assertFalse(
+                do_send_email_notification(VISITOR_NOTIFICATIONS, row))
 
 
-class TestSendNotification(unittest.TestCase):
+class TestSendMobileNotification(unittest.TestCase):
 
-    @patch('service.cron.visitornotifications.send_email_notification')
-    @patch('service.cron.visitornotifications.send_mobile_notification')
-    def test_mobile_send_when_token_present(
-        self,
-        mock_send_mobile_notification: MagicMock,
-        mock_send_email_notification: MagicMock,
-    ) -> None:
-        row = make_visitor_notification()
-
-        asyncio.run(send_notification(row, badge=5))
-
-        mock_send_mobile_notification.assert_called_once_with(row, badge=5)
-        mock_send_email_notification.assert_not_called()
-
-    @patch('service.cron.visitornotifications.send_email_notification')
-    @patch('service.cron.visitornotifications.send_mobile_notification')
-    def test_email_send_when_no_token(
-        self,
-        mock_send_mobile_notification: MagicMock,
-        mock_send_email_notification: MagicMock,
-    ) -> None:
-        # No reachable push device (or the user was last seen on a web client):
-        # the query returns a NULL token, so we email instead of pushing.
-        row = make_visitor_notification(token=None)
-
-        asyncio.run(send_notification(row, badge=None))
-
-        mock_send_mobile_notification.assert_not_called()
-        mock_send_email_notification.assert_called_once_with(row)
-
-    @patch('service.cron.visitornotifications.disable_mobile_notifications')
-    @patch('service.cron.visitornotifications.notify.enqueue_mobile_notification')
+    @patch('service.cron.notificationdispatch.disable_mobile_notifications')
+    @patch('service.cron.notificationdispatch.notify.enqueue_mobile_notification')
     def test_visitor_push_opens_the_visitors_tab(
         self,
         mock_enqueue: MagicMock,
@@ -97,7 +69,8 @@ class TestSendNotification(unittest.TestCase):
     ) -> None:
         mock_disable.return_value = False
 
-        send_mobile_notification(make_visitor_notification(), badge=1)
+        send_mobile_notification(
+                VISITOR_NOTIFICATIONS, make_visitor_notification(), badge=1)
 
         [kwargs] = [call.kwargs for call in mock_enqueue.call_args_list]
         self.assertEqual(kwargs['title'], 'Someone visited your profile 👀')
@@ -105,54 +78,6 @@ class TestSendNotification(unittest.TestCase):
         self.assertEqual(
                 kwargs['data'],
                 {'screen': 'Home', 'params': {'screen': 'Visitors'}})
-
-
-class TestComputeBadges(unittest.TestCase):
-
-    @patch(
-        'service.cron.visitornotifications.increment_unseen_notification_count',
-        new_callable=AsyncMock,
-        return_value=5,
-    )
-    def test_increments_once_per_person(self, mock_increment: AsyncMock) -> None:
-        # A person signed in on two devices produces two rows; the count must
-        # increment once, with both rows badged with the same value.
-        row_a = make_visitor_notification(token='device-a')
-        row_b = make_visitor_notification(token='device-b')
-
-        badges = asyncio.run(compute_badges([row_a, row_b]))
-
-        mock_increment.assert_awaited_once_with(username=row_a.person_uuid)
-        self.assertEqual(badges, {row_a.person_uuid: 5})
-
-    @patch(
-        'service.cron.visitornotifications.increment_unseen_notification_count',
-        new_callable=AsyncMock,
-    )
-    def test_skips_email_rows(self, mock_increment: AsyncMock) -> None:
-        # Emails don't badge an app icon, so the count is untouched
-        row = make_visitor_notification(token=None)
-
-        badges = asyncio.run(compute_badges([row]))
-
-        mock_increment.assert_not_awaited()
-        self.assertEqual(badges, {})
-
-    @patch(
-        'service.cron.visitornotifications.increment_unseen_notification_count',
-        new_callable=AsyncMock,
-    )
-    def test_skips_unsendable_rows(self, mock_increment: AsyncMock) -> None:
-        # `do_send_notification` will refuse this row (nothing new since the
-        # last notification), so no push goes out and the count must not
-        # increment.
-        row = make_visitor_notification(
-                last_visitor_notification_seconds=1693786064)
-
-        badges = asyncio.run(compute_badges([row]))
-
-        mock_increment.assert_not_awaited()
-        self.assertEqual(badges, {})
 
 
 class TestUpdateLastNotificationTime(unittest.TestCase):

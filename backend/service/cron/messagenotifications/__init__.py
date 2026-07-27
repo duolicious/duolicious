@@ -1,5 +1,9 @@
-from database import api_tx
+from commonsql import (
+    Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
+    Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
+)
 from dataclasses import dataclass
+from database import api_tx
 from service.cron.messagenotifications.sql import (
     Q_UNREAD_INBOX,
 )
@@ -8,22 +12,11 @@ from service.cron.messagenotifications.template import (
     big_part,
     emailtemplate,
 )
-from service.cron.cronutil import (
-    DISABLE_MOBILE_NOTIFICATIONS_FILE,
-    MAX_RANDOM_START_DELAY,
-    disable_mobile_notifications,
-    print_stacktrace,
+from service.cron.notificationdispatch import (
+    NotificationKind,
+    send_pending_notifications_forever,
 )
-from commonsql import (
-    Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
-    Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
-)
-from unseennotificationcount import increment_unseen_notification_count
-import asyncio
-from smtp import make_aws_smtp
 import os
-import random
-import notify
 
 EMAIL_POLL_SECONDS = int(os.environ.get(
     'DUO_CRON_EMAIL_POLL_SECONDS',
@@ -78,11 +71,6 @@ def is_chat_sendable(row: PersonNotification) -> bool:
 def do_send_notification(row: PersonNotification) -> bool:
     return is_intro_sendable(row) or is_chat_sendable(row)
 
-def do_send_email_notification(row: PersonNotification) -> bool:
-    is_example = row.email.lower().endswith('@example.com')
-
-    return do_send_notification(row) and not is_example
-
 def notification_body(row: PersonNotification) -> str:
     # Every unread kind the query found, not only the ones whose frequency cap
     # has elapsed: one notification covers the whole inbox, so an intro still
@@ -90,78 +78,12 @@ def notification_body(row: PersonNotification) -> str:
     # notification of its own.
     return big_part(row.has_intro, row.has_chat)
 
-async def send_email_notification(row: PersonNotification) -> None:
-    if not do_send_email_notification(row):
-        print('Email notification failed because it ends with @example.com')
-        return
-
-    subject = MESSAGE_SUBJECT
-    body = emailtemplate(
-            email=row.email,
-            has_intro=row.has_intro,
-            has_chat=row.has_chat,
+def email_body(row: PersonNotification) -> str:
+    return emailtemplate(
+        email=row.email,
+        has_intro=row.has_intro,
+        has_chat=row.has_chat,
     )
-    to_addr = row.email
-
-    aws_smtp = make_aws_smtp()
-    def send() -> None:
-        aws_smtp.send(subject=subject, body=body, to_addr=to_addr)
-
-    await asyncio.to_thread(send)
-
-def send_mobile_notification(
-    row: PersonNotification,
-    badge: int | None,
-) -> None:
-    if disable_mobile_notifications():
-        print(
-            'File prevented mobile notifications',
-            str(DISABLE_MOBILE_NOTIFICATIONS_FILE.absolute())
-        )
-    else:
-        notify.enqueue_mobile_notification(
-            token=row.token,
-            title=MESSAGE_SUBJECT,
-            body=notification_body(row),
-            data={'screen': 'Home', 'params': {'screen': 'Inbox'}},
-            badge=badge,
-        )
-
-async def compute_badges(
-    person_notifications: list[PersonNotification],
-) -> dict[str, int | None]:
-    """
-    Q_UNREAD_INBOX fans a person out into one row per push token, but the
-    unseen-notification count (the app-icon badge) must increment once per
-    person, not once per device, so every device shows the same badge. The
-    conditions here mirror the ones under which `maybe_send_notification`
-    sends a push rather than an email or nothing.
-    """
-    badges: dict[str, int | None] = {}
-
-    for row in person_notifications:
-        if not row.token:
-            continue
-        if not do_send_notification(row):
-            continue
-        if row.person_uuid in badges:
-            continue
-
-        badges[row.person_uuid] = await increment_unseen_notification_count(
-                username=row.person_uuid)
-
-    return badges
-
-async def send_notification(
-    row: PersonNotification,
-    badge: int | None,
-) -> None:
-    if not row.token:
-        print('Sending message email notification:', str(row))
-        return await send_email_notification(row)
-
-    print('Sending message mobile notification:', str(row))
-    send_mobile_notification(row, badge=badge)
 
 async def update_last_notification_time(row: PersonNotification) -> None:
     params = dict(username=row.person_uuid)
@@ -174,31 +96,18 @@ async def update_last_notification_time(row: PersonNotification) -> None:
         if row.has_chat:
             await tx.execute(Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME, params)
 
-async def maybe_send_notification(
-    row: PersonNotification,
-    badge: int | None,
-) -> None:
-    if not do_send_notification(row):
-        return
-
-    await send_notification(row, badge)
-    await update_last_notification_time(row)
-
-async def send_notifications_once() -> None:
-    async with api_tx('read committed') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
-        cur = await tx.execute(Q_UNREAD_INBOX)
-        rows = await cur.fetchall()
-
-    person_notifications = [PersonNotification(**j) for j in rows]
-
-    badges = await compute_badges(person_notifications)
-
-    for row in person_notifications:
-        await maybe_send_notification(row, badges.get(row.person_uuid))
+MESSAGE_NOTIFICATIONS = NotificationKind(
+    name='message',
+    query=Q_UNREAD_INBOX,
+    row_type=PersonNotification,
+    poll_seconds=EMAIL_POLL_SECONDS,
+    subject=MESSAGE_SUBJECT,
+    screen={'screen': 'Home', 'params': {'screen': 'Inbox'}},
+    is_sendable=do_send_notification,
+    push_body=notification_body,
+    email_body=email_body,
+    update_last_notification_time=update_last_notification_time,
+)
 
 async def send_notifications_forever() -> None:
-    await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
-    while True:
-        await print_stacktrace(send_notifications_once)
-        await asyncio.sleep(EMAIL_POLL_SECONDS)
+    await send_pending_notifications_forever(MESSAGE_NOTIFICATIONS)
