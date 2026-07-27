@@ -1,5 +1,5 @@
 import unittest
-from service.cron.notifications.template import (
+from service.cron.messagenotifications.template import (
     emailtemplate,
 )
 

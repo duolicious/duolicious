@@ -6,7 +6,7 @@ from commonsql import (
     Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
     Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
 )
-from service.cron.notifications import (
+from service.cron.messagenotifications import (
     PersonNotification,
     compute_badges,
     do_send_notification,
@@ -42,8 +42,8 @@ person_notification = make_person_notification()
 
 class TestSendNotification(unittest.TestCase):
 
-    @patch('service.cron.notifications.send_email_notification')
-    @patch('service.cron.notifications.send_mobile_notification')
+    @patch('service.cron.messagenotifications.send_email_notification')
+    @patch('service.cron.messagenotifications.send_mobile_notification')
     def test_mobile_send_when_token_present(
         self,
         mock_send_mobile_notification: MagicMock,
@@ -59,8 +59,8 @@ class TestSendNotification(unittest.TestCase):
         # Assert that send_email_notification was not called
         mock_send_email_notification.assert_not_called()
 
-    @patch('service.cron.notifications.send_email_notification')
-    @patch('service.cron.notifications.send_mobile_notification')
+    @patch('service.cron.messagenotifications.send_email_notification')
+    @patch('service.cron.messagenotifications.send_mobile_notification')
     def test_email_send_when_no_token(
         self,
         mock_send_mobile_notification: MagicMock,
@@ -79,7 +79,7 @@ class TestSendNotification(unittest.TestCase):
 class TestComputeBadges(unittest.TestCase):
 
     @patch(
-        'service.cron.notifications.increment_unseen_notification_count',
+        'service.cron.messagenotifications.increment_unseen_notification_count',
         new_callable=AsyncMock,
         return_value=5,
     )
@@ -102,7 +102,7 @@ class TestComputeBadges(unittest.TestCase):
         self.assertEqual(badges, {row_a.person_uuid: 5})
 
     @patch(
-        'service.cron.notifications.increment_unseen_notification_count',
+        'service.cron.messagenotifications.increment_unseen_notification_count',
         new_callable=AsyncMock,
     )
     def test_skips_email_rows(self, mock_increment: AsyncMock) -> None:
@@ -115,7 +115,7 @@ class TestComputeBadges(unittest.TestCase):
         self.assertEqual(badges, {})
 
     @patch(
-        'service.cron.notifications.increment_unseen_notification_count',
+        'service.cron.messagenotifications.increment_unseen_notification_count',
         new_callable=AsyncMock,
     )
     def test_skips_unsendable_rows(self, mock_increment: AsyncMock) -> None:
@@ -154,8 +154,8 @@ class TestMessageNotificationsCoverTheWholeInbox(unittest.TestCase):
         self.assertTrue(is_chat_sendable(row))
         self.assertTrue(do_send_notification(row))
 
-    @patch('service.cron.notifications.disable_mobile_notifications')
-    @patch('service.cron.notifications.notify.enqueue_mobile_notification')
+    @patch('service.cron.messagenotifications.disable_mobile_notifications')
+    @patch('service.cron.messagenotifications.notify.enqueue_mobile_notification')
     def test_one_notification_names_both_kinds(
         self,
         mock_enqueue: MagicMock,
@@ -187,7 +187,7 @@ class TestMessageNotificationsCoverTheWholeInbox(unittest.TestCase):
         async def api_tx(isolation: str) -> AsyncIterator[Tx]:
             yield Tx()
 
-        with patch('service.cron.notifications.api_tx', api_tx):
+        with patch('service.cron.messagenotifications.api_tx', api_tx):
             asyncio.run(update_last_notification_time(self.capped_intro_row()))
 
         self.assertEqual(executed, [

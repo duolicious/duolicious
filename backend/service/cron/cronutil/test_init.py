@@ -1,6 +1,6 @@
 import unittest
 from typing import TypedDict
-from service.cron.notifications import (
+from service.cron.messagenotifications import (
     PersonNotification,
     do_send_email_notification,
 )

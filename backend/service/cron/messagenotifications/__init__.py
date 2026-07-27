@@ -1,9 +1,9 @@
 from database import api_tx
 from dataclasses import dataclass
-from service.cron.notifications.sql import (
+from service.cron.messagenotifications.sql import (
     Q_UNREAD_INBOX,
 )
-from service.cron.notifications.template import (
+from service.cron.messagenotifications.template import (
     MESSAGE_SUBJECT,
     big_part,
     emailtemplate,
