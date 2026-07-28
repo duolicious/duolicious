@@ -3,7 +3,7 @@ import {
 } from '../env/env';
 import * as _ from "lodash";
 import { sessionToken } from '../kv-storage/session-token';
-import { delay } from '../util/util';
+import { delay, makeBackoff } from '../util/util';
 import { notify } from '../events/events';
 import { ValidationErrorToast, SOMETHING_WENT_WRONG } from '../components/toast';
 
@@ -55,6 +55,7 @@ const api = async <T = unknown>(
   let json: T | undefined;
   let text: string | undefined;
   let numRetries = 0;
+  const retryBackoff = makeBackoff();
 
   while (maxRetries === undefined || numRetries <= maxRetries) {
     [response, json] = [undefined, undefined];
@@ -100,14 +101,13 @@ const api = async <T = unknown>(
         break;
       }
     } catch (error) {
-      const timeoutSeconds =
-        Math.round(4 * Math.min(32, Math.pow(1.7, numRetries++))) +
-        Math.round(4 * Math.random());
+      numRetries++;
+      const jitteredDelayMs = retryBackoff.next();
 
       // TODO: There should be a message in the UI saying "you're offline" or something
-      console.log(`Waiting ${timeoutSeconds} seconds and trying again; Caught error while fetching ${url}`, error);
+      console.log(`Waiting ${(jitteredDelayMs / 1000).toFixed(1)} seconds and trying again; Caught error while fetching ${url}`, error);
 
-      await delay(timeoutSeconds * 1000);
+      await delay(jitteredDelayMs);
     } finally {
       // cancel the timeout whether there was an error or not
       clearTimeout(timeoutId);

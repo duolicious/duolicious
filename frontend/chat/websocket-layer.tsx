@@ -1,6 +1,10 @@
 import { CHAT_URL } from '../env/env';
 import { listen, notify } from '../events/events';
-import { delay, jsonParseSilently } from '../util/util';
+import {
+  delay,
+  jsonParseSilently,
+  makeBackoff,
+} from '../util/util';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
 type Pong = {
@@ -13,12 +17,9 @@ const EV_CHAT_WS_OPEN = 'chat-ws-open';
 const EV_CHAT_WS_RECEIVE = 'chat-ws-receive';
 const EV_CHAT_WS_SEND_CLOSE = 'chat-ws-send-close';
 
-const reconnectDelayStep = 1000;
-const maxReconnectDelay = 30000;
-const initialReconnectDelay = 0;
 const stableConnectionMs = 10000;
 const backgroundedCloseGraceMs = 5000;
-let reconnectDelay = initialReconnectDelay;
+const reconnectBackoff = makeBackoff();
 let backgroundedCloseTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const pong: Pong = {
@@ -59,10 +60,7 @@ const connectChatWebSocket = (): void => {
   let resetDelayTimeout: ReturnType<typeof setTimeout> | undefined;
 
   ws.onopen = () => {
-    resetDelayTimeout = setTimeout(
-      () => { reconnectDelay = initialReconnectDelay; },
-      stableConnectionMs,
-    );
+    resetDelayTimeout = setTimeout(reconnectBackoff.reset, stableConnectionMs);
     notify(EV_CHAT_WS_OPEN);
   };
 
@@ -82,13 +80,7 @@ const connectChatWebSocket = (): void => {
       expectedClose = false;
       connectChatWebSocket();
     } else {
-      setTimeout(() => {
-        reconnectDelay = Math.min(
-          2 * (reconnectDelay + reconnectDelayStep),
-          maxReconnectDelay
-        );
-        connectChatWebSocket();
-      }, reconnectDelay);
+      setTimeout(connectChatWebSocket, reconnectBackoff.next());
     }
   };
 

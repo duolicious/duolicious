@@ -122,6 +122,23 @@ const getShortElapsedTime = (start: Date) => {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const backoffDelayStepMs = 1000;
+const maxBackoffDelayMs = 30000;
+
+const makeBackoff = () => {
+  let delayMs = 0;
+
+  return {
+    next: (): number => {
+      delayMs = Math.min(2 * (delayMs + backoffDelayStepMs), maxBackoffDelayMs);
+      return Math.random() * delayMs;
+    },
+    reset: (): void => {
+      delayMs = 0;
+    },
+  };
+};
+
 const deleteFromArray = <T,>(array: T[], element: T): T[] => {
   let index = array.indexOf(element);
   if (index !== -1) {
@@ -412,6 +429,7 @@ export {
   compareArrays,
   delay,
   deleteFromArray,
+  makeBackoff,
   friendlyDate,
   friendlyTimeAgo,
   friendlyTimestamp,
