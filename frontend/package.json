@@ -1,6 +1,6 @@
 {
   "name": "duolicious",
-  "version": "32.9.2",
+  "version": "32.9.3",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
