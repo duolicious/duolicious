@@ -115,6 +115,7 @@ from service.api.chat.audiomessage import (
 )
 import redis.asyncio as redis
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.responses import PlainTextResponse
 from starlette.websockets import WebSocketState
 from service.api.ratelimit import (
     RateLimitExceeded,
@@ -722,7 +723,11 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
         await check_chat_connect_limit(websocket)
     except RateLimitExceeded:
         logger.info(f'Chat connection rejected: rate limited; ip={ip}')
-        await websocket.close(code=1013)
+        if 'websocket.http.response' in websocket.scope.get('extensions', {}):
+            await websocket.send_denial_response(
+                PlainTextResponse('Too Many Requests', status_code=429))
+        else:
+            await websocket.close(code=1013)
         return
 
     await websocket.accept(subprotocol='json')
