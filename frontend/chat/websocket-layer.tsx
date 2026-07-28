@@ -62,7 +62,7 @@ const dropChatWebSocket = (): void => {
   notify(EV_CHAT_WS_CLOSE);
 };
 
-const abandonChatWebSocket = (): void => {
+const dropChatWebSocketAndReconnect = (): void => {
   if (!ws) {
     return;
   }
@@ -73,14 +73,15 @@ const abandonChatWebSocket = (): void => {
 
 listen(EV_CHAT_WS_SEND_CLOSE, closeChatWebSocket);
 
-const isBackgrounded = (state: AppStateStatus): boolean =>
-  Platform.OS !== 'web' && ['background', 'inactive'].includes(state);
+const isNative = Platform.OS !== 'web';
 
-// Only 'background' means the app actually went away. iOS also reports
-// 'inactive' for transient interruptions - the app switcher, the notification
-// shade, a permission dialog - where cycling the connection would be churn.
-const didEnterBackground = (state: AppStateStatus): boolean =>
-  Platform.OS !== 'web' && state === 'background';
+// 'inactive' and 'background' both mean the app isn't in the foreground. Only
+// 'background' means it actually went away, though: iOS reports 'inactive' for
+// transient interruptions like the app switcher, the notification shade or a
+// permission dialog, so the two states are treated differently below - we stop
+// connecting during either, but only disconnect on the latter.
+const isNotForeground = (state: AppStateStatus): boolean =>
+  isNative && ['background', 'inactive'].includes(state);
 
 const isOffline = (): boolean =>
   lastEvent<boolean>(EV_NETWORK_IS_ONLINE) === false;
@@ -90,7 +91,7 @@ const connectChatWebSocket = (): void => {
     return;
   }
 
-  if (isBackgrounded(AppState.currentState)) {
+  if (isNotForeground(AppState.currentState)) {
     return;
   }
 
@@ -297,7 +298,7 @@ const pingServer = async () => {
 
   if (response === 'timeout') {
     // An unresponsive connection would stall the closing handshake too.
-    abandonChatWebSocket();
+    dropChatWebSocketAndReconnect();
   } else {
     Object.assign(pong, response);
   }
@@ -322,7 +323,7 @@ const onChangeAppState = (state: AppStateStatus) => {
   // Android; iOS suspends the JS thread), so a deferred close would only run
   // after the app came back - leaving the connection, and the user's 'online'
   // status, alive for the whole time the app was away.
-  if (didEnterBackground(state)) {
+  if (isNative && state === 'background') {
     dropChatWebSocket();
   }
 };
@@ -332,12 +333,12 @@ const onChangeAppState = (state: AppStateStatus) => {
 AppState.addEventListener('change', onChangeAppState);
 
 // Desktop browsers don't close websockets when connectivity drops; the socket
-// object stays OPEN until a write times out. Abandon it (rather than just
-// closing: see `abandonChatWebSocket`) so the came-online reconnect below
-// isn't blocked by a socket stuck in CLOSING.
+// object stays OPEN until a write times out. Drop it rather than closing it,
+// so the came-online reconnect below isn't blocked by a socket stuck in
+// CLOSING.
 listen<boolean>(EV_NETWORK_IS_ONLINE, (isOnline) => {
   if (isOnline === false) {
-    abandonChatWebSocket();
+    dropChatWebSocketAndReconnect();
   }
 });
 
