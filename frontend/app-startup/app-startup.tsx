@@ -58,6 +58,7 @@ type CheckSessionTokenResponse = {
 type AppStartup = {
   initialState: InitialState | undefined
   isLoading: boolean
+  localReady: boolean
   serverStatus: ServerStatus
   onError: () => void
 };
@@ -297,7 +298,7 @@ const useAppStartup = (
     })();
   }, [localReady, isLoading, serverStatus, isOffline]);
 
-  return { initialState, isLoading, serverStatus, onError };
+  return { initialState, isLoading, localReady, serverStatus, onError };
 };
 
 export {

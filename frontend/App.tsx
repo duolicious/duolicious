@@ -72,6 +72,7 @@ const App = () => {
   const {
     initialState,
     isLoading,
+    localReady,
     serverStatus,
     onError,
   } = useAppStartup(linking, pendingPostLoginStateRef);
@@ -178,7 +179,7 @@ const App = () => {
           </GestureHandlerRootView>
         }
         <SplashScreen loading={isLoading} />
-        <ConnectionStatusBanner/>
+        {localReady && <ConnectionStatusBanner/>}
       </SafeAreaProvider>
     </ErrorBoundary>
   );
