@@ -73,15 +73,13 @@ const dropChatWebSocketAndReconnect = (): void => {
 
 listen(EV_CHAT_WS_SEND_CLOSE, closeChatWebSocket);
 
-const isNative = Platform.OS !== 'web';
-
 // 'inactive' and 'background' both mean the app isn't in the foreground. Only
 // 'background' means it actually went away, though: iOS reports 'inactive' for
 // transient interruptions like the app switcher, the notification shade or a
 // permission dialog, so the two states are treated differently below - we stop
 // connecting during either, but only disconnect on the latter.
 const isNotForeground = (state: AppStateStatus): boolean =>
-  isNative && ['background', 'inactive'].includes(state);
+  Platform.OS !== 'web' && ['background', 'inactive'].includes(state);
 
 const isOffline = (): boolean =>
   lastEvent<boolean>(EV_NETWORK_IS_ONLINE) === false;
@@ -323,7 +321,7 @@ const onChangeAppState = (state: AppStateStatus) => {
   // Android; iOS suspends the JS thread), so a deferred close would only run
   // after the app came back - leaving the connection, and the user's 'online'
   // status, alive for the whole time the app was away.
-  if (isNative && state === 'background') {
+  if (Platform.OS !== 'web' && state === 'background') {
     dropChatWebSocket();
   }
 };
