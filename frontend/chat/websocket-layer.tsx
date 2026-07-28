@@ -17,7 +17,9 @@ const reconnectDelayStep = 1000;
 const maxReconnectDelay = 30000;
 const initialReconnectDelay = 0;
 const stableConnectionMs = 10000;
+const backgroundedCloseGraceMs = 5000;
 let reconnectDelay = initialReconnectDelay;
+let backgroundedCloseTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const pong: Pong = {
   preferredInterval: 10000,
@@ -258,14 +260,25 @@ const pingServerForever = async () => {
   };
 };
 
+const closeIfStillBackgrounded = (): void => {
+  if (isBackgrounded(AppState.currentState)) {
+    closeChatWebSocket();
+  }
+};
+
 const onChangeAppState = (state: AppStateStatus) => {
   if (state === 'active') {
     lastEnteredActiveState = new Date();
+    clearTimeout(backgroundedCloseTimeout);
     connectChatWebSocket();
   }
 
   if (isBackgrounded(state)) {
-    closeChatWebSocket();
+    clearTimeout(backgroundedCloseTimeout);
+    backgroundedCloseTimeout = setTimeout(
+      closeIfStillBackgrounded,
+      backgroundedCloseGraceMs,
+    );
   }
 };
 

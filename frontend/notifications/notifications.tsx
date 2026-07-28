@@ -22,10 +22,10 @@ const refreshWebPushOnWeb = async (): Promise<MaybeToken> => {
 
 
 const requestPermissionOnMobile = async (): Promise<MaybeToken> => {
-  const { status } = await Notifications.getPermissionsAsync();
+  const current = await Notifications.getPermissionsAsync();
   const finalStatus =
-    status === 'granted' ?
-    status :
+    current.granted || !current.canAskAgain ?
+    current.status :
     (await Notifications.requestPermissionsAsync()).status;
 
   if (finalStatus !== 'granted') {
