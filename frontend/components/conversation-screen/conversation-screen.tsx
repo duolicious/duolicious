@@ -679,7 +679,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       return;
     }
 
-    await markDisplayed(personUuid, lastMessage.message.id);
+    await markDisplayed(personUuid, lastMessage.message.id, null);
   }, [_.last(messageIds)]);
 
   useSkipped(personUuid, () => navigation.popToTop());

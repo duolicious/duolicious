@@ -23,6 +23,11 @@ import {
   awaitFocusedConversationFetch,
   markConversationFetchDispatched,
 } from '../conversation-priority';
+import {
+  advanceDisplayedUpTo,
+  clearDisplayedUpTo,
+  getDisplayedUpTo,
+} from './displayed-up-to';
 
 const AUDIO_MESSAGE = 'Audio message';
 
@@ -179,6 +184,39 @@ const getInbox = (): Inbox | null => {
   return lastEvent<Inbox | null>('inbox') ?? null;
 }
 
+// Only unread entries have trustworthy timestamps here: they can only have
+// been built by `conversationFromWire`, so their timestamps are the server's.
+// Read entries may carry a client-clock timestamp from `setInboxSent`.
+const unreadConversationTimestamp = (personUuid: string): Date | null => {
+  const inbox = getInbox();
+
+  if (!inbox) {
+    return null;
+  }
+
+  const conversation = [
+    ...inbox.chats.conversations,
+    ...inbox.intros.conversations,
+    ...inbox.archive.conversations,
+  ].find((c) => c.personUuid === personUuid);
+
+  if (!conversation) {
+    return null;
+  }
+
+  if (conversation.lastMessageRead) {
+    return null;
+  }
+
+  return conversation.lastMessageTimestamp;
+};
+
+const latestOf = (a: Date | null, b: Date | null): Date | null => {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+};
+
 const inboxStats = (inbox: Inbox): {
   numChats: number
   numUnreadChats: number
@@ -239,6 +277,29 @@ const conversationListToMap = (
   );
 };
 
+// Server snapshots can lag the client's own `displayed` markers: the inbox
+// query races the mark-displayed batcher on the server, and on cold start the
+// marker for the open conversation is sent after the snapshot query. So a
+// snapshot saying "unread" is only authoritative for messages newer than the
+// last one this session marked displayed.
+const withDisplayedUpTo = (conversation: Conversation): Conversation => {
+  if (conversation.lastMessageRead) {
+    return conversation;
+  }
+
+  const displayedUpTo = getDisplayedUpTo(conversation.personUuid);
+
+  if (!displayedUpTo) {
+    return conversation;
+  }
+
+  if (conversation.lastMessageTimestamp > displayedUpTo) {
+    return conversation;
+  }
+
+  return { ...conversation, lastMessageRead: true };
+};
+
 // Builds a `Conversation` from the complete, snake-cased conversation objects
 // the server sends in `duo_inbox` snapshots and `duo_inbox_entry` pushes.
 const conversationFromWire = (
@@ -250,7 +311,7 @@ const conversationFromWire = (
 
   const locations = ['chats', 'intros', 'archive', 'nowhere'];
 
-  return {
+  const conversation: Conversation = {
     personUuid: c.person_uuid,
     urlSlug: c.url_slug ?? null,
     name: c.name ?? 'Unavailable Person',
@@ -265,6 +326,8 @@ const conversationFromWire = (
     location: locations.includes(c.location) ? c.location : 'archive',
     matchesSearchFilters: !!(c.matches_search_filters ?? true),
   };
+
+  return withDisplayedUpTo(conversation);
 };
 
 const jidToBareJid = (jid: string): string =>
@@ -405,6 +468,7 @@ const logout = async () => {
   await registerWebPushSubscription(null);
   notify(EV_CHAT_WS_SEND_CLOSE);
   notify<Inbox | null>('inbox', null);
+  clearDisplayedUpTo();
 };
 
 const authenticate = async () => {
@@ -439,10 +503,26 @@ const authenticate = async () => {
 };
 
 // The server marks the whole conversation displayed; `messageId` is inert.
-const markDisplayed = async (otherPersonUuid: string, messageId: string) => {
+// Only server-sourced timestamps may be passed as `lastMessageTimestamp` -
+// recording a client-clock time could force-read a message that arrives just
+// after the mark.
+const markDisplayed = async (
+  otherPersonUuid: string,
+  messageId: string,
+  lastMessageTimestamp: Date | null,
+) => {
   if (!credentials) return;
 
   if (!isValidUuid(otherPersonUuid)) return;
+
+  const displayedUpTo = latestOf(
+    unreadConversationTimestamp(otherPersonUuid),
+    lastMessageTimestamp,
+  );
+
+  if (displayedUpTo) {
+    advanceDisplayedUpTo(otherPersonUuid, displayedUpTo);
+  }
 
   const data = {
     message: {
@@ -812,7 +892,13 @@ const onReceiveMessage = (
     if (!doMarkDisplayed) return;
     if (jidToBareJid(reaction['@from'] ?? '') !== otherPersonUuid) return;
 
-    await markDisplayed(otherPersonUuid, reaction['@mam_id'] ?? '');
+    const stamp = reaction['@stamp'];
+
+    await markDisplayed(
+      otherPersonUuid,
+      reaction['@mam_id'] ?? '',
+      stamp ? new Date(stamp) : null,
+    );
   };
 
   const _onReceiveMessage = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -859,7 +945,7 @@ const onReceiveMessage = (
     }
 
     if (otherPersonUuid !== undefined && doMarkDisplayed && !message.fromCurrentUser) {
-      await markDisplayed(otherPersonUuid, message.id);
+      await markDisplayed(otherPersonUuid, message.id, null);
     }
 
     if (callback !== undefined) {
@@ -1001,7 +1087,7 @@ const fetchConversation = async (
 
   if (response !== 'timeout' && response.length > 0) {
     const lastMessage = response[response.length - 1];
-    await markDisplayed(withPersonUuid, lastMessage.id);
+    await markDisplayed(withPersonUuid, lastMessage.id, lastMessage.timestamp);
   }
 
   return response;
