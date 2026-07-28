@@ -2,8 +2,8 @@ import dataclasses
 from database import api_tx
 import asyncio
 import duohash
+import logging
 import regex
-import traceback
 import sys
 from websockets.exceptions import ConnectionClosedError
 from async_lru_cache import AsyncLruCache
@@ -148,6 +148,8 @@ AND
     sign_up_time < now() - (interval '1 day') / power(verification_level_id, 2)
 """
 
+logger = logging.getLogger(__name__)
+
 MAX_MESSAGE_LEN = 5000
 
 NON_ALPHANUMERIC_RE = regex.compile(r'[^\p{L}\p{N}]')
@@ -180,7 +182,7 @@ async def redis_forward_to_websocket(
     except WebSocketDisconnect:
         pass
     except:
-        print(traceback.format_exc())
+        logger.exception('Exception while forwarding to the websocket')
 
 
 def normalize_message(message_str: str) -> str:
@@ -719,10 +721,7 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
     try:
         await check_chat_connect_limit(websocket)
     except RateLimitExceeded:
-        print(
-            datetime.utcnow(),
-            f'Chat connection rejected: rate limited; ip={ip}'
-        )
+        logger.info(f'Chat connection rejected: rate limited; ip={ip}')
         await websocket.close(code=1013)
         return
 
@@ -734,8 +733,7 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
 
     def log_closed(reason: str) -> None:
         duration = (datetime.utcnow() - connected_at).total_seconds()
-        print(
-            datetime.utcnow(),
+        logger.info(
             f'Chat connection closed: '
             f'ip={ip}; '
             f'username={session.username}; '
@@ -808,11 +806,8 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
         raise
     except:
         log_closed('exception')
-        print(
-            datetime.utcnow(),
-            f"Exception while processing for username: {session.username}"
-        )
-        print(traceback.format_exc())
+        logger.exception(
+            f'Exception while processing for username: {session.username}')
     finally:
         if update_online_task:
             update_online_task.cancel()
@@ -831,7 +826,7 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
                 try:
                     await pubsub.unsubscribe(session.username)
                 except:
-                    print(traceback.format_exc())
+                    logger.exception('Exception while unsubscribing')
 
             try:
                 await update_online_once(

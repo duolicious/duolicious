@@ -5,6 +5,7 @@ The routes themselves are attached in `service.api` (the package `__init__`),
 which imports this `app`. `service.api:app` is the uvicorn entry point.
 """
 
+import logging
 import os
 
 import constants
@@ -31,6 +32,13 @@ from service.api.routing import DuoRoute
 from service.lifespan import app_lifespan
 
 CORS_ORIGINS = os.environ.get('DUO_CORS_ORIGINS', '*')
+
+# Uvicorn's log config only covers its own loggers; give the app's loggers a
+# root handler in the same level-prefixed style.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(asctime)s %(name)s: %(message)s',
+)
 
 app = FastAPI(lifespan=app_lifespan)
 
