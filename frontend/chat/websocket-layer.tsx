@@ -16,6 +16,7 @@ const EV_CHAT_WS_SEND_CLOSE = 'chat-ws-send-close';
 const reconnectDelayStep = 1000;
 const maxReconnectDelay = 30000;
 const initialReconnectDelay = 0;
+const stableConnectionMs = 10000;
 let reconnectDelay = initialReconnectDelay;
 
 const pong: Pong = {
@@ -45,8 +46,10 @@ const connectChatWebSocket = (): void => {
 
   ws = new WebSocket(CHAT_URL, ['json']);
 
+  let openedAt: number | null = null;
+
   ws.onopen = () => {
-    reconnectDelay = initialReconnectDelay;
+    openedAt = Date.now();
     notify(EV_CHAT_WS_OPEN);
   };
 
@@ -60,6 +63,9 @@ const connectChatWebSocket = (): void => {
   ws.onclose = (event: CloseEvent) => {
     notify<CloseEvent>(EV_CHAT_WS_CLOSE, event);
     ws = null;
+    if (openedAt !== null && Date.now() - openedAt >= stableConnectionMs) {
+      reconnectDelay = initialReconnectDelay;
+    }
     setTimeout(() => {
       reconnectDelay = Math.min(
         2 * (reconnectDelay + reconnectDelayStep),

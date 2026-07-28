@@ -115,6 +115,7 @@ from service.api.chat.audiomessage import (
 )
 import redis.asyncio as redis
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 import json
 from service.api.chat.verification import (
     verification_required,
@@ -171,6 +172,8 @@ async def redis_forward_to_websocket(
             await websocket.send_text(data)
     except asyncio.CancelledError:
         raise
+    except WebSocketDisconnect:
+        pass
     except:
         print(traceback.format_exc())
 
@@ -731,6 +734,12 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
 
     try:
         while True:
+            # A send that failed in `redis_forward_to_websocket` flips the
+            # websocket's application_state to DISCONNECTED, after which
+            # `receive_text` raises RuntimeError instead of WebSocketDisconnect.
+            if websocket.application_state != WebSocketState.CONNECTED:
+                break
+
             text = await websocket.receive_text()
 
             await asyncio.shield(
