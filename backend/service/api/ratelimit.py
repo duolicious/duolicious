@@ -18,7 +18,7 @@ from collections.abc import Awaitable, Callable
 from limits import parse_many
 from limits.aio.strategies import FixedWindowRateLimiter
 from limits.storage import storage_from_string
-from starlette.requests import Request
+from starlette.requests import HTTPConnection, Request
 
 from antiabuse.antispam.signupemail import normalize_email
 from service.api.mocking import (
@@ -35,11 +35,12 @@ REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
 # Request address helpers
 # ---------------------------------------------------------------------------
 
-def client_ip(request: Request) -> str | None:
+def client_ip(request: HTTPConnection) -> str | None:
     """The requesting client's IP, honouring X-Forwarded-For with a single
     trusted hop (the right-most entry, matching the old werkzeug
     ProxyFix(x_for=1)), falling back to the socket peer. No mock override --
-    this is the real address used for ban / firehol checks."""
+    this is the real address used for ban / firehol checks. Accepts websockets
+    too (`HTTPConnection` is the base of both `Request` and `WebSocket`)."""
     xff = request.headers.get('x-forwarded-for')
     if xff:
         parts = [p.strip() for p in xff.split(',') if p.strip()]
@@ -48,7 +49,7 @@ def client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
-def _is_private_ip(request: Request) -> bool:
+def _is_private_ip(request: HTTPConnection) -> bool:
     """Whether the requesting IP is private (and so exempt from the default
     per-endpoint limits)."""
     if disable_ip_rate_limit():
@@ -61,7 +62,7 @@ def _is_private_ip(request: Request) -> bool:
         return False
 
 
-def _get_remote_address(request: Request) -> str:
+def _get_remote_address(request: HTTPConnection) -> str:
     """The IP used for rate-limit keys (mock-aware, 127.0.0.1 if none found)."""
     return mock_ip_address() or client_ip(request) or "127.0.0.1"
 
@@ -76,8 +77,8 @@ class RateLimitExceeded(Exception):
 
 LimitValue = str | Callable[[], str]
 ScopeArg = str | Callable[[], str] | None
-KeyFunc = Callable[[Request], str]
-ExemptWhen = Callable[[Request], bool]
+KeyFunc = Callable[[HTTPConnection], str]
+ExemptWhen = Callable[[HTTPConnection], bool]
 
 
 class Limiter:
@@ -95,7 +96,7 @@ class Limiter:
 
     async def check(
         self,
-        request: Request,
+        request: HTTPConnection,
         limit_value: LimitValue,
         scope: ScopeArg = None,
         key_func: KeyFunc | None = None,
@@ -154,6 +155,11 @@ verify_rate_limit = "8 per day"
 # per-account.
 export_data_rate_limit = "3 per day"
 
+# Per-IP cap on /chat websocket connection attempts. A healthy client holds
+# one connection, so this is generous even for NAT-shared addresses, but it
+# stops a flapping client from reconnecting once a second indefinitely.
+chat_connect_rate_limit = "20 per minute"
+
 limiter = Limiter(
     _get_remote_address,
     default_limits=[default_limits],
@@ -162,7 +168,7 @@ limiter = Limiter(
 )
 
 
-def limiter_account(request: Request) -> str:
+def limiter_account(request: HTTPConnection) -> str:
     email = getattr(request.state, 'normalized_email', None)
     return email if isinstance(email, str) else _get_remote_address(request)
 
@@ -231,6 +237,17 @@ async def check_otp_send_limits(request: Request, email: str) -> None:
         scope='otp_email',
         key_func=lambda _: normalize_email(email),
         exempt_when=disable_account_rate_limit,
+    )
+
+
+async def check_chat_connect_limit(websocket: HTTPConnection) -> None:
+    """Enforce `chat_connect_rate_limit` for a websocket handshake, keyed on
+    the client IP. Called before the connection is accepted."""
+    await limiter.check(
+        websocket,
+        chat_connect_rate_limit,
+        scope='chat_connect',
+        exempt_when=_is_private_ip,
     )
 
 

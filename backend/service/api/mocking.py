@@ -10,7 +10,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
-from starlette.requests import Request
+from starlette.requests import HTTPConnection
 
 _input_dir = Path(__file__).parent.parent.parent / 'test' / 'input'
 
@@ -40,11 +40,11 @@ def enable_mocking() -> bool:
 
 # `request` is accepted (and ignored) so these match the uniform
 # `exempt_when(request)` signature the rate limiter calls them with.
-def disable_ip_rate_limit(request: Request | None = None) -> bool:
+def disable_ip_rate_limit(request: HTTPConnection | None = None) -> bool:
     return enable_mocking() and _file_says_enabled(disable_ip_rate_limit_file)
 
 
-def disable_account_rate_limit(request: Request | None = None) -> bool:
+def disable_account_rate_limit(request: HTTPConnection | None = None) -> bool:
     return enable_mocking() and _file_says_enabled(disable_account_rate_limit_file)
 
 

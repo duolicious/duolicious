@@ -116,6 +116,10 @@ from service.api.chat.audiomessage import (
 import redis.asyncio as redis
 from fastapi import WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
+from service.api.ratelimit import (
+    RateLimitExceeded,
+    check_chat_connect_limit,
+)
 import json
 from service.api.chat.verification import (
     verification_required,
@@ -709,6 +713,12 @@ async def process_text(
 
 
 async def process_websocket_messages(websocket: WebSocket) -> None:
+    try:
+        await check_chat_connect_limit(websocket)
+    except RateLimitExceeded:
+        await websocket.close(code=1013)
+        return
+
     await websocket.accept(subprotocol='json')
 
     session = Session()
