@@ -3,8 +3,9 @@ import {
 } from '../env/env';
 import * as _ from "lodash";
 import { sessionToken } from '../kv-storage/session-token';
-import { delay, makeBackoff } from '../util/util';
-import { notify } from '../events/events';
+import { makeBackoff } from '../util/util';
+import { nextEvent, notify } from '../events/events';
+import { EV_NETWORK_CAME_ONLINE } from '../network/network';
 import { ValidationErrorToast, SOMETHING_WENT_WRONG } from '../components/toast';
 
 const CLIENT_VERSION = 10;
@@ -107,7 +108,7 @@ const api = async <T = unknown>(
       // TODO: There should be a message in the UI saying "you're offline" or something
       console.log(`Waiting ${(jitteredDelayMs / 1000).toFixed(1)} seconds and trying again; Caught error while fetching ${url}`, error);
 
-      await delay(jitteredDelayMs);
+      await nextEvent(EV_NETWORK_CAME_ONLINE, jitteredDelayMs);
     } finally {
       // cancel the timeout whether there was an error or not
       clearTimeout(timeoutId);

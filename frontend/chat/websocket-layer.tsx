@@ -6,6 +6,7 @@ import {
   makeBackoff,
 } from '../util/util';
 import { AppState, AppStateStatus, Platform } from 'react-native';
+import { EV_NETWORK_CAME_ONLINE } from '../network/network';
 
 type Pong = {
   preferredInterval: number
@@ -277,6 +278,8 @@ const onChangeAppState = (state: AppStateStatus) => {
 // In effect, updates the inbox when resuming from an inactive state by
 // detecting if the app went offline
 AppState.addEventListener('change', onChangeAppState);
+
+listen(EV_NETWORK_CAME_ONLINE, connectChatWebSocket);
 
 connectChatWebSocket();
 
