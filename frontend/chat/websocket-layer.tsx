@@ -1,12 +1,15 @@
 import { CHAT_URL } from '../env/env';
-import { listen, notify } from '../events/events';
+import { lastEvent, listen, notify } from '../events/events';
 import {
   delay,
   jsonParseSilently,
   makeBackoff,
 } from '../util/util';
 import { AppState, AppStateStatus, Platform } from 'react-native';
-import { EV_NETWORK_CAME_ONLINE } from '../network/network';
+import {
+  EV_NETWORK_CAME_ONLINE,
+  EV_NETWORK_IS_ONLINE,
+} from '../network/network';
 
 type Pong = {
   preferredInterval: number
@@ -47,12 +50,19 @@ listen(EV_CHAT_WS_SEND_CLOSE, closeChatWebSocket);
 const isBackgrounded = (state: AppStateStatus): boolean =>
   Platform.OS !== 'web' && ['background', 'inactive'].includes(state);
 
+const isOffline = (): boolean =>
+  lastEvent<boolean>(EV_NETWORK_IS_ONLINE) === false;
+
 const connectChatWebSocket = (): void => {
   if (ws) {
     return;
   }
 
   if (isBackgrounded(AppState.currentState)) {
+    return;
+  }
+
+  if (isOffline()) {
     return;
   }
 
@@ -278,6 +288,15 @@ const onChangeAppState = (state: AppStateStatus) => {
 // In effect, updates the inbox when resuming from an inactive state by
 // detecting if the app went offline
 AppState.addEventListener('change', onChangeAppState);
+
+// Desktop browsers don't close websockets when connectivity drops; the socket
+// object stays OPEN until a write times out. Close it ourselves so the
+// came-online reconnect below isn't blocked by a stale socket.
+listen<boolean>(EV_NETWORK_IS_ONLINE, (isOnline) => {
+  if (isOnline === false) {
+    closeChatWebSocket();
+  }
+});
 
 listen(EV_NETWORK_CAME_ONLINE, connectChatWebSocket);
 
