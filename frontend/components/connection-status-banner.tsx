@@ -10,8 +10,6 @@ import { faWifi } from '@fortawesome/free-solid-svg-icons/faWifi';
 import { listen } from '../events/events';
 import { EV_NETWORK_IS_ONLINE } from '../network/network';
 import { DefaultText } from './default-text';
-import { ToastContainer } from './toast';
-import { useAppTheme } from '../app-theme/app-theme';
 
 const HIDDEN_POSITION = -500;
 const SLIDE_DURATION = 300;
@@ -24,9 +22,13 @@ const bannerText: Record<Banner, string> = {
   'back-online': "You're back online",
 };
 
+const bannerColor: Record<Banner, string> = {
+  'offline': '#d10000',
+  'back-online': '#00a000',
+};
+
 const ConnectionStatusBanner = () => {
   const insets = useSafeAreaInsets();
-  const { appTheme } = useAppTheme();
   const translateY = useSharedValue(HIDDEN_POSITION);
   const [banner, setBanner] = useState<Banner | null>(null);
   const lastBannerRef = useRef<Banner>('offline');
@@ -35,6 +37,8 @@ const ConnectionStatusBanner = () => {
   if (banner !== null) {
     lastBannerRef.current = banner;
   }
+
+  const displayedBanner = banner ?? lastBannerRef.current;
 
   useEffect(() => listen<boolean>(EV_NETWORK_IS_ONLINE, (isOnline) => {
     if (isOnline === undefined) {
@@ -73,32 +77,35 @@ const ConnectionStatusBanner = () => {
       style={[
         {
           position: 'absolute',
-          top: insets.top,
+          top: 0,
           left: 0,
           right: 0,
+          paddingTop: insets.top + 8,
+          paddingBottom: 8,
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 8,
+          backgroundColor: bannerColor[displayedBanner],
           zIndex: 1000,
           elevation: 9,
         },
         animatedStyle,
       ]}
     >
-      <ToastContainer>
-        <FontAwesomeIcon
-          icon={faWifi}
-          color={appTheme.secondaryColor}
-          size={20}
-        />
-        <DefaultText
-          style={{
-            color: appTheme.secondaryColor,
-            fontWeight: '700',
-          }}
-        >
-          {bannerText[banner ?? lastBannerRef.current]}
-        </DefaultText>
-      </ToastContainer>
+      <FontAwesomeIcon
+        icon={faWifi}
+        color="white"
+        size={14}
+      />
+      <DefaultText
+        style={{
+          color: 'white',
+          fontWeight: '700',
+        }}
+      >
+        {bannerText[displayedBanner]}
+      </DefaultText>
     </Animated.View>
   );
 };
