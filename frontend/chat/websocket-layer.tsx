@@ -45,6 +45,26 @@ const closeChatWebSocket = (): void => {
   ws.close();
 };
 
+// `close()` only starts the closing handshake. When the network is gone the
+// close frame can't be delivered, so Chromium parks the socket in CLOSING for
+// up to 60 seconds before `onclose` fires; WebKit fails the socket
+// immediately. Dropping the reference right away lets a reconnect proceed
+// without waiting for the zombie to time out. The zombie's own callbacks are
+// inert thanks to the `ws !== socket` guards.
+const abandonChatWebSocket = (): void => {
+  const socket = ws;
+
+  if (!socket) {
+    return;
+  }
+
+  ws = null;
+  expectedClose = false;
+  socket.close();
+  notify(EV_CHAT_WS_CLOSE);
+  setTimeout(connectChatWebSocket, reconnectBackoff.next());
+};
+
 listen(EV_CHAT_WS_SEND_CLOSE, closeChatWebSocket);
 
 const isBackgrounded = (state: AppStateStatus): boolean =>
@@ -66,24 +86,38 @@ const connectChatWebSocket = (): void => {
     return;
   }
 
-  ws = new WebSocket(CHAT_URL, ['json']);
+  const socket = new WebSocket(CHAT_URL, ['json']);
+  ws = socket;
 
   let resetDelayTimeout: ReturnType<typeof setTimeout> | undefined;
 
-  ws.onopen = () => {
+  socket.onopen = () => {
+    if (ws !== socket) {
+      return;
+    }
+
     resetDelayTimeout = setTimeout(reconnectBackoff.reset, stableConnectionMs);
     notify(EV_CHAT_WS_OPEN);
   };
 
-  ws.onmessage = (event: MessageEvent) => {
+  socket.onmessage = (event: MessageEvent) => {
+    if (ws !== socket) {
+      return;
+    }
+
     notify<any>(EV_CHAT_WS_RECEIVE, jsonParseSilently(event.data)); // eslint-disable-line @typescript-eslint/no-explicit-any
   };
 
   // This seems to get called after the app has been backgrounded for some time.
   // If not, the ping mechanism should still restart the connection, though more
   // slowly.
-  ws.onclose = (event: CloseEvent) => {
+  socket.onclose = (event: CloseEvent) => {
     clearTimeout(resetDelayTimeout);
+
+    if (ws !== socket) {
+      return;
+    }
+
     notify<CloseEvent>(EV_CHAT_WS_CLOSE, event);
     ws = null;
 
@@ -95,8 +129,8 @@ const connectChatWebSocket = (): void => {
     }
   };
 
-  ws.onerror = () => {
-    ws?.close();
+  socket.onerror = () => {
+    socket.close();
   };
 };
 
@@ -250,7 +284,8 @@ const pingServer = async () => {
   }
 
   if (response === 'timeout') {
-    ws?.close();
+    // An unresponsive connection would stall the closing handshake too.
+    abandonChatWebSocket();
   } else {
     Object.assign(pong, response);
   }
@@ -290,11 +325,12 @@ const onChangeAppState = (state: AppStateStatus) => {
 AppState.addEventListener('change', onChangeAppState);
 
 // Desktop browsers don't close websockets when connectivity drops; the socket
-// object stays OPEN until a write times out. Close it ourselves so the
-// came-online reconnect below isn't blocked by a stale socket.
+// object stays OPEN until a write times out. Abandon it (rather than just
+// closing: see `abandonChatWebSocket`) so the came-online reconnect below
+// isn't blocked by a socket stuck in CLOSING.
 listen<boolean>(EV_NETWORK_IS_ONLINE, (isOnline) => {
   if (isOnline === false) {
-    closeChatWebSocket();
+    abandonChatWebSocket();
   }
 });
 
