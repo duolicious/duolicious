@@ -119,6 +119,7 @@ from starlette.websockets import WebSocketState
 from service.api.ratelimit import (
     RateLimitExceeded,
     check_chat_connect_limit,
+    client_ip,
 )
 import json
 from service.api.chat.verification import (
@@ -713,13 +714,22 @@ async def process_text(
 
 
 async def process_websocket_messages(websocket: WebSocket) -> None:
+    ip = client_ip(websocket)
+
     try:
         await check_chat_connect_limit(websocket)
     except RateLimitExceeded:
+        print(
+            datetime.utcnow(),
+            f'Chat connection rejected: rate limited; ip={ip}'
+        )
         await websocket.close(code=1013)
         return
 
     await websocket.accept(subprotocol='json')
+
+    connected_at = datetime.utcnow()
+    disconnect_reason = 'unknown'
 
     session = Session()
 
@@ -748,6 +758,7 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
             # websocket's application_state to DISCONNECTED, after which
             # `receive_text` raises RuntimeError instead of WebSocketDisconnect.
             if websocket.application_state != WebSocketState.CONNECTED:
+                disconnect_reason = 'client disconnected during send'
                 break
 
             text = await websocket.receive_text()
@@ -780,17 +791,28 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
             if not is_subscribed_by_username and session.username:
                 await pubsub.subscribe(session.username)
                 is_subscribed_by_username = True
-    except WebSocketDisconnect:
-        pass
+    except WebSocketDisconnect as e:
+        disconnect_reason = f'client disconnected (code={e.code})'
     except asyncio.CancelledError:
+        disconnect_reason = 'cancelled at shutdown'
         raise
     except:
+        disconnect_reason = 'exception'
         print(
             datetime.utcnow(),
             f"Exception while processing for username: {session.username}"
         )
         print(traceback.format_exc())
     finally:
+        duration = (datetime.utcnow() - connected_at).total_seconds()
+        print(
+            datetime.utcnow(),
+            f'Chat connection closed: '
+            f'ip={ip}; '
+            f'username={session.username}; '
+            f'duration={duration:.1f}s; '
+            f'reason={disconnect_reason}'
+        )
         if update_online_task:
             update_online_task.cancel()
 
