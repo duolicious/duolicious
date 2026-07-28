@@ -46,10 +46,13 @@ const connectChatWebSocket = (): void => {
 
   ws = new WebSocket(CHAT_URL, ['json']);
 
-  let openedAt: number | null = null;
+  let resetDelayTimeout: ReturnType<typeof setTimeout> | undefined;
 
   ws.onopen = () => {
-    openedAt = Date.now();
+    resetDelayTimeout = setTimeout(
+      () => { reconnectDelay = initialReconnectDelay; },
+      stableConnectionMs,
+    );
     notify(EV_CHAT_WS_OPEN);
   };
 
@@ -61,11 +64,9 @@ const connectChatWebSocket = (): void => {
   // If not, the ping mechanism should still restart the connection, though more
   // slowly.
   ws.onclose = (event: CloseEvent) => {
+    clearTimeout(resetDelayTimeout);
     notify<CloseEvent>(EV_CHAT_WS_CLOSE, event);
     ws = null;
-    if (openedAt !== null && Date.now() - openedAt >= stableConnectionMs) {
-      reconnectDelay = initialReconnectDelay;
-    }
     setTimeout(() => {
       reconnectDelay = Math.min(
         2 * (reconnectDelay + reconnectDelayStep),
