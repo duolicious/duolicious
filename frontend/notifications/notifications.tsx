@@ -9,6 +9,7 @@ import { delay } from '../util/util';
 type MaybeToken = { token: string | null } | null;
 const expoPushTokenMaxAttempts = 3;
 const expoPushTokenInitialRetryDelayMs = 1000;
+let hasAskedPermissionThisSession = false;
 
 const refreshWebPushOnWeb = async (): Promise<MaybeToken> => {
   if (Platform.OS !== 'web') {
@@ -23,10 +24,20 @@ const refreshWebPushOnWeb = async (): Promise<MaybeToken> => {
 
 const requestPermissionOnMobile = async (): Promise<MaybeToken> => {
   const current = await Notifications.getPermissionsAsync();
+
+  const shouldAsk =
+    !current.granted &&
+    current.canAskAgain &&
+    !hasAskedPermissionThisSession;
+
+  if (shouldAsk) {
+    hasAskedPermissionThisSession = true;
+  }
+
   const finalStatus =
-    current.granted || !current.canAskAgain ?
-    current.status :
-    (await Notifications.requestPermissionsAsync()).status;
+    shouldAsk ?
+    (await Notifications.requestPermissionsAsync()).status :
+    current.status;
 
   if (finalStatus !== 'granted') {
     console.error('Failed to get push token for push notification!');
