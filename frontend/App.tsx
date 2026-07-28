@@ -63,7 +63,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ErrorBoundary } from './components/error-boundary';
 import { TooltipListener } from './components/tooltip';
 import { VerificationCameraModal } from './components/verification-camera';
-import { listen, notify } from './events/events';
+import { notify, useDerivedEvent } from './events/events';
 import { setActiveConversation } from './chat/conversation-priority';
 import { PointOfSaleModal } from './components/modal/point-of-sale-modal';
 import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-confirmation-modal';
@@ -107,11 +107,17 @@ const navigationContainerRef = createNavigationContainerRef<ParamListBase>();
 const App = () => {
   const [initialState, setInitialState] = useState<InitialState | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [localReady, setLocalReady] = useState(false);
   const [serverStatus, setServerStatus] = useState<ServerStatus>("ok");
   const [signedInUser] = useSignedInUser();
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerProspectHandle, setBannerProspectHandle] = useState<string | undefined>(undefined);
   const pendingPostLoginStateRef = useRef<PartialState<NavigationState> | null>(null);
+  const isOffline = useDerivedEvent<boolean, boolean>(
+    EV_NETWORK_IS_ONLINE,
+    (isOnline) => isOnline === false,
+    [],
+  );
   useAppThemeLoader();
   const { appTheme } = useAppTheme();
 
@@ -346,9 +352,19 @@ const App = () => {
   }, [serverStatus]);
 
   const loadApp = useCallback(async () => {
-    await Promise.all([
+    // The splash screen may hide once the work that doesn't need the network
+    // is done; the network-dependent work below can stall indefinitely
+    // offline, which is what the `isOffline` arm of the hide condition
+    // bypasses.
+    const localWork = Promise.all([
       loadFonts(),
       lockScreenOrientation(),
+    ])
+      .catch((e) => console.warn(e))
+      .then(() => setLocalReady(true));
+
+    await Promise.all([
+      localWork,
       restoreSessionAndNavigate(),
       fetchServerStatusState(),
     ]);
@@ -470,23 +486,20 @@ const App = () => {
   useClearAppIconBadgeOnMobile();
   useScrollbarStyle();
 
+  // The `isOffline` arm: an offline user with a session token would otherwise
+  // be stuck behind the native splash screen with no feedback, since `loadApp`
+  // retries `/check-session-token` until the network returns.
   useEffect(() => {
     (async () => {
-      if (!isLoading || serverStatus !== "ok") {
+      if (!localReady) {
+        return;
+      }
+
+      if (!isLoading || serverStatus !== "ok" || isOffline) {
         await ExpoSplashScreen.hideAsync();
       }
     })();
-  }, [isLoading, serverStatus]);
-
-  // Without this, an offline user with a session token is stuck behind the
-  // native splash screen: `loadApp` retries `/check-session-token` until the
-  // network returns, so the JS tree (and the "You're offline" banner) would
-  // never become visible.
-  useEffect(() => listen<boolean>(EV_NETWORK_IS_ONLINE, (isOnline) => {
-    if (isOnline === false) {
-      ExpoSplashScreen.hideAsync();
-    }
-  }, true), []);
+  }, [localReady, isLoading, serverStatus, isOffline]);
 
   if (serverStatus !== "ok") {
     return <UtilityScreen serverStatus={serverStatus} />
