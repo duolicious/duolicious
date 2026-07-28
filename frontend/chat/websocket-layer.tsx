@@ -27,10 +27,18 @@ const pong: Pong = {
 let lastEnteredActiveState =  new Date();
 
 let ws: WebSocket | null = null;
+let expectedClose = false;
 
-listen(EV_CHAT_WS_SEND_CLOSE, () => {
-  ws?.close();
-});
+const closeChatWebSocket = (): void => {
+  if (!ws) {
+    return;
+  }
+
+  expectedClose = true;
+  ws.close();
+};
+
+listen(EV_CHAT_WS_SEND_CLOSE, closeChatWebSocket);
 
 const isBackgrounded = (state: AppStateStatus): boolean =>
   Platform.OS !== 'web' && ['background', 'inactive'].includes(state);
@@ -67,13 +75,19 @@ const connectChatWebSocket = (): void => {
     clearTimeout(resetDelayTimeout);
     notify<CloseEvent>(EV_CHAT_WS_CLOSE, event);
     ws = null;
-    setTimeout(() => {
-      reconnectDelay = Math.min(
-        2 * (reconnectDelay + reconnectDelayStep),
-        maxReconnectDelay
-      );
+
+    if (expectedClose) {
+      expectedClose = false;
       connectChatWebSocket();
-    }, reconnectDelay);
+    } else {
+      setTimeout(() => {
+        reconnectDelay = Math.min(
+          2 * (reconnectDelay + reconnectDelayStep),
+          maxReconnectDelay
+        );
+        connectChatWebSocket();
+      }, reconnectDelay);
+    }
   };
 
   ws.onerror = () => {
@@ -251,7 +265,7 @@ const onChangeAppState = (state: AppStateStatus) => {
   }
 
   if (isBackgrounded(state)) {
-    ws?.close();
+    closeChatWebSocket();
   }
 };
 
