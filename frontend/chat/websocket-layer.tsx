@@ -50,17 +50,17 @@ const closeChatWebSocket = (): void => {
 // up to 60 seconds before `onclose` fires; WebKit fails the socket
 // immediately. Dropping the reference right away lets a reconnect proceed
 // without waiting for the zombie to time out. The zombie's own callbacks are
-// inert thanks to the `ws !== socket` guards.
+// inert thanks to the `ws !== _ws` guards.
 const abandonChatWebSocket = (): void => {
-  const socket = ws;
+  const _ws = ws;
 
-  if (!socket) {
+  if (!_ws) {
     return;
   }
 
   ws = null;
   expectedClose = false;
-  socket.close();
+  _ws.close();
   notify(EV_CHAT_WS_CLOSE);
   setTimeout(connectChatWebSocket, reconnectBackoff.next());
 };
@@ -86,13 +86,13 @@ const connectChatWebSocket = (): void => {
     return;
   }
 
-  const socket = new WebSocket(CHAT_URL, ['json']);
-  ws = socket;
+  const _ws = new WebSocket(CHAT_URL, ['json']);
+  ws = _ws;
 
   let resetDelayTimeout: ReturnType<typeof setTimeout> | undefined;
 
-  socket.onopen = () => {
-    if (ws !== socket) {
+  _ws.onopen = () => {
+    if (ws !== _ws) {
       return;
     }
 
@@ -100,8 +100,8 @@ const connectChatWebSocket = (): void => {
     notify(EV_CHAT_WS_OPEN);
   };
 
-  socket.onmessage = (event: MessageEvent) => {
-    if (ws !== socket) {
+  _ws.onmessage = (event: MessageEvent) => {
+    if (ws !== _ws) {
       return;
     }
 
@@ -111,10 +111,10 @@ const connectChatWebSocket = (): void => {
   // This seems to get called after the app has been backgrounded for some time.
   // If not, the ping mechanism should still restart the connection, though more
   // slowly.
-  socket.onclose = (event: CloseEvent) => {
+  _ws.onclose = (event: CloseEvent) => {
     clearTimeout(resetDelayTimeout);
 
-    if (ws !== socket) {
+    if (ws !== _ws) {
       return;
     }
 
@@ -129,8 +129,8 @@ const connectChatWebSocket = (): void => {
     }
   };
 
-  socket.onerror = () => {
-    socket.close();
+  _ws.onerror = () => {
+    _ws.close();
   };
 };
 
