@@ -24,6 +24,8 @@ import * as ExpoSplashScreen from 'expo-splash-screen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeTabs } from './components/home-tabs';
 import { SplashScreen } from './components/splash-screen';
+import { ConnectionStatusBanner } from './components/connection-status-banner';
+import { EV_NETWORK_IS_ONLINE } from './network/network';
 import { ConversationScreen } from './components/conversation-screen/conversation-screen';
 import { ServerStatus, UtilityScreen } from './components/utility-screen';
 import { ProspectProfileScreen } from './components/prospect-profile-screen/prospect-profile-screen';
@@ -61,7 +63,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ErrorBoundary } from './components/error-boundary';
 import { TooltipListener } from './components/tooltip';
 import { VerificationCameraModal } from './components/verification-camera';
-import { notify } from './events/events';
+import { listen, notify } from './events/events';
 import { setActiveConversation } from './chat/conversation-priority';
 import { PointOfSaleModal } from './components/modal/point-of-sale-modal';
 import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-confirmation-modal';
@@ -476,6 +478,16 @@ const App = () => {
     })();
   }, [isLoading, serverStatus]);
 
+  // Without this, an offline user with a session token is stuck behind the
+  // native splash screen: `loadApp` retries `/check-session-token` until the
+  // network returns, so the JS tree (and the "You're offline" banner) would
+  // never become visible.
+  useEffect(() => listen<boolean>(EV_NETWORK_IS_ONLINE, (isOnline) => {
+    if (isOnline === false) {
+      ExpoSplashScreen.hideAsync();
+    }
+  }, true), []);
+
   if (serverStatus !== "ok") {
     return <UtilityScreen serverStatus={serverStatus} />
   }
@@ -567,6 +579,7 @@ const App = () => {
           </GestureHandlerRootView>
         }
         <SplashScreen loading={isLoading} />
+        <ConnectionStatusBanner/>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
