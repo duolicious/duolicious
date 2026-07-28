@@ -729,9 +729,19 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
     await websocket.accept(subprotocol='json')
 
     connected_at = datetime.utcnow()
-    disconnect_reason = 'unknown'
 
     session = Session()
+
+    def log_closed(reason: str) -> None:
+        duration = (datetime.utcnow() - connected_at).total_seconds()
+        print(
+            datetime.utcnow(),
+            f'Chat connection closed: '
+            f'ip={ip}; '
+            f'username={session.username}; '
+            f'duration={duration:.1f}s; '
+            f'reason={reason}'
+        )
 
     redis_websocket_client: redis.Redis = redis.Redis(
             host=REDIS_HOST,
@@ -758,7 +768,7 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
             # websocket's application_state to DISCONNECTED, after which
             # `receive_text` raises RuntimeError instead of WebSocketDisconnect.
             if websocket.application_state != WebSocketState.CONNECTED:
-                disconnect_reason = 'client disconnected during send'
+                log_closed('client disconnected during send')
                 break
 
             text = await websocket.receive_text()
@@ -792,27 +802,18 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
                 await pubsub.subscribe(session.username)
                 is_subscribed_by_username = True
     except WebSocketDisconnect as e:
-        disconnect_reason = f'client disconnected (code={e.code})'
+        log_closed(f'client disconnected (code={e.code})')
     except asyncio.CancelledError:
-        disconnect_reason = 'cancelled at shutdown'
+        log_closed('cancelled at shutdown')
         raise
     except:
-        disconnect_reason = 'exception'
+        log_closed('exception')
         print(
             datetime.utcnow(),
             f"Exception while processing for username: {session.username}"
         )
         print(traceback.format_exc())
     finally:
-        duration = (datetime.utcnow() - connected_at).total_seconds()
-        print(
-            datetime.utcnow(),
-            f'Chat connection closed: '
-            f'ip={ip}; '
-            f'username={session.username}; '
-            f'duration={duration:.1f}s; '
-            f'reason={disconnect_reason}'
-        )
         if update_online_task:
             update_online_task.cancel()
 
