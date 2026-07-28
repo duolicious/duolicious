@@ -2,100 +2,51 @@ import {
   Platform,
 } from 'react-native';
 import {
-  useCallback,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
 } from 'react';
 import {
   DefaultTheme,
-  InitialState,
   NavigationContainer,
-  NavigationState,
   ParamListBase,
-  PartialState,
   createNavigationContainerRef,
-  getPathFromState as rnGetPathFromState,
 } from '@react-navigation/native';
-import * as Font from 'expo-font';
-import * as ScreenOrientation from 'expo-screen-orientation';
-import * as ExpoSplashScreen from 'expo-splash-screen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeTabs } from './components/home-tabs';
 import { SplashScreen } from './components/splash-screen';
 import { ConnectionStatusBanner } from './components/connection-status-banner';
-import { EV_NETWORK_IS_ONLINE } from './network/network';
 import { ConversationScreen } from './components/conversation-screen/conversation-screen';
-import { ServerStatus, UtilityScreen } from './components/utility-screen';
+import { UtilityScreen } from './components/utility-screen';
 import { ProspectProfileScreen } from './components/prospect-profile-screen/prospect-profile-screen';
 import { GalleryScreen } from './components/gallery-screen';
 import { GlobalBackButton } from './components/global-back-button';
 import { InviteScreen, WelcomeScreen } from './components/welcome-screen';
-import { sessionToken, sessionPersonUuid } from './kv-storage/session-token';
-import { lastPath } from './kv-storage/last-path';
-import { clearAllKvExceptSessionToken } from './kv-storage/kv-storage';
-import { japi, CLIENT_VERSION } from './api/api';
-import { login, logout } from './chat/application-layer';
 import { useInboxStats } from './chat/application-layer/hooks/inbox-stats';
-import { STATUS_URL } from './env/env';
-import { delay } from './util/util';
 import { ColorPickerModal } from './components/modal/color-picker-modal/color-picker-modal';
 import { GifPickerModal } from './components/modal/gif-picker-modal';
 import { EmojiPickerModal } from './components/modal/emoji-picker-modal';
 import { ReportModal } from './components/modal/report-modal';
 import { ImageCropper } from './components/image-cropper';
-import {
-  useClearAppIconBadgeOnMobile,
-  useNotificationObserverOnMobile,
-  getLastNotificationResponseOnMobile,
-} from './notifications/mobile';
+import { useClearAppIconBadgeOnMobile } from './notifications/mobile';
 import { usePushTokenListenerOnMobile } from './notifications/notifications';
-import { useWebPushMessageListenerOnWeb } from './notifications/web-push';
 import { verificationWatcher } from './verification/verification';
-import { ClubItem } from './club/club';
 import { Toast } from './components/toast';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsUnrestorable, getTopRouteName } from './navigation/linking';
+import { createLinking } from './navigation/linking';
 import { useScrollbarStyle } from './components/navigation/scroll-bar-hooks';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ErrorBoundary } from './components/error-boundary';
 import { TooltipListener } from './components/tooltip';
 import { VerificationCameraModal } from './components/verification-camera';
-import { notify, useDerivedEvent } from './events/events';
-import { setActiveConversation } from './chat/conversation-priority';
 import { PointOfSaleModal } from './components/modal/point-of-sale-modal';
 import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-confirmation-modal';
-import { SignUpModal, showSignUp } from './components/modal/sign-up-modal';
+import { SignUpModal } from './components/modal/sign-up-modal';
 import { SignUpBanner } from './components/sign-up-banner';
-import { hasPendingAppleWebSignIn } from './api/social-auth';
-import { setSignedInUser, useSignedInUser, getSignedInUser, isWebLoggedOut } from './events/signed-in-user';
 import { useAppThemeLoader, useAppTheme } from './app-theme/app-theme';
-import { computeStartupNavigationState } from './navigation/startup';
-import { resetUserScopedClientState } from './navigation/reset-client-state';
+import { useAppStartup } from './app-startup/app-startup';
+import { useAppNavigation } from './navigation/app-navigation';
 
 verificationWatcher();
-
-ExpoSplashScreen.preventAutoHideAsync();
-
-type StatusResponse = {
-  supported_client_versions: number[];
-  statuses: string[];
-  status_index: number;
-};
-
-type CheckSessionTokenResponse = {
-  onboarded?: boolean;
-  clubs?: ClubItem[];
-  person_id?: number;
-  person_uuid?: string;
-  pending_club?: ClubItem | null;
-  units?: string;
-  estimated_end_date?: string;
-  name?: string | null;
-  has_gold?: boolean;
-};
 
 const Stack = createNativeStackNavigator();
 
@@ -105,360 +56,29 @@ const isImagePickerOpen = { value: false };
 const navigationContainerRef = createNavigationContainerRef<ParamListBase>();
 
 const App = () => {
-  const [initialState, setInitialState] = useState<InitialState | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
-  const [localReady, setLocalReady] = useState(false);
-  const [serverStatus, setServerStatus] = useState<ServerStatus>("ok");
-  const [signedInUser] = useSignedInUser();
-  const [bannerVisible, setBannerVisible] = useState(false);
-  const [bannerProspectHandle, setBannerProspectHandle] = useState<string | undefined>(undefined);
-  const pendingPostLoginStateRef = useRef<PartialState<NavigationState> | null>(null);
-  const isOffline = useDerivedEvent<boolean, boolean>(
-    EV_NETWORK_IS_ONLINE,
-    (isOnline) => isOnline === false,
-    [],
-  );
   useAppThemeLoader();
   const { appTheme } = useAppTheme();
 
   const linking = useMemo(() => createLinking(), []);
 
-  const loadFonts = useCallback(async () => {
-    await Font.loadAsync({
-      Trueno: require('./assets/fonts/TruenoRound.otf'),
-      TruenoBold: require('./assets/fonts/TruenoRoundBd.otf'),
+  const {
+    pendingPostLoginStateRef,
+    bannerVisible,
+    bannerProspectHandle,
+    onNavigationReady,
+    onNavigationStateChange,
+  } = useAppNavigation(linking, navigationContainerRef);
 
-      MontserratBlack: require('./assets/fonts/montserrat/static/Montserrat-Black.ttf'),
-      MontserratBold: require('./assets/fonts/montserrat/static/Montserrat-Bold.ttf'),
-      MontserratExtraBold: require('./assets/fonts/montserrat/static/Montserrat-ExtraBold.ttf'),
-      MontserratExtraLight: require('./assets/fonts/montserrat/static/Montserrat-ExtraLight.ttf'),
-      MontserratLight: require('./assets/fonts/montserrat/static/Montserrat-Light.ttf'),
-      MontserratMedium: require('./assets/fonts/montserrat/static/Montserrat-Medium.ttf'),
-      MontserratRegular: require('./assets/fonts/montserrat/static/Montserrat-Regular.ttf'),
-      MontserratSemiBold: require('./assets/fonts/montserrat/static/Montserrat-SemiBold.ttf'),
-      MontserratThin: require('./assets/fonts/montserrat/static/Montserrat-Thin.ttf'),
-    });
-  }, []);
+  const {
+    initialState,
+    isLoading,
+    serverStatus,
+    onError,
+  } = useAppStartup(linking, pendingPostLoginStateRef);
 
-  const lockScreenOrientation = useCallback(async () => {
-    try {
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-      }
-    } catch (e) {
-      console.warn(e);
-    }
-  }, []);
-
-  const restoreSessionAndNavigate = useCallback(async () => {
-    const existingPersonUuid = await sessionPersonUuid();
-    const existingSessionToken = await sessionToken();
-    const notification = await getLastNotificationResponseOnMobile();
-
-    // `computeStartupNavigationState` owns every routing decision at startup:
-    // URL deep-links, public-vs-protected screens, push notifications, the
-    // pending-club flow, and persisted last-path restoration. The only thing
-    // we still do here is the auth side-effects (token check, logout, set
-    // signed-in user) and pass the resulting auth state in.
-    const applyStartupNav = async (
-      isAuthenticated: boolean,
-      pendingClub: ClubItem | null = null,
-    ) => {
-      const result = await computeStartupNavigationState({
-        linking,
-        isAuthenticated,
-        notification,
-        pendingClub,
-      });
-      if (result.postLoginRedirectState) {
-        pendingPostLoginStateRef.current = result.postLoginRedirectState;
-      }
-      // Report the focused conversation as soon as the startup route is known -
-      // before the navigation container mounts - so the chat layer can order an
-      // open conversation's history ahead of the inbox without waiting on
-      // `onReady`, and doesn't stall the inbox query when no conversation is
-      // open. See `frontend/chat/conversation-priority`.
-      setActiveConversation(focusedConversationHandle(result.initialState) ?? null);
-      setInitialState(result.initialState);
-    };
-
-    if (!existingPersonUuid || !existingSessionToken) {
-      await sessionPersonUuid(null);
-      await sessionToken(null);
-      await lastPath(null);
-      resetUserScopedClientState();
-      setSignedInUser(undefined);
-      logout();
-      await applyStartupNav(false);
-      return;
-    }
-
-    if (typeof existingSessionToken !== 'string') {
-      return;
-    }
-
-    // Log into XMPP
-    login(existingPersonUuid, existingSessionToken);
-
-    const response = await japi<CheckSessionTokenResponse>(
-      'post',
-      '/check-session-token',
-      undefined,
-      { retryOnTransientError: true }
-    );
-
-    const json = response.json;
-
-    if (
-      response.clientError ||
-      !json ||
-      json.onboarded === false ||
-      json.person_id === undefined ||
-      json.person_uuid === undefined
-    ) {
-      await sessionPersonUuid(null);
-      await sessionToken(null);
-      await lastPath(null);
-      resetUserScopedClientState();
-      setSignedInUser(undefined);
-      logout();
-      await applyStartupNav(false);
-      return;
-    }
-
-    const clubs = json.clubs;
-    const pendingClub = json.pending_club ?? null;
-
-    setSignedInUser({
-      personId: json.person_id,
-      personUuid: json.person_uuid,
-      units: json.units === 'Imperial' ? 'Imperial' : 'Metric',
-      sessionToken: existingSessionToken,
-      pendingClub: pendingClub,
-      estimatedEndDate: new Date(json.estimated_end_date ?? NaN),
-      name: json.name ?? null,
-      hasGold: json.has_gold ?? false,
-    });
-
-    notify<ClubItem[] | undefined>('updated-clubs', clubs);
-
-    await applyStartupNav(true, pendingClub);
-  }, [linking]);
-
-  // Centralised post-sign-in redirect. Runs both when `signedInUser` changes
-  // (the post-OTP-flow case) and when the NavigationContainer reports ready
-  // (the cold-start-with-existing-session case, where `signedInUser` may
-  // have been populated *before* the container mounted, so the effect's
-  // ref-lookup would have early-returned).
-  //
-  // Two responsibilities:
-  //   1. If a protected URL was deep-linked while logged-out, restore it
-  //      after the user signs in (`pendingPostLoginStateRef`).
-  //   2. Otherwise, if the user is parked on the logged-out Welcome stack
-  //      (just completed OTP, or typed `/sign-in`/`/welcome` while already
-  //      signed in), forward them to the canonical landing tab so they
-  //      aren't stranded on the sign-in form.
-  const applyPostSignInRedirect = useCallback(() => {
-    if (!getSignedInUser()) return;
-
-    const navigationContainer = navigationContainerRef.current;
-    if (!navigationContainer) return;
-
-    const pending = pendingPostLoginStateRef.current;
-    pendingPostLoginStateRef.current = null;
-
-    if (pending) {
-      navigationContainer.reset(pending);
-      return;
-    }
-
-    if (getTopRouteName(navigationContainer.getRootState?.()) === 'Welcome') {
-      navigationContainer.reset({
-        routes: [
-          { name: 'Home', state: { routes: [{ name: 'Q&A' }] } },
-        ],
-      });
-    }
-  }, []);
-
-  const recomputeBannerVisible = useCallback((state?: NavigationState) => {
-    const rootState = state ?? navigationContainerRef.current?.getRootState?.();
-    setBannerVisible(isWebLoggedOut() && isBannerRoute(rootState));
-    setBannerProspectHandle(focusedProspectHandle(rootState));
-  }, []);
-
-  // Tell the chat layer which conversation (if any) is on screen, so on connect
-  // it can load an open conversation's history before the inbox snapshot. See
-  // `frontend/chat/conversation-priority`.
-  const publishActiveConversation = useCallback((state?: NavigationState) => {
-    const rootState = state ?? navigationContainerRef.current?.getRootState?.();
-    setActiveConversation(focusedConversationHandle(rootState) ?? null);
-  }, []);
-
-  const onNavigationReady = useCallback(() => {
-    applyPostSignInRedirect();
-    recomputeBannerVisible();
-    publishActiveConversation();
-  }, [applyPostSignInRedirect, recomputeBannerVisible, publishActiveConversation]);
-
-  useEffect(() => {
-    // On sign-out drop any remaining pending state so a stale entry from
-    // this session can't latch onto a subsequent sign-in as a different
-    // user on the same browser.
-    if (!signedInUser) {
-      pendingPostLoginStateRef.current = null;
-    } else {
-      applyPostSignInRedirect();
-    }
-    recomputeBannerVisible();
-  }, [signedInUser?.personUuid, applyPostSignInRedirect, recomputeBannerVisible]);
-
-  const fetchServerStatusState = useCallback(async () => {
-    let response: Response | null = null
-    try {
-      response = await fetch(STATUS_URL, { cache: 'no-store' });
-    } catch (_) {};
-
-    if (response === null || !response.ok) {
-      // If even the status server is down, things are *very* not-okay. But odds
-      // are it can't be contacted because the user has a crappy internet
-      // connection. The "You're offline" notice should still provide some
-      // feedback.
-      setServerStatus("ok");
-      return;
-    }
-
-    const j: StatusResponse = await response.json();
-    const supportedClientVersions = j.supported_client_versions;
-    const reportedStatus = j.statuses[j.status_index];
-
-    const latestServerStatus: ServerStatus = (() => {
-      if (reportedStatus === "down for maintenance") {
-        return reportedStatus;
-      } else if (
-        !supportedClientVersions.includes(CLIENT_VERSION)
-      ) {
-        return "please update";
-      } else if (reportedStatus === "ok") {
-        return reportedStatus;
-      } else {
-        return "down for maintenance";
-      }
-    })();
-
-    if (serverStatus !== latestServerStatus) {
-      setServerStatus(latestServerStatus);
-    }
-  }, [serverStatus]);
-
-  const loadApp = useCallback(async () => {
-    // The splash screen may hide once the work that doesn't need the network
-    // is done; the network-dependent work below can stall indefinitely
-    // offline, which is what the `isOffline` arm of the hide condition
-    // bypasses.
-    const localWork = Promise.all([
-      loadFonts(),
-      lockScreenOrientation(),
-    ])
-      .catch((e) => console.warn(e))
-      .then(() => setLocalReady(true));
-
-    await Promise.all([
-      localWork,
-      restoreSessionAndNavigate(),
-      fetchServerStatusState(),
-    ]);
-
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    loadApp();
-  }, []);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (getSignedInUser()) return;
-    if (hasPendingAppleWebSignIn()) {
-      showSignUp(true);
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
-    // Without this flag, an infinite loop will start each time this effect
-    // starts, which would effectively be whenever the server's status changes.
-    // That would lead to multiple infinite loops running concurrently.
-    let doBreak = false;
-
-    (async () => {
-      while (true) {
-        await delay(5000);
-        await fetchServerStatusState();
-        if (doBreak) break;
-      }
-    })();
-
-    return () => { doBreak = true; };
-  }, [fetchServerStatusState]);
-
-  const onError = useCallback(async () => {
-    await clearAllKvExceptSessionToken();
-
-    loadApp();
-  }, []);
-
-  const onNavigationStateChange = useCallback(async (state: NavigationState) => {
-    if (!state) return;
-
-    recomputeBannerVisible(state);
-    publishActiveConversation(state);
-
-    // URL-bar sync is left entirely to React Navigation's linking integration.
-    // Doing a `window.history.replaceState` here in addition to RN's own
-    // pushState corrupts the browser history stack: our handler runs
-    // synchronously from the state-change emit, while RN's pushState is
-    // queued as a microtask, so our replace overwrites the URL of the
-    // *previous* browser entry before RN appends a new one - effectively
-    // collapsing two history entries into one and breaking the back button.
-
-    // Read auth synchronously rather than closing over `signedInUser`. During
-    // sign-out we clear the user before triggering the navigation reset, and
-    // a stale closure would persist the post-logout path under the previous
-    // identity (or vice versa).
-    if (!getSignedInUser()) return;
-
-    // Don't persist URLs that can't be restored: the OptionScreen-backed
-    // wizards would hydrate with no payload and immediately `popToTop`, and
-    // the gallery would come back as the only route, with no screen under it
-    // to close onto. See `UNRESTORABLE_ROUTE_NAMES`. Walking the focused route
-    // chain detects these regardless of how deeply nested they are.
-    if (focusedRouteIsUnrestorable(state)) return;
-
-    // Persist just the canonical path - not the full navigation tree - so we
-    // can restore the user's last place on next startup. We let React
-    // Navigation's `getPathFromState` do the serialization so this stays in
-    // lock-step with whatever URL structure the linking config exposes.
-    try {
-      // The `as any` is unfortunate but unavoidable: React Navigation's
-      // PathConfig types insist every `screens`-bearing entry also declare
-      // its own `path`, but our `Home` deliberately doesn't have one (its
-      // children inherit the empty root). The runtime invariant being relied
-      // on here is that `Home` is always the implicit root of the path tree,
-      // so any path produced by getPathFromState round-trips back to a
-      // valid state via getStateFromPath.
-      const path = rnGetPathFromState(state, linking.config);
-      if (typeof path === 'string') {
-        await lastPath(path.startsWith('/') ? path : `/${path}`);
-      }
-    } catch (e) {
-      // Some transient navigation states aren't representable as URLs (e.g.
-      // mid-transition or screens not in the linking config). Skip those
-      // and warn so misconfiguration doesn't silently break last-path
-      // restoration in production - but use `warn` rather than `error`
-      // because intermittent failures on transient states are expected.
-      console.warn('Failed to persist last navigation path', e);
-    }
-  }, [linking, recomputeBannerVisible, publishActiveConversation]);
+  usePushTokenListenerOnMobile();
+  useClearAppIconBadgeOnMobile();
+  useScrollbarStyle();
 
   // Only need live updates on web (for browser tab title)
   const stats = useInboxStats(Platform.OS === 'web');
@@ -466,40 +86,6 @@ const App = () => {
   const numUnread =
     (stats?.numUnreadChats ?? 0) +
     (stats?.numUnreadIntros ?? 0);
-
-  const navigateFromNotification = (
-    screen: string,
-    params: Record<string, unknown>,
-  ) => {
-    const navigationContainer = navigationContainerRef.current;
-
-    if (!navigationContainer) return;
-    if (!screen) return;
-
-    navigationContainer.navigate(screen, params);
-  };
-
-  useNotificationObserverOnMobile(navigateFromNotification);
-  useWebPushMessageListenerOnWeb(navigateFromNotification);
-
-  usePushTokenListenerOnMobile();
-  useClearAppIconBadgeOnMobile();
-  useScrollbarStyle();
-
-  // The `isOffline` arm: an offline user with a session token would otherwise
-  // be stuck behind the native splash screen with no feedback, since `loadApp`
-  // retries `/check-session-token` until the network returns.
-  useEffect(() => {
-    (async () => {
-      if (!localReady) {
-        return;
-      }
-
-      if (!isLoading || serverStatus !== "ok" || isOffline) {
-        await ExpoSplashScreen.hideAsync();
-      }
-    })();
-  }, [localReady, isLoading, serverStatus, isOffline]);
 
   if (serverStatus !== "ok") {
     return <UtilityScreen serverStatus={serverStatus} />
