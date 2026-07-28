@@ -1013,7 +1013,8 @@ async def post_deactivate(s: t.SessionInfo) -> None:
         row_tx = await tx.execute(Q_POST_DEACTIVATE, params)
         rows = await row_tx.fetchall()
 
-    await sign_out(r['session_token_hash'] for r in rows)
+    for row in rows:
+        await sessioncache.delete_session(row['session_token_hash'])
 
 async def get_profile_info(s: t.SessionInfo) -> object:
     params = dict(person_id=s.person_id)
