@@ -18,8 +18,8 @@ const BACK_ONLINE_HOLD_MS = 3000;
 type Banner = 'offline' | 'back-online';
 
 const bannerText: Record<Banner, string> = {
-  'offline': "You're offline",
-  'back-online': "You're back online",
+  'offline': "You’re offline",
+  'back-online': "You’re back online",
 };
 
 const bannerColor: Record<Banner, string> = {
@@ -80,8 +80,8 @@ const ConnectionStatusBanner = () => {
           top: 0,
           left: 0,
           right: 0,
-          paddingTop: insets.top + 8,
-          paddingBottom: 8,
+          paddingTop: insets.top + 5,
+          paddingBottom: 5,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
@@ -96,7 +96,7 @@ const ConnectionStatusBanner = () => {
       <FontAwesomeIcon
         icon={faWifi}
         color="white"
-        size={14}
+        size={16}
       />
       <DefaultText
         style={{
