@@ -22,10 +22,11 @@ mutations that change them invalidate the entry explicitly via
   * search-preference update  -> `pending_club_name`    (get_search)
                                  cleared
   * account deletion / ban    -> sessions cascade-deleted (delete_or_ban_account)
+  * account deactivation      -> sessions deleted        (post_deactivate)
 
-Person-level deletions (account deletion, admin bans) remove sessions by
-`person_id`, which would otherwise leave the cache — keyed by token hash —
-with no key to evict. They handle this by reading the
+Person-level deletions (account deletion, admin bans, deactivation) remove
+sessions by `person_id`, which would otherwise leave the cache — keyed by
+token hash — with no key to evict. They handle this by reading the
 affected `session_token_hash`es before the delete and evicting every one, so a
 person's *other* devices are covered too, not just the calling session.
 

@@ -1364,8 +1364,18 @@ WITH updated_person AS (
         person_club.club_name = club.name
     AND
         person_club.person_id IN (SELECT id FROM updated_person)
+), deleted_duo_session AS (
+    DELETE FROM
+        duo_session
+    WHERE
+        person_id = %(person_id)s
+    RETURNING
+        session_token_hash
 )
-SELECT 1
+SELECT
+    session_token_hash
+FROM
+    deleted_duo_session
 """
 
 Q_GET_PROFILE_INFO = f"""
