@@ -672,12 +672,12 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       return;
     }
 
-  if (
-    Platform.OS !== 'web' &&
-    ['background', 'inactive'].includes(AppState.currentState)
-  ) {
-    return;
-  }
+    if (
+      Platform.OS !== 'web' &&
+      ['background', 'inactive'].includes(AppState.currentState)
+    ) {
+      return;
+    }
 
     await markDisplayed(personUuid, lastMessage.message.id);
   }, [_.last(messageIds)]);
