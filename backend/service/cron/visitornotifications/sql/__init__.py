@@ -5,11 +5,11 @@ WITH ten_minutes_ago AS (
             NOW() - INTERVAL '10 minutes'))::bigint AS seconds
 ), filtered AS (
     -- The people due a visitor notification. `visitor_pending_seconds` holds
-    -- the newest visit awaiting a notification: a trigger stamps it as
-    -- qualifying visits are recorded, and it's cleared when a notification is
-    -- sent or the person comes online. That leaves this poll a handful of
-    -- stamped people, found through a small partial index, instead of a sweep
-    -- of every visit in the last ten days.
+    -- the newest visit awaiting a notification: the profile-view write stamps
+    -- it as qualifying visits are recorded, and it's cleared when a
+    -- notification is sent or the person comes online. That leaves this poll
+    -- a handful of stamped people, found through a small partial index,
+    -- instead of a sweep of every visit in the last ten days.
     SELECT
         person.uuid::TEXT AS person_uuid,
         person.id AS person_id,
@@ -18,7 +18,14 @@ WITH ten_minutes_ago AS (
         COALESCE(person.visitor_seconds, 0) AS last_visitor_notification_seconds,
         person.name,
         person.email,
-        immediacy_drift_seconds(im_visitors.name) AS visitors_drift_seconds
+        CASE
+            WHEN im_visitors.name = 'Immediately'  THEN 0
+            WHEN im_visitors.name = 'Daily'        THEN 86400
+            WHEN im_visitors.name = 'Every 3 days' THEN 259200
+            WHEN im_visitors.name = 'Weekly'       THEN 604800
+            WHEN im_visitors.name = 'Never'        THEN -1
+            ELSE                                        604800
+        END AS visitors_drift_seconds
     FROM
         person
     LEFT JOIN

@@ -49,7 +49,9 @@ db_now () {
 }
 
 # Record a visit of one user's profile by another, as though it happened
-# `age` ago.
+# `age` ago. The second statement mirrors the pending stamp the app makes as
+# it records a visit (the `stamped_visitor_pending` CTE of
+# `Q_SELECT_PROSPECT_PROFILE`).
 # Example: insert_visit "$user2id" "$user1id" '11 minutes' true
 insert_visit () {
   local visitor_uuid=$1
@@ -64,6 +66,36 @@ insert_visit () {
     (select id from person where uuid::text = '$visited_uuid'),
     now() - interval '${age}',
     ${invisible}
+  "
+
+  q "
+  update person
+  set visitor_pending_seconds = greatest(
+      visitor_pending_seconds,
+      extract(epoch from now() - interval '${age}')::bigint)
+  where uuid::text = '$visited_uuid'
+  and not ${invisible}
+  and exists (
+    select 1
+    from person as visitor
+    where visitor.uuid::text = '$visitor_uuid'
+    and visitor.activated
+    and visitor.shadow_banned_at is null
+  )
+  and extract(epoch from now() - interval '${age}')::bigint >
+      visitor_seconds + (
+        select
+          case immediacy.name
+            when 'Immediately'  then 0
+            when 'Daily'        then 86400
+            when 'Every 3 days' then 259200
+            when 'Weekly'       then 604800
+            when 'Never'        then null
+            else                     604800
+          end
+        from immediacy
+        where immediacy.id = person.visitors_notification
+      )
   "
 }
 

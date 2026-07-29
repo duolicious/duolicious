@@ -806,6 +806,58 @@ WITH prospect_base AS (
     ON CONFLICT (subject_person_id, object_person_id) DO UPDATE SET
         updated_at = now(),
         invisible = EXCLUDED.invisible
+    RETURNING
+        object_person_id,
+        updated_at,
+        invisible
+), stamped_visitor_pending AS (
+    -- A visible visit by an activated, non-shadow-banned viewer, landing
+    -- after the prospect's notification-frequency drift has elapsed, arms
+    -- the prospect's pending visitor notification. Judged here, as the visit
+    -- is recorded, so the notification cron only has to poll the stamped
+    -- people (a 'Never' frequency yields NULL and so never stamps).
+    UPDATE
+        person
+    SET
+        visitor_pending_seconds = GREATEST(
+            visitor_pending_seconds,
+            EXTRACT(EPOCH FROM updated_visited.updated_at)::bigint)
+    FROM
+        updated_visited
+    WHERE
+        person.id = updated_visited.object_person_id
+    AND
+        NOT updated_visited.invisible
+    AND
+        EXISTS (
+            SELECT
+                1
+            FROM
+                person AS visitor
+            WHERE
+                visitor.id = %(person_id)s
+            AND
+                visitor.activated
+            AND
+                visitor.shadow_banned_at IS NULL
+        )
+    AND
+        EXTRACT(EPOCH FROM updated_visited.updated_at)::bigint >
+            COALESCE(person.visitor_seconds, 0) + (
+                SELECT
+                    CASE immediacy.name
+                        WHEN 'Immediately'  THEN 0
+                        WHEN 'Daily'        THEN 86400
+                        WHEN 'Every 3 days' THEN 259200
+                        WHEN 'Weekly'       THEN 604800
+                        WHEN 'Never'        THEN NULL
+                        ELSE                     604800
+                    END
+                FROM
+                    immediacy
+                WHERE
+                    immediacy.id = person.visitors_notification
+            )
 ), negative_dot_prod AS (
     -- Empty for anonymous viewers, so `match_percentage` is NULL and the
     -- frontend hides the donut. Without the guard, `CLAMP(0, 99, NULL)`
