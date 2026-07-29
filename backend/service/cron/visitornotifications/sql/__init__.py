@@ -85,34 +85,47 @@ WITH ten_minutes_ago AS (
 ), counted AS (
     -- How many people visited since the person was last online, so the copy
     -- can say how many. Capped at 100 (rendered as "99+"), so the scan stops
-    -- early for very popular profiles.
+    -- early for very popular profiles. Thousands of people can sit in
+    -- `filtered` waiting out their drift period while only a handful are due
+    -- to be sent each poll, so the count is only computed where the drift
+    -- gate (mirroring `do_send_notification`) passes; everyone else gets a 0
+    -- that `is_sendable` discards anyway.
     SELECT
         filtered.*,
-        (
-            SELECT
-                COUNT(*)
-            FROM (
+        (CASE
+            WHEN
+                filtered.visitors_drift_seconds >= 0
+            AND
+                filtered.last_visitor_notification_seconds +
+                    filtered.visitors_drift_seconds <
+                        filtered.last_visitor_seconds
+            THEN (
                 SELECT
-                    1
-                FROM
-                    visited
-                JOIN
-                    person AS visitor
-                ON
-                    visitor.id = visited.subject_person_id
-                WHERE
-                    visited.object_person_id = filtered.person_id
-                AND
-                    NOT visited.invisible
-                AND
-                    visited.updated_at > filtered.last_online_time
-                AND
-                    visitor.activated
-                AND
-                    visitor.shadow_banned_at IS NULL
-                LIMIT 100
-            ) AS visitor
-        )::int AS visitor_count
+                    COUNT(*)
+                FROM (
+                    SELECT
+                        1
+                    FROM
+                        visited
+                    JOIN
+                        person AS visitor
+                    ON
+                        visitor.id = visited.subject_person_id
+                    WHERE
+                        visited.object_person_id = filtered.person_id
+                    AND
+                        NOT visited.invisible
+                    AND
+                        visited.updated_at > filtered.last_online_time
+                    AND
+                        visitor.activated
+                    AND
+                        visitor.shadow_banned_at IS NULL
+                    LIMIT 100
+                ) AS visitor
+            )
+            ELSE 0
+        END)::int AS visitor_count
     FROM
         filtered
 ), session_summary AS (
