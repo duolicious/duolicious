@@ -12,6 +12,6 @@ RUN : \
 CMD [ \
   "postgres", \
   "-c", "wal_level=logical", \
-  "-c", "shared_buffers=1GB", \
+  "-c", "shared_buffers=2GB", \
   "-c", "random_page_cost=1.1" \
 ]
