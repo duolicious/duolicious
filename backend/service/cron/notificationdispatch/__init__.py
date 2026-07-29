@@ -28,7 +28,7 @@ class NotificationKind(Generic[N]):
     query: str
     row_type: type[N]
     poll_seconds: int
-    subject: str
+    subject: Callable[[N], str]
     screen: Json
     is_sendable: Callable[[N], bool]
     push_body: Callable[[N], str]
@@ -45,7 +45,7 @@ async def send_email_notification(kind: NotificationKind[N], row: N) -> None:
         print('Email notification failed because it ends with @example.com')
         return
 
-    subject = kind.subject
+    subject = kind.subject(row)
     body = kind.email_body(row)
     to_addr = row.email
 
@@ -68,7 +68,7 @@ def send_mobile_notification(
     else:
         notify.enqueue_mobile_notification(
             token=row.token,
-            title=kind.subject,
+            title=kind.subject(row),
             body=kind.push_body(row),
             data=kind.screen,
             badge=badge,

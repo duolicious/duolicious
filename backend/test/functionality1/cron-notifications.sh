@@ -807,6 +807,24 @@ test_happy_path_visitors () {
   [[ "$(count_pushes_to 'token_visitors')" = 1 ]]
 }
 
+# When more than one person visited since the user was last online, the
+# notification says how many.
+test_happy_path_multiple_visitors () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_multi'
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+  insert_visit "$user3id" "$user1id" '12 minutes'
+
+  sleep 4
+
+  [[ "$(pushes_to 'token_multi')" = '[{"title":"2 people visited your profile 👀","body":"2 people visited your profile!","screen":"Visitors"}]' ]]
+}
+
 # A message and a visit arriving in the same window are announced separately:
 # two notifications, each with its own headline and destination, and each
 # counting towards the app-icon badge.
@@ -962,6 +980,7 @@ test_happy_path_chat_not_deferred_by_intro
 test_chat_notification_also_covers_a_capped_intro
 
 test_happy_path_visitors
+test_happy_path_multiple_visitors
 test_happy_path_visitor_and_intro_are_separate
 test_sad_invisible_visit
 test_sad_shadow_banned_visitor

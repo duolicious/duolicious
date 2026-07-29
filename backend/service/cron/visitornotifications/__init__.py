@@ -11,8 +11,8 @@ from service.cron.visitornotifications.sql import (
     Q_PENDING_VISITOR_NOTIFICATIONS,
 )
 from service.cron.visitornotifications.template import (
-    VISITOR_BIG_PART,
-    VISITOR_SUBJECT,
+    big_part,
+    title_part,
     visitor_emailtemplate,
 )
 import os
@@ -32,6 +32,7 @@ class VisitorNotification:
     name: str
     email: str
     visitors_drift_seconds: int
+    visitor_count: int
     token: str | None
 
 def do_send_notification(row: VisitorNotification) -> bool:
@@ -41,11 +42,15 @@ def do_send_notification(row: VisitorNotification) -> bool:
             row.last_visitor_seconds
     )
 
+def push_title(row: VisitorNotification) -> str:
+    return title_part(row.visitor_count)
+
 def push_body(row: VisitorNotification) -> str:
-    return VISITOR_BIG_PART
+    return big_part(row.visitor_count)
 
 def email_body(row: VisitorNotification) -> str:
-    return visitor_emailtemplate(email=row.email)
+    return visitor_emailtemplate(
+        email=row.email, visitor_count=row.visitor_count)
 
 async def update_last_notification_time(row: VisitorNotification) -> None:
     params = dict(username=row.person_uuid)
@@ -58,7 +63,7 @@ VISITOR_NOTIFICATIONS = NotificationKind(
     query=Q_PENDING_VISITOR_NOTIFICATIONS,
     row_type=VisitorNotification,
     poll_seconds=VISITOR_POLL_SECONDS,
-    subject=VISITOR_SUBJECT,
+    subject=push_title,
     screen={'screen': 'Home', 'params': {'screen': 'Visitors'}},
     is_sendable=do_send_notification,
     push_body=push_body,

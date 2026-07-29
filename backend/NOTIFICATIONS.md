@@ -31,6 +31,10 @@ of visit are skipped, because neither one appears in the visitors tab and a
 notification the user can't act on is worse than none: visits made while
 browsing invisibly, and visits by somebody deactivated or shadow banned.
 
+The periodic notification states how many people visited since the user was
+last online, capped at "99+". A single visitor is still "someone": the periodic
+check can count its window but can't name anyone in it.
+
 Visitors default to **weekly**, which is deliberately the quietest default of
 the three: a profile can be visited far more often than it's messaged.
 
@@ -43,8 +47,8 @@ instant somebody opens a profile would arrive while they're still reading it.
 
 Visits are never folded into a message notification. Somebody who was visited
 and then messaged gets **two** notifications: one headed "you have a new
-message", which opens the inbox, and one headed "someone visited your profile",
-which opens the visitors tab. Neither has to share a headline or a destination
+message", which opens the inbox, and one headed "someone visited your profile"
+(or how many people did), which opens the visitors tab. Neither has to share a headline or a destination
 with the other, and each is governed by its own frequency setting, so silencing
 one leaves the other alone.
 

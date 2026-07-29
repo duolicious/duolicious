@@ -82,6 +82,39 @@ WITH ten_minutes_ago AS (
         person.activated
 ), filtered AS (
     SELECT * FROM notifiable WHERE has_visitor
+), counted AS (
+    -- How many people visited since the person was last online, so the copy
+    -- can say how many. Capped at 100 (rendered as "99+"), so the scan stops
+    -- early for very popular profiles.
+    SELECT
+        filtered.*,
+        (
+            SELECT
+                COUNT(*)
+            FROM (
+                SELECT
+                    1
+                FROM
+                    visited
+                JOIN
+                    person AS visitor
+                ON
+                    visitor.id = visited.subject_person_id
+                WHERE
+                    visited.object_person_id = filtered.person_id
+                AND
+                    NOT visited.invisible
+                AND
+                    visited.updated_at > filtered.last_online_time
+                AND
+                    visitor.activated
+                AND
+                    visitor.shadow_banned_at IS NULL
+                LIMIT 100
+            ) AS visitor
+        )::int AS visitor_count
+    FROM
+        filtered
 ), session_summary AS (
     -- Per person, summarise their logged-in sessions. A signed-in `duo_session`
     -- with a NULL `push_token` is a push-less (web) client: only the mobile app
@@ -110,21 +143,22 @@ WITH ten_minutes_ago AS (
         duo_session.person_id
 )
 SELECT
-    filtered.person_uuid,
-    filtered.last_visitor_seconds,
-    filtered.last_visitor_notification_seconds,
+    counted.person_uuid,
+    counted.last_visitor_seconds,
+    counted.last_visitor_notification_seconds,
     -- One row per notification to send (see the LATERAL join below): a
     -- non-NULL token produces a push, a NULL token produces an email.
     notification_target.token,
-    filtered.name,
-    filtered.email,
-    filtered.visitors_drift_seconds
+    counted.name,
+    counted.email,
+    counted.visitors_drift_seconds,
+    counted.visitor_count
 FROM
-    filtered
+    counted
 LEFT JOIN
     session_summary
 ON
-    session_summary.person_id = filtered.person_id
+    session_summary.person_id = counted.person_id
 -- Fan a single person out into one row per notification that must be sent:
 -- one push per distinct logged-in mobile push token, plus a single email (NULL
 -- token) when any of: no logged-in device can receive push; the user was last
@@ -145,7 +179,7 @@ CROSS JOIN LATERAL (
     WHERE
         session_summary.push_tokens IS NULL
     OR
-        extract(epoch from filtered.last_online_time)
+        extract(epoch from counted.last_online_time)
             <= EXTRACT(EPOCH FROM NOW() - INTERVAL '8 days')
     OR
         COALESCE(

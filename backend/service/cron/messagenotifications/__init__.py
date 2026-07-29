@@ -71,6 +71,9 @@ def is_chat_sendable(row: PersonNotification) -> bool:
 def do_send_notification(row: PersonNotification) -> bool:
     return is_intro_sendable(row) or is_chat_sendable(row)
 
+def notification_subject(row: PersonNotification) -> str:
+    return MESSAGE_SUBJECT
+
 def notification_body(row: PersonNotification) -> str:
     # Every unread kind the query found, not only the ones whose frequency cap
     # has elapsed: one notification covers the whole inbox, so an intro still
@@ -101,7 +104,7 @@ MESSAGE_NOTIFICATIONS = NotificationKind(
     query=Q_UNREAD_INBOX,
     row_type=PersonNotification,
     poll_seconds=EMAIL_POLL_SECONDS,
-    subject=MESSAGE_SUBJECT,
+    subject=notification_subject,
     screen={'screen': 'Home', 'params': {'screen': 'Inbox'}},
     is_sendable=do_send_notification,
     push_body=notification_body,
