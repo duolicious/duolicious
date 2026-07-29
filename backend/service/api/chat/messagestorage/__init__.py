@@ -64,6 +64,7 @@ def store_message(
             to_username=to_username,
             msg_id=msg_id,
             body=message.body,
+            timestamp=timestamp_microseconds,
             deliver_to_recipient=deliver_to_recipient,
         ),
         messaged_job=SetMessagedJob(
@@ -93,6 +94,7 @@ async def store_reaction(
     emoji: str,
     previous_reaction: str | None,
     target_body: str,
+    timestamp_microseconds: int,
     deliver_to_recipient: bool,
 ) -> StoredReaction | None:
     """
@@ -127,6 +129,7 @@ async def store_reaction(
                 reaction_target_mam_id=reactor_copy_id,
                 emoji=emoji,
                 target_body=target_body,
+                timestamp=timestamp_microseconds,
                 deliver_to_recipient=deliver_to_recipient,
             )
             await process_set_messaged_batch(tx, [

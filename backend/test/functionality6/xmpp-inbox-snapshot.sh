@@ -368,3 +368,29 @@ actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 diff -u --color \
   <(echo "$actual_snapshot") \
   <(jq -S '[.[0] | .location = "chats"]' <<< "$expected_snapshot")
+
+
+echo "The delivered stamp matches the inbox timestamp everywhere it appears"
+
+curl -sX GET "http://localhost:3001/pop?id=user2" > /dev/null
+
+send_message user2 "$user2uuid" "$user1uuid" "stamped message"
+
+delivered_stamp=$(curl -sX GET "http://localhost:3001/pop?id=user2" \
+  | jq -s -r '[.[] | .duo_message_delivered | select(. != null)][0]["@stamp"]')
+
+entry_timestamp=$(curl -sX GET "http://localhost:3001/pop?id=user1" \
+  | jq -s -r '[.[] | .duo_inbox_entry | select(. != null)][0].last_message_timestamp')
+
+snapshot_timestamp=$(query_inbox_snapshot user1 \
+  | jq -s -r '
+      [.[] | .duo_inbox | select(. != null)][0]
+      | .conversations[0].last_message_timestamp
+    ')
+
+[[ -n "$delivered_stamp" && "$delivered_stamp" != "null" ]] \
+  || { echo "Missing delivered stamp"; exit 1; }
+[[ "$entry_timestamp" == "$delivered_stamp" ]] \
+  || { echo "Entry timestamp '$entry_timestamp' != stamp '$delivered_stamp'"; exit 1; }
+[[ "$snapshot_timestamp" == "$delivered_stamp" ]] \
+  || { echo "Snapshot timestamp '$snapshot_timestamp' != stamp '$delivered_stamp'"; exit 1; }

@@ -289,7 +289,7 @@ WITH upsert_sender AS (
         -- The sender's own copy: remote_bare_jid is the recipient (the To), so
         -- the message is outgoing.
         'O'::mam_direction,
-        EXTRACT(EPOCH FROM NOW()) * 1e6,
+        %(timestamp)s,
         0
     )
     ON CONFLICT (luser, remote_bare_jid)
@@ -327,7 +327,7 @@ WITH upsert_sender AS (
         -- The recipient's copy: remote_bare_jid is the sender (the From), so
         -- the message is incoming.
         'I'::mam_direction,
-        EXTRACT(EPOCH FROM NOW()) * 1e6,
+        %(timestamp)s,
         1
     WHERE
         %(deliver_to_recipient)s::BOOLEAN
@@ -353,7 +353,7 @@ WITH update_reactor AS (
         reaction_target_mam_id = %(reaction_target_mam_id)s,
         reaction_body = %(reaction_body)s,
         box = 'chats',
-        timestamp = EXTRACT(EPOCH FROM NOW()) * 1e6,
+        timestamp = %(timestamp)s,
         unread_count = 0
     WHERE
         luser = %(reactor_username)s
@@ -365,7 +365,7 @@ UPDATE inbox SET
     reaction_target_mam_id = %(reaction_target_mam_id)s,
     reaction_body = %(reaction_body)s,
     box = 'chats',
-    timestamp = EXTRACT(EPOCH FROM NOW()) * 1e6,
+    timestamp = %(timestamp)s,
     unread_count = CASE
         WHEN reaction_target_mam_id = %(reaction_target_mam_id)s
         THEN GREATEST(COALESCE(unread_count, 0), 1)
@@ -421,13 +421,14 @@ Q_MARK_DISPLAYED = """
 UPDATE
     inbox
 SET
-    displayed_at = NOW(),
+    displayed_at = target.displayed_at,
     unread_count = 0
 FROM
     unnest(
         %(lusers)s::text[],
-        %(remote_bare_jids)s::text[]
-    ) AS target(luser, remote_bare_jid)
+        %(remote_bare_jids)s::text[],
+        %(displayed_ats)s::timestamp[]
+    ) AS target(luser, remote_bare_jid, displayed_at)
 WHERE
     inbox.luser = target.luser
 AND
@@ -447,6 +448,7 @@ class UpsertConversationJob:
     to_username: str
     msg_id: str
     body: str
+    timestamp: int
     deliver_to_recipient: bool = True
 
 
@@ -455,6 +457,7 @@ class MarkDisplayedJob:
     from_username: str
     to_username: str
     publish_receipt: bool
+    displayed_at: datetime
 
 
 def reaction_inbox_body(emoji: str, target_body: str) -> str:
@@ -632,6 +635,7 @@ async def set_inbox_reaction(
     reaction_target_mam_id: int,
     emoji: str,
     target_body: str,
+    timestamp: int,
     deliver_to_recipient: bool,
 ) -> None:
     await tx.execute(
@@ -644,6 +648,7 @@ async def set_inbox_reaction(
             reaction_target_mam_id=reaction_target_mam_id,
             reaction=emoji,
             reaction_body=target_body,
+            timestamp=timestamp,
             deliver_to_recipient=deliver_to_recipient,
         ),
     )
@@ -694,6 +699,7 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
             recipient_jid=f"{job.to_username}@{LSERVER}",
             msg_id=job.msg_id,
             body=job.body,
+            timestamp=job.timestamp,
             deliver_to_recipient=job.deliver_to_recipient,
         )
         for job in batch
@@ -712,12 +718,13 @@ def mark_displayed(
             from_username=from_username,
             to_username=to_username,
             publish_receipt=publish_receipt,
+            displayed_at=datetime.utcnow(),
         )
     )
 
 
 async def _write_mark_displayed(
-    conversations: list[tuple[str, str]],
+    conversations: list[tuple[str, str, datetime]],
 ) -> dict[tuple[str, str], datetime]:
     """
     Marks each (reader, sender) conversation as read, returning the recorded read
@@ -725,9 +732,9 @@ async def _write_mark_displayed(
     conversation is absent from the result.
     """
     targets = list({
-        (reader, f'{sender}@{LSERVER}')
-        for reader, sender in conversations
-    })
+        (reader, f'{sender}@{LSERVER}'): displayed_at
+        for reader, sender, displayed_at in conversations
+    }.items())
 
     if not targets:
         return {}
@@ -735,8 +742,9 @@ async def _write_mark_displayed(
     try:
         async with api_tx('read committed') as tx:
             await tx.execute(Q_MARK_DISPLAYED, dict(
-                lusers=[luser for luser, _ in targets],
-                remote_bare_jids=[jid for _, jid in targets],
+                lusers=[luser for (luser, _), _ in targets],
+                remote_bare_jids=[jid for (_, jid), _ in targets],
+                displayed_ats=[displayed_at for _, displayed_at in targets],
             ))
             rows = await tx.fetchall()
     except Exception:
@@ -755,7 +763,15 @@ async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
         for job in batch
     }
 
-    advanced = await _write_mark_displayed(list(publish_receipt))
+    displayed_ats = {
+        (job.from_username, job.to_username): job.displayed_at
+        for job in batch
+    }
+
+    advanced = await _write_mark_displayed([
+        (reader, sender, at)
+        for (reader, sender), at in displayed_ats.items()
+    ])
 
     for (reader, sender), displayed_at in advanced.items():
         if not publish_receipt.get((reader, sender)):

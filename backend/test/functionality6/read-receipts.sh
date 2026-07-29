@@ -186,6 +186,23 @@ gold_receipts=$(count_read_receipts "$user2uuid" "$user1uuid" <<< "$gold_convers
 [[ "$gold_receipts" == "1" ]] \
   || { echo "Expected 1 read receipt for the gold user, got ${gold_receipts}"; exit 1; }
 
+message_stamp=$(jq -s -r '
+  [.[] | .message.result.forwarded.delay["@stamp"]? | select(. != null)] | max
+' <<< "$gold_conversation")
+
+receipt_stamp=$(jq -s -r '
+  [ .[]
+    | select(.message["@type"] == "read-receipt")
+    | .message.displayed["@stamp"]
+    | select(. != null)
+  ][0]
+' <<< "$gold_conversation")
+
+[[ -n "$message_stamp" && "$message_stamp" != "null" ]] \
+  || { echo "Missing message stamp"; exit 1; }
+[[ "$receipt_stamp" == "$message_stamp" || "$receipt_stamp" > "$message_stamp" ]] \
+  || { echo "Receipt stamp '${receipt_stamp}' predates message stamp '${message_stamp}'"; exit 1; }
+
 
 echo "Re-reading the same last message does not advance the read receipt"
 

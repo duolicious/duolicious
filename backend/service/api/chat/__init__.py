@@ -349,6 +349,8 @@ async def _handle_reaction(
 
     deliver_to_partner = not await fetch_is_shadow_banned(from_id)
 
+    reacted_at_microseconds = now_microseconds()
+
     stored = await store_reaction(
         reactor_username=from_username,
         partner_username=partner_username,
@@ -358,13 +360,14 @@ async def _handle_reaction(
         emoji=parsed.emoji,
         previous_reaction=target.previous_reaction,
         target_body=target.target_body,
+        timestamp_microseconds=reacted_at_microseconds,
         deliver_to_recipient=deliver_to_partner,
     )
 
     if stored is None:
         return await reject()
 
-    stamp = format_timestamp(now_microseconds())
+    stamp = format_timestamp(reacted_at_microseconds)
 
     partner_has_subscribers = await redis_has_subscribers(
         REDIS_WORKER_CLIENT, partner_username)
