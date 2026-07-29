@@ -72,6 +72,25 @@ AS $$
     SELECT to_char(ts AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
 $$;
 
+-- How long an `immediacy` setting makes its notifications wait after the
+-- previous one, in seconds. -1 means never notify, and an unset or
+-- unrecognized setting falls back to weekly.
+CREATE OR REPLACE FUNCTION immediacy_drift_seconds(immediacy_name TEXT)
+  RETURNS BIGINT
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+AS $$
+    SELECT CASE
+        WHEN immediacy_name = 'Immediately'  THEN 0
+        WHEN immediacy_name = 'Daily'        THEN 86400
+        WHEN immediacy_name = 'Every 3 days' THEN 259200
+        WHEN immediacy_name = 'Weekly'       THEN 604800
+        WHEN immediacy_name = 'Never'        THEN -1
+        ELSE                                      604800
+    END
+$$;
+
 
 CREATE OR REPLACE FUNCTION age_gap_acceptability_odds(
     a double precision,
@@ -376,6 +395,12 @@ CREATE TABLE IF NOT EXISTS person (
     intro_seconds INT NOT NULL DEFAULT 0,
     chat_seconds INT NOT NULL DEFAULT 0,
     visitor_seconds INT NOT NULL DEFAULT 0,
+    -- Epoch seconds of the newest visit awaiting a visitor notification, or
+    -- zero when none is. Stamped by a trigger as qualifying visits are
+    -- recorded, and cleared when a visitor notification is sent or the person
+    -- comes online, so the notification cron polls a handful of stamped
+    -- people instead of sweeping every recent visit.
+    visitor_pending_seconds BIGINT NOT NULL DEFAULT 0,
     -- How many push notifications were sent while the user had no connected
     -- chat clients. Stamped into each push as the iOS app-icon badge and
     -- zeroed when the user goes from zero connected clients to one.
@@ -1019,13 +1044,9 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
 
--- Serves the visitor-notification cron, which sweeps every recent visit rather
--- than looking one person up. Both person ids are in the index so the sweep
--- needn't touch the heap, and invisible visits are excluded because they never
--- reach the visitors tab and so are never notified about.
-CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
-    ON visited(updated_at DESC, object_person_id, subject_person_id)
-    WHERE NOT invisible;
+CREATE INDEX IF NOT EXISTS idx__person__visitor_pending_seconds
+    ON person(visitor_pending_seconds)
+    WHERE visitor_pending_seconds > 0;
 
 CREATE INDEX IF NOT EXISTS idx__search_preference_age__person_id__bounds
     ON search_preference_age(person_id) INCLUDE (min_age, max_age);
@@ -1726,6 +1747,84 @@ AFTER INSERT OR DELETE OR UPDATE OF activated ON
     person_club
 FOR EACH ROW EXECUTE FUNCTION
     mark_club_stats_dirty();
+
+--------------------------------------------------------------------------------
+-- TRIGGER - Stamp `person.visitor_pending_seconds` as visits are recorded
+--
+-- A visit qualifies for an eventual visitor notification when it's visible,
+-- made by an activated, non-shadow-banned visitor, and lands after the visited
+-- person's notification-frequency drift has elapsed. Qualification is judged
+-- here, at write time, so the notification cron only has to poll the stamped
+-- people. The visitor's standing is judged as of the visit; a visitor banned
+-- or deactivated afterwards no longer retracts an already-stamped visit the
+-- way the old per-poll sweep did.
+--------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION
+    stamp_visitor_pending()
+RETURNS TRIGGER AS $$
+DECLARE
+    visit_seconds BIGINT := EXTRACT(EPOCH FROM NEW.updated_at)::bigint;
+    drift_seconds BIGINT;
+    notified_seconds BIGINT;
+BEGIN
+    IF NEW.invisible THEN
+        RETURN NEW;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT
+            1
+        FROM
+            person AS visitor
+        WHERE
+            visitor.id = NEW.subject_person_id
+        AND
+            visitor.activated
+        AND
+            visitor.shadow_banned_at IS NULL
+    ) THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT
+        immediacy_drift_seconds(immediacy.name),
+        COALESCE(person.visitor_seconds, 0)
+    INTO
+        drift_seconds,
+        notified_seconds
+    FROM
+        person
+    LEFT JOIN
+        immediacy
+    ON
+        immediacy.id = person.visitors_notification
+    WHERE
+        person.id = NEW.object_person_id;
+
+    IF drift_seconds < 0 OR visit_seconds <= notified_seconds + drift_seconds
+    THEN
+        RETURN NEW;
+    END IF;
+
+    UPDATE
+        person
+    SET
+        visitor_pending_seconds = GREATEST(
+            visitor_pending_seconds, visit_seconds)
+    WHERE
+        id = NEW.object_person_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER
+    trigger_stamp_visitor_pending
+AFTER INSERT OR UPDATE ON
+    visited
+FOR EACH ROW EXECUTE FUNCTION
+    stamp_visitor_pending();
 
 
 --------------------------------------------------------------------------------

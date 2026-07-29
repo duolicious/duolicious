@@ -3,93 +3,57 @@ WITH ten_minutes_ago AS (
     SELECT
         EXTRACT(EPOCH FROM (
             NOW() - INTERVAL '10 minutes'))::bigint AS seconds
-), visitor_first_pass AS (
-    -- The most recent visit each person received. `visited` holds one row per
-    -- (visitor, visited) pair, updated in place, so the ten-day window covers
-    -- the pairs whose latest visit is recent rather than every visit ever
-    -- made. Invisible visits are excluded because they never show up in the
-    -- visitors tab, and so are visits from people the tab hides.
-    SELECT
-        visited.object_person_id AS person_id,
-        EXTRACT(EPOCH FROM MAX(visited.updated_at))::bigint AS last_visitor_seconds
-    FROM
-        visited
-    JOIN
-        person AS visitor
-    ON
-        visitor.id = visited.subject_person_id
-    WHERE
-        NOT visited.invisible
-    AND
-        visited.updated_at > NOW() - INTERVAL '10 days'
-    AND
-        visitor.activated
-    AND
-        visitor.shadow_banned_at IS NULL
-    GROUP BY
-        visited.object_person_id
-), notifiable AS (
-    -- Decide, per person, whether they're due a visitor notification. This
-    -- depends only on the person and their visitors, never on their sessions,
-    -- so it's done before the (more expensive) session summary below: only the
-    -- handful of people who survive this filter need it.
+), filtered AS (
+    -- The people due a visitor notification. `visitor_pending_seconds` holds
+    -- the newest visit awaiting a notification: a trigger stamps it as
+    -- qualifying visits are recorded, and it's cleared when a notification is
+    -- sent or the person comes online. That leaves this poll a handful of
+    -- stamped people, found through a small partial index, instead of a sweep
+    -- of every visit in the last ten days.
     SELECT
         person.uuid::TEXT AS person_uuid,
         person.id AS person_id,
         person.last_online_time,
-        visitor_first_pass.last_visitor_seconds,
+        person.visitor_pending_seconds AS last_visitor_seconds,
         COALESCE(person.visitor_seconds, 0) AS last_visitor_notification_seconds,
-        (
-                -- only notify users we haven't already notified
-                visitor_first_pass.last_visitor_seconds >
-                    COALESCE(person.visitor_seconds, 0)
-            AND
-                -- only notify users about visits made longer than ten minutes
-                -- ago
-                visitor_first_pass.last_visitor_seconds <
-                    (SELECT seconds FROM ten_minutes_ago)
-            AND
-                -- only notify users about visits made after their last activity
-                extract(epoch from person.last_online_time) <
-                    visitor_first_pass.last_visitor_seconds
-            AND
-                -- only notify users whose last activity was longer than ten
-                -- minutes ago
-                extract(epoch from person.last_online_time) <
-                    (SELECT seconds FROM ten_minutes_ago)
-        ) AS has_visitor,
         person.name,
         person.email,
-        CASE
-            WHEN im_visitors.name = 'Immediately'  THEN 0
-            WHEN im_visitors.name = 'Daily'        THEN 86400
-            WHEN im_visitors.name = 'Every 3 days' THEN 259200
-            WHEN im_visitors.name = 'Weekly'       THEN 604800
-            WHEN im_visitors.name = 'Never'        THEN -1
-            ELSE                                        604800
-        END AS visitors_drift_seconds
+        immediacy_drift_seconds(im_visitors.name) AS visitors_drift_seconds
     FROM
-        visitor_first_pass
-    JOIN
         person
-    ON
-        person.id = visitor_first_pass.person_id
     LEFT JOIN
         immediacy AS im_visitors
     ON
         im_visitors.id = person.visitors_notification
     WHERE
+        person.visitor_pending_seconds > 0
+    AND
+        -- only notify users about visits made longer than ten minutes ago
+        person.visitor_pending_seconds < (SELECT seconds FROM ten_minutes_ago)
+    AND
+        -- only notify users about visits less than ten days old
+        person.visitor_pending_seconds >
+            EXTRACT(EPOCH FROM NOW() - INTERVAL '10 days')::bigint
+    AND
+        -- only notify users about visits made after their last activity. The
+        -- online path clears the stamp itself; this also covers activity
+        -- recorded by writing `last_online_time` directly.
+        extract(epoch from person.last_online_time) <
+            person.visitor_pending_seconds
+    AND
+        -- only notify users whose last activity was longer than ten minutes
+        -- ago
+        extract(epoch from person.last_online_time) <
+            (SELECT seconds FROM ten_minutes_ago)
+    AND
         person.activated
-), filtered AS (
-    SELECT * FROM notifiable WHERE has_visitor
 ), counted AS (
     -- How many people visited since the person was last online, so the copy
     -- can say how many. Capped at 100 (rendered as "99+"), so the scan stops
-    -- early for very popular profiles. Thousands of people can sit in
-    -- `filtered` waiting out their drift period while only a handful are due
-    -- to be sent each poll, so the count is only computed where the drift
-    -- gate (mirroring `do_send_notification`) passes; everyone else gets a 0
-    -- that `is_sendable` discards anyway.
+    -- early for very popular profiles. The count is only computed where the
+    -- drift gate (mirroring `do_send_notification`) passes; a stamped person
+    -- whose frequency setting has since changed gets a 0 that `is_sendable`
+    -- discards anyway.
     SELECT
         filtered.*,
         (CASE

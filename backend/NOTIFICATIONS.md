@@ -31,6 +31,17 @@ of visit are skipped, because neither one appears in the visitors tab and a
 notification the user can't act on is worse than none: visits made while
 browsing invisibly, and visits by somebody deactivated or shadow banned.
 
+Whether a visit deserves a notification is judged as it's recorded: a database
+trigger stamps the visited person's `visitor_pending_seconds` when a
+qualifying visit lands after their frequency drift has elapsed, and the stamp
+is cleared when a visitor notification is sent or the person comes online.
+The periodic check then polls the stamped people through a small partial
+index instead of sweeping every recent visit. Judging at write time means the
+visitor's standing is the one they had at the moment of the visit: a visitor
+shadow banned or deactivated afterwards no longer retracts a pending
+notification, and one reinstated afterwards doesn't resurrect old visits —
+their next visit counts instead.
+
 The periodic notification states how many people visited since the user was
 last online, capped at "99+". A single visitor is still "someone": the periodic
 check can count its window but can't name anyone in it.
