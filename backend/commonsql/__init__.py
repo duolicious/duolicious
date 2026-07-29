@@ -69,7 +69,8 @@ WITH updated_person AS (
         -- Visitor notifications only cover visitors the person hasn't been
         -- online to see, so coming online restarts the count.
         visitor_count = 0,
-        visitor_pending_seconds = 0
+        visitor_pending_seconds = 0,
+        visitor_due_seconds = 0
     WHERE
         uuid = %(person_uuid)s
     RETURNING
@@ -119,7 +120,8 @@ Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME = """
 UPDATE
     person
 SET
-    visitor_seconds = extract(epoch from now() + INTERVAL '5 seconds')::int
+    visitor_seconds = extract(epoch from now() + INTERVAL '5 seconds')::int,
+    visitor_due_seconds = 0
 WHERE
     uuid = uuid_or_null(%(username)s)
 """

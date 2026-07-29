@@ -377,13 +377,19 @@ CREATE TABLE IF NOT EXISTS person (
     chat_seconds INT NOT NULL DEFAULT 0,
     visitor_seconds INT NOT NULL DEFAULT 0,
     -- How many distinct people have visibly visited this person since they
-    -- were last online, and the epoch seconds of the newest such visit. Both
-    -- are maintained by the profile-view write as visits are recorded and
-    -- reset when the person comes online, so the notification cron polls the
-    -- people with something to hear about instead of sweeping every recent
-    -- visit. The count is also what the notification's copy reports.
+    -- were last online; the epoch seconds of the newest such visit; and the
+    -- epoch seconds at which those visits' notification falls due (the
+    -- newest visit's ten-minute quiet period or the notification-frequency
+    -- drift period, whichever ends later; zero when nothing is due). All
+    -- three are maintained by the profile-view write as visits are recorded;
+    -- coming online resets them, sending a visitor notification zeroes the
+    -- due time, and changing the visitors frequency recomputes it. The cron
+    -- then polls a window of due times through a small partial index instead
+    -- of sweeping every recent visit, and the count is what the
+    -- notification's copy reports.
     visitor_count INT NOT NULL DEFAULT 0,
     visitor_pending_seconds BIGINT NOT NULL DEFAULT 0,
+    visitor_due_seconds BIGINT NOT NULL DEFAULT 0,
     -- How many push notifications were sent while the user had no connected
     -- chat clients. Stamped into each push as the iOS app-icon badge and
     -- zeroed when the user goes from zero connected clients to one.
@@ -1027,8 +1033,9 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx__person__visitor_count__last_online_time
-    ON person(visitor_count, last_online_time);
+CREATE INDEX IF NOT EXISTS idx__person__visitor_due_seconds
+    ON person(visitor_due_seconds)
+    WHERE visitor_due_seconds > 0;
 
 CREATE INDEX IF NOT EXISTS idx__search_preference_age__person_id__bounds
     ON search_preference_age(person_id) INCLUDE (min_age, max_age);

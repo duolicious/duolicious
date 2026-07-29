@@ -1496,8 +1496,28 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         AND immediacy.name = %(field_value)s
         """
     elif field_name == 'visitors':
+        # The moment a pending visitor notification falls due is derived from
+        # the frequency, so changing the frequency recomputes it under the
+        # new drift period.
         q1 = """
-        UPDATE person SET visitors_notification = immediacy.id
+        UPDATE person SET
+            visitors_notification = immediacy.id,
+            visitor_due_seconds = CASE
+                WHEN immediacy.name = 'Never'
+                THEN 0
+                WHEN person.visitor_pending_seconds >
+                        COALESCE(person.visitor_seconds, 0)
+                THEN GREATEST(
+                    person.visitor_pending_seconds + 600,
+                    COALESCE(person.visitor_seconds, 0) + CASE immediacy.name
+                        WHEN 'Immediately'  THEN 0
+                        WHEN 'Daily'        THEN 86400
+                        WHEN 'Every 3 days' THEN 259200
+                        WHEN 'Weekly'       THEN 604800
+                        ELSE                     604800
+                    END)
+                ELSE 0
+            END
         FROM immediacy
         WHERE person.id = %(person_id)s
         AND immediacy.name = %(field_value)s

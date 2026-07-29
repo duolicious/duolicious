@@ -33,20 +33,27 @@ browsing invisibly, and visits by somebody deactivated or shadow banned.
 
 Visitors are counted as their visits are recorded: the profile-view write
 bumps the visited person's `visitor_count` when a qualifying visitor hasn't
-already been counted since the person was last online, and stamps
-`visitor_pending_seconds` with the newest visit's time. Coming online resets
-both. The periodic check reads the counted people through an index on
-`(visitor_count, last_online_time)` instead of sweeping every recent visit,
-and only considers people who were online in the last ten days — a stand-in
-for the ten-day freshness rule messages use, since visitors only count while
-the person stays offline.
+already been counted since the person was last online, stamps
+`visitor_pending_seconds` with the newest visit's time, and recomputes
+`visitor_due_seconds` — the moment the notification falls due, being the end
+of the newest visit's ten-minute quiet period or of the frequency-drift
+period, whichever is later. A visit landing inside the drift period is
+therefore deferred, not dropped: the visitors stay counted, and the
+notification goes out once the period has elapsed. Coming online resets all
+three stamps, sending a notification zeroes the due time, and changing the
+visitors frequency recomputes it under the new drift period.
 
-A visit landing inside the frequency-drift period is deferred, not dropped:
-the visitors stay counted, and the notification goes out once the period has
-elapsed. Counting at write time means the visitor's standing is the one they
-had at the moment of the visit: a visitor shadow banned or deactivated
-afterwards no longer retracts a pending notification, and one reinstated
-afterwards doesn't resurrect old visits — their next visit counts instead.
+The periodic check reads a recent window of due times (an hour by default,
+tunable via `DUO_CRON_VISITOR_DUE_WINDOW_SECONDS`) through a small partial
+index instead of sweeping every recent visit. The window only has to outlast
+a cron outage: notifications are normally caught within seconds of falling
+due, and a due time that scrolls past the window is re-armed by the person's
+next qualifying visit.
+
+Counting at write time means the visitor's standing is the one they had at
+the moment of the visit: a visitor shadow banned or deactivated afterwards no
+longer retracts a pending notification, and one reinstated afterwards doesn't
+resurrect old visits — their next visit counts instead.
 
 The periodic notification states how many people visited since the user was
 last online, capped at "99+". A single visitor is still "someone": the periodic

@@ -813,11 +813,13 @@ WITH prospect_base AS (
 ), stamped_visitor_pending AS (
     -- A visible visit by an activated, non-shadow-banned viewer arms the
     -- prospect's pending visitor notification: the newest-visit stamp
-    -- advances, and the viewer joins the count of visitors since the
-    -- prospect was last online -- unless a visible visit of theirs since
-    -- then already counted them. (Subqueries read the statement's snapshot,
-    -- so the `visited` lookup sees the state before `updated_visited`
-    -- rewrote the row.)
+    -- advances; the viewer joins the count of visitors since the prospect
+    -- was last online -- unless a visible visit of theirs since then already
+    -- counted them; and the moment the notification falls due is recomputed,
+    -- so a notification landing inside the frequency-drift period is
+    -- deferred to the period's end rather than dropped. (Subqueries read the
+    -- statement's snapshot, so the `visited` lookup sees the state before
+    -- `updated_visited` rewrote the row.)
     UPDATE
         person
     SET
@@ -841,11 +843,31 @@ WITH prospect_base AS (
             )
             THEN 0
             ELSE 1
+        END,
+        visitor_due_seconds = CASE
+            WHEN immediacy.name = 'Never'
+            THEN person.visitor_due_seconds
+            ELSE GREATEST(
+                GREATEST(
+                    person.visitor_pending_seconds,
+                    EXTRACT(EPOCH FROM updated_visited.updated_at)::bigint
+                ) + 600,
+                COALESCE(person.visitor_seconds, 0) + CASE immediacy.name
+                    WHEN 'Immediately'  THEN 0
+                    WHEN 'Daily'        THEN 86400
+                    WHEN 'Every 3 days' THEN 259200
+                    WHEN 'Weekly'       THEN 604800
+                    ELSE                     604800
+                END
+            )
         END
     FROM
-        updated_visited
+        updated_visited,
+        immediacy
     WHERE
         person.id = updated_visited.object_person_id
+    AND
+        immediacy.id = person.visitors_notification
     AND
         NOT updated_visited.invisible
     AND

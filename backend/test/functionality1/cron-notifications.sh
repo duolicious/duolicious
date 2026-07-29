@@ -78,8 +78,25 @@ insert_visit () {
       )
       then 0
       else 1
+    end,
+    visitor_due_seconds = case
+      when immediacy.name = 'Never'
+      then visitor_due_seconds
+      else greatest(
+        greatest(
+          visitor_pending_seconds,
+          extract(epoch from now() - interval '${age}')::bigint) + 600,
+        visitor_seconds + case immediacy.name
+          when 'Immediately'  then 0
+          when 'Daily'        then 86400
+          when 'Every 3 days' then 259200
+          when 'Weekly'       then 604800
+          else                     604800
+        end)
     end
+  from immediacy
   where uuid::text = '$visited_uuid'
+  and immediacy.id = person.visitors_notification
   and not ${invisible}
   and exists (
     select 1
