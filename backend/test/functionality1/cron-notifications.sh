@@ -49,9 +49,10 @@ db_now () {
 }
 
 # Record a visit of one user's profile by another, as though it happened
-# `age` ago. The second statement mirrors the pending stamp the app makes as
-# it records a visit (the `stamped_visitor_pending` CTE of
-# `Q_SELECT_PROSPECT_PROFILE`).
+# `age` ago. The first statement mirrors the stamp the app makes as it
+# records a visit (the `stamped_visitor_pending` CTE of
+# `Q_SELECT_PROSPECT_PROFILE`); it runs before the insert because the app's
+# distinct-visitor check sees the state before the visit is written.
 # Example: insert_visit "$user2id" "$user1id" '11 minutes' true
 insert_visit () {
   local visitor_uuid=$1
@@ -60,19 +61,24 @@ insert_visit () {
   local invisible=${4:-false}
 
   q "
-  insert into visited (subject_person_id, object_person_id, updated_at, invisible)
-  select
-    (select id from person where uuid::text = '$visitor_uuid'),
-    (select id from person where uuid::text = '$visited_uuid'),
-    now() - interval '${age}',
-    ${invisible}
-  "
-
-  q "
   update person
-  set visitor_pending_seconds = greatest(
+  set
+    visitor_pending_seconds = greatest(
       visitor_pending_seconds,
-      extract(epoch from now() - interval '${age}')::bigint)
+      extract(epoch from now() - interval '${age}')::bigint),
+    visitor_count = visitor_count + case
+      when exists (
+        select 1
+        from visited
+        where subject_person_id =
+          (select id from person as v where v.uuid::text = '$visitor_uuid')
+        and object_person_id = person.id
+        and not invisible
+        and updated_at >= person.last_online_time
+      )
+      then 0
+      else 1
+    end
   where uuid::text = '$visited_uuid'
   and not ${invisible}
   and exists (
@@ -82,20 +88,15 @@ insert_visit () {
     and visitor.activated
     and visitor.shadow_banned_at is null
   )
-  and extract(epoch from now() - interval '${age}')::bigint >
-      visitor_seconds + (
-        select
-          case immediacy.name
-            when 'Immediately'  then 0
-            when 'Daily'        then 86400
-            when 'Every 3 days' then 259200
-            when 'Weekly'       then 604800
-            when 'Never'        then null
-            else                     604800
-          end
-        from immediacy
-        where immediacy.id = person.visitors_notification
-      )
+  "
+
+  q "
+  insert into visited (subject_person_id, object_person_id, updated_at, invisible)
+  select
+    (select id from person where uuid::text = '$visitor_uuid'),
+    (select id from person where uuid::text = '$visited_uuid'),
+    now() - interval '${age}',
+    ${invisible}
   "
 }
 

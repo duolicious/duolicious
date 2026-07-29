@@ -376,11 +376,13 @@ CREATE TABLE IF NOT EXISTS person (
     intro_seconds INT NOT NULL DEFAULT 0,
     chat_seconds INT NOT NULL DEFAULT 0,
     visitor_seconds INT NOT NULL DEFAULT 0,
-    -- Epoch seconds of the newest visit awaiting a visitor notification, or
-    -- zero when none is. Stamped by the profile-view write as qualifying
-    -- visits are recorded, and cleared when a visitor notification is sent or
-    -- the person comes online, so the notification cron polls a handful of
-    -- stamped people instead of sweeping every recent visit.
+    -- How many distinct people have visibly visited this person since they
+    -- were last online, and the epoch seconds of the newest such visit. Both
+    -- are maintained by the profile-view write as visits are recorded and
+    -- reset when the person comes online, so the notification cron polls the
+    -- people with something to hear about instead of sweeping every recent
+    -- visit. The count is also what the notification's copy reports.
+    visitor_count INT NOT NULL DEFAULT 0,
     visitor_pending_seconds BIGINT NOT NULL DEFAULT 0,
     -- How many push notifications were sent while the user had no connected
     -- chat clients. Stamped into each push as the iOS app-icon badge and
@@ -1025,9 +1027,8 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx__person__visitor_pending_seconds
-    ON person(visitor_pending_seconds)
-    WHERE visitor_pending_seconds > 0;
+CREATE INDEX IF NOT EXISTS idx__person__visitor_count__last_online_time
+    ON person(visitor_count, last_online_time);
 
 CREATE INDEX IF NOT EXISTS idx__search_preference_age__person_id__bounds
     ON search_preference_age(person_id) INCLUDE (min_age, max_age);

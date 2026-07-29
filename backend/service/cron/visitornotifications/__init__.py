@@ -16,6 +16,7 @@ from service.cron.visitornotifications.template import (
     visitor_emailtemplate,
 )
 import os
+import time
 
 VISITOR_POLL_SECONDS = int(os.environ.get(
     'DUO_CRON_EMAIL_POLL_SECONDS',
@@ -36,10 +37,14 @@ class VisitorNotification:
     token: str | None
 
 def do_send_notification(row: VisitorNotification) -> bool:
+    # A visit landing inside the drift period is deferred, not dropped: the
+    # notification becomes due once the period has elapsed, however long ago
+    # the visit was.
     return (
         row.visitors_drift_seconds >= 0 and
+        row.last_visitor_notification_seconds < row.last_visitor_seconds and
         row.last_visitor_notification_seconds + row.visitors_drift_seconds <
-            row.last_visitor_seconds
+            time.time()
     )
 
 def push_title(row: VisitorNotification) -> str:

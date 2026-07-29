@@ -66,8 +66,9 @@ WITH updated_person AS (
         person
     SET
         last_online_time = NOW(),
-        -- Visitor notifications only cover visits the person hasn't been
-        -- online to see, so coming online voids any pending one.
+        -- Visitor notifications only cover visitors the person hasn't been
+        -- online to see, so coming online restarts the count.
+        visitor_count = 0,
         visitor_pending_seconds = 0
     WHERE
         uuid = %(person_uuid)s
@@ -118,8 +119,7 @@ Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME = """
 UPDATE
     person
 SET
-    visitor_seconds = extract(epoch from now() + INTERVAL '5 seconds')::int,
-    visitor_pending_seconds = 0
+    visitor_seconds = extract(epoch from now() + INTERVAL '5 seconds')::int
 WHERE
     uuid = uuid_or_null(%(username)s)
 """

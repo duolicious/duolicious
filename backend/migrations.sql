@@ -19,10 +19,10 @@ CREATE INDEX IF NOT EXISTS idx__search_preference_height_cm__person_id__bounds
     ON search_preference_height_cm(person_id) INCLUDE (min_height_cm, max_height_cm);
 
 ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS visitor_count INT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS visitor_pending_seconds BIGINT NOT NULL DEFAULT 0;
 
-CREATE INDEX IF NOT EXISTS idx__person__visitor_pending_seconds
-    ON person(visitor_pending_seconds)
-    WHERE visitor_pending_seconds > 0;
+CREATE INDEX IF NOT EXISTS idx__person__visitor_count__last_online_time
+    ON person(visitor_count, last_online_time);
 
 DROP INDEX IF EXISTS idx__visited__updated_at__object__subject;

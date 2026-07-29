@@ -16,6 +16,7 @@ from service.cron.visitornotifications import (
     update_last_notification_time,
 )
 import asyncio
+import time
 
 def make_visitor_notification(**overrides: str | int | bool | None) -> VisitorNotification:
     row = VisitorNotification(
@@ -44,10 +45,28 @@ class TestDoSendNotification(unittest.TestCase):
         self.assertFalse(do_send_notification(row))
 
     def test_drift_period_defers_visitor_notifications(self) -> None:
-        # The last visit landed a minute after the last notification, well
-        # inside the weekly drift period, so it waits.
+        # The last visit landed after the last notification, but the weekly
+        # drift period is still running, so it waits.
         row = make_visitor_notification(
-                last_visitor_notification_seconds=1693786064)
+                last_visitor_notification_seconds=int(time.time()) - 60,
+                last_visitor_seconds=int(time.time()) - 30)
+
+        self.assertFalse(do_send_notification(row))
+
+    def test_snoozed_visits_are_deferred_not_dropped(self) -> None:
+        # The visit landed inside the drift period and nobody has visited
+        # since. Once the period elapses the visit is announced anyway,
+        # rather than waiting for a further visit.
+        row = make_visitor_notification(
+                last_visitor_notification_seconds=int(time.time()) - 604860,
+                last_visitor_seconds=int(time.time()) - 604830)
+
+        self.assertTrue(do_send_notification(row))
+
+    def test_already_notified_visits_are_not_reannounced(self) -> None:
+        row = make_visitor_notification(
+                last_visitor_notification_seconds=int(time.time()) - 604860,
+                last_visitor_seconds=int(time.time()) - 604890)
 
         self.assertFalse(do_send_notification(row))
 

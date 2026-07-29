@@ -4,12 +4,14 @@ WITH ten_minutes_ago AS (
         EXTRACT(EPOCH FROM (
             NOW() - INTERVAL '10 minutes'))::bigint AS seconds
 ), filtered AS (
-    -- The people due a visitor notification. `visitor_pending_seconds` holds
-    -- the newest visit awaiting a notification: the profile-view write stamps
-    -- it as qualifying visits are recorded, and it's cleared when a
-    -- notification is sent or the person comes online. That leaves this poll
-    -- a handful of stamped people, found through a small partial index,
-    -- instead of a sweep of every visit in the last ten days.
+    -- The people due a visitor notification. The profile-view write counts
+    -- each person's visitors since they were last online and stamps the
+    -- newest visit's time, and coming online resets both, so this poll reads
+    -- the people with something to hear about through an index on
+    -- (visitor_count, last_online_time) instead of sweeping every visit in
+    -- the last ten days. A notification that would land inside the person's
+    -- frequency-drift period is deferred, not dropped: the visitors stay
+    -- counted, and the notification goes out once the period has elapsed.
     SELECT
         person.uuid::TEXT AS person_uuid,
         person.id AS person_id,
@@ -18,32 +20,39 @@ WITH ten_minutes_ago AS (
         COALESCE(person.visitor_seconds, 0) AS last_visitor_notification_seconds,
         person.name,
         person.email,
-        CASE
-            WHEN im_visitors.name = 'Immediately'  THEN 0
-            WHEN im_visitors.name = 'Daily'        THEN 86400
-            WHEN im_visitors.name = 'Every 3 days' THEN 259200
-            WHEN im_visitors.name = 'Weekly'       THEN 604800
-            WHEN im_visitors.name = 'Never'        THEN -1
-            ELSE                                        604800
-        END AS visitors_drift_seconds
+        drift.seconds AS visitors_drift_seconds,
+        person.visitor_count
     FROM
         person
     LEFT JOIN
         immediacy AS im_visitors
     ON
         im_visitors.id = person.visitors_notification
+    CROSS JOIN LATERAL (
+        SELECT
+            CASE
+                WHEN im_visitors.name = 'Immediately'  THEN 0
+                WHEN im_visitors.name = 'Daily'        THEN 86400
+                WHEN im_visitors.name = 'Every 3 days' THEN 259200
+                WHEN im_visitors.name = 'Weekly'       THEN 604800
+                WHEN im_visitors.name = 'Never'        THEN -1
+                ELSE                                        604800
+            END AS seconds
+    ) AS drift
     WHERE
-        person.visitor_pending_seconds > 0
+        person.visitor_count > 0
+    AND
+        -- only notify users who were online in the last ten days
+        person.last_online_time > NOW() - INTERVAL '10 days'
+    AND
+        -- only notify users we haven't already notified
+        person.visitor_pending_seconds > COALESCE(person.visitor_seconds, 0)
     AND
         -- only notify users about visits made longer than ten minutes ago
         person.visitor_pending_seconds < (SELECT seconds FROM ten_minutes_ago)
     AND
-        -- only notify users about visits less than ten days old
-        person.visitor_pending_seconds >
-            EXTRACT(EPOCH FROM NOW() - INTERVAL '10 days')::bigint
-    AND
         -- only notify users about visits made after their last activity. The
-        -- online path clears the stamp itself; this also covers activity
+        -- online path resets the count itself; this also covers activity
         -- recorded by writing `last_online_time` directly.
         extract(epoch from person.last_online_time) <
             person.visitor_pending_seconds
@@ -54,51 +63,13 @@ WITH ten_minutes_ago AS (
             (SELECT seconds FROM ten_minutes_ago)
     AND
         person.activated
-), counted AS (
-    -- How many people visited since the person was last online, so the copy
-    -- can say how many. Capped at 100 (rendered as "99+"), so the scan stops
-    -- early for very popular profiles. The count is only computed where the
-    -- drift gate (mirroring `do_send_notification`) passes; a stamped person
-    -- whose frequency setting has since changed gets a 0 that `is_sendable`
-    -- discards anyway.
-    SELECT
-        filtered.*,
-        (CASE
-            WHEN
-                filtered.visitors_drift_seconds >= 0
-            AND
-                filtered.last_visitor_notification_seconds +
-                    filtered.visitors_drift_seconds <
-                        filtered.last_visitor_seconds
-            THEN (
-                SELECT
-                    COUNT(*)
-                FROM (
-                    SELECT
-                        1
-                    FROM
-                        visited
-                    JOIN
-                        person AS visitor
-                    ON
-                        visitor.id = visited.subject_person_id
-                    WHERE
-                        visited.object_person_id = filtered.person_id
-                    AND
-                        NOT visited.invisible
-                    AND
-                        visited.updated_at > filtered.last_online_time
-                    AND
-                        visitor.activated
-                    AND
-                        visitor.shadow_banned_at IS NULL
-                    LIMIT 100
-                ) AS visitor
-            )
-            ELSE 0
-        END)::int AS visitor_count
-    FROM
-        filtered
+    AND
+        -- defer, rather than drop, notifications that would land inside the
+        -- frequency-drift period
+        drift.seconds >= 0
+    AND
+        COALESCE(person.visitor_seconds, 0) + drift.seconds <
+            EXTRACT(EPOCH FROM NOW())::bigint
 ), session_summary AS (
     -- Per person, summarise their logged-in sessions. A signed-in `duo_session`
     -- with a NULL `push_token` is a push-less (web) client: only the mobile app
@@ -127,22 +98,22 @@ WITH ten_minutes_ago AS (
         duo_session.person_id
 )
 SELECT
-    counted.person_uuid,
-    counted.last_visitor_seconds,
-    counted.last_visitor_notification_seconds,
+    filtered.person_uuid,
+    filtered.last_visitor_seconds,
+    filtered.last_visitor_notification_seconds,
     -- One row per notification to send (see the LATERAL join below): a
     -- non-NULL token produces a push, a NULL token produces an email.
     notification_target.token,
-    counted.name,
-    counted.email,
-    counted.visitors_drift_seconds,
-    counted.visitor_count
+    filtered.name,
+    filtered.email,
+    filtered.visitors_drift_seconds,
+    filtered.visitor_count
 FROM
-    counted
+    filtered
 LEFT JOIN
     session_summary
 ON
-    session_summary.person_id = counted.person_id
+    session_summary.person_id = filtered.person_id
 -- Fan a single person out into one row per notification that must be sent:
 -- one push per distinct logged-in mobile push token, plus a single email (NULL
 -- token) when any of: no logged-in device can receive push; the user was last
@@ -163,7 +134,7 @@ CROSS JOIN LATERAL (
     WHERE
         session_summary.push_tokens IS NULL
     OR
-        extract(epoch from counted.last_online_time)
+        extract(epoch from filtered.last_online_time)
             <= EXTRACT(EPOCH FROM NOW() - INTERVAL '8 days')
     OR
         COALESCE(

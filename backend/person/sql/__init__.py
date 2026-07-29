@@ -811,17 +811,37 @@ WITH prospect_base AS (
         updated_at,
         invisible
 ), stamped_visitor_pending AS (
-    -- A visible visit by an activated, non-shadow-banned viewer, landing
-    -- after the prospect's notification-frequency drift has elapsed, arms
-    -- the prospect's pending visitor notification. Judged here, as the visit
-    -- is recorded, so the notification cron only has to poll the stamped
-    -- people (a 'Never' frequency yields NULL and so never stamps).
+    -- A visible visit by an activated, non-shadow-banned viewer arms the
+    -- prospect's pending visitor notification: the newest-visit stamp
+    -- advances, and the viewer joins the count of visitors since the
+    -- prospect was last online -- unless a visible visit of theirs since
+    -- then already counted them. (Subqueries read the statement's snapshot,
+    -- so the `visited` lookup sees the state before `updated_visited`
+    -- rewrote the row.)
     UPDATE
         person
     SET
         visitor_pending_seconds = GREATEST(
-            visitor_pending_seconds,
-            EXTRACT(EPOCH FROM updated_visited.updated_at)::bigint)
+            person.visitor_pending_seconds,
+            EXTRACT(EPOCH FROM updated_visited.updated_at)::bigint),
+        visitor_count = person.visitor_count + CASE
+            WHEN EXISTS (
+                SELECT
+                    1
+                FROM
+                    visited
+                WHERE
+                    visited.subject_person_id = %(person_id)s
+                AND
+                    visited.object_person_id = person.id
+                AND
+                    NOT visited.invisible
+                AND
+                    visited.updated_at >= person.last_online_time
+            )
+            THEN 0
+            ELSE 1
+        END
     FROM
         updated_visited
     WHERE
@@ -841,23 +861,6 @@ WITH prospect_base AS (
             AND
                 visitor.shadow_banned_at IS NULL
         )
-    AND
-        EXTRACT(EPOCH FROM updated_visited.updated_at)::bigint >
-            COALESCE(person.visitor_seconds, 0) + (
-                SELECT
-                    CASE immediacy.name
-                        WHEN 'Immediately'  THEN 0
-                        WHEN 'Daily'        THEN 86400
-                        WHEN 'Every 3 days' THEN 259200
-                        WHEN 'Weekly'       THEN 604800
-                        WHEN 'Never'        THEN NULL
-                        ELSE                     604800
-                    END
-                FROM
-                    immediacy
-                WHERE
-                    immediacy.id = person.visitors_notification
-            )
 ), negative_dot_prod AS (
     -- Empty for anonymous viewers, so `match_percentage` is NULL and the
     -- frontend hides the donut. Without the guard, `CLAMP(0, 99, NULL)`
