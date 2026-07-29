@@ -1,4 +1,4 @@
-FROM postgres:16.0
+FROM postgres:18-trixie
 
 RUN : \
   && pgversion=$(psql --version | awk '{print $3}' | cut -d'.' -f1) \
@@ -8,3 +8,10 @@ RUN : \
     postgresql-${pgversion}-pgvector \
     postgresql-contrib \
     postgresql-plpython3-${pgversion}
+
+CMD [ \
+  "postgres", \
+  "-c", "wal_level=logical", \
+  "-c", "shared_buffers=1GB", \
+  "-c", "random_page_cost=1.1" \
+]

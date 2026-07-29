@@ -18,9 +18,6 @@ services:
       postgres
       -c shared_preload_libraries=pg_stat_statements
       -c pg_stat_statements.track=all
-      -c wal_level=logical
-      -c shared_buffers=1GB
-      -c random_page_cost=1.1
     ports:
       - "5432:5432"
     environment:
@@ -28,7 +25,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
     volumes:
-      - ${POSTGRES_VOLUME:-postgres_test}:/var/lib/postgresql/data
+      - ${POSTGRES_VOLUME:-postgres_test}:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
