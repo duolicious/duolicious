@@ -218,7 +218,7 @@ test_rate_limit () {
 # Send some reports about sender 1
 # Send no reports about sender 2
 test_rate_limit \
-  5 \
+  7 \
   1 \
   'unverified-basics' \
   1 \
@@ -229,7 +229,7 @@ test_rate_limit \
 # Send no reports about sender 1
 # Send some reports about sender 2
 test_rate_limit \
-  10 \
+  15 \
   1 \
   'unverified-basics' \
   0 \
@@ -239,18 +239,18 @@ test_rate_limit \
 
 # Test base limit
 test_rate_limit \
-  10 \
+  15 \
   1 \
   'unverified-basics'
 
 # Test base limit
 test_rate_limit \
-  20 \
+  30 \
   2 \
   'unverified-photos'
 
 # Test base limit
 test_rate_limit \
-  30 \
+  60 \
   3 \
   ''

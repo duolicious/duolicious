@@ -6,9 +6,9 @@ from chatprotocol.outbound import MessageBlocked, Outbound
 
 class DefaultRateLimit(Enum):
     NONE = 0
-    UNVERIFIED = 10
-    BASICS = 20
-    PHOTOS = 30
+    UNVERIFIED = 15
+    BASICS = 30
+    PHOTOS = 60
 
 
 Q_RATE_LIMIT_REASON = f"""
