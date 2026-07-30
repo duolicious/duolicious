@@ -70,6 +70,8 @@ ORDER BY
             messaged
         WHERE
             object_person_id = prospect.id
+        AND
+            created_at > now() - interval '30 days'
     ) DESC,
     prospect.id
 """
