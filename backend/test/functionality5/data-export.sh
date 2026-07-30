@@ -65,6 +65,8 @@ update_snapshot_or_restore () {
     do
       qrestore data-export
     done
+
+    qmigrate
   fi
 }
 

@@ -867,8 +867,14 @@ test_happy_path_multiple_visitors () {
 
   give_user1_a_phone 'token_multi'
 
+  # Keep user1 apparently online while the visits are arranged, so a poll
+  # can't announce the first visitor before the second is recorded.
+  q "update person set last_online_time = now() where uuid = '$user1id'"
+
   insert_visit "$user2id" "$user1id" '11 minutes'
   insert_visit "$user3id" "$user1id" '12 minutes'
+
+  q "update person set last_online_time = now() - interval '20 minutes' where uuid = '$user1id'"
 
   sleep 4
 

@@ -152,6 +152,19 @@ qrestore () {
       -p "${DUO_DB_PORT:-5432}"
 }
 
+# Bring a restored fixture forward to the current schema, the same way
+# production databases are brought forward at boot. Fixtures are dumped under
+# the schema of their day, and the api service only applies migrations.sql
+# when it starts, not when a test swaps the database out from under it.
+qmigrate () {
+  PGPASSWORD="${DUO_DB_PASS:-password}" psql \
+    -U "${DUO_DB_USER:-postgres}" \
+    -d duo_api \
+    -h "${DUO_DB_HOST:-localhost}" \
+    -p "${DUO_DB_PORT:-5432}" \
+    -f ../../migrations.sql
+}
+
 # Assert a JSON array has the expected length.
 # Example: j_assert_length "$response" 2
 j_assert_length () {
