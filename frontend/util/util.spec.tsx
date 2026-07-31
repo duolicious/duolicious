@@ -1,4 +1,13 @@
-import { formatCount, truncateText } from './util';
+import {
+  formatCount,
+  friendlyTimeAgo,
+  friendlyTimeSince,
+  truncateText,
+} from './util';
+
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 
 describe('truncateText', () => {
   /* ──────────────────────────────────────────────────────────── *
@@ -95,5 +104,47 @@ describe('formatCount', () => {
   it('formats millions with one decimal place when needed', () => {
     expect(formatCount(1_100_000)).toBe('1.1M');
     expect(formatCount(2_500_000)).toBe('2.5M');
+  });
+});
+
+describe('friendlyTimeSince', () => {
+  it('shows minutes for less than an hour', () => {
+    expect(friendlyTimeSince(0)).toBe('1m');
+    expect(friendlyTimeSince(30 * 1000)).toBe('1m');
+    expect(friendlyTimeSince(3 * MINUTE_MS + 45 * 1000)).toBe('3m');
+    expect(friendlyTimeSince(59 * MINUTE_MS)).toBe('59m');
+  });
+
+  it('shows minutes when the clock runs backwards', () => {
+    expect(friendlyTimeSince(-5 * MINUTE_MS)).toBe('1m');
+  });
+
+  it('shows hours right up to the end of the window', () => {
+    expect(friendlyTimeSince(HOUR_MS)).toBe('1h');
+    expect(friendlyTimeSince(5 * HOUR_MS + 59 * MINUTE_MS)).toBe('5h');
+    expect(friendlyTimeSince(22 * HOUR_MS)).toBe('22h');
+    expect(friendlyTimeSince(23 * HOUR_MS)).toBe('23h');
+    expect(friendlyTimeSince(DAY_MS - 1)).toBe('23h');
+  });
+
+  // Expiring a sighting is `useOnline`'s job, not the formatter's, so the
+  // ladder keeps counting past the point the indicator stops rendering.
+  it('keeps counting hours once a day has passed', () => {
+    expect(friendlyTimeSince(DAY_MS)).toBe('24h');
+    expect(friendlyTimeSince(3 * DAY_MS)).toBe('72h');
+  });
+});
+
+describe('friendlyTimeAgo', () => {
+  it('describes the elapsed time in words', () => {
+    expect(friendlyTimeAgo(0)).toBe('Less than a minute');
+    expect(friendlyTimeAgo(5 * MINUTE_MS)).toBe('5 minutes');
+    expect(friendlyTimeAgo(2 * HOUR_MS)).toBe('About 2 hours');
+    expect(friendlyTimeAgo(DAY_MS)).toBe('1 day');
+    expect(friendlyTimeAgo(40 * DAY_MS)).toBe('About 1 month');
+  });
+
+  it('treats a backwards clock as no time elapsed', () => {
+    expect(friendlyTimeAgo(-5 * MINUTE_MS)).toBe(friendlyTimeAgo(0));
   });
 });

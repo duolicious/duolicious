@@ -77,7 +77,14 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { ClubItem, joinClub, leaveClub } from '../../club/club';
 import * as _ from 'lodash';
-import { friendlyTimeAgo, possessive, bestTextOn, capLuminance, isUuid } from '../../util/util';
+import {
+  friendlyTimeAgo,
+  possessive,
+  bestTextOn,
+  capLuminance,
+  isUuid,
+} from '../../util/util';
+import { useTimeSinceLabel } from '../../util/clock';
 import { useOnline } from '../../chat/application-layer/hooks/online';
 import { HeartBackground } from '../heart-background';
 import { AudioPlayer } from '../audio-player';
@@ -765,6 +772,8 @@ type UserData = {
   gives_reply_percentage: number | null,
 };
 
+type FetchedUserData = UserData & { fetchedAt: number };
+
 const verificationLevelId = (data: UserData | null | undefined): 1 | 2 | 3 => {
   // This should be provided by the backend instead
 
@@ -866,7 +875,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
   const handle = route.params.personUuid;
 
   const [signedInUser] = useSignedInUser();
-  const [data, setData] = useState<UserData | undefined>(undefined);
+  const [data, setData] = useState<FetchedUserData | undefined>(undefined);
 
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
 
@@ -947,7 +956,8 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
         setSkipped(handle, { networkState: 'fetching' });
       }
       const response = await api<UserData>('get', `/prospect-profile/${handle}`);
-      setData(response?.json);
+      setData(
+        response?.json && { ...response.json, fetchedAt: Date.now() });
       setNotFound(response.clientError);
       const canonicalUuid = response?.json?.person_uuid ?? (
         isUuid(handle) ? handle : undefined);
@@ -1256,7 +1266,7 @@ const ProspectUserDetails = ({
         >
           <OnlineIndicator
             personUuid={personUuid}
-            size={14}
+            size={18}
             borderWidth={1}
           />
           <DefaultText
@@ -1345,6 +1355,49 @@ const ProspectUserDetails = ({
   );
 };
 
+const TimeAgo = ({ at }: { at: number }) => {
+  const label = useTimeSinceLabel(at, friendlyTimeAgo);
+
+  return <>{label} ago</>;
+};
+
+const LastOnlineStat = ({
+  personUuid,
+  data,
+  textStyle,
+}: {
+  personUuid: string | undefined,
+  data: FetchedUserData | undefined,
+  textStyle?: StyleProp<TextStyle>,
+}) => {
+  const presence = useOnline(personUuid);
+
+  const fetchedLastOnlineAt =
+    data === undefined || data.seconds_since_last_online === null ?
+    null :
+    data.fetchedAt - data.seconds_since_last_online * 1000;
+
+  const liveLastOnlineAt =
+    presence.status === 'online-recently' ? presence.lastOnlineAt : null;
+
+  const lastOnlineAt = liveLastOnlineAt ?? fetchedLastOnlineAt;
+
+  return (
+    <Stat textStyle={textStyle}>
+      <DefaultText disableTheme style={{ fontWeight: '700' }}>
+        Last Online: {}
+      </DefaultText>
+      {
+        presence.status === 'online' ?
+        'Now' :
+        lastOnlineAt === null ?
+        'Loading...' :
+        <TimeAgo at={lastOnlineAt} />
+      }
+    </Stat>
+  );
+};
+
 const Body = ({
   navigation,
   personUuid,
@@ -1353,12 +1406,11 @@ const Body = ({
 }: {
   navigation: ProspectScreenNavigation,
   personUuid: string | undefined,
-  data: UserData | undefined,
+  data: FetchedUserData | undefined,
   canReply?: boolean,
 }) => {
   const { appThemeName, appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
-  const isOnline = useOnline(personUuid);
 
   const album = useMemo(
     () => buildAlbum(
@@ -1615,18 +1667,11 @@ const Body = ({
           <Title style={{color: data?.theme?.title_color}}>Stats</Title>
           <Stats>
             {data?.seconds_since_last_online !== null &&
-              <Stat {...statsTheme}>
-                <DefaultText disableTheme style={{ fontWeight: '700' }}>
-                  Last Online: {}
-                </DefaultText>
-                {
-                  data === undefined ?
-                  'Loading...' :
-                  isOnline === 'online' ?
-                  'Now' :
-                  `${friendlyTimeAgo(data.seconds_since_last_online)} ago`
-                }
-              </Stat>
+              <LastOnlineStat
+                personUuid={personUuid}
+                data={data}
+                textStyle={statsTheme.textStyle}
+              />
             }
             {data?.count_answers !== null &&
               <Stat {...statsTheme}>
@@ -1660,7 +1705,7 @@ const Body = ({
                 {
                   data === undefined ?
                   'Loading...' :
-                  friendlyTimeAgo(data.seconds_since_sign_up)
+                  friendlyTimeAgo(data.seconds_since_sign_up * 1000)
                 }
               </Stat>
             }

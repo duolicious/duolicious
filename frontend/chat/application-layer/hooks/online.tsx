@@ -11,7 +11,10 @@ import {
   send,
   EV_CHAT_WS_RECEIVE,
 } from '../../websocket-layer';
-import { assert, assertNever } from '../../../util/util';
+import {
+  ONLINE_RECENTLY_WINDOW_MS,
+  assert,
+} from '../../../util/util';
 
 // Global reference counts (online status) per person
 const REFERENCE_COUNT_BY_PERSON_UUID: Record<string, number> = {};
@@ -32,6 +35,32 @@ const onlineStatuses = [
 ] as const;
 
 type OnlineStatus = typeof onlineStatuses[number];
+
+const isOnlineStatus = (status: unknown): status is OnlineStatus =>
+  onlineStatuses.some((s) => s === status);
+
+// Only a past sighting has a time attached, and only some servers report it,
+// so 'online-recently' is the one status that carries `lastOnlineAt`.
+type OnlinePresence =
+  | { status: 'online' }
+  | { status: 'online-recently', lastOnlineAt: number | null }
+  | { status: 'offline' };
+
+const OFFLINE: OnlinePresence = { status: 'offline' };
+
+const lastOnlineAtOf = (presence: OnlinePresence): number | null =>
+  presence.status === 'online-recently' ? presence.lastOnlineAt : null;
+
+const samePresence = (a: OnlinePresence, b: OnlinePresence) =>
+  a.status === b.status && lastOnlineAtOf(a) === lastOnlineAtOf(b);
+
+const presenceAt = (presence: OnlinePresence, now: number): OnlinePresence => {
+  const at = lastOnlineAtOf(presence);
+
+  return at !== null && now >= at + ONLINE_RECENTLY_WINDOW_MS ?
+    OFFLINE :
+    presence;
+};
 
 // Flush pending changes after the batch window expires.
 const flushBatch = () => {
@@ -78,8 +107,9 @@ const subscribe = (personUuid: string) => {
   };
 };
 
-const useOnline = (personUuid: string | null | undefined): OnlineStatus => {
-  const [onlineStatus, setOnlineStatus] = useState<OnlineStatus>('offline');
+const useOnline = (personUuid: string | null | undefined): OnlinePresence => {
+  const [presence, setPresence] = useState<OnlinePresence>(OFFLINE);
+  const presenceRef = useRef<OnlinePresence>(OFFLINE);
   const subscribableRef = useRef(false);
   const personSubRef = useRef<{
     removeSubscription: () => void;
@@ -87,6 +117,38 @@ const useOnline = (personUuid: string | null | undefined): OnlineStatus => {
   } | null>(null);
 
   useEffect(() => {
+    let expiry: ReturnType<typeof setTimeout> | null = null;
+
+    const cancelExpiry = () => {
+      if (expiry === null) {
+        return;
+      }
+
+      clearTimeout(expiry);
+      expiry = null;
+    };
+
+    const receivePresence = (data: OnlinePresence | undefined) => {
+      cancelExpiry();
+
+      const next = presenceAt(data ?? OFFLINE, Date.now());
+      const lastOnlineAt = lastOnlineAtOf(next);
+
+      if (lastOnlineAt !== null) {
+        expiry = setTimeout(
+          () => receivePresence(OFFLINE),
+          lastOnlineAt + ONLINE_RECENTLY_WINDOW_MS - Date.now(),
+        );
+      }
+
+      if (samePresence(presenceRef.current, next)) {
+        return;
+      }
+
+      presenceRef.current = next;
+      setPresence(next);
+    };
+
     const subscribePerson = () => {
       if (!personUuid || !subscribableRef.current || personSubRef.current) {
         return;
@@ -94,9 +156,9 @@ const useOnline = (personUuid: string | null | undefined): OnlineStatus => {
 
       personSubRef.current = {
         removeSubscription: subscribe(personUuid),
-        removeListener: listen<OnlineStatus>(
+        removeListener: listen<OnlinePresence>(
           eventKey(personUuid),
-          (data) => setOnlineStatus(data ?? 'offline'),
+          receivePresence,
           true,
         ),
       };
@@ -127,12 +189,38 @@ const useOnline = (personUuid: string | null | undefined): OnlineStatus => {
     );
 
     return () => {
+      cancelExpiry();
       removeSubscribableListener();
       unsubscribePerson();
     };
   }, [personUuid]);
 
-  return onlineStatus;
+  return presence;
+};
+
+const parseSecondsAgo = (secondsAgo: unknown): number | null => {
+  if (secondsAgo === undefined || secondsAgo === null) {
+    return null;
+  }
+
+  const parsed = Number(secondsAgo);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const presenceOf = (
+  status: OnlineStatus,
+  secondsAgo: number | null,
+): OnlinePresence => {
+  if (status === 'online-recently') {
+    return {
+      status,
+      lastOnlineAt:
+        secondsAgo === null ? null : Date.now() - secondsAgo * 1000,
+    };
+  }
+
+  return status === 'online' ? { status } : OFFLINE;
 };
 
 const onReceive = async (doc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -141,6 +229,7 @@ const onReceive = async (doc: any) => { // eslint-disable-line @typescript-eslin
       duo_online_event: {
         '@uuid': personUuid,
         '@status': onlineStatus,
+        '@seconds_ago': secondsAgo,
       }
     } = doc;
 
@@ -148,31 +237,19 @@ const onReceive = async (doc: any) => { // eslint-disable-line @typescript-eslin
 
     assert(onlineStatus);
 
-    if (onlineStatuses.includes(onlineStatus)) {
-      notify<OnlineStatus>(eventKey(personUuid), onlineStatus);
-    } else {
-      notify<OnlineStatus>(eventKey(personUuid), 'offline');
-    }
+    notify<OnlinePresence>(
+      eventKey(personUuid),
+      presenceOf(
+        isOnlineStatus(onlineStatus) ? onlineStatus : 'offline',
+        parseSecondsAgo(secondsAgo),
+      ),
+    );
   } catch { }
-};
-
-const friendlyOnlineStatus = (onlineStatus: OnlineStatus) => {
-  if (onlineStatus === 'online') {
-    return 'Online';
-  } else if (onlineStatus === 'online-recently') {
-    return 'Online recently';
-  } else if (onlineStatus === 'offline') {
-    return 'Offline';
-  } else {
-    return assertNever(onlineStatus);
-  }
 };
 
 listen(EV_CHAT_WS_RECEIVE, onReceive);
 
 export {
-  OnlineStatus,
-  friendlyOnlineStatus,
   subscribe,
   useOnline,
 };

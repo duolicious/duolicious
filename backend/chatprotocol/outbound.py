@@ -163,11 +163,16 @@ class UnsubscribeBad(Outbound):
 class OnlineEvent(Outbound):
     username: str
     status: str
+    seconds_ago: int | None = None
 
     def canonical(self) -> dict:
         return {'duo_online_event': {
             '@uuid': self.username,
             '@status': self.status,
+            **(
+                {} if self.seconds_ago is None
+                else {'@seconds_ago': str(self.seconds_ago)}
+            ),
         }}
 
 

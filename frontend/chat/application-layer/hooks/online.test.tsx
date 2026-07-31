@@ -1,9 +1,44 @@
 import { jest } from '@jest/globals';
+import { View } from 'react-native';
 
 jest.useFakeTimers();
 jest.mock('../../websocket-layer', () => ({
   send: jest.fn(),
+  EV_CHAT_WS_RECEIVE: 'chat-ws-receive',
 }));
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type Presence = { status: string };
+
+type Renderer = { unmount: () => void };
+
+// `jest.resetModules()` hands the module under test a fresh React, so the
+// renderer has to be required from that same fresh registry to share it.
+let act: (body: () => void) => void;
+let create: (element: React.ReactElement) => Renderer;
+let useOnline: (personUuid: string | null | undefined) => Presence;
+let notify: (key: string, data?: unknown) => void;
+
+const Probe = ({
+  personUuid,
+  onRender,
+}: {
+  personUuid: string,
+  onRender: (presence: Presence) => void,
+}) => {
+  onRender(useOnline(personUuid));
+
+  return <View />;
+};
+
+const onlineEvent = (status: string, secondsAgo?: string) => ({
+  duo_online_event: {
+    '@uuid': 'person1',
+    '@status': status,
+    ...(secondsAgo === undefined ? { } : { '@seconds_ago': secondsAgo }),
+  },
+});
 
 describe('Batching Mechanism and Reference Counting', () => {
   let subscribe: (personUuid: string) => () => void;
@@ -89,5 +124,94 @@ describe('Batching Mechanism and Reference Counting', () => {
 
     // All actions cancel out so no event should be sent.
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('useOnline', () => {
+  let renderer: Renderer;
+  let presences: Presence[];
+
+  beforeEach(() => {
+    jest.resetModules();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    ({ act, create } = require('react-test-renderer'));
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    useOnline = require('./online').useOnline;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    notify = require('../../../events/events').notify;
+    jest.clearAllTimers();
+    jest.setSystemTime(DAY_MS);
+
+    presences = [];
+
+    act(() => {
+      renderer = create(
+        <Probe
+          personUuid="person1"
+          onRender={(presence) => { presences.push(presence); }}
+        />
+      );
+    });
+
+    act(() => { notify('online-subscribable', true); });
+  });
+
+  afterEach(() => {
+    act(() => { renderer.unmount(); });
+  });
+
+  test('reports a sighting as the instant it happened', () => {
+    act(() => {
+      notify('chat-ws-receive', onlineEvent('online-recently', '60'));
+    });
+
+    expect(presences.at(-1)).toEqual({
+      status: 'online-recently',
+      lastOnlineAt: DAY_MS - 60 * 1000,
+    });
+  });
+
+  test('renders once per presence change', () => {
+    const rendersOnMount = presences.length;
+
+    act(() => {
+      notify('chat-ws-receive', onlineEvent('online-recently', '60'));
+    });
+
+    expect(presences.length).toBe(rendersOnMount + 1);
+  });
+
+  test('does not render when an unchanged presence is republished', () => {
+    act(() => { notify('chat-ws-receive', onlineEvent('online')); });
+
+    const rendersOnFirstEvent = presences.length;
+
+    act(() => { notify('chat-ws-receive', onlineEvent('online')); });
+
+    expect(presences.length).toBe(rendersOnFirstEvent);
+  });
+
+  test('forgets a sighting once its window has passed, rendering once', () => {
+    act(() => {
+      notify('chat-ws-receive', onlineEvent('online-recently', '60'));
+    });
+
+    const rendersOnEvent = presences.length;
+
+    act(() => { jest.advanceTimersByTime(DAY_MS); });
+
+    expect(presences.at(-1)).toEqual({ status: 'offline' });
+    expect(presences.length).toBe(rendersOnEvent + 1);
+  });
+
+  test('keeps an ageless sighting, which has no window to fall out of', () => {
+    act(() => { notify('chat-ws-receive', onlineEvent('online-recently')); });
+
+    act(() => { jest.advanceTimersByTime(DAY_MS); });
+
+    expect(presences.at(-1)).toEqual({
+      status: 'online-recently',
+      lastOnlineAt: null,
+    });
   });
 });

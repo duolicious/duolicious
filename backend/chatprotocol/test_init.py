@@ -111,6 +111,8 @@ OUTBOUND_SAMPLES = [
     UnsubscribeOk(username=U1),
     UnsubscribeBad(username=U1),
     OnlineEvent(username=U1, status='online'),
+    OnlineEvent(username=U1, status='online-recently', seconds_ago=0),
+    OnlineEvent(username=U1, status='online-recently', seconds_ago=3600),
     VisitorsSnapshot(payload_json=_VISITORS_PAYLOAD_JSON),
     Visitor(section='visited_you', item_json=_VISITOR_ITEM_JSON),
     Visitor(
@@ -183,6 +185,18 @@ class TestOutbound(unittest.TestCase):
         for sample in OUTBOUND_SAMPLES:
             with self.subTest(stanza=type(sample).__name__):
                 self.assertEqual(json.loads(sample.to_json()), sample.canonical())
+
+    def test_online_event_reports_its_age(self) -> None:
+        event = OnlineEvent(
+            username=U1, status='online-recently', seconds_ago=7200)
+
+        self.assertEqual(
+            event.canonical()['duo_online_event']['@seconds_ago'], '7200')
+
+    def test_online_event_omits_an_absent_age(self) -> None:
+        event = OnlineEvent(username=U1, status='online-recently')
+
+        self.assertNotIn('@seconds_ago', event.canonical()['duo_online_event'])
 
     def test_bus_round_trip(self) -> None:
         for sample in OUTBOUND_SAMPLES:

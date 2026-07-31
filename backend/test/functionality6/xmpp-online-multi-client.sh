@@ -151,3 +151,59 @@ echo "Dropping the last connection demotes multi to 'online-recently'"
 disconnect multi1
 pop_viewer | grep -q '"@status": "online-recently"' \
   || { echo "Expected an 'online-recently' event"; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 4) 'online-recently' reports an age, and that age grows with wall-clock time
+# ---------------------------------------------------------------------------
+
+# Extracts the '@seconds_ago' of the first duo_online_event in a popped batch,
+# or the empty string if it carries no age.
+seconds_ago_of () {
+  grep -o '"@seconds_ago": "[0-9]*"' \
+    | head -n 1 \
+    | grep -o '[0-9]\+' \
+    || true  # `set -e` would otherwise make "no age" fatal rather than empty
+}
+
+echo "A fresh subscription reports how long ago multi was last seen"
+subscribe_to_multi
+first_seconds_ago=$(pop_viewer | seconds_ago_of)
+
+[[ -n "$first_seconds_ago" ]] \
+  || { echo "Expected a '@seconds_ago' attribute"; exit 1; }
+
+# The age is measured from the sighting, not from the moment it's reported, so
+# waiting before asking again must move it -- which a server that replayed the
+# age it first sent, rather than the sighting time, would fail to do.
+echo "The reported age grows while multi stays offline"
+sleep 5
+subscribe_to_multi
+second_seconds_ago=$(pop_viewer | seconds_ago_of)
+
+[[ "$second_seconds_ago" -ge $((first_seconds_ago + 4)) ]] \
+  || { echo "Expected the age to grow from ${first_seconds_ago}, got ${second_seconds_ago}"; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 5) 'online' carries no age: it describes now, not a past sighting
+# ---------------------------------------------------------------------------
+
+echo "Reconnecting pushes an 'online' event without an age"
+chat_auth_as multi1 "$multi_uuid" "$multi_token"
+sleep 1
+events=$(pop_viewer)
+
+echo "$events" | grep -q '"@status": "online"' \
+  || { echo "Expected an 'online' event"; exit 1; }
+
+[[ -z "$(echo "$events" | seconds_ago_of)" ]] \
+  || { echo "Did not expect a '@seconds_ago' on an 'online' event"; exit 1; }
+
+echo "A fresh subscription reports 'online' without an age either"
+subscribe_to_multi
+events=$(pop_viewer)
+
+echo "$events" | grep -q '"@status": "online"' \
+  || { echo "Expected an 'online' status"; exit 1; }
+
+[[ -z "$(echo "$events" | seconds_ago_of)" ]] \
+  || { echo "Did not expect a '@seconds_ago' on an 'online' status"; exit 1; }

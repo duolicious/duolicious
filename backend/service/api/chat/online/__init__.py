@@ -19,7 +19,6 @@ from chatprotocol.outbound import (
     SubscribeOk,
     UnsubscribeBad,
     UnsubscribeOk,
-    from_bus,
     to_bus,
 )
 from database import api_tx
@@ -31,7 +30,7 @@ from dataclasses import dataclass
 from constants import (
     LAST_UPDATE_INTERVAL_SECONDS,
     MAX_ONLINE_SUBSCRIPTIONS,
-    ONLINE_RECENTLY_SECONDS,
+    ONLINE_PRESENCE_TTL_SECONDS,
 )
 
 _TEST_INPUT_DIR = Path(__file__).parents[4] / 'test' / 'input'
@@ -97,6 +96,15 @@ class UpdateLastJob:
     do_update_last_event: bool
 
 
+def _seconds_since(last_seen: str) -> int | None:
+    # Values written before presence was stored as a sighting time don't parse
+    # as one; they report no age rather than a wrong one, until they expire.
+    try:
+        return max(0, int(time.time() - float(last_seen)))
+    except ValueError:
+        return None
+
+
 async def _redis_subscribe_online(
     redis_client: redis.Redis,
     pubsub: redis.client.PubSub,
@@ -111,36 +119,26 @@ async def _redis_subscribe_online(
     if isinstance(val, bytes):
         val = val.decode()
 
-    stored: OnlineEvent | None = None
-
-    if isinstance(val, str):
-        try:
-            event = from_bus(val)
-            if isinstance(event, OnlineEvent):
-                stored = event
-        except Exception:
-            pass
-
-    if stored is None:
+    if not isinstance(val, str):
         return OnlineEvent(username=username, status=OnlineStatus.OFFLINE.value)
 
-    # The stored status can misreport whether the user is connected *right
-    # now*: a crashed worker never demotes 'online' (the key just expires,
-    # ONLINE_RECENTLY_SECONDS later). Whether any of the user's websocket
+    # A stored sighting can't say whether the user is connected *right now*: a
+    # crashed worker never records the disconnection (the key just expires,
+    # ONLINE_PRESENCE_TTL_SECONDS later). Whether any of the user's websocket
     # connections is subscribed to their username channel is authoritative --
     # it's the same subscription message delivery uses, and Redis drops it
     # when a connection dies -- so it decides between 'online' and
-    # 'online-recently'. The stored event then only attests that the user was
-    # seen within the last ONLINE_RECENTLY_SECONDS. Pushed OnlineEvents need
-    # no such correction: connection lifecycle emits them, and the disconnect
-    # path performs this same subscriber check so a multi-device user stays
-    # 'online' until their last connection drops.
-    status = (
-        OnlineStatus.ONLINE.value
-        if await redis_has_subscribers(redis_client, username)
-        else OnlineStatus.ONLINE_RECENTLY.value)
+    # 'online-recently'. The stored value then only says when the user was last
+    # seen. Pushed OnlineEvents need no such correction: connection lifecycle
+    # emits them, and the disconnect path performs this same subscriber check
+    # so a multi-device user stays 'online' until their last connection drops.
+    if await redis_has_subscribers(redis_client, username):
+        return OnlineEvent(username=username, status=OnlineStatus.ONLINE.value)
 
-    return OnlineEvent(username=username, status=status)
+    return OnlineEvent(
+        username=username,
+        status=OnlineStatus.ONLINE_RECENTLY.value,
+        seconds_ago=_seconds_since(val))
 
 
 async def _redis_unsubscribe_online(
@@ -157,11 +155,17 @@ async def _redis_publish_status(
     status: OnlineStatus,
 ) -> None:
     key = FMT_KEY.format(username=username)
-    val = to_bus(OnlineEvent(username=username, status=status.value))
+
+    # Only 'online-recently' describes a past sighting to whoever receives it,
+    # and it is being published as the sighting happens, so its age is zero.
+    pushed = OnlineEvent(
+        username=username,
+        status=status.value,
+        seconds_ago=0 if status is OnlineStatus.ONLINE_RECENTLY else None)
 
     async with redis_client.pipeline(transaction=True) as pipe:
-        pipe.publish(key, val)
-        pipe.set(key, val, ex=ONLINE_RECENTLY_SECONDS)
+        pipe.publish(key, to_bus(pushed))
+        pipe.set(key, str(time.time()), ex=ONLINE_PRESENCE_TTL_SECONDS)
         await pipe.execute()
 
 

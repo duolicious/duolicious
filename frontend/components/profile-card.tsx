@@ -223,7 +223,7 @@ const ProfileCard = ({
 
   const { isSkipped, wasPostSkipFiredInThisSession } = useSkipped(personUuid);
 
-  const isOnline = useOnline(personUuid);
+  const { status: onlineStatus } = useOnline(personUuid);
 
   const [
     personMessagedProspectState,
@@ -299,7 +299,7 @@ const ProfileCard = ({
         style={{
           width: '100%',
           height: '100%',
-          borderBottomRightRadius: isOnline !== 'offline' ? 24 : undefined,
+          borderBottomRightRadius: onlineStatus !== 'offline' ? 24 : undefined,
           overflow: 'hidden',
         }}
       >
@@ -314,7 +314,7 @@ const ProfileCard = ({
           matchPercentage={matchPercentage}
           verified={verified}
         />
-        {isOnline === 'offline' && prospectMessagedPersonState &&
+        {onlineStatus === 'offline' && prospectMessagedPersonState &&
           <View
             style={{
               position: 'absolute',
@@ -330,7 +330,7 @@ const ProfileCard = ({
             />
           </View>
         }
-        {isOnline === 'offline' && personMessagedProspectState &&
+        {onlineStatus === 'offline' && personMessagedProspectState &&
           <View
             style={{
               transform: [ { scaleX: -1 } ],

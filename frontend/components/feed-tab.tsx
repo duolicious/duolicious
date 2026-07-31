@@ -412,7 +412,7 @@ const AgeGenderLocation = ({
           {doUseOnline &&
             <OnlineIndicator
               personUuid={personUuid}
-              size={12}
+              size={16}
               borderWidth={0}
             />
           }

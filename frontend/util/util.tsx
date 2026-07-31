@@ -4,13 +4,12 @@ import {
 import {
   differenceInCalendarDays,
   format,
-  formatDistanceToNow,
+  formatDistance,
   intervalToDuration,
   isThisWeek,
   isThisYear,
   isToday,
   isYesterday,
-  subSeconds,
   subDays,
   isWithinInterval,
 } from 'date-fns'
@@ -120,6 +119,22 @@ const getShortElapsedTime = (start: Date) => {
   return `${duration.seconds}s`;
 }
 
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+const ONLINE_RECENTLY_WINDOW_MS = DAY_MS;
+
+const friendlyTimeSince = (elapsedMs: number): string => {
+  const elapsed = Math.max(0, elapsedMs);
+
+  if (elapsed >= HOUR_MS) {
+    return `${Math.floor(elapsed / HOUR_MS)}h`;
+  }
+
+  return `${Math.max(1, Math.floor(elapsed / MINUTE_MS))}m`;
+};
+
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const backoffDelayStepMs = 1000;
@@ -154,10 +169,10 @@ const withTimeout = <T,>(ms: number, promise: Promise<T>): Promise<T | 'timeout'
   return Promise.race([promise, timeout]);
 };
 
-const friendlyTimeAgo = (secondsAgo: number): string => {
-  const lastOnlineDate = subSeconds(new Date(), secondsAgo);
+const friendlyTimeAgo = (elapsedMs: number): string => {
+  const now = Date.now();
 
-  return _.capitalize(formatDistanceToNow(lastOnlineDate));
+  return _.capitalize(formatDistance(now - Math.max(0, elapsedMs), now));
 }
 
 const happenedInLast7Days = (date: Date, now = new Date()): boolean => {
@@ -424,6 +439,7 @@ const copyProfileLink = async (handle: string | undefined) => {
 };
 
 export {
+  ONLINE_RECENTLY_WINDOW_MS,
   assert,
   assertNever,
   compareArrays,
@@ -432,6 +448,7 @@ export {
   makeBackoff,
   friendlyDate,
   friendlyTimeAgo,
+  friendlyTimeSince,
   friendlyTimestamp,
   getRandomElement,
   getShortElapsedTime,

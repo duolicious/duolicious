@@ -1,8 +1,11 @@
 const ONLINE_COLOR = '#23a55a';
 
+const ONLINE_RECENTLY_COLOR = '#a5ffce';
+
 const COLUMN_MAX_WIDTH = 600;
 
 export {
   COLUMN_MAX_WIDTH,
   ONLINE_COLOR,
+  ONLINE_RECENTLY_COLOR,
 };
