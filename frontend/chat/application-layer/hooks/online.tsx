@@ -11,10 +11,8 @@ import {
   send,
   EV_CHAT_WS_RECEIVE,
 } from '../../websocket-layer';
-import {
-  ONLINE_RECENTLY_WINDOW_MS,
-  assert,
-} from '../../../util/util';
+import { ONLINE_RECENTLY_WINDOW_MS } from '../../../constants/constants';
+import { assert } from '../../../util/util';
 
 // Global reference counts (online status) per person
 const REFERENCE_COUNT_BY_PERSON_UUID: Record<string, number> = {};

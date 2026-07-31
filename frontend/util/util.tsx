@@ -121,9 +121,6 @@ const getShortElapsedTime = (start: Date) => {
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-
-const ONLINE_RECENTLY_WINDOW_MS = DAY_MS;
 
 const friendlyTimeSince = (elapsedMs: number): string => {
   const elapsed = Math.max(0, elapsedMs);
@@ -439,7 +436,6 @@ const copyProfileLink = async (handle: string | undefined) => {
 };
 
 export {
-  ONLINE_RECENTLY_WINDOW_MS,
   assert,
   assertNever,
   compareArrays,
