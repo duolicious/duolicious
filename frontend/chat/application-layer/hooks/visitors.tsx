@@ -194,6 +194,17 @@ const emptyData = (): Data => ({
 
 let currentData: Data = emptyData();
 
+// The client-side mirror of the server's `last_visitor_check_time`. The badge
+// only counts visits since then, while each row's `is_new` dot survives until
+// that row is tapped.
+let lastCheckedAt: string | null = null;
+
+const countNewVisitors = (items: DataItem[]): number =>
+  items.filter(
+    // ISO 8601 UTC timestamps sort lexicographically.
+    (d) => d.is_new && (!lastCheckedAt || d.time > lastCheckedAt)
+  ).length;
+
 const setData = (data: Data) => {
   currentData = data;
 
@@ -211,7 +222,7 @@ const setData = (data: Data) => {
 
   setLastVisitedAt(data.last_visited_at);
 
-  setNumVisitors(data.visited_you.filter(d => d.is_new).length);
+  setNumVisitors(countNewVisitors(data.visited_you));
 };
 
 const maxTimestamp = (
@@ -279,11 +290,6 @@ const applyVisitorDelta = (
   });
 };
 
-const markVisitorsChecked = (time: string) => {
-  send({ data: { duo_mark_visitors_checked: { '@when': time } } });
-  setNumVisitors(0);
-};
-
 const markVisitorChecked = (personUuid: string) => {
   const key = `visited_you-${personUuid}`;
 
@@ -304,6 +310,12 @@ const markVisitorChecked = (personUuid: string) => {
   };
 
   setVisitorDataItem(key, updated, false);
+};
+
+const markVisitorsChecked = (time: string) => {
+  send({ data: { duo_mark_visitors_checked: { '@when': time } } });
+  lastCheckedAt = maxTimestamp(lastCheckedAt, time);
+  setNumVisitors(countNewVisitors(currentData.visited_you));
 };
 
 const requestVisitorsSnapshot = async () => {
@@ -358,6 +370,7 @@ listen(
   (user) => {
     if (!user) {
       youVisitedReorderSuppressions.clear();
+      lastCheckedAt = null;
       setData(emptyData());
     }
   },
