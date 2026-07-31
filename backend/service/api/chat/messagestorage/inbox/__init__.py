@@ -542,15 +542,42 @@ def _conversation_from_row(row: Row) -> InboxConversation:
     )
 
 
+def build_inbox_snapshot_query(
+    username: str,
+    prefs: Row,
+    prospect_username: str | None,
+) -> tuple[str, dict[str, SearchParam]]:
+    filters = prospect_filters(prefs)
+    reverse = two_way_filters(prefs)
+
+    params: dict[str, SearchParam] = dict(
+        username=username,
+        recently_online_seconds=LAST_ONLINE_DEFAULT_SECONDS,
+    )
+    params.update(filters.params)
+    params.update(reverse.params)
+
+    if prospect_username is not None:
+        params['remote_bare_jid'] = f'{prospect_username}@{LSERVER}'
+
+    query = _q_inbox_snapshot(
+        entry_predicate=(
+            _ENTRY_PREDICATE_SNAPSHOT if prospect_username is None
+            else _ENTRY_PREDICATE_ENTRY
+        ),
+        matches_search_filters=and_clauses([
+            *filters.clauses,
+            *reverse.clauses,
+        ]),
+    )
+
+    return query, params
+
+
 async def _fetch_inbox_conversations(
     username: str,
     prospect_username: str | None = None,
 ) -> list[InboxConversation]:
-    entry_predicate = (
-        _ENTRY_PREDICATE_SNAPSHOT if prospect_username is None
-        else _ENTRY_PREDICATE_ENTRY
-    )
-
     async with api_tx('read committed') as tx:
         # The whole-inbox query's estimated cost crosses the default jit
         # thresholds for users with large inboxes, so JIT spends ~1s compiling
@@ -563,24 +590,10 @@ async def _fetch_inbox_conversations(
             dict(username=username),
         )
 
-        filters = prospect_filters(prefs)
-        reverse = two_way_filters(prefs)
-
-        params: dict[str, SearchParam] = dict(
+        query, params = build_inbox_snapshot_query(
             username=username,
-            recently_online_seconds=LAST_ONLINE_DEFAULT_SECONDS,
-            **filters.params,
-            **reverse.params,
-        )
-        if prospect_username is not None:
-            params['remote_bare_jid'] = f'{prospect_username}@{LSERVER}'
-
-        query = _q_inbox_snapshot(
-            entry_predicate=entry_predicate,
-            matches_search_filters=and_clauses([
-                *filters.clauses,
-                *reverse.clauses,
-            ]),
+            prefs=prefs,
+            prospect_username=prospect_username,
         )
 
         await tx.execute(query, params)
