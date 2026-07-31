@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState,
 } from 'react';
 import {
   NavigationContainerRefWithCurrent,
@@ -19,9 +18,10 @@ import {
   focusedProspectHandle,
   focusedRouteIsUnrestorable,
   getTopRouteName,
-  isBannerRoute,
+  bannerRouteTarget,
 } from './linking';
 import { setActiveConversation } from '../chat/conversation-priority';
+import { setSignUpBanner } from '../events/sign-up-banner';
 import {
   getSignedInUser,
   isWebLoggedOut,
@@ -36,8 +36,6 @@ type AppNavigationContainerRef = NavigationContainerRefWithCurrent<ParamListBase
 
 type AppNavigation = {
   pendingPostLoginStateRef: MutableRefObject<PartialState<NavigationState> | null>
-  bannerVisible: boolean
-  bannerProspectHandle: string | undefined
   onNavigationReady: () => void
   onNavigationStateChange: (state: NavigationState) => void
 };
@@ -47,8 +45,6 @@ const useAppNavigation = (
   navigationContainerRef: AppNavigationContainerRef,
 ): AppNavigation => {
   const [signedInUser] = useSignedInUser();
-  const [bannerVisible, setBannerVisible] = useState(false);
-  const [bannerProspectHandle, setBannerProspectHandle] = useState<string | undefined>(undefined);
   const pendingPostLoginStateRef = useRef<PartialState<NavigationState> | null>(null);
 
   // Centralised post-sign-in redirect. Runs both when `signedInUser` changes
@@ -87,10 +83,13 @@ const useAppNavigation = (
     }
   }, []);
 
-  const recomputeBannerVisible = useCallback((state?: NavigationState) => {
+  const recomputeSignUpBanner = useCallback((state?: NavigationState) => {
     const rootState = state ?? navigationContainerRef.current?.getRootState?.();
-    setBannerVisible(isWebLoggedOut() && isBannerRoute(rootState));
-    setBannerProspectHandle(focusedProspectHandle(rootState));
+
+    setSignUpBanner({
+      target: isWebLoggedOut() ? bannerRouteTarget(rootState) : 'none',
+      prospectHandle: focusedProspectHandle(rootState),
+    });
   }, []);
 
   // Tell the chat layer which conversation (if any) is on screen, so on connect
@@ -103,9 +102,9 @@ const useAppNavigation = (
 
   const onNavigationReady = useCallback(() => {
     applyPostSignInRedirect();
-    recomputeBannerVisible();
+    recomputeSignUpBanner();
     publishActiveConversation();
-  }, [applyPostSignInRedirect, recomputeBannerVisible, publishActiveConversation]);
+  }, [applyPostSignInRedirect, recomputeSignUpBanner, publishActiveConversation]);
 
   useEffect(() => {
     // On sign-out drop any remaining pending state so a stale entry from
@@ -116,13 +115,13 @@ const useAppNavigation = (
     } else {
       applyPostSignInRedirect();
     }
-    recomputeBannerVisible();
-  }, [signedInUser?.personUuid, applyPostSignInRedirect, recomputeBannerVisible]);
+    recomputeSignUpBanner();
+  }, [signedInUser?.personUuid, applyPostSignInRedirect, recomputeSignUpBanner]);
 
   const onNavigationStateChange = useCallback(async (state: NavigationState) => {
     if (!state) return;
 
-    recomputeBannerVisible(state);
+    recomputeSignUpBanner(state);
     publishActiveConversation(state);
 
     // URL-bar sync is left entirely to React Navigation's linking integration.
@@ -170,7 +169,7 @@ const useAppNavigation = (
       // because intermittent failures on transient states are expected.
       console.warn('Failed to persist last navigation path', e);
     }
-  }, [linking, recomputeBannerVisible, publishActiveConversation]);
+  }, [linking, recomputeSignUpBanner, publishActiveConversation]);
 
   const navigateFromNotification = (
     screen: string,
@@ -189,8 +188,6 @@ const useAppNavigation = (
 
   return {
     pendingPostLoginStateRef,
-    bannerVisible,
-    bannerProspectHandle,
     onNavigationReady,
     onNavigationStateChange,
   };

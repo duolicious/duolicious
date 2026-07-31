@@ -15,6 +15,12 @@ import {
   type TabRouterOptions,
   useNavigationBuilder,
 } from '@react-navigation/native';
+import {
+  CONTENT_COLUMN_STYLE,
+  LEFT_PANE_STYLE,
+  RIGHT_PANE_STYLE,
+  hasRightPane,
+} from './web-layout';
 import { WebBar } from './web-bar';
 import { Scrollbar } from './scroll-bar';
 import { RightPanel } from './right-panel';
@@ -110,7 +116,7 @@ function WebNavigator<Navigation>({
           justifyContent: 'center',
         }}
       >
-        <View style={{ height: '100%', flex: 1, minWidth: 280 }}>
+        <View style={[LEFT_PANE_STYLE, { height: '100%' }]}>
           <WebBar
             state={state}
             navigation={navigation}
@@ -118,7 +124,7 @@ function WebNavigator<Navigation>({
             descriptors={descriptors}
           />
         </View>
-        <View style={{ height: '100%', flex: 3, maxWidth: 600 }}>
+        <View style={[CONTENT_COLUMN_STYLE, { height: '100%' }]}>
           {state.routes.map((route, i) => {
             return (
               <View
@@ -138,8 +144,8 @@ function WebNavigator<Navigation>({
             );
           })}
         </View>
-        {windowWidth > 1100 &&
-          <View style={{ height: '100%', flex: 1 }}>
+        {hasRightPane(windowWidth) &&
+          <View style={[RIGHT_PANE_STYLE, { height: '100%' }]}>
             <RightPanel routeName={state.routes[state.index]?.name}/>
           </View>
         }

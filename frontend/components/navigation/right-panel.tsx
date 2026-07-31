@@ -3,6 +3,8 @@ import { View } from 'react-native';
 import { DefaultText } from '../default-text';
 import { getRandomElement } from '../../util/util';
 import { PARTNER_URL } from '../../env/env';
+import { useIsWebLoggedOut } from '../../events/signed-in-user';
+import { Faq } from './faq';
 
 type Partner = {
   name: string
@@ -143,14 +145,20 @@ const RightPanelContent = () => {
 };
 
 const RightPanel = ({ routeName }: { routeName?: string }) => {
+  const isWebLoggedOut = useIsWebLoggedOut();
+
   return (
     <View
       style={{
         maxWidth: 360,
+        height: '100%',
         padding: 20,
       }}
     >
-      <RightPanelContent key={routeName}/>
+      {isWebLoggedOut ?
+        <Faq/> :
+        <RightPanelContent key={routeName}/>
+      }
     </View>
   );
 };

@@ -63,8 +63,6 @@ const App = () => {
 
   const {
     pendingPostLoginStateRef,
-    bannerVisible,
-    bannerProspectHandle,
     onNavigationReady,
     onNavigationStateChange,
   } = useAppNavigation(linking, navigationContainerRef);
@@ -163,7 +161,7 @@ const App = () => {
               </Stack.Navigator>
             </NavigationContainer>
             <GlobalBackButton/>
-            {bannerVisible && <SignUpBanner prospectHandle={bannerProspectHandle}/>}
+            <SignUpBanner/>
             <TooltipListener/>
             <ReportModal/>
             <ImageCropper/>

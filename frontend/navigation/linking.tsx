@@ -10,6 +10,7 @@ import {
 } from '@react-navigation/native';
 import { UUID_REGEX_SOURCE } from '../util/util';
 import { getSignedInUser, isWebLoggedOut } from '../events/signed-in-user';
+import { BannerTarget } from '../events/sign-up-banner';
 import { DEEP_LINK_HOSTNAME } from '../env/env';
 
 type WelcomeParamList = {
@@ -113,15 +114,14 @@ const focusedConversationHandle = (state: RouteState | undefined): string | unde
   return readPersonUuid(root.params);
 };
 
-const isBannerRoute = (state: RouteState | undefined): boolean => {
+const bannerRouteTarget = (state: RouteState | undefined): BannerTarget => {
   const root = state?.routes?.[state?.index ?? 0];
-  if (!root) return false;
-  if (root.name === 'Prospect Profile Screen') return true;
-  if (root.name === 'Home') {
-    const tab = root.state?.routes?.[root.state?.index ?? 0]?.name;
-    return tab === 'Search';
-  }
-  return false;
+  if (!root) return 'none';
+  if (root.name === 'Prospect Profile Screen') return 'prospect';
+  if (root.name !== 'Home') return 'none';
+
+  const tab = root.state?.routes?.[root.state?.index ?? 0]?.name;
+  return tab === 'Search' ? 'search' : 'none';
 };
 
 const focusedRouteIsUnrestorable = (state: RouteState | undefined): boolean => {
@@ -271,7 +271,7 @@ const createLinking = () => {
 
 type Linking = ReturnType<typeof createLinking>;
 
-export { createLinking, isBannerRoute, focusedProspectHandle, focusedConversationHandle, focusedRouteIsUnrestorable, getTopRouteName };
+export { createLinking, bannerRouteTarget, focusedProspectHandle, focusedConversationHandle, focusedRouteIsUnrestorable, getTopRouteName };
 export type {
   Linking,
   RootParamList,

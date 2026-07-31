@@ -2360,11 +2360,11 @@ WHERE
 Q_GENDER_STATS = f"""
 SELECT
     count(*) FILTER (WHERE gender_id = 1)::real /
-    count(*) FILTER (WHERE gender_id = 2)::real
+    NULLIF(count(*) FILTER (WHERE gender_id = 2), 0)::real
     AS gender_ratio,
 
     count(*) FILTER (WHERE gender_id NOT IN (1, 2))::real /
-    count(*)::real *
+    NULLIF(count(*), 0)::real *
     100.0
     AS non_binary_percentage
 FROM

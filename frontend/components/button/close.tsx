@@ -18,6 +18,7 @@ const Close = ({
       onPress={onPress}
       style={{
         position: 'absolute',
+        zIndex: 1,
         ...style,
       }}
     >
