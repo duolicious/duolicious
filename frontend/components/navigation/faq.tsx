@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useState } from 'react';
+import { CSSProperties, Children, useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { defaultFontFamily, defaultFontSize } from '../default-text';
@@ -69,12 +69,12 @@ const Link = ({ href, children }: {
   );
 };
 
-const BulletList = ({ children }: { children: React.ReactNode[] }) => {
+const BulletList = ({ children }: { children: React.ReactNode }) => {
   const textStyle = useTextStyle();
 
   return (
     <ul style={{ ...textStyle, paddingLeft: 22 }}>
-      {children.map((child, i) =>
+      {Children.toArray(children).map((child, i) =>
         <li key={i} style={{ marginBottom: 4 }}>
           {child}
         </li>
