@@ -13,6 +13,16 @@ const EVENT_KEY = 'sign-up-banner';
 const HIDDEN: SignUpBannerState = { target: 'none', prospectHandle: undefined };
 
 const setSignUpBanner = (state: SignUpBannerState) => {
+  const prev = lastEvent<SignUpBannerState>(EVENT_KEY);
+
+  if (
+    prev &&
+    prev.target === state.target &&
+    prev.prospectHandle === state.prospectHandle
+  ) {
+    return;
+  }
+
   notify<SignUpBannerState>(EVENT_KEY, state);
 };
 
