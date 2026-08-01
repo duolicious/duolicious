@@ -5,11 +5,27 @@ import { useAppTheme } from '../../app-theme/app-theme';
 import { CrossFadeText } from '../cross-fade';
 import { useReadReceipt } from '../../chat/application-layer/hooks/read-receipt';
 import {
+  Content,
   contentKey,
-  contentText,
+  contentParts,
   receiptContent,
   useReceiptSide,
 } from './message-receipt-logic';
+
+const ReceiptText = ({ content }: { content: Content }) => {
+  const { label, detail } = contentParts(content);
+
+  return (
+    <>
+      {label !== '' &&
+        <DefaultText disableTheme={true} style={styles.labelText}>
+          {label}
+        </DefaultText>
+      }
+      {detail}
+    </>
+  );
+};
 
 const MessageReceipt = ({
   personUuid,
@@ -46,7 +62,7 @@ const MessageReceipt = ({
               }
             }}
           >
-            {contentText(content)}
+            <ReceiptText content={content} />
           </DefaultText>
         </Pressable>
       :
@@ -60,7 +76,7 @@ const MessageReceipt = ({
             }
           }}
         >
-          {contentText(content)}
+          <ReceiptText content={content} />
         </DefaultText>
       }
     </CrossFadeText>
@@ -83,8 +99,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     cursor: 'pointer',
   },
+  labelText: {
+    fontWeight: '700',
+  },
 });
 
 export {
   MessageReceipt,
+  ReceiptText,
 };

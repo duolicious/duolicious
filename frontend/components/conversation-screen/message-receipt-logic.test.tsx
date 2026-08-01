@@ -4,6 +4,7 @@ import {
   ReceiptState,
   Side,
   contentKey,
+  contentParts,
   contentText,
   newsKey,
   receiptContent,
@@ -144,6 +145,31 @@ describe('contentText', () => {
 
   test('the upsell keeps the name of the feature it sells', () => {
     expect(contentText({ kind: 'upsell' })).toEqual('Get read receipts');
+  });
+});
+
+describe('contentParts', () => {
+  test('the delivered label stands apart from the time', () => {
+    expect(contentParts({ kind: 'delivered', timestamp: DELIVERED_AT }).label)
+      .toEqual('Delivered');
+  });
+
+  test('the seen label stands apart from the time', () => {
+    expect(contentParts({ kind: 'read', timestamp: READ_AT }).label)
+      .toEqual('Seen');
+  });
+
+  test('the other kinds carry no label', () => {
+    expect(contentParts({ kind: 'blank' }).label).toEqual('');
+    expect(contentParts({ kind: 'unread' }).label).toEqual('');
+    expect(contentParts({ kind: 'upsell' }).label).toEqual('');
+  });
+
+  test('the label and detail together read as the full text', () => {
+    const content: Content = { kind: 'read', timestamp: READ_AT };
+    const { label, detail } = contentParts(content);
+
+    expect(label + detail).toEqual(contentText(content));
   });
 });
 

@@ -63,8 +63,7 @@ import { notify } from '../../events/events';
 import {
   ShowEmojiPickerEvent,
 } from '../modal/emoji-picker-modal';
-import { MessageReceipt } from './message-receipt';
-import { deliveredText } from './message-receipt-logic';
+import { MessageReceipt, ReceiptText } from './message-receipt';
 
 const currentUserBackgroundColor = '#70f';
 
@@ -777,7 +776,12 @@ const ChatMessage = ({
             color: appTheme.hintColor,
           }}
         >
-          {deliveredText(message.message.timestamp)}
+          <ReceiptText
+            content={{
+              kind: 'delivered',
+              timestamp: message.message.timestamp,
+            }}
+          />
         </DefaultText>
       }
       <MessageStatusComponent

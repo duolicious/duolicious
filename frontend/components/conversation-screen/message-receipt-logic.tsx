@@ -25,17 +25,33 @@ const contentKey = (content: Content): string =>
     ? `${content.kind}-${content.timestamp.getTime()}`
     : content.kind;
 
-const deliveredText = (timestamp: Date): string =>
-  `Delivered ${longFriendlyTimestamp(timestamp)}`;
+type ContentParts = { label: string, detail: string };
+
+const contentParts = (content: Content): ContentParts => {
+  switch (content.kind) {
+    case 'blank':
+      return { label: '', detail: '\xa0' };
+    case 'delivered':
+      return {
+        label: 'Delivered',
+        detail: ` ${longFriendlyTimestamp(content.timestamp)}`,
+      };
+    case 'read':
+      return {
+        label: 'Seen',
+        detail: ` ${longFriendlyTimestamp(content.timestamp)}`,
+      };
+    case 'unread':
+      return { label: '', detail: 'Not seen yet' };
+    case 'upsell':
+      return { label: '', detail: 'Get read receipts' };
+  }
+};
 
 const contentText = (content: Content): string => {
-  switch (content.kind) {
-    case 'blank': return '\xa0';
-    case 'delivered': return deliveredText(content.timestamp);
-    case 'read': return `Seen ${longFriendlyTimestamp(content.timestamp)}`;
-    case 'unread': return 'Not seen yet';
-    case 'upsell': return 'Get read receipts';
-  }
+  const { label, detail } = contentParts(content);
+
+  return label + detail;
 };
 
 const receiptContent = ({
@@ -101,8 +117,8 @@ export {
   ReceiptState,
   Side,
   contentKey,
+  contentParts,
   contentText,
-  deliveredText,
   newsKey,
   receiptContent,
   useReceiptSide,
