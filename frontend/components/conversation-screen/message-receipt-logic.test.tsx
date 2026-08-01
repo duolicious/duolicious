@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import {
   Content,
   ReceiptState,
@@ -6,7 +6,6 @@ import {
   contentKey,
   contentText,
   newsKey,
-  readStatusDelayMs,
   receiptContent,
   useReceiptSide,
 } from './message-receipt-logic';
@@ -207,16 +206,6 @@ describe('useReceiptSide', () => {
     };
   };
 
-  const wait = (ms: number) => act(() => { jest.advanceTimersByTime(ms) });
-
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
   describe('settling on its own', () => {
     test('the slot starts on the delivery time', () => {
       render();
@@ -224,36 +213,12 @@ describe('useReceiptSide', () => {
       expect(latest).toEqual('delivered');
     });
 
-    test('the status takes the slot once the wait is up', () => {
-      render();
-
-      wait(readStatusDelayMs);
-
-      expect(latest).toEqual('status');
-    });
-
-    test('the status does not take the slot early', () => {
-      render();
-
-      wait(readStatusDelayMs - 1);
-
-      expect(latest).toEqual('delivered');
-    });
-
-    test('an arriving receipt takes the slot without waiting', () => {
+    test('an arriving receipt takes the slot', () => {
       const { set } = render();
 
       set({ readAt: READ_AT });
 
       expect(latest).toEqual('status');
-    });
-
-    test('an undelivered message never starts the wait', () => {
-      render({ deliveredAt: null });
-
-      wait(readStatusDelayMs * 10);
-
-      expect(latest).toEqual('delivered');
     });
   });
 
@@ -273,35 +238,6 @@ describe('useReceiptSide', () => {
       press();
 
       expect(latest).toEqual('delivered');
-    });
-
-    test('a pinned slot does not lose the wait to the status', () => {
-      const { press } = render();
-
-      press();
-      press();
-      wait(readStatusDelayMs * 10);
-
-      expect(latest).toEqual('delivered');
-    });
-
-    test('a press after the wait is up pins the delivery time', () => {
-      const { press } = render();
-
-      wait(readStatusDelayMs);
-      press();
-
-      expect(latest).toEqual('delivered');
-    });
-
-    test('a press before delivery does not stop the wait', () => {
-      const { set, press } = render({ deliveredAt: null });
-
-      press();
-      set({ deliveredAt: DELIVERED_AT });
-      wait(readStatusDelayMs);
-
-      expect(latest).toEqual('status');
     });
   });
 

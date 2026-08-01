@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { longFriendlyTimestamp } from '../../util/util';
-
-const readStatusDelayMs = 3000;
 
 const newsKey = (deliveredAt: Date | null, readAt: Date | null): string =>
   `${deliveredAt?.getTime() ?? 0}-${readAt?.getTime() ?? 0}`;
@@ -61,28 +59,6 @@ const receiptContent = ({
   );
 };
 
-// The status only takes the slot a few seconds after delivery, so the delivery
-// time is seen before it's replaced. Pinning the slot by hand stops the wait,
-// so the status can't land on top of what the user chose to see.
-const useIsDelayElapsed = (
-  deliveredAt: Date | null,
-  isPinned: boolean,
-): boolean => {
-  const [isDelayElapsed, setIsDelayElapsed] = useState(false);
-
-  useEffect(() => {
-    if (!deliveredAt || isPinned) {
-      return;
-    }
-
-    const timeout = setTimeout(() => setIsDelayElapsed(true), readStatusDelayMs);
-
-    return () => clearTimeout(timeout);
-  }, [deliveredAt?.getTime(), isPinned]);
-
-  return isDelayElapsed;
-};
-
 // The slot settles on a side by itself, and each press pins it to the other
 // one. Delivery or an arriving receipt is news, which unpins the slot: it
 // settles afresh rather than staying on what the user last pressed to see.
@@ -99,9 +75,7 @@ const useReceiptSide = (
     pressToggle: boolean
   }>({ side: null, news, pressToggle });
 
-  const isDelayElapsed = useIsDelayElapsed(deliveredAt, pin.side !== null);
-
-  const settled: Side = readAt || isDelayElapsed ? 'status' : 'delivered';
+  const settled: Side = readAt ? 'status' : 'delivered';
 
   if (pin.news !== news) {
     setPin({ side: null, news, pressToggle });
@@ -129,7 +103,6 @@ export {
   contentText,
   deliveredText,
   newsKey,
-  readStatusDelayMs,
   receiptContent,
   useReceiptSide,
 };
