@@ -128,20 +128,36 @@ describe('friendlyTimeSince', () => {
   });
 
   // Expiring a sighting is `useOnline`'s job, not the formatter's, so the
-  // ladder keeps counting past the point the indicator stops rendering.
-  it('keeps counting hours once a day has passed', () => {
-    expect(friendlyTimeSince(DAY_MS)).toBe('24h');
-    expect(friendlyTimeSince(3 * DAY_MS)).toBe('72h');
+  // formatter keeps counting past the point the indicator stops rendering.
+  it('keeps counting once a day has passed', () => {
+    expect(friendlyTimeSince(DAY_MS)).toBe('1d');
+    expect(friendlyTimeSince(3 * DAY_MS)).toBe('3d');
+    expect(friendlyTimeSince(40 * DAY_MS)).toBe('1mo');
+    expect(friendlyTimeSince(800 * DAY_MS)).toBe('2y');
   });
 });
 
 describe('friendlyTimeAgo', () => {
   it('describes the elapsed time in words', () => {
-    expect(friendlyTimeAgo(0)).toBe('Less than a minute');
+    expect(friendlyTimeAgo(0)).toBe('1 minute');
     expect(friendlyTimeAgo(5 * MINUTE_MS)).toBe('5 minutes');
-    expect(friendlyTimeAgo(2 * HOUR_MS)).toBe('About 2 hours');
+    expect(friendlyTimeAgo(2 * HOUR_MS)).toBe('2 hours');
     expect(friendlyTimeAgo(DAY_MS)).toBe('1 day');
-    expect(friendlyTimeAgo(40 * DAY_MS)).toBe('About 1 month');
+    expect(friendlyTimeAgo(40 * DAY_MS)).toBe('1 month');
+    expect(friendlyTimeAgo(800 * DAY_MS)).toBe('2 years');
+  });
+
+  // The profile's "Last Online" stat and the online indicator render side by
+  // side, so their numbers must agree: both are the same floored distance,
+  // differing only in how the unit is spelled.
+  it('agrees with friendlyTimeSince at every scale', () => {
+    expect(friendlyTimeAgo(8 * MINUTE_MS + 40 * 1000)).toBe('8 minutes');
+    expect(friendlyTimeSince(8 * MINUTE_MS + 40 * 1000)).toBe('8m');
+    expect(friendlyTimeAgo(5 * HOUR_MS + 59 * MINUTE_MS)).toBe('5 hours');
+    expect(friendlyTimeSince(5 * HOUR_MS + 59 * MINUTE_MS)).toBe('5h');
+    expect(friendlyTimeAgo(DAY_MS - 1)).toBe('23 hours');
+    expect(friendlyTimeAgo(3 * DAY_MS)).toBe('3 days');
+    expect(friendlyTimeSince(3 * DAY_MS)).toBe('3d');
   });
 
   it('treats a backwards clock as no time elapsed', () => {

@@ -2,9 +2,10 @@ import {
   Platform,
 } from 'react-native';
 import {
+  Locale,
   differenceInCalendarDays,
   format,
-  formatDistance,
+  formatDistanceStrict,
   intervalToDuration,
   isThisWeek,
   isThisYear,
@@ -13,7 +14,6 @@ import {
   subDays,
   isWithinInterval,
 } from 'date-fns'
-import * as _ from 'lodash';
 import { INVITE_URL } from '../env/env';
 import { notifyLinkCopiedToast } from '../components/toast';
 import * as Clipboard from 'expo-clipboard';
@@ -120,17 +120,40 @@ const getShortElapsedTime = (start: Date) => {
 }
 
 const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
 
-const friendlyTimeSince = (elapsedMs: number): string => {
-  const elapsed = Math.max(0, elapsedMs);
+type StrictDistanceToken =
+  | 'xSeconds'
+  | 'xMinutes'
+  | 'xHours'
+  | 'xDays'
+  | 'xMonths'
+  | 'xYears';
 
-  if (elapsed >= HOUR_MS) {
-    return `${Math.floor(elapsed / HOUR_MS)}h`;
-  }
-
-  return `${Math.max(1, Math.floor(elapsed / MINUTE_MS))}m`;
+const shortDistanceUnits: Record<StrictDistanceToken, string> = {
+  xSeconds: 's',
+  xMinutes: 'm',
+  xHours: 'h',
+  xDays: 'd',
+  xMonths: 'mo',
+  xYears: 'y',
 };
+
+const shortDistanceLocale: Locale = {
+  formatDistance: (token: StrictDistanceToken, count: number) =>
+    `${count}${shortDistanceUnits[token]}`,
+};
+
+const strictTimeSince = (elapsedMs: number, locale?: Locale): string =>
+  formatDistanceStrict(0, Math.max(MINUTE_MS, elapsedMs), {
+    roundingMethod: 'floor',
+    locale,
+  });
+
+const friendlyTimeSince = (elapsedMs: number): string =>
+  strictTimeSince(elapsedMs, shortDistanceLocale);
+
+const friendlyTimeAgo = (elapsedMs: number): string =>
+  strictTimeSince(elapsedMs);
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -165,12 +188,6 @@ const withTimeout = <T,>(ms: number, promise: Promise<T>): Promise<T | 'timeout'
   );
   return Promise.race([promise, timeout]);
 };
-
-const friendlyTimeAgo = (elapsedMs: number): string => {
-  const now = Date.now();
-
-  return _.capitalize(formatDistance(now - Math.max(0, elapsedMs), now));
-}
 
 const happenedInLast7Days = (date: Date, now = new Date()): boolean => {
   const start = subDays(now, 7);
