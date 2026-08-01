@@ -169,11 +169,12 @@ describe('useReceiptSide', () => {
   type Props = {
     deliveredAt: Date | null
     readAt: Date | null
+    hasGold: boolean
     pressToggle: boolean
   };
 
-  const Probe = ({ deliveredAt, readAt, pressToggle }: Props) => {
-    latest = useReceiptSide(deliveredAt, readAt, pressToggle);
+  const Probe = ({ deliveredAt, readAt, hasGold, pressToggle }: Props) => {
+    latest = useReceiptSide(deliveredAt, readAt, hasGold, pressToggle);
     return null;
   };
 
@@ -181,6 +182,7 @@ describe('useReceiptSide', () => {
     let props: Props = {
       deliveredAt: DELIVERED_AT,
       readAt: null,
+      hasGold: true,
       pressToggle: false,
       ...initial,
     };
@@ -207,14 +209,28 @@ describe('useReceiptSide', () => {
   };
 
   describe('settling on its own', () => {
-    test('the slot starts on the delivery time', () => {
+    test('a gold user\'s slot starts on the delivery time', () => {
       render();
 
       expect(latest).toEqual('delivered');
     });
 
+    test('a non-gold user\'s slot starts on the status side', () => {
+      render({ hasGold: false });
+
+      expect(latest).toEqual('status');
+    });
+
     test('an arriving receipt takes the slot', () => {
       const { set } = render();
+
+      set({ readAt: READ_AT });
+
+      expect(latest).toEqual('status');
+    });
+
+    test('a receipt keeps a non-gold user\'s slot on the status side', () => {
+      const { set } = render({ hasGold: false });
 
       set({ readAt: READ_AT });
 
@@ -239,6 +255,14 @@ describe('useReceiptSide', () => {
 
       expect(latest).toEqual('delivered');
     });
+
+    test('a press shows a non-gold user the delivery time', () => {
+      const { press } = render({ hasGold: false });
+
+      press();
+
+      expect(latest).toEqual('delivered');
+    });
   });
 
   describe('news unpinning the slot', () => {
@@ -249,6 +273,15 @@ describe('useReceiptSide', () => {
       set({ deliveredAt: DELIVERED_AT });
 
       expect(latest).toEqual('delivered');
+    });
+
+    test('delivery settles a non-gold user\'s slot on the status side', () => {
+      const { set, press } = render({ deliveredAt: null, hasGold: false });
+
+      press();
+      set({ deliveredAt: DELIVERED_AT });
+
+      expect(latest).toEqual('status');
     });
 
     test('an arriving receipt takes the slot off what was pinned', () => {

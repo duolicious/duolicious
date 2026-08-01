@@ -27,7 +27,7 @@ const MessageReceipt = ({
 }) => {
   const { appTheme } = useAppTheme();
   const readAt = useReadReceipt(personUuid, deliveredAt);
-  const side = useReceiptSide(deliveredAt, readAt, pressToggle);
+  const side = useReceiptSide(deliveredAt, readAt, hasGold, pressToggle);
 
   const content = receiptContent({ deliveredAt, readAt, hasGold, side });
 

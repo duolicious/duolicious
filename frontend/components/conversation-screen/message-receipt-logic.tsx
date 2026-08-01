@@ -65,6 +65,7 @@ const receiptContent = ({
 const useReceiptSide = (
   deliveredAt: Date | null,
   readAt: Date | null,
+  hasGold: boolean,
   pressToggle: boolean,
 ): Side => {
   const news = newsKey(deliveredAt, readAt);
@@ -75,7 +76,7 @@ const useReceiptSide = (
     pressToggle: boolean
   }>({ side: null, news, pressToggle });
 
-  const settled: Side = readAt ? 'status' : 'delivered';
+  const settled: Side = readAt || !hasGold ? 'status' : 'delivered';
 
   if (pin.news !== news) {
     setPin({ side: null, news, pressToggle });
