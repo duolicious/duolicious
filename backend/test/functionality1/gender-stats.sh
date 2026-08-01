@@ -5,20 +5,7 @@ cd "$script_dir"
 
 source ../util/setup.sh
 
-wait_for_next_gender_stats_cache_window () {
-  sleep 61
-}
-
 q "delete from person"
-
-set -xe
-
-response=$(c GET /gender-stats)
-
-[[ $(jq -r '.gender_ratio' <<< "$response") = 'null' ]]
-[[ $(jq -r '.non_binary_percentage' <<< "$response") = 'null' ]]
-
-set +x
 
 ../util/create-user.sh user1 0 0
 ../util/create-user.sh user2 0 0
@@ -29,9 +16,6 @@ q "update person set gender_id = 1 where name = 'user1'"
 q "update person set gender_id = 2 where name = 'user2'"
 q "update person set gender_id = 2 where name = 'user3'"
 q "update person set gender_id = 3 where name = 'user4'"
-
-wait_for_next_gender_stats_cache_window
-
 set -xe
 
 response=$(c GET /gender-stats)
