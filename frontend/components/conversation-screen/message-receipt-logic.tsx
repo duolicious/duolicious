@@ -42,7 +42,7 @@ const contentParts = (content: Content): ContentParts => {
         detail: ` ${longFriendlyTimestamp(content.timestamp)}`,
       };
     case 'unread':
-      return { label: '', detail: 'Not seen yet' };
+      return { label: 'Not seen yet', detail: '' };
     case 'upsell':
       return { label: '', detail: 'Get read receipts' };
   }

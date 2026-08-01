@@ -161,8 +161,12 @@ describe('contentParts', () => {
 
   test('the other kinds carry no label', () => {
     expect(contentParts({ kind: 'blank' }).label).toEqual('');
-    expect(contentParts({ kind: 'unread' }).label).toEqual('');
     expect(contentParts({ kind: 'upsell' }).label).toEqual('');
+  });
+
+  test('the unseen status is all label', () => {
+    expect(contentParts({ kind: 'unread' }))
+      .toEqual({ label: 'Not seen yet', detail: '' });
   });
 
   test('the label and detail together read as the full text', () => {
