@@ -12,6 +12,7 @@ import {
   EV_CHAT_WS_SEND_CLOSE,
   send,
 } from '../websocket-layer';
+import { notifyOwnLastMessageAt } from './hooks/read-receipt';
 import { ingestMamReaction } from './hooks/reaction';
 import {
   ingestCardAttributes,
@@ -704,6 +705,10 @@ const sendMessage = async (
 
     notify(`message-to-${recipientPersonUuid}`);
 
+    // Our message is now the conversation's last one, so a receipt for it can
+    // be shown once it's read.
+    notifyOwnLastMessageAt(recipientPersonUuid, timestamp);
+
     return {
       message: {
         type: 'chat-audio',
@@ -726,6 +731,10 @@ const sendMessage = async (
     setInboxSent(recipientPersonUuid, isGifUrl(text) ? GIF_MESSAGE : text);
 
     notify(`message-to-${recipientPersonUuid}`);
+
+    // Our message is now the conversation's last one, so a receipt for it can
+    // be shown once it's read.
+    notifyOwnLastMessageAt(recipientPersonUuid, timestamp);
 
     return {
       message: {
@@ -1088,6 +1097,17 @@ const fetchConversation = async (
   if (response !== 'timeout' && response.length > 0) {
     const lastMessage = response[response.length - 1];
     await markDisplayed(withPersonUuid, lastMessage.id, lastMessage.timestamp);
+  }
+
+  // Reconcile whether our message is the conversation's last one against the
+  // archive, but only on the first (most recent) page — older pages fetched
+  // while scrolling up don't change what's at the bottom.
+  if (response !== 'timeout' && beforeId === '') {
+    const lastMessage = response[response.length - 1];
+    notifyOwnLastMessageAt(
+      withPersonUuid,
+      lastMessage?.fromCurrentUser ? lastMessage.timestamp : null,
+    );
   }
 
   return response;

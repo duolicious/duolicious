@@ -27,6 +27,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { TopNavBar } from '../top-nav-bar';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { ChatMessage, TypingIndicator } from './chat-message';
+import { ReadReceiptUpsell } from './read-receipt-upsell';
 import { DefaultText } from '../default-text';
 import {
   Message,
@@ -934,6 +935,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           <View
             style={{
               flexDirection: 'row',
+              justifyContent: 'space-between',
               alignItems: 'flex-start',
             }}
           >
@@ -941,6 +943,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
               personUuid={personUuid}
               avatarUuid={photoUuid}
             />
+            <ReadReceiptUpsell personUuid={personUuid} />
           </View>
         </ScrollView>
       }

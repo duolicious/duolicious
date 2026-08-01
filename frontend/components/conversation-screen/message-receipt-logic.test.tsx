@@ -54,8 +54,8 @@ describe('receiptContent', () => {
       expect(kindOf({ side: 'status', hasGold: true })).toEqual('unread');
     });
 
-    test('a non-gold user is shown the upsell', () => {
-      expect(kindOf({ side: 'status' })).toEqual('upsell');
+    test('a non-gold user is shown a blank slot', () => {
+      expect(kindOf({ side: 'status' })).toEqual('blank');
     });
 
     test('the read time outranks the unread status', () => {
@@ -63,7 +63,7 @@ describe('receiptContent', () => {
         .toEqual('read');
     });
 
-    test('the read time outranks the upsell', () => {
+    test('the read time outranks the blank slot', () => {
       expect(kindOf({ side: 'status', readAt: READ_AT })).toEqual('read');
     });
   });
@@ -117,7 +117,6 @@ describe('contentKey', () => {
       contentKey({ kind: 'delivered', timestamp: DELIVERED_AT }),
       contentKey({ kind: 'read', timestamp: DELIVERED_AT }),
       contentKey({ kind: 'unread' }),
-      contentKey({ kind: 'upsell' }),
     ];
 
     expect(new Set(keys).size).toEqual(keys.length);
@@ -141,10 +140,6 @@ describe('contentText', () => {
 
   test('the unseen status is spelled out', () => {
     expect(contentText({ kind: 'unread' })).toEqual('Not seen yet');
-  });
-
-  test('the upsell keeps the name of the feature it sells', () => {
-    expect(contentText({ kind: 'upsell' })).toEqual('Get read receipts');
   });
 });
 

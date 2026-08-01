@@ -10,8 +10,7 @@ type Content =
   | { kind: 'blank' }
   | { kind: 'delivered', timestamp: Date }
   | { kind: 'read', timestamp: Date }
-  | { kind: 'unread' }
-  | { kind: 'upsell' };
+  | { kind: 'unread' };
 
 type Side = 'delivered' | 'status';
 
@@ -36,7 +35,6 @@ const contentText = (content: Content): string => {
     case 'delivered': return deliveredText(content.timestamp);
     case 'read': return `Seen ${longFriendlyTimestamp(content.timestamp)}`;
     case 'unread': return 'Not seen yet';
-    case 'upsell': return 'Get read receipts';
   }
 };
 
@@ -57,7 +55,7 @@ const receiptContent = ({
   return (
     readAt ? { kind: 'read', timestamp: readAt } :
     hasGold ? { kind: 'unread' } :
-    { kind: 'upsell' }
+    { kind: 'blank' }
   );
 };
 
