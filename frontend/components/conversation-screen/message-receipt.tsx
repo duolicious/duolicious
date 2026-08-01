@@ -70,7 +70,7 @@ const MessageReceipt = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    marginTop: 3,
+    marginTop: 5,
   },
   text: {
     textAlign: 'right',
