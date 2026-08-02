@@ -215,7 +215,7 @@ const FitWithinScreenImage = ({
           the original, so there's a photo to show while the original
           downloads. The original covers them when it arrives.
         */}
-        {geometry && cropUri &&
+        {geometry && cropUri && !originalLoaded &&
           <View
             style={[styles.crop, cropRectWithin(geometry, imageWidth)]}
           >
