@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -12,19 +13,37 @@ const FillImage = ({
   uri: string
   blurhash?: string | null
   onLoad?: () => void
-}) => (
-  <ExpoImage
-    source={{ uri }}
-    style={StyleSheet.absoluteFill}
-    contentFit="fill"
-    placeholder={blurhash ? { blurhash } : undefined}
-    placeholderContentFit="fill"
-    transition={0}
-    cachePolicy="memory-disk"
-    draggable={false}
-    onLoad={onLoad}
-  />
-);
+}) => {
+  const isLoaded = useRef(false);
+  const [showBlurhash, setShowBlurhash] = useState(false);
+
+  useEffect(() => {
+    if (!blurhash) return;
+    const timeout = setTimeout(() => {
+      if (!isLoaded.current) setShowBlurhash(true);
+    }, 200);
+    return () => clearTimeout(timeout);
+  }, [blurhash]);
+
+  const internalOnLoad = useCallback(() => {
+    isLoaded.current = true;
+    onLoad?.();
+  }, [onLoad]);
+
+  return (
+    <ExpoImage
+      source={{ uri }}
+      style={StyleSheet.absoluteFill}
+      contentFit="fill"
+      placeholder={showBlurhash && blurhash ? { blurhash } : undefined}
+      placeholderContentFit="fill"
+      transition={0}
+      cachePolicy="memory-disk"
+      draggable={false}
+      onLoad={internalOnLoad}
+    />
+  );
+};
 
 export {
   FillImage,
