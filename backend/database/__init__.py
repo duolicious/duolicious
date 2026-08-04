@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator, Iterable
 from database._row import (
     require_row,
     row_bool,
+    row_float,
     row_int,
     row_int_list_or_none,
     row_int_or_none,

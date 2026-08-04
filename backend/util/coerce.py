@@ -20,6 +20,12 @@ def integer(value: object, field_name: str | None = None) -> int:
     return value
 
 
+def floating(value: object, field_name: str | None = None) -> float:
+    if not isinstance(value, float):
+        raise RuntimeError(_message('a float', field_name))
+    return value
+
+
 def number(value: object, field_name: str | None = None) -> int | float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise RuntimeError(_message('number', field_name))

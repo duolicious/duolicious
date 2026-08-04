@@ -7,23 +7,31 @@ from search.sql.public import (
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
 )
 from search.sql.search import (
+    MAX_SEARCH_CANDIDATES,
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
     Q_DELETE_SEARCH_CACHE,
+    Q_INSERT_SEARCH_CACHE,
     Q_QUIZ_SEARCH,
     Q_UPSERT_SEARCH_PREFERENCE_CLUB,
     build_uncached_search,
+    build_unordered_uncached_search,
+    search_cache_insert_params,
 )
 
 __all__ = [
+    'MAX_SEARCH_CANDIDATES',
     'Q_APPLY_CLUB_PREFERENCE',
     'Q_CACHED_SEARCH',
     'Q_DELETE_SEARCH_CACHE',
     'Q_FEED',
     'Q_FEED_V2',
+    'Q_INSERT_SEARCH_CACHE',
     'Q_PUBLIC_SEARCH',
     'Q_PUBLIC_SEARCH_WITH_ANSWERS',
     'Q_QUIZ_SEARCH',
     'Q_UPSERT_SEARCH_PREFERENCE_CLUB',
     'build_uncached_search',
+    'build_unordered_uncached_search',
+    'search_cache_insert_params',
 ]

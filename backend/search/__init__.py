@@ -1,18 +1,21 @@
 import json
 import psycopg
+import time
 import duotypes as t
 import sessioncache
 from qanda import personality
 from pydantic import ValidationError
-from database import Tx, api_tx, row_int
+from database import Row, Tx, api_tx, row_float, row_int
 from qanda.question import Q_QUESTION_SCORE_VECTORS
 from rediscache import redis_cache
 from collections.abc import Sequence
 from typing import Literal, Tuple
-from searchfilters import Q_SEARCH_PARAMETERS
+from searchfilters import Q_SEARCH_PARAMETERS, SearchParam
 from search.sql import (
+    MAX_SEARCH_CANDIDATES,
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
+    Q_INSERT_SEARCH_CACHE,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
@@ -20,9 +23,18 @@ from search.sql import (
     Q_FEED,
     Q_FEED_V2,
     build_uncached_search,
+    build_unordered_uncached_search,
+    search_cache_insert_params,
 )
 from dataclasses import dataclass
 from datetime import datetime
+
+
+SEARCH_TIMEOUT_MS = 10_000
+
+UNCACHED_SEARCH_FETCH_SECONDS = 10.0 # TODO
+
+UNCACHED_SEARCH_FETCH_BATCH_SIZE = 10
 
 
 @dataclass
@@ -42,6 +54,92 @@ async def _quiz_search_results(
     return await tx.fetchall()
 
 
+def _trim_candidates(candidates: list[Row]) -> list[Row]:
+    if len(candidates) <= MAX_SEARCH_CANDIDATES:
+        return candidates
+    candidates.sort(
+        key=lambda c: row_float(c, 'match_percentage'), reverse=True)
+    del candidates[MAX_SEARCH_CANDIDATES:]
+    return candidates
+
+
+PERSONALITY_INDEX_PREFIX = 'idx__person__personality'
+
+
+def _plan_uses_personality_index(node: object) -> bool:
+    if isinstance(node, list):
+        return any(_plan_uses_personality_index(n) for n in node)
+    if not isinstance(node, dict):
+        return False
+    index_name = node.get('Index Name')
+    if isinstance(index_name, str) \
+            and index_name.startswith(PERSONALITY_INDEX_PREFIX):
+        return True
+    return any(_plan_uses_personality_index(v) for v in node.values())
+
+
+async def _search_plan_pipelines(
+    tx: Tx,
+    uncached_search: str,
+    params: dict[str, SearchParam],
+) -> bool:
+    cursor = psycopg.AsyncClientCursor(tx.connection)
+    merged = cursor.mogrify(uncached_search, params)
+    await tx.execute('EXPLAIN (FORMAT JSON) ' + merged)
+    plan = await tx.fetchone()
+    if plan is None:
+        return True
+    return _plan_uses_personality_index(plan['QUERY PLAN'])
+
+
+async def _fetch_search_candidates(
+    tx: Tx,
+    uncached_search: str,
+    params: dict[str, SearchParam],
+) -> list[Row]:
+    deadline = time.monotonic() + UNCACHED_SEARCH_FETCH_SECONDS
+    candidates: list[Row] = []
+
+    async with tx.connection.cursor(
+        name='uncached_search',
+        scrollable=False,
+    ) as cursor:
+        print('Executing...', datetime.now()) # TODO
+        await cursor.execute(uncached_search, params)
+        print('Executed!', datetime.now()) # TODO
+        print('Saving...', datetime.now()) # TODO
+        await tx.execute('SAVEPOINT uncached_search_fetch')
+        print('Saved!', datetime.now()) # TODO
+
+        print('Starting batch fetch...', datetime.now()) # TODO
+        i = 1
+        while True:
+            remaining_ms = int(1000 * (deadline - time.monotonic()))
+            if remaining_ms <= 0:
+                break
+
+            await tx.execute(f'SET LOCAL statement_timeout = {remaining_ms}')
+
+            try:
+                batch = await cursor.fetchmany(
+                    UNCACHED_SEARCH_FETCH_BATCH_SIZE)
+                print('batch', i, datetime.now()) # TODO
+                i += 1
+            except psycopg.errors.QueryCanceled:
+                await tx.execute('ROLLBACK TO SAVEPOINT uncached_search_fetch')
+                break
+
+            candidates.extend(batch)
+
+            if len(candidates) >= 2 * MAX_SEARCH_CANDIDATES:
+                _trim_candidates(candidates)
+
+            if len(batch) < UNCACHED_SEARCH_FETCH_BATCH_SIZE:
+                break
+
+    return _trim_candidates(candidates)
+
+
 async def _uncached_search_results(
     tx: Tx,
     searcher_person_id: int,
@@ -54,7 +152,13 @@ async def _uncached_search_results(
         dict(searcher_person_id=searcher_person_id),
     )
 
-    uncached_search, params = build_uncached_search(
+    ordered_search, params = build_uncached_search(
+        searcher_person_id=searcher_person_id,
+        n=n,
+        o=o,
+        prefs=prefs,
+    )
+    unordered_search, _ = build_unordered_uncached_search(
         searcher_person_id=searcher_person_id,
         n=n,
         o=o,
@@ -65,8 +169,23 @@ async def _uncached_search_results(
         await tx.execute('SET LOCAL jit = off')
         await tx.execute("SET LOCAL hnsw.iterative_scan = strict_order")
 
+        uncached_search = (
+            ordered_search
+            if await _search_plan_pipelines(tx, ordered_search, params)
+            else unordered_search
+        )
+
+        candidates = await _fetch_search_candidates(
+            tx, uncached_search, params)
+
+        await tx.execute(f'SET LOCAL statement_timeout = {SEARCH_TIMEOUT_MS}')
+
         await tx.execute(Q_DELETE_SEARCH_CACHE, params)
-        await tx.execute(uncached_search, params)
+        if candidates:
+            await tx.execute(
+                Q_INSERT_SEARCH_CACHE,
+                {**params, **search_cache_insert_params(candidates)},
+            )
         await tx.execute(Q_CACHED_SEARCH, params)
         return await tx.fetchall()
     except psycopg.errors.QueryCanceled:
@@ -134,7 +253,7 @@ async def get_search(
     )
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
+        await tx.execute(f'SET LOCAL statement_timeout = {SEARCH_TIMEOUT_MS}')
 
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
