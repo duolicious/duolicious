@@ -477,10 +477,11 @@ WITH onboardee_location AS (
                     -- The new_person meets the prospect's gender preference
                     EXISTS (
                         SELECT 1
-                        FROM search_preference_gender AS preference
+                        FROM search_preference AS preference
                         WHERE
                             preference.person_id = prospect.id AND
-                            preference.gender_id = (SELECT gender_id FROM new_person)
+                            (SELECT gender_id FROM new_person) =
+                                ANY(preference.gender_ids)
                     )
                 AND
                     -- The prospect meets the new_person's location preference
@@ -541,24 +542,55 @@ WITH onboardee_location AS (
     SET person_id = new_person.id
     FROM new_person
     WHERE duo_session.email = new_person.email
-), p1 AS (
-    INSERT INTO search_preference_gender (person_id, gender_id)
-    SELECT new_person.id, gender_id
-    FROM onboardee_search_preference_gender
-    JOIN new_person
-    ON new_person.email = onboardee_search_preference_gender.email
-), p2 AS (
-    INSERT INTO search_preference_orientation (person_id, orientation_id)
-    SELECT new_person.id, orientation.id
-    FROM new_person, orientation
-), p3 AS (
-    INSERT INTO search_preference_age (person_id, min_age, max_age)
-    SELECT new_person.id, min_age, max_age
-    FROM new_person, best_age
-), p4 AS (
-    INSERT INTO search_preference_distance (person_id, distance)
+), inserted_search_preference AS (
+    INSERT INTO search_preference (
+        person_id,
+        gender_ids,
+        orientation_ids,
+        ethnicity_ids,
+        has_profile_picture_ids,
+        looking_for_ids,
+        smoking_ids,
+        drinking_ids,
+        drugs_ids,
+        long_distance_ids,
+        relationship_status_ids,
+        has_kids_ids,
+        wants_kids_ids,
+        exercise_ids,
+        religion_ids,
+        star_sign_ids,
+        min_age,
+        max_age,
+        distance,
+        last_online_id,
+        show_messaged,
+        show_skipped
+    )
     SELECT
         new_person.id,
+        ARRAY(
+            SELECT gender_id
+            FROM onboardee_search_preference_gender
+            WHERE email = new_person.email
+            ORDER BY gender_id
+        ),
+        ARRAY(SELECT id FROM orientation ORDER BY id),
+        ARRAY(SELECT id FROM ethnicity ORDER BY id),
+        ARRAY(SELECT id FROM yes_no ORDER BY id),
+        ARRAY(SELECT id FROM looking_for ORDER BY id),
+        ARRAY(SELECT id FROM yes_no_optional ORDER BY id),
+        ARRAY(SELECT id FROM frequency ORDER BY id),
+        ARRAY(SELECT id FROM yes_no_optional ORDER BY id),
+        ARRAY(SELECT id FROM yes_no_optional ORDER BY id),
+        ARRAY(SELECT id FROM relationship_status ORDER BY id),
+        ARRAY(SELECT id FROM yes_no_optional ORDER BY id),
+        ARRAY(SELECT id FROM yes_no_maybe ORDER BY id),
+        ARRAY(SELECT id FROM frequency ORDER BY id),
+        ARRAY(SELECT id FROM religion ORDER BY id),
+        ARRAY(SELECT id FROM star_sign ORDER BY id),
+        best_age.min_age,
+        best_age.max_age,
         CASE
             WHEN best_distance.cnt < 500
             THEN NULL
@@ -570,83 +602,11 @@ WITH onboardee_location AS (
             THEN NULL
 
             ELSE best_distance.dist
-        END AS distance
-    FROM new_person, best_distance
-), p5 AS (
-    INSERT INTO search_preference_height_cm (person_id, min_height_cm, max_height_cm)
-    SELECT new_person.id, NULL, NULL
-    FROM new_person
-), p6 AS (
-    INSERT INTO search_preference_has_profile_picture (person_id, has_profile_picture_id)
-    SELECT new_person.id, yes_no.id
-    FROM new_person, yes_no
-), p7 AS (
-    INSERT INTO search_preference_looking_for (person_id, looking_for_id)
-    SELECT new_person.id, looking_for.id
-    FROM new_person, looking_for
-), p8 AS (
-    INSERT INTO search_preference_smoking (person_id, smoking_id)
-    SELECT new_person.id, yes_no_optional.id
-    FROM new_person, yes_no_optional
-), p9 AS (
-    INSERT INTO search_preference_drinking (person_id, drinking_id)
-    SELECT new_person.id, frequency.id
-    FROM new_person, frequency
-), p10 AS (
-    INSERT INTO search_preference_drugs (person_id, drugs_id)
-    SELECT new_person.id, yes_no_optional.id
-    FROM new_person, yes_no_optional
-), p11 AS (
-    INSERT INTO search_preference_long_distance (person_id, long_distance_id)
-    SELECT new_person.id, yes_no_optional.id
-    FROM new_person, yes_no_optional
-), p12 AS (
-    INSERT INTO search_preference_relationship_status (person_id, relationship_status_id)
-    SELECT new_person.id, relationship_status.id
-    FROM new_person, relationship_status
-), p13 AS (
-    INSERT INTO search_preference_has_kids (person_id, has_kids_id)
-    SELECT new_person.id, yes_no_optional.id
-    FROM new_person, yes_no_optional
-), p14 AS (
-    INSERT INTO search_preference_wants_kids (person_id, wants_kids_id)
-    SELECT new_person.id, yes_no_maybe.id
-    FROM new_person, yes_no_maybe
-), p15 AS (
-    INSERT INTO search_preference_exercise (person_id, exercise_id)
-    SELECT new_person.id, frequency.id
-    FROM new_person, frequency
-), p16 AS (
-    INSERT INTO search_preference_religion (person_id, religion_id)
-    SELECT new_person.id, religion.id
-    FROM new_person, religion
-), p17 AS (
-    INSERT INTO search_preference_star_sign (person_id, star_sign_id)
-    SELECT new_person.id, star_sign.id
-    FROM new_person, star_sign
-), p18 AS (
-    INSERT INTO search_preference_messaged (person_id, messaged_id)
-    SELECT new_person.id, yes_no.id
-    FROM new_person, yes_no
-    WHERE yes_no.name = 'Yes'
-), p19 AS (
-    INSERT INTO search_preference_skipped (person_id, skipped_id)
-    SELECT new_person.id, yes_no.id
-    FROM new_person, yes_no
-    WHERE yes_no.name = 'No'
-), p20 AS (
-    INSERT INTO search_preference_ethnicity (person_id, ethnicity_id)
-    SELECT new_person.id, ethnicity.id
-    FROM new_person, ethnicity
-), p21 AS (
-    INSERT INTO search_preference_last_online (person_id, last_online_id)
-    SELECT new_person.id, last_online.id
-    FROM new_person, last_online
-    WHERE last_online.name = '{LAST_ONLINE_DEFAULT_NAME}'
-), p22 AS (
-    INSERT INTO search_preference_two_way_filters (person_id)
-    SELECT new_person.id
-    FROM new_person
+        END,
+        (SELECT id FROM last_online WHERE name = '{LAST_ONLINE_DEFAULT_NAME}'),
+        TRUE,
+        FALSE
+    FROM new_person, best_age, best_distance
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
@@ -902,16 +862,16 @@ WITH prospect_base AS (
     WHERE star_sign.name != 'Unanswered'
 ), pref_gender AS (
     SELECT COALESCE(array_agg(g.name ORDER BY g.id), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_gender JOIN public.gender AS g
-    ON search_preference_gender.gender_id = g.id
-    WHERE search_preference_gender.person_id = (SELECT id FROM prospect)
+    FROM public.gender AS g, search_preference
+    WHERE search_preference.person_id = (SELECT id FROM prospect)
+    AND g.id = ANY(search_preference.gender_ids)
     AND (SELECT show_my_looking_for FROM prospect)
 ), pref_age AS (
     SELECT json_build_object(
         'min_age', min_age,
         'max_age', max_age
     ) AS j
-    FROM search_preference_age
+    FROM search_preference
     WHERE person_id = (SELECT id FROM prospect)
     AND (SELECT show_my_looking_for FROM prospect)
 ), is_skipped AS (
@@ -1715,138 +1675,118 @@ WITH answer AS (
     LEFT JOIN question
     ON question.id = question_id
     WHERE person_id = %(person_id)s
+), sp AS (
+    SELECT *
+    FROM search_preference
+    WHERE person_id = %(person_id)s
 ), gender AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_gender JOIN gender
-    ON gender_id = gender.id
-    WHERE person_id = %(person_id)s
+    FROM gender, sp
+    WHERE gender.id = ANY(sp.gender_ids)
 ), orientation AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_orientation JOIN orientation
-    ON orientation_id = orientation.id
-    WHERE person_id = %(person_id)s
+    FROM orientation, sp
+    WHERE orientation.id = ANY(sp.orientation_ids)
 ), ethnicity AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_ethnicity JOIN ethnicity
-    ON ethnicity_id = ethnicity.id
-    WHERE person_id = %(person_id)s
+    FROM ethnicity, sp
+    WHERE ethnicity.id = ANY(sp.ethnicity_ids)
 ), age AS (
     SELECT json_build_object(
         'min_age', min_age,
         'max_age', max_age
     ) AS j
-    FROM search_preference_age
-    WHERE person_id = %(person_id)s
+    FROM sp
 ), furthest_distance AS (
     SELECT distance AS j
-    FROM search_preference_distance
-    WHERE person_id = %(person_id)s
+    FROM sp
 ), height AS (
     SELECT json_build_object(
         'min_height_cm', min_height_cm,
         'max_height_cm', max_height_cm
     ) AS j
-    FROM search_preference_height_cm
-    WHERE person_id = %(person_id)s
+    FROM sp
 ), has_a_profile_picture AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_has_profile_picture JOIN yes_no
-    ON has_profile_picture_id = yes_no.id
-    WHERE person_id = %(person_id)s
+    FROM yes_no, sp
+    WHERE yes_no.id = ANY(sp.has_profile_picture_ids)
 ), looking_for AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_looking_for JOIN looking_for
-    ON looking_for_id = looking_for.id
-    WHERE person_id = %(person_id)s
+    FROM looking_for, sp
+    WHERE looking_for.id = ANY(sp.looking_for_ids)
 ), smoking AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_smoking JOIN yes_no_optional
-    ON smoking_id = yes_no_optional.id
-    WHERE person_id = %(person_id)s
+    FROM yes_no_optional, sp
+    WHERE yes_no_optional.id = ANY(sp.smoking_ids)
 ), drinking AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_drinking JOIN frequency
-    ON drinking_id = frequency.id
-    WHERE person_id = %(person_id)s
+    FROM frequency, sp
+    WHERE frequency.id = ANY(sp.drinking_ids)
 ), drugs AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_drugs JOIN yes_no_optional
-    ON drugs_id = yes_no_optional.id
-    WHERE person_id = %(person_id)s
+    FROM yes_no_optional, sp
+    WHERE yes_no_optional.id = ANY(sp.drugs_ids)
 ), long_distance AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_long_distance JOIN yes_no_optional
-    ON long_distance_id = yes_no_optional.id
-    WHERE person_id = %(person_id)s
+    FROM yes_no_optional, sp
+    WHERE yes_no_optional.id = ANY(sp.long_distance_ids)
 ), relationship_status AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_relationship_status JOIN relationship_status
-    ON relationship_status_id = relationship_status.id
-    WHERE person_id = %(person_id)s
+    FROM relationship_status, sp
+    WHERE relationship_status.id = ANY(sp.relationship_status_ids)
 ), has_kids AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_has_kids JOIN yes_no_optional
-    ON has_kids_id = yes_no_optional.id
-    WHERE person_id = %(person_id)s
+    FROM yes_no_optional, sp
+    WHERE yes_no_optional.id = ANY(sp.has_kids_ids)
 ), wants_kids AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_wants_kids JOIN yes_no_maybe
-    ON wants_kids_id = yes_no_maybe.id
-    WHERE person_id = %(person_id)s
+    FROM yes_no_maybe, sp
+    WHERE yes_no_maybe.id = ANY(sp.wants_kids_ids)
 ), exercise AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_exercise JOIN frequency
-    ON exercise_id = frequency.id
-    WHERE person_id = %(person_id)s
+    FROM frequency, sp
+    WHERE frequency.id = ANY(sp.exercise_ids)
 ), religion AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_religion JOIN religion
-    ON religion_id = religion.id
-    WHERE person_id = %(person_id)s
+    FROM religion, sp
+    WHERE religion.id = ANY(sp.religion_ids)
 ), star_sign AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
-    FROM search_preference_star_sign JOIN star_sign
-    ON star_sign_id = star_sign.id
-    WHERE person_id = %(person_id)s
+    FROM star_sign, sp
+    WHERE star_sign.id = ANY(sp.star_sign_ids)
 ), people_you_messaged AS (
-    SELECT name AS j
-    FROM search_preference_messaged JOIN yes_no
-    ON messaged_id = yes_no.id
-    WHERE person_id = %(person_id)s
+    SELECT CASE WHEN show_messaged THEN 'Yes' ELSE 'No' END AS j
+    FROM sp
 ), people_you_skipped AS (
-    SELECT name AS j
-    FROM search_preference_skipped JOIN yes_no
-    ON skipped_id = yes_no.id
-    WHERE person_id = %(person_id)s
+    SELECT CASE WHEN show_skipped THEN 'Yes' ELSE 'No' END AS j
+    FROM sp
 ), last_online_pref AS (
     SELECT last_online.name AS j
-    FROM search_preference_last_online
+    FROM sp
     JOIN last_online
-    ON last_online.id = search_preference_last_online.last_online_id
-    WHERE search_preference_last_online.person_id = %(person_id)s
+    ON last_online.id = sp.last_online_id
 ), two_way_filters AS (
     SELECT json_build_object(
-        'gender',                gender,
-        'age',                   age,
-        'furthest_distance',     furthest_distance,
-        'orientation',           orientation,
-        'relationship_status',   relationship_status,
-        'looking_for',           looking_for,
-        'wants_kids',            wants_kids,
-        'has_kids',              has_kids,
-        'has_a_profile_picture', has_a_profile_picture,
-        'drugs',                 drugs,
-        'long_distance',         long_distance,
-        'ethnicity',             ethnicity,
-        'smoking',               smoking,
-        'religion',              religion,
-        'drinking',              drinking,
-        'height',                height,
-        'exercise',              exercise,
-        'star_sign',             star_sign
+        'gender',                two_way_gender,
+        'age',                   two_way_age,
+        'furthest_distance',     two_way_furthest_distance,
+        'orientation',           two_way_orientation,
+        'relationship_status',   two_way_relationship_status,
+        'looking_for',           two_way_looking_for,
+        'wants_kids',            two_way_wants_kids,
+        'has_kids',              two_way_has_kids,
+        'has_a_profile_picture', two_way_has_a_profile_picture,
+        'drugs',                 two_way_drugs,
+        'long_distance',         two_way_long_distance,
+        'ethnicity',             two_way_ethnicity,
+        'smoking',               two_way_smoking,
+        'religion',              two_way_religion,
+        'drinking',              two_way_drinking,
+        'height',                two_way_height,
+        'exercise',              two_way_exercise,
+        'star_sign',             two_way_star_sign
     ) AS j
-    FROM search_preference_two_way_filters
-    WHERE person_id = %(person_id)s
+    FROM sp
 )
 SELECT
     json_build_object(
@@ -2742,7 +2682,7 @@ SELECT
                         -1,
 
                         'search_preference',
-                        person_club.club_name IS NOT DISTINCT FROM search_preference_club.club_name
+                        person_club.club_name IS NOT DISTINCT FROM search_preference.club_name
                     )
                     ORDER BY
                         person_club.club_name
@@ -2750,9 +2690,9 @@ SELECT
             FROM
                 person_club
             LEFT JOIN
-                search_preference_club
+                search_preference
             ON
-                search_preference_club.person_id = person_club.person_id
+                search_preference.person_id = person_club.person_id
             WHERE
                 person_club.person_id = %(person_id)s
         ),

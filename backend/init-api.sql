@@ -690,162 +690,56 @@ CREATE TABLE IF NOT EXISTS search_preference_answer (
     PRIMARY KEY (person_id, question_id)
 );
 
-CREATE TABLE IF NOT EXISTS search_preference_gender (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    gender_id SMALLINT REFERENCES gender(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, gender_id)
-);
+CREATE TABLE IF NOT EXISTS search_preference (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
 
-CREATE TABLE IF NOT EXISTS search_preference_orientation (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    orientation_id SMALLINT REFERENCES orientation(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, orientation_id)
-);
+    gender_ids              SMALLINT[] NOT NULL,
+    orientation_ids         SMALLINT[] NOT NULL,
+    ethnicity_ids           SMALLINT[] NOT NULL,
+    has_profile_picture_ids SMALLINT[] NOT NULL,
+    looking_for_ids         SMALLINT[] NOT NULL,
+    smoking_ids             SMALLINT[] NOT NULL,
+    drinking_ids            SMALLINT[] NOT NULL,
+    drugs_ids               SMALLINT[] NOT NULL,
+    long_distance_ids       SMALLINT[] NOT NULL,
+    relationship_status_ids SMALLINT[] NOT NULL,
+    has_kids_ids            SMALLINT[] NOT NULL,
+    wants_kids_ids          SMALLINT[] NOT NULL,
+    exercise_ids            SMALLINT[] NOT NULL,
+    religion_ids            SMALLINT[] NOT NULL,
+    star_sign_ids           SMALLINT[] NOT NULL,
 
-CREATE TABLE IF NOT EXISTS search_preference_ethnicity (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    ethnicity_id SMALLINT REFERENCES ethnicity(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, ethnicity_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_age (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     min_age SMALLINT,
     max_age SMALLINT,
-    PRIMARY KEY (person_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_distance (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    distance SMALLINT,
-    PRIMARY KEY (person_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_last_online (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    last_online_id SMALLINT REFERENCES last_online(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_height_cm (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     min_height_cm SMALLINT,
     max_height_cm SMALLINT,
-    PRIMARY KEY (person_id)
-);
+    distance SMALLINT,
 
-CREATE TABLE IF NOT EXISTS search_preference_has_profile_picture (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    has_profile_picture_id SMALLINT REFERENCES yes_no(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, has_profile_picture_id)
-);
+    last_online_id SMALLINT NOT NULL REFERENCES last_online(id) ON DELETE CASCADE,
 
-CREATE TABLE IF NOT EXISTS search_preference_looking_for (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    looking_for_id SMALLINT REFERENCES looking_for(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, looking_for_id)
-);
+    club_name TEXT REFERENCES club(name) ON DELETE SET NULL,
 
-CREATE TABLE IF NOT EXISTS search_preference_smoking (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    smoking_id SMALLINT REFERENCES yes_no_optional(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, smoking_id)
-);
+    show_messaged BOOLEAN NOT NULL DEFAULT TRUE,
+    show_skipped BOOLEAN NOT NULL DEFAULT FALSE,
 
-CREATE TABLE IF NOT EXISTS search_preference_drinking (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    drinking_id SMALLINT REFERENCES frequency(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, drinking_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_drugs (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    drugs_id SMALLINT REFERENCES yes_no_optional(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, drugs_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_long_distance (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    long_distance_id SMALLINT REFERENCES yes_no_optional(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, long_distance_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_relationship_status (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    relationship_status_id SMALLINT REFERENCES relationship_status(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, relationship_status_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_has_kids (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    has_kids_id SMALLINT REFERENCES yes_no_optional(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, has_kids_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_wants_kids (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    wants_kids_id SMALLINT REFERENCES yes_no_maybe(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, wants_kids_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_exercise (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    exercise_id SMALLINT REFERENCES frequency(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, exercise_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_religion (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    religion_id SMALLINT REFERENCES religion(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, religion_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_star_sign (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    star_sign_id SMALLINT REFERENCES star_sign(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id, star_sign_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_club (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    club_name TEXT REFERENCES club(name) ON DELETE CASCADE,
-    PRIMARY KEY (person_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_messaged (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    messaged_id SMALLINT REFERENCES yes_no(id) ON DELETE CASCADE,
-    PRIMARY KEY (person_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_skipped (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    skipped_id SMALLINT REFERENCES yes_no(id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (person_id)
-);
-
-CREATE TABLE IF NOT EXISTS search_preference_two_way_filters (
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    gender                BOOLEAN NOT NULL DEFAULT TRUE,
-    age                   BOOLEAN NOT NULL DEFAULT FALSE,
-    furthest_distance     BOOLEAN NOT NULL DEFAULT FALSE,
-    orientation           BOOLEAN NOT NULL DEFAULT FALSE,
-    relationship_status   BOOLEAN NOT NULL DEFAULT FALSE,
-    looking_for           BOOLEAN NOT NULL DEFAULT FALSE,
-    wants_kids            BOOLEAN NOT NULL DEFAULT FALSE,
-    has_kids              BOOLEAN NOT NULL DEFAULT FALSE,
-    has_a_profile_picture BOOLEAN NOT NULL DEFAULT FALSE,
-    drugs                 BOOLEAN NOT NULL DEFAULT FALSE,
-    long_distance         BOOLEAN NOT NULL DEFAULT FALSE,
-    ethnicity             BOOLEAN NOT NULL DEFAULT FALSE,
-    smoking               BOOLEAN NOT NULL DEFAULT FALSE,
-    religion              BOOLEAN NOT NULL DEFAULT FALSE,
-    drinking              BOOLEAN NOT NULL DEFAULT FALSE,
-    height                BOOLEAN NOT NULL DEFAULT FALSE,
-    exercise              BOOLEAN NOT NULL DEFAULT FALSE,
-    star_sign             BOOLEAN NOT NULL DEFAULT FALSE,
-    PRIMARY KEY (person_id)
+    two_way_gender                BOOLEAN NOT NULL DEFAULT TRUE,
+    two_way_age                   BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_furthest_distance     BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_orientation           BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_relationship_status   BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_looking_for           BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_wants_kids            BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_has_kids              BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_has_a_profile_picture BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_drugs                 BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_long_distance         BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_ethnicity             BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_smoking               BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_religion              BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_drinking              BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_height                BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_exercise              BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_star_sign             BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS messaged (
@@ -1026,16 +920,6 @@ CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
 CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
     ON visited(updated_at DESC, object_person_id, subject_person_id)
     WHERE NOT invisible;
-
-CREATE INDEX IF NOT EXISTS idx__search_preference_age__person_id__bounds
-    ON search_preference_age(person_id) INCLUDE (min_age, max_age);
-
-CREATE INDEX IF NOT EXISTS idx__search_preference_distance__person_id__distance
-    ON search_preference_distance(person_id) INCLUDE (distance);
-
-CREATE INDEX IF NOT EXISTS idx__search_preference_height_cm__person_id__bounds
-    ON search_preference_height_cm(person_id) INCLUDE (min_height_cm, max_height_cm);
-
 
 --------------------------------------------------------------------------------
 -- DATA

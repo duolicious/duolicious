@@ -53,11 +53,11 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                     SELECT
                         1
                     FROM
-                        search_preference_gender AS preference
+                        search_preference AS preference
                     WHERE
                         preference.person_id = searcher.searcher_id
                     AND
-                        preference.gender_id = member.gender_id
+                        member.gender_id = ANY(preference.gender_ids)
                 ) AS matches_gender_preference
             FROM (
                 -- The event's subject always leads the facepile (see the
@@ -458,13 +458,15 @@ WITH searcher AS (
                     subject_person_id = %(searcher_person_id)s
             )
         OR
-            1 IN (
+            EXISTS (
                 SELECT
-                    skipped_id
+                    1
                 FROM
-                    search_preference_skipped
+                    search_preference
                 WHERE
                     person_id = %(searcher_person_id)s
+                AND
+                    show_skipped
             )
         )
     AND
@@ -480,13 +482,15 @@ WITH searcher AS (
                     subject_person_id = %(searcher_person_id)s
             )
         OR
-            1 IN (
+            EXISTS (
                 SELECT
-                    messaged_id
+                    1
                 FROM
-                    search_preference_messaged
+                    search_preference
                 WHERE
                     person_id = %(searcher_person_id)s
+                AND
+                    show_messaged
             )
         )
     -- Decrease users' odds of appearing in the feed if they're already getting
@@ -512,11 +516,11 @@ WITH searcher AS (
         SELECT
             1
         FROM
-            search_preference_gender
+            search_preference
         WHERE
-            search_preference_gender.person_id = prospect.id
+            search_preference.person_id = prospect.id
         AND
-            search_preference_gender.gender_id = searcher.gender_id
+            searcher.gender_id = ANY(search_preference.gender_ids)
     )
     -- Exclude photos that might be NSFW
     AND NOT EXISTS (
@@ -616,11 +620,11 @@ WITH searcher AS (
             SELECT
                 1
             FROM
-                search_preference_gender AS preference
+                search_preference AS preference
             WHERE
                 preference.person_id = searcher_id
             AND
-                preference.gender_id = person_data.gender_id
+                person_data.gender_id = ANY(preference.gender_ids)
         ) DESC,
         match_percentage DESC,
         mapped_last_online_time DESC
@@ -950,13 +954,15 @@ WITH searcher AS (
                     subject_person_id = %(searcher_person_id)s
             )
         OR
-            1 IN (
+            EXISTS (
                 SELECT
-                    skipped_id
+                    1
                 FROM
-                    search_preference_skipped
+                    search_preference
                 WHERE
                     person_id = %(searcher_person_id)s
+                AND
+                    show_skipped
             )
         )
     AND
@@ -972,13 +978,15 @@ WITH searcher AS (
                     subject_person_id = %(searcher_person_id)s
             )
         OR
-            1 IN (
+            EXISTS (
                 SELECT
-                    messaged_id
+                    1
                 FROM
-                    search_preference_messaged
+                    search_preference
                 WHERE
                     person_id = %(searcher_person_id)s
+                AND
+                    show_messaged
             )
         )
     -- Decrease users' odds of appearing in the feed if they're already getting
@@ -998,29 +1006,29 @@ WITH searcher AS (
         SELECT
             1
         FROM
-            search_preference_gender AS preference
+            search_preference AS preference
         WHERE
             preference.person_id = searcher.searcher_id
         AND
-            preference.gender_id = prospect.gender_id
+            prospect.gender_id = ANY(preference.gender_ids)
     )
     -- The searcher's gender is one the prospect prefers
     AND EXISTS (
         SELECT
             1
         FROM
-            search_preference_gender AS preference
+            search_preference AS preference
         WHERE
             preference.person_id = prospect.id
         AND
-            preference.gender_id = searcher.gender_id
+            searcher.gender_id = ANY(preference.gender_ids)
     )
     -- The prospect meets the searcher's age preference
     AND EXISTS (
         SELECT
             1
         FROM
-            search_preference_age AS preference
+            search_preference AS preference
         WHERE
             preference.person_id = searcher.searcher_id
         AND

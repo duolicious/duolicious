@@ -10,44 +10,37 @@ from searchfilters import (
 
 
 Q_UPSERT_SEARCH_PREFERENCE_CLUB = """
-INSERT INTO search_preference_club (
-    person_id,
-    club_name
-)
-SELECT
-    %(person_id)s,
-    %(club_name)s::TEXT
+UPDATE
+    search_preference
+SET
+    club_name = %(club_name)s::TEXT
 WHERE
+    person_id = %(person_id)s
+AND
     %(club_name)s::TEXT IS NOT NULL
 AND
     %(do_modify)s
-ON CONFLICT (person_id) DO UPDATE SET
-    club_name = EXCLUDED.club_name
 """
 
 
 
-Q_APPLY_CLUB_PREFERENCE = f"""
-WITH delete_search_preference_club AS (
-    DELETE FROM
-        search_preference_club
-    WHERE
-        person_id = %(person_id)s
-    AND
-        %(club_name)s::TEXT IS NULL
-    AND
-        %(do_modify)s
-), set_pending_club_name_to_null AS (
+Q_APPLY_CLUB_PREFERENCE = """
+WITH set_pending_club_name_to_null AS (
     UPDATE
         duo_session
     SET
         pending_club_name = NULL
     WHERE
         person_id = %(person_id)s
-), upsert_search_preference_club AS (
-    {Q_UPSERT_SEARCH_PREFERENCE_CLUB}
 )
-SELECT 1
+UPDATE
+    search_preference
+SET
+    club_name = %(club_name)s::TEXT
+WHERE
+    person_id = %(person_id)s
+AND
+    %(do_modify)s
 """
 
 

@@ -23,27 +23,26 @@ def sql_fragment(text: str) -> str:
 
 class EnumFilter(NamedTuple):
     param: str
-    table: str
     column: str
     lookup: str
 
 
 ENUM_FILTERS = [
-    EnumFilter('gender_ids',              'search_preference_gender',              'gender_id',              'gender'),
-    EnumFilter('orientation_ids',         'search_preference_orientation',         'orientation_id',         'orientation'),
-    EnumFilter('ethnicity_ids',           'search_preference_ethnicity',           'ethnicity_id',           'ethnicity'),
-    EnumFilter('has_profile_picture_ids', 'search_preference_has_profile_picture', 'has_profile_picture_id', 'yes_no'),
-    EnumFilter('looking_for_ids',         'search_preference_looking_for',         'looking_for_id',         'looking_for'),
-    EnumFilter('smoking_ids',             'search_preference_smoking',             'smoking_id',             'yes_no_optional'),
-    EnumFilter('drinking_ids',            'search_preference_drinking',            'drinking_id',            'frequency'),
-    EnumFilter('drugs_ids',               'search_preference_drugs',               'drugs_id',               'yes_no_optional'),
-    EnumFilter('long_distance_ids',       'search_preference_long_distance',       'long_distance_id',       'yes_no_optional'),
-    EnumFilter('relationship_status_ids', 'search_preference_relationship_status', 'relationship_status_id', 'relationship_status'),
-    EnumFilter('has_kids_ids',            'search_preference_has_kids',            'has_kids_id',            'yes_no_optional'),
-    EnumFilter('wants_kids_ids',          'search_preference_wants_kids',          'wants_kids_id',          'yes_no_maybe'),
-    EnumFilter('exercise_ids',            'search_preference_exercise',            'exercise_id',            'frequency'),
-    EnumFilter('religion_ids',            'search_preference_religion',            'religion_id',            'religion'),
-    EnumFilter('star_sign_ids',           'search_preference_star_sign',           'star_sign_id',           'star_sign'),
+    EnumFilter('gender_ids',              'gender_id',              'gender'),
+    EnumFilter('orientation_ids',         'orientation_id',         'orientation'),
+    EnumFilter('ethnicity_ids',           'ethnicity_id',           'ethnicity'),
+    EnumFilter('has_profile_picture_ids', 'has_profile_picture_id', 'yes_no'),
+    EnumFilter('looking_for_ids',         'looking_for_id',         'looking_for'),
+    EnumFilter('smoking_ids',             'smoking_id',             'yes_no_optional'),
+    EnumFilter('drinking_ids',            'drinking_id',            'frequency'),
+    EnumFilter('drugs_ids',               'drugs_id',               'yes_no_optional'),
+    EnumFilter('long_distance_ids',       'long_distance_id',       'yes_no_optional'),
+    EnumFilter('relationship_status_ids', 'relationship_status_id', 'relationship_status'),
+    EnumFilter('has_kids_ids',            'has_kids_id',            'yes_no_optional'),
+    EnumFilter('wants_kids_ids',          'wants_kids_id',          'yes_no_maybe'),
+    EnumFilter('exercise_ids',            'exercise_id',            'frequency'),
+    EnumFilter('religion_ids',            'religion_id',            'religion'),
+    EnumFilter('star_sign_ids',           'star_sign_id',           'star_sign'),
 ]
 
 
@@ -58,11 +57,9 @@ BOUND_FILTERS = [
     BoundFilter(
         param='max_last_online_seconds',
         source=sql_fragment("""
-            SELECT last_online.seconds
-            FROM search_preference_last_online
-            JOIN last_online
-            ON last_online.id = search_preference_last_online.last_online_id
-            WHERE search_preference_last_online.person_id = person.id
+            SELECT seconds
+            FROM last_online
+            WHERE id = sp.last_online_id
         """),
         clause=sql_fragment("""
             prospect.last_online_time >
@@ -72,9 +69,7 @@ BOUND_FILTERS = [
     BoundFilter(
         param='min_age',
         source=sql_fragment("""
-            SELECT min_age
-            FROM search_preference_age
-            WHERE person_id = person.id
+            SELECT sp.min_age
         """),
         clause=sql_fragment("""
             prospect.date_of_birth <= (
@@ -86,9 +81,7 @@ BOUND_FILTERS = [
     BoundFilter(
         param='max_age',
         source=sql_fragment("""
-            SELECT max_age
-            FROM search_preference_age
-            WHERE person_id = person.id
+            SELECT sp.max_age
         """),
         clause=sql_fragment("""
             prospect.date_of_birth > (
@@ -99,9 +92,7 @@ BOUND_FILTERS = [
     BoundFilter(
         param='min_height_cm',
         source=sql_fragment("""
-            SELECT min_height_cm
-            FROM search_preference_height_cm
-            WHERE person_id = person.id
+            SELECT sp.min_height_cm
         """),
         clause=sql_fragment("""
             COALESCE(prospect.height_cm, 0) >= %(min_height_cm)s
@@ -110,9 +101,7 @@ BOUND_FILTERS = [
     BoundFilter(
         param='max_height_cm',
         source=sql_fragment("""
-            SELECT max_height_cm
-            FROM search_preference_height_cm
-            WHERE person_id = person.id
+            SELECT sp.max_height_cm
         """),
         clause=sql_fragment("""
             COALESCE(prospect.height_cm, 999) <= %(max_height_cm)s
@@ -180,15 +169,11 @@ def _answer_required_clause(param: str) -> str:
 
 
 _PARAM_ENUM_SELECTS = ',\n'.join(
-    f"""    (
-        SELECT CASE
-            WHEN count(*) = (SELECT count(*) FROM {enum.lookup})
-            THEN NULL
-            ELSE COALESCE(array_agg({enum.column}), ARRAY[]::SMALLINT[])
-        END
-        FROM {enum.table}
-        WHERE person_id = person.id
-    ) AS {enum.param}"""
+    f"""    CASE
+        WHEN cardinality(sp.{enum.param}) = (SELECT count(*) FROM {enum.lookup})
+        THEN NULL
+        ELSE sp.{enum.param}
+    END AS {enum.param}"""
     for enum in ENUM_FILTERS
 )
 
@@ -200,10 +185,9 @@ _PARAM_BOUND_SELECTS = ',\n'.join(
 
 _ENUM_FILTER_BY_COLUMN = {enum.column: enum for enum in ENUM_FILTERS}
 
-# Two-way filter key -> the id column shared by person.<column> and
-# search_preference_*.<column>. When a key's two-way flag is on, the searcher
-# only sees prospects whose own preference for that attribute accepts the
-# searcher.
+# Two-way filter key -> the person.<column> the prospect's own preference is
+# checked against. When a key's two-way flag is on, the searcher only sees
+# prospects whose own preference for that attribute accepts the searcher.
 _TWO_WAY_ENUM_COLUMNS = {
     'gender':                'gender_id',
     'orientation':           'orientation_id',
@@ -251,7 +235,7 @@ _SEARCHER_ATTR_SELECTS = ',\n'.join(
 )
 
 _TWO_WAY_FLAG_SELECTS = ',\n'.join(
-    f'    two_way.{key} AS two_way_{key}'
+    f'    sp.two_way_{key}'
     for key in TWO_WAY_FILTER_KEYS
 )
 
@@ -262,30 +246,10 @@ SELECT
     person.id AS searcher_person_id,
 {_PARAM_ENUM_SELECTS},
 {_PARAM_BOUND_SELECTS},
-    (
-        SELECT 1000 * distance
-        FROM search_preference_distance
-        WHERE person_id = person.id
-    ) AS distance_meters,
-    (
-        SELECT club_name
-        FROM search_preference_club
-        WHERE person_id = person.id
-    ) AS club_preference,
-    (
-        SELECT yes_no.name = 'Yes'
-        FROM search_preference_messaged
-        JOIN yes_no
-        ON yes_no.id = search_preference_messaged.messaged_id
-        WHERE search_preference_messaged.person_id = person.id
-    ) AS show_messaged,
-    (
-        SELECT yes_no.name = 'Yes'
-        FROM search_preference_skipped
-        JOIN yes_no
-        ON yes_no.id = search_preference_skipped.skipped_id
-        WHERE search_preference_skipped.person_id = person.id
-    ) AS show_skipped,
+    1000 * sp.distance AS distance_meters,
+    sp.club_name AS club_preference,
+    sp.show_messaged,
+    sp.show_skipped,
     EXISTS (
         SELECT 1
         FROM search_preference_answer
@@ -308,9 +272,9 @@ SELECT
 FROM
     person
 JOIN
-    search_preference_two_way_filters AS two_way
+    search_preference AS sp
 ON
-    two_way.person_id = person.id
+    sp.person_id = person.id
 WHERE
     {person_predicate}
 """
@@ -377,29 +341,11 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
     return ProspectFilters(clauses=clauses, params=params)
 
 
-def _reverse_enum_clause(table: str, column: str) -> str:
-    return sql_fragment(f"""
-        EXISTS (
-            SELECT 1
-            FROM {table} AS reverse_preference
-            WHERE
-                reverse_preference.person_id = prospect.id
-            AND
-                reverse_preference.{column} = %(searcher_{column})s
-        )
-    """)
-
-
 _REVERSE_AGE = sql_fragment("""
-    EXISTS (
-        SELECT 1
-        FROM search_preference_age AS reverse_preference
-        WHERE
-            reverse_preference.person_id = prospect.id
-        AND
-            COALESCE(reverse_preference.min_age, 0) <= %(searcher_age)s
-        AND
-            COALESCE(reverse_preference.max_age, 999) >= %(searcher_age)s
+    (
+        COALESCE(reverse_preference.min_age, 0) <= %(searcher_age)s
+    AND
+        COALESCE(reverse_preference.max_age, 999) >= %(searcher_age)s
     )
 """)
 
@@ -408,36 +354,24 @@ _REVERSE_DISTANCE = sql_fragment("""
     ST_DWithin(
         prospect.coordinates,
         %(searcher_coordinates)s::GEOGRAPHY,
-        COALESCE(
-            (
-                SELECT 1000 * distance
-                FROM search_preference_distance
-                WHERE person_id = prospect.id
-            ),
-            1e9
-        )
+        COALESCE(1000.0 * reverse_preference.distance, 1e9)
     )
 """)
 
 
 _REVERSE_HEIGHT = sql_fragment("""
-    EXISTS (
-        SELECT 1
-        FROM search_preference_height_cm AS reverse_preference
-        WHERE
-            reverse_preference.person_id = prospect.id
-        AND
-            COALESCE(%(searcher_height_cm)s, 0) >=
-                COALESCE(reverse_preference.min_height_cm, 0)
-        AND
-            COALESCE(%(searcher_height_cm)s, 999) <=
-                COALESCE(reverse_preference.max_height_cm, 999)
+    (
+        COALESCE(%(searcher_height_cm)s, 0) >=
+            COALESCE(reverse_preference.min_height_cm, 0)
+    AND
+        COALESCE(%(searcher_height_cm)s, 999) <=
+            COALESCE(reverse_preference.max_height_cm, 999)
     )
 """)
 
 
 def two_way_filters(prefs: Row) -> ProspectFilters:
-    clauses: list[str] = []
+    checks: list[str] = []
     params: dict[str, SearchParam] = {}
 
     for key in TWO_WAY_FILTER_KEYS:
@@ -446,17 +380,33 @@ def two_way_filters(prefs: Row) -> ProspectFilters:
 
         column = _TWO_WAY_ENUM_COLUMNS.get(key)
         if column is not None:
-            table = _ENUM_FILTER_BY_COLUMN[column].table
-            clauses.append(_reverse_enum_clause(table, column))
+            param = _ENUM_FILTER_BY_COLUMN[column].param
+            checks.append(
+                f'%(searcher_{column})s = ANY(reverse_preference.{param})')
             params[f'searcher_{column}'] = row_int(prefs, f'searcher_{column}')
         elif key == 'age':
-            clauses.append(_REVERSE_AGE)
+            checks.append(_REVERSE_AGE)
             params['searcher_age'] = row_int(prefs, 'searcher_age')
         elif key == 'furthest_distance':
-            clauses.append(_REVERSE_DISTANCE)
+            checks.append(_REVERSE_DISTANCE)
             params['searcher_coordinates'] = row_str(prefs, 'searcher_coordinates')
         elif key == 'height':
-            clauses.append(_REVERSE_HEIGHT)
+            checks.append(_REVERSE_HEIGHT)
             params['searcher_height_cm'] = row_int_or_none(prefs, 'searcher_height_cm')
 
-    return ProspectFilters(clauses=clauses, params=params)
+    if not checks:
+        return ProspectFilters(clauses=[], params={})
+
+    conditions = '\nAND\n'.join(indent(check, ' ' * 8).lstrip() for check in checks)
+    clause = sql_fragment(f"""
+        EXISTS (
+            SELECT 1
+            FROM search_preference AS reverse_preference
+            WHERE
+                reverse_preference.person_id = prospect.id
+            AND
+                {conditions}
+        )
+    """)
+
+    return ProspectFilters(clauses=[clause], params=params)

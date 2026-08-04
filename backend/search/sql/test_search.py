@@ -11,6 +11,7 @@ from search.sql.search import (
     search_only_clauses,
 )
 from searchfilters import (
+    _TWO_WAY_ENUM_COLUMNS,
     ENUM_FILTERS,
     TWO_WAY_FILTER_KEYS,
     prospect_filters,
@@ -78,9 +79,14 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         search_sql, _ = build_uncached_search(1, 10, 0, prefs)
 
         reverse = two_way_filters(prefs)
-        self.assertEqual(len(reverse.clauses), len(TWO_WAY_FILTER_KEYS))
-        for clause in reverse.clauses:
-            self.assertIn(clause, search_sql)
+        self.assertEqual(len(reverse.clauses), 1)
+        [clause] = reverse.clauses
+        self.assertIn(clause, search_sql)
+        for key in TWO_WAY_FILTER_KEYS:
+            column = _TWO_WAY_ENUM_COLUMNS.get(key)
+            if column is None:
+                continue
+            self.assertIn(f'%(searcher_{column})s', clause)
 
     def test_search_only_predicates_are_declared(self) -> None:
         self.assertEqual(

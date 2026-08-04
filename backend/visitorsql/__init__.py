@@ -163,13 +163,15 @@ visited_pass_3 AS (
                     object_person_id = prospect.id
             )
         OR
-            1 = (
+            EXISTS (
                 SELECT
-                    skipped_id
+                    1
                 FROM
-                    search_preference_skipped
+                    search_preference
                 WHERE
                     person_id = %(person_id)s
+                AND
+                    show_skipped
             )
         )
     AND
