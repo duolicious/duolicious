@@ -1,4 +1,13 @@
-from database import Row, row_bool, row_int, row_str, row_str_or_none
+from database import (
+    Row,
+    row_bool,
+    row_float,
+    row_int,
+    row_int_or_none,
+    row_str,
+    row_str_or_none,
+)
+from typing import TypeAlias
 from searchfilters import (
     SearchParam,
     and_clauses,
@@ -115,11 +124,11 @@ _VERIFICATION_SATISFIED = sql_fragment("""
 _PROSPECT_SELECT = """    SELECT
         prospect.id AS prospect_person_id,
 
-        uuid AS prospect_uuid,
+        uuid::TEXT AS prospect_uuid,
 
         name,
 
-        prospect.personality,
+        prospect.personality::TEXT AS personality,
 
         verification_level_id > 1 AS verified,
 
@@ -137,7 +146,7 @@ _PROSPECT_SELECT = """    SELECT
 
         CASE
             WHEN show_my_age
-            THEN EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
+            THEN EXTRACT(YEAR FROM AGE(prospect.date_of_birth))::SMALLINT
             ELSE NULL
         END AS age,
 
@@ -280,7 +289,6 @@ def build_uncached_search(
     ])
 
     sql = f"""
-WITH candidates AS (
 {_PROSPECT_SELECT}
     FROM
 {_from_clause(club_preference)}
@@ -288,15 +296,76 @@ WITH candidates AS (
         {where}
 
     ORDER BY
-        prospect.personality <#> %(searcher_personality)s::VECTOR
-
-    LIMIT
-        750
-{_SEARCH_CACHE_INSERT}"""
+        prospect.personality <#> %(searcher_personality)s::VECTOR"""
 
     return sql, params
 
 
+Q_INSERT_SEARCH_CACHE = f"""
+WITH candidates AS (
+    SELECT
+        prospect_person_id,
+        prospect_uuid::UUID AS prospect_uuid,
+        profile_photo_uuid,
+        name,
+        age,
+        match_percentage,
+        personality::VECTOR AS personality,
+        verified
+    FROM
+        UNNEST(
+            %(prospect_person_ids)s::INT[],
+            %(prospect_uuids)s::TEXT[],
+            %(profile_photo_uuids)s::TEXT[],
+            %(names)s::TEXT[],
+            %(ages)s::SMALLINT[],
+            %(match_percentages)s::FLOAT8[],
+            %(personalities)s::TEXT[],
+            %(verifieds)s::BOOLEAN[]
+        ) AS candidate(
+            prospect_person_id,
+            prospect_uuid,
+            profile_photo_uuid,
+            name,
+            age,
+            match_percentage,
+            personality,
+            verified
+        )
+{_SEARCH_CACHE_INSERT}"""
+
+
+SearchCacheInsertParam: TypeAlias = (
+    list[int]
+    | list[int | None]
+    | list[str]
+    | list[str | None]
+    | list[float]
+    | list[bool]
+)
+
+
+def search_cache_insert_params(
+    candidates: list[Row],
+) -> dict[str, SearchCacheInsertParam]:
+    return dict(
+        prospect_person_ids=[
+            row_int(c, 'prospect_person_id') for c in candidates],
+        prospect_uuids=[
+            row_str(c, 'prospect_uuid') for c in candidates],
+        profile_photo_uuids=[
+            row_str_or_none(c, 'profile_photo_uuid') for c in candidates],
+        names=[
+            row_str(c, 'name') for c in candidates],
+        ages=[
+            row_int_or_none(c, 'age') for c in candidates],
+        match_percentages=[
+            row_float(c, 'match_percentage') for c in candidates],
+        personalities=[
+            row_str(c, 'personality') for c in candidates],
+        verifieds=[
+            row_bool(c, 'verified') for c in candidates],
+    )
 
 
 Q_CACHED_SEARCH = """

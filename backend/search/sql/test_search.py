@@ -7,7 +7,9 @@ from search.sql.search import (
     _SEARCHER_DIDNT_MESSAGE_PROSPECT,
     _SEARCHER_DIDNT_SKIP_PROSPECT,
     _VERIFICATION_SATISFIED,
+    Q_INSERT_SEARCH_CACHE,
     build_uncached_search,
+    search_cache_insert_params,
     search_only_clauses,
 )
 from searchfilters import (
@@ -93,6 +95,52 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         self.assertFalse(
             frozenset(search_only_clauses(prefs))
             & frozenset(prospect_filters(prefs).clauses),
+        )
+
+
+class TestUncachedSearchStreams(unittest.TestCase):
+    def test_uncached_search_is_read_only(self) -> None:
+        search_sql, _ = build_uncached_search(1, 10, 0, maximal_prefs())
+
+        self.assertNotIn('INSERT', search_sql.upper())
+        self.assertNotIn('search_cache', search_sql)
+
+    def test_uncached_search_has_no_pipeline_breakers(self) -> None:
+        search_sql, _ = build_uncached_search(1, 10, 0, maximal_prefs())
+
+        self.assertNotIn('ROW_NUMBER', search_sql.upper())
+        self.assertNotIn('COUNT(', search_sql.upper())
+
+
+class TestSearchCacheInsert(unittest.TestCase):
+    def test_insert_params_match_query_placeholders(self) -> None:
+        for name in search_cache_insert_params([]):
+            self.assertIn(f'%({name})s', Q_INSERT_SEARCH_CACHE)
+
+    def test_insert_params_map_candidate_rows_to_columns(self) -> None:
+        candidate: Row = dict(
+            prospect_person_id=5,
+            prospect_uuid='b1b8bdbb-c67f-42d1-a5eb-77b0c9871ac9',
+            profile_photo_uuid=None,
+            name='Kim',
+            age=None,
+            match_percentage=99.5,
+            personality='[1,0]',
+            verified=True,
+        )
+
+        self.assertEqual(
+            search_cache_insert_params([candidate]),
+            dict(
+                prospect_person_ids=[5],
+                prospect_uuids=['b1b8bdbb-c67f-42d1-a5eb-77b0c9871ac9'],
+                profile_photo_uuids=[None],
+                names=['Kim'],
+                ages=[None],
+                match_percentages=[99.5],
+                personalities=['[1,0]'],
+                verifieds=[True],
+            ),
         )
 
 

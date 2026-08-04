@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from typing import TypeVar
 from util.coerce import (
     boolean,
+    floating,
     integer,
     optional_int,
     optional_int_list,
@@ -26,6 +27,10 @@ def row_value(row: Mapping[str, object], key: str) -> object:
 
 def row_bool(row: Mapping[str, object], key: str) -> bool:
     return boolean(row_value(row, key), key)
+
+
+def row_float(row: Mapping[str, object], key: str) -> float:
+    return floating(row_value(row, key), key)
 
 
 def row_int(row: Mapping[str, object], key: str) -> int:

@@ -1,18 +1,20 @@
 import json
 import psycopg
+import time
 import duotypes as t
 import sessioncache
 from qanda import personality
 from pydantic import ValidationError
-from database import Tx, api_tx, row_int
+from database import Row, Tx, api_tx, row_int
 from qanda.question import Q_QUESTION_SCORE_VECTORS
 from rediscache import redis_cache
 from collections.abc import Sequence
 from typing import Literal, Tuple
-from searchfilters import Q_SEARCH_PARAMETERS
+from searchfilters import Q_SEARCH_PARAMETERS, SearchParam
 from search.sql import (
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
+    Q_INSERT_SEARCH_CACHE,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
@@ -20,9 +22,19 @@ from search.sql import (
     Q_FEED,
     Q_FEED_V2,
     build_uncached_search,
+    search_cache_insert_params,
 )
 from dataclasses import dataclass
 from datetime import datetime
+
+
+SEARCH_TIMEOUT_MS = 10_000
+
+UNCACHED_SEARCH_FETCH_SECONDS = 10.0 # TODO
+
+UNCACHED_SEARCH_FETCH_BATCH_SIZE = 10
+
+MAX_SEARCH_CANDIDATES = 750
 
 
 @dataclass
@@ -40,6 +52,55 @@ async def _quiz_search_results(
 
     await tx.execute(Q_QUIZ_SEARCH, params)
     return await tx.fetchall()
+
+
+async def _fetch_search_candidates(
+    tx: Tx,
+    uncached_search: str,
+    params: dict[str, SearchParam],
+) -> list[Row]:
+    deadline = time.monotonic() + UNCACHED_SEARCH_FETCH_SECONDS
+    candidates: list[Row] = []
+
+    async with tx.connection.cursor(
+        name='uncached_search',
+        scrollable=False,
+    ) as cursor:
+        print('Executing...', datetime.now()) # TODO
+        await cursor.execute(uncached_search, params)
+        print('Executed!', datetime.now()) # TODO
+        print('Saving...', datetime.now()) # TODO
+        await tx.execute('SAVEPOINT uncached_search_fetch')
+        print('Saved!', datetime.now()) # TODO
+
+        print('Starting batch fetch...', datetime.now()) # TODO
+        i = 1
+        while True:
+            remaining_ms = int(1000 * (deadline - time.monotonic()))
+            if remaining_ms <= 0:
+                break
+
+            await tx.execute(f'SET LOCAL statement_timeout = {remaining_ms}')
+
+            try:
+                batch = await cursor.fetchmany(
+                    UNCACHED_SEARCH_FETCH_BATCH_SIZE)
+                print('batch', i, datetime.now()) # TODO
+                i += 1
+            except psycopg.errors.QueryCanceled:
+                await tx.execute('ROLLBACK TO SAVEPOINT uncached_search_fetch')
+                break
+
+            candidates.extend(batch)
+
+            if len(candidates) >= MAX_SEARCH_CANDIDATES:
+                del candidates[MAX_SEARCH_CANDIDATES:]
+                break
+
+            if len(batch) < UNCACHED_SEARCH_FETCH_BATCH_SIZE:
+                break
+
+    return candidates
 
 
 async def _uncached_search_results(
@@ -64,9 +125,21 @@ async def _uncached_search_results(
     try:
         await tx.execute('SET LOCAL jit = off')
         await tx.execute("SET LOCAL hnsw.iterative_scan = strict_order")
+        await tx.execute('SET LOCAL hnsw.max_scan_tuples = 300000')
+        await tx.execute('SET LOCAL cursor_tuple_fraction = 0.01')
+        await tx.execute("SET LOCAL work_mem = '64MB'")
+
+        candidates = await _fetch_search_candidates(
+            tx, uncached_search, params)
+
+        await tx.execute(f'SET LOCAL statement_timeout = {SEARCH_TIMEOUT_MS}')
 
         await tx.execute(Q_DELETE_SEARCH_CACHE, params)
-        await tx.execute(uncached_search, params)
+        if candidates:
+            await tx.execute(
+                Q_INSERT_SEARCH_CACHE,
+                {**params, **search_cache_insert_params(candidates)},
+            )
         await tx.execute(Q_CACHED_SEARCH, params)
         return await tx.fetchall()
     except psycopg.errors.QueryCanceled:
@@ -134,7 +207,7 @@ async def get_search(
     )
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
+        await tx.execute(f'SET LOCAL statement_timeout = {SEARCH_TIMEOUT_MS}')
 
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
