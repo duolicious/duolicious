@@ -134,27 +134,57 @@ _SHOWS_ONLINE_STATUS = sql_fragment("""
 """)
 
 
-_ANSWER_NOT_EXISTS = sql_fragment("""
-    NOT EXISTS (
-        SELECT 1
-        FROM (
-            SELECT *
-            FROM search_preference_answer
-            WHERE person_id = %(searcher_person_id)s
-        ) AS pref
-        LEFT JOIN
-            answer ans
+# The prospect answered none of the searcher's Q&A filters contrarily. The
+# subquery is deliberately uncorrelated: the planner builds the exclusion set
+# once per statement and hashes every prospect against it, where a correlated
+# form re-probes `answer` per prospect and made broad searches time out. In
+# per-prospect consumers (inbox) the hashed subplan is likewise built once per
+# statement and reused across rows.
+_ANSWER_NOT_CONTRARY = sql_fragment("""
+    prospect.id NOT IN (
+        SELECT
+            ans.person_id
+        FROM
+            search_preference_answer AS pref
+        JOIN
+            answer AS ans
         ON
-            ans.person_id = prospect.id AND
             ans.question_id = pref.question_id
         WHERE
-            -- Contrary because the answer exists and is wrong
+            pref.person_id = %(searcher_person_id)s AND
             ans.answer IS NOT NULL AND
             ans.answer != pref.answer
-        OR
-            -- Contrary because the answer doesn't exist but should
-            ans.answer IS NULL AND
-            pref.accept_unanswered = FALSE
+    )
+""")
+
+
+# The prospect answered every Q&A filter whose accept_unanswered is FALSE.
+# Emitted only when the searcher has such a filter: with zero required
+# questions the IN set is empty and would exclude everyone.
+_ANSWER_REQUIRED_ANSWERED = sql_fragment("""
+    prospect.id IN (
+        SELECT
+            ans.person_id
+        FROM
+            answer AS ans
+        JOIN
+            search_preference_answer AS pref
+        ON
+            pref.question_id = ans.question_id
+        WHERE
+            pref.person_id = %(searcher_person_id)s AND
+            pref.accept_unanswered = FALSE AND
+            ans.answer IS NOT NULL
+        GROUP BY
+            ans.person_id
+        HAVING
+            count(*) = (
+                SELECT count(*)
+                FROM search_preference_answer
+                WHERE
+                    person_id = %(searcher_person_id)s AND
+                    accept_unanswered = FALSE
+            )
     )
 """)
 
@@ -271,6 +301,12 @@ SELECT
         FROM search_preference_answer
         WHERE person_id = person.id
     ) AS has_answer_prefs,
+    EXISTS (
+        SELECT 1
+        FROM search_preference_answer
+        WHERE person_id = person.id
+        AND accept_unanswered = FALSE
+    ) AS has_required_answer_prefs,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
     EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
@@ -339,7 +375,11 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
 
     if row_bool(prefs, 'has_answer_prefs'):
         params['searcher_person_id'] = row_int(prefs, 'searcher_person_id')
-        clauses.append(_ANSWER_NOT_EXISTS)
+        clauses.append(_ANSWER_NOT_CONTRARY)
+
+    if row_bool(prefs, 'has_required_answer_prefs'):
+        params['searcher_person_id'] = row_int(prefs, 'searcher_person_id')
+        clauses.append(_ANSWER_REQUIRED_ANSWERED)
 
     return ProspectFilters(clauses=clauses, params=params)
 

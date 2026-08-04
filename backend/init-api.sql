@@ -1036,11 +1036,6 @@ CREATE INDEX IF NOT EXISTS idx__search_preference_distance__person_id__distance
 CREATE INDEX IF NOT EXISTS idx__search_preference_height_cm__person_id__bounds
     ON search_preference_height_cm(person_id) INCLUDE (min_height_cm, max_height_cm);
 
-CREATE INDEX IF NOT EXISTS
-    idx__person__personality
-    ON person
-    USING hnsw (personality vector_ip_ops);
-
 
 --------------------------------------------------------------------------------
 -- DATA

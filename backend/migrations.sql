@@ -17,3 +17,9 @@ CREATE INDEX IF NOT EXISTS idx__search_preference_distance__person_id__distance
 
 CREATE INDEX IF NOT EXISTS idx__search_preference_height_cm__person_id__bounds
     ON search_preference_height_cm(person_id) INCLUDE (min_height_cm, max_height_cm);
+
+-- The HNSW graph degenerates when many people share byte-identical
+-- personality vectors (every unanswered profile holds the default), silently
+-- omitting matching prospects from /search; the search now orders by exact
+-- distance instead, and nothing else queries by personality proximity.
+DROP INDEX IF EXISTS idx__person__personality;

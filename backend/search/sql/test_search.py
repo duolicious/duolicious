@@ -50,6 +50,7 @@ def maximal_prefs() -> Row:
         show_messaged=False,
         show_skipped=False,
         has_answer_prefs=True,
+        has_required_answer_prefs=True,
         searcher_person_id=1,
         searcher_coordinates='POINT(0 0)',
         searcher_personality='[0]',
