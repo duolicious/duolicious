@@ -178,7 +178,7 @@ diff -u --color \
 
 echo "An intro from a sender outside the viewer's search filters is flagged"
 
-q "update search_preference_age set min_age = 90, max_age = 99 where person_id = ${user1id}"
+q "update search_preference set min_age = 90, max_age = 99 where person_id = ${user1id}"
 
 actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 
@@ -186,7 +186,7 @@ diff -u --color \
   <(echo "$actual_snapshot") \
   <(jq -S '[. | .matches_search_filters = false]' <<< "$expected_entry")
 
-q "update search_preference_age set min_age = null, max_age = null where person_id = ${user1id}"
+q "update search_preference set min_age = null, max_age = null where person_id = ${user1id}"
 
 actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 
@@ -197,7 +197,7 @@ echo "An intro whose sender's own filters exclude a two-way viewer is flagged"
 
 # The sender (user2) only wants to see 90-99 year olds, which excludes the
 # ~26yo viewer (user1).
-q "update search_preference_age set min_age = 90, max_age = 99 where person_id = ${user2id}"
+q "update search_preference set min_age = 90, max_age = 99 where person_id = ${user2id}"
 
 # One-way (default): the sender's own age filter is ignored, so still matches.
 actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
@@ -213,7 +213,7 @@ diff -u --color \
   <(jq -S '[. | .matches_search_filters = false]' <<< "$expected_entry")
 
 jc POST /search-filter -d '{ "two_way_filters": { "age": false } }'
-q "update search_preference_age set min_age = null, max_age = null where person_id = ${user2id}"
+q "update search_preference set min_age = null, max_age = null where person_id = ${user2id}"
 
 actual_snapshot=$(query_inbox_snapshot user1 | snapshot_conversations)
 diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")

@@ -39,7 +39,7 @@ response=$(c POST /finish-onboarding)
 [[ $(jq <<< "$response" -r '.pending_club.name') = 'anime' ]]
 
 [[ $(q "select count(*) from person_club where club_name = 'anime'") = 1 ]]
-[[ $(q "select count(*) from search_preference_club where club_name = 'anime'") = 1 ]]
+[[ $(q "select count(*) from search_preference where club_name = 'anime'") = 1 ]]
 
 response=$(c POST /check-session-token)
 
@@ -63,4 +63,4 @@ response=$(jc POST /check-otp -d '{ "otp": "000000" }')
 [[ $(jq <<< "$response" -r '.pending_club.name') = 'manga' ]]
 
 [[ $(q "select count(*) from person_club where club_name = 'manga'") = 1 ]]
-[[ $(q "select count(*) from search_preference_club where club_name = 'manga'") = 1 ]]
+[[ $(q "select count(*) from search_preference where club_name = 'manga'") = 1 ]]

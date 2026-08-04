@@ -9,7 +9,7 @@ from searchfilters import (
 
 
 
-Q_UPSERT_SEARCH_PREFERENCE_CLUB = """
+Q_SET_SEARCH_PREFERENCE_CLUB = """
 UPDATE
     search_preference
 SET

@@ -11,7 +11,7 @@ from search.sql.search import (
     Q_CACHED_SEARCH,
     Q_DELETE_SEARCH_CACHE,
     Q_QUIZ_SEARCH,
-    Q_UPSERT_SEARCH_PREFERENCE_CLUB,
+    Q_SET_SEARCH_PREFERENCE_CLUB,
     build_uncached_search,
 )
 
@@ -24,6 +24,6 @@ __all__ = [
     'Q_PUBLIC_SEARCH',
     'Q_PUBLIC_SEARCH_WITH_ANSWERS',
     'Q_QUIZ_SEARCH',
-    'Q_UPSERT_SEARCH_PREFERENCE_CLUB',
+    'Q_SET_SEARCH_PREFERENCE_CLUB',
     'build_uncached_search',
 ]

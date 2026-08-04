@@ -276,9 +276,9 @@ test_hide_online_status () {
 
   q "update person set gender_id = 1 where name = 'user1'"
   q "update person set gender_id = 2 where name = 'user2'"
-  q "delete from search_preference_gender
-     where person_id = (select id from person where name = 'searcher')
-     and gender_id <> 1"
+  q "update search_preference
+     set gender_ids = array(select x from unnest(gender_ids) x where x = 1)
+     where person_id = (select id from person where name = 'searcher')"
 
   assume_role user1
   jc PATCH /profile-info \

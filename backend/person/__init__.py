@@ -19,7 +19,7 @@ import boto3
 import asyncio
 import asyncboto
 from person.sql import *
-from search.sql import Q_UPSERT_SEARCH_PREFERENCE_CLUB
+from search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from searchfilters import TWO_WAY_FILTER_KEYS
 from commonsql import *
 from qanda import _flush_session_answers
@@ -272,7 +272,7 @@ async def _handle_pending_club(
     )
     if person_id is not None and pending_club_name is not None:
         await tx.execute(Q_JOIN_CLUB, club_params)
-        await tx.execute(Q_UPSERT_SEARCH_PREFERENCE_CLUB, club_params)
+        await tx.execute(Q_SET_SEARCH_PREFERENCE_CLUB, club_params)
     return await tx.require_one(Q_GET_SESSION_CLUBS, club_params)
 
 

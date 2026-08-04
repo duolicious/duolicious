@@ -60,11 +60,13 @@ exclude_basic () {
   local enum=${4:-$basic_name}
 
   local query="
-  delete from search_preference_${basic_name}
+  update search_preference
+  set ${basic_name}_ids = array_remove(
+    ${basic_name}_ids,
+    (select id from $enum where name = '${basic_value}')::smallint
+  )
   where
     person_id = (select id from person where email = '${user}@example.com')
-  and
-    ${basic_name}_id = (select id from $enum where name = '${basic_value}')
   "
 
   q "$query"
@@ -103,48 +105,48 @@ test_range () {
 
   # Min ${basic_name}
   q "
-  update search_preference_${basic_name} set min_${basic_name} = 50
+  update search_preference set min_${basic_name} = 50
   where person_id = (select id from person where email = 'searcher@example.com')"
   assert_search_names 'user1 user2'
   q "
-  update search_preference_${basic_name} set min_${basic_name} = 51
+  update search_preference set min_${basic_name} = 51
   where person_id = (select id from person where email = 'searcher@example.com')"
   assert_search_names 'user2'
 
   # Unset preferences
-  q "update search_preference_${basic_name} set min_${basic_name} = null"
+  q "update search_preference set min_${basic_name} = null"
 
   # Max ${basic_name}
   q "
-  update search_preference_${basic_name} set max_${basic_name} = 60
+  update search_preference set max_${basic_name} = 60
   where person_id = (select id from person where email = 'searcher@example.com')"
   assert_search_names 'user1 user2'
   q "
-  update search_preference_${basic_name} set max_${basic_name} = 59
+  update search_preference set max_${basic_name} = 59
   where person_id = (select id from person where email = 'searcher@example.com')"
   assert_search_names 'user1'
 
   # Min ${basic_name} and max ${basic_name} together
   q "
-  update search_preference_${basic_name} set min_${basic_name} = 50
+  update search_preference set min_${basic_name} = 50
   where person_id = (select id from person where email = 'searcher@example.com')"
   q "
-  update search_preference_${basic_name} set max_${basic_name} = 60
+  update search_preference set max_${basic_name} = 60
   where person_id = (select id from person where email = 'searcher@example.com')"
   assert_search_names 'user1 user2'
 
   q "
-  update search_preference_${basic_name} set min_${basic_name} = 51
+  update search_preference set min_${basic_name} = 51
   where person_id = (select id from person where email = 'searcher@example.com')"
   q "
-  update search_preference_${basic_name} set max_${basic_name} = 59
+  update search_preference set max_${basic_name} = 59
   where person_id = (select id from person where email = 'searcher@example.com')"
   assert_search_names ''
 }
 
 test_basic_age () {
   setup
-  q "update search_preference_age set min_age = NULL, max_age = NULL"
+  q "update search_preference set min_age = NULL, max_age = NULL"
   q "
   update person set date_of_birth = (now() - interval '50 years')::date
   where email = 'user1@example.com'"
@@ -506,18 +508,18 @@ test_interaction_in_standard_search_skipped () {
   c POST "/skip/by-uuid/${user1_uuid}"
 
   q "
-  update search_preference_skipped
+  update search_preference
   set
-    skipped_id = 1
+    show_skipped = true
   where
     person_id = (select id from person where email = 'searcher@example.com')"
 
   assert_search_names 'user1 user2'
 
   q "
-  update search_preference_skipped
+  update search_preference
   set
-    skipped_id = 2
+    show_skipped = false
   where
     person_id = (select id from person where email = 'searcher@example.com')"
 
@@ -660,7 +662,7 @@ test_interaction_in_standard_search_skipped_symmetry() {
   setup
 
   # Everyone wants to see people they skipped
-  q "update search_preference_skipped set skipped_id = 1"
+  q "update search_preference set show_skipped = true"
 
   # Searcher can see everyone
   assert_search_names 'user1 user2'
@@ -977,14 +979,14 @@ test_pending_club_cleared () {
 
   jc POST /join-club -d '{ "name": "my-club" }'
 
-  q "update search_preference_club set club_name = 'my-club'"
+  q "update search_preference set club_name = 'my-club'"
 
   search_names
 
   local num_matches=$(
     q "select count(*) \
-      from search_preference_club \
-      where person_id = '$searcher_id'"
+      from search_preference \
+      where person_id = '$searcher_id' and club_name is not null"
   )
 
   [[ "$num_matches" = 0 ]]

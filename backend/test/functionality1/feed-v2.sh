@@ -138,17 +138,19 @@ test_json_format () {
      where name in ('user4', 'user6', 'user7')"
 
   # user10 doesn't prefer the searcher's gender
-  q "delete from search_preference_gender
-     where person_id = (select id from person where name = 'user10')
-     and gender_id = (select id from gender where name = 'Other')"
+  q "update search_preference
+     set gender_ids = array_remove(
+       gender_ids, (select id from gender where name = 'Other')::smallint)
+     where person_id = (select id from person where name = 'user10')"
 
   # user11 has a gender the searcher doesn't prefer
   q "update person
      set gender_id = (select id from gender where name = 'Man')
      where name = 'user11'"
-  q "delete from search_preference_gender
-     where person_id = (select id from person where name = 'searcher')
-     and gender_id = (select id from gender where name = 'Man')"
+  q "update search_preference
+     set gender_ids = array_remove(
+       gender_ids, (select id from gender where name = 'Man')::smallint)
+     where person_id = (select id from person where name = 'searcher')"
 
   # user12's age is outside the searcher's age preference (which defaults to
   # 22-30 for the 26-year-olds which create-user.sh creates)
@@ -158,7 +160,7 @@ test_json_format () {
 
   # user13 has an age preference the searcher doesn't meet, but the age
   # filter is one-way, so user13 still appears in the searcher's feed
-  q "update search_preference_age set min_age = 30, max_age = 40
+  q "update search_preference set min_age = 30, max_age = 40
      where person_id = (select id from person where name = 'user13')"
 
   q "update person
