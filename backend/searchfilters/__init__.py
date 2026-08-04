@@ -8,6 +8,7 @@ from database import (
     Row,
     row_bool,
     row_int,
+    row_int_list,
     row_int_list_or_none,
     row_int_or_none,
     row_str,
@@ -158,35 +159,24 @@ _ANSWER_NOT_CONTRARY = sql_fragment("""
 """)
 
 
-# The prospect answered every Q&A filter whose accept_unanswered is FALSE.
-# Emitted only when the searcher has such a filter: with zero required
-# questions the IN set is empty and would exclude everyone.
-_ANSWER_REQUIRED_ANSWERED = sql_fragment("""
-    prospect.id IN (
-        SELECT
-            ans.person_id
-        FROM
-            answer AS ans
-        JOIN
-            search_preference_answer AS pref
-        ON
-            pref.question_id = ans.question_id
-        WHERE
-            pref.person_id = %(searcher_person_id)s AND
-            pref.accept_unanswered = FALSE AND
-            ans.answer IS NOT NULL
-        GROUP BY
-            ans.person_id
-        HAVING
-            count(*) = (
-                SELECT count(*)
-                FROM search_preference_answer
-                WHERE
-                    person_id = %(searcher_person_id)s AND
-                    accept_unanswered = FALSE
-            )
-    )
-""")
+# The prospect answered this Q&A filter whose accept_unanswered is FALSE. One
+# clause per required question rather than a single aggregated set: a GROUP
+# BY/HAVING subquery gets un-nested into a semi-join against an unindexed
+# aggregate, which the planner nested-loops under row misestimates (>60s on
+# prod data), whereas plain membership in `answer` keeps its indexes usable by
+# every join strategy.
+def _answer_required_clause(param: str) -> str:
+    return sql_fragment(f"""
+        prospect.id IN (
+            SELECT
+                person_id
+            FROM
+                answer
+            WHERE
+                question_id = %({param})s AND
+                answer IS NOT NULL
+        )
+    """)
 
 
 _PARAM_ENUM_SELECTS = ',\n'.join(
@@ -301,12 +291,13 @@ SELECT
         FROM search_preference_answer
         WHERE person_id = person.id
     ) AS has_answer_prefs,
-    EXISTS (
-        SELECT 1
+    ARRAY(
+        SELECT question_id
         FROM search_preference_answer
         WHERE person_id = person.id
         AND accept_unanswered = FALSE
-    ) AS has_required_answer_prefs,
+        ORDER BY question_id
+    ) AS required_answer_question_ids,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
     EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
@@ -377,9 +368,11 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
         params['searcher_person_id'] = row_int(prefs, 'searcher_person_id')
         clauses.append(_ANSWER_NOT_CONTRARY)
 
-    if row_bool(prefs, 'has_required_answer_prefs'):
-        params['searcher_person_id'] = row_int(prefs, 'searcher_person_id')
-        clauses.append(_ANSWER_REQUIRED_ANSWERED)
+    for i, question_id in enumerate(
+            row_int_list(prefs, 'required_answer_question_ids')):
+        param = f'required_answer_question_id_{i}'
+        params[param] = question_id
+        clauses.append(_answer_required_clause(param))
 
     return ProspectFilters(clauses=clauses, params=params)
 

@@ -56,6 +56,12 @@ def string_list(value: object, field_name: str | None = None) -> list[str]:
     return cast(list[str], value)
 
 
+def int_list(value: object, field_name: str | None = None) -> list[int]:
+    if not isinstance(value, list) or not all(isinstance(x, int) for x in value):
+        raise RuntimeError(_message('a list of integers', field_name))
+    return cast(list[int], value)
+
+
 def optional_int_list(
     value: object,
     field_name: str | None = None,
