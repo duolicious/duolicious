@@ -15,68 +15,68 @@
 -- distance instead, and nothing else queries by personality proximity.
 DROP INDEX IF EXISTS idx__person__personality;
 
-CREATE TABLE IF NOT EXISTS search_preference (
-    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-
-    gender_ids              SMALLINT[] NOT NULL,
-    orientation_ids         SMALLINT[] NOT NULL,
-    ethnicity_ids           SMALLINT[] NOT NULL,
-    has_profile_picture_ids SMALLINT[] NOT NULL,
-    looking_for_ids         SMALLINT[] NOT NULL,
-    smoking_ids             SMALLINT[] NOT NULL,
-    drinking_ids            SMALLINT[] NOT NULL,
-    drugs_ids               SMALLINT[] NOT NULL,
-    long_distance_ids       SMALLINT[] NOT NULL,
-    relationship_status_ids SMALLINT[] NOT NULL,
-    has_kids_ids            SMALLINT[] NOT NULL,
-    wants_kids_ids          SMALLINT[] NOT NULL,
-    exercise_ids            SMALLINT[] NOT NULL,
-    religion_ids            SMALLINT[] NOT NULL,
-    star_sign_ids           SMALLINT[] NOT NULL,
-
-    min_age SMALLINT,
-    max_age SMALLINT,
-    min_height_cm SMALLINT,
-    max_height_cm SMALLINT,
-    distance SMALLINT,
-
-    last_online_id SMALLINT NOT NULL REFERENCES last_online(id) ON DELETE CASCADE,
-
-    club_name TEXT REFERENCES club(name) ON DELETE SET NULL,
-
-    show_messaged BOOLEAN NOT NULL DEFAULT TRUE,
-    show_skipped BOOLEAN NOT NULL DEFAULT FALSE,
-
-    two_way_gender                BOOLEAN NOT NULL DEFAULT TRUE,
-    two_way_age                   BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_furthest_distance     BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_orientation           BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_relationship_status   BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_looking_for           BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_wants_kids            BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_has_kids              BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_has_a_profile_picture BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_drugs                 BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_long_distance         BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_ethnicity             BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_smoking               BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_religion              BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_drinking              BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_height                BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_exercise              BOOLEAN NOT NULL DEFAULT FALSE,
-    two_way_star_sign             BOOLEAN NOT NULL DEFAULT FALSE
-);
-
--- Backfill the flat row for people who predate it, from the per-attribute
--- preference tables. Those tables are already unmaintained by this release's
--- code and are dropped by the next release's migrations, along with this
--- backfill; the to_regclass guard keeps this file valid on fresh databases
--- where init-api.sql never creates them.
+-- Create the flat table and backfill it from the per-attribute preference
+-- tables, which this release's code no longer maintains and the next
+-- release's migrations drop, along with this whole block. Their absence means
+-- there is nothing to upgrade: init-api.sql already creates the flat table on
+-- a fresh database, and once they are dropped the work is long done.
 DO $$
 BEGIN
     IF to_regclass('search_preference_gender') IS NULL THEN
         RETURN;
     END IF;
+
+    CREATE TABLE IF NOT EXISTS search_preference (
+        person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+
+        gender_ids              SMALLINT[] NOT NULL,
+        orientation_ids         SMALLINT[] NOT NULL,
+        ethnicity_ids           SMALLINT[] NOT NULL,
+        has_profile_picture_ids SMALLINT[] NOT NULL,
+        looking_for_ids         SMALLINT[] NOT NULL,
+        smoking_ids             SMALLINT[] NOT NULL,
+        drinking_ids            SMALLINT[] NOT NULL,
+        drugs_ids               SMALLINT[] NOT NULL,
+        long_distance_ids       SMALLINT[] NOT NULL,
+        relationship_status_ids SMALLINT[] NOT NULL,
+        has_kids_ids            SMALLINT[] NOT NULL,
+        wants_kids_ids          SMALLINT[] NOT NULL,
+        exercise_ids            SMALLINT[] NOT NULL,
+        religion_ids            SMALLINT[] NOT NULL,
+        star_sign_ids           SMALLINT[] NOT NULL,
+
+        min_age SMALLINT,
+        max_age SMALLINT,
+        min_height_cm SMALLINT,
+        max_height_cm SMALLINT,
+        distance SMALLINT,
+
+        last_online_id SMALLINT NOT NULL REFERENCES last_online(id) ON DELETE CASCADE,
+
+        club_name TEXT REFERENCES club(name) ON DELETE SET NULL,
+
+        show_messaged BOOLEAN NOT NULL DEFAULT TRUE,
+        show_skipped BOOLEAN NOT NULL DEFAULT FALSE,
+
+        two_way_gender                BOOLEAN NOT NULL DEFAULT TRUE,
+        two_way_age                   BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_furthest_distance     BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_orientation           BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_relationship_status   BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_looking_for           BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_wants_kids            BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_has_kids              BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_has_a_profile_picture BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_drugs                 BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_long_distance         BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_ethnicity             BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_smoking               BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_religion              BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_drinking              BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_height                BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_exercise              BOOLEAN NOT NULL DEFAULT FALSE,
+        two_way_star_sign             BOOLEAN NOT NULL DEFAULT FALSE
+    );
 
     INSERT INTO search_preference (
         person_id,
@@ -193,9 +193,7 @@ BEGIN
         SELECT 1 FROM search_preference WHERE person_id = person.id
     )
     ON CONFLICT (person_id) DO NOTHING;
+
+    ANALYZE search_preference;
 END
 $$;
-
--- The backfill can create the table's whole contents in one transaction;
--- without stats the planner mangles the first searches after boot.
-ANALYZE search_preference;
