@@ -979,8 +979,6 @@ test_pending_club_cleared () {
 
   jc POST /join-club -d '{ "name": "my-club" }'
 
-  q "update search_preference set club_name = 'my-club'"
-
   search_names
 
   local num_matches=$(
