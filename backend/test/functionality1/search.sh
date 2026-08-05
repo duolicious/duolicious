@@ -979,15 +979,28 @@ test_pending_club_cleared () {
 
   jc POST /join-club -d '{ "name": "my-club" }'
 
+  q "update search_preference set club_name = 'my-club'"
+  q "
+  update duo_session set pending_club_name = 'my-club'
+  where person_id = '$searcher_id'"
+
   search_names
 
-  local num_matches=$(
+  local num_pending=$(
     q "select count(*) \
-      from search_preference \
-      where person_id = '$searcher_id' and club_name is not null"
+      from duo_session \
+      where person_id = '$searcher_id' and pending_club_name is not null"
   )
 
-  [[ "$num_matches" = 0 ]]
+  [[ "$num_pending" = 0 ]]
+
+  local club_name=$(
+    q "select club_name \
+      from search_preference \
+      where person_id = '$searcher_id'"
+  )
+
+  [[ "$club_name" = my-club ]]
 }
 
 test_pending_club_cleared
