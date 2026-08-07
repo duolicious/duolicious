@@ -6,7 +6,7 @@ The world's most popular open-source dating app.</p>
 </p>
 
 <p align="center">
-<a href="https://web.duolicious.app/"><img src="https://img.shields.io/badge/web-web.duolicious.app-7700ff" alt="Duolicious on the web"/></a>
+<a href="https://duolicious.app/"><img src="https://img.shields.io/badge/web-duolicious.app-7700ff" alt="Duolicious on the web"/></a>
 <a href="https://play.google.com/store/apps/details?id=app.duolicious"><img src="https://img.shields.io/badge/Google%20Play-app.duolicious-7700ff?logo=googleplay&logoColor=white" alt="Duolicious on Google Play"/></a>
 <a href="https://apps.apple.com/us/app/duolicious-dating-app/id6499066647"><img src="https://img.shields.io/badge/App%20Store-Duolicious-7700ff?logo=appstore&logoColor=white" alt="Duolicious on the App Store"/></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-7700ff" alt="AGPL-3.0 licensed"/></a>
@@ -19,7 +19,7 @@ There's no swiping; people connect by starting a conversation. The client and th
 servers behind it both live in this repo under the AGPL-3.0, so you're welcome to
 read how it works, run your own copy, or send a patch.
 
-Try it now in your browser at **[web.duolicious.app](https://web.duolicious.app/)**,
+Try it now in your browser at **[duolicious.app](https://duolicious.app/)**,
 or grab it on
 **[Google Play](https://play.google.com/store/apps/details?id=app.duolicious)**
 and the
