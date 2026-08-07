@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/blog/the-communist-dating-manifesto-why-matchmaking-services-should-be-socialized/">
+  <link rel="canonical" href="https://web.duolicious.app/blog/the-communist-dating-manifesto-why-matchmaking-services-should-be-socialized/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>The communist dating manifesto: Why matchmaking services should be socialized</h1>
+
+      <i>Published December 17, 2024</i>
+
+      <h2>We have extremist beliefs about online dating</h2>
+      <p>Online dating is the most popular way for couples to meet today.<sup><a href="#ref-1">1</a></sup> Previously, couples were much more likely to meet through family, mutual friends, or shared communities (including work and religious groups). However, the rise of online dating has shifted matchmaking decisions away from people and communities who have your best interests in mind, into the hands of for-profit multinational companies.</p>
+      <p>The perverse incentive this creates has been commonly noted; Dating app companies are disincentivized from quickly generating lasting relationships because profits are maximized by retaining users and by encouraging users who leave to later return. The problem is so frequently lamented that it’s even referred to by some of the world’s biggest dating apps themselves, including Hinge, whose trademarked slogan is “designed to be deleted”. Yet Hinge’s for-profit business model is the same as its competitors.</p>
+      <p>This paradox of incentives makes it impossible for-profit dating apps to prioritize the interests of long-term daters. For this reason, and many others which we’ll explain, online dating must be socialized in order to maximize users’ satisfaction and to benefit society in general.</p>
+
+      <h3>A small caveat</h3>
+      <p>Before we go any further, it’s important to point out that this paradox of incentives doesn’t arise for short-term dating apps—only long-term dating apps. For short-term dating, market incentives and the goals of dating apps are arguably highly aligned.</p>
+
+
+
+      <h2>When should a service be socialized?</h2>
+      <p>The idea of socializing a service is so mundane that we don’t even think about it. Common socialized services include:</p>
+      <ul>
+        <li>Schools</li>
+        <li>Libraries</li>
+        <li>Postal services</li>
+        <li>Firefighting</li>
+        <li>Social security</li>
+        <li>Garbage collection</li>
+        <li>Roads</li>
+        <li>National Parks</li>
+        <li>Wikipedia</li>
+      </ul>
+      <p>Let’s take a moment to consider what these services have in common and how they differ from privatized services. In general, the decision to socialize a service depends on a few factors:</p>
+      <ul>
+        <li><b>Essential for Basic Human Needs</b> – Is the service essential to satisfy a basic human need?</li>
+        <li><b>Market Failure</b> – Would the free market fail to provide the service to an acceptable standard?</li>
+        <li><b>Public Good</b> – Is the service non-excludable and non-rivalrous?</li>
+        <li><b>Economic Equity</b> – Would privatization lead to inequity?</li>
+        <li><b>External Effects</b> – Does the service affect members of society who aren’t using it right now?</li>
+        <li><b>Moral or Ethical Imperatives</b> – Is there a moral right to the service?</li>
+      </ul>
+      <p>You can see that the services listed above satisfy these factors. If a service ticks all these boxes, it’s a pretty good indication that it should be socialized. Let’s see if dating apps fit this rubric too.</p>
+
+
+      <h3>Essential for basic human needs</h3>
+      <p>Now that dating apps have become the most common way to meet a romantic partner,<sup><a href="#ref-1">1</a></sup> other avenues have been largely displaced. Although other avenues can still be socially acceptable, their displacement by dating apps makes romantic advances more likely to be understood as harassment. That means that in the contemporary world, dating apps are essential for safely finding a loving relationship. Romantic love itself is a fundamental human need due to its profound impact on psychological and physiological wellbeing.</p>
+      <p>People in fulfilling romantic relationships are known to experience lower levels of stress and anxiety. Because of this, people in stable romantic relationships tend to have longer lifespans. Researchers have found that married people or those in long-term partnerships had a reduced risk of mortality compared to their single counterparts.<sup><a href="#ref-2">2</a></sup> The emotional support provided by a partner can encourage healthier lifestyles, such as better diet and exercise habits, and can promote adherence to medical treatments.</p>
+      <p>In contrast, the absence of romantic love or supportive close relationships can have detrimental effects on wellbeing. Loneliness and social isolation have been linked to increased risks of depression, cardiovascular disease, and a shorter lifespan. One study found that social isolation could be as significant a risk factor for mortality as well-established factors like smoking and obesity.<sup><a href="#ref-3">3</a></sup></p>
+
+      <h3>Market failure</h3>
+      <p>It’s impossible for the free market to fund a dating app which completely satisfies the interests of long-term daters. Dating apps funded in this way face an inherent tension between their goal of helping people find meaningful relationships and their need to generate ongoing revenue.</p>
+      <p>Dating apps often earn money through subscriptions, ads, or microtransactions. These rely on a consistent and engaged user base. If users quickly find matches and leave the platform, the app loses its paying customers or ad viewers, which reduces its profitability. Consequently, there's a financial incentive to design the app to keep users engaged for longer periods, even if that means delaying or complicating successful matches.</p>
+
+
+      <h3>Public good</h3>
+      <p>In economics, a public good (or service) is one which is non-excludable and non-rivalrous. A non-excludable good is one which can’t be limited to paying customers. A non-rivalrous good is one where one person’s consumption of it doesn’t diminish another person’s consumption of it.</p>
+      <p>By their nature, dating apps are both non-excludable and non-rivalrous. To see why, let’s consider Hinge. During its initial incarnations, Hinge tried to exclude membership to paying customers only.<sup><a href="#ref-4">4</a></sup> However, Hinge’s founder discovered that this caused the number of users to trend downward as most members weren’t willing to pay for a dating app. This is an example of non-excludability.</p>
+      <p>In addition, users want a dating service which has a lot of other members they can meet. Adding a new member doesn’t prevent consumption of the service by other members. In fact, the more members are on an app, the better it is to use. In other words, dating apps are so non-rivalrous that they’re anti-rivalrous!</p>
+      <p>Despite the fact that the core functionality of dating apps are non-excludable and non-rivalrous, dating app companies still tack-on contrivances designed to extract money from users, such as selling the ability to see likes or promote one’s profile. It’s important to distinguish these paid-for elements from the core functionality of the app. The paid-for contrivances are merely parasitic and couldn’t exist if they weren’t sustained by the core functionality of the app.</p>
+
+
+      <h3>Economic equity</h3>
+      <p>Even though love is essential for our mental and physiological health, the world’s biggest dating apps give paying customers features designed to improve their odds of finding love. We believe everyone should be given an equal chance to find love, no matter how much money they make.</p>
+      <p>Freemium dating apps like Tinder and Bumble restrict access to essential features behind paywalls. For example, Tinder’s premium tiers, such as Tinder Plus and Gold, offer perks like unlimited likes, visibility boosts, and the ability to see who has liked your profile—For a monthly price. Similarly, Bumble Premium provides advanced filters, travel mode, and early access to matches. These subscription models create inequity by offering a better experience to users who can afford to pay, leaving those with limited financial means at a disadvantage.</p>
+      <p>In contrast, free and open-source alternatives provide equal access to all users without requiring payment. Socialized dating apps ensure that users from all economic backgrounds have the same opportunities to connect. By removing financial barriers, these platforms foster inclusivity and economic equity in online dating, addressing disparities perpetuated by paid services.</p>
+
+
+      <h3>External effects</h3>
+      <p>Dating apps have far-reaching, pronounced and manifold effects on society. One key area is the economy. Effective matchmaking services can stimulate the economy by increasing the fertility rate. Based on this, Tokyo’s government has released its own dating app<sup><a href="#ref-5">5</a></sup> in a bid to boost fertility rates. Fertility rates also influence governmental decisions about immigration. Higher fertility rates generally reduce the need to stimulate the economy via immigration, for example.</p>
+      <p>Although very pronounced, the economic effect dating apps have is obscured by the duration it takes for the effect to happen. If a couple meets on a dating app and has a child, it’ll be about two decades before their child can contribute to the economy. It’s important to point out that while the delay makes the effect of dating apps on society less evident, it doesn’t diminish the strength of the effect whatsoever. The influence that dating apps have on society is still considerably stronger than many other amenities society has socialized without a second thought, such as national parks.</p>
+
+
+      <h3>Moral or ethical imperatives</h3>
+      <p>As online dating has become the most common way for couples to meet, access to these platforms has effectively become a modern necessity for forming relationships. However, many private platforms create barriers through costly features, biased algorithms, and exploitative practices that prioritize profit over connection. A socialized matchmaking service could address these issues by ensuring equitable access for all, reducing discriminatory practices, and designing systems that prioritize meaningful, long-term relationships instead of superficial engagement.</p>
+
+
+
+      <h2>Challenges to the socialization of dating apps</h2>
+
+      <h3>Comparatively weak financial position</h3>
+      <p>Depending on the way a socialized dating app generates its income, for-profit dating apps will likely generate more profit from their users. The profit can be used to advertise to new customers and improve the app.</p>
+      <p>For a dating app socialized by donations, there’s no clear solution to this challenge. Realistically, word-of-mouth advertising is unlikely to be as effective as paid-for ads. A government-run tax-funded dating app is far more capable of overcoming this issue than a donation-funded one (although that also introduces concerns about privacy, censorship, and other issues that come with governmental overreach).</p>
+
+
+      <h3>Legal risks</h3>
+
+      <h4>Vulnerability to lobbying by competitors</h4>
+      <p>The comparatively weak financial position of a socialized dating app heightens its level of organizational risk. Dating app companies frequently lobby governments to create favorable business conditions for themselves, and unfavourable conditions for competitors. For example, Match Group spent $1,740,000 on lobbying in 2023. Match Group’s spending on lobbyists has increased year-after-year for the past 5 years between 2020 and 2024, inclusive.<sup><a href="#ref-6">6</a></sup> A socialized dating app will probably lack the money required to effectively defend itself from unfavourable laws which are passed as a result of competitors’ lobbying.</p>
+
+      <h4>Vulnerability to legal action</h4>
+      <p>Big online platforms are also frequently threatened with legal action, which is costly even if the organization isn’t at-fault, or has the best of intentions.<sup><a href="#ref-7">7</a></sup></p>
+
+
+      <h2>Strengths unique to socialized dating apps</h2>
+      <p>A key criticism faced by dating apps is that they profiteer from users’ human need to find love, thereby cheapening something that societies immemorial have universally revered. A socialized dating app, by definition, wouldn’t exploit its users in this way. The improved ethics of this model may be used to promote the app.</p>
+
+      <p>Because a socialized dating app operates for a clear social benefit, it will likely be possible to register the legal entity which operates it as a not-for-profit. Doing so will reduce the organization’s taxes. Additionally, Apple and Google also offer discounted transaction processing to approved not-for-profits which use their app stores. These reduced costs could translate to improved outcomes for users.</p>
+
+
+      <h2>Possible paths to socialized dating apps</h2>
+
+      <h3>Funding the app using companion businesses</h3>
+      <h4>Funding the app using short-term dating services</h4>
+      <p>As mentioned, the goals of short-term daters are well aligned with the monetization goals of short-term dating apps. To see this, consider that a short-term dating app can maximize its profit by having returning users who spend a lot of time on the platform. Also, someone who uses a dating app for casual sex or short-term dating would return to the platform as a matter of course.</p>
+      <p>This alignment of incentives creates an opportunity to build a separate dating app for short-term dating, which operates for profit. Profits can be donated to a not-for-profit long-term dating app. This activity needn’t be purely altruistic, as the long- and short-term dating apps could promote each other in their marketing.</p>
+      <p>As an example, Bumble’s taken a dual-app approach by having “Bumble” and “Bumble BFF”. Although both apps use the freemium model.</p>
+
+      <h4>Funding the app using merchandise</h4>
+      <p>This is a common way for not-for-profit and for-profit organizations to fund their activities. For example, Wikipedia and Bumble both have merchandise stores.</p>
+      <p>The drawback of this approach is that it’s very difficult to make money this way. Similarweb estimates that Wikipedia received 4 billion visits in November 2024. Yet store.wikimedia.org received 177 thousand visits in that same time. That’s one 20 thousandth of the visits. The situation isn’t quite so dire for Duolingo’s store—Theirs gets one 20th of the visits to their main site (3 million vs 65 million visits)—But it still illustrates the difficulty of making a merchandise store which can sustain the main organization.</p>
+
+      <h3>Funding the app via donations</h3>
+      <p>Duolicious currently uses this as its primary source of income. A serious drawback of this method is that it earns us less than 1% of Tinder’s revenue per monthly active user. This is enough to cover running costs, but it’s not enough money to promote Duolicious.</p>
+      <p>To see this, consider that Duolicious currently has about 20,000 monthly active users. Supporters donate about $400 per month. Tinder’s customer acquisition cost is (according to some estimates) about $1. Tinder makes about $3 per monthly active user, per month.<sup><a href="#ref-8">8</a></sup> What this means is that if we made as much money as Tinder does, per user, we’d be able to acquire about 3×20,000 = 60,000 new monthly active users per month.</p>
+
+
+      <h3>Tax- or subsidy-based funding from the government</h3>
+      <p>This is an approach that’s so far been tried in Japan, for their Tokyo Enmusubi dating app. The drawback of this approach is that if it were tried by the United States government, every aspect of the app would be terrible.</p>
+
+      <h3>A combination of the above</h3>
+      <p>For example, the government could subsidize the app by paying the shortfall left by donations or merchandise.</p>
+      <p>Another example is Bumble, which has a merchandise store in addition to its main business.</p>
+
+      <h2>References</h2>
+      <ol>
+        <li id="ref-1">https://news.stanford.edu/stories/2019/08/online-dating-popular-way-u-s-couples-meet</li>
+        <li id="ref-2">https://www.sciencedirect.com/science/article/abs/pii/S1047279799000526</li>
+        <li id="ref-3">https://journals.sagepub.com/doi/10.1177/1745691614568352</li>
+        <li id="ref-4">https://www.npr.org/2021/03/19/979188827/hinge-justin-mcleod (1:09:20)</li>
+        <li id="ref-5">https://english.kyodonews.net/news/2024/09/fce6ff5d9216-tokyo-govt-launches-ai-dating-app-to-match-couples-boost-births.html</li>
+        <li id="ref-6">https://www.opensecrets.org/federal-lobbying/clients/summary?cycle=2023&amp;id=D000070774</li>
+        <li id="ref-7">https://en.wikipedia.org/wiki/Litigation_involving_the_Wikimedia_Foundation</li>
+        <li id="ref-8">https://duolicious.app/donation-faq/</li>
+      </ol>
+
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

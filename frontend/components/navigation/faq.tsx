@@ -5,6 +5,7 @@ import { defaultFontFamily, defaultFontSize } from '../default-text';
 import { commonStyles } from '../../styles';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { api } from '../../api/api';
+import { WEB_BASE_URL } from '../../env/env';
 
 type GenderStats = {
   gender_ratio: number | null
@@ -218,7 +219,7 @@ const FAQ_ITEMS: FaqItem[] = [
         your personality, political alignment, habits, and so on. Based on
         those answers, Duolicious simply matches you with people similar to
         you. If you’re curious to know more, we go in depth in our {}
-        <Link href="https://duolicious.app/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">
+        <Link href={`${WEB_BASE_URL}/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/`}>
           blog article
         </Link>
         {} (including a bunch of math).
@@ -283,7 +284,7 @@ const FAQ_ITEMS: FaqItem[] = [
       </Paragraph>
       <Paragraph>
         Our {}
-        <Link href="https://duolicious.app/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">
+        <Link href={`${WEB_BASE_URL}/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/`}>
           blog article
         </Link>
         {} has a neat example of this. It has a chart from a study of couples’
@@ -317,7 +318,7 @@ const FAQ_ITEMS: FaqItem[] = [
         Surprisingly, even answers to silly questions like these correlate
         with answers to the serious ones, and give us an idea of your
         compatibility with other members. Check out our {}
-        <Link href="https://duolicious.app/blog/why-does-duolicious-ask-me-irrelevant-questions/">
+        <Link href={`${WEB_BASE_URL}/blog/why-does-duolicious-ask-me-irrelevant-questions/`}>
           blog post
         </Link>
         {} where we did some stats to figure out which pairs of questions were

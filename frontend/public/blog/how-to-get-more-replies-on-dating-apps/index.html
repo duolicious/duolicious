@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/blog/how-to-get-more-replies-on-dating-apps/">
+  <link rel="canonical" href="https://web.duolicious.app/blog/how-to-get-more-replies-on-dating-apps/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>How to get more replies on dating apps</h1>
+
+      <i>Published Nov 10, 2024</i>
+
+      <p>
+        In this article, we’ll crunch the numbers and see who gets the most
+        replies on Duolicious, and how you can be like them. Even though our
+        analysis is based on Duolicious users, there’s no reason this article
+        can’t teach you how to get more replies on Hinge, Tinder, or whatever
+        other dating apps you use.
+      </p>
+
+      <h2>Who’s in the cohort?</h2>
+
+      <p>
+        Our analysis is based on a snapshot of Duolicious’ database taken in
+        November 2024. The snapshot contains 116,006 accounts and about
+        14 million messages. The gender ratio of the snapshot is about
+        10:1 (male:female). These figures, and our analysis include active and
+        formerly active accounts.
+      </p>
+
+      <h2>Gender</h2>
+
+      <p>
+        Gender obviously matters a whole lot when it comes to getting replies.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/average-gets-reply-percentage-by-gender.svg" />
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/average-gives-reply-percentage-by-gender.svg" />
+
+      <p>
+        It’s possible that this link isn’t causal; it might just be because of
+        the gender ratio, and if that were reversed then the men would be the
+        ones getting all the replies.
+      </p>
+
+      <h2>Bio length</h2>
+
+      <p>
+        The association between bio length and how many replies you get is
+        very weak.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-bio-length-and-reply-rate.svg" />
+
+      <p>
+        Though the people who at least write <i>something</i> get
+        significantly more replies than the people who write nothing.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-bio-presence-and-reply-rate.svg" />
+
+      <h2>Bios with big words and long sentences</h2>
+
+      <p>
+        Complicated bios, with long sentences and lots of syllables (i.e. a low
+        Flesch Reading Ease score) tend to get <i>more</i> replies than
+        easy-to-read ones.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-bio-readability-and-reply-rate.svg" />
+
+      <h2>Non-ASCII text in your bio</h2>
+
+      <p>
+        People with non-ASCII text (e.g. emojis or 𝓯𝓪𝓷𝓬𝔂 𝓽𝓮𝔁𝓽) tend to get very
+        slightly more replies.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-ascii-and-reply-rate.svg" />
+
+      <h2>Number of images</h2>
+
+      <p>
+        The more photos you have, the more replies you’ll likely get. Adding
+        your first photo makes the biggest difference, though extra ones matter
+        too.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-photo-number-and-reply-rate.svg" />
+
+      <h2>Match percentage</h2>
+
+      <p>
+        You’re much, much more likely to get replies from good matches than bad
+        ones. Your odds of getting a reply from a 50% match are about 1 in 4.
+        But your odds of getting a reply from a 99% match are about 2 in 3.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-match-percentage-and-reply-rate.svg" />
+
+      <p>
+        Duolicious’ match percentage effectively measures the similarity
+        between members. Even though apps like Hinge and Tinder don’t have
+        match percentages, it’s still a good strategy to look for members
+        similar to you when using those apps, as these are the people who you
+        have the best odds of striking up a conversation and getting along with.
+        Try looking for people who share your interests.
+      </p>
+
+      <h2>Distance</h2>
+
+      <p>
+        Maybe surprisingly, there’s no strong relationship between distance and
+        reply rate on Duolicious. This could be because Duolicious’ distance
+        filters work in both directions, so people can only receive messages
+        from people who live far away if they want to receive those messages.
+      </p>
+
+      <h2>Bio sentiment</h2>
+
+      <p>
+        The average person whose bio has a neutral tone tends to get very
+        slightly fewer replies than those with a decisively positive or negative
+        one.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-sentiment-and-reply-rate.svg" />
+
+      <p>
+        Interestingly, women’s reply rate is highest for bios which are only
+        <i>slightly</i> negative, whereas men’s reply rate is highest for
+        <i>very</i> negative bios. Women’s reply rate is lowest for bios which
+        are slightly positive, whereas men’s reply rate is lowest for bios which
+        are neutral. So what’s best for men and women roughly follows a U-shaped
+        curve, but shifted to the left or right depending on gender.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-male-sentiment-and-reply-rate.svg" />
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-female-sentiment-and-reply-rate.svg" />
+
+      <h2>Verification</h2>
+
+      <p>
+        Counter-intuitively, we couldn’t find a statistically significant
+        relationship between whether someone is verified and how many replies
+        they <i>get</i>, though verified men and women both <i>give</i> more
+        replies than their unverified counterparts.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-verification-and-reply-rate.svg" />
+
+      <h2>Number of people messaged</h2>
+
+      <p>
+        You might expect that people who message lots of other people are
+        indiscriminate and are therefore less likely to get replies. But it
+        turns out that the people who message a lot of people are no more or
+        less likely to get a reply back from each of them than the people who
+        message only a few.
+      </p>
+
+      <h2>Clubs</h2>
+      <p>
+        People who join more clubs tend to get more replies.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-club-number-and-reply-rate.svg" />
+
+      <p>
+        In dating apps other than Duolicious, this probably means you should
+        add lots of interests to your profile.
+      </p>
+
+      <p>
+        Among the biggest clubs, members of the <i>trans</i> and <i>femcel</i>
+        clubs are the most likely to get replies, whereas members of the
+        <i>gym</i> club are some of the least likely to get replies. Presumably
+        this has to do with the gender differences in these clubs.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-club-and-reply-rate.svg" />
+
+      <h2>Profile color scheme</h2>
+      <p>
+        People who customize their profile’s color scheme get significantly more
+        replies.
+      </p>
+
+      <img srcset="/assets/blog/how-to-get-more-replies-on-dating-apps/association-between-theme-and-reply-rate.svg" />
+
+      <h2>Conclusion</h2>
+      <p>
+        All up, if you want to maximize your odds of getting replies, then the
+        more of these things you do, the better:
+      </p>
+
+      <ul>
+        <li>Be a woman</li>
+        <li>Write a bio</li>
+        <li>Have long sentences and big words in your bio</li>
+        <li>Have emojis in your bio</li>
+        <li>Have lots of images on your profile</li>
+        <li>Focus on talking to your best matches</li>
+        <li>Get verified</li>
+        <li>Join lots of clubs (or add lots of interests if you’re using a dating app other than Duolicious)</li>
+        <li>Customize your profile’s color scheme</li>
+      </ul>
+
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

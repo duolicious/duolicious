@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/blog/why-does-duolicious-ask-me-irrelevant-questions/">
+  <link rel="canonical" href="https://web.duolicious.app/blog/why-does-duolicious-ask-me-irrelevant-questions/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>Why does Duolicious ask me irrelevant questions?</h1>
+
+      <i>Published Aug 24, 2024</i>
+
+      <p>
+        Gold diggers are less likely to fold their toilet paper before wiping,
+        weebs are more open to dating outside their ethnicity,
+        and home owners fall in love less easily.
+      </p>
+
+      <p>
+        How do we know all this? Because we ask irrelevant questions, of
+        course!—And lots of them. Right now we have 24,534,316 answers from our
+        98,406 members, who all answered part of our personality quiz.
+        Surprisingly, even answers to our sillier questions hint at answers to
+        serious ones. If you ask someone an irrelevant question like "Do you
+        think it's acceptable to wear pajamas to the grocery store?" then you
+        also have a surprisingly strong hint at their answer to: "Do you think
+        the police discriminate against Black people or other minorities?"
+      </p>
+
+      <p>
+        In this blog post, we'll list some of our sillier personality questions
+        and the (at times deeper) answers they're correlated with.
+      </p>
+
+      <h2>Silly questions, serious business</h2>
+
+      <p>
+        Before we get to the questions, we should explain how we analyzed our
+        users' responses. We wanted to know: If someone gives an answer to one
+        question, how predictable are their answers to the other questions?
+        To figure that out, we computed the
+        <a href="https://en.wikipedia.org/wiki/Pearson_correlation_coefficient">Pearson correlation coefficient</a>
+        (PCC) for each pair of answers.  The PCC is a number between -1 and 1.
+        If a pair of questions has a PCC near 1, that means everyone on
+        Duolicious always answers those questions the same way; a PCC of -1
+        means everyone always answers them the opposite ways (i.e. people who
+        answered "yes" on one question always answer "no" on the other); and a
+        PCC of 0 means there's no relationship between the two questions.
+        Here's what the correlation coefficients look like when plotted for the
+        first 300 or 400 questions.
+      </p>
+
+      <img srcset="/assets/blog/why-does-duolicious-ask-me-irrelevant-questions/correlation-matrix-300.png 2x" />
+
+      <p>
+        You can see a red line which runs diagonally—That just says the obvious:
+        That the correlation between a question and itself is always 1—But then
+        there's also vertical and horizontal bands of intensity to the colors.
+        What they roughly show is that some questions are more revealing than
+        others, and therefore give a stronger hint as to how someone will answer
+        the other questions. But even the lightly colored bands (i.e. the
+        "irrelevant") questions tell us <i>something</i>, which you can see
+        because there's no vertical or horizontal band which is purely one
+        color.
+      </p>
+
+      <h2>Just get to the questions already!</h2>
+      <p>
+        Alright, so we cherry-picked some questions from our question
+        bank. For each question, we show the 5 questions which are most
+        likely to be answered the same way, and the 5 questions which are most
+        likely to be answered differently. The Pearson correlation coefficient
+        (r) is given for each question.
+      </p>
+
+      <p>
+        We'll start with a couple of predictable questions to illustrate how
+        this works.
+      </p>
+
+      <h3>Do you pray?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Are you spiritual or religious?</b> (r = 0.647)</li>
+          <li><b>Do you turn to your faith or spiritual practices for strength during difficult times?</b> (r = 0.635)</li>
+          <li><b>Do you consider religious or spiritual teachings as a guide for your moral and ethical values?</b> (r = 0.571)</li>
+          <li><b>Do you feel that your religious or spiritual beliefs have a strong influence on your daily life decisions?</b> (r = 0.529)</li>
+          <li><b>Is it important for you to pass on your religious or spiritual beliefs to your children?</b> (r = 0.518)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you support gay marriage?</b> (r = -0.374)</li>
+          <li><b>Does religion do more harm than good in the world?</b> (r = -0.360)</li>
+          <li><b>Should we prohibit religious organizations from engaging in political activities?</b> (r = -0.351)</li>
+          <li><b>Is birth control a woman&#x27;s right?</b> (r = -0.322)</li>
+          <li><b>Should abortion be legal in all circumstances?</b> (r = -0.317)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        Alright, so people who pray are more likely to be religious and
+        less likely to support gay marriage. No surprises so far. How about
+        another predictable question?
+      </p>
+
+      <h3>Could you date an OnlyFans model?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Should trans people be allowed to use bathrooms of genders other than the one they were assigned at birth?</b> (r = 0.424)</li>
+          <li><b>Should we recognize and legalize polygamy?</b> (r = 0.416)</li>
+          <li><b>Would you be supportive of a partner who decides to undergo a gender transition while you&#x27;re together?</b> (r = 0.413)</li>
+          <li><b>Are you interested in having group sex?</b> (r = 0.408)</li>
+          <li><b>Do you believe that open relationships or polyamory can be as successful as monogamous relationships?</b> (r = 0.407)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Imagine you dated someone who you really liked and found out that they used to be a sex worker. Would that affect your opinion of them?</b> (r = -0.524)</li>
+          <li><b>Would it bother you if you found out the person you&#x27;re dating had lots of sexual partners?</b> (r = -0.411)</li>
+          <li><b>Does your partner&#x27;s body count matter to you?</b> (r = -0.408)</li>
+          <li><b>Are virgins more attractive?</b> (r = -0.335)</li>
+          <li><b>Do you think it&#x27;s important to be officially &#x27;courting&#x27; or &#x27;exclusive&#x27; before becoming physically intimate?</b> (r = -0.313)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        Someone who'd date an OnlyFans model doesn't find virgins attractive
+        in particular? Who knew! Okay, here's a more interesting one:
+      </p>
+
+      <h3>Is it acceptable to put ketchup on eggs?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Is it okay to dip french fries in a milkshake?</b> (r = 0.235)</li>
+          <li><b>Is it ever acceptable to eat pizza with a fork and knife?</b> (r = 0.178)</li>
+          <li><b>Do you ever blow your nose then examine the boogers on your tissue in fascination?</b> (r = 0.167)</li>
+          <li><b>Would a DIY science experiment be your idea of a good date activity?</b> (r = 0.152)</li>
+          <li><b>Does the idea of your date serenading you sound romantic rather than cheesy?</b> (r = 0.149)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Does seeing a couple hold hands in public make you think of them as young and naive?</b> (r = -0.134)</li>
+          <li><b>Do you believe that loyalty to your friends and family should come before your personal ethics?</b> (r = -0.113)</li>
+          <li><b>Do you rely on your gut instinct more than your intellect when making decisions?</b> (r = -0.110)</li>
+          <li><b>Are you better at &#x27;exit strategies&#x27; than &#x27;welcome parties&#x27; when it comes to relationships?</b> (r = -0.107)</li>
+          <li><b>When you hear the phrase &quot;the world doesn&#x27;t revolve around you,&quot; do you secretly think, &quot;But it should?&quot;</b> (r = -0.105)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        So, if you've got progressive views about ketchup and eggs, you're
+        probably also pretty open-minded about french fry and pizza consumption
+        techniques. But odds are you're also less selfish and more open to
+        public displays of affection than people who believe ketchup and eggs
+        should be kept separate. Surprising, no?
+      </p>
+
+      <h3>Would you date a robot if they had a great personality?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Would you date someone who didn&#x27;t want kids?</b> (r = 0.200)</li>
+          <li><b>Could you date someone whose gender didn&#x27;t match the one they were assigned at birth?</b> (r = 0.181)</li>
+          <li><b>Would you be supportive of a partner who decides to undergo a gender transition while you&#x27;re together?</b> (r = 0.179)</li>
+          <li><b>Do you watch anime?</b> (r = 0.176)</li>
+          <li><b>Are you a weeb?</b> (r = 0.169)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Would you feel like your partner was cheating on you if they watched porn?</b> (r = -0.163)</li>
+          <li><b>Is it important for you to pass on your religious or spiritual beliefs to your children?</b> (r = -0.158)</li>
+          <li><b>Do you believe in gender roles within a relationship?</b> (r = -0.153)</li>
+          <li><b>Do you think the man should always wear the pants in the relationship?</b> (r = -0.149)</li>
+          <li><b>Do you have anything against using the contraceptive pill?</b> (r = -0.141)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        In other words, people who'd date a robot are less likely to believe
+        in traditional gender roles. You know who else doesn't believe in
+        gender roles? People who are into other people who talk to their plants:
+      </p>
+
+      <h3>Would you date someone who talks to their plants?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Would you date someone who insists on having a meticulously curated Instagram feed for their houseplants?</b> (r = 0.208)</li>
+          <li><b>Are you worried about the environment?</b> (r = 0.172)</li>
+          <li><b>Would you be open to attending a couples&#x27; pottery class, even if it risks recreating the iconic scene from the movie &quot;Ghost&quot;?</b> (r = 0.157)</li>
+          <li><b>Are you open to dating someone with different religious or spiritual beliefs?</b> (r = 0.155)</li>
+          <li><b>Does the idea of going to a planetarium for a date excite you?</b> (r = 0.154)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is keeping your cards close to your chest the best strategy in a relationship?</b> (r = -0.128)</li>
+          <li><b>Do you think the man should always wear the pants in the relationship?</b> (r = -0.126)</li>
+          <li><b>If you won a million dollars, would you spend half of it on a dream car?</b> (r = -0.111)</li>
+          <li><b>Is &quot;work-life balance&quot; just a phrase that lazy people use?</b> (r = -0.110)</li>
+          <li><b>Do you think of mental illness as a sign of weakness?</b> (r = -0.109)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Are most people idiots?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Should people require a minimum IQ in order to vote?</b> (r = 0.276)</li>
+          <li><b>Are advances in modern medicine making it too easy for people with bad genes to survive and pass those genes on to their kids?</b> (r = 0.263)</li>
+          <li><b>Do you think that some people are just not sophisticated enough to appreciate certain types of art or music?</b> (r = 0.238)</li>
+          <li><b>Does each race have some traits which are superior to other races&#x27;?</b> (r = 0.221)</li>
+          <li><b>Do you believe that people are inherently selfish and that looking out for yourself is more important than looking out for others?</b> (r = 0.215)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you think most people are trustworthy?</b> (r = -0.225)</li>
+          <li><b>Are all people inherently good?</b> (r = -0.214)</li>
+          <li><b>Should controversial historical monuments be removed from public spaces?</b> (r = -0.182)</li>
+          <li><b>Should countries provide a path to citizenship for undocumented immigrants?</b> (r = -0.174)</li>
+          <li><b>Asylum seekers knockin&#x27; on our door: should we let &#x27;em in?</b> (r = -0.172)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you fold your toilet paper before wiping?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Does a thoughtful apology after a fight turn you on more than a passionate make-up session?</b> (r = 0.105)</li>
+          <li><b>Would you date someone who talks to their plants?</b> (r = 0.102)</li>
+          <li><b>Is emotional intelligence a significant factor in your choice of a romantic partner?</b> (r = 0.094)</li>
+          <li><b>Do you think church and state should be kept separate?</b> (r = 0.093)</li>
+          <li><b>If your date&#x27;s ringtone was the &#x27;Baby Shark&#x27; song, would you still go on a second date?</b> (r = 0.088)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>In the Indian epic &quot;Ramayana&quot;, Prince Rama is exiled by his father to uphold a family tradition. Rama&#x27;s wife, Sita, chooses to accompany him despite the hardships of exile, illustrating the complex balance between family obligations and devotion to a partner. Do you think family traditions and obligations should always take priority over romantic relationships?</b> (r = -0.108)</li>
+          <li><b>Do you think it&#x27;s essential for your partner to be into the same type of books?</b> (r = -0.089)</li>
+          <li><b>Would you date someone just because they were really rich?</b> (r = -0.083)</li>
+          <li><b>Is it acceptable to &quot;like&quot; or comment on multiple old social media posts of someone you&#x27;re attracted to?</b> (r = -0.080)</li>
+          <li><b>Is it okay to use the bathroom without replacing an empty toilet paper roll?</b> (r = -0.073)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        People who fold their toilet paper are slightly more likely to believe in separation of church and state and are a bit less likely to be gold diggers.
+      </p>
+
+      <h3>Do you like visiting art museums?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Does the idea of going to a planetarium for a date excite you?</b> (r = 0.324)</li>
+          <li><b>Would you rather visit an art museum than an amusement park?</b> (r = 0.303)</li>
+          <li><b>Would you love to spend a vacation day just exploring an artsy neighborhood?</b> (r = 0.299)</li>
+          <li><b>Would you be excited to go on a date to a science museum?</b> (r = 0.255)</li>
+          <li><b>Are you into poetry?</b> (r = 0.242)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>In the traditional Japanese practice of &quot;shinrin-yoku&quot; or forest bathing, individuals immerse themselves in nature to promote physical and mental well-being. Not everyone enjoys it though. Is going for walks in nature too boring for you?</b> (r = -0.151)</li>
+          <li><b>Is it ever justifiable to use torture to extract information from suspected terrorists or criminals?</b> (r = -0.107)</li>
+          <li><b>Are you a virgin?</b> (r = -0.106)</li>
+          <li><b>Is it morally acceptable to be a bystander when witnessing an injustice or act of violence?</b> (r = -0.095)</li>
+          <li><b>Is claiming &quot;anything can be art&quot; just a fancy way of saying &quot;I don&#x27;t understand it, but I don&#x27;t want to sound dumb&quot;?</b> (r = -0.095)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>Virgins don't hang out in art museums.</p>
+
+      <h3>Would you date someone who insists on celebrating obscure holidays, like &quot;International Talk Like a Pirate Day&quot; or &quot;International Tuba Day&quot;?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Would you date someone who requires a custom-made Spotify playlist for every mood, even if it means having one titled &quot;Songs for Eating Cereal&quot;?</b> (r = 0.273)</li>
+          <li><b>Is it acceptable to have a pet rock as your primary emotional support companion?</b> (r = 0.269)</li>
+          <li><b>Could you fall for someone who uses Yoda quotes to give life advice?</b> (r = 0.236)</li>
+          <li><b>Would you date a professional clown?</b> (r = 0.231)</li>
+          <li><b>Would you want a partner who frequently surprises you with bizarre, yet thoughtful gifts like a homemade kazoo or a custom-made superhero cape?</b> (r = 0.220)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you believe that the man should be the primary earner in a relationship?</b> (r = -0.154)</li>
+          <li><b>Do overly positive people annoy you?</b> (r = -0.154)</li>
+          <li><b>Is it a deal-breaker for you if your partner has a history of substance abuse or addiction?</b> (r = -0.150)</li>
+          <li><b>Is a partner&#x27;s ability to cook a crucial factor in your relationship?</b> (r = -0.145)</li>
+          <li><b>In your dictionary, does a &#x27;mysterious&#x27; partner mean &#x27;untrustworthy&#x27;?</b> (r = -0.143)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you think having a pet turtle could be exciting?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you find the idea of adopting a small army of rescue animals, each named after a famous philosopher, intriguing?</b> (r = 0.281)</li>
+          <li><b>Does the idea of going to a planetarium for a date excite you?</b> (r = 0.266)</li>
+          <li><b>Would you consider a book release as an exciting date night activity?</b> (r = 0.235)</li>
+          <li><b>Have you ever felt guilty about something that was completely out of your control?</b> (r = 0.229)</li>
+          <li><b>Would you ever take in a homeless animal or person, even if only temporarily?</b> (r = 0.226)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Would you feel upset if your partner decided to adopt a pet without your approval?</b> (r = -0.164)</li>
+          <li><b>Do you believe in gender roles within a relationship?</b> (r = -0.157)</li>
+          <li><b>Should parents have the right to choose the sex of their child?</b> (r = -0.149)</li>
+          <li><b>If someone at a party is clearly over-served, would you mind your own business rather than stepping in to help them out?</b> (r = -0.143)</li>
+          <li><b>Your partner&#x27;s job requires them to travel frequently. Does this bother you?</b> (r = -0.142)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>Wannabe pet turtle owners are the voice of reason at parties, apparently.</p>
+
+      <h3>If you discovered a friend&#x27;s significant other on a dating app, would you stay out of it rather than telling your friend?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Would you use a dating app even if you were in a committed relationship, just for the thrill?</b> (r = 0.308)</li>
+          <li><b>Right now, is finding a partner to have sex with more important than finding someone you love?</b> (r = 0.296)</li>
+          <li><b>Is your preferred way to &#x27;know someone&#x27; less about their favorite color and more about their underwear color?</b> (r = 0.291)</li>
+          <li><b>Are you using dating apps just to find someone to have sex with?</b> (r = 0.284)</li>
+          <li><b>Your partner proposes having an open relationship. Would you give it a go?</b> (r = 0.277)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Would you tell your best friend if their partner was cheating, even if it could hurt your friendship?</b> (r = -0.275)</li>
+          <li><b>Does the thought of growing old together sound more appealing than the idea of a no-strings-attached fling?</b> (r = -0.244)</li>
+          <li><b>In some parts of Africa, polygamy is still practiced, and having multiple partners is not necessarily seen as a dealbreaker. However, in many Western societies, monogamy is the norm, and infidelity is often seen as a serious betrayal of trust. Would you end your relationship if a partner sleeps with someone else?</b> (r = -0.238)</li>
+          <li><b>Do you prefer your friends *without* benefits?</b> (r = -0.221)</li>
+          <li><b>Is it cheating to flirt with someone other than your partner?</b> (r = -0.218)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you catch feels too easily?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you ever find yourself over-analyzing your date&#x27;s text messages?</b> (r = 0.305)</li>
+          <li><b>In the Arabic love story &quot;Majnūn Laylā&quot;, the poet Qays falls deeply in love with a woman named Layla, but their families forbid their union. Qays becomes so consumed with his love for Layla that he goes &quot;majnūn&quot; (meaning &quot;insane&quot;). When you fall in love, are your feelings sometimes so strong that you feel overwhelmed?</b> (r = 0.304)</li>
+          <li><b>Is it important for you to hear from people you love that they&#x27;re proud of you?</b> (r = 0.302)</li>
+          <li><b>Do you find yourself often seeking validation from your partner?</b> (r = 0.298)</li>
+          <li><b>Would you describe yourself as a &#x27;professional overthinker&#x27; when it comes to relationships?</b> (r = 0.292)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is &#x27;independence&#x27; your middle name in a relationship?</b> (r = -0.143)</li>
+          <li><b>Do you own your own house?</b> (r = -0.142)</li>
+          <li><b>Are you satisfied with how much money you make?</b> (r = -0.138)</li>
+          <li><b>If you were offered a high-paying job that required you to move to a different country, but your partner couldn&#x27;t come with you, would you end the relationship to take the job?</b> (r = -0.135)</li>
+          <li><b>Does religion do more harm than good in the world?</b> (r = -0.129)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        People who catch feels would still choose their partner over their job
+        even though they're typically dissatisfied with how much money they
+        make. Cute!
+      </p>
+
+      <h3>Are you a weeb?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you watch anime?</b> (r = 0.487)</li>
+          <li><b>Are you into cosplay?</b> (r = 0.317)</li>
+          <li><b>Do you own more than five graphic novels?</b> (r = 0.201)</li>
+          <li><b>Have you ever attended a comic convention or similar event?</b> (r = 0.201)</li>
+          <li><b>Are you into romance novels?</b> (r = 0.185)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Would you rather spend your free time outdoors, appreciating nature, than indoors with technology?</b> (r = -0.151)</li>
+          <li><b>Would you like your partner to have the same ethnicity as you?</b> (r = -0.108)</li>
+          <li><b>Would you feel like your partner was cheating on you if they watched porn?</b> (r = -0.099)</li>
+          <li><b>Do you believe that the man should be the primary earner in a relationship?</b> (r = -0.099)</li>
+          <li><b>Should businesses be allowed to refuse service to someone based on their religious beliefs?</b> (r = -0.094)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Have you ever tried to make an ex jealous?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you feel a sense of panic when you don&#x27;t know where your partner is or what they&#x27;re doing?</b> (r = 0.275)</li>
+          <li><b>If your partner doesn’t text you back immediately, do you picture them with someone else?</b> (r = 0.274)</li>
+          <li><b>Have you ever flirted with someone who was taken?</b> (r = 0.274)</li>
+          <li><b>Do you still have feelings for an ex?</b> (r = 0.260)</li>
+          <li><b>Do you ever worry that your ex&#x27;s new partner is actually an upgrade?</b> (r = 0.259)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Are you a virgin?</b> (r = -0.164)</li>
+          <li><b>If someone points out spinach in your teeth, do you appreciate their honesty rather than feeling embarrassed?</b> (r = -0.153)</li>
+          <li><b>Are you good with taking things slow in a relationship?</b> (r = -0.134)</li>
+          <li><b>Do you think a long romantic walk is a better date idea than a passionate makeout session?</b> (r = -0.131)</li>
+          <li><b>Could you date someone who wasn&#x27;t a feminist?</b> (r = -0.129)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>Don't tell anyone they have spinach in their teeth if you hear they're trying to get back at their ex.</p>
+
+      <h3>Do you have any younger siblings?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Did you share a bedroom with a sibling growing up?</b> (r = 0.312)</li>
+          <li><b>Do you have siblings who you fight with?</b> (r = 0.246)</li>
+          <li><b>Were you a part of a large family (4 or more siblings)?</b> (r = 0.175)</li>
+          <li><b>Are you good with other people&#x27;s kids?</b> (r = 0.166)</li>
+          <li><b>Do you feel like your parents gave you overly harsh punishments when you were naughty as a kid?</b> (r = 0.141)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you have any older siblings?</b> (r = -0.251)</li>
+          <li><b>Would you rather have pets than children?</b> (r = -0.104)</li>
+          <li><b>Should businesses be allowed to refuse service to someone based on their religious beliefs?</b> (r = -0.098)</li>
+          <li><b>Someone cuts in front of you at the checkout. Do you say anything?</b> (r = -0.094)</li>
+          <li><b>Could you date someone who wasn&#x27;t a feminist?</b> (r = -0.087)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you have any older siblings?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Were you a part of a large family (4 or more siblings)?</b> (r = 0.194)</li>
+          <li><b>Do you have siblings who you fight with?</b> (r = 0.190)</li>
+          <li><b>Did you share a bedroom with a sibling growing up?</b> (r = 0.173)</li>
+          <li><b>Are you all about that self-growth and personal development life?</b> (r = 0.116)</li>
+          <li><b>Is it acceptable to put ketchup on eggs?</b> (r = 0.113)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you have any younger siblings?</b> (r = -0.251)</li>
+          <li><b>Should the government regulate the prices of prescription drugs?</b> (r = -0.104)</li>
+          <li><b>Is it sexist to use words like &quot;cunt&quot; and &quot;dickhead&quot;?</b> (r = -0.097)</li>
+          <li><b>Are you turned off if someone doesn&#x27;t believe in evolution?</b> (r = -0.095)</li>
+          <li><b>Do you feel like your parents were genuinely interested in you when you were growing up?</b> (r = -0.092)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        Based on this, younger siblings appear to be less progressive than older
+        siblings. We looked this up to see if social science studies agreed with us
+        on this, and it turns out that the studies are mixed. Our
+        best guess for the reason is that this is one of those associations that
+        changes over time. A (somewhat) well-known example of another
+        association which changed over time is anti-vaccine sentiment. Around
+        the 1990s, it was mostly leftists who disliked vaccines. Though the
+        association reversed over time, and now it's the rightists who dislike
+        them.
+      </p>
+
+      <h3>Are you eccentric?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Are you an aspiring artist (or other creative type)?</b> (r = 0.209)</li>
+          <li><b>Would you rather break the rules than follow the instruction manual?</b> (r = 0.209)</li>
+          <li><b>Is your sense of humor unconventional?</b> (r = 0.197)</li>
+          <li><b>Do you have any creative hobbies?</b> (r = 0.196)</li>
+          <li><b>Do you have strong political opinions?</b> (r = 0.190)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do most married folks seem happy to you?</b> (r = -0.114)</li>
+          <li><b>Is learning to obey authority an important part of being mature?</b> (r = -0.106)</li>
+          <li><b>Is it appropriate to ask someone out if they&#x27;re in a bad mood or seem upset?</b> (r = -0.101)</li>
+          <li><b>Is your type more &#x27;has their life together&#x27; than &#x27;makes life interesting&#x27;?</b> (r = -0.101)</li>
+          <li><b>Should hard drugs (beyond weed) be illegal?</b> (r = -0.100)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you think it&#x27;s okay to tell a small lie in order to win a board game?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Have you ever changed your mind or position on an issue simply because it would benefit you in some way?</b> (r = 0.231)</li>
+          <li><b>You got into a fender-bender and suffered only a few scratches. If you knew you could get away with lying, would you ham it up like a Hollywood actor to milk the insurance company for all it&#x27;s worth?</b> (r = 0.222)</li>
+          <li><b>Is it okay to use your phone to secretly Google answers during a pub quiz?</b> (r = 0.219)</li>
+          <li><b>In the 18th century, the French writer and philosopher Jean-Jacques Rousseau wrote &quot;Confessions,&quot; a memoir in which he recounted his humiliating and shameful moments. In one incident, he covered up his theft of a ribbon by framing a young girl. Have you ever done something you&#x27;re not proud of to get out of trouble?</b> (r = 0.218)</li>
+          <li><b>Have you ever blamed a sibling or friend for something you did just to avoid getting in trouble?</b> (r = 0.217)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is it wrong to take more than one free sample at a grocery store?</b> (r = -0.173)</li>
+          <li><b>Do you believe that lying is always wrong, even if it spares someone&#x27;s feelings?</b> (r = -0.164)</li>
+          <li><b>Should businesses be allowed to refuse service to someone based on their religious beliefs?</b> (r = -0.150)</li>
+          <li><b>You witness a coworker stealing from the small business you work at, but they&#x27;re a single parent struggling to make ends meet. Would you report the theft?</b> (r = -0.149)</li>
+          <li><b>Is a border wall an effective solution for immigration concerns?</b> (r = -0.142)</li>
+          </ol>
+        </div>
+      </div>
+
+      <p>
+        Don't trust people who lie when playing board games.
+      </p>
+
+      <h3>Were your parents overprotective?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Were your parents overly strict with you?</b> (r = 0.423)</li>
+          <li><b>Do you feel like you started having sex at a later age than most people?</b> (r = 0.186)</li>
+          <li><b>Would you describe yourself as a &#x27;professional overthinker&#x27; when it comes to relationships?</b> (r = 0.175)</li>
+          <li><b>Do you feel like your parents gave you overly harsh punishments when you were naughty as a kid?</b> (r = 0.166)</li>
+          <li><b>Do you find yourself often seeking validation from your partner?</b> (r = 0.163)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Were your parents cool enough to let you throw house parties?</b> (r = -0.158)</li>
+          <li><b>Have you ever had any step parents?</b> (r = -0.120)</li>
+          <li><b>If your friend shared an inappropriate joke about women at a party, would you laugh along?</b> (r = -0.103)</li>
+          <li><b>Have you ever had any step siblings?</b> (r = -0.095)</li>
+          <li><b>Should we legalize all drugs, even highly addictive and dangerous ones?</b> (r = -0.092)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Have you ever been gaslighted?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you often worry about things that are out of your control?</b> (r = 0.220)</li>
+          <li><b>Have you ever apologized for something you did a long time after everyone else probably forgot about it?</b> (r = 0.219)</li>
+          <li><b>If your partner seems distant, do you find yourself trying harder?</b> (r = 0.214)</li>
+          <li><b>Have you ever lived with a mental illness (e.g. depression)?</b> (r = 0.212)</li>
+          <li><b>Do you have any personal experiences with discrimination or prejudice based on your gender, race, etc?</b> (r = 0.210)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you think standardized testing is a good measure of student performance?</b> (r = -0.109)</li>
+          <li><b>Do you find emotional conversations to be more stressful than enjoyable?</b> (r = -0.100)</li>
+          <li><b>Should people who earn more money be entitled to better healthcare?</b> (r = -0.099)</li>
+          <li><b>Do you believe that people who are more physically attractive should be given more attention on dating apps?</b> (r = -0.098)</li>
+          <li><b>Did you have a happy childhood?</b> (r = -0.096)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Have you ever cried during a particularly touching commercial?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Should all traffic lights play music to make waiting more enjoyable?</b> (r = 0.223)</li>
+          <li><b>Do you often find yourself oscillating between loving and hating your favorite celebrities?</b> (r = 0.206)</li>
+          <li><b>Would you say you have different &quot;favorite things&quot; depending on the day of the week?</b> (r = 0.203)</li>
+          <li><b>Do you believe the movie &#x27;Inception&#x27; is a documentary in disguise?</b> (r = 0.202)</li>
+          <li><b>Do you think it&#x27;s essential for your partner to be into the same type of books?</b> (r = 0.201)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Should we allow private companies to mine resources on other planets, even if it means disturbing the natural environment of those planets?</b> (r = -0.171)</li>
+          <li><b>Is your ideal vacation a cozy cabin in the woods rather than a wild party on a beach?</b> (r = -0.153)</li>
+          <li><b>Do you think the rise of online dating is having a negative impact on relationships?</b> (r = -0.151)</li>
+          <li><b>Could you date someone who wasn&#x27;t a feminist?</b> (r = -0.135)</li>
+          <li><b>Does your partner&#x27;s past matter to you?</b> (r = -0.127)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Should all traffic lights play music to make waiting more enjoyable?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Should every office be required to have a designated &quot;pillow fight room&quot; for stress relief?</b> (r = 0.434)</li>
+          <li><b>Should all business meetings be conducted in a bouncy castle to encourage creativity?</b> (r = 0.419)</li>
+          <li><b>Should all public transportation be replaced by roller coasters?</b> (r = 0.416)</li>
+          <li><b>Should all escalators be replaced by slides for a more fun commute?</b> (r = 0.410)</li>
+          <li><b>Should all shopping carts be replaced with bumper cars to make shopping more fun?</b> (r = 0.404)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is it okay to break up with someone because of their mental health issues?</b> (r = -0.134)</li>
+          <li><b>Does your partner&#x27;s past matter to you?</b> (r = -0.126)</li>
+          <li><b>Are big weddings unnecessary?</b> (r = -0.120)</li>
+          <li><b>Is it ever appropriate to ask your partner to change their physical appearance (e.g. losing weight or changing their hairstyle)?</b> (r = -0.117)</li>
+          <li><b>Imagine you&#x27;re talking to sum1 hu tipes liek dis. Does it negatively affect your opinion of them?</b> (r = -0.115)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Could you fall for someone who uses Yoda quotes to give life advice?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you think having a debate about pineapple on pizza is an acceptable form of pillow talk?</b> (r = 0.275)</li>
+          <li><b>Is it ever appropriate to use a pick-up line from a movie in real life?</b> (r = 0.252)</li>
+          <li><b>Do you think the world needs more cowbell?</b> (r = 0.237)</li>
+          <li><b>Would you date someone who insists on celebrating obscure holidays, like &quot;International Talk Like a Pirate Day&quot; or &quot;International Tuba Day&quot;?</b> (r = 0.236)</li>
+          <li><b>If your partner had a habit of naming inanimate objects, would you be okay with referring to the toaster as &quot;Sir Toastalot&quot;?</b> (r = 0.234)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is getting approached by someone who&#x27;s into you usually more uncomfortable than flattering?</b> (r = -0.170)</li>
+          <li><b>Can someone be too wholesome?</b> (r = -0.169)</li>
+          <li><b>Do you think of mental illness as a sign of weakness?</b> (r = -0.154)</li>
+          <li><b>Do you often feel smothered when a partner shows too much affection?</b> (r = -0.150)</li>
+          <li><b>Do you ever take a million selfies to get the perfect one?</b> (r = -0.150)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Should superheroes be held accountable for collateral damage caused during their heroics?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Should we work on making sure men and women are equal at work and in politics?</b> (r = 0.190)</li>
+          <li><b>Are you down with policies to reach net-zero greenhouse gas emissions?</b> (r = 0.186)</li>
+          <li><b>Would it be better if affirmative action was based on socioeconomic status rather than race?</b> (r = 0.185)</li>
+          <li><b>Is it time to say &quot;no&quot; to single-use plastics?</b> (r = 0.185)</li>
+          <li><b>Is humanity the culprit turning up the Earth&#x27;s thermostat?</b> (r = 0.163)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is a border wall an effective solution for immigration concerns?</b> (r = -0.152)</li>
+          <li><b>If your friend shared an inappropriate joke about women at a party, would you laugh along?</b> (r = -0.113)</li>
+          <li><b>You have a partner who used to be your ideal body type when you first got together. But now, they&#x27;ve let themselves go and don&#x27;t want to change. Would you feel less willing to stay with them?</b> (r = -0.112)</li>
+          <li><b>Do you believe the movie &#x27;Inception&#x27; is a documentary in disguise?</b> (r = -0.108)</li>
+          <li><b>Someone you&#x27;re attracted to propositions you for sex. The only problem is, they&#x27;re married. Do you go ahead with it if their partner would never find out?</b> (r = -0.107)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Is it acceptable to have an imaginary friend as an adult?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Is it acceptable to have a pet rock as your primary emotional support companion?</b> (r = 0.317)</li>
+          <li><b>If your partner&#x27;s pronouns were ever-changing, would you still be their boo?</b> (r = 0.316)</li>
+          <li><b>Is it acceptable to wear a cape in everyday life if it makes you feel more confident?</b> (r = 0.300)</li>
+          <li><b>Could you date someone whose gender didn&#x27;t match the one they were assigned at birth?</b> (r = 0.299)</li>
+          <li><b>Would you be supportive of a partner who decides to undergo a gender transition while you&#x27;re together?</b> (r = 0.295)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you believe in gender roles within a relationship?</b> (r = -0.244)</li>
+          <li><b>Is a border wall an effective solution for immigration concerns?</b> (r = -0.232)</li>
+          <li><b>Do you want kids?</b> (r = -0.197)</li>
+          <li><b>Imagine you dated someone who you really liked and found out that they used to be a sex worker. Would that affect your opinion of them?</b> (r = -0.195)</li>
+          <li><b>Do you work full-time?</b> (r = -0.188)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Was your mom a nice lady?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you get along with your mom?</b> (r = 0.629)</li>
+          <li><b>Can you rely on your parents?</b> (r = 0.433)</li>
+          <li><b>Did you have a happy childhood?</b> (r = 0.346)</li>
+          <li><b>Do you feel like your parents were genuinely interested in you when you were growing up?</b> (r = 0.338)</li>
+          <li><b>Do you feel like your basic needs (e.g. food, housing) were properly looked after when you were young?</b> (r = 0.317)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>If you were given the chance to inherit a large sum of money from a distant relative, but it would require you to cut ties with your immediate family, would you take the money?</b> (r = -0.320)</li>
+          <li><b>Do you feel like your parents gave you overly harsh punishments when you were naughty as a kid?</b> (r = -0.297)</li>
+          <li><b>If you had to choose between taking care of your elderly parents or pursuing your dream career, would you pursue your career?</b> (r = -0.247)</li>
+          <li><b>Were your parents overly strict with you?</b> (r = -0.238)</li>
+          <li><b>If you had to choose between donating to charity, or helping your family with finances, would you donate to charity?</b> (r = -0.152)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you think Bigfoot is just a bear who really loves to play hide and seek?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you think there&#x27;s a secret island where all the world&#x27;s lost socks end up?</b> (r = 0.344)</li>
+          <li><b>Should all business meetings be conducted in a bouncy castle to encourage creativity?</b> (r = 0.325)</li>
+          <li><b>Should the national currency be replaced with chocolate coins?</b> (r = 0.302)</li>
+          <li><b>Should world leaders settle disputes with dance-offs instead of wars?</b> (r = 0.294)</li>
+          <li><b>Should every office be required to have a designated &quot;pillow fight room&quot; for stress relief?</b> (r = 0.276)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Imagine you dated someone who you really liked and found out that they used to be a sex worker. Would that affect your opinion of them?</b> (r = -0.149)</li>
+          <li><b>Are you looking for a partner to have kids with?</b> (r = -0.147)</li>
+          <li><b>Does your partner&#x27;s past matter to you?</b> (r = -0.131)</li>
+          <li><b>Should we allow private companies to mine resources on other planets, even if it means disturbing the natural environment of those planets?</b> (r = -0.128)</li>
+          <li><b>Do you consider yourself to be financially stable?</b> (r = -0.123)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Could you be wooed by someone who belts out pop ballads in karaoke without a hint of shame?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Does the idea of your date serenading you sound romantic rather than cheesy?</b> (r = 0.244)</li>
+          <li><b>Do you ever sing along to songs in the car at the top of your lungs?</b> (r = 0.229)</li>
+          <li><b>Are you okay with dating someone whose guilty pleasure is 2000&#x27;s boy bands?</b> (r = 0.216)</li>
+          <li><b>Would you want a partner who creates personalized crossword puzzles for you, complete with clues about your shared experiences and inside jokes?</b> (r = 0.206)</li>
+          <li><b>Would you want a partner who frequently surprises you with bizarre, yet thoughtful gifts like a homemade kazoo or a custom-made superhero cape?</b> (r = 0.201)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you tend to switch off when your partner talks about their feelings?</b> (r = -0.137)</li>
+          <li><b>Do you think it&#x27;s the guy&#x27;s job to make the first call after the first date?</b> (r = -0.134)</li>
+          <li><b>Are love letters cringy in the digital age?</b> (r = -0.125)</li>
+          <li><b>Are you better at &#x27;exit strategies&#x27; than &#x27;welcome parties&#x27; when it comes to relationships?</b> (r = -0.124)</li>
+          <li><b>In Mexican culture, there&#x27;s a holiday called Día de los Muertos (Day of the Dead), where people honor their deceased loved ones by creating altars with their photos and favorite items, and offering food and flowers. Do you think celebrating people who aren&#x27;t alive anymore is mostly a waste of time and effort?</b> (r = -0.123)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Have you ever left a mean comment on social media?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Have you ever left a negative review online?</b> (r = 0.323)</li>
+          <li><b>Have you ever taken revenge on someone who wronged you?</b> (r = 0.239)</li>
+          <li><b>Do you sometimes enjoy watching people argue?</b> (r = 0.209)</li>
+          <li><b>Have you ever hated someone irrationally?</b> (r = 0.193)</li>
+          <li><b>Do you believe that people are inherently selfish and that looking out for yourself is more important than looking out for others?</b> (r = 0.178)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Should the government regulate the prices of prescription drugs?</b> (r = -0.108)</li>
+          <li><b>Are you down with policies to reach net-zero greenhouse gas emissions?</b> (r = -0.104)</li>
+          <li><b>Are you in favor of a carbon tax to combat climate change?</b> (r = -0.102)</li>
+          <li><b>Say that the government was going to introduce a range of programmes which aimed to benefit everyone (e.g. free education, free healthcare, universal basic income, etc). Would you be in favor of the programmes if everyone (including big businesses) had to pay double their current taxes?</b> (r = -0.096)</li>
+          <li><b>Are you polite to people who don&#x27;t deserve it?</b> (r = -0.094)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Do you like it when store attendants ask, &quot;do you need help with anything? 😊&quot;</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you enjoy small talk?</b> (r = 0.191)</li>
+          <li><b>Do you consider yourself the &#x27;hype person&#x27; in your circle, spreading positive vibes like confetti at a surprise party?</b> (r = 0.184)</li>
+          <li><b>Are you good at making new friends?</b> (r = 0.183)</li>
+          <li><b>Are you the friend who&#x27;s always armed with a pep talk, motivational quote, or an energizing playlist when someone&#x27;s feeling down?</b> (r = 0.178)</li>
+          <li><b>Do you believe in life after death or an afterlife?</b> (r = 0.175)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do overly positive people annoy you?</b> (r = -0.180)</li>
+          <li><b>Do big crowds freak you out?</b> (r = -0.142)</li>
+          <li><b>Would you rather Google how to fix a sink than ask your neighbor who&#x27;s a plumber for help?</b> (r = -0.140)</li>
+          <li><b>Does it take you a long time to warm up to someone new?</b> (r = -0.109)</li>
+          <li><b>Does religion do more harm than good in the world?</b> (r = -0.109)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Does the location of a tattoo affect its attractiveness?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you believe that a couple&#x27;s social and economic status can impact the success of their relationship?</b> (r = 0.233)</li>
+          <li><b>Do you think the rise of online dating is having a negative impact on relationships?</b> (r = 0.180)</li>
+          <li><b>Is being too fat or skinny a deal-breaker?</b> (r = 0.176)</li>
+          <li><b>Does your partner&#x27;s past matter to you?</b> (r = 0.168)</li>
+          <li><b>Do you like brain-teasers?</b> (r = 0.165)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Do you think a six-pack is something you should drink rather than something you should work on at the gym?</b> (r = -0.159)</li>
+          <li><b>Should animals have the same rights as humans?</b> (r = -0.141)</li>
+          <li><b>So, picture this: you&#x27;re in line for a sick ride at an amusement park. You start muttering to yourself that your phone might go flying out of your pocket, and suddenly a sweet lady behind you offers to hold onto it for you while you ride. She seems chill and all, but you just met her... Do you trust her with your precious phone?</b> (r = -0.129)</li>
+          <li><b>Do you vape?</b> (r = -0.126)</li>
+          <li><b>Would you be supportive of a partner who decides to undergo a gender transition while you&#x27;re together?</b> (r = -0.124)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Should flag burning be illegal?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you believe that loyalty to your friends and family should come before your personal ethics?</b> (r = 0.280)</li>
+          <li><b>Should the U.S. increase its military presence in other countries to combat terrorism?</b> (r = 0.276)</li>
+          <li><b>Should cops get more snooping power to fight crime?</b> (r = 0.266)</li>
+          <li><b>Do you believe the movie &#x27;Inception&#x27; is a documentary in disguise?</b> (r = 0.263)</li>
+          <li><b>Are people too unwilling to work these days?</b> (r = 0.252)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Is it more important to support your neighborhood than to support your country?</b> (r = -0.244)</li>
+          <li><b>Do you believe that people who have a criminal record should be allowed to vote?</b> (r = -0.219)</li>
+          <li><b>Should people with a criminal record be allowed to vote?</b> (r = -0.212)</li>
+          <li><b>Should gender roles be challenged?</b> (r = -0.192)</li>
+          <li><b>Should the criminal justice system focus less on punishment and more on rehabilitation?</b> (r = -0.174)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Should long-term partners know each others&#x27; phone passwords?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Is it okay for your partner to read your emails without your consent?</b> (r = 0.301)</li>
+          <li><b>If your partner asked to borrow your phone, would you hand it over without hesitation?</b> (r = 0.228)</li>
+          <li><b>Would it be alright for your partner to answer your phone when you&#x27;re not around?</b> (r = 0.200)</li>
+          <li><b>Is it okay to secretly monitor your partner&#x27;s phone or computer activity if you&#x27;re certain that they&#x27;re cheating?</b> (r = 0.193)</li>
+          <li><b>Say your partner had lots of friends who were the same gender as you. Would you be upset that they&#x27;re not spending more time with you?</b> (r = 0.183)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Would you feel weird if your partner wanted to know all your phone app passwords?</b> (r = -0.339)</li>
+          <li><b>If your partner read your text messages without asking, would you be upset?</b> (r = -0.263)</li>
+          <li><b>&quot;What&#x27;s your mother&#x27;s maiden name?&quot; &quot;Which street did you grow up on?&quot; &quot;What was your first boss&#x27;s name?&quot;—All security questions you should never, ever share with your partner. Right?</b> (r = -0.169)</li>
+          <li><b>Do you think there are things one should keep private even from a significant other?</b> (r = -0.155)</li>
+          <li><b>Are you more comfortable with short-term relationships than long-term commitments?</b> (r = -0.140)</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Imagine you only have 7 white socks and 9 black socks in a drawer, and you&#x27;re completely in the dark. If you only pull out 3 socks, are you sure to have a pair whose colors match?</h3>
+      <div class="trait-extrema">
+        <div>
+          <h4>Most likely to give the same answer to:</h4>
+          <ol>
+          <li><b>Do you believe couples who compete together in a three-legged race are more likely to overcome life&#x27;s obstacles in unison?</b> (r = 0.110)</li>
+          <li><b>Do you think it&#x27;s romantic to share a last name with your partner?</b> (r = 0.109)</li>
+          <li><b>Would you want a partner who creates personalized crossword puzzles for you, complete with clues about your shared experiences and inside jokes?</b> (r = 0.100)</li>
+          <li><b>In the Arabic love story &quot;Majnūn Laylā&quot;, the poet Qays falls deeply in love with a woman named Layla, but their families forbid their union. Qays becomes so consumed with his love for Layla that he goes &quot;majnūn&quot; (meaning &quot;insane&quot;). When you fall in love, are your feelings sometimes so strong that you feel overwhelmed?</b> (r = 0.099)</li>
+          <li><b>Do you sometimes enjoy watching people argue?</b> (r = 0.098)</li>
+          </ol>
+        </div>
+        <div>
+          <h4>Most likely to give the opposite answer to:</h4>
+          <ol>
+          <li><b>Does religion necessarily contradict science?</b> (r = -0.078)</li>
+          <li><b>You&#x27;re running in a race. You overtake the person in second place. Are you now in first place?</b> (r = -0.073)</li>
+          <li><b>Is your idea of living on the edge, planning only 3 days ahead instead of a week?</b> (r = -0.065)</li>
+          <li><b>Have you ever turned down a higher-paying job for a more fulfilling one?</b> (r = -0.062)</li>
+          <li><b>Are you turned off if someone doesn&#x27;t believe in evolution?</b> (r = -0.061)</li>
+          </ol>
+        </div>
+      </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      <h2>What's "spurious correlation?"</h2>
+      <p>Shhh... Don't worry about that.</p>
+
+      <p>
+        But seriously, it wouldn't be surprising if some of the associations in
+        this article really are spurious, especially because lots of the
+        correlation coefficients aren't very big. That said, even spurious
+        relationships can be useful to observe. In any case, hopefully this
+        post's inspired you to figure out your next date's political stance by
+        asking them how they wear their pajamas.
+      </p>
+
+      <h2>Appendix</h2>
+
+      <details>
+        <summary>The Python script used to compute the Pearson correlation coefficients</summary>
+        <div style="overflow-x: auto; width: 100%;">
+        <pre>
+#!/usr/bin/env python3
+
+import pandas as pd
+import psycopg
+import seaborn as sns
+import matplotlib.pyplot as plt
+import json
+import os
+import numpy as np
+
+# Database connection parameters
+db_params = {
+    'dbname': 'duo_api',
+    'user': 'postgres',
+    'password': 'password',
+    'host': 'localhost',
+    'port': '5433',
+}
+
+# File paths
+correlation_matrix_file = 'correlation_matrix.csv'
+correlation_dict_file = 'question_correlations.json'
+
+# Check if the correlation matrix already exists
+if os.path.exists(correlation_matrix_file):
+    # Load the saved correlation matrix
+    correlation_matrix = pd.read_csv(correlation_matrix_file, index_col=0)
+
+    # Convert the index and columns to integers to ensure consistency
+    correlation_matrix.index = correlation_matrix.index.astype(int)
+    correlation_matrix.columns = correlation_matrix.columns.astype(int)
+else:
+    # Connect to your PostgreSQL database
+    conn = psycopg.connect(**db_params)
+
+    # Sample the data
+    query = """
+    SELECT
+        answer.person_id,
+        answer.question_id,
+        answer.answer::int * 2.0 - 1.0 AS answer -- Will be -1 or +1
+    FROM
+        answer
+    WHERE
+        answer.answer IS NOT NULL
+    """
+
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+
+    # Pivot the DataFrame
+    pivot_df = df.pivot(
+        index='person_id',
+        columns='question_id',
+        values='answer')
+
+    # Compute the correlation matrix between questions
+    correlation_matrix = pivot_df.corr(method='pearson')
+
+    # Save the correlation matrix to a CSV file for future use
+    correlation_matrix.to_csv(correlation_matrix_file)
+
+# Initialize a dictionary to store the top 10 most and least correlated
+# questions for each question
+correlation_dict = {}
+
+# Iterate through each question to find the top 10 most and least correlated
+# questions
+for question in correlation_matrix.columns:
+    # Drop the question itself to avoid self-correlation
+    correlations = correlation_matrix[question].drop(labels=[question])
+
+    # Find the top 10 most correlated questions with their correlation
+    # coefficients
+    top_10_most = correlations.nlargest(10).items()
+
+    # Find the top 10 least correlated questions (most negative correlations)
+    # with their correlation coefficients
+    top_10_least = correlations.nsmallest(10).items()
+
+    # Store the results in the dictionary with correlation coefficients
+    correlation_dict[question] = {
+        'most_correlated': [
+            {'question_id': qid, 'correlation': corr}
+            for qid, corr in top_10_most],
+        'least_correlated': [
+            {'question_id': qid, 'correlation': corr}
+            for qid, corr in top_10_least]
+    }
+
+# Write the correlation_dict to a JSON file
+with open(correlation_dict_file, 'w') as json_file:
+    json.dump(correlation_dict, json_file, indent=4)
+
+# Optional: Display a heatmap of the correlation matrix
+plt.figure(figsize=(20, 16))
+sns.heatmap(
+    np.sign(correlation_matrix) * np.sqrt(np.abs(correlation_matrix)),
+    cmap='coolwarm',
+    annot=False,
+    fmt=".2f",
+    linewidths=.0)
+
+# Set the title and axis labels
+plt.title('Question Correlation Matrix', fontsize=20)
+plt.xlabel('Questions')
+plt.ylabel('Questions')
+
+# Get the number of questions (i.e., columns/rows in the correlation matrix)
+num_questions = correlation_matrix.shape[0]
+
+# Set the ticks for x and y axes to show only every 100th label
+tick_positions = range(0, num_questions, 100)
+labels = [str(i) for i in tick_positions]
+plt.xticks(tick_positions, labels=labels, rotation=90)
+plt.yticks(tick_positions, labels=labels)
+
+# Show the plot
+plt.show()
+</pre>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

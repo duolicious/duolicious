@@ -59,9 +59,9 @@ const LegalLinks = () => {
       }}
     >
       {[
-        ['Guidelines', 'https://duolicious.app/guidelines/'],
-        ['Terms', 'https://duolicious.app/terms/'],
-        ['Privacy', 'https://duolicious.app/privacy/'],
+        ['Guidelines', '/guidelines/'],
+        ['Terms', '/terms/'],
+        ['Privacy', '/privacy/'],
       ].map(([label, href]) =>
         <li key={href}>
           <a

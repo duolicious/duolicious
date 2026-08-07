@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/blog/the-gender-gap-in-dating-among-4channers/">
+  <link rel="canonical" href="https://web.duolicious.app/blog/the-gender-gap-in-dating-among-4channers/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>The gender gap in dating among 4channers</h1>
+
+      <i>Published April 15, 2024</i>
+      <br>
+      <i>Updated April 26, 2024</i>
+
+      <p>
+        Men and women on 4chan differ substantially in their views on vaccines,
+        incest, and pub quizzes. The results come from 2.3 million answers by
+        our 9763 users, who each answered part of our 2005-question personality
+        quiz. The quiz is designed to match users with prospective romantic
+        partners.
+      </p>
+
+      <p>
+        In this article, we'll go over the most and least divisive
+        questions to see where men and women see eye-to-eye and where they
+        don't.
+      </p>
+
+      <h2>Who's in the cohort?</h2>
+      <p>
+        At the time of writing, almost all Duolicious users also use 4chan,
+        which probably affects the results significantly and in ways which might
+        not be immediately obvious. For example, although 4chan is reputed to
+        be radically conservative, female Duolicious users are still
+        significantly less conservative than males. About 90% of female users
+        believe countries should provide a path to citizenship for undocumented
+        immigrants, compared to about 40% of men. Even age demographics of male
+        and female users differ significantly, with the average man being 26
+        years old, and the average woman being 23.
+      </p>
+
+      <img srcset="/assets/blog/the-gender-gap-in-dating-among-4channers/age-distribution.svg" />
+
+      <p>
+        The differences in men and women could be because of the selection bias
+        that comes from the vast majority of our users being 4chan users. But
+        the differences could also be present in online daters more generally.
+        It's impossible to accurately extrapolate the findings from a niche
+        dating app to more general populations.
+      </p>
+
+      <h2>Which questions are men and women most divided on?</h2>
+
+      <p>
+        Here's some of the questions where men and women on Duolicious were most
+        divided. The percentages are the people who answered "yes". Men are the
+        blue squares, and women are the pink circles.
+      </p>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(62% - 5px);"><span>62%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(88% - 5px);"><span>88%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is it important for your partner to have a similar stance on vaccinations and public health issues?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(86% - 5px);"><span>86%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(49% - 5px);"><span>49%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Would you prefer a surprise hug over a surprise gift?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(46% - 5px);"><span>46%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(82% - 5px);"><span>82%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Should we work on making sure men and women are equal at work and in politics?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(39% - 5px);"><span>39%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(75% - 5px);"><span>75%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Should abortion be legal in all circumstances?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(43% - 5px);"><span>43%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(67% - 5px);"><span>67%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Have you ever taken something from a store without paying for it, even if it was just a small item?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(33% - 5px);"><span>33%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(65% - 5px);"><span>65%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Are microaggressions a real thing?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(28% - 5px);"><span>28%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(64% - 5px);"><span>64%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Does a partner's income matter much (e.g. if you're going to share rent, bills, etc)?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(30% - 5px);"><span>30%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(62% - 5px);"><span>62%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is the "dad bod" attractive?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(62% - 5px);"><span>62%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(29% - 5px);"><span>29%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is the word "mansplaining" sexist?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(20% - 5px);"><span>20%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(52% - 5px);"><span>52%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Should we have open borders?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(51% - 5px);"><span>51%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(15% - 5px);"><span>15%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Should we allow people to engage in consensual incestuous relationships as long as there's no chance of them having kids? (e.g. If one person has a contraceptive implant or is infertile.)</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(21% - 5px);"><span>21%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(45% - 5px);"><span>45%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is it okay to use your phone to secretly Google answers during a pub quiz?</h3>
+      </div>
+
+
+
+      <h2>Which questions do men and women agree on?</h2>
+      <p>
+        Now that we've gone through the questions that polarize guys and girls,
+        let's balance things out by exploring the controversial questions where
+        we're on the same page.
+      </p>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(54% - 5px);"><span>54%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(55% - 5px);"><span>55%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Are you jaded about love?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(54% - 5px);"><span>54%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(53% - 5px);"><span>53%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is it ever justifiable to use torture to extract information from suspected terrorists or criminals?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(50% - 5px);"><span>50%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(54% - 5px);"><span>54%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is having sex once a week enough?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(48% - 5px);"><span>48%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(52% - 5px);"><span>52%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Does everything happen for a reason?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(49% - 5px);"><span>49%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(50% - 5px);"><span>50%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">When you stand up after using the bathroom, do you ever look back at your poop to secretly admire it?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(49% - 5px);"></div>
+            <div class="chart-marker chart-female" style="left: calc(48% - 5px);"><span>48%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Do you believe in "when in Rome, do as the Romans do," even if it goes against your personal beliefs?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(47% - 5px);"><span>47%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(49% - 5px);"><span>49%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Would you eat a bug if it was considered a delicacy in another culture?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(46% - 5px);"><span>46%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(49% - 5px);"><span>49%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Is getting drunk or high at least once a week too often for you?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(45% - 5px);"><span>45%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(48% - 5px);"><span>48%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Have you ever visited a sex shop?</h3>
+      </div>
+
+      <div class="chart-flex-container">
+        <div class="chart-container">
+          <div class="chart">
+            <div class="chart-marker chart-male" style="left: calc(46% - 5px);"><span>46%</span></div>
+            <div class="chart-marker chart-female" style="left: calc(40% - 5px);"><span>40%</span></div>
+          </div>
+        </div>
+        <h4 class="chart-question">Would you like your partner to have the same ethnicity as you?</h3>
+      </div>
+
+      <h2>Let's go back to basics</h2>
+      <p>
+        Those were the match questions. What about the basics on people's profiles?
+      </p>
+
+      <p>Women are more likely to be looking for friends on Duolicious than men.</p>
+
+      <img srcset="/assets/blog/the-gender-gap-in-dating-among-4channers/looking-for.svg" />
+
+      <p>Women are less likely to be open to a long-distance relationship on Duolicious than men.</p>
+
+      <img srcset="/assets/blog/the-gender-gap-in-dating-among-4channers/long-distance.svg" />
+
+      <p>Women are more likely to report being Christian or Atheist, but less likely to be agnostic.</p>
+
+      <img srcset="/assets/blog/the-gender-gap-in-dating-among-4channers/religion.svg" />
+
+      <h2>Conclusion</h2>
+
+      <p>
+        Taken as a whole, the results corroborate emerging evidence that
+        <a href="https://www.ft.com/content/29fd9b5c-2f35-41bf-9d4c-994db4e12998">
+          the political gender divide is widening</a> over time, with men
+        becoming increasingly conservative and women becoming increasingly
+        liberal.
+      </p>
+
+      <p>
+        Why female Duolicious users tend to be so much more liberal than their
+        male counterparts, despite being from a stereotypically conservative
+        part of the internet, is a mystery to us. But our best guess is that you
+        probably need to be quite high in
+        <a href="https://en.wikipedia.org/wiki/Openness_to_experience">openness
+          to experience</a> to venture into 4chan as a woman. People high in
+        openness to experience tend to espouse progressive political views.
+      </p>
+
+      <p>
+        The widening political gap between men and women also happens to be the
+        perfect excuse to tell you how great and useful a dating app like
+        Duolicious is, to help you meet a like-minded partner. But that'd feel
+        too much like we're trying to sell you something, so we'd never do that.
+      </p>
+
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

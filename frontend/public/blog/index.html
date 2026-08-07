@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/blog/">
+  <link rel="canonical" href="https://web.duolicious.app/blog/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>The Duolicious Blog</h1>
+
+      <p>Welcome to the Duolicious blog, where we talk about all things Duolicious, from how the app lines you up with the best dates ever to dating tips!</p>
+
+      <ol>
+        <li>
+          <a href="/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">
+            Psychoanalysing ChatGPT using statistics to make a decent dating app
+          </a>
+        </li>
+        <li>
+          <a href="/blog/the-gender-gap-in-dating-among-4channers/">
+            The gender gap in dating among 4channers
+          </a>
+        </li>
+        <li>
+          <a href="/blog/the-political-alignment-and-personality-traits-of-boards-on-4chan/">
+            The political alignment and personality traits of boards on 4chan
+          </a>
+        </li>
+        <li>
+          <a href="/blog/why-does-duolicious-ask-me-irrelevant-questions/">
+            Why does Duolicious ask me irrelevant questions?
+          </a>
+        </li>
+        <li>
+          <a href="/blog/how-to-get-more-replies-on-dating-apps/">
+            How to get more replies on dating apps
+          </a>
+        </li>
+        <li>
+          <a href="/blog/were-the-most-popular-foss-dating-app-now/">
+            We’re the most popular FOSS dating app now
+          </a>
+        </li>
+        <li>
+          <a href="/blog/the-communist-dating-manifesto-why-matchmaking-services-should-be-socialized/">
+            The communist dating manifesto: Why matchmaking services should be socialized
+          </a>
+        </li>
+        <li>
+          <a href="/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/">
+            2005 questions, 1 map: revealing unexpected political patterns in US states
+          </a>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

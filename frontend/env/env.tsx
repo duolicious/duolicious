@@ -29,6 +29,9 @@ export const PARTNER_URL = Constants.expoConfig?.extra?.partnerUrl
 export const WEB_VERSION = Constants.expoConfig?.extra?.webVersion
   ?? '000000';
 
+export const WEB_BASE_URL = Constants.expoConfig?.extra?.webBaseUrl
+  ?? 'https://web.duolicious.app';
+
 export const KLIPY_API_KEY = Constants.expoConfig?.extra?.klipyApiKey
   ?? 'zRR3mhpo6qidN2teiLQ2DcCcQqrSL8YNBzz8qaCqbGVkDe4r7vLAQc7couS48krD';
 

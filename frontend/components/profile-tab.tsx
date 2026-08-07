@@ -75,7 +75,7 @@ import { InviteEntrypoint } from './invite';
 import { InvitePicker } from './invite';
 import { AudioBio } from './audio-bio';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
-import { WEB_VERSION } from '../env/env';
+import { WEB_BASE_URL, WEB_VERSION } from '../env/env';
 import { photoQueue } from '../api/queue';
 import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useAppTheme } from '../app-theme/app-theme';
@@ -892,9 +892,9 @@ const AboutDuolicious = () => {
         }}
       >
         {([
-          ['Guidelines', 'https://duolicious.app/guidelines/'],
-          ['Terms', 'https://duolicious.app/terms/'],
-          ['Privacy', 'https://duolicious.app/privacy/'],
+          ['Guidelines', `${WEB_BASE_URL}/guidelines/`],
+          ['Terms', `${WEB_BASE_URL}/terms/`],
+          ['Privacy', `${WEB_BASE_URL}/privacy/`],
         ] as const).map(([label, href]) =>
           <DefaultText
             key={href}

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/terms/">
+  <link rel="canonical" href="https://web.duolicious.app/terms/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>Terms of Use</h1>
+
+      <i>Last updated September 5, 2025</i>
+
+      <p>
+        California subscribers: You may cancel your subscription at any time before midnight of the third business day after you signed up for it, with no penalty or obligation. If you have subscribed using your Apple ID, Apple manages refunds, not Duolicious. Please go to https://getsupport.apple.com if you need to request a refund. If you used your Google Play Store account or downloaded Duolicious online, you may contact support@duolicious.app.
+      </p>
+
+      <h2>Acceptance of "Terms of Use" Agreement</h2>
+      <p>By creating a Duolicious account you agree to these Terms of Use, our <a href="/guidelines">Community Guidelines</a>, our <a href="/safety">Dating Safety Hints</a> and our <a href="/privacy">Privacy Policy</a>. We refer to these collectively as the "Agreement". If you do not accept the Agreement, please do not use Duolicious.</p>
+
+      <p>Creating a Duolicious account allows you to use the Duolicious via the web or a mobile device, either as a web page or via the Duolicious app. We collectively refer to these as the "Service".</p>
+
+      <p>We might make changes to the Agreement in the future. We will provide 30 days notice before doing so. If you continue to use the Service after the changes become effective, you agree to the changed Agreement.</p>
+
+      <h2>Permitted Users</h2>
+      <p>You are not permitted to use the Service unless all of the following are true:</p>
+
+      <ol>
+        <li>You are at least 18 years of age</li>
+        <li>You can form a contract with the Service</li>
+        <li>You will not upload, post, discuss, request, or link to anything that violates local or United States law</li>
+      </ol>
+
+      <h2>Community Conduct</h2>
+      <p>Though Duolicious strives to encourage a respectful member experience, Duolicious is not responsible for the conduct of any member on or off of the Service. You agree to use caution in all interactions with other members, particularly if you decide to communicate off the Service or meet in person. In addition, you agree to review and follow Duolicious' <a href="/safety">Dating Safety Hints</a> prior to using the Service. You agree that you will not provide your financial information (for example, your credit card or bank account information), or wire or otherwise send money to other members.</p>
+
+      <p>When using the Service, you commit to the following:</p>
+
+      <ul>
+        <li>Refrain from using the Service for activities that are illegal or not allowed by this Agreement.</li>
+        <li>Avoid using the Service with malicious or harmful intentions.</li>
+        <li>Not act in a way that harms the reputation or functionality of Duolicious.</li>
+        <li>Not spam, deceive for money, or defraud other members.</li>
+        <li>Not impersonate others or share images of someone without their consent.</li>
+        <li>Avoid bullying, intimidating, stalking, assaulting, mistreating, or defaming anyone.</li>
+        <li>Not share content that breaches someone's rights, including but not limited to their privacy, publicity, intellectual property, or contract rights.</li>
+        <li>Abstain from posting hate speech, threats, explicit sexual content or any pornographic material.</li>
+        <li>Not share content promoting or showcasing violence, nudity, or intense violent imagery.</li>
+        <li>Not promote discrimination, hate, or harm towards individuals or groups.</li>
+        <li>Never request passwords or personal information from other members for malicious or commercial reasons, nor share someone else's private information without their agreement.</li>
+        <li>Not use or share another member's account, hold multiple accounts, or create a new account if yours was previously terminated without our consent.</li>
+      </ul>
+
+      <p>YOU ARE SOLELY RESPONSIBLE FOR YOUR INTERACTIONS WITH OTHER MEMBERS. YOU UNDERSTAND THAT DUOLICIOUS DOES NOT CONDUCT CRIMINAL BACKGROUND CHECKS ON ITS MEMBERS OR OTHERWISE INQUIRE INTO THE BACKGROUND OF ITS MEMBERS. DUOLICIOUS MAKES NO REPRESENTATIONS OR WARRANTIES AS TO THE CONDUCT OR COMPATIBILITY OF MEMBERS.</p>
+
+      <h2>User-Generated Content</h2>
+
+      <p>Although Duolicious reserves the right to review and remove content that violates this Agreement, such content is the sole responsibility of the member who posts it, and Duolicious cannot guarantee that all content will comply with this Agreement. If you see content on the Service that violates this Agreement, please report it within the Service.</p>
+
+      <h2>Terminating This Agreement</h2>
+      <p>You can terminate the Agreement by deleting your account. You can delete your account from the profile tab in the Service.</p>
+
+      <h2>Disclaimers</h2>
+      <p>DUOLICIOUS PROVIDES THE SERVICE ON AN "AS IS" AND "AS AVAILABLE" BASIS AND TO THE EXTENT PERMITTED BY APPLICABLE LAW, GRANTS NO WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY OR OTHERWISE WITH RESPECT TO THE SERVICE (INCLUDING ALL CONTENT CONTAINED THEREIN), INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES OF SATISFACTORY QUALITY, MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT. DUOLICIOUS DOES NOT REPRESENT OR WARRANT THAT (A) THE SERVICE WILL BE UNINTERRUPTED, SECURE OR ERROR FREE, (B) ANY DEFECTS OR ERRORS IN THE SERVICE WILL BE CORRECTED, OR (C) THAT ANY CONTENT OR INFORMATION YOU OBTAIN ON OR THROUGH THE SERVICE WILL BE ACCURATE.</p>
+
+      <p>DUOLICIOUS TAKES NO RESPONSIBILITY FOR ANY CONTENT THAT YOU OR ANOTHER MEMBER OR THIRD PARTY POSTS, SENDS OR RECEIVES THROUGH THE SERVICE. ANY MATERIAL DOWNLOADED OR OTHERWISE OBTAINED THROUGH THE USE OF THE SERVICE IS ACCESSED AT YOUR OWN DISCRETION AND RISK.</p>
+
+      <h2>Limitation of Liability</h2>
+      <p>TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT WILL DUOLICIOUS, ITS AFFILIATES, EMPLOYEES, LICENSORS OR SERVICE PROVIDERS BE LIABLE FOR ANY INDIRECT, CONSEQUENTIAL, EXEMPLARY, INCIDENTAL, SPECIAL, PUNITIVE, OR ENHANCED DAMAGES, INCLUDING, WITHOUT LIMITATION, LOSS OF PROFITS, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM: (I) YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICE, (II) THE CONDUCT OR CONTENT OF OTHER MEMBERS OR THIRD PARTIES ON, THROUGH, OR FOLLOWING USE OF THE SERVICE; OR (III) UNAUTHORIZED ACCESS, USE OR ALTERATION OF YOUR CONTENT, EVEN IF DUOLICIOUS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. IN NO EVENT WILL DUOLICIOUS’S AGGREGATE LIABILITY TO YOU FOR ALL CLAIMS RELATING TO THE SERVICE EXCEED THE GREATER OF THE AMOUNT PAID, IF ANY, BY YOU TO DUOLICIOUS FOR THE SERVICE AND USD100 WHILE YOU HAVE AN ACCOUNT.</p>
+
+      <p>SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF CERTAIN DAMAGES, SO SOME OR ALL OF THE EXCLUSIONS AND LIMITATIONS IN THIS SECTION MAY NOT APPLY TO YOU.</p>
+
+      <h2>Indemnity by You</h2>
+      <p>You agree, to the extent permitted under applicable law, to indemnify, defend and hold harmless Duolicious, our affiliates, and their and our respective officers, directors, agents, and employees from and against any and all complaints, demands, claims, damages, losses, costs, liabilities and expenses, including attorney’s fees due to, arising out of, or relating in any way to your access to or use of the Service, your content, or your breach of this Agreement.</p>
+
+      <h2>Purchases</h2>
+      <p>Duolicious may, from time to time, make products and services available for purchase ("in-app purchases") via iTunes, Google Play, mobile billing, or other payment methods permitted by Duolicious.</p>
+
+      <p>If you choose to make an in-app purchase, you will be prompted to confirm your purchase with the applicable payment provider, and your method of payment (whether it is your card or a third-party account like Google Play or iTunes) (the user's "Payment Method") will be charged at the prices displayed to you for the Service (s) you've chosen, plus any sales or similar taxes that may be imposed on your payments, and you authorize Duolicious or the third-party account, as applicable, to charge you.</p>
+
+      <p>You can purchase a Duolicious Gold auto-renewing membership that renews every 1 week ($0.99/period). Prices are subject to reductions, promotions, and price changes. Subscriptions to Duolicious Gold give you access to features like 100 club slots, custom themes, the ability to update your display name, and a special gold badge on your profile.</p>
+
+      <h3>Auto-Renewal</h3>
+
+      <p>If you purchase an automatic recurring periodic membership, your Payment Method will be charged until you cancel the subscription. Following your original subscription commitment time, and again following any future subscription period, your subscription will automatically renew for an extra similar period at the price you agreed to when subscribing.</p>
+
+      <p>If you do not want your subscription to automatically renew, or if you should want to change or terminate your Duolicious subscription, you need to log in to your third-party account and follow the cancellation instructions, even if you have previously deleted your account with us or the Duolicious application from your device.</p>
+
+      <p>Deleting your Duolicious account or removing the Duolicious app from your device does not cancel your subscription; Duolicious will keep all funds charged to your Payment Method until you cancel your subscription on the third-party account. If you cancel your membership, you may continue to use it until the end of your then-current subscription period, but it will not be renewed after that term expires.</p>
+
+      <h3>Refunds</h3>
+
+      <p>In general, all costs for purchases are nonrefundable, and no refunds or credits are given for partially utilized periods. We may make an exception if a refund for a subscription offering is requested within fourteen days of the transaction date, or if your jurisdiction's laws allow for returns.</p>
+
+      <p>For subscribers residing in Arizona, California, Connecticut, Illinois, Iowa, Minnesota, New York, North Carolina, Ohio, and Wisconsin, the terms below apply:</p>
+
+      <p>Without penalty or obligation, you may cancel your membership at any time before midnight on the third business day after the day you registered. If you die before the end of your subscription period, your account is entitled to a refund of the portion of any subscription payment you made that is allocable to the time following your death.</p>
+
+      <p>If you become disabled (unable to use Duolicious' services) before the end of your subscription period, you are entitled to a refund of that portion of any payment you made for your subscription that is allocable to the period following your disability by providing the company notice in the same manner as you request a refund as described below.</p>
+
+      <p>To request a refund:</p>
+
+      <p>Refunds are handled by Apple, not Boo, if you subscribed using your Apple ID. To seek a refund, go to iTunes, sign in with your Apple ID, pick "Purchase history," identify the transaction, and click "Report Problem."</p>
+
+      <p>You may also send an email to: https://getsupport.apple.com.</p>
+
+      <p>If you have subscribed using your Google Play Store account, please contact customer service (support@duolicious.app) with your order number for the Google Play Store (found in the order confirmation email or by checking in to Google Wallet).</p>
+
+      <p>You may also send an email with a signed and dated notification declaring that you, the buyer, are canceling this agreement or anything to that effect. Please send your request from the email address linked with your account. This message should be sent to the following address: support@duolicious.app.</p>
+
+
+    </div>
+  </div>
+
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

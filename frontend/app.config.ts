@@ -38,6 +38,7 @@ const config: ExpoConfig = {
     inviteUrl: process.env.DUO_INVITE_URL,
     partnerUrl: process.env.DUO_PARTNER_URL,
     webVersion: process.env.DUO_WEB_VERSION,
+    webBaseUrl: process.env.DUO_WEB_BASE_URL,
     klipyApiKey: process.env.DUO_KLIPY_API_KEY,
     notificationIconUrl: process.env.NOTIFICATION_ICON_URL,
     notificationSoundUrl: process.env.NOTIFICATION_SOUND_URL,

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://web.duolicious.app/favicon.png">
+  <meta property="og:url" content="https://web.duolicious.app/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">
+  <link rel="canonical" href="https://web.duolicious.app/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://web.duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
+
+  <!-- KaTeX requires a few elements -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71HotJqlAn" crossorigin="anonymous">
+
+  <!-- The loading of KaTeX is deferred to speed up page rendering -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha384-cpW21h6RZv/phavutF+AuVYrr+dA8xD9zs6FwLpaCct6O9ctzYFfFr4dgmgccOTx" crossorigin="anonymous"></script>
+
+  <!-- To automatically render math in text elements, include the auto-render extension: -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"
+      onload="renderMathInElement(document.body);"></script>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="https://duolicious.app/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="https://web.duolicious.app/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>Psychoanalysing ChatGPT using statistics to make a decent dating app</h1>
+
+      <i>Published January 23, 2024</i>
+
+      <p>
+        Amazingly, you can get a good date matchmaking algorithm from ChatGPT if you
+        forget all those LinkedIn posts about prompt "engineering" and instead
+        apply some statistics to ChatGPT's output.
+      </p>
+
+      <p>
+        How good? <a href="https://web.duolicious.app">Try the Duolicious app</a> to see
+        for yourself!
+      </p>
+
+      <p>
+        If you want to know <i>why</i> it works, keep reading, because we're
+        taking a deep dive into the psychology and data science of the
+        Duolicious matching algorithm.
+      </p>
+
+      <h2>Why The Duolicious Algorithm is Pretty Good</h2>
+      <p>
+        The Duolicious matching algorithm works by finding people similar to
+        you. While a lot of people say, "opposites attract," sociologists
+        have actually found that people tend to date others who are more
+        similar to each other than not. Scientists call that
+        "<a href="https://en.wikipedia.org/wiki/Human_mating_strategies#Assortative_mating">assortative mating</a>."
+        Surprisingly, even for traits like height, where there's typically a
+        big difference between each partner in a relationship, there's still
+        a correlation between both partners' heights! Here's a chart from
+        <a href="https://www.sciencedirect.com/science/article/abs/pii/S1090513812000268">a study</a>
+        of two groups of married couples in Cameroon, but assortative mating
+        happens everywhere, even in other species:
+      </p>
+
+      <img srcset="/assets/blog/becker-fig-2.png 2x" />
+
+      <p>
+        While the Duolicious algorithm doesn't take traits like height into
+        consideration just yet, it's still pretty comprehensive. Your quick,
+        yes-or-no answers let Duolicious measure 47 different traits related
+        to personality, political alignment, habits, and so on. We tried to
+        pick traits about you that stay the same over time. Personality traits
+        like the Big 5 and MBTI definitely fit into that category.
+        Surprisingly, political alignment tends to be fairly stable over time
+        too; in fact it's correlated with your personality traits. Although
+        personality traits are generally a bit more stable.
+      </p>
+
+      <h2>How Duolicious Figures Out What You're Like</h2>
+      <p>
+        How does Duolicious measure all those traits based on simple
+        yes/no questions?
+        After picking the 47 traits we want to measure, the next step is to
+        come up with fun questions to measure them. So if we wanted to measure
+        something like extraversion, we might invent questions like these:
+      </p>
+
+      <ul>
+        <li>Would you say your selfie game is so strong that the Mona Lisa could learn a thing or two?</li>
+        <li>Would you ever participate in a reality TV show?</li>
+        <li>Would you be up for attending a party where you don't know anyone but the host?</li>
+      </ul>
+
+      <p>
+        Picking questions like these was the fun of making the
+        algorithm, because it's a creative process where you basically
+        imagine you're asking a date whatever you want. Obviously you're not
+        totally free to ask anything, because you still need to pick questions
+        that give you a sense of whether your
+        imaginary date is extroverted. But it's pretty obvious to me that
+        they do, because I've spoken with at least one human once before and I
+        know what they're like. But computers aren't socialites like me.
+      </p>
+
+      <p>
+        So how can we get the computer to understand your answers to these
+        questions? The obvious thing would be to ask ChatGPT—And that's pretty
+        much what we did—But you've got to be clever about it, because there's
+        more than 2000 questions someone can answer, which is about 40 pages! So
+        you can't just take all of someone's answers in one blob and shove 'em
+        in ChatGPT's face like, "here ya go!" It's just too many questions.
+        And even if it was just one question, it'd still take too long for
+        ChatGPT to spit out an answer for each and every person you could
+        possibly match with.
+      </p>
+
+      <p>
+        So instead, we <i>kind of</i> asked ChatGPT what the questions meant
+        <i>once</i>, when we made the questions. Then we distilled those
+        answers into lists of numbers using statistics. Except it was a bit
+        more complicated than that.
+      </p>
+
+      <h3>Distilling ChatGPT's Knowledge Into A Statistical Model</h3>
+      <p>
+        What we <i>really</i> did was ask ChatGPT to <i>pretend</i> to be an
+        extrovert, then pretend to be an introvert. Then we made ChatGPT answer
+        all 2005 questions in our question bank five times while playing those
+        roles. Except instead of asking them as yes/no questions, we asked
+        ChatGPT to answer on a scale from 0 to 10 (called a Likert scale, for
+        you psychology nerds).
+      </p>
+
+      <p>
+        At this point, you might wonder, "why did you ask ChatGPT the
+        same thing five times instead of once? And why did you make it answer
+        on a scale from 0 to 10 if the real questions in the app are yes/no?"
+      </p>
+
+      <p>
+        You need to ask ChatGPT to answer a few times because its
+        answers are a bit random. It's like sampling a population of
+        real, human extroverts or introverts. Each person in the population will give you
+        a different answer to another person. And a particular person's answers
+        might also change depending on their mood.
+      </p>
+
+      <p>
+        As for the reason we asked ChatGPT to answer on a 0-10 scale, the
+        short answer is that it was to get more fine-grained information
+        without having to ask ChatGPT the same question too many times. (Even
+        asking <i>human</i> users to answer the questions on a scale would give
+        Duolicious much more info to work with. But there's a trade off
+        between fun and accuracy, and we can easily compensate by asking users
+        more questions.)
+      </p>
+
+      <p>
+        Anyway, once you've got ChatGPT to role-play an introvert and an
+        extrovert a few times, you can plot its answers like this:
+      </p>
+
+      <img src="/assets/blog/likert-plot-1.svg" alt="Does the thought of being a leader scare you?" />
+
+      <p>
+        In that plot above, we actually asked ChatGPT to answer the question
+        50 times for each role it played, just for demonstration purposes. You
+        can see the shape of each distribution more clearly if you collect
+        more answers. Here's a different question for comparison:
+      </p>
+
+      <img src="/assets/blog/likert-plot-2.svg" alt="Does the thought of being a leader scare you?" />
+
+      <p>
+        Neat, huh?
+      </p>
+
+      <p>
+        Now brace yourself for some math. To make these pretty plots useful
+        for making a dating matchmaking algorithm, we need to extract four
+        things:
+      </p>
+
+      <ul>
+        <li>The likelihood of someone <b>being extroverted</b> given they answered <b>"yes"</b>. We'll call this \(p_1\).</li>
+        <li>The likelihood of someone <b>not being extroverted</b> given they answered <b>"yes"</b>, \(p_2\).</li>
+        <li>The likelihood of someone <b>being extroverted</b> given they answered <b>"no"</b>, \(p_3\).</li>
+        <li>The likelihood of someone <b>not being extroverted</b> given they answered <b>"no"</b>, \(p_4\).</li>
+      </ul>
+
+      <p>
+        To make it easier to figure those out, we made a few assumptions:
+      </p>
+
+      <ul>
+        <li>Answers below 5 on the scale mean "no".</li>
+        <li>Answers above 5 on the scale mean "yes".</li>
+        <li>The "extroverted" and "introverted" populations give
+          <a href="https://en.wikipedia.org/wiki/Normal_distribution">normally distributed</a>
+          answers.
+        </li>
+        <li>
+          In the real world, 50% of people are introverts and 50% are
+          extroverts.
+        </li>
+      </ul>
+
+      <p>
+        None of these assumptions are accurate, but they're close enough.
+        In the words of statistician George Box,
+        "<a href="https://en.wikipedia.org/wiki/all_models_are_wrong">all
+        models are wrong</a> but some are useful". So with our cleverly
+        constructed lies, we press on and do some math:
+      </p>
+
+      \[
+      \begin{align*}
+      q_1 &amp;= \text{cdf\_extroverts}(10) - \text{cdf\_extroverts}(5) \\
+      q_2 &amp;= \text{cdf\_introverts}(10) - \text{cdf\_introverts}(5) \\
+      q_3 &amp;= \text{cdf\_extroverts}(5)  - \text{cdf\_extroverts}(0) \\
+      q_4 &amp;= \text{cdf\_introverts}(5)  - \text{cdf\_introverts}(0) \\
+      \end{align*}
+      \]
+
+      <p>
+        Where \(\text{cdf\_introverts}\) and \(\text{cdf\_extroverts}\) are the
+        <a href="https://en.wikipedia.org/wiki/Cumulative_distribution_function">cumulative distribution functions</a>
+        of our introverted and extroverted populations. We got these by using
+        the mean and standard deviations of ChatGPT's responses to construct
+        Gaussian distributions, then using the CDFs of those.
+      </p>
+      <p>
+        Then to finally get the four probabilities we were trying to extract
+        this whole time, we do this:
+      </p>
+
+      \[
+      \begin{align*}
+      p_1 &amp;= q_1 / (q_1 + q_2) \\
+      p_2 &amp;= q_2 / (q_1 + q_2) \\
+      p_3 &amp;= q_3 / (q_3 + q_4) \\
+      p_4 &amp;= q_4 / (q_3 + q_4) \\
+      \end{align*}
+      \]
+
+      <h3>Using The Statistical Model To Understand You</h3>
+
+      <p>Here's an example of the real values of those probabilities which we
+      use in the app for the question, "Do you think it's romantic to share a
+      last name with your partner":
+      </p>
+
+      \[
+      \begin{align*}
+        p_1 &amp;= 0.62 \\
+        p_2 &amp;= 0.38 \\
+        p_3 &amp;= 0.47 \\
+        p_4 &amp;= 0.53 \\
+      \end{align*}
+      \]
+
+      <p>
+        That means if you answer "yes" there's a 62% chance you're extroverted (and a 38% chance you're introverted).
+        But if you answer "no", there's a 47% chance you're extroverted.
+      </p>
+
+      <p>
+        Duolicious has each of these 4 numbers stored for each of the 2005
+        questions and each of the 47 traits. That's
+        \(4 \times 2005 \times 47 = 376,940\) numbers to represent our
+        question bank, which sounds like a lot, but it's still only 0.02% of
+        the numbers needed to store ChatGPT.
+      </p>
+
+      <p>
+        Each time you answer a question, Duolicious adds to two tallies. One
+        keeps track of your "extroversion" score. The other keeps track
+        of your "not extroverted" score. We get the scores just by
+        summing the probabilities. The final number you see in the app on the
+        "Traits" tab is:
+      </p>
+
+      \[
+      \frac{\text{ExtrovertedScore}}{\text{ExtrovertedScore} + \text{NotExtrovertedScore}}
+      \]
+
+      <p>
+        Except the traits tab shows 47 traits, not 1. So there's not really
+        2 tallies, there's \(47 \times 2 = 94\) tallies.
+      </p>
+
+      <h2>How Duolicious Finds Matches Using Your Personality</h2>
+      <p>
+        To figure out your match percentage with someone else, Duolicious
+        takes the numbers on your traits tabs and multiplies them with other
+        peoples' numbers to compute something called the
+        "<a href="https://en.wikipedia.org/wiki/Cosine_similarity">cosine
+        similarity</a>" of your two personalities. It sounds complicated, but
+        it's pretty simple, especially compared to the stats we just went
+        through. Cosine similarity just spits out a number between 1 and -1.
+        If we get 1, that means your personalities are totally the same and
+        -1 means your personalities are the complete opposite. We convert that
+        number between -1 and 1 into a percentage between 0 and 100 like this:
+      </p>
+
+      \[
+      \text{similarity\_to\_percentage(s)} = (s + 1) \times 50,
+      \]
+
+      <p>
+      and we convert in the opposite direction like this:
+      </p>
+
+      \[
+      \text{percentage\_to\_similarity(p)} = \frac{p}{50} - 1
+      \]
+
+      <p>
+        Converting in the opposite direction is important because we need
+        to convert the percentages from the traits tab into similarities
+        before feeding them into the cosine similarity formula.
+      </p>
+
+      <p>
+        Let's go through an example! Imagine Duolicious only measured
+        extraversion and conscientiousness. Also imagine we have two users,
+        Alex and Taylor. Alex's percentages for extraversion and
+        conscientiousness are 77% and 43%. Taylor's are 60% and 40%. Converted
+        to similarities, we get 0.54 and -0.14 for Alex, and  0.2 and -0.2 for
+        Taylor. Now we plug those into the cosine distance formula from
+        Wikipedia:
+      </p>
+
+      \[
+      \begin{align*}
+        \text{s} \space =&amp; \space \frac{
+            0.54 \times 0.2 + (-0.14) \times (-0.2)
+          }{
+            \sqrt{
+              (0.54^2 + (-0.14)^2) \times (0.2^2 + (-0.2)^2)
+            }
+          } \\
+        =&amp; \space \frac{0.136}{\sqrt{0.024896}} \\
+        \approx&amp; \space 0.86\,.
+      \end{align*}
+      \]
+
+      <p>Then:</p>
+
+      \[
+        \text{similarity\_to\_percentage(s)} = 93\%.
+      \]
+
+      <p>
+        Phew! Luckily for us, the Duolicious app does this so we don't have
+        to. Now Alex and Taylor can stop busting out their calculators
+        whenever someone asks them on a date.
+      </p>
+
+      <h2>The Algorithm is Too Complicated. Why Not Compare The Answers Instead of The Traits?</h2>
+      <p>
+        We easily could've calculated the match percentage by asking what
+        percentage of questions two people answered the same way. But there's
+        a few advantages to using traits:
+      </p>
+
+      <ul>
+        <li>
+          <b>It's more accurate.</b> If someone answers lots of questions
+          related to one trait (e.g. introversion) and not a lot related to
+          another trait (e.g. openness to experience) then comparing answers
+          directly will place too much weight on one trait and not the other.
+          Comparing traits solves for that.
+        </li>
+        <li>
+          <b>It's faster.</b> With the trait-based algorithm, the time needed to
+          calculate your match doesn't change with the number of answers you
+          give. So if you answer 1 question or 1 thousand, Duolicious can
+          still give you a fast response. But comparing answers directly would
+          need us to go one-by-one through all your possible matches' answers.
+        </li>
+      </ul>
+
+      <p>
+        The coolest reason to compare using traits is:
+      </p>
+
+      <ul>
+        <li>
+          <b>
+            Using traits lets us calculate match percentages even for people
+            who answered completely different questions.
+          </b>
+        </li>
+      </ul>
+
+      <p>
+        That's because the traits are effectively the interpretation of your
+        answers. They're an understanding of who you are as a person.
+      </p>
+
+      <p>
+        If you don't believe us, you could run an experiment for yourself!
+        We're not encouraging you to make two accounts... But we did using a
+        copy of the production database. We had one person make two accounts.
+        Then they answered 100 questions on account A, and a different set of
+        100 questions on account B. (i.e. they skipped the already-answered
+        questions.) With 350 other users in the database, Duolicious still
+        matched the same person's two accounts with each other. Cool, right?
+      </p>
+
+      <h2>The Algorithm isn't Complicated Enough</h2>
+      <p>
+        There's plenty of ways to make the algorithm better at the expense of
+        making it more complicated. Even though the current algorithm is
+        pretty good, there's lots of avenues for improvement:
+      </p>
+
+      <ul>
+        <li>
+          The matching algorithm doesn't use the basics that you enter on the
+          "profile" tab, like your height, gender, age, etc. Even the text in
+          your bio and your pictures have info which the algorithm could use
+          to improve your matches. (I think the big "swipey" dating apps like
+          Tinder and Bumble might use this info, but don't quote me on that.)
+        </li>
+        <li>
+          The matching algorithm doesn't account for desired differences
+          between partners very well. For example, if you were particularly
+          career-focussed but wanted a partner who didn't spend too much time
+          at work, the algorithm would still attempt to match you with someone
+          whose level of "career-focus" was similar to yours, which is a bit
+          wrong. But in this specific example, the two people might still have
+          a high level of "traditionalism about love", as well as similar
+          political traits.
+        </li>
+        <li>
+          Although the 47 traits <i>empirically</i> do a good job of matching
+          people, there's no evidence that 47 traits is the right number.
+          I bet an
+          <a href="https://en.wikipedia.org/wiki/Autoencoder">autoencoder</a>
+          could represent people's personalities just as accurately as the
+          current algorithm while using only a small fraction of those traits.
+        </li>
+        <li>
+          We can ask people on the Duolicious app how their dates went and use
+          that info to predict how good your date is likely to be. That way we
+          can hide the duds and bring you the studs. Again, we'll need to
+          train a little neural net for that. Shouldn't be too hard.
+        </li>
+      </ul>
+
+      <p>
+        Avenues of improvement aside, we think the Duolicious algorithm is
+        pretty good, and we hope you do too. As Duolicious gets even better,
+        you're gonna see some serious matchmaking going on. We're talking
+        dates so great you'll wonder if it was all a dream. We're talking
+        unparalleled compatibility that feels as if the universe itself
+        conspired to bring the two of you together.  So, buckle up, lovebirds!
+        The future of dating is here, and this shit's more magical than you
+        ever imagined!
+      </p>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="https://duolicious.app/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>
