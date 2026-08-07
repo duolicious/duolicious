@@ -12,8 +12,9 @@ RESERVED_SLUGS = {
     # Top-level static routes.
     'email', 'sign-in', 'qa', 'search', 'feed', 'inbox', 'visitors', 'profile',
     # Static pages copied from duolicious.app, served from frontend/public/
-    # (assets is the directory their stylesheets and images live under).
-    'terms', 'privacy', 'safety', 'guidelines', 'blog', 'assets',
+    # (assets is the directory their stylesheets and images live under;
+    # clubs, the other copied page, is already reserved below).
+    'terms', 'privacy', 'safety', 'guidelines', 'blog', 'club', 'assets',
     # Prefixes of multi-segment routes.
     'chat', 'gallery', 'in-depth', 'invite',
     # Nested routes under /profile and /search.

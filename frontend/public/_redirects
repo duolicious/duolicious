@@ -1,0 +1,7 @@
+# Cloudflare Pages routing. One static template (/club/index.html) serves
+# every /club/<name> URL; client-side JS reads location.pathname and fetches
+# the right data from api.duolicious.app.
+#
+# Status 200 means "rewrite": URL stays as /club/<name> in the address bar
+# and to crawlers, but the served file is /club/index.html.
+/club/:path  /club/  200

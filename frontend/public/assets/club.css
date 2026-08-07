@@ -1,0 +1,267 @@
+/* /club/<name> page. Scoped under #content-inset.club-page so it can't
+   collide with the existing #content-inset.club-search styles. */
+
+#content-inset.club-page {
+  max-width: 900px;
+  padding-top: 30px;
+  padding-bottom: 60px;
+}
+
+#content-inset.club-page h1 {
+  margin-bottom: 0.2em;
+}
+
+.club-hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.club-tagline {
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.club-cta {
+  display: inline-block;
+  background-color: #70f;
+  color: white;
+  text-decoration: none;
+  padding: 14px 28px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.club-cta:hover {
+  filter: brightness(1.1);
+}
+
+.club-description {
+  background-color: #f4f0ff;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border-left: 4px solid #70f;
+  margin-bottom: 40px;
+}
+
+.club-description p {
+  margin: 0;
+  line-height: 26px;
+}
+
+#content-inset.club-page h2 {
+  margin-top: 40px;
+  margin-bottom: 6px;
+}
+
+.club-section-blurb {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background-color: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stat-card h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.stat-bars {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stat-bar {
+  display: grid;
+  grid-template-columns: 120px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  line-height: 20px;
+}
+
+.stat-bar-label {
+  font-size: 13px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-bar-track {
+  position: relative;
+  height: 8px;
+  background-color: #eee;
+  border-radius: 4px;
+  overflow: hidden;
+  display: block;
+}
+
+.stat-bar-fill {
+  display: block;
+  height: 100%;
+  background-color: #70f;
+}
+
+.stat-bar-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  text-align: right;
+}
+
+/* Personality trait rows: two-sided bar centered on the trait midpoint. */
+
+.trait-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.trait-row {
+  margin-bottom: 18px;
+}
+
+.trait-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.trait-track {
+  position: relative;
+  height: 12px;
+  background-color: #f0f0f5;
+  border-radius: 6px;
+}
+
+.trait-track-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.trait-center {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.trait-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px;
+}
+
+.trait-fill.pos {
+  background-color: #70f;
+}
+
+.trait-fill.neg {
+  background-color: #ff70a6;
+}
+
+.trait-name {
+  font-size: 12px;
+  text-align: center;
+  color: #777;
+  margin-top: 4px;
+}
+
+/* Top-answers list */
+
+.answer-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.answer-row {
+  background-color: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.answer-question {
+  font-weight: 600;
+  margin: 0 0 6px 0;
+}
+
+.answer-compare {
+  margin: 0;
+  color: #555;
+  font-size: 14px;
+}
+
+/* Related clubs: clickable chips */
+
+.related-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.related-item {
+  margin: 0;
+}
+
+.related-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.related-link:hover {
+  background-color: rgba(112, 0, 255, 0.08);
+  border-color: rgba(112, 0, 255, 0.3);
+}
+
+.related-link .club-name {
+  font-weight: 600;
+}
+
+.related-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.club-bottom-cta {
+  margin-top: 50px;
+  text-align: center;
+}
+
+.club-loading,
+.club-not-found {
+  text-align: center;
+  padding: 60px 20px;
+}

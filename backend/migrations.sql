@@ -44,9 +44,10 @@ DROP TABLE IF EXISTS search_preference_messaged;
 DROP TABLE IF EXISTS search_preference_skipped;
 DROP TABLE IF EXISTS search_preference_two_way_filters;
 
--- /terms, /privacy, /safety, /guidelines and /blog were copied from
--- duolicious.app to the web frontend, where they're served as static files at
--- the top level -- the same namespace as profile URLs (/<url_slug>). The
+-- /terms, /privacy, /safety, /guidelines, /blog, /club/* and /clubs were
+-- copied from duolicious.app to the web frontend, where they're served as
+-- static files at the top level -- the same namespace as profile URLs
+-- (/<url_slug>). The
 -- slugs are now in urlslug's RESERVED_SLUGS so they can't be minted again,
 -- but anyone who already holds one would have their profile shadowed by the
 -- static page, so they're moved to a numerically-suffixed slug, mirroring
@@ -67,7 +68,8 @@ SET url_slug = (
     LIMIT 1
 )
 WHERE p.url_slug IN
-    ('terms', 'privacy', 'safety', 'guidelines', 'blog', 'assets');
+    ('terms', 'privacy', 'safety', 'guidelines', 'blog', 'club', 'clubs',
+     'assets');
 
 UPDATE onboardee ob
 SET url_slug = (
@@ -83,4 +85,5 @@ SET url_slug = (
     LIMIT 1
 )
 WHERE ob.url_slug IN
-    ('terms', 'privacy', 'safety', 'guidelines', 'blog', 'assets');
+    ('terms', 'privacy', 'safety', 'guidelines', 'blog', 'club', 'clubs',
+     'assets');

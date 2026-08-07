@@ -16,8 +16,7 @@
   <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
   <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
   <meta property="og:image" content="https://duolicious.app/favicon.png">
-  <meta property="og:url" content="https://duolicious.app/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/">
-  <link rel="canonical" href="https://duolicious.app/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/">
+  <meta property="og:url" content="https://duolicious.app/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
   <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
@@ -26,9 +25,8 @@
   <link rel="stylesheet" href="/assets/style.css">
 
   <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://d3js.org/topojson.v3.min.js"></script>
-  <script src="/assets/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/script.js"></script>
+  <script src="/assets/club.js"></script>
+  <link rel="stylesheet" href="/assets/club.css">
 </head>
 
 <body>
@@ -163,77 +161,91 @@
   </div>
 
   <div id="content">
-    <div id="content-inset">
-      <h1>2005 questions, 1 map: revealing unexpected political patterns in US states</h1>
+    <div id="content-inset" class="club-page">
 
-      <i>Published March 22, 2025</i>
+      <article id="club-article" hidden>
+        <header class="club-hero">
+          <h1 id="club-title">Loading club…</h1>
+          <p id="club-tagline" class="club-tagline"></p>
+          <a id="club-cta-top" class="club-cta" href="#" rel="noopener">Join this club on Duolicious</a>
+        </header>
 
-      <p>
-        Did I say <i>unexpected</i> political patterns? Sorry, I meant they’re
-        totally predictable. (Guess which states were the worst at IQ
-        questions... 👀) You can see how US states answer our matchmaking
-        questions differently with our interactive map below.
-      </p>
+        <section id="club-description-section" class="club-description" hidden>
+          <p id="club-description"></p>
+        </section>
 
-      <div id="map-container-container">
-        <input type="text" id="map-search" name="map-search" placeholder="Search...">
+        <section id="club-related" class="club-related" hidden>
+          <h2>Related clubs</h2>
+          <ul id="club-related-list" class="related-list"></ul>
+        </section>
 
-        <ul id="results-list">
-          <li><b>Have you ever toked up on some dank Mary Jane?</b></li>
-          <li>Have you ever dumped someone?</li>
-          <li>Have you ever sexted someone?</li>
-        </ul>
+        <section id="club-top-answers" class="club-answers" hidden>
+          <h2>What members agree on</h2>
+          <p class="club-section-blurb">
+            Quiz questions where this club’s answers diverge most from the
+            Duolicious average.
+          </p>
+          <ul id="club-top-answers-list" class="answer-list"></ul>
+        </section>
 
-        <div class="map-container">
-          <svg viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
+        <section id="club-demographics" class="club-stats" hidden>
+          <h2>Who’s in this club</h2>
+          <div class="stats-grid" id="club-demographics-grid"></div>
+        </section>
 
-        <div class="legend">
-          <span>No</span>
-          <div class="legend-box"></div>
-          <span>Yes</span>
-        </div>
+        <section id="club-lifestyle" class="club-stats" hidden>
+          <h2>Lifestyle</h2>
+          <div class="stats-grid" id="club-lifestyle-grid"></div>
+        </section>
 
-        <div class="not-enough-data">
-          <div class="legend-box"></div>
-          <span>Not enough data</span>
-        </div>
+        <section id="club-personality" class="club-personality" hidden>
+          <h2>Personality lean</h2>
+          <p class="club-section-blurb">
+            Where members of this club sit on each trait, on a –100 to +100 scale.
+            Larger bars mean members lean more strongly in that direction.
+          </p>
+          <ul id="club-personality-list" class="trait-list"></ul>
+        </section>
+
+        <footer class="club-bottom-cta">
+          <a id="club-cta-bottom" class="club-cta" href="#" rel="noopener">Join this club on Duolicious</a>
+        </footer>
+      </article>
+
+      <div id="club-loading" class="club-loading">
+        <p>Loading club…</p>
       </div>
 
-      <h2>Fact-checking our data</h2>
+      <div id="club-not-found" class="club-not-found" hidden>
+        <h1 id="club-not-found-title">This club is just getting started</h1>
+        <p>
+          <strong id="club-not-found-name">This club</strong> is still too small
+          to have any stats right now — but that’s exactly why it needs you. Be
+          one of the first to join, and you’ll help shape who this community
+          becomes.
+        </p>
+        <p>
+          Duolicious is a dating app where you meet people through the things
+          you actually love — no swiping, no endless scrolling. It’s free to
+          join, and once you’re in this club you’ll be matched with people who
+          share it, and you’ll unlock its personality, demographics, and shared
+          answers for everyone who comes after you.
+        </p>
+        <a id="club-not-found-cta" class="club-cta" href="https://get.duolicious.app/" rel="noopener">Join this club on Duolicious</a>
+        <p>
+          <a href="/clubs">Or browse all clubs &rarr;</a>
+        </p>
+      </div>
 
-      <p>
-        To make sure our users haven’t turned our personality database into a
-        den of lies, we checked to see if our maps matched data from other
-        authoritative sources. Spoiler: they do. Here’s the percentage of
-        people using marijuana in the past month (at the time of their survey)
-        by state according to
-        <a href="https://www.vox.com/xpress/2014/8/7/5979029/marijuana-legalization-users-stoners-potheads-map">
-          Vox
-        </a>
-        (who got their data from the
-          <a href="http://www.washingtonpost.com/blogs/wonkblog/wp/2014/08/05/where-americans-smoke-marijuana-the-most/">
-          Washington Post</a>).
-      </p>
+      <noscript>
+        <p>
+          This page lists members and stats for a Duolicious club. Enable
+          JavaScript to view it, or <a href="https://duolicious.gg/">open
+          Duolicious</a> to browse clubs.
+        </p>
+      </noscript>
 
-      <img srcset="/assets/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/US_marijuana_map.webp 2x" />
-
-      <p>
-        You can compare it to our map. Although note that the data from Vox/WP
-        are from 2014, whereas our shit is fresh af.
-      </p>
-
-      <h2>I’m sorry, I’ve been living under a rock. Where’s this data from?</h2>
-
-      <p>
-        Duolicious is a dating app that matches people by personality. Users can
-        answer up to 2005 yes-or-no psychometric questions. (Actually some
-        questions aren’t really psychometric questions. They’re just silly
-        questions.) At the time of writing we’ve got 64,398 registered users in
-        the United States. The data in the interactive chart in this article is
-        aggregated from those users.
-      </p>
-
+      <script type="application/ld+json" id="club-jsonld"></script>
     </div>
   </div>
 

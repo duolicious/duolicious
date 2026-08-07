@@ -16,8 +16,8 @@
   <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
   <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
   <meta property="og:image" content="https://duolicious.app/favicon.png">
-  <meta property="og:url" content="https://duolicious.app/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/">
-  <link rel="canonical" href="https://duolicious.app/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/">
+  <meta property="og:url" content="https://duolicious.app/clubs/">
+  <link rel="canonical" href="https://duolicious.app/clubs/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
   <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
@@ -26,9 +26,7 @@
   <link rel="stylesheet" href="/assets/style.css">
 
   <title>Duolicious | Online dating, 100% free messaging, completely free matching</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://d3js.org/topojson.v3.min.js"></script>
-  <script src="/assets/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/script.js"></script>
+  <script src="/assets/clubs.js"></script>
 </head>
 
 <body>
@@ -163,76 +161,20 @@
   </div>
 
   <div id="content">
-    <div id="content-inset">
-      <h1>2005 questions, 1 map: revealing unexpected political patterns in US states</h1>
-
-      <i>Published March 22, 2025</i>
+    <div id="content-inset" class="club-search">
+      <h1>Search Clubs</h1>
 
       <p>
-        Did I say <i>unexpected</i> political patterns? Sorry, I meant they’re
-        totally predictable. (Guess which states were the worst at IQ
-        questions... 👀) You can see how US states answer our matchmaking
-        questions differently with our interactive map below.
+        What clubs can you join on Duolicious? Find them here!
       </p>
 
-      <div id="map-container-container">
-        <input type="text" id="map-search" name="map-search" placeholder="Search...">
+      <input type="text" id="search-term" name="search-term" placeholder="Search...">
 
-        <ul id="results-list">
-          <li><b>Have you ever toked up on some dank Mary Jane?</b></li>
-          <li>Have you ever dumped someone?</li>
-          <li>Have you ever sexted someone?</li>
-        </ul>
-
-        <div class="map-container">
-          <svg viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet"></svg>
-        </div>
-
-        <div class="legend">
-          <span>No</span>
-          <div class="legend-box"></div>
-          <span>Yes</span>
-        </div>
-
-        <div class="not-enough-data">
-          <div class="legend-box"></div>
-          <span>Not enough data</span>
-        </div>
-      </div>
-
-      <h2>Fact-checking our data</h2>
-
-      <p>
-        To make sure our users haven’t turned our personality database into a
-        den of lies, we checked to see if our maps matched data from other
-        authoritative sources. Spoiler: they do. Here’s the percentage of
-        people using marijuana in the past month (at the time of their survey)
-        by state according to
-        <a href="https://www.vox.com/xpress/2014/8/7/5979029/marijuana-legalization-users-stoners-potheads-map">
-          Vox
-        </a>
-        (who got their data from the
-          <a href="http://www.washingtonpost.com/blogs/wonkblog/wp/2014/08/05/where-americans-smoke-marijuana-the-most/">
-          Washington Post</a>).
-      </p>
-
-      <img srcset="/assets/blog/2005-questions-1-map-revealing-unexpected-political-patterns-in-us-states/US_marijuana_map.webp 2x" />
-
-      <p>
-        You can compare it to our map. Although note that the data from Vox/WP
-        are from 2014, whereas our shit is fresh af.
-      </p>
-
-      <h2>I’m sorry, I’ve been living under a rock. Where’s this data from?</h2>
-
-      <p>
-        Duolicious is a dating app that matches people by personality. Users can
-        answer up to 2005 yes-or-no psychometric questions. (Actually some
-        questions aren’t really psychometric questions. They’re just silly
-        questions.) At the time of writing we’ve got 64,398 registered users in
-        the United States. The data in the interactive chart in this article is
-        aggregated from those users.
-      </p>
+      <ul id="results-list">
+        <li class="loading">
+          Loading...
+        </li>
+      </ul>
 
     </div>
   </div>
