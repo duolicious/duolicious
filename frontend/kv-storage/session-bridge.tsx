@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { KEYS, Key, storeKv } from '../kv-storage/kv-storage';
+import { KEYS, Key, storeKv } from './kv-storage';
 
 // Sessions live in origin-scoped localStorage, so users who signed in on
 // web.duolicious.app arrive at duolicious.app logged out. This fetches

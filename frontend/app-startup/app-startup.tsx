@@ -34,7 +34,7 @@ import { hasPendingAppleWebSignIn } from '../api/social-auth';
 import {
   adoptWebSession,
   fetchWebSessionOnApex,
-} from '../api/session-bridge';
+} from '../kv-storage/session-bridge';
 import { showSignUp } from '../components/modal/sign-up-modal';
 
 ExpoSplashScreen.preventAutoHideAsync();

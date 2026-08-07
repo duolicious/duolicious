@@ -8,7 +8,7 @@
 <body>
   <script>
     // Loaded in a hidden iframe by the app on duolicious.app (see
-    // frontend/api/session-bridge.tsx) to carry the signed-in session --
+    // frontend/kv-storage/session-bridge.tsx) to carry the signed-in session --
     // and the rest of the app's stored state -- over from this origin's
     // localStorage, which the apex origin can't read itself. The receiver
     // filters the keys; sending everything means this page needs no
