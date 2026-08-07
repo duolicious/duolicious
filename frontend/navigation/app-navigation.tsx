@@ -21,7 +21,6 @@ import {
   bannerRouteTarget,
 } from './linking';
 import { setActiveConversation } from '../chat/conversation-priority';
-import { updateCanonicalUrlOnWeb } from './canonical';
 import { setSignUpBanner } from '../events/sign-up-banner';
 import {
   getSignedInUser,
@@ -101,44 +100,11 @@ const useAppNavigation = (
     setActiveConversation(focusedConversationHandle(rootState) ?? null);
   }, []);
 
-  // Serializes a navigation state to its canonical path via React
-  // Navigation's own `getPathFromState`, so consumers stay in lock-step
-  // with whatever URL structure the linking config exposes. Returns null
-  // for states that aren't representable as URLs (e.g. mid-transition or
-  // screens not in the linking config); those are expected
-  // intermittently, so they warn rather than error.
-  const pathFromState = useCallback((state?: NavigationState): string | null => {
-    const rootState = state ?? navigationContainerRef.current?.getRootState?.();
-    if (!rootState) return null;
-    try {
-      // The `as any` is unfortunate but unavoidable: React Navigation's
-      // PathConfig types insist every `screens`-bearing entry also declare
-      // its own `path`, but our `Home` deliberately doesn't have one (its
-      // children inherit the empty root). The runtime invariant being relied
-      // on here is that `Home` is always the implicit root of the path tree,
-      // so any path produced by getPathFromState round-trips back to a
-      // valid state via getStateFromPath.
-      const path = rnGetPathFromState(rootState, linking.config);
-      return path.startsWith('/') ? path : `/${path}`;
-    } catch (e) {
-      console.warn('Failed to serialize navigation state to a path', e);
-      return null;
-    }
-  }, [linking]);
-
-  const syncCanonicalUrl = useCallback((state?: NavigationState) => {
-    const path = pathFromState(state);
-    if (path !== null) {
-      updateCanonicalUrlOnWeb(path);
-    }
-  }, [pathFromState]);
-
   const onNavigationReady = useCallback(() => {
     applyPostSignInRedirect();
     recomputeSignUpBanner();
     publishActiveConversation();
-    syncCanonicalUrl();
-  }, [applyPostSignInRedirect, recomputeSignUpBanner, publishActiveConversation, syncCanonicalUrl]);
+  }, [applyPostSignInRedirect, recomputeSignUpBanner, publishActiveConversation]);
 
   useEffect(() => {
     // On sign-out drop any remaining pending state so a stale entry from
@@ -157,7 +123,6 @@ const useAppNavigation = (
 
     recomputeSignUpBanner(state);
     publishActiveConversation(state);
-    syncCanonicalUrl(state);
 
     // URL-bar sync is left entirely to React Navigation's linking integration.
     // Doing a `window.history.replaceState` here in addition to RN's own
@@ -181,12 +146,30 @@ const useAppNavigation = (
     if (focusedRouteIsUnrestorable(state)) return;
 
     // Persist just the canonical path - not the full navigation tree - so we
-    // can restore the user's last place on next startup.
-    const path = pathFromState(state);
-    if (path !== null) {
-      await lastPath(path);
+    // can restore the user's last place on next startup. We let React
+    // Navigation's `getPathFromState` do the serialization so this stays in
+    // lock-step with whatever URL structure the linking config exposes.
+    try {
+      // The `as any` is unfortunate but unavoidable: React Navigation's
+      // PathConfig types insist every `screens`-bearing entry also declare
+      // its own `path`, but our `Home` deliberately doesn't have one (its
+      // children inherit the empty root). The runtime invariant being relied
+      // on here is that `Home` is always the implicit root of the path tree,
+      // so any path produced by getPathFromState round-trips back to a
+      // valid state via getStateFromPath.
+      const path = rnGetPathFromState(state, linking.config);
+      if (typeof path === 'string') {
+        await lastPath(path.startsWith('/') ? path : `/${path}`);
+      }
+    } catch (e) {
+      // Some transient navigation states aren't representable as URLs (e.g.
+      // mid-transition or screens not in the linking config). Skip those
+      // and warn so misconfiguration doesn't silently break last-path
+      // restoration in production - but use `warn` rather than `error`
+      // because intermittent failures on transient states are expected.
+      console.warn('Failed to persist last navigation path', e);
     }
-  }, [pathFromState, recomputeSignUpBanner, publishActiveConversation, syncCanonicalUrl]);
+  }, [linking, recomputeSignUpBanner, publishActiveConversation]);
 
   const navigateFromNotification = (
     screen: string,
