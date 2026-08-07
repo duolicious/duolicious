@@ -1,13 +1,14 @@
---- dist/index.html	2024-12-28 11:15:49.721827442 +1100
-+++ patches/index.html	2024-12-28 11:19:34.400805692 +1100
-@@ -4,0 +5 @@
+--- dist/index.html
++++ patches/index.html
+@@ -4,0 +5,2 @@
 +    <meta name="description" content="Free dating online. Zero ads. Unlimited messages. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious." />
-@@ -6 +7 @@
++    <link rel="preconnect" href="https://web.duolicious.app" />
+@@ -6 +8 @@
 -    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 +    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
-@@ -17,0 +19 @@
+@@ -17,0 +20 @@
 +        margin: 0;
-@@ -24,0 +27,18 @@
+@@ -24,0 +28,18 @@
 +      #splash-root {
 +        z-index: 9999;
 +        position: absolute;
@@ -26,7 +27,7 @@
 +      #splash-root.fade-out {
 +        opacity: 0; /* Start fading out */
 +      }
-@@ -34,0 +55,123 @@
+@@ -34,0 +56,123 @@
 +    <div id="splash-root">
 +      <svg id="mySvg" width="96" height="96" viewBox="0 0 4.2333331 4.2333332">
 +        <g id="myGroup"></g>

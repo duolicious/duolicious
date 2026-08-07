@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex">
+  <title>Duolicious session bridge</title>
+</head>
+<body>
+  <script>
+    // Loaded in a hidden iframe by the app on duolicious.app (see
+    // frontend/api/session-bridge.tsx) to carry the signed-in session over
+    // from this origin's localStorage, which the apex origin can't read
+    // itself. The fixed targetOrigin means the message is only ever
+    // delivered to a duolicious.app parent, no matter who embeds this page;
+    // the deploy pipeline additionally restricts framing to that origin via
+    // a Content-Security-Policy header (see frontend-publish.yml).
+    var sessionToken = null;
+    var personUuid = null;
+    try {
+      sessionToken = localStorage.getItem('session_token');
+      personUuid = localStorage.getItem('person_uuid');
+    } catch (e) {}
+    parent.postMessage(
+      {
+        type: 'session-bridge',
+        sessionToken: sessionToken,
+        personUuid: personUuid,
+      },
+      'https://duolicious.app'
+    );
+  </script>
+</body>
+</html>

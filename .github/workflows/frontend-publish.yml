@@ -49,10 +49,20 @@ jobs:
             exit 1
           fi
 
+          # The session-bridge page must be frameable by duolicious.app --
+          # and only by duolicious.app -- so the apex origin can lift
+          # signed-in sessions out of web.duolicious.app's localStorage
+          # (see frontend/api/session-bridge.tsx). Everything else keeps
+          # X-Frame-Options: DENY. Cloudflare Pages serves the page at the
+          # extension-less URL and redirects the .html one to it, so only
+          # the extension-less path needs the carve-out.
           cat > dist/_headers <<EOF
             /*
               X-Frame-Options: DENY
               Access-Control-Allow-Origin: ${DUO_API_URL}
+            /assets/session-bridge
+              ! X-Frame-Options
+              Content-Security-Policy: frame-ancestors https://duolicious.app
           EOF
 
           # Cloudflare ignores directories containing the string 'node_modules'.
