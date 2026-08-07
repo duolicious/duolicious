@@ -80,6 +80,7 @@ services:
       # Apple sign-in. Test values can be any URL — the callback test
       # only asserts on the redirect Location header.
       DUO_APPLE_WEB_REDIRECT_URL: http://test-web.example/
+      DUO_APPLE_APEX_REDIRECT_URL: http://test-apex.example/
       DUO_APPLE_ANDROID_REDIRECT_URL: http://test-android.example/
 
       # The `/chat` WebSocket endpoint sends live push notifications; the

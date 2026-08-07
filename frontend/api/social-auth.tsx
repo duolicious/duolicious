@@ -380,7 +380,13 @@ const signInWithAppleWeb = async (
   // See `signInWithAppleAndroid` — same nonce binds the redirect-time
   // CSRF check (state prefix) and the server-side JWT.nonce verification.
   const nonce = await _generateNonce();
-  const state = `${nonce}.web`;
+  // The SPA is served on both web.duolicious.app and duolicious.app. The
+  // backend's callback must 302 back to the origin the flow started on —
+  // the nonce lives in this origin's sessionStorage — so the state names
+  // which entry of the backend's redirect allow-list to use.
+  const target =
+    window.location.hostname === 'duolicious.app' ? 'apex' : 'web';
+  const state = `${nonce}.${target}`;
 
   const authUrl = _buildAppleAuthorizeUrl({
     clientId: APPLE_WEB_CLIENT_ID,

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Duolicious Data Export Packager</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+  <div id="progress">Packaging your exported data...</div>
+
+  <script>
+    async function autoDownload() {
+      try {
+        // 1. Extract token from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        // 2. Fetch JSON file from the server using axios to track progress
+        const jsonData = await fetchWithProgress(`https://api.duolicious.app/export-data/${token}`, 'json');
+
+        // 3. Initialize JSZip
+        const zip = new JSZip();
+
+        // 4. Add the JSON file itself to the zip
+        const jsonString = JSON.stringify(jsonData, null, 2); // Pretty print the JSON
+        zip.file('data.json', jsonString);
+
+        // 5. Extract photo URLs from the JSON and handle case when raw_data.photo is null
+        const photoUrls = jsonData.raw_data?.photo || [];
+
+        // 6. Fetch and zip each photo in parallel, tracking progress
+        const photoPromises = photoUrls.map((photoUrlObj, index) => fetchPhotoWithProgress(photoUrlObj.photo_url, index));
+
+        // 7. Wait for all the photo fetches to complete
+        const photoBlobs = await Promise.all(photoPromises);
+
+        // 8. Add each photo to the zip
+        photoBlobs.forEach(({ blob, index }) => {
+          const photoFileName = `photo${index + 1}.jpg`; // Custom naming for each photo
+          zip.file(photoFileName, blob);
+        });
+
+        // 9. Generate the zip file and trigger the download
+        zip.generateAsync({ type: 'blob' }).then((content) => {
+          saveAs(content, 'data-export.zip');
+        });
+
+        updateProgress('Fetching complete!');
+      } catch (error) {
+        console.error('Error occurred:', error);
+        updateProgress('Error occurred during download.');
+      }
+    }
+
+    // Function to fetch JSON or image with progress tracking
+    async function fetchWithProgress(url, type = 'blob') {
+      return axios({
+        method: 'get',
+        url: url,
+        responseType: type,
+        onDownloadProgress: (progressEvent) => {
+          const { loaded, total } = progressEvent;
+          const percentCompleted = Math.round((loaded * 100) / total);
+          updateProgress(`Fetching JSON... ${loaded} of ${total} bytes (${percentCompleted}%)`);
+        }
+      }).then(response => response.data);
+    }
+
+    // Function to fetch photos as blobs with progress tracking
+    async function fetchPhotoWithProgress(url, index) {
+      return axios({
+        method: 'get',
+        url: url,
+        responseType: 'blob',
+        onDownloadProgress: (progressEvent) => {
+          const { loaded, total } = progressEvent;
+          const percentCompleted = Math.round((loaded * 100) / total);
+          updateProgress(`Fetching photo ${index + 1}... ${loaded} of ${total} bytes (${percentCompleted}%)`);
+        }
+      }).then(response => ({
+        blob: response.data,
+        index: index
+      }));
+    }
+
+    // Function to update the progress display
+    function updateProgress(message) {
+      const progressDiv = document.getElementById('progress');
+      progressDiv.innerText = message;
+    }
+
+    // Automatically trigger the download when the page loads
+    window.onload = autoDownload;
+  </script>
+</body>
+</html>

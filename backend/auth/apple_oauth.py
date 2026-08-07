@@ -25,6 +25,14 @@ allow-list.
 Env vars:
     DUO_APPLE_WEB_REDIRECT_URL      Final redirect target after a web
                                     sign-in. Typically the SPA root.
+    DUO_APPLE_APEX_REDIRECT_URL     Like DUO_APPLE_WEB_REDIRECT_URL, but
+                                    for sign-ins started on the apex
+                                    domain (duolicious.app), which
+                                    serves the same SPA. The redirect
+                                    must return to the origin the flow
+                                    started on: the client verifies the
+                                    nonce against sessionStorage, which
+                                    doesn't cross origins.
     DUO_APPLE_ANDROID_REDIRECT_URL  Final redirect target after an
                                     Android sign-in. Must be the
                                     Universal Link / App Link the
@@ -40,11 +48,13 @@ from util import append_query
 
 
 APPLE_WEB_REDIRECT_URL = os.environ.get('DUO_APPLE_WEB_REDIRECT_URL', '').strip()
+APPLE_APEX_REDIRECT_URL = os.environ.get('DUO_APPLE_APEX_REDIRECT_URL', '').strip()
 APPLE_ANDROID_REDIRECT_URL = os.environ.get('DUO_APPLE_ANDROID_REDIRECT_URL', '').strip()
 
 
 _REDIRECT_TARGETS = {
     'web': APPLE_WEB_REDIRECT_URL,
+    'apex': APPLE_APEX_REDIRECT_URL,
     'android': APPLE_ANDROID_REDIRECT_URL,
 }
 
