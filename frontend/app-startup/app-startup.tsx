@@ -31,10 +31,7 @@ import { computeStartupNavigationState } from '../navigation/startup';
 import { createLinking, focusedConversationHandle } from '../navigation/linking';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
 import { hasPendingAppleWebSignIn } from '../api/social-auth';
-import {
-  adoptWebSession,
-  fetchWebSessionOnApex,
-} from '../kv-storage/session-bridge';
+import { adoptWebSessionOnApex } from '../kv-storage/session-bridge';
 import { showSignUp } from '../components/modal/sign-up-modal';
 
 ExpoSplashScreen.preventAutoHideAsync();
@@ -138,18 +135,11 @@ const useAppStartup = (
   );
 
   const restoreSessionAndNavigate = useCallback(async () => {
-    let existingPersonUuid = await sessionPersonUuid();
-    let existingSessionToken = await sessionToken();
-    const notification = await getLastNotificationResponseOnMobile();
+    await adoptWebSessionOnApex();
 
-    if (!existingPersonUuid || !existingSessionToken) {
-      const bridged = await fetchWebSessionOnApex();
-      if (bridged) {
-        await adoptWebSession(bridged);
-        existingSessionToken = bridged.sessionToken;
-        existingPersonUuid = bridged.personUuid;
-      }
-    }
+    const existingPersonUuid = await sessionPersonUuid();
+    const existingSessionToken = await sessionToken();
+    const notification = await getLastNotificationResponseOnMobile();
 
     // `computeStartupNavigationState` owns every routing decision at startup:
     // URL deep-links, public-vs-protected screens, push notifications, the

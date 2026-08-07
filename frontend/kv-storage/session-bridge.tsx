@@ -2,20 +2,27 @@ import { Platform } from 'react-native';
 import { KEYS, Key, storeKv } from './kv-storage';
 
 // Sessions live in origin-scoped localStorage, so users who signed in on
-// web.duolicious.app arrive at duolicious.app logged out. This fetches
-// their session -- and the rest of the app's stored state, like drafts,
-// theme and seen-hints -- from the old origin via a hidden iframe of the
-// static bridge page (public/assets/session-bridge.html), which posts
-// its entire localStorage back; only keys in the kv-storage allowlist
-// are adopted. It works because the two domains are the same site
-// (registrable domain duolicious.app), so browsers don't partition the
-// iframe's storage. The handed-over token is treated as untrusted: the
-// caller runs it through the ordinary /check-session-token validation,
-// and a dead or bogus token just lands on the welcome screen.
+// web.duolicious.app arrive at duolicious.app logged out.
+// `adoptWebSessionOnApex`, called once at startup before the session is
+// read from kv-storage, fetches their session -- and the rest of the
+// app's stored state, like drafts, theme and seen-hints -- from the old
+// origin via a hidden iframe of the static bridge page
+// (public/assets/session-bridge.html), which posts its entire
+// localStorage back; only keys in the kv-storage allowlist are adopted.
+// It works because the two domains are the same site (registrable
+// domain duolicious.app), so browsers don't partition the iframe's
+// storage. The handed-over token is treated as untrusted: startup runs
+// it through the ordinary /check-session-token validation, and a dead
+// or bogus token just lands on the welcome screen.
 //
 // A definitive answer (including "no session there") is recorded in
 // kv-storage so each browser only ever pays for the bridge once; a
 // timeout isn't recorded, so transient failures retry on the next load.
+//
+// The whole mechanism is a migration aid: once web.duolicious.app
+// traffic dwindles, delete this module, its single call site in
+// app-startup, public/assets/session-bridge.html, and the _headers
+// carve-out in frontend-publish.yml.
 
 const BRIDGE_ORIGIN = 'https://web.duolicious.app';
 const BRIDGE_URL = `${BRIDGE_ORIGIN}/assets/session-bridge`;
@@ -92,15 +99,15 @@ const runBridge = (): Promise<BridgedSession | null> =>
     document.body.appendChild(iframe);
   });
 
-const fetchWebSessionOnApex = async (): Promise<BridgedSession | null> => {
-  if (Platform.OS !== 'web') return null;
-  if (window.location.hostname !== 'duolicious.app') return null;
-  if (await storeKv('web_session_bridge_answered')) return null;
+const adoptWebSessionOnApex = async (): Promise<void> => {
+  if (Platform.OS !== 'web') return;
+  if (window.location.hostname !== 'duolicious.app') return;
+  if (await storeKv('session_token') && await storeKv('person_uuid')) return;
+  if (await storeKv('web_session_bridge_answered')) return;
 
-  return await runBridge();
-};
+  const bridged = await runBridge();
+  if (!bridged) return;
 
-const adoptWebSession = async (bridged: BridgedSession): Promise<void> => {
   await storeKv('session_token', bridged.sessionToken);
   await storeKv('person_uuid', bridged.personUuid);
   for (const key of KEYS) {
@@ -112,7 +119,5 @@ const adoptWebSession = async (bridged: BridgedSession): Promise<void> => {
 };
 
 export {
-  BridgedSession,
-  adoptWebSession,
-  fetchWebSessionOnApex,
+  adoptWebSessionOnApex,
 };
