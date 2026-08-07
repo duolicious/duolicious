@@ -31,7 +31,10 @@ import { computeStartupNavigationState } from '../navigation/startup';
 import { createLinking, focusedConversationHandle } from '../navigation/linking';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
 import { hasPendingAppleWebSignIn } from '../api/social-auth';
-import { fetchWebSessionOnApex } from '../api/session-bridge';
+import {
+  adoptWebSession,
+  fetchWebSessionOnApex,
+} from '../api/session-bridge';
 import { showSignUp } from '../components/modal/sign-up-modal';
 
 ExpoSplashScreen.preventAutoHideAsync();
@@ -142,8 +145,7 @@ const useAppStartup = (
     if (!existingPersonUuid || !existingSessionToken) {
       const bridged = await fetchWebSessionOnApex();
       if (bridged) {
-        await sessionToken(bridged.sessionToken);
-        await sessionPersonUuid(bridged.personUuid);
+        await adoptWebSession(bridged);
         existingSessionToken = bridged.sessionToken;
         existingPersonUuid = bridged.personUuid;
       }

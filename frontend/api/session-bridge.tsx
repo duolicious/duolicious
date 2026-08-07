@@ -1,16 +1,17 @@
 import { Platform } from 'react-native';
-import { storeKv } from '../kv-storage/kv-storage';
+import { KEYS, Key, storeKv } from '../kv-storage/kv-storage';
 
 // Sessions live in origin-scoped localStorage, so users who signed in on
 // web.duolicious.app arrive at duolicious.app logged out. This fetches
-// their session from the old origin via a hidden iframe of the static
-// bridge page (public/assets/session-bridge.html), which posts the
-// stored credentials back. It works because the two domains are the same
-// site (registrable domain duolicious.app), so browsers don't partition
-// the iframe's storage. The handed-over token is treated as untrusted:
-// the caller runs it through the ordinary /check-session-token
-// validation, and a dead or bogus token just lands on the welcome
-// screen.
+// their session -- and the rest of the app's stored state, like drafts,
+// theme and seen-hints -- from the old origin via a hidden iframe of the
+// static bridge page (public/assets/session-bridge.html), which posts
+// its entire localStorage back; only keys in the kv-storage allowlist
+// are adopted. It works because the two domains are the same site
+// (registrable domain duolicious.app), so browsers don't partition the
+// iframe's storage. The handed-over token is treated as untrusted: the
+// caller runs it through the ordinary /check-session-token validation,
+// and a dead or bogus token just lands on the welcome screen.
 //
 // A definitive answer (including "no session there") is recorded in
 // kv-storage so each browser only ever pays for the bridge once; a
@@ -20,9 +21,44 @@ const BRIDGE_ORIGIN = 'https://web.duolicious.app';
 const BRIDGE_URL = `${BRIDGE_ORIGIN}/assets/session-bridge`;
 const BRIDGE_TIMEOUT_MS = 2000;
 
+// The session keys gate the transfer and are adopted explicitly by
+// `adoptWebSession`; the bridge bookkeeping key must reflect this
+// origin's own state, never the other origin's.
+const UNTRANSFERABLE_KEYS: readonly Key[] = [
+  'session_token',
+  'person_uuid',
+  'web_session_bridge_answered',
+];
+
 type BridgedSession = {
   sessionToken: string
   personUuid: string
+  extras: Partial<Record<Key, string>>
+};
+
+const isRecord = (x: unknown): x is Record<string, unknown> =>
+  typeof x === 'object' && x !== null;
+
+const parseBridgedSession = (data: unknown): BridgedSession | null => {
+  if (!isRecord(data)) return null;
+  const values = data.storage;
+  if (!isRecord(values)) return null;
+
+  const sessionToken = values['session_token'];
+  const personUuid = values['person_uuid'];
+  if (typeof sessionToken !== 'string') return null;
+  if (typeof personUuid !== 'string') return null;
+
+  const extras: Partial<Record<Key, string>> = {};
+  for (const key of KEYS) {
+    if (UNTRANSFERABLE_KEYS.includes(key)) continue;
+    const value = values[key];
+    if (typeof value === 'string') {
+      extras[key] = value;
+    }
+  }
+
+  return { sessionToken, personUuid, extras };
 };
 
 const runBridge = (): Promise<BridgedSession | null> =>
@@ -46,20 +82,8 @@ const runBridge = (): Promise<BridgedSession | null> =>
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== BRIDGE_ORIGIN) return;
       if (event.source !== iframe.contentWindow) return;
-      const data = event.data;
-      if (data?.type !== 'session-bridge') return;
-      if (typeof data.sessionToken !== 'string') {
-        finish(null, true);
-        return;
-      }
-      if (typeof data.personUuid !== 'string') {
-        finish(null, true);
-        return;
-      }
-      finish(
-        { sessionToken: data.sessionToken, personUuid: data.personUuid },
-        true,
-      );
+      if (event.data?.type !== 'session-bridge') return;
+      finish(parseBridgedSession(event.data), true);
     };
 
     const timer = setTimeout(() => finish(null, false), BRIDGE_TIMEOUT_MS);
@@ -76,6 +100,19 @@ const fetchWebSessionOnApex = async (): Promise<BridgedSession | null> => {
   return await runBridge();
 };
 
+const adoptWebSession = async (bridged: BridgedSession): Promise<void> => {
+  await storeKv('session_token', bridged.sessionToken);
+  await storeKv('person_uuid', bridged.personUuid);
+  for (const key of KEYS) {
+    const value = bridged.extras[key];
+    if (value !== undefined) {
+      await storeKv(key, value);
+    }
+  }
+};
+
 export {
+  BridgedSession,
+  adoptWebSession,
   fetchWebSessionOnApex,
 };

@@ -136,6 +136,8 @@ const clearAllKvExceptSessionToken = async () => {
 };
 
 export {
+  KEYS,
+  Key,
   storeKv,
   clearAllKv,
   clearAllKvExceptSessionToken,
