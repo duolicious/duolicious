@@ -9,7 +9,6 @@ import {
 } from '../events/signed-in-user';
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
-import { WEB_BASE_URL } from '../env/env';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
 import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
@@ -511,7 +510,7 @@ const FinishOnboardingDescription = () => (
       You’re ready to go! But before we unleash you on the other members, let’s
       recap our <DefaultText
         disableTheme
-        onPress={() => Linking.openURL(`${WEB_BASE_URL}/guidelines/`)}
+        onPress={() => Linking.openURL('https://duolicious.app/guidelines/')}
         style={{ fontWeight: '700' }}
       >
         Community Guidelines

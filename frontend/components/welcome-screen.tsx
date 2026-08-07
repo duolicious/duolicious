@@ -50,7 +50,6 @@ import { isMobile } from '../util/util';
 import { setOptionScreenPayload } from '../navigation/option-screen-store';
 import { showSignUp } from './modal/sign-up-modal';
 import { lastEvent, listen } from '../events/events';
-import { WEB_BASE_URL } from '../env/env';
 import { anonymousAnswers } from '../events/anonymous-answers';
 
 type StatsResponse = {
@@ -455,7 +454,7 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                   style={{
                     fontWeight: '600',
                   }}
-                  onPress={() => Linking.openURL(`${WEB_BASE_URL}/terms/`)}
+                  onPress={() => Linking.openURL('https://duolicious.app/terms')}
                 >
                   Terms
                 </DefaultText>
@@ -463,7 +462,7 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                 <DefaultText
                   disableTheme
                   style={{ fontWeight: '600' }}
-                  onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacy/`)}
+                  onPress={() => Linking.openURL('https://duolicious.app/privacy')}
                 >
                   Privacy Policy
                 </DefaultText>
@@ -471,7 +470,7 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                 <DefaultText
                   disableTheme
                   style={{ fontWeight: '600' }}
-                  onPress={() => Linking.openURL(`${WEB_BASE_URL}/guidelines/`)}
+                  onPress={() => Linking.openURL('https://duolicious.app/guidelines')}
                 >
                   Community Guidelines
                 </DefaultText>
@@ -552,7 +551,7 @@ const TermsBlurb = () => (
     <DefaultText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL(`${WEB_BASE_URL}/terms/`)}
+      onPress={() => Linking.openURL('https://duolicious.app/terms')}
     >
       Terms
     </DefaultText>
@@ -560,7 +559,7 @@ const TermsBlurb = () => (
     <DefaultText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacy/`)}
+      onPress={() => Linking.openURL('https://duolicious.app/privacy')}
     >
       Privacy Policy
     </DefaultText>
@@ -568,7 +567,7 @@ const TermsBlurb = () => (
     <DefaultText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL(`${WEB_BASE_URL}/guidelines/`)}
+      onPress={() => Linking.openURL('https://duolicious.app/guidelines')}
     >
       Community Guidelines
     </DefaultText>
