@@ -15,6 +15,7 @@ RESERVED_SLUGS = {
     # (assets is the directory their stylesheets and images live under;
     # clubs, the other copied page, is already reserved below).
     'terms', 'privacy', 'safety', 'guidelines', 'blog', 'club', 'assets',
+    'export-data', 'tripcode',
     # Prefixes of multi-segment routes.
     'chat', 'gallery', 'in-depth', 'invite',
     # Nested routes under /profile and /search.
