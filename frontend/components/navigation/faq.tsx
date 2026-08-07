@@ -364,7 +364,7 @@ const FAQ_ITEMS: FaqItem[] = [
     Answer: () => <>
       <Paragraph>
         Duolicious is available via our {}
-        <Link href="https://web.duolicious.app/">web app</Link>
+        <Link href="https://duolicious.app/">web app</Link>
         . You can also download the app on {}
         <Link href="https://play.google.com/store/apps/details?id=app.duolicious">
           Google Play
