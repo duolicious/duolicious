@@ -75,9 +75,22 @@ jobs:
           DUO_WEB_PUSH_VAPID_PUBLIC_KEY: BJx_Sk1NPo2v0FLbd3QSrJHe0Q5xZxUEJGVvDMUVn4DKDRaTkDeZsfkDN_hxtLYWd2gbqYt0TD_gqVDwmODoO0E
       # pages-action's `directory` is resolved from the workspace root, not
       # the job's working-directory, so it must include the subdir prefix.
-      - uses: cloudflare/pages-action@v1
+      - name: Publish to web.duolicious.app
+        uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: a73a8f703a9a1eefac56f84ca6a4c9ac
           projectName: duolicious
+          directory: frontend/dist
+
+      # The same build also serves duolicious.app: the duolicious-website
+      # Pages project has the apex domain attached, and publishing the app
+      # there is what replaced the old static website (see the website
+      # repo's now-retired publish workflow).
+      - name: Publish to duolicious.app
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: a73a8f703a9a1eefac56f84ca6a4c9ac
+          projectName: duolicious-website
           directory: frontend/dist
