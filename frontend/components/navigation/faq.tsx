@@ -170,12 +170,13 @@ const FAQ_ITEMS: FaqItem[] = [
     Answer: () => <>
       <Paragraph>
         No, though the other information on your profile (e.g. age, gender)
-        must still be accurate.
+        must still be accurate. Avatars are fine, but pics of another person
+        that could be mistaken for you aren’t.
       </Paragraph>
       <Paragraph>
         In locations where age verification is a legal requirement, you’ll
-        need to upload a selfie to verify your age. Your selfie won’t be shown
-        on your profile and verification is free.
+        need to upload a selfie to verify your age. Verification is free and
+        your selfie stays private – it never goes on your profile.
       </Paragraph>
     </>,
   },
