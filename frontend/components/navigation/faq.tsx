@@ -453,11 +453,7 @@ const SectionHeading = ({ children, isFirst }: {
         fontFamily: 'MontserratBlack',
         fontWeight: 'normal',
         fontSize: 18,
-        padding: '14px 16px',
-        borderBottom: `1px solid ${appTheme.interactiveBorderColor}`,
-        borderTop: isFirst ?
-          undefined :
-          `1px solid ${appTheme.interactiveBorderColor}`,
+        padding: `${isFirst ? 14 : 32}px 16px 6px`,
       }}
     >
       {children}
@@ -481,7 +477,7 @@ const Faq = () => {
       <ScrollView>
         <SectionHeading isFirst={true}>Touch grass? No.</SectionHeading>
 
-        <div style={{ padding: '14px 16px' }}>
+        <div style={{ padding: '0 16px 14px' }}>
           <Paragraph>
             <Bold>Touch hearts.</Bold> Match with femcels, femboys, NEETs,
             gymcels, /lit/ pseudointellectuals, and that one person who’s also
@@ -492,7 +488,7 @@ const Faq = () => {
           </Paragraph>
         </div>
 
-        <SectionHeading>Frequently Asked Questions</SectionHeading>
+        <SectionHeading>Frequently asked questions</SectionHeading>
 
         <div style={{ paddingLeft: 16, paddingRight: 16 }}>
           {FAQ_ITEMS.map((faqItem, i) =>
