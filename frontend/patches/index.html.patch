@@ -1,7 +1,7 @@
 --- dist/index.html
 +++ patches/index.html
 @@ -4,0 +5,2 @@
-+    <meta name="description" content="Free dating online. Zero ads. Unlimited messages. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious." />
++    <meta name="description" content="Free dating online. Zero ads. Free matching. Free messaging. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious." />
 +    <link rel="preconnect" href="https://web.duolicious.app" />
 @@ -6 +8 @@
 -    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />

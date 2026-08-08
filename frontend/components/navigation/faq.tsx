@@ -439,6 +439,32 @@ const FaqDetails = ({ question, Answer, isFirst }: FaqItem & {
   );
 };
 
+const SectionHeading = ({ children, isFirst }: {
+  children: React.ReactNode
+  isFirst?: boolean
+}) => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <h2
+      style={{
+        margin: 0,
+        color: appTheme.secondaryColor,
+        fontFamily: 'MontserratBlack',
+        fontWeight: 'normal',
+        fontSize: 18,
+        padding: '14px 16px',
+        borderBottom: `1px solid ${appTheme.interactiveBorderColor}`,
+        borderTop: isFirst ?
+          undefined :
+          `1px solid ${appTheme.interactiveBorderColor}`,
+      }}
+    >
+      {children}
+    </h2>
+  );
+};
+
 const Faq = () => {
   const { appTheme } = useAppTheme();
 
@@ -452,24 +478,27 @@ const Faq = () => {
         ...appTheme.card,
       }}
     >
-      <h2
-        style={{
-          margin: 0,
-          color: appTheme.secondaryColor,
-          fontFamily: 'MontserratBlack',
-          fontWeight: 'normal',
-          fontSize: 18,
-          padding: '14px 16px',
-          borderBottom: `1px solid ${appTheme.interactiveBorderColor}`,
-        }}
-      >
-        Frequently Asked Questions
-      </h2>
+      <ScrollView>
+        <SectionHeading isFirst={true}>Touch grass? No.</SectionHeading>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16 }}>
-        {FAQ_ITEMS.map((faqItem, i) =>
-          <FaqDetails key={faqItem.question} {...faqItem} isFirst={i === 0}/>
-        )}
+        <div style={{ padding: '14px 16px' }}>
+          <Paragraph>
+            <Bold>Touch hearts.</Bold> Match with femcels, femboys, NEETs,
+            gymcels, /lit/ pseudointellectuals, and that one person who’s also
+            weirdly into trains. 100% free messaging and matching because
+            monetizing loneliness is cringe and we’re broke too. Your body
+            pillow had a good run. Now it’s time to romance someone who says
+            “based” back.
+          </Paragraph>
+        </div>
+
+        <SectionHeading>Frequently Asked Questions</SectionHeading>
+
+        <div style={{ paddingLeft: 16, paddingRight: 16 }}>
+          {FAQ_ITEMS.map((faqItem, i) =>
+            <FaqDetails key={faqItem.question} {...faqItem} isFirst={i === 0}/>
+          )}
+        </div>
       </ScrollView>
     </View>
   );
