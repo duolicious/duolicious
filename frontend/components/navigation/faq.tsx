@@ -151,12 +151,9 @@ const FAQ_ITEMS: FaqItem[] = [
     Answer: () => <>
       <Paragraph>
         Yes, everyone on Duolicious can match and message people completely for
-        free – no payment required.
-      </Paragraph>
-
-      <Paragraph>
-        Everyone gets the same access to matches and messages without a
-        subscription. In fact, all our core features are 100% free.
+        free – no payment required. Everyone gets the same access to matches and
+        messages without a subscription. In fact, all our core features are 100%
+        free.
       </Paragraph>
 
       <Paragraph>
@@ -174,9 +171,9 @@ const FAQ_ITEMS: FaqItem[] = [
         that could be mistaken for you aren’t.
       </Paragraph>
       <Paragraph>
-        In locations where age verification is a legal requirement, you’ll
-        need to upload a selfie to verify your age. Verification is free and
-        your selfie stays private – it never goes on your profile.
+        In locations where age verification is legally required, you’ll need to
+        upload a selfie. But you upload that via our verification system, not to
+        your profile.
       </Paragraph>
     </>,
   },
