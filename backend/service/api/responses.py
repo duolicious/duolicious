@@ -11,7 +11,6 @@ whitespace on the wire.
 """
 
 import json
-import os
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -24,7 +23,9 @@ _HTML_MIME = 'text/html; charset=utf-8'
 
 # Prod serves compact JSON; everywhere else pretty-prints so `jq`-based
 # functionality tests can diff against it (matching Flask's debug-gated split).
-_PRETTY = os.environ.get('DUO_ENV') != 'prod'
+from duoenv.api import ENV
+
+_PRETTY = ENV != 'prod'
 
 
 def _flask_json_default(o: object) -> object:

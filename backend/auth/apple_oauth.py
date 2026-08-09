@@ -40,16 +40,17 @@ Env vars:
                                     expo-web-browser as `returnUrl`.
 """
 
-import os
 
 from starlette.responses import RedirectResponse
 
 from util import append_query
 
 
-APPLE_WEB_REDIRECT_URL = os.environ.get('DUO_APPLE_WEB_REDIRECT_URL', '').strip()
-APPLE_APEX_REDIRECT_URL = os.environ.get('DUO_APPLE_APEX_REDIRECT_URL', '').strip()
-APPLE_ANDROID_REDIRECT_URL = os.environ.get('DUO_APPLE_ANDROID_REDIRECT_URL', '').strip()
+from duoenv.api import (
+    APPLE_ANDROID_REDIRECT_URL,
+    APPLE_APEX_REDIRECT_URL,
+    APPLE_WEB_REDIRECT_URL,
+)
 
 
 _REDIRECT_TARGETS = {

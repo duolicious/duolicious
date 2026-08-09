@@ -1,4 +1,3 @@
-import os
 import io
 import subprocess
 import tempfile
@@ -11,14 +10,12 @@ import traceback
 import asyncboto
 import boto3
 
-R2_AUDIO_BUCKET_NAME = os.environ['DUO_R2_AUDIO_BUCKET_NAME']
-R2_ACCT_ID = os.environ['DUO_R2_ACCT_ID']
-R2_ACCESS_KEY_ID = os.environ['DUO_R2_ACCESS_KEY_ID']
-R2_ACCESS_KEY_SECRET = os.environ['DUO_R2_ACCESS_KEY_SECRET']
-
-BOTO_ENDPOINT_URL = os.getenv(
-    'DUO_BOTO_ENDPOINT_URL',
-    f'https://{R2_ACCT_ID}.r2.cloudflarestorage.com'
+from duoenv.shared import (
+    BOTO_ENDPOINT_URL,
+    R2_ACCESS_KEY_ID,
+    R2_ACCESS_KEY_SECRET,
+    R2_ACCT_ID,
+    R2_AUDIO_BUCKET_NAME,
 )
 
 s3 = boto3.resource(

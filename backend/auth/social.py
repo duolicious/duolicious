@@ -15,7 +15,6 @@ Env vars:
                            Bundle ID for native iOS, Services ID for web.
 """
 
-import os
 import secrets
 import time
 from typing import TypedDict
@@ -38,13 +37,10 @@ class SocialAuthError(Exception):
     """Raised when a provider token fails verification."""
 
 
-def _split_csv(env_name: str) -> list[str]:
-    raw = os.environ.get(env_name, '')
-    return [s.strip() for s in raw.split(',') if s.strip()]
-
-
-_GOOGLE_CLIENT_IDS = _split_csv('DUO_GOOGLE_CLIENT_IDS')
-_APPLE_CLIENT_IDS = _split_csv('DUO_APPLE_CLIENT_IDS')
+from duoenv.api import (
+    APPLE_CLIENT_IDS as _APPLE_CLIENT_IDS,
+    GOOGLE_CLIENT_IDS as _GOOGLE_CLIENT_IDS,
+)
 
 _GOOGLE_ISSUERS = ('https://accounts.google.com', 'accounts.google.com')
 _APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys'

@@ -12,15 +12,16 @@ from openai.types.shared_params.response_format_json_object import (
 from dataclasses import dataclass
 from typing import Literal
 import json
-import os
 import base64
 import traceback
 from pathlib import Path
 from httpxclient import make_http_client
 from verification.messages import *
 
-VERIFICATION_IMAGE_BASE_URL = os.getenv('DUO_VERIFICATION_IMAGE_BASE_URL')
-VERIFICATION_MOCK_RESPONSE_FILE = os.getenv('DUO_VERIFICATION_MOCK_RESPONSE_FILE')
+from duoenv.shared import (
+    VERIFICATION_IMAGE_BASE_URL,
+    VERIFICATION_MOCK_RESPONSE_FILE,
+)
 
 _mock_response_file = (
      Path(__file__).parent.parent / VERIFICATION_MOCK_RESPONSE_FILE

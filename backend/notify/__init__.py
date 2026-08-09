@@ -1,15 +1,10 @@
 from dataclasses import dataclass
 from typing import List
 import json
-import os
 from batcher import Batcher
 from httpxclient import make_http_client
 
-# This should typically be: https://exp.host/--/api/v2/push/send?useFcmV1=true
-NOTIFICATION_API_URL = os.environ.get(
-    'DUO_NOTIFICATION_API_URL',
-    'http://localhost'
-)
+from duoenv.shared import NOTIFICATION_API_URL
 
 @dataclass
 class Notification:

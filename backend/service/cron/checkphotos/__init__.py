@@ -8,7 +8,6 @@ from service.cron.cronutil import (
 )
 import asyncio
 import boto3
-import os
 import random
 import io
 import blurhash
@@ -16,24 +15,16 @@ import numpy
 from PIL import Image
 from collections.abc import Iterator
 
-DRY_RUN = os.environ.get(
-    'DUO_CRON_CHECK_PHOTOS_DRY_RUN',
-    'true',
-).lower() not in ['false', 'f', '0', 'no']
-
-CHECK_PHOTOS_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_CHECK_PHOTOS_POLL_SECONDS',
-    str(1), # 1 second
-))
-
-R2_ACCT_ID           = os.environ['DUO_R2_ACCT_ID']
-R2_ACCESS_KEY_ID     = os.environ['DUO_R2_ACCESS_KEY_ID']
-R2_ACCESS_KEY_SECRET = os.environ['DUO_R2_ACCESS_KEY_SECRET']
-R2_BUCKET_NAME       = os.environ['DUO_R2_BUCKET_NAME']
-
-BOTO_ENDPOINT_URL = os.getenv(
-    'DUO_BOTO_ENDPOINT_URL',
-    f'https://{R2_ACCT_ID}.r2.cloudflarestorage.com'
+from duoenv.cron import (
+    CHECK_PHOTOS_DRY_RUN as DRY_RUN,
+    CHECK_PHOTOS_POLL_SECONDS,
+)
+from duoenv.shared import (
+    BOTO_ENDPOINT_URL,
+    R2_ACCESS_KEY_ID,
+    R2_ACCESS_KEY_SECRET,
+    R2_ACCT_ID,
+    R2_BUCKET_NAME,
 )
 
 print(f'Hello from cron module: {__name__}')

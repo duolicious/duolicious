@@ -1,5 +1,4 @@
 import asyncio
-import os
 import psycopg
 from psycopg_pool import AsyncConnectionPool
 import random
@@ -20,10 +19,14 @@ from database._row import (
     row_value,
 )
 
-DB_HOST = os.environ['DUO_DB_HOST']
-DB_PORT = os.environ['DUO_DB_PORT']
-DB_USER = os.environ['DUO_DB_USER']
-DB_PASS = os.environ['DUO_DB_PASS']
+from duoenv.shared import (
+    DB_HOST,
+    DB_PASS,
+    DB_POOL_MAX_SIZE as _pool_max_size,
+    DB_POOL_MIN_SIZE as _pool_min_size,
+    DB_PORT,
+    DB_USER,
+)
 
 _valid_isolation_levels = [
     'SERIALIZABLE',
@@ -139,8 +142,6 @@ class TxCursor:
         await self._cur.close()
 
 
-_pool_min_size = int(os.environ.get('DUO_DB_POOL_MIN_SIZE', '1'))
-_pool_max_size = int(os.environ.get('DUO_DB_POOL_MAX_SIZE', '2'))
 
 _ApiPool = AsyncConnectionPool[psycopg.AsyncConnection[Row]]
 

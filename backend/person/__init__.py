@@ -1,4 +1,3 @@
-import os
 from database import Row, Tx, api_tx
 from database._row import row_int_or_none
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -71,16 +70,13 @@ from verification.messages import (
 )
 
 
-DUO_ENV = os.environ['DUO_ENV']
-
-R2_ACCT_ID = os.environ['DUO_R2_ACCT_ID']
-R2_ACCESS_KEY_ID = os.environ['DUO_R2_ACCESS_KEY_ID']
-R2_ACCESS_KEY_SECRET = os.environ['DUO_R2_ACCESS_KEY_SECRET']
-R2_BUCKET_NAME = os.environ['DUO_R2_BUCKET_NAME']
-
-BOTO_ENDPOINT_URL = os.getenv(
-    'DUO_BOTO_ENDPOINT_URL',
-    f'https://{R2_ACCT_ID}.r2.cloudflarestorage.com'
+from duoenv.api import ENV as DUO_ENV
+from duoenv.shared import (
+    BOTO_ENDPOINT_URL,
+    R2_ACCESS_KEY_ID,
+    R2_ACCESS_KEY_SECRET,
+    R2_ACCT_ID,
+    R2_BUCKET_NAME,
 )
 
 s3 = boto3.resource(

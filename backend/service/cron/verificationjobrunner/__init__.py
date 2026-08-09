@@ -6,14 +6,10 @@ from verification.messages import (
 )
 from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
 import asyncio
-import os
 import random
 from dataclasses import dataclass
 
-VERIFICATION_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_VERIFICATION_POLL_SECONDS',
-    str(1), # 1 second
-))
+from duoenv.cron import VERIFICATION_POLL_SECONDS
 
 print(f'Hello from cron module: {__name__}')
 

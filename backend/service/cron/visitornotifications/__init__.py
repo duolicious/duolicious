@@ -15,12 +15,8 @@ from service.cron.visitornotifications.template import (
     title_part,
     visitor_emailtemplate,
 )
-import os
 
-VISITOR_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_EMAIL_POLL_SECONDS',
-    str(10), # 10 seconds
-))
+from duoenv.cron import EMAIL_POLL_SECONDS as VISITOR_POLL_SECONDS
 
 print(f'Hello from cron module: {__name__}')
 

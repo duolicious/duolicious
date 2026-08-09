@@ -28,7 +28,6 @@ import asyncio
 import base64
 import ipaddress
 import json
-import os
 import socket
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
@@ -45,7 +44,7 @@ from webpush import (
 from httpxclient import make_http_client
 from util import Json, log
 
-VAPID_SUBJECT = os.environ.get('DUO_VAPID_SUBJECT', 'mailto:support@duolicious.app')
+from duoenv.api import VAPID_PRIVATE_KEY, VAPID_SUBJECT
 
 WEB_PUSH_TTL_SECONDS = 60
 
@@ -53,7 +52,7 @@ _tasks: set[asyncio.Task] = set()
 
 
 def _load_web_push() -> WebPush | None:
-    private_key = os.environ.get('DUO_VAPID_PRIVATE_KEY', '')
+    private_key = VAPID_PRIVATE_KEY
 
     if not private_key:
         return None

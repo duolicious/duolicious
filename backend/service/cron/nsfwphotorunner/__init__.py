@@ -7,13 +7,9 @@ from service.cron.cronutil import (
     print_stacktrace,
 )
 import asyncio
-import os
 import random
 
-NSFW_PHOTO_RUNNER_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_NSFW_PHOTO_RUNNER_POLL_SECONDS',
-    str(1), # 1 second
-))
+from duoenv.cron import NSFW_PHOTO_RUNNER_POLL_SECONDS
 
 print(f'Hello from cron module: {__name__}')
 

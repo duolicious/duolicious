@@ -28,80 +28,25 @@ from openai import AsyncOpenAI
 import asyncio
 import hashlib
 import json
-import os
 import random
 import traceback
 from collections.abc import Mapping, Sequence
 
-CLUB_SEO_MAX_LOAD_PCT = float(os.environ.get(
-    'DUO_CRON_CLUB_SEO_MAX_LOAD_PCT',
-    str(75),
-))
-
-# Recompute even when membership hasn't changed, to pick up demographic
-# drift (people aging, changing profile fields) that doesn't trip the
-# dirty-queue trigger.
-CLUB_STATS_MAX_AGE_DAYS = int(os.environ.get(
-    'DUO_CRON_CLUB_STATS_MAX_AGE_DAYS',
-    str(7),
-))
-
-CLUB_STATS_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_CLUB_STATS_POLL_SECONDS',
-    str(300),
-))
-
-CLUB_STATS_BATCH_SIZE = int(os.environ.get(
-    'DUO_CRON_CLUB_STATS_BATCH_SIZE',
-    str(200),
-))
-
-CLUB_TOP_ANSWERS_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_CLUB_TOP_ANSWERS_POLL_SECONDS',
-    str(10 * 60),
-))
-
-CLUB_TOP_ANSWERS_BATCH_SIZE = int(os.environ.get(
-    'DUO_CRON_CLUB_TOP_ANSWERS_BATCH_SIZE',
-    str(30),
-))
-
-CLUB_SEO_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_CLUB_SEO_POLL_SECONDS',
-    str(60),
-))
-
-CLUB_SEO_BATCH_SIZE = int(os.environ.get(
-    'DUO_CRON_CLUB_SEO_BATCH_SIZE',
-    str(20),
-))
-
-# Per-tick fan-out for OpenAI calls. Each call is mostly latency-bound,
-# so even a small fan-out gives a near-linear throughput win.
-CLUB_SEO_CONCURRENCY = int(os.environ.get(
-    'DUO_CRON_CLUB_SEO_CONCURRENCY',
-    str(10),
-))
-
-CLUB_SEO_MAX_AGE_DAYS = int(os.environ.get(
-    'DUO_CRON_CLUB_SEO_MAX_AGE_DAYS',
-    str(30),
-))
-
-OPENAI_MODEL = os.environ.get(
-    'DUO_CRON_CLUB_SEO_MODEL',
-    'gpt-4o-mini',
+from duoenv.cron import (
+    CLUB_OVERLAP_POLL_SECONDS,
+    CLUB_SEO_BATCH_SIZE,
+    CLUB_SEO_CONCURRENCY,
+    CLUB_SEO_MAX_AGE_DAYS,
+    CLUB_SEO_MAX_LOAD_PCT,
+    CLUB_SEO_MOCK_DESCRIPTION,
+    CLUB_SEO_MODEL as OPENAI_MODEL,
+    CLUB_SEO_POLL_SECONDS,
+    CLUB_STATS_BATCH_SIZE,
+    CLUB_STATS_MAX_AGE_DAYS,
+    CLUB_STATS_POLL_SECONDS,
+    CLUB_TOP_ANSWERS_BATCH_SIZE,
+    CLUB_TOP_ANSWERS_POLL_SECONDS,
 )
-
-
-CLUB_OVERLAP_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_CLUB_OVERLAP_POLL_SECONDS',
-    str(6 * 60 * 60),
-))
-
-# When set, skip the OpenAI call and use this string. Lets the tests
-# exercise the cron without an API key.
-CLUB_SEO_MOCK_DESCRIPTION = os.environ.get('DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION')
 
 _openai_client = AsyncOpenAI() if not CLUB_SEO_MOCK_DESCRIPTION else None
 

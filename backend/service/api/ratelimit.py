@@ -12,7 +12,6 @@ values can be retuned in one place rather than hunting literals in the routes.
 """
 
 import ipaddress
-import os
 from collections.abc import Awaitable, Callable
 
 from limits import parse_many
@@ -27,8 +26,7 @@ from service.api.mocking import (
     mock_ip_address,
 )
 
-REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
-REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
+from duoenv.api import REDIS_HOST, REDIS_PORT
 
 
 # ---------------------------------------------------------------------------

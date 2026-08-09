@@ -11,7 +11,6 @@ empty list, i.e. "not blocked". The service itself does no timeout handling, so
 timeouts are owned (and logged) here.
 """
 
-import os
 from urllib.parse import quote
 
 from httpxclient import get_json_fail_open
@@ -19,12 +18,7 @@ from util import IPAddress
 
 ListName = str
 
-FIREHOL_URL = os.environ.get("DUO_FIREHOL_URL", "http://firehol:5070")
-
-# Container-to-container lookups are fast, but we keep the timeout short so a
-# slow or unavailable FireHOL container never stalls an auth request; we just
-# fail open instead.
-FIREHOL_TIMEOUT = float(os.environ.get("DUO_FIREHOL_TIMEOUT", "0.02"))
+from duoenv.api import FIREHOL_TIMEOUT, FIREHOL_URL
 
 
 class FireholClient:

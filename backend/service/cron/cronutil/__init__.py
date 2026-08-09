@@ -8,25 +8,18 @@ import asyncboto
 import asyncio
 import boto3
 import io
-import os
 import traceback
 import time
 
-R2_ACCT_ID           = os.environ['DUO_R2_ACCT_ID']
-R2_ACCESS_KEY_ID     = os.environ['DUO_R2_ACCESS_KEY_ID']
-R2_ACCESS_KEY_SECRET = os.environ['DUO_R2_ACCESS_KEY_SECRET']
-R2_BUCKET_NAME       = os.environ['DUO_R2_BUCKET_NAME']
-R2_AUDIO_BUCKET_NAME = os.environ['DUO_R2_AUDIO_BUCKET_NAME']
-
-BOTO_ENDPOINT_URL = os.getenv(
-    'DUO_BOTO_ENDPOINT_URL',
-    f'https://{R2_ACCT_ID}.r2.cloudflarestorage.com'
+from duoenv.cron import MAX_RANDOM_START_DELAY
+from duoenv.shared import (
+    BOTO_ENDPOINT_URL,
+    R2_ACCESS_KEY_ID,
+    R2_ACCESS_KEY_SECRET,
+    R2_ACCT_ID,
+    R2_AUDIO_BUCKET_NAME,
+    R2_BUCKET_NAME,
 )
-
-MAX_RANDOM_START_DELAY = int(os.environ.get(
-    'DUO_CRON_MAX_RANDOM_START_DELAY',
-    15,
-))
 
 DISABLE_MOBILE_NOTIFICATIONS_FILE = (
     Path(__file__).parent.parent.parent.parent /

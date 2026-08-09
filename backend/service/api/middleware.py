@@ -11,7 +11,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-COMMIT_HASH = os.environ.get('DUO_COMMIT_HASH', 'unknown')
+from duoenv.api import COMMIT_HASH
 WORKER_ID = str(os.getpid())
 
 

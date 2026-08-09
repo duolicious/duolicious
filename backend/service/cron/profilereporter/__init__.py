@@ -8,15 +8,11 @@ from service.cron.cronutil import (
     print_stacktrace,
 )
 import asyncio
-import os
 import random
 from antiabuse.childsafety import potential_minor
 from antiabuse.lodgereport import skip_by_uuid
 
-PROFILE_REPORTER_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_PROFILE_REPORTER_POLL_SECONDS',
-    str(10 * 60), # 10 minutes
-))
+from duoenv.cron import PROFILE_REPORTER_POLL_SECONDS
 
 print(f'Hello from cron module: {__name__}')
 

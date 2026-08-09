@@ -1,7 +1,6 @@
 """Thread‑safe SMTP helper with typed API and automatic retries.
 """
 
-import os
 import smtplib
 import threading
 import time
@@ -10,10 +9,7 @@ from contextlib import suppress
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-SMTP_HOST: str = os.environ["DUO_SMTP_HOST"]
-SMTP_PORT: int = int(os.environ["DUO_SMTP_PORT"])
-SMTP_USER: str = os.environ["DUO_SMTP_USER"]
-SMTP_PASS: str = os.environ["DUO_SMTP_PASS"]
+from duoenv.shared import SMTP_HOST, SMTP_PASS, SMTP_PORT, SMTP_USER
 
 
 class Smtp:

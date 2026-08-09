@@ -1,4 +1,3 @@
-import os
 import redis.asyncio as redis
 
 from async_lru_cache import AsyncLruCache
@@ -23,8 +22,7 @@ from chatprotocol.timestamp import (
 )
 
 
-REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
-REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
+from duoenv.api import REDIS_HOST, REDIS_PORT
 REDIS_WORKER_CLIENT: redis.Redis = redis.Redis(
         host=REDIS_HOST,
         port=REDIS_PORT,

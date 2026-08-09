@@ -6,7 +6,6 @@ which imports this `app`. `service.api:app` is the uvicorn entry point.
 """
 
 import logging
-import os
 
 import constants
 from duotypes import FieldValidationError
@@ -31,7 +30,7 @@ from service.api.responses import make_response
 from service.api.routing import DuoRoute
 from service.lifespan import app_lifespan
 
-CORS_ORIGINS = os.environ.get('DUO_CORS_ORIGINS', '*')
+from duoenv.api import CORS_ORIGINS
 
 # Uvicorn's log config only covers its own loggers; give the app's loggers a
 # root handler in the same level-prefixed style.

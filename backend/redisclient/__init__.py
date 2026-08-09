@@ -18,12 +18,10 @@ This is intentionally separate from the chat service, which constructs its own
 `redis.asyncio` clients.
 """
 
-import os
 
 import redis.asyncio as async_redis
 
-REDIS_HOST: str = os.environ.get("DUO_REDIS_HOST", "redis")
-REDIS_PORT: int = int(os.environ.get("DUO_REDIS_PORT", 6379))
+from duoenv.api import REDIS_HOST, REDIS_PORT
 
 
 def make_redis_client() -> async_redis.Redis:

@@ -19,15 +19,12 @@ Like `redisclient`, this is intentionally separate from the chat service, which
 constructs its own clients.
 """
 
-import os
 
 import httpx
 
 from util import Json, log, timed
 
-# Bounds every outbound request unless the caller overrides it. Keeps a slow or
-# unreachable peer from blocking the event loop indefinitely.
-HTTP_TIMEOUT: float = float(os.environ.get("DUO_HTTP_TIMEOUT", "30"))
+from duoenv.shared import HTTP_TIMEOUT
 
 
 def make_http_client(

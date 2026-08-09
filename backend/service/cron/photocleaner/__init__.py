@@ -6,18 +6,12 @@ from service.cron.cronutil import (
     print_stacktrace,
 )
 import asyncio
-import os
 import random
 
-DRY_RUN = os.environ.get(
-    'DUO_CRON_PHOTO_CLEANER_DRY_RUN',
-    'true',
-).lower() not in ['false', 'f', '0', 'no']
-
-PHOTO_CLEANER_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_PHOTO_CLEANER_POLL_SECONDS',
-    str(60), # 1 minute
-))
+from duoenv.cron import (
+    PHOTO_CLEANER_DRY_RUN as DRY_RUN,
+    PHOTO_CLEANER_POLL_SECONDS,
+)
 
 print(f'Hello from cron module: {__name__}')
 

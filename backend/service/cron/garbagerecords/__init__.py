@@ -2,13 +2,9 @@ from database import api_tx
 from service.cron.garbagerecords.sql import *
 from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
 import asyncio
-import os
 import random
 
-GARBAGE_RECORDS_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_GARBAGE_RECORDS_POLL_SECONDS',
-    str(10), # 10 seconds
-))
+from duoenv.cron import GARBAGE_RECORDS_POLL_SECONDS
 
 print(f'Hello from cron module: {__name__}')
 

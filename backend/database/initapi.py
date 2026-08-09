@@ -1,13 +1,9 @@
 def create_dbs() -> None:
     # All this stuff just to run `CREATE DATABASE IF NOT EXISTS DB_NAME`
-    import os
     import psycopg
     import time
 
-    DB_HOST = os.environ['DUO_DB_HOST']
-    DB_PORT = os.environ['DUO_DB_PORT']
-    DB_USER = os.environ['DUO_DB_USER']
-    DB_PASS = os.environ['DUO_DB_PASS']
+    from duoenv.shared import DB_HOST, DB_PASS, DB_PORT, DB_USER
 
     _conninfo = psycopg.conninfo.make_conninfo(
         host=DB_HOST,

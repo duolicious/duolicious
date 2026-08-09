@@ -18,7 +18,6 @@ RIPEstat is slower than that, we just let the user sign up.
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import quote
@@ -26,9 +25,7 @@ from urllib.parse import quote
 from httpxclient import get_json_fail_open
 from util import IPAddress
 
-RIPE_URL = os.environ.get("DUO_RIPE_URL", "https://stat.ripe.net")
-
-RIPE_TIMEOUT = float(os.environ.get("DUO_RIPE_TIMEOUT", "3"))
+from duoenv.api import RIPE_TIMEOUT, RIPE_URL
 
 # A JSON list of ASNs as bare numbers.
 _blocked_asns_file = Path(__file__).parent / "blocked-asns.json"

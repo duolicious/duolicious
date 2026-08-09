@@ -16,12 +16,8 @@ from service.cron.notificationdispatch import (
     NotificationKind,
     send_pending_notifications_forever,
 )
-import os
 
-EMAIL_POLL_SECONDS = int(os.environ.get(
-    'DUO_CRON_EMAIL_POLL_SECONDS',
-    str(10), # 10 seconds
-))
+from duoenv.cron import EMAIL_POLL_SECONDS
 
 print(f'Hello from cron module: {__name__}')
 

@@ -6,7 +6,7 @@ import ipaddress
 import os
 import time
 
-OFFPEAK_FUNCTION_OVERRIDE = os.environ.get('DUO_OFFPEAK_FUNCTION_OVERRIDE', '').lower()
+from duoenv.shared import OFFPEAK_FUNCTION_OVERRIDE
 
 # `service.firehol` keeps its own copy: its container ships only service/firehol.
 IPAddress = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]

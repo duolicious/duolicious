@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-import os
 import re
+
+from duoenv.shared import REPORT_EMAIL
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,6 @@ def parse_email_string(email_string: str) -> list[EmailEntry]:
     return result
 
 
-REPORT_EMAIL = os.environ['DUO_REPORT_EMAIL']
 REPORT_EMAILS = parse_email_string(REPORT_EMAIL)
 PRIMARY_REPORT_EMAIL = REPORT_EMAILS[0].email
 print(REPORT_EMAILS)
