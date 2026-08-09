@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Literal
 import json
 import base64
-import traceback
+import logging
 from pathlib import Path
 from httpxclient import make_http_client
 from verification.messages import *
@@ -22,6 +22,8 @@ from duoenv.shared import (
     VERIFICATION_IMAGE_BASE_URL,
     VERIFICATION_MOCK_RESPONSE_FILE,
 )
+
+logger = logging.getLogger(__name__)
 
 _mock_response_file = (
      Path(__file__).parent.parent / VERIFICATION_MOCK_RESPONSE_FILE
@@ -235,8 +237,7 @@ def process_response(
         image_1_has_person_from_image_7 = float(image_1_has_person_from_image_7) if image_1_has_person_from_image_7 is not None else None
         image_1_has_person_from_image_8 = float(image_1_has_person_from_image_8) if image_1_has_person_from_image_8 is not None else None
     except:
-        print(traceback.format_exc())
-        print('JSON was:', response_str)
+        logger.exception(f'Parsing verification response failed; JSON was: {response_str}')
         return failure(V_SOMETHING_WENT_WRONG, response_str)
 
     # These settings are tuned to gpt-4-turbo. gpt-4o worked better with higher
@@ -328,7 +329,7 @@ async def get_image_url(uuid: str) -> str:
     # Everything after this point is only intended for use in development.
     # This shouldn't be used in production.
     intermediate_image_url = f"{VERIFICATION_IMAGE_BASE_URL}/450-{uuid}.jpg"
-    print(f'Fetching for verification: {intermediate_image_url}')
+    logger.info(f'Fetching for verification: {intermediate_image_url}')
 
     async with make_http_client() as client:
         response = await client.get(intermediate_image_url)
@@ -409,7 +410,7 @@ async def real_verification_response(
             timeout=45,
         )).choices[0].message.content
     except:
-        print(traceback.format_exc())
+        logger.exception('Verification completion failed')
 
     return None
 

@@ -1,15 +1,17 @@
 """Thread‑safe SMTP helper with typed API and automatic retries.
 """
 
+import logging
 import smtplib
 import threading
 import time
-import traceback
 from contextlib import suppress
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from duoenv.shared import SMTP_HOST, SMTP_PASS, SMTP_PORT, SMTP_USER
+
+logger = logging.getLogger(__name__)
 
 
 class Smtp:
@@ -41,22 +43,22 @@ class Smtp:
                     self._smtp = None
 
             try:
-                print(f"Establishing connection to SMTP server at {self.host}")
+                logger.info(f'Establishing connection to SMTP server at {self.host}')
                 smtp = smtplib.SMTP(self.host, self.port, timeout=30)
                 smtp.ehlo()
 
                 if smtp.has_extn("starttls"):
                     smtp.starttls()
                     smtp.ehlo()  # re-identify as TLS is now in effect
-                    print("STARTTLS supported and initiated.")
+                    logger.info('STARTTLS supported and initiated.')
                 else:
-                    print("STARTTLS not supported by server.")
+                    logger.info('STARTTLS not supported by server.')
 
                 smtp.login(self.username, self.password)
                 self._smtp = smtp
-                print(f"Connection to SMTP server at {self.host} established")
+                logger.info(f'Connection to SMTP server at {self.host} established')
             except Exception as exc:
-                print(f"Failed to connect to SMTP server: {exc}")
+                logger.error(f'Failed to connect to SMTP server: {exc}')
                 self._smtp = None
                 raise
 
@@ -116,13 +118,13 @@ class Smtp:
                     )
                 return  # Success
             except Exception:
-                print(traceback.format_exc())
+                logger.exception('Sending email failed')
                 if attempt == max_attempts:
-                    print("All retry attempts exhausted. Giving up.")
+                    logger.error('All retry attempts exhausted. Giving up.')
 
                 delay_base: float = 1.0 if backoff is None else backoff
                 delay = delay_base * (2 ** (attempt - 1))
-                print(f"Attempt {attempt} failed; retrying in {delay:.1f}s.")
+                logger.warning(f'Attempt {attempt} failed; retrying in {delay:.1f}s.')
                 time.sleep(delay)
 
                 # Best effort reconnect for the next iteration
@@ -138,7 +140,7 @@ class Smtp:
                 try:
                     self._smtp.quit()
                 except Exception as exc:
-                    print(f"Error while quitting SMTP connection: {exc}")
+                    logger.warning(f'Error while quitting SMTP connection: {exc}')
                 finally:
                     self._smtp = None
 

@@ -22,7 +22,7 @@ from antiabuse.lodgereport.constants import (
     TRUSTWORTHY_MIN_QUESTIONS_ANSWERED,
 )
 from smtp import aws_smtp
-import traceback
+import logging
 import threading
 import html
 import yaml
@@ -31,6 +31,8 @@ import re
 import random
 from collections.abc import Mapping, Sequence
 from antiabuse.lodgereport.constants import EmailEntry
+
+logger = logging.getLogger(__name__)
 
 
 def _repack_last_messages_in_place(
@@ -191,7 +193,7 @@ def _send_report_email(
             from_addr=PRIMARY_REPORT_EMAIL,
         )
     except:
-        print(traceback.format_exc())
+        logger.exception('Sending report email failed')
 
 
 async def lodge_report(

@@ -5,15 +5,18 @@ from service.cron.cronutil import (
     DISABLE_MOBILE_NOTIFICATIONS_FILE,
     MAX_RANDOM_START_DELAY,
     disable_mobile_notifications,
-    print_stacktrace,
+    log_stacktrace,
 )
 from smtp import make_aws_smtp
 from typing import Generic, Protocol, TypeVar
 from unseennotificationcount import increment_unseen_notification_count
 from util import Json
 import asyncio
+import logging
 import notify
 import random
+
+logger = logging.getLogger(__name__)
 
 class NotificationRow(Protocol):
     person_uuid: str
@@ -42,7 +45,7 @@ def do_send_email_notification(kind: NotificationKind[N], row: N) -> bool:
 
 async def send_email_notification(kind: NotificationKind[N], row: N) -> None:
     if not do_send_email_notification(kind, row):
-        print('Email notification failed because it ends with @example.com')
+        logger.info('Email notification failed because it ends with @example.com')
         return
 
     subject = kind.subject(row)
@@ -61,9 +64,9 @@ def send_mobile_notification(
     badge: int | None,
 ) -> None:
     if disable_mobile_notifications():
-        print(
-            'File prevented mobile notifications',
-            str(DISABLE_MOBILE_NOTIFICATIONS_FILE.absolute())
+        logger.info(
+            'File prevented mobile notifications: '
+            f'{DISABLE_MOBILE_NOTIFICATIONS_FILE.absolute()}'
         )
     else:
         notify.enqueue_mobile_notification(
@@ -106,10 +109,10 @@ async def send_notification(
     badge: int | None,
 ) -> None:
     if not row.token:
-        print(f'Sending {kind.name} email notification:', str(row))
+        logger.info(f'Sending {kind.name} email notification: {row}')
         return await send_email_notification(kind, row)
 
-    print(f'Sending {kind.name} mobile notification:', str(row))
+    logger.info(f'Sending {kind.name} mobile notification: {row}')
     send_mobile_notification(kind, row, badge=badge)
 
 async def maybe_send_notification(
@@ -139,6 +142,6 @@ async def send_pending_notifications_once(kind: NotificationKind[N]) -> None:
 async def send_pending_notifications_forever(kind: NotificationKind[N]) -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(
+        await log_stacktrace(
             lambda: send_pending_notifications_once(kind))
         await asyncio.sleep(kind.poll_seconds)

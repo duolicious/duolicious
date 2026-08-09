@@ -1,3 +1,15 @@
+import logging
+
+# This module doubles as the deploy-time entrypoint (see the bottom of the
+# file), so it configures logging the same way the services do.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(asctime)s %(name)s: %(message)s',
+)
+
+logger = logging.getLogger(__name__)
+
+
 def create_dbs() -> None:
     # All this stuff just to run `CREATE DATABASE IF NOT EXISTS DB_NAME`
     import psycopg
@@ -18,18 +30,17 @@ def create_dbs() -> None:
                 with psycopg.connect(_conninfo, autocommit=True) as conn:
                     with conn.cursor() as cur:
                         cur.execute(f"CREATE DATABASE {name}")
-                print(f'Created database: {name}')
+                logger.info(f'Created database: {name}')
                 break
             except (
                 psycopg.errors.DuplicateDatabase,
                 psycopg.errors.UniqueViolation,
             ):
-                print(f'Database already exists: {name}')
+                logger.info(f'Database already exists: {name}')
                 break
             except psycopg.errors.OperationalError as e:
-                print(
-                    'Creating database(s) failed; waiting and trying again:',
-                    e
+                logger.warning(
+                    f'Creating database(s) failed; waiting and trying again: {e}'
                 )
                 time.sleep(1)
 
@@ -50,11 +61,11 @@ async def init_db() -> None:
 
     await open_db_pool()
 
-    print('Initializing api DB...')
+    logger.info('Initializing api DB...')
     for i, init_func in enumerate(init_funcs, start=1):
-        print(f'  * {i} of {len(init_funcs)}')
+        logger.info(f'  * {i} of {len(init_funcs)}')
         await init_func()
-    print('Finished initializing api DB')
+    logger.info('Finished initializing api DB')
 
 create_dbs()
 import asyncio

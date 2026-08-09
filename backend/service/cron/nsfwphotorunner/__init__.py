@@ -4,14 +4,17 @@ from service.cron.nsfwphotorunner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     download_450_images,
-    print_stacktrace,
+    log_stacktrace,
 )
 import asyncio
 import random
+import logging
 
 from duoenv.cron import NSFW_PHOTO_RUNNER_POLL_SECONDS
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 async def predict_nsfw_photos_once() -> None:
     async with api_tx() as tx:
@@ -54,5 +57,5 @@ async def predict_nsfw_photos_once() -> None:
 async def predict_nsfw_photos_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(predict_nsfw_photos_once)
+        await log_stacktrace(predict_nsfw_photos_once)
         await asyncio.sleep(NSFW_PHOTO_RUNNER_POLL_SECONDS)

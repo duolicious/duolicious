@@ -1,9 +1,11 @@
 import json
-import traceback
+import logging
 from database import api_tx
 from redisclient import make_redis_client
 from chatprotocol.outbound import Visitor, to_bus
 from visitorsql import Q_VISITOR_ITEM
+
+logger = logging.getLogger(__name__)
 
 _redis = make_redis_client()
 
@@ -19,7 +21,7 @@ async def _publish(channel: str, section: str, item: dict) -> None:
             )),
         )
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Publishing visitor update failed')
 
 
 async def publish_visit(
@@ -58,4 +60,4 @@ async def publish_visit(
         if owner_item:
             await _publish(prospect_uuid, 'visited_you', owner_item)
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Publishing visit failed')

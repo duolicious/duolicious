@@ -4,8 +4,10 @@ from duoaudio import (
 )
 from chatprotocol.message import AudioMessage
 import asyncio
+import logging
 import secrets
-import traceback
+
+logger = logging.getLogger(__name__)
 
 async def transcode_and_put(
     uuid: str,
@@ -24,7 +26,7 @@ async def transcode_and_put(
     try:
         await put_audio_in_object_store(uuid=uuid, audio_file_bytes=transcoded)
     except:
-        print(traceback.format_exc())
+        logger.exception('Storing audio message failed')
         return False
 
     return True

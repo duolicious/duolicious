@@ -5,6 +5,7 @@ create the schema on a fresh database, apply migrations, load the domain and
 club seed data, and backfill normalized emails.
 """
 
+import logging
 import re
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from constants import (
     LAST_ONLINE_NOW_SECONDS,
 )
 from database import api_tx
+
+logger = logging.getLogger(__name__)
 
 _init_sql_file = (
     Path(__file__).parent.parent.parent / 'init-api.sql')
@@ -61,25 +64,25 @@ async def migrate_unnormalized_emails() -> None:
         q = "SELECT 1 FROM person WHERE normalized_email ILIKE '%@googlemail.com' LIMIT 1"
         await tx.execute(q)
         if await tx.fetchone():
-            print('Unnormalized emails found. Normalizing...')
+            logger.info('Unnormalized emails found. Normalizing...')
         else:
-            print('Emails already normalized. Not performing normalization.')
+            logger.info('Emails already normalized. Not performing normalization.')
             return
 
     async with api_tx() as tx:
-        print('Selecting emails')
+        logger.info('Selecting emails')
         q = "SELECT email FROM person"
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(q)
         rows = await tx.fetchall()
-        print('Done selecting emails')
+        logger.info('Done selecting emails')
 
-    print('Computing normalized emails')
+    logger.info('Computing normalized emails')
     params_seq = [
         row | dict(normalized_email=normalize_email(row['email']))
         for row in rows
     ]
-    print('Done computing normalized emails')
+    logger.info('Done computing normalized emails')
 
     async with api_tx('read committed') as tx:
         q = """
@@ -87,10 +90,10 @@ async def migrate_unnormalized_emails() -> None:
         normalized_email = %(normalized_email)s
         WHERE email = %(email)s
         """
-        print('Updating normalized emails in `person` table')
+        logger.info('Updating normalized emails in `person` table')
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.executemany(q, params_seq)
-        print('Done updating normalized emails in `person` table')
+        logger.info('Done updating normalized emails in `person` table')
 
         q = """
         UPDATE banned_person bp
@@ -109,16 +112,16 @@ async def migrate_unnormalized_emails() -> None:
                 ip_address = bp.ip_address
         )
         """
-        print('Updating normalized emails in `banned_person` table')
+        logger.info('Updating normalized emails in `banned_person` table')
         await tx.executemany(q, params_seq)
-        print('Done updating normalized emails in `banned_person` table')
+        logger.info('Done updating normalized emails in `banned_person` table')
 
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
 
     if row ['to_regclass'] is not None:
-        print('Database already initialized')
+        logger.info('Database already initialized')
         return
 
     init_sql_file = _read_sql(_init_sql_file)

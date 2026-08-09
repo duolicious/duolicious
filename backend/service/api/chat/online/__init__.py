@@ -1,5 +1,5 @@
+import logging
 import redis.asyncio as redis
-import traceback
 from answerspush import answers_channel
 from service.api.chat.chatutil import (
     fetch_hides_online_status,
@@ -32,6 +32,8 @@ from constants import (
     MAX_ONLINE_SUBSCRIPTIONS,
     ONLINE_PRESENCE_TTL_SECONDS,
 )
+
+logger = logging.getLogger(__name__)
 
 _TEST_INPUT_DIR = Path(__file__).parents[4] / 'test' / 'input'
 
@@ -260,7 +262,7 @@ async def maybe_redis_subscribe_online(
                     username=to_username),
         ]
     except:
-        print(traceback.format_exc())
+        logger.exception('Subscribing failed')
         return [SubscribeBad(username=to_username)]
 
 
@@ -278,7 +280,7 @@ async def maybe_redis_unsubscribe_online(
 
         return [UnsubscribeOk(username=username)]
     except:
-        print(traceback.format_exc())
+        logger.exception('Unsubscribing failed')
         return [UnsubscribeBad(username=username)]
 
 
@@ -389,7 +391,7 @@ async def update_online_forever(
     except asyncio.exceptions.CancelledError:
         pass
     except:
-        print(traceback.format_exc())
+        logger.exception('Online-status loop failed')
         raise
 
 

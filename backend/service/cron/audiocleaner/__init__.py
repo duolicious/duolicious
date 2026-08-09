@@ -3,17 +3,20 @@ from service.cron.audiocleaner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_audio_from_object_store,
-    print_stacktrace,
+    log_stacktrace,
 )
 import asyncio
 import random
+import logging
 
 from duoenv.cron import (
     AUDIO_CLEANER_DRY_RUN as DRY_RUN,
     AUDIO_CLEANER_POLL_SECONDS,
 )
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 async def clean_audio_once() -> None:
     params = dict(polling_interval_seconds=AUDIO_CLEANER_POLL_SECONDS)
@@ -32,5 +35,5 @@ async def clean_audio_once() -> None:
 async def clean_audio_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(clean_audio_once)
+        await log_stacktrace(clean_audio_once)
         await asyncio.sleep(AUDIO_CLEANER_POLL_SECONDS)

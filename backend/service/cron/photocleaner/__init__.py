@@ -3,17 +3,20 @@ from service.cron.photocleaner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_images_from_object_store,
-    print_stacktrace,
+    log_stacktrace,
 )
 import asyncio
 import random
+import logging
 
 from duoenv.cron import (
     PHOTO_CLEANER_DRY_RUN as DRY_RUN,
     PHOTO_CLEANER_POLL_SECONDS,
 )
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 async def clean_photos_once() -> None:
     params = dict(polling_interval_seconds=PHOTO_CLEANER_POLL_SECONDS)
@@ -32,5 +35,5 @@ async def clean_photos_once() -> None:
 async def clean_photos_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(clean_photos_once)
+        await log_stacktrace(clean_photos_once)
         await asyncio.sleep(PHOTO_CLEANER_POLL_SECONDS)

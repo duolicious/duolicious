@@ -15,10 +15,13 @@ from service.cron.visitornotifications.template import (
     title_part,
     visitor_emailtemplate,
 )
+import logging
 
 from duoenv.cron import EMAIL_POLL_SECONDS as VISITOR_POLL_SECONDS
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 @dataclass
 class VisitorNotification:

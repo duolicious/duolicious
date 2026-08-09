@@ -1,12 +1,15 @@
 from database import api_tx
 from service.cron.garbagerecords.sql import *
-from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
+from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 import asyncio
 import random
+import logging
 
 from duoenv.cron import GARBAGE_RECORDS_POLL_SECONDS
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 async def delete_garbage_records_once() -> None:
     async with api_tx() as tx:
@@ -19,10 +22,10 @@ async def delete_garbage_records_once() -> None:
         count = 0
 
     if count:
-        print(f'Deleted {count} garbage record(s)')
+        logger.info(f'Deleted {count} garbage record(s)')
 
 async def delete_garbage_records_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(delete_garbage_records_once)
+        await log_stacktrace(delete_garbage_records_once)
         await asyncio.sleep(GARBAGE_RECORDS_POLL_SECONDS)

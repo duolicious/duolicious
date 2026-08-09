@@ -5,16 +5,19 @@ from service.cron.profilereporter.sql import (
 )
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
-    print_stacktrace,
+    log_stacktrace,
 )
 import asyncio
 import random
 from antiabuse.childsafety import potential_minor
 from antiabuse.lodgereport import skip_by_uuid
+import logging
 
 from duoenv.cron import PROFILE_REPORTER_POLL_SECONDS
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 async def report_profiles_once() -> None:
     async with api_tx() as tx:
@@ -24,14 +27,14 @@ async def report_profiles_once() -> None:
 
     for row in rows:
         if potential_minor(row['about']):
-            print(f'{__name__} -', row['object_uuid'], 'reported')
+            logger.info(f"{row['object_uuid']} reported")
             await skip_by_uuid(
                 subject_uuid=row['subject_uuid'],
                 object_uuid=row['object_uuid'],
                 reason='Automatically lodged report: Child safety'
             )
         else:
-            print(f'{__name__} -', row['object_uuid'], 'not reported')
+            logger.info(f"{row['object_uuid']} not reported")
 
     params_seq = [dict(uuid=row['object_uuid']) for row in rows]
     async with api_tx() as tx:
@@ -41,5 +44,5 @@ async def report_profiles_once() -> None:
 async def report_profiles_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(report_profiles_once)
+        await log_stacktrace(report_profiles_once)
         await asyncio.sleep(PROFILE_REPORTER_POLL_SECONDS)

@@ -28,7 +28,7 @@ from service.api.chat.online import redis_publish_online
 from visitornotification import notify_of_visit
 from visitorspush import publish_visit
 from person.template import otp_template
-import traceback
+import logging
 import re
 from smtp import aws_smtp
 from starlette.responses import Response
@@ -78,6 +78,8 @@ from duoenv.shared import (
     R2_ACCT_ID,
     R2_BUCKET_NAME,
 )
+
+logger = logging.getLogger(__name__)
 
 s3 = boto3.resource(
     's3',
@@ -1617,7 +1619,7 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         try:
             await put_image_in_object_store(uuid, base64_file, crop_size)
         except:
-            print(traceback.format_exc())
+            logger.exception('Storing image failed')
             return '', 500
 
     if uuid and base64_audio_file:
@@ -1627,7 +1629,7 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
                 audio_file_bytes=base64_audio_file.transcoded,
             )
         except:
-            print(traceback.format_exc())
+            logger.exception('Storing audio failed')
             return '', 500
 
     return None
@@ -2000,8 +2002,8 @@ async def post_verification_selfie(
     try:
         await put_image_in_object_store(
             photo_uuid, req.base64_file, crop_size, sizes=[450])
-    except Exception as e:
-        print('Upload failed with exception:', e)
+    except Exception:
+        logger.exception('Upload failed')
         return '', 500
 
     return None

@@ -1,8 +1,8 @@
 import asyncio
+import logging
 import psycopg
 from psycopg_pool import AsyncConnectionPool
 import random
-import traceback
 from contextlib import asynccontextmanager, suppress
 from typing import Protocol
 from collections.abc import AsyncIterator, Iterable
@@ -27,6 +27,8 @@ from duoenv.shared import (
     DB_PORT,
     DB_USER,
 )
+
+logger = logging.getLogger(__name__)
 
 _valid_isolation_levels = [
     'SERIALIZABLE',
@@ -214,7 +216,7 @@ async def check_connections_forever() -> None:
         try:
             await _pool().check()
         except Exception:
-            print(traceback.format_exc())
+            logger.exception('Pool check failed')
         await asyncio.sleep(random.randint(30, 90))
 
 

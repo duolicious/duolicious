@@ -6,7 +6,7 @@ import base64
 import binascii
 import constants
 from util import human_readable_size_metric
-import traceback
+import logging
 import asyncboto
 import boto3
 
@@ -17,6 +17,8 @@ from duoenv.shared import (
     R2_ACCT_ID,
     R2_AUDIO_BUCKET_NAME,
 )
+
+logger = logging.getLogger(__name__)
 
 s3 = boto3.resource(
     's3',
@@ -132,8 +134,7 @@ def transcode_and_trim_audio_from_base64(
             max_duration,
         ).getvalue()
     except:
-        print(traceback.format_exc())
-        print('base64 input was: ' + audio_base64)
+        logger.exception(f'Processing audio failed; base64 input was: {audio_base64}')
         return ValueError('Error while processing audio')
 
     return decoded_bytes, transcoded

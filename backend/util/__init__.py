@@ -3,6 +3,7 @@ from urllib.parse import quote
 from typing import Callable, Iterator, TypeAlias, Union
 import contextlib
 import ipaddress
+import logging
 import os
 import time
 
@@ -16,15 +17,18 @@ Json: TypeAlias = (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def log(message: str) -> None:
-    print(f"{datetime.now(timezone.utc).isoformat()} {message}")
+    logger.info(message)
 
 
 @contextlib.contextmanager
-def timed(label: str = 'block', log: Callable[[str], None] = print) -> Iterator[None]:
+def timed(label: str = 'block', log: Callable[[str], None] = log) -> Iterator[None]:
     """Context manager that logs how long the block took, even if it raises.
 
-    `log` receives the formatted message (default `print`).
+    `log` receives the formatted message.
     """
     start = time.monotonic()
     try:
@@ -95,7 +99,7 @@ def is_offpeak(max_load_pct: float = 75.0, suppressed_action: str = '') -> bool:
     if _is_offpeak:
         return True
 
-    print(
+    logger.info(
         f'is_offpeak returned False '
         f'load 1m={pct_1min:.0f}%, 5m={pct_5min:.0f}% '
         f'(target < {max_load_pct:.0f}%)'

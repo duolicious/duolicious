@@ -4,7 +4,7 @@ from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_images_from_object_store,
     download_450_images,
-    print_stacktrace,
+    log_stacktrace,
 )
 import asyncio
 import boto3
@@ -14,6 +14,7 @@ import blurhash
 import numpy
 from PIL import Image
 from collections.abc import Iterator
+import logging
 
 from duoenv.cron import (
     CHECK_PHOTOS_DRY_RUN as DRY_RUN,
@@ -27,7 +28,9 @@ from duoenv.shared import (
     R2_BUCKET_NAME,
 )
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 s3_client = boto3.client(
     's3',
@@ -48,19 +51,19 @@ async def update_blurhashes(uuids: list[str]) -> None:
     q = "update photo set blurhash = %(blurhash)s where uuid = %(uuid)s"
 
     if DRY_RUN:
-        print(
-            'DUO_CHECK_PHOTOS_DRY_RUN env var prevented blurhash update:',
-            params_seq
+        logger.info(
+            'DUO_CHECK_PHOTOS_DRY_RUN env var prevented blurhash update: '
+            f'{params_seq}'
         )
         return
 
     async with api_tx() as tx:
         await tx.executemany(q, params_seq)
 
-    print('checkphotos: updated blurhashes', params_seq)
+    logger.info(f'checkphotos: updated blurhashes {params_seq}')
 
 def list_images_in_object_store() -> Iterator[list[str]]:
-    print(f'checkphotos: listing images in object store')
+    logger.info('checkphotos: listing images in object store')
     paginator = s3_client.get_paginator('list_objects_v2')
 
     count = 0
@@ -74,11 +77,11 @@ def list_images_in_object_store() -> Iterator[list[str]]:
 
             count += len(keys)
 
-            print(f'checkphotos: fetched {count} keys')
+            logger.info(f'checkphotos: fetched {count} keys')
 
             yield keys
 
-    print(f'checkphotos: fetched {count} keys in total')
+    logger.info(f'checkphotos: fetched {count} keys in total')
 
 def list_uuids_in_object_store() -> Iterator[list[str]]:
     for chunk in list_images_in_object_store():
@@ -127,11 +130,11 @@ def compute_blurhash(image_bytes: io.BytesIO) -> str:
     return blurhash.encode(numpy.array(image.convert("RGB")))
 
 def compute_blurhashes(images: list[io.BytesIO]) -> list[str]:
-    print('checkphotos: computing blurhashes')
+    logger.info('checkphotos: computing blurhashes')
 
     blurhashes = [compute_blurhash(i) for i in images]
 
-    print('checkphotos: computing blurhashes complete')
+    logger.info('checkphotos: computing blurhashes complete')
 
     return blurhashes
 
@@ -153,5 +156,5 @@ async def check_photos_once() -> None:
 async def check_photos_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(check_photos_once)
+        await log_stacktrace(check_photos_once)
         await asyncio.sleep(CHECK_PHOTOS_POLL_SECONDS)

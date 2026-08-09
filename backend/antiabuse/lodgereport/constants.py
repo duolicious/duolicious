@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+import logging
 import re
 
 from duoenv.shared import REPORT_EMAIL
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -29,7 +32,7 @@ def parse_email_string(email_string: str) -> list[EmailEntry]:
 
 REPORT_EMAILS = parse_email_string(REPORT_EMAIL)
 PRIMARY_REPORT_EMAIL = REPORT_EMAILS[0].email
-print(REPORT_EMAILS)
+logger.info(f'Report emails: {REPORT_EMAILS}')
 
 
 SHADOW_BAN_REPORT_THRESHOLD = 2

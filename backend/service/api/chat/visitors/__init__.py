@@ -1,10 +1,12 @@
 import json
-import traceback
+import logging
 
 from database import api_tx
 from service.api.chat.chatutil import fetch_id_from_username
 from chatprotocol.outbound import Outbound, VisitorsSnapshot
 from visitorsql import Q_VISITORS, Q_MARK_VISITORS_CHECKED
+
+logger = logging.getLogger(__name__)
 
 
 async def get_visitors_snapshot(username: str) -> list[Outbound]:
@@ -18,7 +20,7 @@ async def get_visitors_snapshot(username: str) -> list[Outbound]:
 
         return [VisitorsSnapshot(payload_json=json.dumps(row['j']))]
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Fetching visitors snapshot failed')
         return []
 
 
@@ -34,4 +36,4 @@ async def mark_visitors_checked(username: str, when: str | None) -> None:
                 dict(person_id=person_id, when=when),
             )
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Marking visitors checked failed')

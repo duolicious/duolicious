@@ -1,4 +1,4 @@
-import traceback
+import logging
 import notify
 from commonsql import Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME
 from constants import (
@@ -12,6 +12,8 @@ from visitorsql import (
     Q_VISITOR_ITEM,
     Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def _wants_immediate_notification(prospect_id: int) -> bool:
@@ -107,4 +109,4 @@ async def notify_of_visit(
 
         await _push(prospect_uuid, name, prospect_online)
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Sending visitor notification failed')

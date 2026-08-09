@@ -16,10 +16,13 @@ from service.cron.notificationdispatch import (
     NotificationKind,
     send_pending_notifications_forever,
 )
+import logging
 
 from duoenv.cron import EMAIL_POLL_SECONDS
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 @dataclass
 class PersonNotification:

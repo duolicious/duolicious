@@ -2,8 +2,10 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, Generic, TypeVar
 import asyncio
 import inspect
+import logging
 import time
-import traceback
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
@@ -99,7 +101,7 @@ class Batcher(Generic[T]):
             if inspect.isawaitable(result):
                 await result
         except Exception:
-            print(traceback.format_exc())
+            logger.exception('Batcher callback failed')
 
     async def _process_batch(self, batch: list[BatchItem[T]]) -> None:
         try:
@@ -108,7 +110,7 @@ class Batcher(Generic[T]):
             if inspect.isawaitable(result):
                 await result
         except Exception:
-            print(traceback.format_exc())
+            logger.exception('Processing batch failed')
             if self._retry:
                 for bi in batch:
                     self._queue.put_nowait(bi)

@@ -31,11 +31,11 @@ Run with `python3 service/firehol/__init__.py`. Endpoints:
 
 import ipaddress
 import json
+import logging
 import os
 import threading
 import time
-import traceback
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Dict, Iterable, Tuple, Union
@@ -68,8 +68,12 @@ cache_dir = Path("/tmp/duolicious-firehol")
 cache_dir.mkdir(parents=True, exist_ok=True)
 
 
-def _log(message: str) -> None:
-    print(f"{datetime.now(timezone.utc).isoformat()} {message}")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(asctime)s %(name)s: %(message)s',
+)
+
+logger = logging.getLogger('firehol')
 
 
 # ---------------------------------------------------------------------------
@@ -109,15 +113,15 @@ def _download_or_load(name: ListName, update_interval: timedelta) -> str:
     if path.exists():
         age = time.time() - path.stat().st_mtime
         if age < update_interval.total_seconds():
-            _log(f"Loading {name} from disk cache")
+            logger.info(f"Loading {name} from disk cache")
             return path.read_text(encoding="utf-8", errors="ignore")
 
     url = _blocklist_url(name)
-    _log(f"Downloading {url}")
+    logger.info(f"Downloading {url}")
     request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urlopen(request, timeout=30) as resp:
         text = resp.read().decode("utf-8", errors="ignore")
-    _log(f"Finished downloading {url}")
+    logger.info(f"Finished downloading {url}")
 
     # Atomic write: write to tmp → replace
     tmp = path.with_suffix(".tmp")
@@ -221,9 +225,9 @@ def _refresh_forever() -> None:
         try:
             data = _collect_all(DEFAULT_LISTS, UPDATE_INTERVAL)
             _tries = _build_tries(data)  # atomic swap
-            _log("FireHOL lists loaded")
+            logger.info("FireHOL lists loaded")
         except Exception:
-            _log("FireHOL refresh failed:\n" + traceback.format_exc())
+            logger.exception("FireHOL refresh failed")
         time.sleep(UPDATE_INTERVAL.total_seconds())
 
 
@@ -250,9 +254,9 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             lists = lookup(ip)
             if lists:
-                _log(f"lookup {ip} -> BLOCKED by {', '.join(sorted(lists))}")
+                logger.info(f"lookup {ip} -> BLOCKED by {', '.join(sorted(lists))}")
             else:
-                _log(f"lookup {ip} -> ACCEPTED")
+                logger.info(f"lookup {ip} -> ACCEPTED")
             self._send_json(200, lists)
         elif parsed.path == "/ready":
             self._send_json(200, {"ready": _tries is not None})
@@ -269,7 +273,7 @@ class _Handler(BaseHTTPRequestHandler):
 def main() -> None:
     threading.Thread(target=_refresh_forever, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", FIREHOL_PORT), _Handler)
-    _log(f"FireHOL server listening on 0.0.0.0:{FIREHOL_PORT}")
+    logger.info(f"FireHOL server listening on 0.0.0.0:{FIREHOL_PORT}")
     server.serve_forever()
 
 

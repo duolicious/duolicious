@@ -8,7 +8,7 @@ import asyncboto
 import asyncio
 import boto3
 import io
-import traceback
+import logging
 import time
 
 from duoenv.cron import MAX_RANDOM_START_DELAY
@@ -20,6 +20,8 @@ from duoenv.shared import (
     R2_AUDIO_BUCKET_NAME,
     R2_BUCKET_NAME,
 )
+
+logger = logging.getLogger(__name__)
 
 DISABLE_MOBILE_NOTIFICATIONS_FILE = (
     Path(__file__).parent.parent.parent.parent /
@@ -34,11 +36,11 @@ def disable_mobile_notifications() -> bool:
                 return True
     return False
 
-async def print_stacktrace(fun: Callable[[], Awaitable[object]]) -> None:
+async def log_stacktrace(fun: Callable[[], Awaitable[object]]) -> None:
     try:
         await fun()
     except:
-        print(traceback.format_exc())
+        logger.exception(f'{fun.__qualname__} failed')
 
 async def delete_images_from_object_store(
     uuids: list[str],
@@ -70,9 +72,9 @@ async def delete_images_from_object_store(
         ]
 
         if dry_run:
-            print(
-                f'{dry_run_env_var_name} env var prevented photo deletion:',
-                keys_to_delete
+            logger.info(
+                f'{dry_run_env_var_name} env var prevented photo deletion: '
+                f'{keys_to_delete}'
             )
             continue
 
@@ -89,13 +91,13 @@ async def delete_images_from_object_store(
 
         if 'Errors' in response:
             for error in response['Errors']:
-                print(f"Error deleting {error['Key']}: {error['Message']}")
+                logger.error(f"Error deleting {error['Key']}: {error['Message']}")
         else:
             for key in keys_to_delete:
-                print('Deleted object', key)
+                logger.info(f'Deleted object {key}')
             async with api_tx() as tx:
                 await tx.execute(Q_MARK_PHOTO_DELETED, dict(uuids=chunk))
-            print('Objects have been marked as deleted')
+            logger.info('Objects have been marked as deleted')
 
 async def delete_audio_from_object_store(
     uuids: list[str],
@@ -121,9 +123,9 @@ async def delete_audio_from_object_store(
         ]
 
         if dry_run:
-            print(
-                f'{dry_run_env_var_name} env var prevented audio deletion:',
-                keys_to_delete
+            logger.info(
+                f'{dry_run_env_var_name} env var prevented audio deletion: '
+                f'{keys_to_delete}'
             )
             continue
 
@@ -140,13 +142,13 @@ async def delete_audio_from_object_store(
 
         if 'Errors' in response:
             for error in response['Errors']:
-                print(f"Error deleting {error['Key']}: {error['Message']}")
+                logger.error(f"Error deleting {error['Key']}: {error['Message']}")
         else:
             for key in keys_to_delete:
-                print('Deleted object', key)
+                logger.info(f'Deleted object {key}')
             async with api_tx() as tx:
                 await tx.execute(Q_MARK_AUDIO_DELETED, dict(uuids=chunk))
-            print('Objects have been marked as deleted')
+            logger.info('Objects have been marked as deleted')
 
 async def download_450_images(
     uuids: list[str],
@@ -155,7 +157,7 @@ async def download_450_images(
     if not uuids:
         return []
 
-    print(f'Downloading {len(uuids)} images')
+    logger.info(f'Downloading {len(uuids)} images')
 
     s3_client = boto3.client(
         's3',
@@ -194,5 +196,5 @@ async def download_450_images(
 
     results = await asyncio.to_thread(download_many)
 
-    print(f'Downloading {len(uuids)} images complete')
+    logger.info(f'Downloading {len(uuids)} images complete')
     return results

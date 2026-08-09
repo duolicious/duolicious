@@ -1,4 +1,4 @@
-import traceback
+import logging
 
 from batcher import Batcher
 from constants import LAST_ONLINE_DEFAULT_SECONDS
@@ -30,6 +30,8 @@ from chatprotocol.outbound import (
     Outbound,
     ReadReceipt,
 )
+
+logger = logging.getLogger(__name__)
 
 Q_GET_INBOX = f"""
 SELECT
@@ -510,7 +512,7 @@ async def get_inbox(query_id: str, username: str) -> list[Outbound]:
             ))
 
         except Exception as e:
-            print(f"Error processing row: {e}")
+            logger.error(f'Error processing row: {e}')
             continue
 
     messages.append(InboxFin(query_id=query_id))
@@ -612,7 +614,7 @@ async def get_inbox_snapshot(username: str) -> list[Outbound]:
 
         return [InboxSnapshot(payload={'conversations': conversations})]
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Fetching inbox snapshot failed')
         return []
 
 
@@ -637,7 +639,7 @@ async def get_inbox_entry(
 
         return [InboxEntry(payload=conversations[0])]
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Fetching inbox entry failed')
         return []
 
 
@@ -761,7 +763,7 @@ async def _write_mark_displayed(
             ))
             rows = await tx.fetchall()
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Fetching displayed-at rows failed')
         return {}
 
     return {

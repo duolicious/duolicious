@@ -4,14 +4,17 @@ from verification import verify
 from verification.messages import (
     V_SOMETHING_WENT_WRONG,
 )
-from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
+from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 import asyncio
 import random
 from dataclasses import dataclass
+import logging
 
 from duoenv.cron import VERIFICATION_POLL_SECONDS
 
-print(f'Hello from cron module: {__name__}')
+logger = logging.getLogger(__name__)
+
+logger.info('Hello from cron module')
 
 @dataclass
 class VerificationJob:
@@ -100,5 +103,5 @@ async def verify_once() -> None:
 async def verify_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(verify_once)
+        await log_stacktrace(verify_once)
         await asyncio.sleep(VERIFICATION_POLL_SECONDS)

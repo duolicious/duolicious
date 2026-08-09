@@ -3,7 +3,7 @@ from constants import (
     MIN_NOTABLE_TRAIT_SCORE,
 )
 from database import api_tx
-from service.cron.cronutil import print_stacktrace, MAX_RANDOM_START_DELAY
+from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 from util import is_offpeak
 from util.coerce import (
     mapping,
@@ -28,8 +28,8 @@ from openai import AsyncOpenAI
 import asyncio
 import hashlib
 import json
+import logging
 import random
-import traceback
 from collections.abc import Mapping, Sequence
 
 from duoenv.cron import (
@@ -48,6 +48,8 @@ from duoenv.cron import (
     CLUB_TOP_ANSWERS_POLL_SECONDS,
 )
 
+logger = logging.getLogger(__name__)
+
 _openai_client = AsyncOpenAI() if not CLUB_SEO_MOCK_DESCRIPTION else None
 
 
@@ -64,13 +66,13 @@ async def refresh_club_stats_once() -> None:
         row = await cur.fetchone()
 
     if row and row['upserted_count']:
-        print(f"club_stats: recomputed {row['upserted_count']} clubs")
+        logger.info(f"club_stats: recomputed {row['upserted_count']} clubs")
 
 
 async def refresh_club_stats_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(refresh_club_stats_once)
+        await log_stacktrace(refresh_club_stats_once)
         await asyncio.sleep(CLUB_STATS_POLL_SECONDS)
 
 
@@ -88,13 +90,13 @@ async def refresh_club_top_answers_once() -> None:
         row = await cur.fetchone()
 
     if row and row['upserted_count']:
-        print(f"club_top_answers: recomputed {row['upserted_count']} clubs")
+        logger.info(f"club_top_answers: recomputed {row['upserted_count']} clubs")
 
 
 async def refresh_club_top_answers_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(refresh_club_top_answers_once)
+        await log_stacktrace(refresh_club_top_answers_once)
         await asyncio.sleep(CLUB_TOP_ANSWERS_POLL_SECONDS)
 
 
@@ -111,13 +113,13 @@ async def refresh_club_overlap_once() -> None:
         await tx.execute("SET LOCAL work_mem = '256MB'")
         await tx.execute(Q_CLUB_OVERLAP_DELETE)
         await tx.execute(Q_CLUB_OVERLAP_REBUILD)
-    print('club_overlap: rebuilt')
+    logger.info('club_overlap: rebuilt')
 
 
 async def refresh_club_overlap_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(refresh_club_overlap_once)
+        await log_stacktrace(refresh_club_overlap_once)
         await asyncio.sleep(CLUB_OVERLAP_POLL_SECONDS)
 
 
@@ -246,7 +248,7 @@ async def generate_description(payload: Mapping[str, object]) -> str | None:
         text = resp.choices[0].message.content
         return text.strip() if text else None
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('club_seo: description generation failed')
         return None
 
 
@@ -278,7 +280,7 @@ async def _process_club_seo_row(
     if is_fresh_enough(old_hash, new_hash, age_days):
         async with api_tx() as tx:
             await tx.execute(Q_CLUB_SEO_TOUCH, dict(club_name=club_name))
-        print(f'club_seo: touched {club_name!r} (hash match, {age_days:.1f}d old)')
+        logger.info(f'club_seo: touched {club_name!r} (hash match, {age_days:.1f}d old)')
         return
 
     # Only the OpenAI call is gated by the semaphore; the DB work either
@@ -291,7 +293,7 @@ async def _process_club_seo_row(
         # queue instead of being re-selected every tick and starving the rest.
         async with api_tx() as tx:
             await tx.execute(Q_CLUB_SEO_MARK_ATTEMPTED, dict(club_name=club_name))
-        print(f'club_seo: generation failed for {club_name!r}; deferring')
+        logger.warning(f'club_seo: generation failed for {club_name!r}; deferring')
         return
 
     async with api_tx() as tx:
@@ -300,7 +302,7 @@ async def _process_club_seo_row(
             description=description,
             stats_hash=new_hash,
         ))
-    print(f'club_seo: regenerated {club_name!r} ({len(description)} chars)')
+    logger.info(f'club_seo: regenerated {club_name!r} ({len(description)} chars)')
 
 
 async def refresh_club_seo_once() -> None:
@@ -327,11 +329,14 @@ async def refresh_club_seo_once() -> None:
     )
     for row, res in zip(rows, results):
         if isinstance(res, BaseException):
-            print(f"club_seo: unexpected error for {row['name']!r}: {res!r}")
+            logger.error(
+                f"club_seo: unexpected error for {row['name']!r}",
+                exc_info=res,
+            )
 
 
 async def refresh_club_seo_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await print_stacktrace(refresh_club_seo_once)
+        await log_stacktrace(refresh_club_seo_once)
         await asyncio.sleep(CLUB_SEO_POLL_SECONDS)

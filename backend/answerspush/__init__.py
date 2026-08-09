@@ -5,9 +5,11 @@ must only publish publicly visible state (see `AnswerWriteResult` in `qanda`);
 nothing on this channel is access-controlled beyond the subscription checks in
 `service.api.chat.online`.
 """
-import traceback
+import logging
 from chatprotocol.outbound import AnswerUpdate, answer_to_wire, to_bus
 from redisclient import make_redis_client
+
+logger = logging.getLogger(__name__)
 
 _redis = make_redis_client()
 
@@ -31,4 +33,4 @@ async def publish_answer_update(
             )),
         )
     except Exception:
-        print(traceback.format_exc())
+        logger.exception('Publishing answer update failed')

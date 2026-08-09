@@ -1,3 +1,13 @@
+import logging
+
+# Nothing else configures logging in this process; give the app's loggers a
+# root handler in the same level-prefixed style as the api service. This runs
+# before the cron-module imports so their import-time logging isn't dropped.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(asctime)s %(name)s: %(message)s',
+)
+
 from service.cron.checkphotos import check_photos_forever
 from service.cron.clubseo import (
     refresh_club_seo_forever,
@@ -21,6 +31,8 @@ from socketserver import TCPServer
 from database import db_pool_lifespan
 from batcher import start_all
 
+logger = logging.getLogger(__name__)
+
 class HealthCheckHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == '/health':
@@ -33,7 +45,7 @@ class HealthCheckHandler(SimpleHTTPRequestHandler):
 
 async def http_server() -> None:
     with TCPServer(('0.0.0.0', 8080), HealthCheckHandler) as httpd:
-        print("Serving health check on port 8080...", flush=True)
+        logger.info('Serving health check on port 8080...')
         await asyncio.to_thread(httpd.serve_forever)
 
 async def main() -> None:
