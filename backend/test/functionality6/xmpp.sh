@@ -376,6 +376,29 @@ curl -sX GET http://localhost:3001/pop \
 
 
 
+echo a pre-OTP session must not be authorized to chat as the target account
+
+# Request an OTP for user3 but never verify it. The resulting session is bound
+# to user3's account yet still has signed_in = FALSE, mimicking an attacker who
+# knows only the victim's email and public UUID.
+preotp_token=$(
+  jc POST /request-otp -d '{ "email": "user3@example.com" }' \
+    | jq -r '.session_token'
+)
+
+[[ "$(q "select signed_in from duo_session where email = 'user3@example.com' order by otp_expiry desc limit 1")" = f ]]
+
+chat_auth "$user3uuid" "$preotp_token"
+
+sleep 1
+
+curl -sX GET http://localhost:3001/pop \
+  | assert_any 'has("failure")
+      and .failure["@xmlns"] == "urn:ietf:params:xml:ns:xmpp-sasl"
+      and (.failure | has("not-authorized"))'
+
+
+
 echo user 1 should no longer be authorized to chat after deleting their account
 
 assume_role user1

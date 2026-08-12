@@ -37,6 +37,10 @@ WHERE
     duo_session.session_token_hash = %(session_token_hash)s
 AND
     person.uuid = %(auth_username)s
+AND
+    duo_session.signed_in IS TRUE
+AND
+    duo_session.session_expiry > NOW()
 """
 
 
