@@ -37,10 +37,10 @@ def _check(
 
 class CheckTests(unittest.TestCase):
     def test_not_blocked(self) -> None:
-        result, logged = _check(firehol_lists=[], asns=[15169])
+        result, logged = _check(firehol_lists=[], asns=[7018])
         self.assertEqual(
             result,
-            anonymizers.AnonymizerCheck(blocked=False, asns=[15169]),
+            anonymizers.AnonymizerCheck(blocked=False, asns=[7018]),
         )
         self.assertEqual(logged, [])
 
@@ -55,10 +55,10 @@ class CheckTests(unittest.TestCase):
     def test_blocked_by_firehol(self) -> None:
         result, logged = _check(
             firehol_lists=["firehol_anonymous.netset"],
-            asns=[15169],
+            asns=[7018],
         )
         self.assertTrue(result.blocked)
-        self.assertEqual(result.asns, [15169])
+        self.assertEqual(result.asns, [7018])
         self.assertEqual(logged, [
             "Blocking sign-up from 1.2.3.4 — "
             "FireHOL lists: firehol_anonymous.netset",
