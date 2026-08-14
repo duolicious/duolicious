@@ -119,8 +119,8 @@ class BlocklistTests(unittest.TestCase):
 
     def test_blocked_asns(self) -> None:
         self.assertEqual(blocked_asns([16247]), [16247])
-        self.assertEqual(blocked_asns([15169, 9009]), [9009])
-        self.assertEqual(blocked_asns([15169]), [])
+        self.assertEqual(blocked_asns([7018, 9009]), [9009])
+        self.assertEqual(blocked_asns([7018]), [])
         self.assertEqual(blocked_asns([]), [])
 
 
