@@ -5,6 +5,7 @@ boto3==1.35.99
 confusable-homoglyphs
 fastapi
 google-auth
+httpx
 limits[async-redis]
 mypy
 nltk
