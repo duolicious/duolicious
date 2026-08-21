@@ -1,4 +1,4 @@
-from constants import (
+from serviceshared.constants import (
     MIN_CLUB_PAGE_MEMBERS,
     MIN_CLUB_CELL_SIZE,
     MIN_CLUB_ANSWERS_PER_QUESTION,

@@ -1,4 +1,4 @@
-from commonsql import Q_UPDATE_VERIFICATION_LEVEL_ASSIGN
+from serviceshared.commonsql import Q_UPDATE_VERIFICATION_LEVEL_ASSIGN
 
 Q_DELETE_GARBAGE_RECORDS = f"""
 WITH q1 AS (

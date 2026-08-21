@@ -9,20 +9,20 @@ message was sent simply disappears; the viewer's own answer is unfiltered (it's
 theirs, and seeds the client's answer store).
 """
 from dataclasses import dataclass
-from database import Tx, api_tx
-from qanda import ANSWER_VISIBLE_TO_OTHERS
+from serviceshared.database import Tx, api_tx
+from service.api.qanda import ANSWER_VISIBLE_TO_OTHERS
 from service.api.chat.chatutil import (
     LSERVER,
     fetch_has_gold,
     format_datetime,
     format_timestamp,
 )
-from chatprotocol.inbound import MamQuery
-from chatprotocol.mam_id import (
+from service.api.chatprotocol.inbound import MamQuery
+from service.api.chatprotocol.mam_id import (
     decode_mam_id,
     encode_mam_id,
 )
-from chatprotocol.outbound import (
+from service.api.chatprotocol.outbound import (
     MamFin,
     MamResult,
     Outbound,

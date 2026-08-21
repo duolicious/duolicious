@@ -1,12 +1,12 @@
 import dataclasses
-from database import api_tx
+from serviceshared.database import api_tx
 import asyncio
-import duohash
+from service.api import duohash
 import logging
 import regex
 import sys
 from websockets.exceptions import ConnectionClosedError
-from async_lru_cache import AsyncLruCache
+from service.api.async_lru_cache import AsyncLruCache
 import random
 from datetime import datetime, timezone
 from service.api.chat.robot9000 import Q_SELECT_INTRO_HASH, upsert_intro_hash
@@ -29,7 +29,7 @@ from service.api.chat.messagestorage.mam import (
     microseconds_to_mam_message_id,
     sibling_mam_id,
 )
-from chatprotocol.mam_id import encode_mam_id
+from service.api.chatprotocol.mam_id import encode_mam_id
 from service.api.chat.messagestorage import (
     store_message,
     store_reaction,
@@ -63,14 +63,14 @@ from service.api.chat.chatutil import (
     REDIS_PORT,
     REDIS_WORKER_CLIENT,
 )
-from chatprotocol.message import (
+from service.api.chatprotocol.message import (
     AudioMessage,
     ChatMessage,
     Message,
     ReactionMessage,
     TypingMessage,
 )
-from chatprotocol import (
+from service.api.chatprotocol import (
     InboxQuery,
     InboxSnapshotQuery,
     MamQuery,
@@ -89,7 +89,7 @@ from service.api.chat.visitors import (
     get_visitors_snapshot,
     mark_visitors_checked,
 )
-from chatprotocol.outbound import (
+from service.api.chatprotocol.outbound import (
     IncomingChat,
     IncomingReaction,
     IncomingTyping,

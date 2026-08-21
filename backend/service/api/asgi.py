@@ -7,15 +7,15 @@ which imports this `app`. `service.api:app` is the uvicorn entry point.
 
 import logging
 
-import constants
-from duotypes import FieldValidationError
+from serviceshared import constants
+from service.api.duotypes import FieldValidationError
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from service.api.auth import AuthError
+from service.api.auth.bearer import AuthError
 from service.api.errors import (
     render_field_validation_error,
     render_validation_error,
@@ -28,9 +28,9 @@ from service.api.middleware import (
 from service.api.ratelimit import RateLimitExceeded
 from service.api.responses import make_response
 from service.api.routing import DuoRoute
-from service.lifespan import app_lifespan
+from service.api.lifespan import app_lifespan
 
-from duoenv.api import CORS_ORIGINS
+from serviceshared.duoenv.api import CORS_ORIGINS
 
 # Uvicorn's log config only covers its own loggers; give the app's loggers a
 # root handler in the same level-prefixed style.

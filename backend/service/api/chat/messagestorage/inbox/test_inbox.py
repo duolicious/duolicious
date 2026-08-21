@@ -1,6 +1,6 @@
 import unittest
 
-from search.sql.test_search import maximal_prefs
+from service.api.search.sql.test_search import maximal_prefs
 from service.api.chat.messagestorage.inbox import build_inbox_snapshot_query
 
 

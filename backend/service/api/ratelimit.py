@@ -19,14 +19,14 @@ from limits.aio.strategies import FixedWindowRateLimiter
 from limits.storage import storage_from_string
 from starlette.requests import HTTPConnection, Request
 
-from antiabuse.antispam.signupemail import normalize_email
+from serviceshared.antiabuse.antispam.signupemail import normalize_email
 from service.api.mocking import (
     disable_account_rate_limit,
     disable_ip_rate_limit,
     mock_ip_address,
 )
 
-from duoenv.api import REDIS_HOST, REDIS_PORT
+from serviceshared.duoenv.api import REDIS_HOST, REDIS_PORT
 
 
 # ---------------------------------------------------------------------------

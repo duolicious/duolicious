@@ -1,11 +1,11 @@
 from typing import Iterable
 from dataclasses import dataclass
-from database import api_tx
-from commonsql import (
+from serviceshared.database import api_tx
+from serviceshared.commonsql import (
     Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
     Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
 )
-from batcher import Batcher
+from serviceshared.batcher import Batcher
 
 
 @dataclass

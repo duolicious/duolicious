@@ -1,4 +1,4 @@
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.photocleaner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
@@ -9,7 +9,7 @@ import asyncio
 import random
 import logging
 
-from duoenv.cron import (
+from serviceshared.duoenv.cron import (
     PHOTO_CLEANER_DRY_RUN as DRY_RUN,
     PHOTO_CLEANER_POLL_SECONDS,
 )

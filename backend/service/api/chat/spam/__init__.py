@@ -1,5 +1,5 @@
-from antiabuse.antispam.urldetector import has_url, UrlType
-from chatprotocol.message import (
+from serviceshared.antiabuse.antispam.urldetector import has_url, UrlType
+from service.api.chatprotocol.message import (
     Message,
     ChatMessage,
 )

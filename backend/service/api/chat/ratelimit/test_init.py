@@ -5,7 +5,7 @@ from service.api.chat.ratelimit import (
     DefaultRateLimit,
     Row,
 )
-from chatprotocol.outbound import MessageBlocked
+from service.api.chatprotocol.outbound import MessageBlocked
 
 
 def make_row(**overrides: int) -> Row:

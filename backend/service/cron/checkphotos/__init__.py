@@ -1,5 +1,5 @@
 # Remove unused imports
-from database import api_tx, row_str
+from serviceshared.database import api_tx, row_str
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_images_from_object_store,
@@ -16,11 +16,11 @@ from PIL import Image
 from collections.abc import Iterator
 import logging
 
-from duoenv.cron import (
+from serviceshared.duoenv.cron import (
     CHECK_PHOTOS_DRY_RUN as DRY_RUN,
     CHECK_PHOTOS_POLL_SECONDS,
 )
-from duoenv.shared import (
+from serviceshared.duoenv.shared import (
     BOTO_ENDPOINT_URL,
     R2_ACCESS_KEY_ID,
     R2_ACCESS_KEY_SECRET,

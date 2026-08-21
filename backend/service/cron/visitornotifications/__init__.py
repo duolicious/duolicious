@@ -1,8 +1,8 @@
-from commonsql import (
+from serviceshared.commonsql import (
     Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
 )
 from dataclasses import dataclass
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.notificationdispatch import (
     NotificationKind,
     send_pending_notifications_forever,
@@ -17,7 +17,7 @@ from service.cron.visitornotifications.template import (
 )
 import logging
 
-from duoenv.cron import EMAIL_POLL_SECONDS as VISITOR_POLL_SECONDS
+from serviceshared.duoenv.cron import EMAIL_POLL_SECONDS as VISITOR_POLL_SECONDS
 
 logger = logging.getLogger(__name__)
 

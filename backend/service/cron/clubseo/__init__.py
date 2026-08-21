@@ -1,11 +1,11 @@
-from constants import (
+from serviceshared.constants import (
     MAX_LLM_PROMPT_FACTS,
     MIN_NOTABLE_TRAIT_SCORE,
 )
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
-from util import is_offpeak
-from util.coerce import (
+from serviceshared.util import is_offpeak
+from serviceshared.util.coerce import (
     mapping,
     mapping_or_empty,
     mapping_sequence_or_empty,
@@ -32,7 +32,7 @@ import logging
 import random
 from collections.abc import Mapping, Sequence
 
-from duoenv.cron import (
+from serviceshared.duoenv.cron import (
     CLUB_OVERLAP_POLL_SECONDS,
     CLUB_SEO_BATCH_SIZE,
     CLUB_SEO_CONCURRENCY,

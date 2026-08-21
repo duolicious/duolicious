@@ -1,4 +1,4 @@
-from constants import (
+from serviceshared.constants import (
     VISITOR_NOTIFICATION_BODY,
     VISITOR_NOTIFICATION_BODY_PLURAL,
     VISITOR_NOTIFICATION_TITLE,

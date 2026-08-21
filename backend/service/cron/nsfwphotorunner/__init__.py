@@ -1,5 +1,5 @@
-from antiabuse.antiporn import predict_nsfw
-from database import api_tx
+from serviceshared.antiabuse.antiporn import predict_nsfw
+from serviceshared.database import api_tx
 from service.cron.nsfwphotorunner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
@@ -10,7 +10,7 @@ import asyncio
 import random
 import logging
 
-from duoenv.cron import NSFW_PHOTO_RUNNER_POLL_SECONDS
+from serviceshared.duoenv.cron import NSFW_PHOTO_RUNNER_POLL_SECONDS
 
 logger = logging.getLogger(__name__)
 

@@ -28,7 +28,7 @@ a not-yet-flushed one.
 """
 from dataclasses import dataclass
 
-from database import Tx, api_tx
+from serviceshared.database import Tx, api_tx
 from service.api.chat.messagestorage.mam import sibling_mam_id
 
 

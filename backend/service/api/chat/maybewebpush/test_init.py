@@ -1,6 +1,6 @@
 import json
 import unittest
-from chatprotocol.inbound import RegisterWebPushSubscription
+from service.api.chatprotocol.inbound import RegisterWebPushSubscription
 from service.api.chat.sessioncolumnbatch import SessionColumnWrite
 from service.api.chat.maybewebpush import (
     _is_valid_subscription,

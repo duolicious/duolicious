@@ -28,8 +28,8 @@ from service.cron.profilereporter import report_profiles_forever
 import asyncio
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
-from database import db_pool_lifespan
-from batcher import start_all
+from serviceshared.database import db_pool_lifespan
+from serviceshared.batcher import start_all
 
 logger = logging.getLogger(__name__)
 

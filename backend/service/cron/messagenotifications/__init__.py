@@ -1,9 +1,9 @@
-from commonsql import (
+from serviceshared.commonsql import (
     Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME,
     Q_UPSERT_LAST_CHAT_NOTIFICATION_TIME,
 )
 from dataclasses import dataclass
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.messagenotifications.sql import (
     Q_UNREAD_INBOX,
 )
@@ -18,7 +18,7 @@ from service.cron.notificationdispatch import (
 )
 import logging
 
-from duoenv.cron import EMAIL_POLL_SECONDS
+from serviceshared.duoenv.cron import EMAIL_POLL_SECONDS
 
 logger = logging.getLogger(__name__)
 

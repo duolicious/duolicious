@@ -1,7 +1,7 @@
 import unittest
 from service.api.bootstrap import migrate_unnormalized_emails
-from database import api_tx
-from database.testcase import DbTestCase
+from serviceshared.database import api_tx
+from serviceshared.database.testcase import DbTestCase
 
 Q_DELETE_PERSONS = """
 DELETE FROM person

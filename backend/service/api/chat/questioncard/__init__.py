@@ -8,10 +8,10 @@ unfiltered (it's theirs), the partner's only through the shared
 Question text and topic never change, so `fetch_question` caches hits forever;
 misses aren't cached, in case the question is created later.
 """
-from async_lru_cache import AsyncLruCache
+from service.api.async_lru_cache import AsyncLruCache
 from dataclasses import dataclass
-from database import api_tx
-from qanda import ANSWER_VISIBLE_TO_OTHERS
+from serviceshared.database import api_tx
+from service.api.qanda import ANSWER_VISIBLE_TO_OTHERS
 
 
 Q_FETCH_QUESTION = """

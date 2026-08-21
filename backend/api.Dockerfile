@@ -10,7 +10,7 @@ ENV DUO_COMMIT_HASH=$DUO_COMMIT_HASH
 WORKDIR /app
 
 COPY \
-  --exclude=antiabuse/antiporn \
+  --exclude=serviceshared/antiabuse/antiporn \
   --exclude=test \
   --exclude=vm \
   . /app

@@ -1,20 +1,20 @@
 import redis.asyncio as redis
 
-from async_lru_cache import AsyncLruCache
+from service.api.async_lru_cache import AsyncLruCache
 from collections.abc import Iterable
-from database import api_tx
+from serviceshared.database import api_tx
 
 # Re-exported from the dependency-light module so existing
 # `from service.api.chat.chatutil import ...` imports keep working.
-from chatprotocol.jid import (
+from service.api.chatprotocol.jid import (
     LSERVER,
     to_bare_jid,
 )
-from chatprotocol.outbound import (
+from service.api.chatprotocol.outbound import (
     Outbound,
     to_bus,
 )
-from chatprotocol.timestamp import (
+from service.api.chatprotocol.timestamp import (
     FMT_ISO_8601_TIMESTAMP,
     format_datetime,
     format_timestamp,
@@ -22,7 +22,7 @@ from chatprotocol.timestamp import (
 )
 
 
-from duoenv.api import REDIS_HOST, REDIS_PORT
+from serviceshared.duoenv.api import REDIS_HOST, REDIS_PORT
 REDIS_WORKER_CLIENT: redis.Redis = redis.Redis(
         host=REDIS_HOST,
         port=REDIS_PORT,

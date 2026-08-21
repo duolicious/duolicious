@@ -1,6 +1,6 @@
 """One-shot database bootstrap and migration for the API's `duo_api` database.
 
-Run at deploy time via `database/initapi.py` (not during request serving) to
+Run at deploy time via `service/api/initapi.py` (not during request serving) to
 create the schema on a fresh database, apply migrations, load the domain and
 club seed data, and backfill normalized emails.
 """
@@ -9,13 +9,13 @@ import logging
 import re
 from pathlib import Path
 
-from antiabuse.antispam.signupemail import normalize_email
-from constants import (
+from serviceshared.antiabuse.antispam.signupemail import normalize_email
+from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_NAME,
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
-from database import api_tx
+from serviceshared.database import api_tx
 
 logger = logging.getLogger(__name__)
 

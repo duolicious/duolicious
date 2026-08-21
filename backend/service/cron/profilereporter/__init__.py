@@ -1,4 +1,4 @@
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.profilereporter.sql import (
     Q_DELETE_UNMODERATED_PERSON,
     Q_SELECT_UNMODERATED_PERSON_ABOUT,
@@ -9,11 +9,11 @@ from service.cron.cronutil import (
 )
 import asyncio
 import random
-from antiabuse.childsafety import potential_minor
-from antiabuse.lodgereport import skip_by_uuid
+from serviceshared.antiabuse.childsafety import potential_minor
+from serviceshared.antiabuse.lodgereport import skip_by_uuid
 import logging
 
-from duoenv.cron import PROFILE_REPORTER_POLL_SECONDS
+from serviceshared.duoenv.cron import PROFILE_REPORTER_POLL_SECONDS
 
 logger = logging.getLogger(__name__)
 

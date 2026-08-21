@@ -1,11 +1,11 @@
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.garbagerecords.sql import *
 from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 import asyncio
 import random
 import logging
 
-from duoenv.cron import GARBAGE_RECORDS_POLL_SECONDS
+from serviceshared.duoenv.cron import GARBAGE_RECORDS_POLL_SECONDS
 
 logger = logging.getLogger(__name__)
 

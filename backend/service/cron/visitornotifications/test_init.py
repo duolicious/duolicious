@@ -2,7 +2,7 @@ import unittest
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from unittest.mock import patch, MagicMock
-from commonsql import (
+from serviceshared.commonsql import (
     Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
 )
 from service.cron.notificationdispatch import (

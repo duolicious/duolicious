@@ -15,16 +15,16 @@ from urllib.parse import parse_qsl
 from fastapi import Body, Depends, Path as FastApiPath, WebSocket
 from starlette.requests import Request
 
-import duotypes as t
-import location
-import person
-import qanda
-import search
-from antiabuse.lodgereport import skip_by_uuid
-from auth import apple_oauth
-from qanda import question
+import service.api.duotypes as t
+from service.api import location
+from service.api import person
+from service.api import qanda
+from service.api import search
+from serviceshared.antiabuse.lodgereport import skip_by_uuid
+from service.api.auth import apple_oauth
+from service.api.qanda import question
 from service.api.asgi import app
-from service.api.auth import session
+from service.api.auth.bearer import session
 from service.api.ratelimit import (
     auth_rate_limit,
     client_ip,
@@ -41,7 +41,7 @@ from service.api.ratelimit import (
 )
 from service.api.routing import rate_limit_exempt
 from service.api.chat import process_websocket_messages
-from util.coerce import string
+from serviceshared.util.coerce import string
 
 def get_ttl_hash(seconds: int = 10) -> int:
     """Return a value that stays constant within each `seconds`-long window, so

@@ -11,10 +11,10 @@ from service.api.chat.messagestorage.reaction import set_mam_reaction
 from service.api.chat.messagestorage.setmessaged import (
         process_set_messaged_batch,
         SetMessagedJob)
-from batcher import Batcher
-from database import api_tx
-from chatprotocol.timestamp import now_microseconds
-from chatprotocol.message import AudioMessage, ChatMessage
+from serviceshared.batcher import Batcher
+from serviceshared.database import api_tx
+from service.api.chatprotocol.timestamp import now_microseconds
+from service.api.chatprotocol.message import AudioMessage, ChatMessage
 from typing import Awaitable, Callable
 from dataclasses import dataclass
 

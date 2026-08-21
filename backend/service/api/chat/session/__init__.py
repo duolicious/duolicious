@@ -2,17 +2,17 @@ import base64
 import uuid
 from typing import List
 
-from database import api_tx
-from duohash import sha512
-from chatprotocol.jid import LSERVER
-from chatprotocol.inbound import (
+from serviceshared.database import api_tx
+from service.api.duohash import sha512
+from service.api.chatprotocol.jid import LSERVER
+from service.api.chatprotocol.inbound import (
     IqBind,
     IqSession,
     SaslAuth,
     SessionRequest,
     StreamOpenReq,
 )
-from chatprotocol.outbound import (
+from service.api.chatprotocol.outbound import (
     AuthFailure,
     AuthSuccess,
     BindResult,

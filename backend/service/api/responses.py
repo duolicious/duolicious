@@ -23,7 +23,7 @@ _HTML_MIME = 'text/html; charset=utf-8'
 
 # Prod serves compact JSON; everywhere else pretty-prints so `jq`-based
 # functionality tests can diff against it (matching Flask's debug-gated split).
-from duoenv.api import ENV
+from serviceshared.duoenv.api import ENV
 
 _PRETTY = ENV != 'prod'
 

@@ -16,7 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.requests import Request
 from starlette.responses import Response
 
-from duotypes import FieldValidationError
+from service.api.duotypes import FieldValidationError
 from service.api.responses import make_response
 
 # FastAPI prefixes a body error's `loc` with the part of the request it came

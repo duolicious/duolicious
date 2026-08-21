@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Regression test for the session cache on the admin-ban path (see
-# sessioncache/ and `delete_or_ban_account` in person/__init__.py).
+# service/api/sessioncache/ and `delete_or_ban_account` in service/api/person/__init__.py).
 #
 # Banning a user runs through `delete_or_ban_account(s=None, ...)` — there is no
 # calling session, so eviction relies entirely on looking the banned person's

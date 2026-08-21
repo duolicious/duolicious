@@ -31,7 +31,7 @@ fi
 
 if [ "$DUO_ENV" = "prod" ]
 then
-  python3 database/initapi.py
+  python3 service/api/initapi.py
   exec uvicorn \
     --host 0.0.0.0 \
     --port "$PORT" \
@@ -42,7 +42,7 @@ then
     service.api:app
 elif [ "$DUO_ENV" = "dev" ]
 then
-  python3 database/initapi.py
+  python3 service/api/initapi.py
   exec uvicorn \
     --host 0.0.0.0 \
     --port "$PORT" \

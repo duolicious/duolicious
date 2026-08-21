@@ -1,4 +1,4 @@
-from chatprotocol.inbound import RegisterPushToken
+from service.api.chatprotocol.inbound import RegisterPushToken
 from service.api.chat.sessioncolumnbatch import (
     SessionColumnWrite,
     make_session_column_batcher,

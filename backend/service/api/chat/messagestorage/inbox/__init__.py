@@ -1,9 +1,9 @@
 import logging
 
-from batcher import Batcher
-from constants import LAST_ONLINE_DEFAULT_SECONDS
-from database import Row, Tx, api_tx, row_int, row_str
-from searchfilters import (
+from serviceshared.batcher import Batcher
+from serviceshared.constants import LAST_ONLINE_DEFAULT_SECONDS
+from serviceshared.database import Row, Tx, api_tx, row_int, row_str
+from service.api.searchfilters import (
     Q_SEARCH_PARAMETERS_BY_UUID,
     SearchParam,
     and_clauses,
@@ -18,10 +18,10 @@ from service.api.chat.chatutil import (
     format_timestamp,
     redis_publish_many,
 )
-from chatprotocol.message import (
+from service.api.chatprotocol.message import (
     gif_aware_body,
 )
-from chatprotocol.outbound import (
+from service.api.chatprotocol.outbound import (
     InboxConversation,
     InboxEntry,
     InboxFin,

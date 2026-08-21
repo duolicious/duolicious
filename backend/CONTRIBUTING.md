@@ -23,6 +23,19 @@ curl -sf http://localhost:5000/health && echo API OK
 - MailHog UI for emails: [http://localhost:8025](http://localhost:8025)
 - PgAdmin: [http://localhost:8090](http://localhost:8090)
 
+## Repository layout
+
+Two principles shape the tree:
+
+1. `service/` contains only services — the containers that run in `docker-compose.yml` (`api`, `cron`, `firehol`, `status`).
+2. Otherwise, each module lives at the closest common ancestor of the code that imports it. A module used only by the API sits in `service/api/`; one used only by `person` sits in `service/api/person/`; one imported by more than one service sits in `serviceshared/`.
+
+- `service/` – the deployable services
+- `service/api/` – the HTTP + chat WebSocket service, plus its private modules (e.g. `person`, `search`, `qanda`, `duotypes`); single-consumer modules nest further (e.g. `service/api/person/duophoto`, `service/api/search/rediscache`, `service/api/chat/webpushsender`)
+- `serviceshared/` – everything shared by more than one service, directly or transitively: `antiabuse`, `notify`, `smtp`, `constants`, `batcher`, ..., plus `database` (pools, transaction helpers, row coercion), `duoenv` (environment/config values read at startup), and `util` (generic helpers)
+- `test/` – functionality (shell) and performance tests plus mocks; unit tests live next to the modules they test as `test_*.py`
+- `questions/`, `locations/` – seed data loaded into the database at init time
+
 ## Local development
 
 - Easiest: keep everything in Docker (`docker compose up -d`)

@@ -1,7 +1,7 @@
-from database import api_tx
+from serviceshared.database import api_tx
 from service.cron.verificationjobrunner.sql import *
-from verification import verify
-from verification.messages import (
+from serviceshared.verification import verify
+from serviceshared.verification.messages import (
     V_SOMETHING_WENT_WRONG,
 )
 from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass
 import logging
 
-from duoenv.cron import VERIFICATION_POLL_SECONDS
+from serviceshared.duoenv.cron import VERIFICATION_POLL_SECONDS
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,10 @@
 import json
 import logging
 
-from database import api_tx
+from serviceshared.database import api_tx
 from service.api.chat.chatutil import fetch_id_from_username
-from chatprotocol.outbound import Outbound, VisitorsSnapshot
-from visitorsql import Q_VISITORS, Q_MARK_VISITORS_CHECKED
+from service.api.chatprotocol.outbound import Outbound, VisitorsSnapshot
+from service.api.visitorsql import Q_VISITORS, Q_MARK_VISITORS_CHECKED
 
 logger = logging.getLogger(__name__)
 

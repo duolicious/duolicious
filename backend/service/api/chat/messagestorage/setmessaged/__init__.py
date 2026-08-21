@@ -1,6 +1,6 @@
 from typing import List
 from dataclasses import dataclass
-from database import Tx
+from serviceshared.database import Tx
 from functools import lru_cache
 
 Q_SET_MESSAGED = """
