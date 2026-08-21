@@ -1606,6 +1606,43 @@ AFTER INSERT OR DELETE OR UPDATE OF activated ON
 FOR EACH ROW EXECUTE FUNCTION
     mark_club_stats_dirty();
 
+-- Keeps `club.count_members` equal to the number of activated members.
+-- The counts were previously maintained by hand at each join / leave /
+-- (de)activation / deletion site, which drifted whenever a site was
+-- missed (issue #1286).
+CREATE OR REPLACE FUNCTION
+    maintain_club_count_members()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' AND NEW.activated THEN
+        UPDATE club
+        SET count_members = count_members + 1
+        WHERE name = NEW.club_name;
+    ELSIF TG_OP = 'UPDATE' AND NEW.activated AND NOT OLD.activated THEN
+        UPDATE club
+        SET count_members = count_members + 1
+        WHERE name = NEW.club_name;
+    ELSIF TG_OP = 'UPDATE' AND OLD.activated AND NOT NEW.activated THEN
+        UPDATE club
+        SET count_members = count_members - 1
+        WHERE name = NEW.club_name;
+    ELSIF TG_OP = 'DELETE' AND OLD.activated THEN
+        UPDATE club
+        SET count_members = count_members - 1
+        WHERE name = OLD.club_name;
+    END IF;
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER
+    trigger_maintain_club_count_members
+AFTER INSERT OR DELETE OR UPDATE OF activated ON
+    person_club
+FOR EACH ROW EXECUTE FUNCTION
+    maintain_club_count_members();
+
 
 --------------------------------------------------------------------------------
 -- CHAT-RELATED TABLES

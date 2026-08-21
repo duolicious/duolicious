@@ -244,6 +244,75 @@ premium_features_require_gold() {
   return 0
 }
 
+check_club_counts_consistent () {
+  [[ $(q "\
+    select count(*) \
+    from club \
+    left join ( \
+      select club_name, count(*) as cnt \
+      from person_club \
+      where activated \
+      group by club_name \
+    ) pc on pc.club_name = club.name \
+    where club.count_members is distinct from coalesce(pc.cnt, 0)") == 0 ]]
+}
+
+club_counts_survive_gold_expiry_while_deactivated() {
+  say "Configure RevenueCat auth token"
+  q "\
+  update
+    funding
+  set
+    token_hash_revenuecat = '$(printf 'valid-revenuecat-token' | sha512sum | cut -d' ' -f1)'
+  "
+
+  say "Reset core tables to a clean state"
+  q "delete from person"
+  q "delete from person_club"
+  q "delete from club"
+  q "delete from banned_person"
+
+  say "Create a gold user over the free club quota and a bystander"
+  ../util/create-user.sh rcuser6 0 0
+  ../util/create-user.sh rcuser7 0 0
+
+  useruuid=$(get_uuid 'rcuser6@example.com')
+
+  assume_role rcuser6
+  for i in {1..60}
+  do
+    jc POST /join-club -d '{ "name": "rc-club-'$i'" }'
+  done
+
+  assume_role rcuser7
+  jc POST /join-club -d '{ "name": "rc-club-1" }'
+
+  check_club_counts_consistent
+
+  say "Deactivate the gold user"
+  assume_role rcuser6
+  c POST /deactivate
+
+  check_club_counts_consistent
+
+  say "EXPIRATION while deactivated evicts over-quota clubs without corrupting counts"
+  export SESSION_TOKEN=""
+  c POST /revenuecat \
+    --header "Authorization: Bearer valid-revenuecat-token" \
+    --header "Content-Type: application/json" \
+    -d '{ "event": { "type": "EXPIRATION", "app_user_id": "'"$useruuid"'" } }' > /dev/null
+
+  [[ $(q "\
+    select count(*) \
+    from person_club \
+    where person_id = (select id from person where uuid = '$useruuid'::uuid)") == 50 ]]
+  check_club_counts_consistent
+
+  say "Signing back in restores the remaining memberships' counts"
+  assume_role rcuser6
+  check_club_counts_consistent
+}
+
 clean_up () {
   q "select setval(pg_get_serial_sequence('person','id'), 1, true)"
 }
@@ -251,5 +320,6 @@ clean_up () {
 has_gold_is_set_by_webhook
 expiration_resets_settings
 premium_features_require_gold
+club_counts_survive_gold_expiry_while_deactivated
 
 clean_up

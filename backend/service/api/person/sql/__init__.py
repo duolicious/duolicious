@@ -113,13 +113,12 @@ ORDER BY
 """
 
 # Reactivation/sign-in metadata bumps shared by `/check-otp` and the
-# social sign-in flow: marks the user activated, bumps `sign_in_count` /
-# `sign_in_time`, and (only when the user was previously deactivated)
-# increments their clubs' `count_members`.
+# social sign-in flow: marks the user activated and bumps
+# `sign_in_count` / `sign_in_time`. Reactivation ripples to
+# `person_club.activated` and the clubs' `count_members` via triggers.
 #
 # Caller must define `existing_person_before_update` first as a CTE
-# yielding `(id, activated)` with zero or one rows — that anchor lets the
-# club-count branch read the user's *pre-update* activated state.
+# yielding `(id)` with zero or one rows.
 _Q_POST_SIGN_IN_CTES = """
 existing_person AS (
     UPDATE
@@ -139,30 +138,6 @@ existing_person AS (
         person.sign_up_time,
         person.count_answers,
         person.has_gold
-), club_to_increment AS (
-    SELECT
-        person_club.club_name
-    FROM
-        existing_person
-    LEFT JOIN
-        person_club
-    ON
-        person_club.person_id = existing_person.id
-    JOIN
-        existing_person_before_update
-    ON
-        existing_person_before_update.id = existing_person.id
-    WHERE
-        NOT existing_person_before_update.activated
-), increment_club_count_if_not_activated AS (
-    UPDATE
-        club
-    SET
-        count_members = count_members + 1
-    FROM
-        club_to_increment
-    WHERE
-        club_to_increment.club_name = club.name
 )
 """
 
@@ -311,8 +286,7 @@ WITH valid_session AS (
         email
 ), existing_person_before_update AS (
     SELECT
-        id,
-        activated
+        id
     FROM
         person
     WHERE
@@ -1256,20 +1230,11 @@ WITH deleted_inbox AS (
         deleted_mam_message.audio_uuid IS NOT NULL
     AND
         mam_message.audio_uuid IS NULL
-), deleted_person_club AS (
-    SELECT
-        club_name
-    FROM
-        person_club
-    WHERE
-        person_id  = %(person_id)s
 ), deleted_person AS (
     DELETE FROM
         person
     WHERE
         id = %(person_id)s
-    RETURNING
-        activated
 ), undeleted_photo_insertion AS (
     INSERT INTO undeleted_photo (
         uuid
@@ -1286,17 +1251,6 @@ WITH deleted_inbox AS (
         uuid
     FROM
         every_deleted_audio_uuid
-), club_update AS (
-    UPDATE
-        club
-    SET
-        count_members = GREATEST(0, count_members - 1)
-    FROM
-        deleted_person_club
-    WHERE
-        club.name = deleted_person_club.club_name
-    AND
-        (SELECT activated FROM deleted_person)
 )
 SELECT 1
 """
@@ -1313,17 +1267,6 @@ WITH updated_person AS (
         id = %(person_id)s
     RETURNING
         id
-), decrement_club AS (
-    UPDATE
-        club
-    SET
-        count_members = GREATEST(0, count_members - 1)
-    FROM
-        person_club
-    WHERE
-        person_club.club_name = club.name
-    AND
-        person_club.person_id IN (SELECT id FROM updated_person)
 ), deleted_duo_session AS (
     DELETE FROM
         duo_session
@@ -1921,12 +1864,10 @@ WITH is_allowed_club_name AS (
         (SELECT x FROM will_be_within_club_quota)
 ), inserted_club AS (
     INSERT INTO club (
-        name,
-        count_members
+        name
     )
     SELECT
-        %(club_name)s,
-        1
+        %(club_name)s
     WHERE
         (SELECT is_allowed_club_name FROM is_allowed_club_name)
     AND
@@ -1950,15 +1891,6 @@ WITH is_allowed_club_name AS (
     ON CONFLICT (person_id, club_name) DO NOTHING
     RETURNING
         club_name
-), updated_club AS (
-    UPDATE
-        club
-    SET
-        count_members = count_members + 1
-    FROM
-        inserted_person_club
-    WHERE
-        inserted_person_club.club_name = club.name
 ), updated_person AS (
     UPDATE
         person
@@ -1992,15 +1924,6 @@ WITH deleted_person_club AS (
         club_name = %(club_name)s
     RETURNING
         club_name
-), updated_club AS (
-    UPDATE
-        club
-    SET
-        count_members = GREATEST(0, count_members - 1)
-    WHERE
-        name = %(club_name)s
-    AND
-        EXISTS (SELECT 1 FROM deleted_person_club)
 )
 -- Stop advertising the club in the feed if it's the person's latest event
 UPDATE
@@ -2894,15 +2817,6 @@ WITH updated_person_with_gold AS (
         END
     RETURNING
         person_club.club_name
-), updated_club AS (
-    UPDATE
-        club
-    SET
-        count_members = club.count_members - 1
-    FROM
-        deleted_person_club
-    WHERE
-        club.name = deleted_person_club.club_name
 )
 SELECT
     uuid as person_uuid
@@ -3025,8 +2939,7 @@ INSERT INTO duo_session (
 Q_AFTER_SOCIAL_SIGN_IN = f"""
 WITH existing_person_before_update AS (
     SELECT
-        id,
-        activated
+        id
     FROM
         person
     WHERE
