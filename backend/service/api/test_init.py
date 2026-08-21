@@ -17,6 +17,9 @@ INSERT INTO person (
     coordinates,
     gender_id,
     about,
+    location_short_friendly,
+    location_long_friendly,
+    location_country,
     unit_id
 )
 VALUES (
@@ -28,6 +31,9 @@ VALUES (
     ST_MakePoint(0.0, 0.0),
     1,
     '',
+    'Sydney',
+    'Sydney, New South Wales, Australia',
+    'Australia',
     1
 )
 """

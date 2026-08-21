@@ -48,6 +48,10 @@ services:
     environment:
       DUO_ENV: dev
 
+      # Unit-test discovery runs in this container and imports
+      # service.cron, which fails fast without this or an OpenAI key.
+      DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION: 'A friendly description for this club.'
+
       DUO_FIREHOL_URL: http://firehol:5070
 
       # Unreachable, so ASN lookups fail open instantly rather than hitting
