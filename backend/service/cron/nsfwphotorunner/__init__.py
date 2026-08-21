@@ -1,4 +1,3 @@
-from serviceshared.antiabuse.antiporn import predict_nsfw
 from serviceshared.database import api_tx
 from service.cron.nsfwphotorunner.sql import *
 from service.cron.cronutil import (
@@ -17,6 +16,10 @@ logger = logging.getLogger(__name__)
 logger.info('Hello from cron module')
 
 async def predict_nsfw_photos_once() -> None:
+    # Deferred import: the api image ships without antiporn's model files, but
+    # unit-test discovery imports this module there.
+    from serviceshared.antiabuse.antiporn import predict_nsfw
+
     async with api_tx() as tx:
         cur = await tx.execute(Q_50_UNCHECKED_PHOTOS)
         rows = await cur.fetchall()

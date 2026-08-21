@@ -35,6 +35,19 @@ VALUES (
     'Sydney, New South Wales, Australia',
     'Australia',
     1
+), (
+    'legacy@googlemail.com',
+    'legacy@googlemail.com',
+    'Bob',
+    'bob',
+    '2000-01-01',
+    ST_MakePoint(0.0, 0.0),
+    1,
+    '',
+    'Sydney',
+    'Sydney, New South Wales, Australia',
+    'Australia',
+    1
 )
 """
 
@@ -75,7 +88,7 @@ class Test(DbTestCase):
             emails = [row['normalized_email'] for row in rows]
             self.assertEqual(
                 emails,
-                ['example@gmail.com'])
+                ['example@gmail.com', 'legacy@gmail.com'])
 
             rows = await (await tx.execute(Q_SELECT_BANNED_PERSON_EMAILS)).fetchall()
             emails = [row['normalized_email'] for row in rows]
