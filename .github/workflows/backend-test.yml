@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - backend/**
+      - .github/workflows/backend-test.yml
   pull_request:
     branches:
       - main
+    paths:
+      - backend/**
+      - .github/workflows/backend-test.yml
 
 # All run-steps below execute from the backend subdirectory, so the
 # relative paths inherited from the original backend repo

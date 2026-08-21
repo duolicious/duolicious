@@ -3,9 +3,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - frontend/**
+      - .github/workflows/frontend-eslint.yml
   pull_request:
     branches:
       - main
+    paths:
+      - frontend/**
+      - .github/workflows/frontend-eslint.yml
 
 defaults:
   run:
