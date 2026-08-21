@@ -1,6 +1,10 @@
 name: Backend Publish
 
-on: [push]
+on:
+  push:
+    paths:
+      - backend/**
+      - .github/workflows/backend-publish.yml
 
 # Docker builds run from the backend subdirectory, so `-f api.Dockerfile .`
 # uses backend/ as the build context exactly as before.
