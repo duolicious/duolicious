@@ -3,9 +3,15 @@ on:
   push:
     branches:
       - main
+    paths:
+      - frontend/**
+      - .github/workflows/frontend-publish.yml
   pull_request:
     branches:
       - main
+    paths:
+      - frontend/**
+      - .github/workflows/frontend-publish.yml
 
 defaults:
   run:
