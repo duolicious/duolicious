@@ -153,14 +153,6 @@ qrestore () {
       -d duo_api \
       -h "${DUO_DB_HOST:-localhost}" \
       -p "${DUO_DB_PORT:-5432}"
-
-  PGPASSWORD="${DUO_DB_PASS:-password}" psql \
-    -U "${DUO_DB_USER:-postgres}" \
-    -d duo_api \
-    -h "${DUO_DB_HOST:-localhost}" \
-    -p "${DUO_DB_PORT:-5432}" \
-    -v ON_ERROR_STOP=1 \
-    -f ../../migrations.sql
 }
 
 # Assert a JSON array has the expected length.
