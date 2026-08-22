@@ -21,6 +21,8 @@ from serviceshared.duoenv.cron import (
 
 logger = logging.getLogger(__name__)
 
+_SWEEP_LOG_INTERVAL = 10_000
+
 
 async def refresh_club_embeddings_once() -> None:
     if not is_offpeak(
@@ -46,8 +48,10 @@ async def refresh_club_embeddings_once() -> None:
     if names:
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
+        logger.info(f'club_embeddings: wrote {len(names)}')
 
     swept = 0
+    logged = 0
     while True:
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_REFRESH_STALE_CLUB_VECTORS_BATCH, dict(
@@ -55,13 +59,14 @@ async def refresh_club_embeddings_once() -> None:
             ))
             batch_swept = tx.rowcount
         swept += batch_swept
+        if swept - logged >= _SWEEP_LOG_INTERVAL:
+            logger.info(f'club_embeddings: re-pooled {swept} people so far')
+            logged = swept
         if batch_swept < CLUB_EMBEDDINGS_WRITE_BATCH_SIZE:
             break
 
-    if names or swept:
-        logger.info(
-            f'club_embeddings: wrote {len(names)}, re-pooled {swept} people'
-        )
+    if swept:
+        logger.info(f'club_embeddings: re-pooled {swept} people')
 
 
 async def refresh_club_embeddings_forever() -> None:
