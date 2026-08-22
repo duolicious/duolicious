@@ -1708,6 +1708,11 @@ WITH answer AS (
     FROM sp
     JOIN last_online
     ON last_online.id = sp.last_online_id
+), order_by_pref AS (
+    SELECT order_by.name AS j
+    FROM sp
+    JOIN order_by
+    ON order_by.id = sp.order_by_id
 ), two_way_filters AS (
     SELECT json_build_object(
         'gender',                two_way_gender,
@@ -1757,6 +1762,8 @@ SELECT
 
         'people_you_messaged',    (SELECT j FROM people_you_messaged),
         'people_you_skipped',     (SELECT j FROM people_you_skipped),
+
+        'order_by',               (SELECT j FROM order_by_pref),
 
         'two_way_filters',        (SELECT j FROM two_way_filters)
     ) AS j
@@ -1914,6 +1921,26 @@ SELECT
 FROM
     existing_or_inserted_club
 LIMIT 1
+"""
+
+Q_REFRESH_PERSON_CLUB_VECTOR = """
+UPDATE
+    person
+SET
+    club_vector = COALESCE(
+        (
+            SELECT l2_normalize(SUM(club.embedding))
+            FROM person_club
+            JOIN club
+            ON club.name = person_club.club_name
+            WHERE person_club.person_id = %(person_id)s
+            AND club.embedding IS NOT NULL
+        ),
+        array_full(64, 0)::VECTOR(64)
+    ),
+    club_vector_computed_at = NOW()
+WHERE
+    id = %(person_id)s
 """
 
 Q_LEAVE_CLUB = """

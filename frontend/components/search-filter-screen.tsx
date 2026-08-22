@@ -21,6 +21,7 @@ import {
   searchBasicsOptionGroups,
   searchOtherBasicsOptionGroups,
   searchInteractionsOptionGroups,
+  searchOrderOptionGroups,
   defaultSearchFilters,
   getCurrentValue,
   isOptionGroupCheckChips,
@@ -324,6 +325,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
   const _searchBasicsOptionGroups = searchBasicsOptionGroups.map(withCurrent);
   const _searchOtherBasicsOptionGroups = searchOtherBasicsOptionGroups.map(withCurrent);
   const _searchInteractionsOptionGroups = searchInteractionsOptionGroups.map(withCurrent);
+  const _searchOrderOptionGroups = searchOrderOptionGroups.map(withCurrent);
 
   const goBack = useCallback(() => {
     navigation.goBack();
@@ -424,6 +426,17 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
                 key={i}
                 setting={getCurrentValueAsLabel(og, signedInUser)}
                 optionGroups={_searchInteractionsOptionGroups.slice(i)}
+              />
+            )
+          }
+
+          <Title style={{marginTop: 40}}>Results Order</Title>
+          {
+            _searchOrderOptionGroups.map((og, i) =>
+              <Button_
+                key={i}
+                setting={getCurrentValueAsLabel(og, signedInUser)}
+                optionGroups={_searchOrderOptionGroups.slice(i)}
               />
             )
           }

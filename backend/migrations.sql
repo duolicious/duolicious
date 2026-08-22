@@ -115,3 +115,42 @@ FROM (
 ) actual
 WHERE club.name = actual.name
 AND club.count_members IS DISTINCT FROM actual.cnt;
+
+CREATE TABLE IF NOT EXISTS order_by (
+    id SMALLSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    UNIQUE (name)
+);
+
+SELECT setval('order_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM order_by), FALSE);
+INSERT INTO order_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
+INSERT INTO order_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
+
+ALTER TABLE club
+    ADD COLUMN IF NOT EXISTS embedding VECTOR(64);
+
+CREATE TABLE IF NOT EXISTS club_embedding_refresh (
+    id SMALLINT PRIMARY KEY,
+
+    completed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
+
+    CONSTRAINT id CHECK (id = 1)
+);
+
+INSERT INTO club_embedding_refresh (id)
+VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS club_vector VECTOR(64) NOT NULL
+    DEFAULT array_full(64, 0);
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS club_vector_computed_at TIMESTAMP NOT NULL
+    DEFAULT to_timestamp(0);
+
+ALTER TABLE search_preference
+    ADD COLUMN IF NOT EXISTS order_by_id SMALLINT NOT NULL DEFAULT 1
+    REFERENCES order_by(id) ON DELETE CASCADE;
+
+ALTER TABLE search_cache
+    ADD COLUMN IF NOT EXISTS club_similarity REAL NOT NULL DEFAULT 0;

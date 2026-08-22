@@ -43,6 +43,8 @@ def maximal_prefs() -> Row:
     prefs.update(
         distance_meters=1,
         club_preference=None,
+        order_by='Match percentage',
+        searcher_club_vector='[0]',
         min_age=18,
         max_age=99,
         min_height_cm=1,
@@ -101,6 +103,24 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
             frozenset(search_only_clauses(prefs))
             & frozenset(prospect_filters(prefs).clauses),
         )
+
+    def test_club_ordering_changes_candidate_selection(self) -> None:
+        match_prefs = maximal_prefs()
+        clubs_prefs = maximal_prefs()
+        clubs_prefs['order_by'] = 'Similar clubs'
+
+        match_sql, match_params = build_uncached_search(1, 10, 0, match_prefs)
+        clubs_sql, clubs_params = build_uncached_search(1, 10, 0, clubs_prefs)
+
+        self.assertNotIn('club_vector', match_sql)
+        self.assertNotIn('searcher_club_vector', match_params)
+
+        self.assertIn(
+            'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR',
+            clubs_sql,
+        )
+        self.assertNotIn('COALESCE(prospect.club_vector', clubs_sql)
+        self.assertEqual(clubs_params['searcher_club_vector'], '[0]')
 
 
 if __name__ == '__main__':

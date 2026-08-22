@@ -86,6 +86,8 @@ def run_with_timeout(
 
     if not ok:                                     # child raised
         exctype, excargs, te = payload
-        raise exctype(*excargs).with_traceback(te.as_traceback())
+        exc = exctype(*excargs)
+        exc.add_note('Child process traceback:\n' + ''.join(te.format()))
+        raise exc
 
     return payload  # type: ignore[return-value]

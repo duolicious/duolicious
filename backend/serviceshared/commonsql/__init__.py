@@ -60,6 +60,30 @@ WHERE
     id = %(person_id)s
 """
 
+Q_REFRESH_STALE_CLUB_VECTOR = """
+UPDATE
+    person
+SET
+    club_vector = COALESCE(
+        (
+            SELECT l2_normalize(SUM(club.embedding))
+            FROM person_club
+            JOIN club
+            ON club.name = person_club.club_name
+            WHERE person_club.person_id = person.id
+            AND club.embedding IS NOT NULL
+        ),
+        array_full(64, 0)::VECTOR(64)
+    ),
+    club_vector_computed_at = NOW()
+WHERE
+    uuid = %(person_uuid)s::UUID
+AND
+    club_vector_computed_at < (
+        SELECT completed_at FROM club_embedding_refresh
+    )
+"""
+
 Q_UPDATE_LAST = """
 WITH updated_person AS (
     UPDATE

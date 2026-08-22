@@ -264,6 +264,18 @@ SELECT
     ) AS required_answer_question_ids,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
+    order_by.name AS order_by,
+    COALESCE(
+        (
+            SELECT l2_normalize(SUM(club.embedding))
+            FROM person_club
+            JOIN club
+            ON club.name = person_club.club_name
+            WHERE person_club.person_id = person.id
+            AND club.embedding IS NOT NULL
+        ),
+        array_full(64, 0)::VECTOR(64)
+    )::TEXT AS searcher_club_vector,
     EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
     person.height_cm AS searcher_height_cm,
 {_SEARCHER_ATTR_SELECTS},
@@ -275,6 +287,10 @@ JOIN
     search_preference AS sp
 ON
     sp.person_id = person.id
+JOIN
+    order_by
+ON
+    order_by.id = sp.order_by_id
 WHERE
     {person_predicate}
 """

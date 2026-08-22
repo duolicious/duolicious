@@ -193,6 +193,12 @@ CREATE TABLE IF NOT EXISTS last_online (
     UNIQUE (name)
 );
 
+CREATE TABLE IF NOT EXISTS order_by (
+    id SMALLSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    UNIQUE (name)
+);
+
 CREATE TABLE IF NOT EXISTS yes_no (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -284,6 +290,8 @@ CREATE TABLE IF NOT EXISTS person (
     -- score of 0 for each trait. We add an extra, constant, non-zero dimension
     -- to avoid that.
     personality VECTOR(47) NOT NULL DEFAULT array_full(47, 0),
+    club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
+    club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,
@@ -567,6 +575,7 @@ CREATE TABLE IF NOT EXISTS verification_photo_hash (
 CREATE TABLE IF NOT EXISTS club (
     name TEXT NOT NULL,
     count_members INT NOT NULL DEFAULT 0,
+    embedding VECTOR(64),
 
     PRIMARY KEY (name)
 );
@@ -596,6 +605,14 @@ CREATE TABLE IF NOT EXISTS club_count_delta (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     club_name TEXT NOT NULL REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,
     delta SMALLINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS club_embedding_refresh (
+    id SMALLINT PRIMARY KEY,
+
+    completed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
+
+    CONSTRAINT id CHECK (id = 1)
 );
 
 CREATE TABLE IF NOT EXISTS club_stats (
@@ -723,6 +740,8 @@ CREATE TABLE IF NOT EXISTS search_preference (
 
     last_online_id SMALLINT NOT NULL REFERENCES last_online(id) ON DELETE CASCADE,
 
+    order_by_id SMALLINT NOT NULL DEFAULT 1 REFERENCES order_by(id) ON DELETE CASCADE,
+
     club_name TEXT REFERENCES club(name) ON DELETE SET NULL,
 
     show_messaged BOOLEAN NOT NULL DEFAULT TRUE,
@@ -789,6 +808,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS search_cache (
     name TEXT NOT NULL,
     age SMALLINT,
     match_percentage SMALLINT NOT NULL,
+    club_similarity REAL NOT NULL DEFAULT 0,
     personality VECTOR(47) NOT NULL,
     PRIMARY KEY (searcher_person_id, position)
 );
@@ -984,6 +1004,10 @@ SELECT setval('last_online_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM last_o
 INSERT INTO last_online (name, seconds) VALUES ('Now', {{LAST_ONLINE_NOW_SECONDS}}) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('A day ago', 86400) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('A week ago', 604800) ON CONFLICT (name) DO NOTHING;
+
+SELECT setval('order_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM order_by), FALSE);
+INSERT INTO order_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
+INSERT INTO order_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('{{LAST_ONLINE_DEFAULT_NAME}}', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('All time', 3153600000) ON CONFLICT (name) DO NOTHING;
 
@@ -1440,6 +1464,10 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO funding (id, estimated_end_date, cost_per_month_usd)
 VALUES (1, now() + interval '1 year', 360.0)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO club_embedding_refresh (id)
+VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
 --------------------------------------------------------------------------------

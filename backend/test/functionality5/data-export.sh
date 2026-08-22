@@ -26,6 +26,7 @@ quietly_assume_role () {
   q "update person set sign_in_count = $sign_in_count where name = '$1'"
   q "update person set sign_in_time = '$sign_in_time' where name = '$1'"
   q "update person set last_online_time = '$sign_in_time' where name = '$1'"
+  q "update person set club_vector_computed_at = to_timestamp(0) where name = '$1'"
   q "delete from presence_histogram"
 }
 

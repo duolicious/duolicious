@@ -100,6 +100,3 @@ def personality_vector(
     return personality
 
 
-def to_pgvector(personality: Iterable[float]) -> str:
-    """Format a personality vector as a pgvector text literal for `::vector`."""
-    return '[' + ','.join(repr(float(x)) for x in personality) + ']'

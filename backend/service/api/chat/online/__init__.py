@@ -9,7 +9,10 @@ from service.api.chat.chatutil import (
     redis_has_subscribers,
 )
 from enum import Enum
-from serviceshared.commonsql import Q_UPDATE_LAST
+from serviceshared.commonsql import (
+    Q_REFRESH_STALE_CLUB_VECTOR,
+    Q_UPDATE_LAST,
+)
 from serviceshared.batcher import Batcher
 from service.api.chat.session import Session
 from service.api.chatprotocol.outbound import (
@@ -298,6 +301,8 @@ async def process_batch(jobs: list[UpdateLastJob]) -> None:
 
     async with api_tx('read committed') as tx:
         await tx.executemany(Q_UPDATE_LAST, update_last_params_seq)
+        await tx.executemany(
+            Q_REFRESH_STALE_CLUB_VECTOR, update_last_params_seq)
         await tx.executemany(Q_UPDATE_SESSION_LAST_ONLINE, session_params_seq)
 
 

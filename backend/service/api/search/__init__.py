@@ -5,6 +5,7 @@ from service.api import sessioncache
 from service.api.qanda import personality
 from pydantic import ValidationError
 from serviceshared.database import Tx, api_tx, row_int
+from serviceshared.pgvector import to_pgvector
 from service.api.qanda.question import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
 from collections.abc import Sequence
@@ -215,7 +216,7 @@ async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
             if a.question_id in questions
         )
 
-        searcher_personality = personality.to_pgvector(
+        searcher_personality = to_pgvector(
             personality.personality_vector(presence, absence, count))
 
         await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(

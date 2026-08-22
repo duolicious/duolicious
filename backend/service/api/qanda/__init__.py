@@ -31,6 +31,7 @@ from serviceshared.constants import (
     ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
 )
 from serviceshared.database import Row, Tx, api_tx
+from serviceshared.pgvector import to_pgvector
 import service.api.duotypes as t
 from service.api.qanda import personality
 from service.api.qanda.question import Q_QUESTION_SCORE_VECTORS
@@ -256,7 +257,7 @@ async def _set_answer(
 
     await tx.execute(Q_SET_PERSONALITY, dict(
         person_id=person_id,
-        personality=personality.to_pgvector(vector),
+        personality=to_pgvector(vector),
         presence_score=numpy.asarray(presence).tolist(),
         absence_score=numpy.asarray(absence).tolist(),
         count_answers=int(count),

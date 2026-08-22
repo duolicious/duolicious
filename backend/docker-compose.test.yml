@@ -162,6 +162,7 @@ services:
       DUO_CRON_CLUB_TOP_ANSWERS_BATCH_SIZE: '5'
       DUO_CRON_CLUB_OVERLAP_POLL_SECONDS: '1'
       DUO_CRON_CLUB_COUNT_POLL_SECONDS: '1'
+      DUO_CRON_CLUB_EMBEDDINGS_POLL_SECONDS: '5'
       DUO_CRON_CLUB_SEO_POLL_SECONDS: '1'
       # Deterministic description so the test needs no OpenAI key.
       DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION: 'A friendly test description for this club.'

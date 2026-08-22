@@ -105,7 +105,14 @@ _VERIFICATION_SATISFIED = sql_fragment("""
     )
 """)
 
-_PROSPECT_SELECT = """    SELECT
+_CLUB_SIMILARITY = \
+    '(-(prospect.club_vector <#> %(searcher_club_vector)s::VECTOR))::REAL'
+
+
+def _prospect_select(order_by_clubs: bool) -> str:
+    club_similarity = _CLUB_SIMILARITY if order_by_clubs else '0::REAL'
+
+    return f"""    SELECT
         prospect.id AS prospect_person_id,
 
         uuid AS prospect_uuid,
@@ -138,7 +145,9 @@ _PROSPECT_SELECT = """    SELECT
             0,
             99,
             100 * (1 - (prospect.personality <#> %(searcher_personality)s::VECTOR)) / 2
-        ) AS match_percentage"""
+        ) AS match_percentage,
+
+        {club_similarity} AS club_similarity"""
 
 _SEARCH_CACHE_INSERT = """), do_promote_verified AS (
     SELECT
@@ -161,6 +170,7 @@ INSERT INTO search_cache (
     name,
     age,
     match_percentage,
+    club_similarity,
     personality,
     verified
 )
@@ -177,6 +187,8 @@ SELECT
                     profile_photo_uuid IS NOT NULL
             END DESC,
 
+            club_similarity DESC,
+
             match_percentage DESC
     ) AS position,
     prospect_person_id,
@@ -185,6 +197,7 @@ SELECT
     name,
     age,
     match_percentage,
+    club_similarity,
     personality,
     verified
 FROM
@@ -202,6 +215,7 @@ ON CONFLICT (searcher_person_id, position) DO UPDATE SET
     name = EXCLUDED.name,
     age = EXCLUDED.age,
     match_percentage = EXCLUDED.match_percentage,
+    club_similarity = EXCLUDED.club_similarity,
     personality = EXCLUDED.personality,
     verified = EXCLUDED.verified
 """
@@ -260,6 +274,11 @@ def build_uncached_search(
     if club_preference is not None:
         params['club_preference'] = club_preference
 
+    order_by_clubs = row_str(prefs, 'order_by') == 'Similar clubs'
+    if order_by_clubs:
+        params['searcher_club_vector'] = row_str(
+            prefs, 'searcher_club_vector')
+
     reverse = two_way_filters(prefs)
     params.update(reverse.params)
 
@@ -272,16 +291,23 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
+    if order_by_clubs:
+        candidate_order = """prospect.club_vector <#> %(searcher_club_vector)s::VECTOR,
+        prospect.personality <#> %(searcher_personality)s::VECTOR"""
+    else:
+        candidate_order = \
+            'prospect.personality <#> %(searcher_personality)s::VECTOR'
+
     sql = f"""
 WITH candidates AS (
-{_PROSPECT_SELECT}
+{_prospect_select(order_by_clubs)}
     FROM
 {_from_clause(club_preference)}
     WHERE
         {where}
 
     ORDER BY
-        prospect.personality <#> %(searcher_personality)s::VECTOR
+        {candidate_order}
 
     LIMIT
         750
@@ -470,6 +496,8 @@ WITH searcher AS (
             ELSE
                 profile_photo_uuid IS NOT NULL
         END DESC,
+
+        club_similarity DESC,
 
         match_percentage DESC
     LIMIT
