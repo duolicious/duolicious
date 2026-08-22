@@ -184,11 +184,7 @@ WITH target AS MATERIALIZED (
         t.name,
         json_build_object(
             'name',         t.name,
-            'member_count', t.count_members + COALESCE((
-                SELECT SUM(d.delta)
-                FROM club_count_delta d
-                WHERE d.club_name = t.name
-            ), 0),
+            'member_count', t.count_members,
             'median_age',   maj.median_age,
             'demographics', json_build_object(
                 'gender',              COALESCE(gj.j,  '[]'::json),

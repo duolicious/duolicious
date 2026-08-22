@@ -8,13 +8,29 @@ WITH consumed AS (
         SUM(delta) AS total
     FROM consumed
     GROUP BY club_name
+), updated AS (
+    UPDATE
+        club
+    SET
+        count_members = count_members + agg.total
+    FROM
+        agg
+    WHERE
+        club.name = agg.club_name
+    RETURNING
+        club.name
+), marked AS (
+    INSERT INTO club_stats_dirty (
+        club_name
+    )
+    SELECT
+        name
+    FROM
+        updated
+    ON CONFLICT (club_name) DO NOTHING
 )
-UPDATE
-    club
-SET
-    count_members = count_members + agg.total
+SELECT
+    COUNT(*) AS folded
 FROM
-    agg
-WHERE
-    club.name = agg.club_name
+    updated
 """
