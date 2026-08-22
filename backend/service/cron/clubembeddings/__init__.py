@@ -29,7 +29,7 @@ async def refresh_club_embeddings_once() -> None:
         return
 
     logger.info(
-        f'computing embeddings '
+        f'computing embeddings: started '
         f'(timeout {CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS}s)')
 
     computed = await asyncio.to_thread(
@@ -39,6 +39,7 @@ async def refresh_club_embeddings_once() -> None:
     )
     changed = computed.changed
     logger.info(
+        f'computing embeddings: finished; '
         f'embedded {computed.embedded_count} clubs '
         f'from {computed.membership_count} memberships; '
         f'{len(changed)} changed materially')
@@ -65,11 +66,11 @@ async def refresh_club_embeddings_once() -> None:
             ))
             batch_swept = tx.rowcount
         if i % 1000 == 0:
-            logger.info(f're-pooled {i} batches of people so far')
+            logger.info(f're-pooling people: {i} batches so far')
         if batch_swept < CLUB_EMBEDDINGS_WRITE_BATCH_SIZE:
             break
 
-    logger.info(f're-pooled {i} batches of people')
+    logger.info(f're-pooling people: finished after {i} batches')
 
 
 async def refresh_club_embeddings_forever() -> None:
