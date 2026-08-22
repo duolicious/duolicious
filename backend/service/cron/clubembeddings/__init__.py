@@ -14,9 +14,9 @@ from service.cron.clubembeddings.sql import (
 )
 from serviceshared.duoenv.cron import (
     CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
-    CLUB_EMBEDDINGS_MAX_LOAD_PCT,
     CLUB_EMBEDDINGS_POLL_SECONDS,
     CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
+    OFFPEAK_MAX_LOAD_PCT,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ _SWEEP_LOG_INTERVAL = 10_000
 
 async def refresh_club_embeddings_once() -> None:
     if not is_offpeak(
-            CLUB_EMBEDDINGS_MAX_LOAD_PCT, 'refresh_club_embeddings_once'):
+            OFFPEAK_MAX_LOAD_PCT, 'refresh_club_embeddings_once'):
         return
 
     changed = await asyncio.to_thread(

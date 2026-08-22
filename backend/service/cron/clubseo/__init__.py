@@ -37,7 +37,6 @@ from serviceshared.duoenv.cron import (
     CLUB_SEO_BATCH_SIZE,
     CLUB_SEO_CONCURRENCY,
     CLUB_SEO_MAX_AGE_DAYS,
-    CLUB_SEO_MAX_LOAD_PCT,
     CLUB_SEO_MOCK_DESCRIPTION,
     CLUB_SEO_MODEL as OPENAI_MODEL,
     CLUB_SEO_POLL_SECONDS,
@@ -46,6 +45,7 @@ from serviceshared.duoenv.cron import (
     CLUB_STATS_POLL_SECONDS,
     CLUB_TOP_ANSWERS_BATCH_SIZE,
     CLUB_TOP_ANSWERS_POLL_SECONDS,
+    OFFPEAK_MAX_LOAD_PCT,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ _openai_client = AsyncOpenAI() if not CLUB_SEO_MOCK_DESCRIPTION else None
 
 
 async def refresh_club_stats_once() -> None:
-    if not is_offpeak(CLUB_SEO_MAX_LOAD_PCT, 'refresh_club_stats_once'):
+    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'refresh_club_stats_once'):
         return
 
     async with api_tx('READ COMMITTED') as tx:
@@ -77,7 +77,7 @@ async def refresh_club_stats_forever() -> None:
 
 
 async def refresh_club_top_answers_once() -> None:
-    if not is_offpeak(CLUB_SEO_MAX_LOAD_PCT, 'refresh_club_top_answers_once'):
+    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'refresh_club_top_answers_once'):
         return
 
     async with api_tx('READ COMMITTED') as tx:
@@ -101,7 +101,7 @@ async def refresh_club_top_answers_forever() -> None:
 
 
 async def refresh_club_overlap_once() -> None:
-    if not is_offpeak(CLUB_SEO_MAX_LOAD_PCT, 'refresh_club_overlap_once'):
+    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'refresh_club_overlap_once'):
         return
 
     # DELETE + INSERT in one transaction: readers see the previous snapshot
@@ -306,7 +306,7 @@ async def _process_club_seo_row(
 
 
 async def refresh_club_seo_once() -> None:
-    if not is_offpeak(CLUB_SEO_MAX_LOAD_PCT, 'refresh_club_seo_once'):
+    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'refresh_club_seo_once'):
         return
 
     async with api_tx('READ COMMITTED') as tx:
