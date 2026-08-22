@@ -1923,25 +1923,6 @@ FROM
 LIMIT 1
 """
 
-Q_REFRESH_PERSON_CLUB_VECTOR = """
-UPDATE
-    person
-SET
-    club_vector = COALESCE(
-        (
-            SELECT l2_normalize(SUM(club.embedding))
-            FROM person_club
-            JOIN club
-            ON club.name = person_club.club_name
-            WHERE person_club.person_id = %(person_id)s
-        ),
-        array_full(64, 0)::VECTOR(64)
-    ),
-    club_vector_computed_at = NOW()
-WHERE
-    id = %(person_id)s
-"""
-
 Q_LEAVE_CLUB = """
 WITH deleted_person_club AS (
     DELETE FROM
