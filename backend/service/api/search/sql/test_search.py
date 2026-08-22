@@ -119,7 +119,7 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
             'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR',
             clubs_sql,
         )
-        self.assertNotIn('COALESCE(prospect.club_vector', clubs_sql)
+        self.assertNotIn('-(prospect.club_vector', clubs_sql)
         self.assertEqual(clubs_params['searcher_club_vector'], '[0]')
 
 

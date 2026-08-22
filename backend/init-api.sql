@@ -808,7 +808,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS search_cache (
     name TEXT NOT NULL,
     age SMALLINT,
     match_percentage SMALLINT NOT NULL,
-    club_similarity REAL NOT NULL DEFAULT 0,
+    club_distance REAL NOT NULL DEFAULT 0,
     personality VECTOR(47) NOT NULL,
     PRIMARY KEY (searcher_person_id, position)
 );

@@ -105,12 +105,12 @@ _VERIFICATION_SATISFIED = sql_fragment("""
     )
 """)
 
-_CLUB_SIMILARITY = \
-    '(-(prospect.club_vector <#> %(searcher_club_vector)s::VECTOR))::REAL'
+_CLUB_DISTANCE = \
+    'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR'
 
 
 def _prospect_select(order_by_clubs: bool) -> str:
-    club_similarity = _CLUB_SIMILARITY if order_by_clubs else '0::REAL'
+    club_distance = _CLUB_DISTANCE if order_by_clubs else '0::REAL'
 
     return f"""    SELECT
         prospect.id AS prospect_person_id,
@@ -147,7 +147,7 @@ def _prospect_select(order_by_clubs: bool) -> str:
             100 * (1 - (prospect.personality <#> %(searcher_personality)s::VECTOR)) / 2
         ) AS match_percentage,
 
-        {club_similarity} AS club_similarity"""
+        {club_distance} AS club_distance"""
 
 _SEARCH_CACHE_INSERT = """), do_promote_verified AS (
     SELECT
@@ -170,7 +170,7 @@ INSERT INTO search_cache (
     name,
     age,
     match_percentage,
-    club_similarity,
+    club_distance,
     personality,
     verified
 )
@@ -187,7 +187,7 @@ SELECT
                     profile_photo_uuid IS NOT NULL
             END DESC,
 
-            club_similarity DESC,
+            club_distance,
 
             match_percentage DESC
     ) AS position,
@@ -197,7 +197,7 @@ SELECT
     name,
     age,
     match_percentage,
-    club_similarity,
+    club_distance,
     personality,
     verified
 FROM
@@ -215,7 +215,7 @@ ON CONFLICT (searcher_person_id, position) DO UPDATE SET
     name = EXCLUDED.name,
     age = EXCLUDED.age,
     match_percentage = EXCLUDED.match_percentage,
-    club_similarity = EXCLUDED.club_similarity,
+    club_distance = EXCLUDED.club_distance,
     personality = EXCLUDED.personality,
     verified = EXCLUDED.verified
 """
@@ -497,7 +497,7 @@ WITH searcher AS (
                 profile_photo_uuid IS NOT NULL
         END DESC,
 
-        club_similarity DESC,
+        club_distance,
 
         match_percentage DESC
     LIMIT

@@ -153,4 +153,4 @@ ALTER TABLE search_preference
     REFERENCES order_by(id) ON DELETE CASCADE;
 
 ALTER TABLE search_cache
-    ADD COLUMN IF NOT EXISTS club_similarity REAL NOT NULL DEFAULT 0;
+    ADD COLUMN IF NOT EXISTS club_distance REAL NOT NULL DEFAULT 0;
