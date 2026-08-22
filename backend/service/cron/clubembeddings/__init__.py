@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 
+from serviceshared.commonsql import Q_REFRESH_STALE_CLUB_VECTORS_BATCH
 from serviceshared.database import api_tx
 from serviceshared.util import is_offpeak
 from serviceshared.util.timeout import run_with_timeout
@@ -32,9 +33,6 @@ async def refresh_club_embeddings_once() -> None:
         compute_club_embeddings,
     )
 
-    if not changed:
-        return
-
     names = sorted(changed)
     for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
         batch = names[i:i + CLUB_EMBEDDINGS_WRITE_BATCH_SIZE]
@@ -45,10 +43,25 @@ async def refresh_club_embeddings_once() -> None:
                 embeddings=[changed[name] for name in batch],
             ))
 
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
+    if names:
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
 
-    logger.info(f'club_embeddings: wrote {len(names)}')
+    swept = 0
+    while True:
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute(Q_REFRESH_STALE_CLUB_VECTORS_BATCH, dict(
+                batch_size=CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
+            ))
+            batch_swept = tx.rowcount
+        swept += batch_swept
+        if batch_swept < CLUB_EMBEDDINGS_WRITE_BATCH_SIZE:
+            break
+
+    if names or swept:
+        logger.info(
+            f'club_embeddings: wrote {len(names)}, re-pooled {swept} people'
+        )
 
 
 async def refresh_club_embeddings_forever() -> None:

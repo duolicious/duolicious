@@ -95,6 +95,18 @@ Q_REFRESH_STALE_CLUB_VECTOR_BY_UUID = _q_refresh_club_vector(f"""uuid = %(person
 AND
     {_STALE_CLUB_VECTOR}""")
 
+Q_REFRESH_STALE_CLUB_VECTORS_BATCH = _q_refresh_club_vector(f"""id IN (
+        SELECT p.id
+        FROM person p
+        WHERE p.club_vector_computed_at < (
+            SELECT completed_at FROM club_embedding_refresh
+        )
+        AND EXISTS (
+            SELECT 1 FROM person_club pc WHERE pc.person_id = p.id
+        )
+        LIMIT %(batch_size)s
+    )""")
+
 Q_UPDATE_LAST = """
 WITH updated_person AS (
     UPDATE
