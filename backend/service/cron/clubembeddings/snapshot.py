@@ -7,7 +7,7 @@ from service.cron.clubembeddings.ppmi import (
 )
 
 
-def compute_club_embeddings() -> tuple[dict[str, str], list[str]]:
+def compute_club_embeddings() -> dict[str, str]:
     with psycopg.connect(
         host=DB_HOST,
         port=DB_PORT,
@@ -20,7 +20,7 @@ def compute_club_embeddings() -> tuple[dict[str, str], list[str]]:
         ).fetchall()
         previous_rows = conn.execute(
             'SELECT name, embedding::TEXT FROM club '
-            'WHERE embedding IS NOT NULL'
+            'WHERE embedding != array_full(64, 0)::VECTOR(64)'
         ).fetchall()
 
     previous = {
@@ -33,6 +33,6 @@ def compute_club_embeddings() -> tuple[dict[str, str], list[str]]:
         previous=previous,
     )
 
-    changed, removed = partition_embedding_writes(embeddings, previous)
+    changed = partition_embedding_writes(embeddings, previous)
 
-    return {name: to_pgvector(vec) for name, vec in changed.items()}, removed
+    return {name: to_pgvector(vec) for name, vec in changed.items()}

@@ -112,7 +112,7 @@ class TestClubEmbeddings(unittest.TestCase):
         rotated = numpy.array([0, 1, 0, 0], dtype=numpy.float32)
         brand_new = numpy.array([0, 0, 1, 0], dtype=numpy.float32)
 
-        changed, removed = partition_embedding_writes(
+        changed = partition_embedding_writes(
             new=dict(
                 unmoved=old,
                 nudged=nudged,
@@ -125,19 +125,16 @@ class TestClubEmbeddings(unittest.TestCase):
                 nudged=old,
                 rescaled=old,
                 rotated=old,
-                gone=old,
             ),
         )
 
         self.assertEqual(
             sorted(changed), ['brand_new', 'rescaled', 'rotated'])
-        self.assertEqual(removed, ['gone'])
 
     def test_identical_reruns_produce_no_writes(self) -> None:
         memberships = community_memberships()
         first = club_embeddings_from_memberships(memberships, {})
         rerun = club_embeddings_from_memberships(memberships, first)
 
-        changed, removed = partition_embedding_writes(rerun, first)
+        changed = partition_embedding_writes(rerun, first)
         self.assertEqual(changed, {})
-        self.assertEqual(removed, [])

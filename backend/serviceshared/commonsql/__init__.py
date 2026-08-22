@@ -71,7 +71,6 @@ SET
             JOIN club
             ON club.name = person_club.club_name
             WHERE person_club.person_id = person.id
-            AND club.embedding IS NOT NULL
         ),
         array_full(64, 0)::VECTOR(64)
     ),

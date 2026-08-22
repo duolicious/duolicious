@@ -575,7 +575,7 @@ CREATE TABLE IF NOT EXISTS verification_photo_hash (
 CREATE TABLE IF NOT EXISTS club (
     name TEXT NOT NULL,
     count_members INT NOT NULL DEFAULT 0,
-    embedding VECTOR(64),
+    embedding VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
 
     PRIMARY KEY (name)
 );

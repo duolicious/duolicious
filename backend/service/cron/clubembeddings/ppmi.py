@@ -177,11 +177,9 @@ def _materially_moved(new: FloatArray, old: FloatArray) -> bool:
 def partition_embedding_writes(
     new: Mapping[str, FloatArray],
     previous: Mapping[str, FloatArray],
-) -> tuple[dict[str, FloatArray], list[str]]:
-    changed = {
+) -> dict[str, FloatArray]:
+    return {
         name: vec
         for name, vec in new.items()
         if name not in previous or _materially_moved(vec, previous[name])
     }
-    removed = sorted(name for name in previous if name not in new)
-    return changed, removed

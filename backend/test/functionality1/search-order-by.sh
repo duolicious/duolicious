@@ -34,7 +34,10 @@ jc POST /join-club -d '{ "name": "tiny club" }'
 jc POST /join-club -d '{ "name": "tinier club" }'
 
 embeddings_exist () {
-  [[ "$(q "select count(*) from club where embedding is not null")" = 2 ]]
+  [[ "$(q "
+    select count(*) from club
+    where embedding != array_full(64, 0)::vector(64)
+  ")" = 2 ]]
 }
 
 count=0

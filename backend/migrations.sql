@@ -127,7 +127,8 @@ INSERT INTO order_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NO
 INSERT INTO order_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
 
 ALTER TABLE club
-    ADD COLUMN IF NOT EXISTS embedding VECTOR(64);
+    ADD COLUMN IF NOT EXISTS embedding VECTOR(64) NOT NULL
+    DEFAULT array_full(64, 0);
 
 CREATE TABLE IF NOT EXISTS club_embedding_refresh (
     id SMALLINT PRIMARY KEY,

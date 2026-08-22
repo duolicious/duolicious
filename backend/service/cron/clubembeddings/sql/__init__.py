@@ -12,17 +12,6 @@ WHERE
     club.name = t.name
 """
 
-Q_NULL_CLUB_EMBEDDINGS = """
-UPDATE
-    club
-SET
-    embedding = NULL
-WHERE
-    name = ANY(%(names)s::TEXT[])
-AND
-    embedding IS NOT NULL
-"""
-
 Q_STAMP_CLUB_EMBEDDING_REFRESH = """
 UPDATE
     club_embedding_refresh

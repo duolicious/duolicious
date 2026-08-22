@@ -8,7 +8,6 @@ from serviceshared.util.timeout import run_with_timeout
 from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 from service.cron.clubembeddings.snapshot import compute_club_embeddings
 from service.cron.clubembeddings.sql import (
-    Q_NULL_CLUB_EMBEDDINGS,
     Q_STAMP_CLUB_EMBEDDING_REFRESH,
     Q_UPDATE_CLUB_EMBEDDINGS,
 )
@@ -28,11 +27,14 @@ async def refresh_club_embeddings_once() -> None:
             CLUB_EMBEDDINGS_MAX_LOAD_PCT, 'refresh_club_embeddings_once'):
         return
 
-    changed, removed = await asyncio.to_thread(
+    changed = await asyncio.to_thread(
         run_with_timeout,
         CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
         compute_club_embeddings,
     )
+
+    if not changed:
+        return
 
     names = sorted(changed)
     for i in range(0, len(names), _WRITE_BATCH_SIZE):
@@ -44,21 +46,10 @@ async def refresh_club_embeddings_once() -> None:
                 embeddings=[changed[name] for name in batch],
             ))
 
-    for i in range(0, len(removed), _WRITE_BATCH_SIZE):
-        batch = removed[i:i + _WRITE_BATCH_SIZE]
-
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute(Q_NULL_CLUB_EMBEDDINGS, dict(names=batch))
-
-    if not names and not removed:
-        return
-
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
 
-    logger.info(
-        f'club_embeddings: wrote {len(names)}, cleared {len(removed)}'
-    )
+    logger.info(f'club_embeddings: wrote {len(names)}')
 
 
 async def refresh_club_embeddings_forever() -> None:
