@@ -24,8 +24,9 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
+      PGDATA: /var/lib/postgresql/data
     volumes:
-      - ${POSTGRES_VOLUME:-postgres_test}:/var/lib/postgresql
+      - ${POSTGRES_VOLUME:-postgres_test}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 1s
