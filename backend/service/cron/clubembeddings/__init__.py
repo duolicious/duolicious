@@ -15,11 +15,10 @@ from serviceshared.duoenv.cron import (
     CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
     CLUB_EMBEDDINGS_MAX_LOAD_PCT,
     CLUB_EMBEDDINGS_POLL_SECONDS,
+    CLUB_EMBEDDINGSCLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
 )
 
 logger = logging.getLogger(__name__)
-
-_WRITE_BATCH_SIZE = 500
 
 
 async def refresh_club_embeddings_once() -> None:
@@ -37,8 +36,8 @@ async def refresh_club_embeddings_once() -> None:
         return
 
     names = sorted(changed)
-    for i in range(0, len(names), _WRITE_BATCH_SIZE):
-        batch = names[i:i + _WRITE_BATCH_SIZE]
+    for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
+        batch = names[i:i + CLUB_EMBEDDINGS_WRITE_BATCH_SIZE]
 
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_UPDATE_CLUB_EMBEDDINGS, dict(
