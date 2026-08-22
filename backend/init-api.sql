@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS last_online (
     UNIQUE (name)
 );
 
-CREATE TABLE IF NOT EXISTS order_by (
+CREATE TABLE IF NOT EXISTS sort_by (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     UNIQUE (name)
@@ -740,7 +740,7 @@ CREATE TABLE IF NOT EXISTS search_preference (
 
     last_online_id SMALLINT NOT NULL REFERENCES last_online(id) ON DELETE CASCADE,
 
-    order_by_id SMALLINT NOT NULL DEFAULT 1 REFERENCES order_by(id) ON DELETE CASCADE,
+    sort_by_id SMALLINT NOT NULL DEFAULT 1 REFERENCES sort_by(id) ON DELETE CASCADE,
 
     club_name TEXT REFERENCES club(name) ON DELETE SET NULL,
 
@@ -1005,9 +1005,9 @@ INSERT INTO last_online (name, seconds) VALUES ('Now', {{LAST_ONLINE_NOW_SECONDS
 INSERT INTO last_online (name, seconds) VALUES ('A day ago', 86400) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('A week ago', 604800) ON CONFLICT (name) DO NOTHING;
 
-SELECT setval('order_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM order_by), FALSE);
-INSERT INTO order_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
-INSERT INTO order_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
+SELECT setval('sort_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM sort_by), FALSE);
+INSERT INTO sort_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
+INSERT INTO sort_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('{{LAST_ONLINE_DEFAULT_NAME}}', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('All time', 3153600000) ON CONFLICT (name) DO NOTHING;
 

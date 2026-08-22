@@ -659,7 +659,7 @@ class PostSearchFilter(BaseModel):
 
     last_online: str | None = None
 
-    order_by: Literal['Match percentage', 'Similar clubs'] | None = None
+    sort_by: Literal['Match percentage', 'Similar clubs'] | None = None
 
     people_you_messaged: str | None = None
     people_you_skipped: str | None = None

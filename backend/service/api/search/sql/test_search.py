@@ -43,7 +43,7 @@ def maximal_prefs() -> Row:
     prefs.update(
         distance_meters=1,
         club_preference=None,
-        order_by='Match percentage',
+        sort_by='Match percentage',
         searcher_club_vector='[0]',
         min_age=18,
         max_age=99,
@@ -107,7 +107,7 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
     def test_club_ordering_changes_candidate_selection(self) -> None:
         match_prefs = maximal_prefs()
         clubs_prefs = maximal_prefs()
-        clubs_prefs['order_by'] = 'Similar clubs'
+        clubs_prefs['sort_by'] = 'Similar clubs'
 
         match_sql, match_params = build_uncached_search(1, 10, 0, match_prefs)
         clubs_sql, clubs_params = build_uncached_search(1, 10, 0, clubs_prefs)

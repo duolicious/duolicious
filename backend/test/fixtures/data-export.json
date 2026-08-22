@@ -389,7 +389,7 @@
     ],
     "people_you_messaged": "Yes",
     "people_you_skipped": "No",
-    "order_by": "Match percentage",
+    "sort_by": "Match percentage",
     "two_way_filters": {
       "gender": true,
       "age": false,

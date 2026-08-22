@@ -1708,11 +1708,11 @@ WITH answer AS (
     FROM sp
     JOIN last_online
     ON last_online.id = sp.last_online_id
-), order_by_pref AS (
-    SELECT order_by.name AS j
+), sort_by_pref AS (
+    SELECT sort_by.name AS j
     FROM sp
-    JOIN order_by
-    ON order_by.id = sp.order_by_id
+    JOIN sort_by
+    ON sort_by.id = sp.sort_by_id
 ), two_way_filters AS (
     SELECT json_build_object(
         'gender',                two_way_gender,
@@ -1763,7 +1763,7 @@ SELECT
         'people_you_messaged',    (SELECT j FROM people_you_messaged),
         'people_you_skipped',     (SELECT j FROM people_you_skipped),
 
-        'order_by',               (SELECT j FROM order_by_pref),
+        'sort_by',               (SELECT j FROM sort_by_pref),
 
         'two_way_filters',        (SELECT j FROM two_way_filters)
     ) AS j

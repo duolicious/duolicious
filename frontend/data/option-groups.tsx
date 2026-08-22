@@ -455,10 +455,10 @@ const lastOnlineValues = [
   'All time',
 ];
 
-const orderByDefault = 'Match percentage';
+const sortByDefault = 'Match percentage';
 
-const orderByValues = [
-  orderByDefault,
+const sortByValues = [
+  sortByDefault,
   'Similar clubs',
 ];
 
@@ -2050,7 +2050,7 @@ const searchInteractionsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
 
 const searchOrderOptionGroups: OptionGroup<OptionGroupInputs>[] = [
   {
-    title: "Order By",
+    title: "Sort By",
     Icon: ({ color = 'black' }) => (
       <FontAwesomeIcon
         icon={faArrowDownWideShort}
@@ -2061,18 +2061,18 @@ const searchOrderOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     description: "How should search results be sorted? “Match percentage” shows people with Q&A answers like yours first. “Similar clubs” shows members with clubs like yours first.",
     input: {
       buttons: {
-        values: orderByValues,
-        submit: async (orderBy: string) => {
+        values: sortByValues,
+        submit: async (sortBy: string) => {
           const go = async () => {
             const ok = (await japi(
               'post',
               '/search-filter',
-              { order_by: orderBy }
+              { sort_by: sortBy }
             )).ok;
             return ok;
           };
           searchQueue.addTask(go);
-          patchSearchFilters({ order_by: orderBy });
+          patchSearchFilters({ sort_by: sortBy });
           return true;
         }
       }
@@ -2131,7 +2131,7 @@ const defaultSearchFilters = (): SearchFilters => {
   filters.last_online = lastOnlineDefault;
   filters.people_you_messaged = 'Yes';
   filters.people_you_skipped = 'No';
-  filters.order_by = orderByDefault;
+  filters.sort_by = sortByDefault;
   filters.two_way_filters = defaultTwoWayFilters();
 
   return filters;

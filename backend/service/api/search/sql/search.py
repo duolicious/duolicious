@@ -109,8 +109,8 @@ _CLUB_DISTANCE = \
     'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR'
 
 
-def _prospect_select(order_by_clubs: bool) -> str:
-    club_distance = _CLUB_DISTANCE if order_by_clubs else '0::REAL'
+def _prospect_select(sort_by_clubs: bool) -> str:
+    club_distance = _CLUB_DISTANCE if sort_by_clubs else '0::REAL'
 
     return f"""    SELECT
         prospect.id AS prospect_person_id,
@@ -187,9 +187,11 @@ SELECT
                     profile_photo_uuid IS NOT NULL
             END DESC,
 
-            club_distance,
-
-            match_percentage DESC
+            CASE
+                WHEN %(sort_by_clubs)s
+                THEN club_distance
+                ELSE -match_percentage
+            END
     ) AS position,
     prospect_person_id,
     prospect_uuid,
@@ -274,8 +276,9 @@ def build_uncached_search(
     if club_preference is not None:
         params['club_preference'] = club_preference
 
-    order_by_clubs = row_str(prefs, 'order_by') == 'Similar clubs'
-    if order_by_clubs:
+    sort_by_clubs = row_str(prefs, 'sort_by') == 'Similar clubs'
+    params['sort_by_clubs'] = sort_by_clubs
+    if sort_by_clubs:
         params['searcher_club_vector'] = row_str(
             prefs, 'searcher_club_vector')
 
@@ -291,16 +294,15 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
-    if order_by_clubs:
-        candidate_order = f"""{_CLUB_DISTANCE},
-        prospect.personality <#> %(searcher_personality)s::VECTOR"""
+    if sort_by_clubs:
+        candidate_order = _CLUB_DISTANCE
     else:
         candidate_order = \
             'prospect.personality <#> %(searcher_personality)s::VECTOR'
 
     sql = f"""
 WITH candidates AS (
-{_prospect_select(order_by_clubs)}
+{_prospect_select(sort_by_clubs)}
     FROM
 {_from_clause(club_preference)}
     WHERE
@@ -449,7 +451,18 @@ WITH searcher AS (
         verified
     AND
         (SELECT count_answers > 0 FROM searcher)
-), page AS (
+), sorting AS (
+    SELECT
+        sort_by.name = 'Similar clubs' AS sort_by_clubs
+    FROM
+        search_preference
+    JOIN
+        sort_by
+    ON
+        sort_by.id = search_preference.sort_by_id
+    WHERE
+        search_preference.person_id = %(searcher_person_id)s
+), scored AS (
     SELECT
         prospect_person_id,
         prospect_uuid,
@@ -462,6 +475,8 @@ WITH searcher AS (
         ) AS profile_photo_blurhash,
         name,
         age,
+        verified,
+        club_distance,
         CLAMP(
             0,
             99,
@@ -487,6 +502,11 @@ WITH searcher AS (
         search_cache
     WHERE
         searcher_person_id = %(searcher_person_id)s
+), page AS (
+    SELECT
+        *
+    FROM
+        scored
     ORDER BY
         -- If this is changed, other subqueries will need changing too
         CASE
@@ -497,9 +517,11 @@ WITH searcher AS (
                 profile_photo_uuid IS NOT NULL
         END DESC,
 
-        club_distance,
-
-        match_percentage DESC
+        CASE
+            WHEN (SELECT sort_by_clubs FROM sorting)
+            THEN club_distance
+            ELSE -match_percentage
+        END
     LIMIT
         1
 )

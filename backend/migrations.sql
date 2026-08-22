@@ -67,15 +67,15 @@ FROM (
 WHERE club.name = actual.name
 AND club.count_members IS DISTINCT FROM actual.cnt;
 
-CREATE TABLE IF NOT EXISTS order_by (
+CREATE TABLE IF NOT EXISTS sort_by (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     UNIQUE (name)
 );
 
-SELECT setval('order_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM order_by), FALSE);
-INSERT INTO order_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
-INSERT INTO order_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
+SELECT setval('sort_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM sort_by), FALSE);
+INSERT INTO sort_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
+INSERT INTO sort_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
 
 ALTER TABLE club
     ADD COLUMN IF NOT EXISTS embedding VECTOR(64) NOT NULL
@@ -101,8 +101,8 @@ ALTER TABLE person
     DEFAULT to_timestamp(0);
 
 ALTER TABLE search_preference
-    ADD COLUMN IF NOT EXISTS order_by_id SMALLINT NOT NULL DEFAULT 1
-    REFERENCES order_by(id) ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS sort_by_id SMALLINT NOT NULL DEFAULT 1
+    REFERENCES sort_by(id) ON DELETE CASCADE;
 
 ALTER TABLE search_cache
     ADD COLUMN IF NOT EXISTS club_distance REAL NOT NULL DEFAULT 0;

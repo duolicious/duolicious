@@ -264,7 +264,7 @@ SELECT
     ) AS required_answer_question_ids,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
-    order_by.name AS order_by,
+    sort_by.name AS sort_by,
     COALESCE(
         (
             SELECT l2_normalize(SUM(club.embedding))
@@ -287,9 +287,9 @@ JOIN
 ON
     sp.person_id = person.id
 JOIN
-    order_by
+    sort_by
 ON
-    order_by.id = sp.order_by_id
+    sort_by.id = sp.sort_by_id
 WHERE
     {person_predicate}
 """

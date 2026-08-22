@@ -430,7 +430,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
             )
           }
 
-          <Title style={{marginTop: 40}}>Results Order</Title>
+          <Title style={{marginTop: 40}}>Sorting</Title>
           {
             _searchOrderOptionGroups.map((og, i) =>
               <Button_

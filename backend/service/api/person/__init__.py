@@ -1724,11 +1724,11 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         WHERE last_online.name = %(field_value)s
         AND person_id = %(person_id)s
         """
-    elif field_name == 'order_by':
+    elif field_name == 'sort_by':
         q = """
-        UPDATE search_preference SET order_by_id = order_by.id
-        FROM order_by
-        WHERE order_by.name = %(field_value)s
+        UPDATE search_preference SET sort_by_id = sort_by.id
+        FROM sort_by
+        WHERE sort_by.name = %(field_value)s
         AND person_id = %(person_id)s
         """
     elif field_name == 'people_you_messaged':

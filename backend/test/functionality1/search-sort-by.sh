@@ -71,16 +71,16 @@ search_names_in_order () {
 assume_role searcher
 
 echo 'The default ordering is by match percentage'
-response=$(c GET /search-filters | jq -r '.order_by')
+response=$(c GET /search-filters | jq -r '.sort_by')
 [[ "$response" = 'Match percentage' ]]
 [[ "$(search_names_in_order)" = 'matchy clubby' ]]
 
-echo 'Invalid order_by values are rejected'
-! jc POST /search-filter -d '{ "order_by": "Dart throws" }' || exit 1
+echo 'Invalid sort_by values are rejected'
+! jc POST /search-filter -d '{ "sort_by": "Dart throws" }' || exit 1
 
 echo 'Ordering by Similar clubs puts club-sharers first'
-jc POST /search-filter -d '{ "order_by": "Similar clubs" }'
-response=$(c GET /search-filters | jq -r '.order_by')
+jc POST /search-filter -d '{ "sort_by": "Similar clubs" }'
+response=$(c GET /search-filters | jq -r '.sort_by')
 [[ "$response" = 'Similar clubs' ]]
 [[ "$(search_names_in_order)" = 'clubby matchy' ]]
 
@@ -95,11 +95,11 @@ jc POST /leave-club -d '{ "name": "tinier club" }'
 
 echo 'A searcher with no clubs still gets match-ordered results in clubs mode'
 assume_role matchy
-jc POST /search-filter -d '{ "order_by": "Similar clubs" }'
+jc POST /search-filter -d '{ "sort_by": "Similar clubs" }'
 results=$(c GET '/search?n=10&o=0' | jq -r '[.[].name] | join(" ")')
 [[ "$results" = 'searcher clubby' ]]
 
 echo 'Switching back to match percentage restores the default ordering'
 assume_role searcher
-jc POST /search-filter -d '{ "order_by": "Match percentage" }'
+jc POST /search-filter -d '{ "sort_by": "Match percentage" }'
 [[ "$(search_names_in_order)" = 'matchy clubby' ]]
