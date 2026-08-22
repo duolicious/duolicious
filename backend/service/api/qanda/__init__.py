@@ -23,13 +23,14 @@ transaction unbatched.
 """
 from dataclasses import dataclass
 import numpy
+import psycopg
 from service.api.answerspush import publish_answer_update
 from serviceshared.batcher import Batcher
 from serviceshared.constants import (
     ANSWERED_QUESTION_EVENT_MIN_QUESTION_ID,
     ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
 )
-from serviceshared.database import Row, Tx, api_tx, api_tx_with_retry
+from serviceshared.database import Row, Tx, api_tx
 import service.api.duotypes as t
 from service.api.qanda import personality
 from service.api.qanda.question import Q_QUESTION_SCORE_VECTORS
@@ -288,6 +289,12 @@ async def _set_answer(
         visible_answer_changed=new_visible != old_visible,
     )
 
+_SET_ANSWER_TRIES = 3
+_SET_ANSWER_RETRYABLE = (
+    psycopg.errors.SerializationFailure,
+    psycopg.errors.DeadlockDetected,
+)
+
 async def _set_answer_with_retry(
     person_id: int,
     question_id: int,
@@ -295,11 +302,16 @@ async def _set_answer_with_retry(
     public: bool | None,
     delete: bool,
 ) -> AnswerWriteResult | None:
-    async def work(tx: Tx) -> AnswerWriteResult | None:
-        return await _set_answer(
-            tx, person_id, question_id, answer, public, delete)
+    for attempt in range(_SET_ANSWER_TRIES):
+        try:
+            async with api_tx() as tx:
+                return await _set_answer(
+                    tx, person_id, question_id, answer, public, delete)
+        except _SET_ANSWER_RETRYABLE:
+            if attempt == _SET_ANSWER_TRIES - 1:
+                raise
 
-    return await api_tx_with_retry(work)
+    return None
 
 async def post_answer(req: t.PostAnswer, s: t.SessionInfo) -> object | None:
     if s.person_id is None:

@@ -1,4 +1,4 @@
-from serviceshared.database import Row, Tx, api_tx, api_tx_with_retry
+from serviceshared.database import Row, Tx, api_tx
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Tuple, Literal
@@ -1903,16 +1903,16 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
         update_event=True,
     )
 
-    # Join/leave write the person's feed-event columns, and the online
-    # batcher (service/api/chat/online) updates the same person row with
-    # last_online_time on its own schedule -- the same adversary qanda's
-    # answer writes retry for. Joining also races the rare simultaneous
-    # creation of the same brand-new club.
-    async def work(tx: Tx) -> list[Row]:
+    # READ COMMITTED, and it must stay a single blind-writing statement:
+    # the feed-event columns this writes share the person row with the
+    # online batcher's last_online_time updates, and at the default
+    # REPEATABLE READ that collision aborts one side. At READ COMMITTED it
+    # just blocks for the other writer's commit, which degrades smoothly
+    # under contention where retries would amplify it. Adding a
+    # cross-statement read-modify-write here would need this revisited.
+    async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_JOIN_CLUB, params)
-        return await row_tx.fetchall()
-
-    rows = await api_tx_with_retry(work)
+        rows = await row_tx.fetchall()
 
     if rows:
         return f"Joined {req.name}", 200
@@ -1925,10 +1925,9 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
         club_name=req.name,
     )
 
-    async def work(tx: Tx) -> None:
+    # READ COMMITTED for the same reason as post_join_club.
+    async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
-
-    await api_tx_with_retry(work)
 
 async def get_update_notifications(
     email: str,

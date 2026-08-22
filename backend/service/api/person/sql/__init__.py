@@ -1873,13 +1873,14 @@ WITH is_allowed_club_name AS (
     AND
         (SELECT x FROM will_be_within_club_quota)
     AND
-        -- Attempt the insert only when the club is absent from our snapshot:
-        -- at REPEATABLE READ, ON CONFLICT raises a serialization failure
-        -- whenever the conflicting row's latest version postdates the
-        -- snapshot -- even for DO NOTHING -- and the clubcounts cron updates
-        -- popular clubs' rows every poll tick. With this guard the arbiter
-        -- only engages when two transactions create the same brand-new club
-        -- simultaneously, which the caller's retry absorbs.
+        -- Attempt the insert only when the club is absent from our snapshot,
+        -- keeping the ON CONFLICT arbiter out of the hot path: at REPEATABLE
+        -- READ the arbiter raises a serialization failure whenever the
+        -- conflicting row's latest version postdates the snapshot -- even
+        -- for DO NOTHING -- and the clubcounts cron updates popular clubs'
+        -- rows every poll tick. The caller runs at READ COMMITTED today,
+        -- where the arbiter can't raise, but this keeps the statement safe
+        -- under either isolation level.
         NOT EXISTS (SELECT 1 FROM club WHERE name = %(club_name)s)
     ON CONFLICT (name) DO NOTHING
     RETURNING

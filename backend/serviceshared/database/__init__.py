@@ -4,8 +4,8 @@ import psycopg
 from psycopg_pool import AsyncConnectionPool
 import random
 from contextlib import asynccontextmanager, suppress
-from typing import Protocol, TypeVar
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from typing import Protocol
+from collections.abc import AsyncIterator, Iterable
 from serviceshared.database._row import (
     require_row,
     row_bool,
@@ -203,38 +203,6 @@ async def api_tx(
                 f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'
             )
         yield cur
-
-
-_T = TypeVar('_T')
-
-TX_RETRIES = 3
-
-_RETRYABLE_TX_ERRORS = (
-    psycopg.errors.SerializationFailure,
-    psycopg.errors.DeadlockDetected,
-)
-
-
-async def api_tx_with_retry(
-    fn: Callable[[Tx], Awaitable[_T]],
-    isolation_level: str = _default_transaction_isolation,
-) -> _T:
-    """Run `fn` in a transaction, retrying it on serialization failures and
-    deadlocks. Under REPEATABLE READ, a transaction that updates a row another
-    transaction updated after its snapshot is aborted rather than blocked --
-    e.g. two people joining the same club both update its `count_members` --
-    so any transaction whose written rows have other writers must run through
-    this. `fn` is re-executed from scratch on retry, so it must not have side
-    effects outside the transaction."""
-    for attempt in range(TX_RETRIES):
-        try:
-            async with api_tx(isolation_level) as tx:
-                return await fn(tx)
-        except _RETRYABLE_TX_ERRORS:
-            if attempt == TX_RETRIES - 1:
-                raise
-
-    raise RuntimeError('unreachable')
 
 
 async def check_connections_forever() -> None:
