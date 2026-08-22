@@ -3,7 +3,7 @@ from serviceshared.duoenv.shared import DB_HOST, DB_PASS, DB_PORT, DB_USER
 from serviceshared.pgvector import parse_pgvector, to_pgvector
 from service.cron.clubembeddings.ppmi import (
     club_embeddings_from_memberships,
-    partition_embedding_writes,
+    changed_embeddings,
 )
 
 
@@ -33,6 +33,6 @@ def compute_club_embeddings() -> dict[str, str]:
         previous=previous,
     )
 
-    changed = partition_embedding_writes(embeddings, previous)
+    changed = changed_embeddings(embeddings, previous)
 
     return {name: to_pgvector(vec) for name, vec in changed.items()}

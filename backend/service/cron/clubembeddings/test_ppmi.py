@@ -6,7 +6,7 @@ from service.cron.clubembeddings.ppmi import (
     DIMENSIONS,
     Membership,
     club_embeddings_from_memberships,
-    partition_embedding_writes,
+    changed_embeddings,
 )
 
 A_CLUBS = [f'a{i}' for i in range(6)]
@@ -105,14 +105,14 @@ class TestClubEmbeddings(unittest.TestCase):
         restored = parse_pgvector(to_pgvector(vec))
         self.assertTrue(numpy.array_equal(vec, restored))
 
-    def test_partitioning_skips_unmoved_embeddings(self) -> None:
+    def test_unmoved_embeddings_are_not_rewritten(self) -> None:
         old = numpy.array([1, 0, 0, 0], dtype=numpy.float32)
         nudged = old * 1.0001
         rescaled = old * 1.5
         rotated = numpy.array([0, 1, 0, 0], dtype=numpy.float32)
         brand_new = numpy.array([0, 0, 1, 0], dtype=numpy.float32)
 
-        changed = partition_embedding_writes(
+        changed = changed_embeddings(
             new=dict(
                 unmoved=old,
                 nudged=nudged,
@@ -136,5 +136,5 @@ class TestClubEmbeddings(unittest.TestCase):
         first = club_embeddings_from_memberships(memberships, {})
         rerun = club_embeddings_from_memberships(memberships, first)
 
-        changed = partition_embedding_writes(rerun, first)
+        changed = changed_embeddings(rerun, first)
         self.assertEqual(changed, {})

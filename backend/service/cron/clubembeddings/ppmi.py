@@ -174,7 +174,7 @@ def _materially_moved(new: FloatArray, old: FloatArray) -> bool:
     return cosine < _UNCHANGED_MIN_COSINE
 
 
-def partition_embedding_writes(
+def changed_embeddings(
     new: Mapping[str, FloatArray],
     previous: Mapping[str, FloatArray],
 ) -> dict[str, FloatArray]:
