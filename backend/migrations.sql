@@ -59,15 +59,6 @@ CREATE TABLE IF NOT EXISTS club_count_delta (
     delta SMALLINT NOT NULL
 );
 
--- The trigger appends deltas to club_count_delta (folded into
--- `club.count_members` by the clubcounts cron) rather than updating `club`
--- directly, so request transactions never write a `club` row that another
--- transaction -- a concurrent join, or a background job -- might also be
--- writing, which would abort one of them under REPEATABLE READ. The EXISTS
--- guard makes deleting a club (banned-club cleanup) a no-op here, like the
--- pre-queue UPDATE was: the cascade fires this trigger for each member while
--- the club row itself is already gone, and a delta would violate the queue's
--- foreign key.
 CREATE OR REPLACE FUNCTION
     maintain_club_count_members()
 RETURNS TRIGGER AS $$
@@ -102,13 +93,9 @@ AFTER INSERT OR DELETE OR UPDATE OF activated ON
 FOR EACH ROW EXECUTE FUNCTION
     maintain_club_count_members();
 
--- Repair any drift in the counts. The pending deltas are consumed in the
--- same statement (single snapshot): a delta visible here is also reflected
--- in the person_club rows being counted, so clearing it prevents
--- double-application, while a delta committed after this snapshot survives
--- to be folded normally. Idempotent because a synced count doesn't match
--- the WHERE clause. No init-api.sql counterpart: this fixes data, not
--- schema.
+-- Repair the drift in the counts. Idempotent because a synced count
+-- doesn't match the WHERE clause. No init-api.sql counterpart: this fixes
+-- data, not schema.
 WITH cleared AS (
     DELETE FROM club_count_delta
 )

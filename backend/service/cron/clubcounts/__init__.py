@@ -11,11 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 async def fold_club_count_deltas_once() -> None:
-    # READ COMMITTED so a collision with another background `club`-row writer
-    # (the boot-time repair) blocks briefly rather than aborting. No retry
-    # wrapper: the poll loop is already a retry with a tick of spacing, which
-    # is the contention-friendly kind -- a failed fold just leaves the deltas
-    # for the next tick.
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_FOLD_CLUB_COUNT_DELTAS)
         folded = tx.rowcount

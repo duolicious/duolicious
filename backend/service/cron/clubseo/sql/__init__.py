@@ -184,13 +184,6 @@ WITH target AS MATERIALIZED (
         t.name,
         json_build_object(
             'name',         t.name,
-            -- Counted from person_club rather than taken from
-            -- club.count_members: the folded count can lag the membership
-            -- change that marked this club dirty by a clubcounts tick, and a
-            -- recompute that consumed the last dirty mark would freeze the
-            -- stale value here. The dirty mark commits in the same
-            -- transaction as the person_club change, so this count is final
-            -- whenever the mark is visible.
             'member_count', (
                 SELECT COUNT(*)
                 FROM person_club pc

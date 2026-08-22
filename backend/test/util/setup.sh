@@ -138,9 +138,6 @@ qdump () {
 }
 
 # Restore the duo_api database from a compressed fixture created by qdump.
-# Fixtures are snapshots of an older schema, and the api service only applies
-# migrations.sql at boot, so re-apply it here to bring the restored database
-# up to the current schema (its statements are idempotent by contract).
 # Example: qrestore baseline
 qrestore () {
   q 'drop database duo_api with (force)' postgres
@@ -161,10 +158,8 @@ j_assert_length () {
   [[ "$(echo "$1" | jq length)" -eq "$2" ]]
 }
 
-# Retry a command until its output equals the expected value. Needed for
-# values that are eventually consistent, like club member counts, which a
-# cron folds from club_count_delta shortly after the membership change
-# rather than in the joining transaction itself.
+# Retry a command until its output equals the expected value. For eventually
+# consistent values like club member counts.
 # Example: assert_eventually "$expected_json" c GET '/search-clubs?q=my-club'
 assert_eventually () {
   local expected=$1

@@ -20,9 +20,6 @@ set -xe
 
 q "update person set activated = false where name = 'user1'"
 
-# /stats is lru-cached for 60s, so retrying the endpoint can't converge on a
-# fresh value; instead wait for the clubcounts cron to drain the delta queue
-# (making count_members final) before the first, cached fetch.
 pending_count_deltas () {
   q "select count(*) from club_count_delta"
 }

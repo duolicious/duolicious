@@ -1,5 +1,3 @@
-# One statement, one snapshot: deltas committed after it starts aren't
-# visible to the DELETE and survive for the next fold.
 Q_FOLD_CLUB_COUNT_DELTAS = """
 WITH consumed AS (
     DELETE FROM club_count_delta

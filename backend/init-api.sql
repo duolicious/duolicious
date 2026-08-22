@@ -592,12 +592,6 @@ CREATE TABLE IF NOT EXISTS club_stats_dirty (
     club_name TEXT PRIMARY KEY REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Append-only queue of `count_members` changes, written by
--- trigger_maintain_club_count_members and folded into `club.count_members`
--- by the clubcounts cron. Inserting a delta row conflicts with nothing, so
--- the request transactions that mutate person_club never update `club` rows
--- and can't serialize-abort against each other or the background jobs that
--- write `club` rows.
 CREATE TABLE IF NOT EXISTS club_count_delta (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     club_name TEXT NOT NULL REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -1621,13 +1615,7 @@ FOR EACH ROW EXECUTE FUNCTION
 -- Keeps `club.count_members` equal to the number of activated members.
 -- The counts were previously maintained by hand at each join / leave /
 -- (de)activation / deletion site, which drifted whenever a site was
--- missed (issue #1286). The trigger appends deltas to club_count_delta
--- rather than updating `club` directly: a delta insert conflicts with
--- nothing, so request transactions never write a `club` row another
--- transaction (a concurrent join, or a background job) might also be
--- writing -- which would abort one of them under REPEATABLE READ. The
--- clubcounts cron folds the deltas into `club.count_members` within a poll
--- tick, so counts are eventually consistent.
+-- missed (issue #1286).
 CREATE OR REPLACE FUNCTION
     maintain_club_count_members()
 RETURNS TRIGGER AS $$
@@ -1647,10 +1635,6 @@ BEGIN
         RETURN COALESCE(NEW, OLD);
     END IF;
 
-    -- The EXISTS guard makes deleting a club (banned-club cleanup) a no-op
-    -- here, like the pre-queue UPDATE was: the cascade fires this trigger for
-    -- each member while the club row itself is already gone, and a delta
-    -- would violate the queue's foreign key.
     INSERT INTO club_count_delta (club_name, delta)
     SELECT name_, delta_
     WHERE EXISTS (SELECT 1 FROM club WHERE name = name_);

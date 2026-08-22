@@ -1903,13 +1903,6 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
         update_event=True,
     )
 
-    # READ COMMITTED, and it must stay a single blind-writing statement:
-    # the feed-event columns this writes share the person row with the
-    # online batcher's last_online_time updates, and at the default
-    # REPEATABLE READ that collision aborts one side. At READ COMMITTED it
-    # just blocks for the other writer's commit, which degrades smoothly
-    # under contention where retries would amplify it. Adding a
-    # cross-statement read-modify-write here would need this revisited.
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_JOIN_CLUB, params)
         rows = await row_tx.fetchall()
@@ -1925,7 +1918,6 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
         club_name=req.name,
     )
 
-    # READ COMMITTED for the same reason as post_join_club.
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
 
