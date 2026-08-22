@@ -2058,7 +2058,7 @@ const searchOrderOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         style={{ color }}
       />
     ),
-    description: "How would you like your search results to be ordered? “Similar clubs” puts people whose clubs are most like yours first, especially clubs you share.",
+    description: "How should search results be sorted? “Match percentage” shows people with Q&A answers like yours first. “Similar clubs” shows members with clubs like yours first.",
     input: {
       buttons: {
         values: orderByValues,
