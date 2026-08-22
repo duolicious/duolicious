@@ -585,11 +585,23 @@ CREATE TABLE IF NOT EXISTS person_club (
 
 -- Queue of clubs needing a club_stats refresh. Maintained by
 -- trigger_mark_club_stats_dirty. Kept in a separate table (rather than
--- a flag on `club`) so the cron's clear doesn't UPDATE the same row that
--- /join-club and /leave-club update for `count_members` -- that race
--- raises SerializationFailure on the API under REPEATABLE READ.
+-- a flag on `club`) so the cron's clear doesn't UPDATE a `club` row that
+-- another transaction might be writing -- that race aborts one of them
+-- under REPEATABLE READ.
 CREATE TABLE IF NOT EXISTS club_stats_dirty (
     club_name TEXT PRIMARY KEY REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Append-only queue of `count_members` changes, written by
+-- trigger_maintain_club_count_members and folded into `club.count_members`
+-- by the clubcounts cron. Inserting a delta row conflicts with nothing, so
+-- the request transactions that mutate person_club never update `club` rows
+-- and can't serialize-abort against each other or the background jobs that
+-- write `club` rows.
+CREATE TABLE IF NOT EXISTS club_count_delta (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    club_name TEXT NOT NULL REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,
+    delta SMALLINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS club_stats (
@@ -1609,28 +1621,39 @@ FOR EACH ROW EXECUTE FUNCTION
 -- Keeps `club.count_members` equal to the number of activated members.
 -- The counts were previously maintained by hand at each join / leave /
 -- (de)activation / deletion site, which drifted whenever a site was
--- missed (issue #1286).
+-- missed (issue #1286). The trigger appends deltas to club_count_delta
+-- rather than updating `club` directly: a delta insert conflicts with
+-- nothing, so request transactions never write a `club` row another
+-- transaction (a concurrent join, or a background job) might also be
+-- writing -- which would abort one of them under REPEATABLE READ. The
+-- clubcounts cron folds the deltas into `club.count_members` within a poll
+-- tick, so counts are eventually consistent.
 CREATE OR REPLACE FUNCTION
     maintain_club_count_members()
 RETURNS TRIGGER AS $$
+DECLARE
+    name_ TEXT := COALESCE(NEW.club_name, OLD.club_name);
+    delta_ SMALLINT;
 BEGIN
     IF TG_OP = 'INSERT' AND NEW.activated THEN
-        UPDATE club
-        SET count_members = count_members + 1
-        WHERE name = NEW.club_name;
+        delta_ := 1;
     ELSIF TG_OP = 'UPDATE' AND NEW.activated AND NOT OLD.activated THEN
-        UPDATE club
-        SET count_members = count_members + 1
-        WHERE name = NEW.club_name;
+        delta_ := 1;
     ELSIF TG_OP = 'UPDATE' AND OLD.activated AND NOT NEW.activated THEN
-        UPDATE club
-        SET count_members = count_members - 1
-        WHERE name = NEW.club_name;
+        delta_ := -1;
     ELSIF TG_OP = 'DELETE' AND OLD.activated THEN
-        UPDATE club
-        SET count_members = count_members - 1
-        WHERE name = OLD.club_name;
+        delta_ := -1;
+    ELSE
+        RETURN COALESCE(NEW, OLD);
     END IF;
+
+    -- The EXISTS guard makes deleting a club (banned-club cleanup) a no-op
+    -- here, like the pre-queue UPDATE was: the cascade fires this trigger for
+    -- each member while the club row itself is already gone, and a delta
+    -- would violate the queue's foreign key.
+    INSERT INTO club_count_delta (club_name, delta)
+    SELECT name_, delta_
+    WHERE EXISTS (SELECT 1 FROM club WHERE name = name_);
 
     RETURN COALESCE(NEW, OLD);
 END;

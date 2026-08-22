@@ -184,7 +184,19 @@ WITH target AS MATERIALIZED (
         t.name,
         json_build_object(
             'name',         t.name,
-            'member_count', t.count_members,
+            -- Counted from person_club rather than taken from
+            -- club.count_members: the folded count can lag the membership
+            -- change that marked this club dirty by a clubcounts tick, and a
+            -- recompute that consumed the last dirty mark would freeze the
+            -- stale value here. The dirty mark commits in the same
+            -- transaction as the person_club change, so this count is final
+            -- whenever the mark is visible.
+            'member_count', (
+                SELECT COUNT(*)
+                FROM person_club pc
+                WHERE pc.club_name = t.name
+                AND pc.activated
+            ),
             'median_age',   maj.median_age,
             'demographics', json_build_object(
                 'gender',              COALESCE(gj.j,  '[]'::json),

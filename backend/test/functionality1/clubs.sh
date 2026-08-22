@@ -22,14 +22,13 @@ club_idempotence () {
   jc POST /join-club -d '{ "name": "my-club-1" }'
 
   assume_role user2
-  results=$(c GET '/search-clubs?q=my-club')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 1, \"name\": \"my-club-1\"}, \
       {\"count_members\": 0, \"name\": \"my-club\"}
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 }
 
 club_quota_without_gold () {
@@ -103,7 +102,6 @@ club_count_when_deleted () {
   jc POST /join-club -d '{ "name": "my-club-3" }'
 
   assume_role user4
-  results=$(c GET '/search-clubs?q=my-club')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 3, \"name\": \"my-club-2\"}, \
@@ -113,14 +111,13 @@ club_count_when_deleted () {
       {\"count_members\": 0, \"name\": \"my-club\"} \
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 
   assume_role user3
   c DELETE /account
 
   assume_role user4
 
-  results=$(c GET '/search-clubs?q=my-club')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 2, \"name\": \"my-club-1\"}, \
@@ -130,7 +127,7 @@ club_count_when_deleted () {
       {\"count_members\": 0, \"name\": \"my-club\"} \
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 }
 
 club_count_when_activated_or_deactivated () {
@@ -160,7 +157,6 @@ club_count_when_activated_or_deactivated () {
   jc POST /join-club -d '{ "name": "my-club-3" }'
 
   assume_role user4
-  results=$(c GET '/search-clubs?q=my-club')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 3, \"name\": \"my-club-2\"}, \
@@ -170,14 +166,13 @@ club_count_when_activated_or_deactivated () {
       {\"count_members\": 0, \"name\": \"my-club\"} \
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 
   assume_role user3
   c POST /deactivate
 
   assume_role user4
 
-  results=$(c GET '/search-clubs?q=my-club')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 2, \"name\": \"my-club-1\"}, \
@@ -187,12 +182,11 @@ club_count_when_activated_or_deactivated () {
       {\"count_members\": 0, \"name\": \"my-club\"} \
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 
   assume_role user3 # Activate account again
 
   assume_role user4
-  results=$(c GET '/search-clubs?q=my-club')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 3, \"name\": \"my-club-2\"}, \
@@ -202,7 +196,7 @@ club_count_when_activated_or_deactivated () {
       {\"count_members\": 0, \"name\": \"my-club\"} \
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 }
 
 banned_clubs () {
@@ -288,7 +282,6 @@ empty_club_search_string () {
 
   assume_role user4
 
-  results=$(SESSION_TOKEN='' c GET '/search-public-clubs')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 3, \"name\": \"my-club-1\"}, \
@@ -296,7 +289,10 @@ empty_club_search_string () {
       {\"count_members\": 1, \"name\": \"my-club-3\"} \
     ]"
   )
-  [[ "$results" == "$expected" ]]
+  public_clubs () {
+    SESSION_TOKEN='' c GET '/search-public-clubs'
+  }
+  assert_eventually "$expected" public_clubs
 }
 
 club_name_with_colon () {
@@ -319,8 +315,11 @@ club_name_with_colon () {
   # (curl -G --data-urlencode encodes the colon and space as %3A / %20).
   # Search as a non-member, since a user's own clubs are excluded from results.
   assume_role user2
-  results=$(c GET /search-clubs -G --data-urlencode 'q=John 3:16')
-  [[ -n "$(jq -r '.[] | select(.name == "john 3:16" and .count_members == 1)' <<< "$results")" ]]
+  colon_club_count () {
+    c GET /search-clubs -G --data-urlencode 'q=John 3:16' \
+      | jq -r '[.[] | select(.name == "john 3:16" and .count_members == 1)] | length'
+  }
+  assert_eventually "1" colon_club_count
 }
 
 public_club_search () {
@@ -349,8 +348,6 @@ public_club_search () {
 
   assume_role user4
 
-  results1=$(c GET '/search-clubs?q=my-club-3')
-  results2=$(SESSION_TOKEN='' c GET '/search-public-clubs?q=my-club-3')
   expected=$(
     jq -r . <<< "[ \
       {\"count_members\": 1, \"name\": \"my-club-3\"}, \
@@ -359,8 +356,11 @@ public_club_search () {
     ]"
   )
 
-  [[ "$results1" == "$expected" ]]
-  [[ "$results1" == "$results2" ]]
+  assert_eventually "$expected" c GET '/search-clubs?q=my-club-3'
+  public_clubs () {
+    SESSION_TOKEN='' c GET '/search-public-clubs?q=my-club-3'
+  }
+  assert_eventually "$expected" public_clubs
 }
 
 public_club_search

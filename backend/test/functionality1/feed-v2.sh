@@ -544,14 +544,13 @@ test_joined_club () {
   # Unlike v1, the v2 feed has no selectivity, so all three members appear,
   # in last-online order. Each facepile now leads with the event's own
   # subject, so all three members (including the subject) show in it
-  response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
       <(expected_joined_club_item user1 3 3) \
       <(expected_joined_club_item user2 3 3) \
       <(expected_joined_club_item user3 3 3)
   )
-  diff -u --color <(echo "$response") <(echo "$expected")
+  assert_eventually "$expected" joined_club_feed_items
 
   # user3 skips the searcher. The searcher can no longer access user3's
   # profile, so user3's own joined-club item disappears and user3 is dropped
@@ -561,27 +560,25 @@ test_joined_club () {
 
   set_deterministic_online_times
 
-  response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
       <(expected_joined_club_item user1 3 2) \
       <(expected_joined_club_item user2 3 2)
   )
-  diff -u --color <(echo "$response") <(echo "$expected")
+  assert_eventually "$expected" joined_club_feed_items
 
   # Undoing the skip restores user3's item and facepile entries
   q "delete from skipped"
 
   set_deterministic_online_times
 
-  response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
       <(expected_joined_club_item user1 3 3) \
       <(expected_joined_club_item user2 3 3) \
       <(expected_joined_club_item user3 3 3)
   )
-  diff -u --color <(echo "$response") <(echo "$expected")
+  assert_eventually "$expected" joined_club_feed_items
 
   # Leaving the club reverts the leaver's event and shrinks the facepiles
   assume_role user3
@@ -589,13 +586,12 @@ test_joined_club () {
 
   set_deterministic_online_times
 
-  response=$(joined_club_feed_items)
   expected=$(
     jq -sS . \
       <(expected_joined_club_item user1 2 2) \
       <(expected_joined_club_item user2 2 2)
   )
-  diff -u --color <(echo "$response") <(echo "$expected")
+  assert_eventually "$expected" joined_club_feed_items
 
   # Once user1's event is more than a week old, it's replaced by a
   # 'recently-online-with-photo' event, so only user2's joined-club item
@@ -603,9 +599,8 @@ test_joined_club () {
   q "update person set last_event_time = now() - interval '8 days'
      where name = 'user1'"
 
-  response=$(joined_club_feed_items)
   expected=$(jq -sS . <(expected_joined_club_item user2 2 2))
-  diff -u --color <(echo "$response") <(echo "$expected")
+  assert_eventually "$expected" joined_club_feed_items
 
   assume_role searcher
   user1_type=$(

@@ -244,8 +244,8 @@ premium_features_require_gold() {
   return 0
 }
 
-check_club_counts_consistent () {
-  [[ $(q "\
+count_members_drift () {
+  q "\
     select count(*) \
     from club \
     left join ( \
@@ -254,7 +254,11 @@ check_club_counts_consistent () {
       where activated \
       group by club_name \
     ) pc on pc.club_name = club.name \
-    where club.count_members is distinct from coalesce(pc.cnt, 0)") == 0 ]]
+    where club.count_members is distinct from coalesce(pc.cnt, 0)"
+}
+
+check_club_counts_consistent () {
+  assert_eventually "0" count_members_drift
 }
 
 club_counts_survive_gold_expiry_while_deactivated() {

@@ -5,6 +5,11 @@ cd "$script_dir"
 
 source ../util/setup.sh
 
+profile_clubs () {
+  c GET /profile-info | jq -r '.["clubs"] | sort_by(.name)'
+}
+
+
 set -xe
 
 q "delete from duo_session"
@@ -41,78 +46,54 @@ test_set () {
 }
 
 test_club () {
-  local clubs=$(
-    set +x
-    c GET /profile-info | jq -r ".[\"clubs\"] | sort_by(.name)"
-  )
   local expected_clubs="[]"
-  [[ "$clubs" == "$expected_clubs" ]]
+  assert_eventually "$expected_clubs" profile_clubs
 
   jc POST /join-club -d '{ "name": "my-club" }'
   jc POST /join-club -d '{ "name": "my-other-club" }'
-  local clubs=$(
-    set +x
-    c GET /profile-info | jq -r ".[\"clubs\"] | sort_by(.name)"
-  )
   local expected_clubs=$(
     jq -r . <<< "[\
       {\"count_members\": 1, \"name\": \"my-club\"}, \
       {\"count_members\": 1, \"name\": \"my-other-club\"}\
     ] | sort_by(.name)"
   )
-  [[ "$clubs" == "$expected_clubs" ]]
+  assert_eventually "$expected_clubs" profile_clubs
 
   assume_role user2
   jc POST /join-club -d '{ "name": "my-other-club" }'
-  local clubs=$(
-    set +x
-    c GET /profile-info | jq -r ".[\"clubs\"] | sort_by(.name)"
-  )
   local expected_clubs=$(
     jq -r . <<< "[\
       {\"count_members\": 2, \"name\": \"my-other-club\"}\
     ] | sort_by(.name)"
   )
-  [[ "$clubs" == "$expected_clubs" ]]
+  assert_eventually "$expected_clubs" profile_clubs
 
   assume_role user1
-  local clubs=$(
-    set +x
-    c GET /profile-info | jq -r ".[\"clubs\"] | sort_by(.name)"
-  )
   local expected_clubs=$(
     jq -r . <<< "[\
       {\"count_members\": 1, \"name\": \"my-club\"}, \
       {\"count_members\": 2, \"name\": \"my-other-club\"}\
     ] | sort_by(.name)"
   )
-  [[ "$clubs" == "$expected_clubs" ]]
+  assert_eventually "$expected_clubs" profile_clubs
 
   # /leave-club is basically correct
   jc POST /leave-club -d '{ "name": "my-club" }'
-  local clubs=$(
-    set +x
-    c GET /profile-info | jq -r ".[\"clubs\"] | sort_by(.name)"
-  )
   local expected_clubs=$(
     jq -r . <<< "[\
       {\"count_members\": 2, \"name\": \"my-other-club\"}\
     ] | sort_by(.name)"
   )
-  [[ "$clubs" == "$expected_clubs" ]]
+  assert_eventually "$expected_clubs" profile_clubs
 
   # /leave-club is idempotent
   jc POST /leave-club -d '{ "name": "my-club" }'
-  local clubs=$(
-    set +x
-    c GET /profile-info | jq -r ".[\"clubs\"] | sort_by(.name)"
-  )
   local expected_clubs=$(
     jq -r . <<< "[\
       {\"count_members\": 2, \"name\": \"my-other-club\"}\
     ] | sort_by(.name)"
   )
-  [[ "$clubs" == "$expected_clubs" ]]
+  assert_eventually "$expected_clubs" profile_clubs
 }
 
 test_photo () {

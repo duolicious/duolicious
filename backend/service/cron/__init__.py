@@ -9,6 +9,7 @@ logging.basicConfig(
 )
 
 from service.cron.checkphotos import check_photos_forever
+from service.cron.clubcounts import fold_club_count_deltas_forever
 from service.cron.clubseo import (
     refresh_club_seo_forever,
     refresh_club_stats_forever,
@@ -84,6 +85,8 @@ async def main() -> None:
             refresh_club_top_answers_forever(),
 
             refresh_club_overlap_forever(),
+
+            fold_club_count_deltas_forever(),
 
             refresh_club_seo_forever(),
 

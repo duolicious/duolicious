@@ -28,7 +28,6 @@ jc POST /join-club -d '{ "name": "my-club-unshared-11" }'
 jc POST /join-club -d '{ "name": "my-club-unshared-21" }'
 
 assume_role user1
-results=$(c GET '/search-clubs?q=my-club')
 expected=$(
   jq -r . <<< "[ \
     {\"count_members\": 1, \"name\": \"my-club-unshared-11\"}, \
@@ -36,7 +35,7 @@ expected=$(
     {\"count_members\": 0, \"name\": \"my-club\"} \
   ]"
 )
-[[ "$results" == "$expected" ]]
+assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 
 results=$(c GET '/search-clubs?q=really-long-club-name-that-exceeds-the-limit')
 expected='[]'

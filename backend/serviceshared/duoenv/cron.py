@@ -46,6 +46,7 @@ CLUB_SEO_MAX_AGE_DAYS = int_with('DUO_CRON_CLUB_SEO_MAX_AGE_DAYS', 30)
 CLUB_SEO_MODEL = str_with('DUO_CRON_CLUB_SEO_MODEL', 'gpt-4o-mini')
 CLUB_OVERLAP_POLL_SECONDS = \
     int_with('DUO_CRON_CLUB_OVERLAP_POLL_SECONDS', 6 * 60 * 60)
+CLUB_COUNT_POLL_SECONDS = int_with('DUO_CRON_CLUB_COUNT_POLL_SECONDS', 1)
 # When set, skip the OpenAI call and use this string. Lets the tests
 # exercise the cron without an API key.
 CLUB_SEO_MOCK_DESCRIPTION = str_or_none('DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION')

@@ -138,6 +138,9 @@ qdump () {
 }
 
 # Restore the duo_api database from a compressed fixture created by qdump.
+# Fixtures are snapshots of an older schema, and the api service only applies
+# migrations.sql at boot, so re-apply it here to bring the restored database
+# up to the current schema (its statements are idempotent by contract).
 # Example: qrestore baseline
 qrestore () {
   q 'drop database duo_api with (force)' postgres
@@ -150,12 +153,42 @@ qrestore () {
       -d duo_api \
       -h "${DUO_DB_HOST:-localhost}" \
       -p "${DUO_DB_PORT:-5432}"
+
+  PGPASSWORD="${DUO_DB_PASS:-password}" psql \
+    -U "${DUO_DB_USER:-postgres}" \
+    -d duo_api \
+    -h "${DUO_DB_HOST:-localhost}" \
+    -p "${DUO_DB_PORT:-5432}" \
+    -v ON_ERROR_STOP=1 \
+    -f ../../migrations.sql
 }
 
 # Assert a JSON array has the expected length.
 # Example: j_assert_length "$response" 2
 j_assert_length () {
   [[ "$(echo "$1" | jq length)" -eq "$2" ]]
+}
+
+# Retry a command until its output equals the expected value. Needed for
+# values that are eventually consistent, like club member counts, which a
+# cron folds from club_count_delta shortly after the membership change
+# rather than in the joining transaction itself.
+# Example: assert_eventually "$expected_json" c GET '/search-clubs?q=my-club'
+assert_eventually () {
+  local expected=$1
+  shift
+
+  local result
+  for _ in $(seq 1 30); do
+    result=$(set +x; "$@")
+    [[ "$result" == "$expected" ]] && return 0
+    sleep 0.5
+  done
+
+  echo "assert_eventually timed out: $*" >&2
+  echo "last result: $result" >&2
+  echo "expected:    $expected" >&2
+  return 1
 }
 
 # Generate a random base64-encoded PNG image (WxH) for testing.
