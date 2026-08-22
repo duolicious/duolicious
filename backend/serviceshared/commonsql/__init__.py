@@ -101,9 +101,6 @@ Q_REFRESH_STALE_CLUB_VECTORS_BATCH = _q_refresh_club_vector(f"""id IN (
         WHERE p.club_vector_computed_at < (
             SELECT completed_at FROM club_embedding_refresh
         )
-        AND EXISTS (
-            SELECT 1 FROM person_club pc WHERE pc.person_id = p.id
-        )
         LIMIT %(batch_size)s
     )""")
 
