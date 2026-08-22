@@ -10,55 +10,6 @@
 -- carries the same change to already-created databases.
 
 
--- /export-data and /tripcode joined the static pages copied from
--- duolicious.app to the web frontend, where they're served at the top
--- level -- the same namespace as profile URLs (/<url_slug>). The slugs
--- are now in urlslug's RESERVED_SLUGS so they can't be minted again, but
--- anyone who already holds one would have their profile shadowed by the
--- static page, so they're moved to a numerically-suffixed slug, mirroring
--- what minting would have produced had the name been reserved at sign-up.
--- Idempotent because a rename leaves no rows matching the WHERE clause.
--- No init-api.sql counterpart: this fixes data, not schema.
-UPDATE person p
-SET url_slug = (
-    SELECT p.url_slug || suffix
-    FROM generate_series(1, 100000) AS suffix
-    WHERE NOT EXISTS (
-        SELECT 1 FROM person q WHERE q.url_slug = p.url_slug || suffix
-    )
-    AND NOT EXISTS (
-        SELECT 1 FROM onboardee o WHERE o.url_slug = p.url_slug || suffix
-    )
-    ORDER BY suffix
-    LIMIT 1
-)
-WHERE p.url_slug IN ('export-data', 'tripcode');
-
-UPDATE onboardee ob
-SET url_slug = (
-    SELECT ob.url_slug || suffix
-    FROM generate_series(1, 100000) AS suffix
-    WHERE NOT EXISTS (
-        SELECT 1 FROM person q WHERE q.url_slug = ob.url_slug || suffix
-    )
-    AND NOT EXISTS (
-        SELECT 1 FROM onboardee o WHERE o.url_slug = ob.url_slug || suffix
-    )
-    ORDER BY suffix
-    LIMIT 1
-)
-WHERE ob.url_slug IN ('export-data', 'tripcode');
-
--- Keeps `club.count_members` equal to the number of activated members.
--- The counts were previously maintained by hand at each join / leave /
--- (de)activation / deletion site, which drifted whenever a site was
--- missed (issue #1286).
-CREATE TABLE IF NOT EXISTS club_count_delta (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    club_name TEXT NOT NULL REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,
-    delta SMALLINT NOT NULL
-);
-
 CREATE OR REPLACE FUNCTION
     maintain_club_count_members()
 RETURNS TRIGGER AS $$
