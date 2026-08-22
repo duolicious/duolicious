@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import logging
 import random
 
@@ -21,19 +22,26 @@ from serviceshared.duoenv.cron import (
 
 logger = logging.getLogger(__name__)
 
-_SWEEP_LOG_INTERVAL = 10_000
-
 
 async def refresh_club_embeddings_once() -> None:
     if not is_offpeak(
             OFFPEAK_MAX_LOAD_PCT, 'refresh_club_embeddings_once'):
         return
 
-    changed = await asyncio.to_thread(
+    logger.info(
+        f'computing embeddings '
+        f'(timeout {CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS}s)')
+
+    computed = await asyncio.to_thread(
         run_with_timeout,
         CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
         compute_club_embeddings,
     )
+    changed = computed.changed
+    logger.info(
+        f'embedded {computed.embedded_count} clubs '
+        f'from {computed.membership_count} memberships; '
+        f'{len(changed)} changed materially')
 
     names = sorted(changed)
     for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
@@ -48,25 +56,20 @@ async def refresh_club_embeddings_once() -> None:
     if names:
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
-        logger.info(f'club_embeddings: wrote {len(names)}')
+        logger.info(f'wrote {len(names)} embeddings')
 
-    swept = 0
-    logged = 0
-    while True:
+    for i in itertools.count(1):
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_REFRESH_STALE_CLUB_VECTORS_BATCH, dict(
                 batch_size=CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
             ))
             batch_swept = tx.rowcount
-        swept += batch_swept
-        if swept - logged >= _SWEEP_LOG_INTERVAL:
-            logger.info(f'club_embeddings: re-pooled {swept} people so far')
-            logged = swept
+        if i % 1000 == 0:
+            logger.info(f're-pooled {i} batches of people so far')
         if batch_swept < CLUB_EMBEDDINGS_WRITE_BATCH_SIZE:
             break
 
-    if swept:
-        logger.info(f'club_embeddings: re-pooled {swept} people')
+    logger.info(f're-pooled {i} batches of people')
 
 
 async def refresh_club_embeddings_forever() -> None:

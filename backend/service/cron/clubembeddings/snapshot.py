@@ -1,4 +1,5 @@
 import psycopg
+from typing import NamedTuple
 from serviceshared.duoenv.shared import DB_HOST, DB_PASS, DB_PORT, DB_USER
 from serviceshared.pgvector import parse_pgvector, to_pgvector
 from service.cron.clubembeddings.ppmi import (
@@ -7,7 +8,13 @@ from service.cron.clubembeddings.ppmi import (
 )
 
 
-def compute_club_embeddings() -> dict[str, str]:
+class ComputedClubEmbeddings(NamedTuple):
+    membership_count: int
+    embedded_count: int
+    changed: dict[str, str]
+
+
+def compute_club_embeddings() -> ComputedClubEmbeddings:
     with psycopg.connect(
         host=DB_HOST,
         port=DB_PORT,
@@ -35,4 +42,8 @@ def compute_club_embeddings() -> dict[str, str]:
 
     changed = changed_embeddings(embeddings, previous)
 
-    return {name: to_pgvector(vec) for name, vec in changed.items()}
+    return ComputedClubEmbeddings(
+        membership_count=len(memberships),
+        embedded_count=len(embeddings),
+        changed={name: to_pgvector(vec) for name, vec in changed.items()},
+    )
