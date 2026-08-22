@@ -292,7 +292,7 @@ def build_uncached_search(
     ])
 
     if order_by_clubs:
-        candidate_order = """prospect.club_vector <#> %(searcher_club_vector)s::VECTOR,
+        candidate_order = f"""{_CLUB_DISTANCE},
         prospect.personality <#> %(searcher_personality)s::VECTOR"""
     else:
         candidate_order = \
