@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 
+from psycopg.errors import DeadlockDetected, QueryCanceled
 from serviceshared.database import api_tx
 from serviceshared.util import is_offpeak
 from serviceshared.util.timeout import run_with_timeout
@@ -48,20 +49,30 @@ async def refresh_club_embeddings_once() -> None:
     names = sorted(changed)
     queued = 0
     logger.info(f'storing embeddings: started ({len(names)} to store)')
-    for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
+    i = 0
+    while i < len(names):
         batch = names[i:i + CLUB_EMBEDDINGS_WRITE_BATCH_SIZE]
 
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute(Q_UPDATE_CLUB_EMBEDDINGS, dict(
-                names=batch,
-                embeddings=[changed[name] for name in batch],
-            ))
-            await tx.execute(Q_QUEUE_MEMBER_CLUB_VECTOR_REFRESHES, dict(
-                names=batch,
-            ))
-            queued += tx.rowcount
+        try:
+            async with api_tx('READ COMMITTED') as tx:
+                await tx.execute(Q_UPDATE_CLUB_EMBEDDINGS, dict(
+                    names=batch,
+                    embeddings=[changed[name] for name in batch],
+                ))
+                await tx.execute(
+                    Q_QUEUE_MEMBER_CLUB_VECTOR_REFRESHES, dict(
+                        names=batch,
+                    ))
+                batch_queued = tx.rowcount
+        except (DeadlockDetected, QueryCanceled):
+            logger.warning(
+                'storing embeddings: batch lost a lock contest; retrying')
+            continue
+
+        queued += batch_queued
+        i += len(batch)
         logger.info(
-            f'storing embeddings: {i + len(batch)} of {len(names)} stored; '
+            f'storing embeddings: {i} of {len(names)} stored; '
             f'{queued} members queued for re-pooling')
 
     logger.info(
@@ -72,11 +83,16 @@ async def refresh_club_embeddings_once() -> None:
 async def repool_queued_club_vectors_once() -> None:
     repooled = 0
     while True:
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute(Q_REFRESH_QUEUED_CLUB_VECTORS, dict(
-                batch_size=CLUB_VECTOR_REPOOL_BATCH_SIZE,
-            ))
-            batch_repooled = tx.rowcount
+        try:
+            async with api_tx('READ COMMITTED') as tx:
+                await tx.execute(Q_REFRESH_QUEUED_CLUB_VECTORS, dict(
+                    batch_size=CLUB_VECTOR_REPOOL_BATCH_SIZE,
+                ))
+                batch_repooled = tx.rowcount
+        except (DeadlockDetected, QueryCanceled):
+            logger.warning(
+                're-pooling: batch lost a lock contest; retrying')
+            continue
         if batch_repooled:
             repooled += batch_repooled
             logger.info(f're-pooling: {repooled} people so far')
