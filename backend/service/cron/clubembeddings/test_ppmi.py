@@ -36,6 +36,15 @@ def cosine(
     )
 
 
+def member_sharing_pairs(clubs: list[str]) -> list[tuple[str, str]]:
+    return [
+        (clubs[i], clubs[j])
+        for i in range(len(clubs))
+        for j in range(i + 1, len(clubs))
+        if min((j - i) % 6, (i - j) % 6) == 1
+    ]
+
+
 def person_vector(
     embeddings: dict[str, numpy.ndarray],
     clubs: list[str],
@@ -60,13 +69,11 @@ class TestClubEmbeddings(unittest.TestCase):
             community_memberships(), {})
 
         self.assertNotIn('lonely', embeddings)
-        self.assertIn('ubiquitous', embeddings)
+        self.assertNotIn('ubiquitous', embeddings)
 
         within = [
             cosine(embeddings[a], embeddings[b])
-            for a in A_CLUBS
-            for b in A_CLUBS
-            if a < b
+            for a, b in member_sharing_pairs(A_CLUBS)
         ]
         across = [
             cosine(embeddings[a], embeddings[b])
@@ -115,9 +122,7 @@ class TestClubEmbeddings(unittest.TestCase):
 
         within = [
             cosine(warm[a], warm[b])
-            for a in A_CLUBS
-            for b in A_CLUBS
-            if a < b
+            for a, b in member_sharing_pairs(A_CLUBS)
         ]
         across = [
             cosine(warm[a], warm[b])

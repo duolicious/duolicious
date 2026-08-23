@@ -8,6 +8,10 @@ logger = logging.getLogger(__name__)
 
 DIMENSIONS = 64
 
+_PPMI_SHIFT = float(numpy.log(2))
+
+_MIN_CLUB_MEMBERS = 10
+
 _OVERSAMPLED_DIMENSIONS = 128
 _POWER_ITERATIONS = 6
 
@@ -15,10 +19,9 @@ _SVD_SEED = 0
 
 _MATMUL_BLOCK = 16
 
-_MIN_CLUB_MEMBERS = 10
-
-_GRADIENT_STEPS = 16
-_FOLD_IN_RIDGE = 1e-3
+_SUBSPACE_STEPS = 16
+_WARM_PROBE_COLUMNS = 16
+_CONVERGED_SUBSPACE_DRIFT = 1e-9
 _WARM_START_MIN_COVERAGE = 0.5
 
 _UNCHANGED_MIN_COSINE = 0.999
@@ -80,12 +83,31 @@ def _sparse_matmul(
     return matmul
 
 
-def _randomized_svd_row_factors(
+def _top_positive_columns(
+    w: FloatArray,
+    matmul: SparseMatmul,
+) -> FloatArray:
+    rayleigh = w.T @ matmul(w)
+    rayleigh = ((rayleigh + rayleigh.T) / 2).astype(numpy.float64)
+    eigenvalues, rotation = numpy.linalg.eigh(rayleigh)
+    rotated = w @ rotation.astype(numpy.float32)
+
+    floor = 1e-6 * float(numpy.abs(eigenvalues).max())
+    keep = [
+        i for i in numpy.argsort(-eigenvalues)
+        if eigenvalues[i] > floor
+    ][:DIMENSIONS]
+
+    out = numpy.zeros((w.shape[0], DIMENSIONS), dtype=numpy.float32)
+    out[:, :len(keep)] = rotated[:, keep]
+    return out
+
+
+def _randomized_subspace(
     matmul: SparseMatmul,
     matrix_size: int,
     seed: int,
 ) -> FloatArray:
-    k = min(DIMENSIONS, matrix_size)
     oversampled = min(_OVERSAMPLED_DIMENSIONS, matrix_size)
 
     rng = numpy.random.default_rng(seed)
@@ -98,110 +120,66 @@ def _randomized_svd_row_factors(
             f'cold start: power iteration {i + 1}/{_POWER_ITERATIONS}: '
             f'started')
         q, _ = numpy.linalg.qr(matmul(q))
-    logger.info('cold start: computing the final decomposition')
-    b = matmul(q).T
-    _, s, vt = numpy.linalg.svd(b, full_matrices=False)
-    w = (vt[:k].T * numpy.sqrt(s[:k])).astype(numpy.float32)
-
-    if k < DIMENSIONS:
-        w = numpy.pad(w, ((0, 0), (0, DIMENSIONS - k)))
-
-    return w
+    return q.astype(numpy.float32)
 
 
-def _fold_in(
-    w: FloatArray,
-    matmul: SparseMatmul,
-    indexes: npt.NDArray[numpy.int64],
-) -> FloatArray:
-    if len(indexes) == 0:
-        return w
-
-    gram = (w.T @ w).astype(numpy.float64)
-    ridge = _FOLD_IN_RIDGE * max(float(numpy.trace(gram)) / DIMENSIONS, 1.0)
-    regularized = gram + ridge * numpy.eye(DIMENSIONS)
-    targets = matmul(w)[indexes].astype(numpy.float64)
-
-    w = w.copy()
-    w[indexes] = numpy.linalg.solve(
-        regularized, targets.T).T.astype(numpy.float32)
-    return w
-
-
-def _exact_line_search(
-    w: FloatArray,
-    grad: FloatArray,
-    m_w: FloatArray,
-    m_grad: FloatArray,
-) -> float:
-    p = (w.T @ w).astype(numpy.float64)
-    c = (w.T @ grad + grad.T @ w).astype(numpy.float64)
-    r = (grad.T @ grad).astype(numpy.float64)
-
-    m_wg = float((w.astype(numpy.float64) *
-                  m_grad.astype(numpy.float64)).sum())
-    m_gg = float((grad.astype(numpy.float64) *
-                  m_grad.astype(numpy.float64)).sum())
-
-    c0 = -2 * float((p * c).sum()) + 4 * m_wg
-    c1 = 2 * (float((c * c).sum()) + 2 * float((p * r).sum())) - 4 * m_gg
-    c2 = -6 * float((c * r).sum())
-    c3 = 4 * float((r * r).sum())
-
-    if c0 >= 0 or c3 <= 0:
-        return 0.0
-
-    def phi(t: float) -> float:
-        return (c0 * t
-                + c1 * t * t / 2
-                + c2 * t ** 3 / 3
-                + c3 * t ** 4 / 4)
-
-    candidates = [
-        float(t.real)
-        for t in numpy.roots([c3, c2, c1, c0])
-        if abs(t.imag) < 1e-9 * (abs(t.real) + 1e-30) and t.real > 0
-    ]
-    if not candidates:
-        return 0.0
-
-    return min(candidates, key=phi)
-
-
-def _warm_started_row_factors(
+def _subspace_iteration(
     matmul: SparseMatmul,
     w0: FloatArray,
     steps: int,
+    seed: int,
 ) -> FloatArray:
-    w = w0.copy()
+    rng = numpy.random.default_rng(seed)
+    probes = rng.standard_normal(
+        (w0.shape[0], min(_WARM_PROBE_COLUMNS, w0.shape[0]))
+    ).astype(numpy.float32)
+    q, _ = numpy.linalg.qr(
+        numpy.concatenate([w0, probes], axis=1))
+    q = q.astype(numpy.float32)
     for step in range(steps):
         logger.info(f'warm start: step {step + 1}/{steps}: started')
-        m_w = matmul(w)
-        grad = 4 * (w @ (w.T @ w) - m_w)
-        grad_scale = float((grad * grad).sum())
-        if grad_scale <= 1e-12 * max(float((w * w).sum()), 1.0):
-            logger.info(
-                f'warm start: converged after {step} of {steps} steps')
-            break
-        m_grad = matmul(grad)
-        t = _exact_line_search(w, grad, m_w, m_grad)
-        if t <= 0:
-            logger.info(
-                f'warm start: no descent after {step} of {steps} steps')
-            break
-        w = (w - t * grad).astype(numpy.float32)
+        refreshed, _ = numpy.linalg.qr(matmul(q))
+        refreshed = refreshed.astype(numpy.float32)
+        overlap = float(
+            (numpy.linalg.norm(refreshed.T @ q, ord='fro')) ** 2)
+        drift = max(0.0, q.shape[1] - overlap)
+        q = refreshed
         logger.info(
             f'warm start: step {step + 1}/{steps}: '
-            f'gradient norm {grad_scale ** 0.5:.6g}, '
-            f'step size {t:.6g}')
-    return w
+            f'subspace drift {drift:.3g}')
+        if drift < _CONVERGED_SUBSPACE_DRIFT:
+            logger.info(
+                f'warm start: converged after {step + 1} of {steps} steps')
+            break
+    return q
+
+
+def _aligned_to_previous(
+    w: FloatArray,
+    club_names: Sequence[str],
+    previous: Mapping[str, FloatArray],
+) -> FloatArray:
+    common = [
+        (i, previous[name])
+        for i, name in enumerate(club_names)
+        if name in previous
+    ]
+    if not common:
+        return w
+
+    indexes = [i for i, _ in common]
+    w_old = numpy.stack([vec for _, vec in common])
+    u, _, vt = numpy.linalg.svd(w[indexes].T @ w_old)
+    rotation = (u @ vt).astype(numpy.float32)
+
+    return w @ rotation
 
 
 def club_embeddings_from_memberships(
     memberships: Sequence[Membership],
     previous: Mapping[str, FloatArray],
     seed: int = _SVD_SEED,
-    steps: int = _GRADIENT_STEPS,
+    steps: int = _SUBSPACE_STEPS,
 ) -> dict[str, FloatArray]:
     if not memberships:
         return {}
@@ -256,6 +234,7 @@ def club_embeddings_from_memberships(
     smoothed = marginals ** CLUB_EMBEDDINGS_SMOOTHING
     total = counts.sum() * 2 * smoothed.sum() / marginals.sum()
     pmi = numpy.log(counts * total / (smoothed[ci] * smoothed[cj]))
+    pmi -= _PPMI_SHIFT
     positive = pmi > 0
     if not positive.any():
         return zeroed
@@ -275,24 +254,30 @@ def club_embeddings_from_memberships(
         i for i in embedded if str(unique_clubs[i]) in previous
     ], dtype=numpy.int64)
     logger.info(
-        f'factorizing {len(ppmi)} positive ppmi pairs over '
-        f'{len(embedded)} clubs (smoothing {CLUB_EMBEDDINGS_SMOOTHING}); '
+        f'factorizing {len(ppmi)} shifted ppmi pairs over '
+        f'{len(embedded)} clubs (smoothing {CLUB_EMBEDDINGS_SMOOTHING}, '
+        f'shift {_PPMI_SHIFT:.3f}); '
         f'{len(known)} have previous embeddings')
 
     if len(known) < _WARM_START_MIN_COVERAGE * len(embedded):
-        logger.info('strategy: cold start (randomized svd)')
-        w = _randomized_svd_row_factors(matmul, club_count, seed)
+        logger.info('strategy: cold start (randomized subspace)')
+        w = _randomized_subspace(matmul, club_count, seed)
     else:
-        logger.info('strategy: warm start (gradient descent)')
+        logger.info('strategy: warm start (subspace iteration)')
         w0 = numpy.zeros((club_count, DIMENSIONS), dtype=numpy.float32)
         for i in known:
             w0[i] = previous[str(unique_clubs[i])]
-        new = numpy.array([
-            i for i in embedded if str(unique_clubs[i]) not in previous
-        ], dtype=numpy.int64)
-        logger.info(f'folding in {len(new)} new clubs')
-        w0 = _fold_in(w0, matmul, new)
-        w = _warm_started_row_factors(matmul, w0, steps)
+        w = _subspace_iteration(matmul, w0, steps, seed)
+
+    w = _top_positive_columns(w, matmul)
+
+    w = _aligned_to_previous(w, [str(c) for c in unique_clubs], previous)
+
+    embedded_names = {str(unique_clubs[i]) for i in embedded}
+    for name in unique_clubs:
+        if str(name) not in embedded_names and str(name) in previous:
+            zeroed[str(name)] = numpy.zeros(
+                DIMENSIONS, dtype=numpy.float32)
 
     return {str(unique_clubs[i]): w[i] for i in embedded} | zeroed
 
