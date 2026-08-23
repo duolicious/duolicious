@@ -47,6 +47,7 @@ async def refresh_club_embeddings_once() -> None:
 
     names = sorted(changed)
     queued = 0
+    logger.info(f'storing embeddings: started ({len(names)} to store)')
     for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
         batch = names[i:i + CLUB_EMBEDDINGS_WRITE_BATCH_SIZE]
 
@@ -59,11 +60,13 @@ async def refresh_club_embeddings_once() -> None:
                 names=batch,
             ))
             queued += tx.rowcount
-
-    if names:
         logger.info(
-            f'wrote {len(names)} embeddings; '
-            f'queued {queued} members for re-pooling')
+            f'storing embeddings: {i + len(batch)} of {len(names)} stored; '
+            f'{queued} members queued for re-pooling')
+
+    logger.info(
+        f'wrote {len(names)} embeddings; '
+        f'queued {queued} members for re-pooling')
 
 
 async def repool_queued_club_vectors_once() -> None:
@@ -74,12 +77,16 @@ async def repool_queued_club_vectors_once() -> None:
                 batch_size=CLUB_VECTOR_REPOOL_BATCH_SIZE,
             ))
             batch_repooled = tx.rowcount
-        repooled += batch_repooled
+        if batch_repooled:
+            repooled += batch_repooled
+            logger.info(f're-pooling: {repooled} people so far')
         if batch_repooled < CLUB_VECTOR_REPOOL_BATCH_SIZE:
             break
 
     if repooled:
-        logger.info(f're-pooled {repooled} people from the refresh queue')
+        logger.info(
+            f're-pooling: finished; '
+            f'{repooled} people re-pooled from the refresh queue')
 
 
 async def refresh_club_embeddings_forever() -> None:
