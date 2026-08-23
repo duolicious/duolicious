@@ -10,7 +10,6 @@ from service.cron.clubembeddings.snapshot import compute_club_embeddings
 from service.cron.clubembeddings.sql import (
     Q_QUEUE_MEMBER_CLUB_VECTOR_REFRESHES,
     Q_REFRESH_QUEUED_CLUB_VECTORS,
-    Q_STAMP_CLUB_EMBEDDING_REFRESH,
     Q_UPDATE_CLUB_EMBEDDINGS,
 )
 from serviceshared.duoenv.cron import (
@@ -62,8 +61,6 @@ async def refresh_club_embeddings_once() -> None:
             queued += tx.rowcount
 
     if names:
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
         logger.info(
             f'wrote {len(names)} embeddings; '
             f'queued {queued} members for re-pooling')

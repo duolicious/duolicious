@@ -55,12 +55,3 @@ FROM
 WHERE
     person.id = consumed.person_id
 """
-
-Q_STAMP_CLUB_EMBEDDING_REFRESH = """
-UPDATE
-    club_embedding_refresh
-SET
-    completed_at = NOW()
-WHERE
-    id = 1
-"""

@@ -607,14 +607,6 @@ CREATE TABLE IF NOT EXISTS club_count_delta (
     delta SMALLINT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS club_embedding_refresh (
-    id SMALLINT PRIMARY KEY,
-
-    completed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
-
-    CONSTRAINT id CHECK (id = 1)
-);
-
 CREATE TABLE IF NOT EXISTS club_vector_refresh_queue (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE
 );
@@ -1467,10 +1459,6 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO funding (id, estimated_end_date, cost_per_month_usd)
 VALUES (1, now() + interval '1 year', 360.0)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO club_embedding_refresh (id)
-VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
 --------------------------------------------------------------------------------

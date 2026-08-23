@@ -273,7 +273,7 @@ async def _handle_pending_club(
             Q_REFRESH_CLUB_VECTOR, dict(person_id=person_id))
     elif person_id is not None:
         await tx.execute(
-            Q_REFRESH_STALE_CLUB_VECTOR, dict(person_id=person_id))
+            Q_REFRESH_QUEUED_CLUB_VECTOR, dict(person_id=person_id))
     return await tx.require_one(Q_GET_SESSION_CLUBS, club_params)
 
 

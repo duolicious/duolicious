@@ -86,19 +86,35 @@ WHERE
 """
 
 
-_STALE_CLUB_VECTOR = """club_vector_computed_at < (
-        SELECT completed_at FROM club_embedding_refresh
-    )"""
-
 Q_REFRESH_CLUB_VECTOR = _q_refresh_club_vector('id = %(person_id)s')
 
-Q_REFRESH_STALE_CLUB_VECTOR = _q_refresh_club_vector(f"""id = %(person_id)s
-AND
-    {_STALE_CLUB_VECTOR}""")
 
-Q_REFRESH_STALE_CLUB_VECTOR_BY_UUID = _q_refresh_club_vector(f"""uuid = %(person_uuid)s::UUID
-AND
-    {_STALE_CLUB_VECTOR}""")
+def _q_refresh_queued_club_vector(person_predicate: str) -> str:
+    return f"""
+WITH consumed AS (
+    DELETE FROM
+        club_vector_refresh_queue
+    WHERE
+        person_id = (SELECT id FROM person WHERE {person_predicate})
+    RETURNING
+        person_id
+)
+UPDATE
+    person
+SET
+{CLUB_VECTOR_ASSIGNMENT}
+FROM
+    consumed
+WHERE
+    person.id = consumed.person_id
+"""
+
+
+Q_REFRESH_QUEUED_CLUB_VECTOR = \
+    _q_refresh_queued_club_vector('id = %(person_id)s')
+
+Q_REFRESH_QUEUED_CLUB_VECTOR_BY_UUID = \
+    _q_refresh_queued_club_vector('uuid = %(person_uuid)s::UUID')
 
 Q_UPDATE_LAST = """
 WITH updated_person AS (
