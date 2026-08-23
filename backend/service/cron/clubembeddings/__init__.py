@@ -44,6 +44,7 @@ async def refresh_club_embeddings_once() -> None:
         f'from {computed.membership_count} memberships; '
         f'{len(changed)} changed materially')
 
+    logger.info('storing embeddings in db: started')
     names = sorted(changed)
     for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
         batch = names[i:i + CLUB_EMBEDDINGS_WRITE_BATCH_SIZE]
@@ -53,20 +54,23 @@ async def refresh_club_embeddings_once() -> None:
                 names=batch,
                 embeddings=[changed[name] for name in batch],
             ))
+        logger.info(f'storing embeddings in db: batch {i}')
+    logger.info('storing embeddings in db: finished')
 
     if names:
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
-        logger.info(f'wrote {len(names)} embeddings')
+        logger.info(f'refreshed {len(names)} embeddings')
 
+    logger.info('re-pooling people: started')
     for i in itertools.count(1):
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_REFRESH_STALE_CLUB_VECTORS_BATCH, dict(
                 batch_size=CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
             ))
             batch_swept = tx.rowcount
-        if i % 1000 == 0:
-            logger.info(f're-pooling people: {i} batches so far')
+        if i % 10 == 0:
+            logger.info(f're-pooling people: {i * CLUB_EMBEDDINGS_WRITE_BATCH_SIZE} people so far')
         if batch_swept < CLUB_EMBEDDINGS_WRITE_BATCH_SIZE:
             break
 
