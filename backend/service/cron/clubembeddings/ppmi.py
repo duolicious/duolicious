@@ -2,6 +2,7 @@ import logging
 import numpy
 import numpy.typing as npt
 from collections.abc import Callable, Mapping, Sequence
+from serviceshared.duoenv.cron import CLUB_EMBEDDINGS_SMOOTHING
 
 logger = logging.getLogger(__name__)
 
@@ -228,14 +229,15 @@ def club_embeddings_from_memberships(
     cj = (unique_keys & numpy.uint64(0xFFFFFFFF)).astype(numpy.int64)
     counts = counts_.astype(numpy.float64)
 
-    total = counts.sum() * 2
     marginals = numpy.clip(
         numpy.bincount(ci, weights=counts, minlength=club_count) +
         numpy.bincount(cj, weights=counts, minlength=club_count),
         1,
         None,
     )
-    pmi = numpy.log(counts * total / (marginals[ci] * marginals[cj]))
+    smoothed = marginals ** CLUB_EMBEDDINGS_SMOOTHING
+    total = counts.sum() * 2 * smoothed.sum() / marginals.sum()
+    pmi = numpy.log(counts * total / (smoothed[ci] * smoothed[cj]))
     positive = pmi > 0
     if not positive.any():
         return {}
@@ -256,7 +258,7 @@ def club_embeddings_from_memberships(
     ], dtype=numpy.int64)
     logger.info(
         f'factorizing {len(ppmi)} positive ppmi pairs over '
-        f'{len(embedded)} clubs; '
+        f'{len(embedded)} clubs (smoothing {CLUB_EMBEDDINGS_SMOOTHING}); '
         f'{len(known)} have previous embeddings')
 
     if len(known) < _WARM_START_MIN_COVERAGE * len(embedded):
