@@ -35,7 +35,9 @@ jc POST /join-club -d '{ "name": "tinier club" }'
 
 # Clubs below the embedding member floor are excluded from the
 # factorization, so pad both clubs past ten members with users who are
-# hidden from search.
+# hidden from search. The second, disjoint pair of clubs keeps the
+# universe non-degenerate: with a single pair type, its lift is exactly
+# 2 and the shifted PPMI prunes it.
 for i in $(seq 1 8)
 do
   ../util/create-user.sh "filler$i" 0 0
@@ -43,13 +45,20 @@ do
   jc POST /join-club -d '{ "name": "tiny club" }'
   jc POST /join-club -d '{ "name": "tinier club" }'
 done
+for i in $(seq 9 18)
+do
+  ../util/create-user.sh "filler$i" 0 0
+  assume_role "filler$i"
+  jc POST /join-club -d '{ "name": "padding club" }'
+  jc POST /join-club -d '{ "name": "paddinger club" }'
+done
 q "update person set hide_me_from_strangers = true where name like 'filler%'"
 
 embeddings_exist () {
   [[ "$(q "
     select count(*) from club
     where embedding != array_full(64, 0)::vector(64)
-  ")" = 2 ]]
+  ")" = 4 ]]
 }
 
 count=0
@@ -72,7 +81,7 @@ nonzero_vectors () {
     where club_vector != array_full(64, 0)::vector(64)
   "
 }
-assert_eventually "10" nonzero_vectors
+assert_eventually "20" nonzero_vectors
 
 search_names_in_order () {
   c GET "/search?n=10&o=0" | jq -r '[.[].name] | join(" ")'
