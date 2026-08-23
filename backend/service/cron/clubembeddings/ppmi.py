@@ -7,21 +7,11 @@ logger = logging.getLogger(__name__)
 
 DIMENSIONS = 64
 
-_PPMI_SHIFT = float(numpy.log(2))
-
 _MIN_CLUB_MEMBERS = 10
 
-_OVERSAMPLED_DIMENSIONS = 128
 _POWER_ITERATIONS = 6
 
-_SVD_SEED = 0
-
 _MATMUL_BLOCK = 16
-
-_SUBSPACE_STEPS = 16
-_WARM_PROBE_COLUMNS = 16
-_CONVERGED_SUBSPACE_DRIFT = 1e-9
-_WARM_START_MIN_COVERAGE = 0.5
 
 _UNCHANGED_MIN_COSINE = 0.999
 _UNCHANGED_MAX_NORM_DRIFT = 1e-2
@@ -105,13 +95,10 @@ def _top_positive_columns(
 def _randomized_subspace(
     matmul: SparseMatmul,
     matrix_size: int,
-    seed: int,
 ) -> FloatArray:
-    oversampled = min(_OVERSAMPLED_DIMENSIONS, matrix_size)
-
-    rng = numpy.random.default_rng(seed)
+    rng = numpy.random.default_rng(0)
     probes = rng.standard_normal(
-        (matrix_size, oversampled)).astype(numpy.float32)
+        (matrix_size, min(128, matrix_size))).astype(numpy.float32)
     logger.info('cold start: projecting probes')
     q, _ = numpy.linalg.qr(matmul(probes))
     for i in range(_POWER_ITERATIONS):
@@ -126,12 +113,10 @@ def _subspace_iteration(
     matmul: SparseMatmul,
     w0: FloatArray,
     steps: int,
-    seed: int,
 ) -> FloatArray:
-    rng = numpy.random.default_rng(seed)
+    rng = numpy.random.default_rng(0)
     probes = rng.standard_normal(
-        (w0.shape[0], min(_WARM_PROBE_COLUMNS, w0.shape[0]))
-    ).astype(numpy.float32)
+        (w0.shape[0], min(16, w0.shape[0]))).astype(numpy.float32)
     q, _ = numpy.linalg.qr(
         numpy.concatenate([w0, probes], axis=1))
     q = q.astype(numpy.float32)
@@ -146,7 +131,7 @@ def _subspace_iteration(
         logger.info(
             f'warm start: step {step + 1}/{steps}: '
             f'subspace drift {drift:.3g}')
-        if drift < _CONVERGED_SUBSPACE_DRIFT:
+        if drift < 1e-9:
             logger.info(
                 f'warm start: converged after {step + 1} of {steps} steps')
             break
@@ -177,8 +162,7 @@ def _aligned_to_previous(
 def club_embeddings_from_memberships(
     memberships: Sequence[Membership],
     previous: Mapping[str, FloatArray],
-    seed: int = _SVD_SEED,
-    steps: int = _SUBSPACE_STEPS,
+    steps: int = 16,
 ) -> dict[str, FloatArray]:
     if not memberships:
         return {}
@@ -232,7 +216,7 @@ def club_embeddings_from_memberships(
     )
     total = counts.sum() * 2
     pmi = numpy.log(counts * total / (marginals[ci] * marginals[cj]))
-    pmi -= _PPMI_SHIFT
+    pmi -= numpy.log(2)
     positive = pmi > 0
     if not positive.any():
         return zeroed
@@ -253,18 +237,18 @@ def club_embeddings_from_memberships(
     ], dtype=numpy.int64)
     logger.info(
         f'factorizing {len(ppmi)} shifted ppmi pairs over '
-        f'{len(embedded)} clubs (shift {_PPMI_SHIFT:.3f}); '
+        f'{len(embedded)} clubs; '
         f'{len(known)} have previous embeddings')
 
-    if len(known) < _WARM_START_MIN_COVERAGE * len(embedded):
+    if len(known) < 0.5 * len(embedded):
         logger.info('strategy: cold start (randomized subspace)')
-        w = _randomized_subspace(matmul, club_count, seed)
+        w = _randomized_subspace(matmul, club_count)
     else:
         logger.info('strategy: warm start (subspace iteration)')
         w0 = numpy.zeros((club_count, DIMENSIONS), dtype=numpy.float32)
         for i in known:
             w0[i] = previous[str(unique_clubs[i])]
-        w = _subspace_iteration(matmul, w0, steps, seed)
+        w = _subspace_iteration(matmul, w0, steps)
 
     w = _top_positive_columns(w, matmul)
 
