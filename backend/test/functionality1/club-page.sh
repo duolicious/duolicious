@@ -147,6 +147,17 @@ related_clubs_are_ranked_by_embedding_similarity () {
     jc POST /join-club -d '{ "name": "crochet" }'
   done
 
+  # An unrelated co-occurrence, without which knitting/crochet is the
+  # only pair in the universe, its lift is exactly 2, and the shifted
+  # PPMI prunes it. Both clubs clear the embedding floor (10) but not
+  # the page floor (50), so the related-clubs assertions are untouched.
+  for i in $(seq 1 12); do
+    ../util/create-user.sh "weaver$i" 0 0
+    assume_role "weaver$i"
+    jc POST /join-club -d '{ "name": "sewing" }'
+    jc POST /join-club -d '{ "name": "embroidery" }'
+  done
+
   # Wait for the stats cron (all 52 joins), the embeddings cron, and the
   # count-delta fold (the page's related list only shows clubs whose
   # count_members clears the display floor) before issuing the GET that
