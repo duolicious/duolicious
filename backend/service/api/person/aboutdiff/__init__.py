@@ -1,7 +1,7 @@
 import difflib
 import re
 from typing import Tuple
-from serviceshared.util.timeout import run_with_timeout
+from serviceshared.util.timeout import run_in_subprocess
 
 
 # TODO: This doesn't work for right-to-left languages like Arabic
@@ -12,7 +12,7 @@ BOUNDARY_CHARS = '.!?\n'
 
 def get_last_addition(old: str, new: str) -> Tuple[int, int] | None:
     try:
-        sm = run_with_timeout(
+        sm = run_in_subprocess(
             0.5,
             difflib.SequenceMatcher,
             None,

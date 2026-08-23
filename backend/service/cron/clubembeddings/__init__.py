@@ -5,7 +5,7 @@ import random
 from psycopg.errors import DeadlockDetected, QueryCanceled
 from serviceshared.database import api_tx
 from serviceshared.util import is_offpeak
-from serviceshared.util.timeout import run_with_timeout
+from serviceshared.util.timeout import run_in_subprocess
 from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 from service.cron.clubembeddings.snapshot import compute_club_embeddings
 from service.cron.clubembeddings.sql import (
@@ -14,7 +14,6 @@ from service.cron.clubembeddings.sql import (
     Q_UPDATE_CLUB_EMBEDDINGS,
 )
 from serviceshared.duoenv.cron import (
-    CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
     CLUB_EMBEDDINGS_POLL_SECONDS,
     CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
     CLUB_VECTOR_REPOOL_BATCH_SIZE,
@@ -30,13 +29,11 @@ async def refresh_club_embeddings_once() -> None:
             OFFPEAK_MAX_LOAD_PCT, 'refresh_club_embeddings_once'):
         return
 
-    logger.info(
-        f'computing embeddings: started '
-        f'(timeout {CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS}s)')
+    logger.info('computing embeddings: started')
 
     computed = await asyncio.to_thread(
-        run_with_timeout,
-        CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
+        run_in_subprocess,
+        None,
         compute_club_embeddings,
     )
     changed = computed.changed

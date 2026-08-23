@@ -46,8 +46,8 @@ def _worker(
         conn.close()
 
 
-def run_with_timeout(
-    seconds: float,
+def run_in_subprocess(
+    seconds: float | None,
     target: Callable[_P, _R],
     /,
     *args: _P.args,
@@ -56,12 +56,13 @@ def run_with_timeout(
     """
     Run ``target(*args, **kwargs)`` in a separate process.
 
-    • Returns result if it finishes within *seconds*.
+    • Returns result if it finishes within *seconds* (no deadline when
+      *seconds* is None).
     • Propagates exceptions with original traceback.
     • Raises :class:`TimeoutError` if the limit is exceeded and guarantees
       the child is force‑killed so it no longer consumes CPU.
     """
-    if seconds <= 0:
+    if seconds is not None and seconds <= 0:
         raise ValueError("seconds must be > 0")
 
     ctx = get_context("spawn")  # safest default
