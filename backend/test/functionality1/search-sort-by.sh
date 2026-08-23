@@ -33,6 +33,18 @@ jc POST /answer -d '{ "question_id": 1002, "answer": false, "public": false }'
 jc POST /join-club -d '{ "name": "tiny club" }'
 jc POST /join-club -d '{ "name": "tinier club" }'
 
+# Clubs below the embedding member floor are excluded from the
+# factorization, so pad both clubs past ten members with users who are
+# hidden from search.
+for i in $(seq 1 8)
+do
+  ../util/create-user.sh "filler$i" 0 0
+  assume_role "filler$i"
+  jc POST /join-club -d '{ "name": "tiny club" }'
+  jc POST /join-club -d '{ "name": "tinier club" }'
+done
+q "update person set hide_me_from_strangers = true where name like 'filler%'"
+
 embeddings_exist () {
   [[ "$(q "
     select count(*) from club
@@ -53,16 +65,14 @@ while ! embeddings_exist; do
   sleep 1
 done
 
-echo 'Signing in re-pools the club vector against the fresh embeddings'
-assume_role clubby
-assume_role searcher
+echo 'The refresh queue re-pools club vectors against the fresh embeddings'
 nonzero_vectors () {
   q "
     select count(*) from person
     where club_vector != array_full(64, 0)::vector(64)
   "
 }
-assert_eventually "2" nonzero_vectors
+assert_eventually "10" nonzero_vectors
 
 search_names_in_order () {
   c GET "/search?n=10&o=0" | jq -r '[.[].name] | join(" ")'
