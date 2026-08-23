@@ -88,17 +88,62 @@ class TestClubEmbeddings(unittest.TestCase):
             cosine(a_person, b_person),
         )
 
-    def test_procrustes_alignment_stabilizes_reruns(self) -> None:
+    def test_warm_reruns_converge_to_no_writes(self) -> None:
         memberships = community_memberships()
-        first = club_embeddings_from_memberships(memberships, {}, seed=0)
-        realigned = club_embeddings_from_memberships(
-            memberships, first, seed=1)
+        first = club_embeddings_from_memberships(memberships, {})
+        settled = club_embeddings_from_memberships(
+            memberships, first, steps=300)
+
+        rerun = club_embeddings_from_memberships(
+            memberships, settled, steps=300)
+        self.assertEqual(changed_embeddings(rerun, settled), {})
+
+    def test_warm_rerun_is_stable_under_small_churn(self) -> None:
+        memberships = community_memberships()
+        first = club_embeddings_from_memberships(memberships, {})
+        settled = club_embeddings_from_memberships(
+            memberships, first, steps=300)
+
+        churned = memberships + [(0, A_CLUBS[4])]
+        warm = club_embeddings_from_memberships(churned, settled)
 
         cosines = [
-            cosine(first[name], realigned[name])
-            for name in first
+            cosine(warm[name], settled[name])
+            for name in settled
         ]
-        self.assertGreater(float(numpy.mean(cosines)), 0.9)
+        self.assertGreater(min(cosines), 0.9)
+
+        within = [
+            cosine(warm[a], warm[b])
+            for a in A_CLUBS
+            for b in A_CLUBS
+            if a < b
+        ]
+        across = [
+            cosine(warm[a], warm[b])
+            for a in A_CLUBS
+            for b in B_CLUBS
+        ]
+        self.assertGreater(min(within), max(across))
+
+    def test_new_club_folds_into_the_existing_space(self) -> None:
+        memberships = community_memberships()
+        first = club_embeddings_from_memberships(memberships, {})
+
+        extended = memberships + [
+            (person, 'a_newcomer')
+            for person in range(10)
+        ]
+        warm = club_embeddings_from_memberships(extended, first)
+
+        self.assertIn('a_newcomer', warm)
+        to_a = max(
+            cosine(warm['a_newcomer'], warm[a]) for a in A_CLUBS
+        )
+        to_b = max(
+            cosine(warm['a_newcomer'], warm[b]) for b in B_CLUBS
+        )
+        self.assertGreater(to_a, to_b)
 
     def test_pgvector_round_trip(self) -> None:
         vec = numpy.array([0.25, -1, 0, 1.5], dtype=numpy.float32)
@@ -130,11 +175,3 @@ class TestClubEmbeddings(unittest.TestCase):
 
         self.assertEqual(
             sorted(changed), ['brand_new', 'rescaled', 'rotated'])
-
-    def test_identical_reruns_produce_no_writes(self) -> None:
-        memberships = community_memberships()
-        first = club_embeddings_from_memberships(memberships, {})
-        rerun = club_embeddings_from_memberships(memberships, first)
-
-        changed = changed_embeddings(rerun, first)
-        self.assertEqual(changed, {})

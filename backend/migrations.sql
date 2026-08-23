@@ -9,3 +9,7 @@
 -- init-api.sql is the source of truth for the current schema; migrations.sql
 -- carries the same change to already-created databases.
 
+
+CREATE TABLE IF NOT EXISTS club_vector_refresh_queue (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE
+);

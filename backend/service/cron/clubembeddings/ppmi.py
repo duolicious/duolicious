@@ -1,6 +1,6 @@
 import numpy
 import numpy.typing as npt
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 DIMENSIONS = 64
 
@@ -11,12 +11,18 @@ _SVD_SEED = 0
 
 _MATMUL_BLOCK = 16
 
-_UNCHANGED_MIN_COSINE = 0.9995
-_UNCHANGED_MAX_NORM_DRIFT = 1e-3
+_GRADIENT_STEPS = 16
+_FOLD_IN_RIDGE = 1e-3
+_WARM_START_MIN_COVERAGE = 0.5
+
+_UNCHANGED_MIN_COSINE = 0.999
+_UNCHANGED_MAX_NORM_DRIFT = 1e-2
 
 FloatArray = npt.NDArray[numpy.float32]
 
 Membership = tuple[int, str]
+
+SparseMatmul = Callable[[FloatArray], FloatArray]
 
 
 def _cooccurrence_pair_keys(
@@ -47,13 +53,12 @@ def _cooccurrence_pair_keys(
     return numpy.concatenate(pair_chunks)
 
 
-def _randomized_svd_row_factors(
+def _sparse_matmul(
     rows: npt.NDArray[numpy.int64],
     cols: npt.NDArray[numpy.int64],
     vals: FloatArray,
     matrix_size: int,
-    seed: int,
-) -> FloatArray:
+) -> SparseMatmul:
     order = numpy.argsort(rows, kind='stable')
     rows, cols, vals = rows[order], cols[order], vals[order]
     row_uniq, row_starts = numpy.unique(rows, return_index=True)
@@ -66,6 +71,14 @@ def _randomized_svd_row_factors(
                 part, row_starts, axis=0)
         return out
 
+    return matmul
+
+
+def _randomized_svd_row_factors(
+    matmul: SparseMatmul,
+    matrix_size: int,
+    seed: int,
+) -> FloatArray:
     k = min(DIMENSIONS, matrix_size)
     oversampled = min(_OVERSAMPLED_DIMENSIONS, matrix_size)
 
@@ -85,31 +98,90 @@ def _randomized_svd_row_factors(
     return w
 
 
-def _align_to_previous(
+def _fold_in(
     w: FloatArray,
-    club_names: Sequence[str],
-    previous: Mapping[str, FloatArray],
+    matmul: SparseMatmul,
+    indexes: npt.NDArray[numpy.int64],
 ) -> FloatArray:
-    common = [
-        (i, previous[name])
-        for i, name in enumerate(club_names)
-        if name in previous
-    ]
-    if not common:
+    if len(indexes) == 0:
         return w
 
-    indexes = [i for i, _ in common]
-    w_old = numpy.stack([vec for _, vec in common])
-    u, _, vt = numpy.linalg.svd(w[indexes].T @ w_old)
-    rotation = (u @ vt).astype(numpy.float32)
+    gram = (w.T @ w).astype(numpy.float64)
+    ridge = _FOLD_IN_RIDGE * max(float(numpy.trace(gram)) / DIMENSIONS, 1.0)
+    regularized = gram + ridge * numpy.eye(DIMENSIONS)
+    targets = matmul(w)[indexes].astype(numpy.float64)
 
-    return w @ rotation
+    w = w.copy()
+    w[indexes] = numpy.linalg.solve(
+        regularized, targets.T).T.astype(numpy.float32)
+    return w
+
+
+def _exact_line_search(
+    w: FloatArray,
+    grad: FloatArray,
+    m_w: FloatArray,
+    m_grad: FloatArray,
+) -> float:
+    p = (w.T @ w).astype(numpy.float64)
+    c = (w.T @ grad + grad.T @ w).astype(numpy.float64)
+    r = (grad.T @ grad).astype(numpy.float64)
+
+    m_wg = float((w.astype(numpy.float64) *
+                  m_grad.astype(numpy.float64)).sum())
+    m_gg = float((grad.astype(numpy.float64) *
+                  m_grad.astype(numpy.float64)).sum())
+
+    c0 = -2 * float((p * c).sum()) + 4 * m_wg
+    c1 = 2 * (float((c * c).sum()) + 2 * float((p * r).sum())) - 4 * m_gg
+    c2 = -6 * float((c * r).sum())
+    c3 = 4 * float((r * r).sum())
+
+    if c0 >= 0 or c3 <= 0:
+        return 0.0
+
+    def phi(t: float) -> float:
+        return (c0 * t
+                + c1 * t * t / 2
+                + c2 * t ** 3 / 3
+                + c3 * t ** 4 / 4)
+
+    candidates = [
+        float(t.real)
+        for t in numpy.roots([c3, c2, c1, c0])
+        if abs(t.imag) < 1e-9 * (abs(t.real) + 1e-30) and t.real > 0
+    ]
+    if not candidates:
+        return 0.0
+
+    return min(candidates, key=phi)
+
+
+def _warm_started_row_factors(
+    matmul: SparseMatmul,
+    w0: FloatArray,
+    steps: int,
+) -> FloatArray:
+    w = w0.copy()
+    for _ in range(steps):
+        m_w = matmul(w)
+        grad = 4 * (w @ (w.T @ w) - m_w)
+        grad_scale = float((grad * grad).sum())
+        if grad_scale <= 1e-12 * max(float((w * w).sum()), 1.0):
+            break
+        m_grad = matmul(grad)
+        t = _exact_line_search(w, grad, m_w, m_grad)
+        if t <= 0:
+            break
+        w = (w - t * grad).astype(numpy.float32)
+    return w
 
 
 def club_embeddings_from_memberships(
     memberships: Sequence[Membership],
     previous: Mapping[str, FloatArray],
     seed: int = _SVD_SEED,
+    steps: int = _GRADIENT_STEPS,
 ) -> dict[str, FloatArray]:
     if not memberships:
         return {}
@@ -150,16 +222,30 @@ def club_embeddings_from_memberships(
     ci, cj = ci[positive], cj[positive]
     ppmi = pmi[positive].astype(numpy.float32)
 
-    w = _randomized_svd_row_factors(
+    matmul = _sparse_matmul(
         rows=numpy.concatenate([ci, cj]),
         cols=numpy.concatenate([cj, ci]),
         vals=numpy.concatenate([ppmi, ppmi]),
         matrix_size=club_count,
-        seed=seed,
     )
-    w = _align_to_previous(w, list(unique_clubs), previous)
 
     embedded = numpy.unique(numpy.concatenate([ci, cj]))
+    known = numpy.array([
+        i for i in embedded if str(unique_clubs[i]) in previous
+    ], dtype=numpy.int64)
+
+    if len(known) < _WARM_START_MIN_COVERAGE * len(embedded):
+        w = _randomized_svd_row_factors(matmul, club_count, seed)
+    else:
+        w0 = numpy.zeros((club_count, DIMENSIONS), dtype=numpy.float32)
+        for i in known:
+            w0[i] = previous[str(unique_clubs[i])]
+        new = numpy.array([
+            i for i in embedded if str(unique_clubs[i]) not in previous
+        ], dtype=numpy.int64)
+        w0 = _fold_in(w0, matmul, new)
+        w = _warm_started_row_factors(matmul, w0, steps)
+
     return {str(unique_clubs[i]): w[i] for i in embedded}
 
 

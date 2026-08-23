@@ -1,15 +1,15 @@
 import asyncio
-import itertools
 import logging
 import random
 
-from serviceshared.commonsql import Q_REFRESH_STALE_CLUB_VECTORS_BATCH
 from serviceshared.database import api_tx
 from serviceshared.util import is_offpeak
 from serviceshared.util.timeout import run_with_timeout
 from service.cron.cronutil import log_stacktrace, MAX_RANDOM_START_DELAY
 from service.cron.clubembeddings.snapshot import compute_club_embeddings
 from service.cron.clubembeddings.sql import (
+    Q_QUEUE_MEMBER_CLUB_VECTOR_REFRESHES,
+    Q_REFRESH_QUEUED_CLUB_VECTORS,
     Q_STAMP_CLUB_EMBEDDING_REFRESH,
     Q_UPDATE_CLUB_EMBEDDINGS,
 )
@@ -17,6 +17,8 @@ from serviceshared.duoenv.cron import (
     CLUB_EMBEDDINGS_COMPUTE_TIMEOUT_SECONDS,
     CLUB_EMBEDDINGS_POLL_SECONDS,
     CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
+    CLUB_VECTOR_REPOOL_BATCH_SIZE,
+    CLUB_VECTOR_REPOOL_POLL_SECONDS,
     OFFPEAK_MAX_LOAD_PCT,
 )
 
@@ -44,8 +46,8 @@ async def refresh_club_embeddings_once() -> None:
         f'from {computed.membership_count} memberships; '
         f'{len(changed)} changed materially')
 
-    logger.info('storing embeddings in db: started')
     names = sorted(changed)
+    queued = 0
     for i in range(0, len(names), CLUB_EMBEDDINGS_WRITE_BATCH_SIZE):
         batch = names[i:i + CLUB_EMBEDDINGS_WRITE_BATCH_SIZE]
 
@@ -54,27 +56,33 @@ async def refresh_club_embeddings_once() -> None:
                 names=batch,
                 embeddings=[changed[name] for name in batch],
             ))
-        logger.info(f'storing embeddings in db: batch {i}')
-    logger.info('storing embeddings in db: finished')
+            await tx.execute(Q_QUEUE_MEMBER_CLUB_VECTOR_REFRESHES, dict(
+                names=batch,
+            ))
+            queued += tx.rowcount
 
     if names:
         async with api_tx('READ COMMITTED') as tx:
             await tx.execute(Q_STAMP_CLUB_EMBEDDING_REFRESH)
-        logger.info(f'refreshed {len(names)} embeddings')
+        logger.info(
+            f'wrote {len(names)} embeddings; '
+            f'queued {queued} members for re-pooling')
 
-    logger.info('re-pooling people: started')
-    for i in itertools.count(1):
+
+async def repool_queued_club_vectors_once() -> None:
+    repooled = 0
+    while True:
         async with api_tx('READ COMMITTED') as tx:
-            await tx.execute(Q_REFRESH_STALE_CLUB_VECTORS_BATCH, dict(
-                batch_size=CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
+            await tx.execute(Q_REFRESH_QUEUED_CLUB_VECTORS, dict(
+                batch_size=CLUB_VECTOR_REPOOL_BATCH_SIZE,
             ))
-            batch_swept = tx.rowcount
-        if i % 10 == 0:
-            logger.info(f're-pooling people: {i * CLUB_EMBEDDINGS_WRITE_BATCH_SIZE} people so far')
-        if batch_swept < CLUB_EMBEDDINGS_WRITE_BATCH_SIZE:
+            batch_repooled = tx.rowcount
+        repooled += batch_repooled
+        if batch_repooled < CLUB_VECTOR_REPOOL_BATCH_SIZE:
             break
 
-    logger.info(f're-pooling people: finished after {i} batches')
+    if repooled:
+        logger.info(f're-pooled {repooled} people from the refresh queue')
 
 
 async def refresh_club_embeddings_forever() -> None:
@@ -82,3 +90,10 @@ async def refresh_club_embeddings_forever() -> None:
     while True:
         await log_stacktrace(refresh_club_embeddings_once)
         await asyncio.sleep(CLUB_EMBEDDINGS_POLL_SECONDS)
+
+
+async def repool_queued_club_vectors_forever() -> None:
+    await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
+    while True:
+        await log_stacktrace(repool_queued_club_vectors_once)
+        await asyncio.sleep(CLUB_VECTOR_REPOOL_POLL_SECONDS)

@@ -615,6 +615,10 @@ CREATE TABLE IF NOT EXISTS club_embedding_refresh (
     CONSTRAINT id CHECK (id = 1)
 );
 
+CREATE TABLE IF NOT EXISTS club_vector_refresh_queue (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS club_stats (
     club_name TEXT PRIMARY KEY REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,
     stats_json JSONB NOT NULL,
