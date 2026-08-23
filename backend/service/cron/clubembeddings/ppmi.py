@@ -1,6 +1,9 @@
+import logging
 import numpy
 import numpy.typing as npt
 from collections.abc import Callable, Mapping, Sequence
+
+logger = logging.getLogger(__name__)
 
 DIMENSIONS = 64
 
@@ -86,7 +89,8 @@ def _randomized_svd_row_factors(
     probes = rng.standard_normal(
         (matrix_size, oversampled)).astype(numpy.float32)
     q, _ = numpy.linalg.qr(matmul(probes))
-    for _ in range(_POWER_ITERATIONS):
+    for i in range(_POWER_ITERATIONS):
+        logger.info(f'cold start: power iteration {i + 1}/{_POWER_ITERATIONS}')
         q, _ = numpy.linalg.qr(matmul(q))
     b = matmul(q).T
     _, s, vt = numpy.linalg.svd(b, full_matrices=False)
@@ -163,17 +167,25 @@ def _warm_started_row_factors(
     steps: int,
 ) -> FloatArray:
     w = w0.copy()
-    for _ in range(steps):
+    for step in range(steps):
         m_w = matmul(w)
         grad = 4 * (w @ (w.T @ w) - m_w)
         grad_scale = float((grad * grad).sum())
         if grad_scale <= 1e-12 * max(float((w * w).sum()), 1.0):
+            logger.info(
+                f'warm start: converged after {step} of {steps} steps')
             break
         m_grad = matmul(grad)
         t = _exact_line_search(w, grad, m_w, m_grad)
         if t <= 0:
+            logger.info(
+                f'warm start: no descent after {step} of {steps} steps')
             break
         w = (w - t * grad).astype(numpy.float32)
+        logger.info(
+            f'warm start: step {step + 1}/{steps}: '
+            f'gradient norm {grad_scale ** 0.5:.6g}, '
+            f'step size {t:.6g}')
     return w
 
 
@@ -233,16 +245,23 @@ def club_embeddings_from_memberships(
     known = numpy.array([
         i for i in embedded if str(unique_clubs[i]) in previous
     ], dtype=numpy.int64)
+    logger.info(
+        f'factorizing {len(ppmi)} positive ppmi pairs over '
+        f'{len(embedded)} clubs; '
+        f'{len(known)} have previous embeddings')
 
     if len(known) < _WARM_START_MIN_COVERAGE * len(embedded):
+        logger.info('strategy: cold start (randomized svd)')
         w = _randomized_svd_row_factors(matmul, club_count, seed)
     else:
+        logger.info('strategy: warm start (gradient descent)')
         w0 = numpy.zeros((club_count, DIMENSIONS), dtype=numpy.float32)
         for i in known:
             w0[i] = previous[str(unique_clubs[i])]
         new = numpy.array([
             i for i in embedded if str(unique_clubs[i]) not in previous
         ], dtype=numpy.int64)
+        logger.info(f'folding in {len(new)} new clubs')
         w0 = _fold_in(w0, matmul, new)
         w = _warm_started_row_factors(matmul, w0, steps)
 
