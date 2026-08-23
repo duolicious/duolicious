@@ -24,7 +24,8 @@ FROM
     person_club
 WHERE
     club_name = ANY(%(names)s::TEXT[])
-ON CONFLICT (person_id) DO NOTHING
+ON CONFLICT (person_id) DO UPDATE SET
+    person_id = EXCLUDED.person_id
 """
 
 Q_REFRESH_QUEUED_CLUB_VECTORS = f"""
