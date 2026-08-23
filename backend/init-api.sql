@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS person (
     personality VECTOR(47) NOT NULL DEFAULT array_full(47, 0),
     club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
     club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
+    club_sparse SPARSEVEC(1000000) NOT NULL DEFAULT '{}/1000000',
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,
@@ -572,13 +573,20 @@ CREATE TABLE IF NOT EXISTS verification_photo_hash (
     hash TEXT PRIMARY KEY
 );
 
+CREATE SEQUENCE IF NOT EXISTS club_id_seq;
+
 CREATE TABLE IF NOT EXISTS club (
     name TEXT NOT NULL,
+    -- Dimension index into person.club_sparse; must stay under the
+    -- SPARSEVEC(1000000) dimension bound.
+    id INT NOT NULL DEFAULT nextval('club_id_seq'),
     count_members INT NOT NULL DEFAULT 0,
     embedding VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
 
     PRIMARY KEY (name)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS club_id_idx ON club (id);
 
 CREATE TABLE IF NOT EXISTS person_club (
     person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -641,6 +649,20 @@ CREATE TABLE IF NOT EXISTS club_overlap (
     count_members_b INT NOT NULL,
     PRIMARY KEY (club_a, club_b)
 );
+
+-- Search's "Similar clubs" weights: for each pair of clubs sharing at least
+-- MIN_CLUB_OVERLAP_SEARCH_SHARED members, the squared fraction of b's members
+-- who are also in a. Unlike club_overlap (which feeds club pages), this has
+-- no per-club member floor.
+CREATE TABLE IF NOT EXISTS club_overlap_search (
+    club_a TEXT NOT NULL,
+    club_b TEXT NOT NULL,
+    weight REAL NOT NULL,
+    PRIMARY KEY (club_a, club_b)
+);
+
+CREATE INDEX IF NOT EXISTS club_overlap_search_a_weight_idx
+    ON club_overlap_search (club_a, weight DESC);
 
 CREATE TABLE IF NOT EXISTS club_top_answers (
     club_name TEXT PRIMARY KEY REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,

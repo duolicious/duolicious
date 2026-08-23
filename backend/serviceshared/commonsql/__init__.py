@@ -75,6 +75,21 @@ SET
         ),
         array_full(64, 0)::VECTOR(64)
     ),
+    club_sparse = COALESCE(
+        (
+            SELECT
+                (
+                    '{{' ||
+                    string_agg(club.id || ':1', ',' ORDER BY club.id) ||
+                    '}}/1000000'
+                )::SPARSEVEC(1000000)
+            FROM person_club
+            JOIN club
+            ON club.name = person_club.club_name
+            WHERE person_club.person_id = person.id
+        ),
+        '{{}}/1000000'::SPARSEVEC(1000000)
+    ),
     club_vector_computed_at = NOW()
 WHERE
     {where}

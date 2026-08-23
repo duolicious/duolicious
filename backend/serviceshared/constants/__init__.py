@@ -92,6 +92,19 @@ MIN_NOTABLE_TRAIT_SCORE = 10
 # cap only bites at the top of that quota.
 MAX_CLUBS_PER_PERSON_FOR_OVERLAP = 100
 
+# Search's "Similar clubs" weights. A club pair needs this many shared
+# members before its overlap counts as evidence of relatedness; below it,
+# co-membership is mostly chance and the pair is excluded entirely.
+MIN_CLUB_OVERLAP_SEARCH_SHARED = 5
+
+# Caps on the searcher-side weight vector: the strongest partners kept per
+# searcher club, and the strongest weights kept over all their clubs
+# combined. Tail weights beyond these caps are ~1e-6 and can't influence
+# any ranking, but unbounded weight vectors made 100-club searchers ~5x
+# slower to serve.
+SEARCHER_CLUB_WEIGHTS_PER_CLUB = 50
+SEARCHER_CLUB_WEIGHTS_MAX = 1900
+
 # What a visitor notification says. The periodic check can count the visitors
 # in its window but can't name one, so a lone visitor is "someone", while a
 # push sent as the visit happens knows exactly who it was.

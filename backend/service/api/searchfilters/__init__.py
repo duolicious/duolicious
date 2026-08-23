@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from textwrap import dedent, indent
 from typing import NamedTuple, TypeAlias
 
-from serviceshared.constants import LAST_ONLINE_NOW_SECONDS
+from serviceshared.constants import (
+    LAST_ONLINE_NOW_SECONDS,
+    SEARCHER_CLUB_WEIGHTS_MAX,
+    SEARCHER_CLUB_WEIGHTS_PER_CLUB,
+)
 from serviceshared.database import (
     Row,
     row_bool,
@@ -265,16 +269,47 @@ SELECT
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
     sort_by.name AS sort_by,
-    COALESCE(
-        (
-            SELECT l2_normalize(SUM(club.embedding))
+    (
+        WITH mine AS (
+            SELECT club_name
             FROM person_club
-            JOIN club
-            ON club.name = person_club.club_name
             WHERE person_club.person_id = person.id
         ),
-        array_full(64, 0)::VECTOR(64)
-    )::TEXT AS searcher_club_vector,
+        partners AS (
+            SELECT top_partners.club_b, top_partners.weight
+            FROM mine
+            CROSS JOIN LATERAL (
+                SELECT club_overlap_search.club_b, club_overlap_search.weight
+                FROM club_overlap_search
+                WHERE club_overlap_search.club_a = mine.club_name
+                ORDER BY club_overlap_search.weight DESC
+                LIMIT {SEARCHER_CLUB_WEIGHTS_PER_CLUB}
+            ) AS top_partners
+        ),
+        merged AS (
+            SELECT club.id, MAX(partners.weight) AS weight
+            FROM partners
+            JOIN club ON club.name = partners.club_b
+            WHERE partners.club_b NOT IN (SELECT club_name FROM mine)
+            GROUP BY club.id
+            ORDER BY weight DESC
+            LIMIT {SEARCHER_CLUB_WEIGHTS_MAX}
+        ),
+        weights AS (
+            SELECT id, weight FROM merged
+            UNION ALL
+            SELECT club.id, 1.0
+            FROM mine
+            JOIN club ON club.name = mine.club_name
+        )
+        SELECT COALESCE(
+            '{{' ||
+            string_agg(id || ':' || weight::FLOAT4, ',' ORDER BY id) ||
+            '}}/1000000',
+            '{{}}/1000000'
+        )
+        FROM weights
+    ) AS searcher_club_weights,
     EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
     person.height_cm AS searcher_height_cm,
 {_SEARCHER_ATTR_SELECTS},

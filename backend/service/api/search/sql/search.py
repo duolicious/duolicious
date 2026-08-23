@@ -106,7 +106,7 @@ _VERIFICATION_SATISFIED = sql_fragment("""
 """)
 
 _CLUB_DISTANCE = \
-    'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR'
+    'prospect.club_sparse <#> %(searcher_club_weights)s::SPARSEVEC(1000000)'
 
 
 def _prospect_select(sort_by_clubs: bool) -> str:
@@ -279,8 +279,8 @@ def build_uncached_search(
 
     sort_by_clubs = row_str(prefs, 'sort_by') == 'Similar clubs'
     if sort_by_clubs:
-        params['searcher_club_vector'] = row_str(
-            prefs, 'searcher_club_vector')
+        params['searcher_club_weights'] = row_str(
+            prefs, 'searcher_club_weights')
 
     reverse = two_way_filters(prefs)
     params.update(reverse.params)

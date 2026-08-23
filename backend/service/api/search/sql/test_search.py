@@ -44,7 +44,7 @@ def maximal_prefs() -> Row:
         distance_meters=1,
         club_preference=None,
         sort_by='Match percentage',
-        searcher_club_vector='[0]',
+        searcher_club_weights='{}/1000000',
         min_age=18,
         max_age=99,
         min_height_cm=1,
@@ -112,15 +112,16 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         match_sql, match_params = build_uncached_search(1, 10, 0, match_prefs)
         clubs_sql, clubs_params = build_uncached_search(1, 10, 0, clubs_prefs)
 
-        self.assertNotIn('club_vector', match_sql)
-        self.assertNotIn('searcher_club_vector', match_params)
+        self.assertNotIn('club_sparse', match_sql)
+        self.assertNotIn('searcher_club_weights', match_params)
 
         self.assertIn(
-            'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR',
+            'prospect.club_sparse <#> '
+            '%(searcher_club_weights)s::SPARSEVEC(1000000)',
             clubs_sql,
         )
-        self.assertNotIn('-(prospect.club_vector', clubs_sql)
-        self.assertEqual(clubs_params['searcher_club_vector'], '[0]')
+        self.assertNotIn('-(prospect.club_sparse', clubs_sql)
+        self.assertEqual(clubs_params['searcher_club_weights'], '{}/1000000')
 
 
 if __name__ == '__main__':

@@ -116,6 +116,63 @@ async def migrate_unnormalized_emails() -> None:
         await tx.executemany(q, params_seq)
         logger.info('Done updating normalized emails in `banned_person` table')
 
+async def migrate_club_sparse() -> None:
+    async with api_tx() as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        q = """
+        SELECT
+            1
+        FROM
+            person
+        WHERE
+            club_sparse = '{}/1000000'::SPARSEVEC(1000000)
+        AND EXISTS (
+            SELECT
+                1
+            FROM
+                person_club
+            WHERE
+                person_club.person_id = person.id
+        )
+        LIMIT 1
+        """
+        await tx.execute(q)
+        if await tx.fetchone():
+            logger.info('Empty club_sparse columns found. Backfilling...')
+        else:
+            logger.info('club_sparse already backfilled. Skipping.')
+            return
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 900000') # 15 minutes
+        q = """
+        UPDATE person
+        SET club_sparse = filled.club_sparse
+        FROM (
+            SELECT
+                person_club.person_id,
+                (
+                    '{' ||
+                    string_agg(club.id || ':1', ',' ORDER BY club.id) ||
+                    '}/1000000'
+                )::SPARSEVEC(1000000) AS club_sparse
+            FROM
+                person_club
+            JOIN
+                club
+            ON
+                club.name = person_club.club_name
+            GROUP BY
+                person_club.person_id
+        ) AS filled
+        WHERE
+            person.id = filled.person_id
+        AND
+            person.club_sparse = '{}/1000000'::SPARSEVEC(1000000)
+        """
+        await tx.execute(q)
+        logger.info('Done backfilling club_sparse')
+
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
@@ -158,3 +215,5 @@ async def init_db() -> None:
         await tx.execute(banned_club_file)
 
     await migrate_unnormalized_emails()
+
+    await migrate_club_sparse()

@@ -4,6 +4,8 @@ from collections.abc import Mapping, Sequence
 
 DIMENSIONS = 64
 
+_CONTEXT_DISTRIBUTION_SMOOTHING = 0.75
+
 _OVERSAMPLED_DIMENSIONS = 128
 _POWER_ITERATIONS = 6
 
@@ -135,14 +137,15 @@ def club_embeddings_from_memberships(
     cj = (unique_keys & numpy.uint64(0xFFFFFFFF)).astype(numpy.int64)
     counts = counts_.astype(numpy.float64)
 
-    total = counts.sum() * 2
     marginals = numpy.clip(
         numpy.bincount(ci, weights=counts, minlength=club_count) +
         numpy.bincount(cj, weights=counts, minlength=club_count),
         1,
         None,
     )
-    pmi = numpy.log(counts * total / (marginals[ci] * marginals[cj]))
+    smoothed = marginals ** _CONTEXT_DISTRIBUTION_SMOOTHING
+    total = counts.sum() * 2 * smoothed.sum() / marginals.sum()
+    pmi = numpy.log(counts * total / (smoothed[ci] * smoothed[cj]))
     positive = pmi > 0
     if not positive.any():
         return {}
