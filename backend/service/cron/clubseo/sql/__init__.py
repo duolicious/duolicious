@@ -339,7 +339,7 @@ SELECT
     cs.stats_json,
     COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers_json,
     seo.stats_hash AS old_stats_hash,
-    EXTRACT(EPOCH FROM (NOW() - seo.generated_at)) / 86400.0 AS age_days
+    (EXTRACT(EPOCH FROM (NOW() - seo.generated_at)) / 86400.0)::FLOAT8 AS age_days
 FROM
     club c
 JOIN
