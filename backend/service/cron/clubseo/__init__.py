@@ -17,8 +17,6 @@ from serviceshared.util.coerce import (
 from service.cron.clubseo.sql import (
     Q_CLUB_STATS_BATCH,
     Q_CLUB_TOP_ANSWERS_BATCH,
-    Q_CLUB_OVERLAP_DELETE,
-    Q_CLUB_OVERLAP_REBUILD,
     Q_CLUB_SEO_NEXT_REFRESH,
     Q_CLUB_SEO_TOUCH,
     Q_CLUB_SEO_UPSERT,
@@ -33,7 +31,6 @@ import random
 from collections.abc import Mapping, Sequence
 
 from serviceshared.duoenv.cron import (
-    CLUB_OVERLAP_POLL_SECONDS,
     CLUB_SEO_BATCH_SIZE,
     CLUB_SEO_CONCURRENCY,
     CLUB_SEO_MAX_AGE_DAYS,
@@ -100,27 +97,6 @@ async def refresh_club_top_answers_forever() -> None:
         await asyncio.sleep(CLUB_TOP_ANSWERS_POLL_SECONDS)
 
 
-async def refresh_club_overlap_once() -> None:
-    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'refresh_club_overlap_once'):
-        return
-
-    # DELETE + INSERT in one transaction: readers see the previous snapshot
-    # under MVCC until commit, so there's no empty window.
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 600000')
-        # At the default work_mem (4 MB) both sorts and the HashAggregate
-        # spill to disk and the rebuild runs ~2x slower (~22 s vs ~12 s).
-        await tx.execute("SET LOCAL work_mem = '256MB'")
-        await tx.execute(Q_CLUB_OVERLAP_DELETE)
-        await tx.execute(Q_CLUB_OVERLAP_REBUILD)
-    logger.info('club_overlap: rebuilt')
-
-
-async def refresh_club_overlap_forever() -> None:
-    await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
-    while True:
-        await log_stacktrace(refresh_club_overlap_once)
-        await asyncio.sleep(CLUB_OVERLAP_POLL_SECONDS)
 
 
 def _top_pct(items: Sequence[Mapping[str, object]] | None) -> list[dict[str, object]]:

@@ -18,7 +18,6 @@ from service.cron.clubseo import (
     refresh_club_seo_forever,
     refresh_club_stats_forever,
     refresh_club_top_answers_forever,
-    refresh_club_overlap_forever,
 )
 from service.cron.garbagerecords import delete_garbage_records_forever
 from service.cron.messagenotifications import send_notifications_forever
@@ -87,8 +86,6 @@ async def main() -> None:
             refresh_club_stats_forever(),
 
             refresh_club_top_answers_forever(),
-
-            refresh_club_overlap_forever(),
 
             fold_club_count_deltas_forever(),
 

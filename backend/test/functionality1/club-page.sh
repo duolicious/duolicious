@@ -125,8 +125,8 @@ missing_club_404s () {
   ! c GET /club/this-club-does-not-exist || exit 1
 }
 
-related_clubs_are_ranked_by_overlap () {
-  echo 'A club lists overlapping clubs as related (via the club_overlap cron)'
+related_clubs_are_ranked_by_embedding_similarity () {
+  echo 'A club lists its nearest embedding neighbours as related'
 
   # Fresh club names: get_club memoises per name, so reusing one from an
   # earlier test would return its cached (empty-related) result.
@@ -147,18 +147,27 @@ related_clubs_are_ranked_by_overlap () {
     jc POST /join-club -d '{ "name": "crochet" }'
   done
 
-  # Wait for both the stats cron (all 52 joins) and the overlap rebuild
-  # (all 51 shared members) before issuing the GET that will be cached.
+  # Wait for the stats cron (all 52 joins), the embeddings cron, and the
+  # count-delta fold (the page's related list only shows clubs whose
+  # count_members clears the display floor) before issuing the GET that
+  # will be cached.
   wait_for "select 1 from club_stats where club_name = 'knitting' and (stats_json->>'member_count')::int = 52"
-  wait_for "select 1 from club_overlap where club_a = 'knitting' and club_b = 'crochet' and overlap = 51 and count_members_b = 51"
+  wait_for "
+    select 1 from club a, club b
+    where a.name = 'knitting' and b.name = 'crochet'
+    and a.embedding != array_full(64, 0)::vector(64)
+    and b.embedding != array_full(64, 0)::vector(64)
+    and a.count_members = 52
+    and b.count_members = 51"
 
   result=$(c GET /club/knitting)
   [[ "$(jq -r '.related_clubs[0].name'          <<< "$result")" == "crochet" ]]
   [[ "$(jq -r '.related_clubs[0].count_members' <<< "$result")" == "51" ]]
+  [[ "$(jq -r '.related_clubs[0] | has("overlap")' <<< "$result")" == "false" ]]
 }
 
 club_page_is_precomputed_and_served
 leading_slash_club_is_served_via_encoded_path
 small_club_is_not_a_page
 missing_club_404s
-related_clubs_are_ranked_by_overlap
+related_clubs_are_ranked_by_embedding_similarity

@@ -617,27 +617,6 @@ CREATE TABLE IF NOT EXISTS club_stats (
     computed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Directed co-membership counts; both directions stored so a club's
--- related list is a single PK range scan.
---
--- `count_members_b` is denormalised so the page read doesn't need to join
--- `club` per related row -- the planner mis-routes equality lookups on
--- club(name) through the trigram GiST (~50 ms cold per lookup).
---
--- club_a/club_b deliberately have NO foreign key to club. The per-row RI
--- check routes through that same trigram GiST and at production cap
--- settings the rebuild emits >100k pairs, pushing it past its statement
--- timeout. The table is fully rewritten every overlap-cron tick from
--- person_club (which is FK'd to club), so a deleted or renamed club
--- leaves stale rows for at most one cron interval.
-CREATE TABLE IF NOT EXISTS club_overlap (
-    club_a TEXT NOT NULL,
-    club_b TEXT NOT NULL,
-    overlap INT NOT NULL,
-    count_members_b INT NOT NULL,
-    PRIMARY KEY (club_a, club_b)
-);
-
 CREATE TABLE IF NOT EXISTS club_top_answers (
     club_name TEXT PRIMARY KEY REFERENCES club(name) ON DELETE CASCADE ON UPDATE CASCADE,
     answers_json JSONB NOT NULL DEFAULT '[]'::jsonb,

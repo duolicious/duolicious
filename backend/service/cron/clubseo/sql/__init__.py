@@ -5,7 +5,6 @@ from serviceshared.constants import (
     MIN_ANSWER_DIVERGENCE_PCT,
     MAX_CLUB_TOP_ANSWERS,
     MAX_CLUB_SAMPLE_MEMBERS,
-    MAX_CLUBS_PER_PERSON_FOR_OVERLAP,
 )
 
 # These live here (not in person/sql) so the cron process can run
@@ -386,54 +385,3 @@ ON CONFLICT (club_name) DO UPDATE SET
     generated_at = NOW()
 """
 
-Q_CLUB_OVERLAP_DELETE = """
-DELETE FROM club_overlap
-"""
-
-# Members of more than MAX_CLUBS_PER_PERSON_FOR_OVERLAP clubs are dropped:
-# a person in k clubs contributes k*(k-1) pairs, so without the cap a
-# handful of hyper-joiners dominate cost while adding only noise.
-# Both directions (a->b and b->a) are written so the read side is a
-# single PK range scan.
-Q_CLUB_OVERLAP_REBUILD = f"""
-WITH eligible_members AS MATERIALIZED (
-    SELECT
-        pc.person_id,
-        pc.club_name,
-        c.count_members
-    FROM
-        person_club pc
-    JOIN
-        club c ON c.name = pc.club_name AND c.count_members >= {MIN_CLUB_PAGE_MEMBERS}
-    WHERE
-        pc.activated
-    AND
-        pc.person_id IN (
-            SELECT person_id
-            FROM person_club
-            WHERE activated
-            GROUP BY person_id
-            HAVING COUNT(*) <= {MAX_CLUBS_PER_PERSON_FOR_OVERLAP}
-        )
-)
-INSERT INTO club_overlap (club_a, club_b, overlap, count_members_b)
-SELECT
-    a.club_name,
-    b.club_name,
-    COUNT(*)::int,
-    -- All rows in a given (a, b) group share the same b.count_members;
-    -- MAX is just a cheap "any-value" aggregate.
-    MAX(b.count_members)
-FROM
-    eligible_members a
-JOIN
-    eligible_members b
-ON
-    b.person_id = a.person_id
-AND
-    b.club_name <> a.club_name
-GROUP BY
-    a.club_name, b.club_name
-HAVING
-    COUNT(*) >= {MIN_CLUB_CELL_SIZE}
-"""

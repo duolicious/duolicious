@@ -85,13 +85,6 @@ MAX_LLM_PROMPT_FACTS = 6
 
 MIN_NOTABLE_TRAIT_SCORE = 10
 
-# Members of more than this many clubs are dropped from the co-membership
-# self-join. A person in k clubs contributes k*(k-1) pairs, so without a
-# cap a handful of hyper-joiners dominate the cost and contribute mostly
-# noise. Set to the gold-tier club quota (free is 50, gold is 100), so the
-# cap only bites at the top of that quota.
-MAX_CLUBS_PER_PERSON_FOR_OVERLAP = 100
-
 # What a visitor notification says. The periodic check can count the visitors
 # in its window but can't name one, so a lone visitor is "someone", while a
 # push sent as the visit happens knows exactly who it was.

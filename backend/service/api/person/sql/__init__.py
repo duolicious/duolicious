@@ -1956,8 +1956,8 @@ AND
 # club that's dropped below it 404s immediately rather than waiting for
 # the cron to clean up.
 #
-# Related clubs are ranked live (lift = n*N/(|A|*|B|), which reduces to
-# n/|B| for a fixed A) so the list stays fresh between overlap rebuilds.
+# Related clubs are the nearest neighbours of the club's embedding, ranked
+# live so the list follows each embedding refresh.
 Q_CLUB_PAGE_READ = f"""
 SELECT
     cs.stats_json,
@@ -1975,28 +1975,30 @@ LEFT JOIN
 LEFT JOIN LATERAL (
     SELECT json_agg(
         json_build_object(
-            'name',          club_b,
-            'count_members', count_members_b,
-            'overlap',       overlap
+            'name',          nearest.name,
+            'count_members', nearest.count_members
         )
-        ORDER BY score DESC
+        ORDER BY nearest.distance
     ) AS j
     FROM (
         SELECT
-            co.club_b,
-            co.count_members_b,
-            co.overlap,
-            co.overlap::float8 / co.count_members_b AS score
+            other.name,
+            other.count_members,
+            other.embedding <=> c.embedding AS distance
         FROM
-            club_overlap co
+            club other
         WHERE
-            co.club_a = c.name
+            other.name != c.name
         AND
-            co.count_members_b >= {MIN_CLUB_PAGE_MEMBERS}
+            other.count_members >= {MIN_CLUB_PAGE_MEMBERS}
+        AND
+            other.embedding != array_full(64, 0)::VECTOR(64)
+        AND
+            c.embedding != array_full(64, 0)::VECTOR(64)
         ORDER BY
-            score DESC
+            distance
         LIMIT {MAX_RELATED_CLUBS}
-    ) ranked
+    ) nearest
 ) rel ON TRUE
 WHERE
     c.name = %(club_name)s
