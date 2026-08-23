@@ -59,7 +59,7 @@ CLUB_EMBEDDINGS_GRADIENT_STEPS = \
 CLUB_VECTOR_REPOOL_POLL_SECONDS = \
     int_with('DUO_CRON_CLUB_VECTOR_REPOOL_POLL_SECONDS', 60)
 CLUB_VECTOR_REPOOL_BATCH_SIZE = \
-    int_with('DUO_CRON_CLUB_VECTOR_REPOOL_BATCH_SIZE', 500)
+    int_with('DUO_CRON_CLUB_VECTOR_REPOOL_BATCH_SIZE', 50)
 # When set, skip the OpenAI call and use this string. Lets the tests
 # exercise the cron without an API key.
 CLUB_SEO_MOCK_DESCRIPTION = str_or_none('DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION')
