@@ -88,10 +88,14 @@ def _randomized_svd_row_factors(
     rng = numpy.random.default_rng(seed)
     probes = rng.standard_normal(
         (matrix_size, oversampled)).astype(numpy.float32)
+    logger.info('cold start: projecting probes')
     q, _ = numpy.linalg.qr(matmul(probes))
     for i in range(_POWER_ITERATIONS):
-        logger.info(f'cold start: power iteration {i + 1}/{_POWER_ITERATIONS}')
+        logger.info(
+            f'cold start: power iteration {i + 1}/{_POWER_ITERATIONS}: '
+            f'started')
         q, _ = numpy.linalg.qr(matmul(q))
+    logger.info('cold start: computing the final decomposition')
     b = matmul(q).T
     _, s, vt = numpy.linalg.svd(b, full_matrices=False)
     w = (vt[:k].T * numpy.sqrt(s[:k])).astype(numpy.float32)
@@ -168,6 +172,7 @@ def _warm_started_row_factors(
 ) -> FloatArray:
     w = w0.copy()
     for step in range(steps):
+        logger.info(f'warm start: step {step + 1}/{steps}: started')
         m_w = matmul(w)
         grad = 4 * (w @ (w.T @ w) - m_w)
         grad_scale = float((grad * grad).sum())
@@ -197,6 +202,10 @@ def club_embeddings_from_memberships(
 ) -> dict[str, FloatArray]:
     if not memberships:
         return {}
+
+    logger.info(
+        f'building the co-occurrence matrix '
+        f'from {len(memberships)} memberships')
 
     person_ids = numpy.array([p for p, _ in memberships], dtype=numpy.int64)
     club_names = numpy.array([c for _, c in memberships], dtype=object)

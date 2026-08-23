@@ -20,6 +20,7 @@ class ComputedClubEmbeddings(NamedTuple):
 
 
 def compute_club_embeddings() -> ComputedClubEmbeddings:
+    logger.info('snapshot: loading memberships and previous embeddings')
     with psycopg.connect(
         host=DB_HOST,
         port=DB_PORT,
