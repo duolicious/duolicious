@@ -9,15 +9,3 @@
 -- init-api.sql is the source of truth for the current schema; migrations.sql
 -- carries the same change to already-created databases.
 
-
-CREATE TABLE IF NOT EXISTS club_vector_refresh_queue (
-    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS
-    idx__person_club__club_name__person_id
-    ON person_club (club_name, person_id);
-
-DROP INDEX IF EXISTS idx__person_club__activated__club_name__person_id;
-
-DROP TABLE IF EXISTS club_embedding_refresh;
