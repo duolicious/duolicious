@@ -15,6 +15,8 @@ _SVD_SEED = 0
 
 _MATMUL_BLOCK = 16
 
+_MIN_CLUB_MEMBERS = 10
+
 _GRADIENT_STEPS = 16
 _FOLD_IN_RIDGE = 1e-3
 _WARM_START_MIN_COVERAGE = 0.5
@@ -211,6 +213,22 @@ def club_embeddings_from_memberships(
     person_ids = numpy.array([p for p, _ in memberships], dtype=numpy.int64)
     club_names = numpy.array([c for _, c in memberships], dtype=object)
 
+    all_clubs, all_club_index = numpy.unique(club_names, return_inverse=True)
+    club_eligible = numpy.bincount(all_club_index) >= _MIN_CLUB_MEMBERS
+    zeroed = {
+        str(name): numpy.zeros(DIMENSIONS, dtype=numpy.float32)
+        for name in all_clubs[~club_eligible]
+        if str(name) in previous
+    }
+    logger.info(
+        f'excluded {int((~club_eligible).sum())} clubs with fewer than '
+        f'{_MIN_CLUB_MEMBERS} members; zeroing {len(zeroed)} of them')
+    kept = club_eligible[all_club_index]
+    person_ids = person_ids[kept]
+    club_names = club_names[kept]
+    if len(person_ids) == 0:
+        return zeroed
+
     _, person_index = numpy.unique(person_ids, return_inverse=True)
     unique_clubs, club_index = numpy.unique(club_names, return_inverse=True)
     club_count = len(unique_clubs)
@@ -222,7 +240,7 @@ def club_embeddings_from_memberships(
 
     pair_keys = _cooccurrence_pair_keys(clubs_by_person_order, person_starts)
     if len(pair_keys) == 0:
-        return {}
+        return zeroed
 
     unique_keys, counts_ = numpy.unique(pair_keys, return_counts=True)
     ci = (unique_keys >> numpy.uint64(32)).astype(numpy.int64)
@@ -240,7 +258,7 @@ def club_embeddings_from_memberships(
     pmi = numpy.log(counts * total / (smoothed[ci] * smoothed[cj]))
     positive = pmi > 0
     if not positive.any():
-        return {}
+        return zeroed
 
     ci, cj = ci[positive], cj[positive]
     ppmi = pmi[positive].astype(numpy.float32)
@@ -276,7 +294,7 @@ def club_embeddings_from_memberships(
         w0 = _fold_in(w0, matmul, new)
         w = _warm_started_row_factors(matmul, w0, steps)
 
-    return {str(unique_clubs[i]): w[i] for i in embedded}
+    return {str(unique_clubs[i]): w[i] for i in embedded} | zeroed
 
 
 def _materially_moved(new: FloatArray, old: FloatArray) -> bool:

@@ -15,15 +15,15 @@ B_CLUBS = [f'b{i}' for i in range(6)]
 
 def community_memberships() -> list[Membership]:
     memberships: list[Membership] = []
-    for person in range(20):
+    for person in range(200):
         for offset in range(3):
             memberships.append((person, A_CLUBS[(person + offset) % 6]))
         memberships.append((person, 'ubiquitous'))
-    for person in range(20, 40):
+    for person in range(200, 400):
         for offset in range(3):
             memberships.append((person, B_CLUBS[(person + offset) % 6]))
         memberships.append((person, 'ubiquitous'))
-    memberships.append((40, 'lonely'))
+    memberships.append((400, 'lonely'))
     return memberships
 
 
@@ -132,7 +132,7 @@ class TestClubEmbeddings(unittest.TestCase):
 
         extended = memberships + [
             (person, 'a_newcomer')
-            for person in range(10)
+            for person in range(60)
         ]
         warm = club_embeddings_from_memberships(extended, first)
 
@@ -144,6 +144,25 @@ class TestClubEmbeddings(unittest.TestCase):
             cosine(warm['a_newcomer'], warm[b]) for b in B_CLUBS
         )
         self.assertGreater(to_a, to_b)
+
+    def test_shrunken_clubs_are_zeroed_once(self) -> None:
+        memberships = community_memberships()
+        first = club_embeddings_from_memberships(memberships, {})
+        self.assertIn('a0', first)
+
+        shrunk = [
+            (person, club) for person, club in memberships
+            if club != 'a0' or person < 18
+        ]
+        second = club_embeddings_from_memberships(shrunk, first)
+        self.assertTrue(numpy.all(second['a0'] == 0))
+
+        stored = {
+            name: vec for name, vec in {**first, **second}.items()
+            if numpy.linalg.norm(vec) > 0
+        }
+        third = club_embeddings_from_memberships(shrunk, stored)
+        self.assertNotIn('a0', third)
 
     def test_pgvector_round_trip(self) -> None:
         vec = numpy.array([0.25, -1, 0, 1.5], dtype=numpy.float32)
