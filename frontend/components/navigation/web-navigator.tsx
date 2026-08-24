@@ -5,6 +5,7 @@ import {
   type ViewStyle,
   useWindowDimensions,
 } from 'react-native';
+import { useState } from 'react';
 import {
   createNavigatorFactory,
   type DefaultNavigatorOptions,
@@ -107,6 +108,14 @@ function WebNavigator<Navigation>({
 
   const { width: windowWidth } = useWindowDimensions();
 
+  const focusedRouteKey = state.routes[state.index].key;
+
+  const [loadedRouteKeys, setLoadedRouteKeys] = useState([focusedRouteKey]);
+
+  if (!loadedRouteKeys.includes(focusedRouteKey)) {
+    setLoadedRouteKeys([...loadedRouteKeys, focusedRouteKey]);
+  }
+
   return (
     <NavigationContent>
       <View
@@ -126,6 +135,16 @@ function WebNavigator<Navigation>({
         </View>
         <View style={[CONTENT_COLUMN_STYLE, { height: '100%' }]}>
           {state.routes.map((route, i) => {
+            const isFocused = i === state.index;
+
+            if (
+              !isFocused &&
+              !loadedRouteKeys.includes(route.key) &&
+              !state.preloadedRouteKeys.includes(route.key)
+            ) {
+              return null;
+            }
+
             return (
               <View
                 key={route.key}
@@ -133,7 +152,7 @@ function WebNavigator<Navigation>({
                   StyleSheet.absoluteFill,
                   {
                     paddingHorizontal: 20,
-                    display: i === state.index ? 'flex' : 'none',
+                    display: isFocused ? 'flex' : 'none',
                     borderRightWidth: 1,
                     borderColor: 'black',
                   },
