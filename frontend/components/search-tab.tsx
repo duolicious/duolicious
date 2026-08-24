@@ -2,6 +2,7 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -640,7 +641,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   return (
     <View style={styles.safeAreaView}>
       <DuoliciousTopNavBar>
-        {!isMobile() &&
+        {Platform.OS === 'web' &&
           <TopNavBarButton
             onPress={onPressRefresh}
             iconName="refresh"
@@ -692,7 +693,6 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         }
         ref={listRef}
         innerRef={observeListRef}
-        disableRefresh={true}
         emptyText={
           "No matches found. Try adjusting your search filters to include " +
           "more people."
