@@ -5,6 +5,7 @@ from serviceshared.constants import (
     MIN_ANSWER_DIVERGENCE_PCT,
     MAX_CLUB_TOP_ANSWERS,
     MAX_CLUB_SAMPLE_MEMBERS,
+    MAX_RELATED_CLUBS,
 )
 
 # These live here (not in person/sql) so the cron process can run
@@ -330,31 +331,68 @@ WITH target AS MATERIALIZED (
 SELECT COUNT(*) AS upserted_count FROM upserted
 """
 
-# top_answers_json is joined in here (rather than included in the stats
-# payload) so the LLM sees the freshest divergence facts even though the
-# answer-divergence refresh runs on its own slower cadence.
+# club_stats supplies nothing the prompt needs, but the club page joins it
+# too, so a club without a stats row would 404 and any copy generated for it
+# would be wasted spend. The join stays as that gate.
+#
+# related_clubs_json mirrors the nearest-neighbour ranking the club page
+# renders (person/sql's Q_CLUB_PAGE_READ), so the copy describes the same
+# neighbourhood a visitor sees. The neighbour search is a brute-force scan
+# per club, so it runs on the already-limited batch rather than on every
+# candidate row.
 Q_CLUB_SEO_NEXT_REFRESH = f"""
+WITH target AS MATERIALIZED (
+    SELECT
+        c.name,
+        c.embedding,
+        COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers_json,
+        seo.stats_hash AS old_stats_hash,
+        (EXTRACT(EPOCH FROM (NOW() - seo.generated_at)) / 86400.0)::FLOAT8 AS age_days
+    FROM
+        club c
+    JOIN
+        club_stats cs ON cs.club_name = c.name
+    LEFT JOIN
+        club_top_answers cta ON cta.club_name = c.name
+    LEFT JOIN
+        club_seo seo ON seo.club_name = c.name
+    WHERE
+        c.count_members >= {MIN_CLUB_PAGE_MEMBERS}
+    ORDER BY
+        seo.club_name IS NULL DESC,
+        seo.generated_at NULLS FIRST,
+        c.count_members DESC
+    LIMIT %(batch_size)s
+)
 SELECT
-    c.name,
-    cs.stats_json,
-    COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers_json,
-    seo.stats_hash AS old_stats_hash,
-    (EXTRACT(EPOCH FROM (NOW() - seo.generated_at)) / 86400.0)::FLOAT8 AS age_days
+    t.name,
+    t.top_answers_json,
+    t.old_stats_hash,
+    t.age_days,
+    COALESCE(rel.j, '[]'::json) AS related_clubs_json
 FROM
-    club c
-JOIN
-    club_stats cs ON cs.club_name = c.name
-LEFT JOIN
-    club_top_answers cta ON cta.club_name = c.name
-LEFT JOIN
-    club_seo seo ON seo.club_name = c.name
-WHERE
-    c.count_members >= {MIN_CLUB_PAGE_MEMBERS}
-ORDER BY
-    seo.club_name IS NULL DESC,
-    seo.generated_at NULLS FIRST,
-    c.count_members DESC
-LIMIT %(batch_size)s
+    target t
+LEFT JOIN LATERAL (
+    SELECT json_agg(nearest.name ORDER BY nearest.distance) AS j
+    FROM (
+        SELECT
+            other.name,
+            other.embedding <=> t.embedding AS distance
+        FROM
+            club other
+        WHERE
+            other.name != t.name
+        AND
+            other.count_members >= {MIN_CLUB_PAGE_MEMBERS}
+        AND
+            other.embedding != array_full(64, 0)::VECTOR(64)
+        AND
+            t.embedding != array_full(64, 0)::VECTOR(64)
+        ORDER BY
+            distance
+        LIMIT {MAX_RELATED_CLUBS}
+    ) nearest
+) rel ON TRUE
 """
 
 Q_CLUB_SEO_TOUCH = """

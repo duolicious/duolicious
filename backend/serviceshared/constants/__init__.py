@@ -83,8 +83,6 @@ MAX_CLUB_TOP_ANSWERS = 8
 MAX_RELATED_CLUBS = 8
 MAX_LLM_PROMPT_FACTS = 6
 
-MIN_NOTABLE_TRAIT_SCORE = 10
-
 # What a visitor notification says. The periodic check can count the visitors
 # in its window but can't name one, so a lone visitor is "someone", while a
 # push sent as the visit happens knows exactly who it was.
