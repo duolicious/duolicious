@@ -223,8 +223,11 @@ const GifPickerModal: React.FC = () => {
   );
 
   useEffect(() => {
+    if (!isShowing) {
+      return;
+    }
     debouncedFetchGifs(searchQuery);
-  }, [searchQuery, debouncedFetchGifs]);
+  }, [isShowing, searchQuery, debouncedFetchGifs]);
 
   useEffect(() => {
     return listen('show-gif-picker', () => {
@@ -232,9 +235,8 @@ const GifPickerModal: React.FC = () => {
       setSelectedGif(null);
       setSearchQuery('');
       setGifResults([]);
-      debouncedFetchGifs("");
     });
-  }, [debouncedFetchGifs]);
+  }, []);
 
   // Divide gifResults equally between three columns
   const columns = _.times<KlipyGif[]>(NUM_COLS, () => []);
