@@ -539,6 +539,8 @@ const GalleryScreen = ({
   }, [navigation, close, finishAndPop]);
 
   const onPressBack = useCallback(() => {
+    if (isFinishing.current) return;
+
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
