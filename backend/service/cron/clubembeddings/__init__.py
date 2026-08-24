@@ -18,13 +18,12 @@ from serviceshared.duoenv.cron import (
     CLUB_EMBEDDINGS_WRITE_BATCH_SIZE,
     CLUB_VECTOR_REPOOL_BATCH_SIZE,
     CLUB_VECTOR_REPOOL_POLL_SECONDS,
+    CLUB_VECTOR_WRITE_RETRY_SECONDS,
+    CLUB_VECTOR_WRITE_TIMEOUT_MS,
     OFFPEAK_MAX_LOAD_PCT,
 )
 
 logger = logging.getLogger(__name__)
-
-_WRITE_STATEMENT_TIMEOUT_MS = 60000
-_LOCK_RETRY_SECONDS = 1
 
 
 async def refresh_club_embeddings_once() -> None:
@@ -57,7 +56,7 @@ async def refresh_club_embeddings_once() -> None:
             async with api_tx('READ COMMITTED') as tx:
                 await tx.execute(
                     f'SET LOCAL statement_timeout = '
-                    f'{_WRITE_STATEMENT_TIMEOUT_MS}')
+                    f'{CLUB_VECTOR_WRITE_TIMEOUT_MS}')
                 await tx.execute(Q_UPDATE_CLUB_EMBEDDINGS, dict(
                     names=batch,
                     embeddings=[changed[name] for name in batch],
@@ -70,7 +69,7 @@ async def refresh_club_embeddings_once() -> None:
         except (DeadlockDetected, QueryCanceled):
             logger.warning(
                 'storing embeddings: batch timed out or deadlocked; retrying')
-            await asyncio.sleep(_LOCK_RETRY_SECONDS)
+            await asyncio.sleep(CLUB_VECTOR_WRITE_RETRY_SECONDS)
             continue
 
         queued += batch_queued
@@ -91,7 +90,7 @@ async def repool_queued_club_vectors_once() -> None:
             async with api_tx('READ COMMITTED') as tx:
                 await tx.execute(
                     f'SET LOCAL statement_timeout = '
-                    f'{_WRITE_STATEMENT_TIMEOUT_MS}')
+                    f'{CLUB_VECTOR_WRITE_TIMEOUT_MS}')
                 await tx.execute(Q_REFRESH_QUEUED_CLUB_VECTORS, dict(
                     batch_size=CLUB_VECTOR_REPOOL_BATCH_SIZE,
                 ))
@@ -99,7 +98,7 @@ async def repool_queued_club_vectors_once() -> None:
         except (DeadlockDetected, QueryCanceled):
             logger.warning(
                 're-pooling: batch timed out or deadlocked; retrying')
-            await asyncio.sleep(_LOCK_RETRY_SECONDS)
+            await asyncio.sleep(CLUB_VECTOR_WRITE_RETRY_SECONDS)
             continue
         if batch_repooled:
             repooled += batch_repooled
