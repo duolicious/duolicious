@@ -81,7 +81,7 @@ MIN_ANSWER_DIVERGENCE_PCT = 15
 
 MAX_CLUB_TOP_ANSWERS = 8
 MAX_RELATED_CLUBS = 8
-MAX_LLM_PROMPT_FACTS = 6
+MAX_LLM_PROMPT_ANSWERS = 2
 
 # What a visitor notification says. The periodic check can count the visitors
 # in its window but can't name one, so a lone visitor is "someone", while a
