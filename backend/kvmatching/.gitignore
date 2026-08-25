@@ -1,0 +1,7 @@
+# Nothing derived from the database is written here (see paths.py); these
+# remain as a backstop in case KV_WORK_DIR is pointed at the repo.
+data/
+runs/
+venv/
+__pycache__/
+NOTES.md
