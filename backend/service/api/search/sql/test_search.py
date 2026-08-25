@@ -57,6 +57,8 @@ def maximal_prefs() -> Row:
         searcher_person_id=1,
         searcher_coordinates='POINT(0 0)',
         searcher_personality='[0]',
+        searcher_kv_key='[0]',
+        searcher_kv_value='[0]',
         searcher_age=25,
         searcher_height_cm=170,
         searcher_count_answers=1,

@@ -264,6 +264,8 @@ SELECT
     ) AS required_answer_question_ids,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
+    person.kv_key::TEXT AS searcher_kv_key,
+    person.kv_value::TEXT AS searcher_kv_value,
     sort_by.name AS sort_by,
     COALESCE(
         (

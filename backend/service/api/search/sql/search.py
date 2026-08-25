@@ -147,10 +147,12 @@ def _prospect_select(sort_by_clubs: bool) -> str:
             100 * (1 - (prospect.personality <#> %(searcher_personality)s::VECTOR)) / 2
         ) AS match_percentage,
 
-        {club_distance} AS club_distance"""
+        {club_distance} AS club_distance,
+
+        (prospect.kv_value <#> %(searcher_kv_key)s::HALFVEC) + (prospect.kv_key <#> %(searcher_kv_value)s::HALFVEC) AS kv_distance"""
 
 def _rank(sort_by_clubs: bool) -> str:
-    return 'club_distance' if sort_by_clubs else 'match_percentage DESC'
+    return 'club_distance' if sort_by_clubs else 'kv_distance'
 
 
 def _search_cache_insert(sort_by_clubs: bool) -> str:
@@ -270,6 +272,8 @@ def build_uncached_search(
         n=n,
         o=o,
         searcher_personality=row_str(prefs, 'searcher_personality'),
+        searcher_kv_key=row_str(prefs, 'searcher_kv_key'),
+        searcher_kv_value=row_str(prefs, 'searcher_kv_value'),
         searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
 
@@ -297,8 +301,8 @@ def build_uncached_search(
     if sort_by_clubs:
         candidate_order = _CLUB_DISTANCE
     else:
-        candidate_order = \
-            'prospect.personality <#> %(searcher_personality)s::VECTOR'
+        candidate_order = (
+            '(prospect.kv_value <#> %(searcher_kv_key)s::HALFVEC) + (prospect.kv_key <#> %(searcher_kv_value)s::HALFVEC)')
 
     sql = f"""
 WITH candidates AS (

@@ -11,3 +11,9 @@
 
 
 DROP TABLE IF EXISTS club_overlap;
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS kv_key HALFVEC(66) NOT NULL DEFAULT array_full(66, 0);
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS kv_value HALFVEC(66) NOT NULL DEFAULT array_full(66, 0);
