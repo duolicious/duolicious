@@ -92,8 +92,15 @@ class Encoder:
 def stored_vector(who: np.ndarray, wbias: np.ndarray, look: np.ndarray,
                   lbias: np.ndarray) -> np.ndarray:
     """`value || key` as person.kv_vector holds it: [who, 1, wbias] then
-    [look, lbias, 1]. Dotting a searcher's halves the other way round
-    (`key || value`) against this scores both directions of a pair at once."""
+    [look, lbias, 1]. Dotting `searcher_vector` of one person against
+    `stored_vector` of another scores both directions of the pair at once."""
     ones = np.ones(who.shape[:-1] + (1,), np.float32)
     return np.concatenate(
         [who, ones, wbias[..., None], look, lbias[..., None], ones], -1)
+
+
+def searcher_vector(stored: np.ndarray) -> np.ndarray:
+    """`key || value`: a person's `stored_vector` with its halves the other
+    way round, which is how they query everyone else's."""
+    half = len(stored) // 2
+    return np.concatenate([stored[half:], stored[:half]])

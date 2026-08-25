@@ -1,11 +1,15 @@
+from pgvector import HalfVector
+
 from serviceshared.database import (
     Row,
     row_bool,
+    row_halfvec,
     row_int,
     row_str,
     row_str_or_none,
     row_vector,
 )
+from serviceshared.kvmatching.encoder import searcher_vector
 from service.api.searchfilters import (
     SearchParam,
     and_clauses,
@@ -117,9 +121,16 @@ _VERIFICATION_SATISFIED = sql_fragment("""
 _CLUB_DISTANCE = \
     'prospect.club_vector <#> %(searcher_club_vector)s'
 
+_KV_DISTANCE = \
+    'prospect.kv_vector <#> %(searcher_kv_vector)s'
 
-def _prospect_select(sort_by_clubs: bool) -> str:
-    club_distance = _CLUB_DISTANCE if sort_by_clubs else '0::REAL'
+SORT_CLUBS = 'Similar clubs'
+SORT_KV = 'Longer conversations'
+
+
+def _prospect_select(sort_by: str) -> str:
+    club_distance = _CLUB_DISTANCE if sort_by == SORT_CLUBS else '0::REAL'
+    kv_distance = _KV_DISTANCE if sort_by == SORT_KV else '0::REAL'
 
     return f"""    SELECT
         prospect.id AS prospect_person_id,
@@ -156,13 +167,19 @@ def _prospect_select(sort_by_clubs: bool) -> str:
             100 * (1 - (prospect.personality <#> %(searcher_personality)s)) / 2
         ) AS match_percentage,
 
-        {club_distance} AS club_distance"""
+        {club_distance} AS club_distance,
 
-def _rank(sort_by_clubs: bool) -> str:
-    return 'club_distance' if sort_by_clubs else 'match_percentage DESC'
+        {kv_distance} AS kv_distance"""
+
+def _rank(sort_by: str) -> str:
+    if sort_by == SORT_CLUBS:
+        return 'club_distance'
+    if sort_by == SORT_KV:
+        return 'kv_distance'
+    return 'match_percentage DESC'
 
 
-def _search_cache_insert(sort_by_clubs: bool) -> str:
+def _search_cache_insert(sort_by: str) -> str:
     return f"""), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
@@ -201,7 +218,7 @@ SELECT
                     profile_photo_uuid IS NOT NULL
             END DESC,
 
-            {_rank(sort_by_clubs)}
+            {_rank(sort_by)}
     ) AS position,
     prospect_person_id,
     prospect_uuid,
@@ -271,7 +288,7 @@ def search_only_clauses(prefs: Row) -> list[str]:
 def build_uncached_search(
     searcher_person_id: int,
     prefs: Row,
-    ignore_club_sort: bool,
+    ignore_sort_preference: bool,
 ) -> tuple[str, dict[str, SearchParam]]:
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
@@ -283,13 +300,14 @@ def build_uncached_search(
     if club_preference is not None:
         params['club_preference'] = club_preference
 
-    sort_by_clubs = (
-        not ignore_club_sort
-        and row_str(prefs, 'sort_by') == 'Similar clubs'
-    )
-    if sort_by_clubs:
+    sort_by = ('Match percentage' if ignore_sort_preference
+               else row_str(prefs, 'sort_by'))
+    if sort_by == SORT_CLUBS:
         params['searcher_club_vector'] = row_vector(
             prefs, 'searcher_club_vector')
+    if sort_by == SORT_KV:
+        params['searcher_kv_vector'] = HalfVector(searcher_vector(
+            row_halfvec(prefs, 'searcher_kv_vector').to_numpy()))
 
     reverse = two_way_filters(prefs)
     params.update(reverse.params)
@@ -303,15 +321,17 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
-    if sort_by_clubs:
+    if sort_by == SORT_CLUBS:
         candidate_order = _CLUB_DISTANCE
+    elif sort_by == SORT_KV:
+        candidate_order = _KV_DISTANCE
     else:
         candidate_order = \
             'prospect.personality <#> %(searcher_personality)s'
 
     sql = f"""
 WITH candidates AS (
-{_prospect_select(sort_by_clubs)}
+{_prospect_select(sort_by)}
     FROM
 {_from_clause(club_preference)}
     WHERE
@@ -322,7 +342,7 @@ WITH candidates AS (
 
     LIMIT
         750
-{_search_cache_insert(sort_by_clubs)}"""
+{_search_cache_insert(sort_by)}"""
 
     return sql, params
 

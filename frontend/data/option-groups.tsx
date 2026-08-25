@@ -460,6 +460,7 @@ const sortByDefault = 'Match percentage';
 const sortByValues = [
   sortByDefault,
   'Similar clubs',
+  'Longer conversations',
 ];
 
 const immediacy = [
@@ -2058,7 +2059,7 @@ const searchOrderOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         style={{ color }}
       />
     ),
-    description: "How should search results be sorted? “Match percentage” shows people with Q&A answers like yours first. “Similar clubs” shows members with clubs like yours first.",
+    description: "How should search results be sorted? “Match percentage” shows people with Q&A answers like yours first. “Similar clubs” shows members with clubs like yours first. “Longer conversations” shows the people most likely to hold a conversation with you first.",
     input: {
       buttons: {
         values: sortByValues,

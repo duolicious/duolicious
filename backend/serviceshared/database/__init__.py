@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Iterable
 from serviceshared.database._row import (
     require_row,
     row_bool,
+    row_halfvec,
     row_vector,
     row_int,
     row_int_list,

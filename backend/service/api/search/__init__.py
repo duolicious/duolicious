@@ -49,7 +49,7 @@ async def _quiz_search_results(
 async def _refresh_search_cache(
     tx: Tx,
     searcher_person_id: int,
-    ignore_club_sort: bool,
+    ignore_sort_preference: bool,
 ) -> bool:
     prefs = await tx.require_one(
         Q_SEARCH_PARAMETERS,
@@ -59,7 +59,7 @@ async def _refresh_search_cache(
     uncached_search, params = build_uncached_search(
         searcher_person_id=searcher_person_id,
         prefs=prefs,
-        ignore_club_sort=ignore_club_sort,
+        ignore_sort_preference=ignore_sort_preference,
     )
 
     try:
@@ -79,7 +79,7 @@ async def _refreshed_quiz_search_results(
     n: int,
 ) -> object:
     if not await _refresh_search_cache(
-        tx, searcher_person_id, ignore_club_sort=True
+        tx, searcher_person_id, ignore_sort_preference=True
     ):
         return []
 
@@ -92,7 +92,7 @@ async def _uncached_search_results(
     no: Tuple[int, int],
 ) -> object:
     if not await _refresh_search_cache(
-        tx, searcher_person_id, ignore_club_sort=False
+        tx, searcher_person_id, ignore_sort_preference=False
     ):
         return []
 
