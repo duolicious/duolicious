@@ -18,3 +18,8 @@ ALTER TABLE person
 ALTER TABLE person
     ADD COLUMN IF NOT EXISTS kv_vector_computed_at TIMESTAMP NOT NULL
     DEFAULT to_timestamp(0);
+
+ALTER TABLE search_cache
+    ADD COLUMN IF NOT EXISTS kv_distance REAL NOT NULL DEFAULT 0;
+
+INSERT INTO sort_by (name) VALUES ('Longer conversations') ON CONFLICT (name) DO NOTHING;

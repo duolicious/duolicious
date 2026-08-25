@@ -264,6 +264,13 @@ SELECT
     ) AS required_answer_question_ids,
     person.coordinates::TEXT AS searcher_coordinates,
     person.personality::TEXT AS searcher_personality,
+    -- `key || value`: the two halves of kv_vector the other way round, so
+    -- that one inner product against a prospect's `value || key` scores both
+    -- directions at once.
+    (
+        subvector(person.kv_vector, 67, 66) ||
+        subvector(person.kv_vector, 1, 66)
+    )::TEXT AS searcher_kv_vector,
     sort_by.name AS sort_by,
     COALESCE(
         (
