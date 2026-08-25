@@ -293,14 +293,14 @@ CREATE TABLE IF NOT EXISTS person (
     club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
     club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
 
-    -- Key-value matching model (see backend/kvmatching). `kv_key` is what
-    -- this person is looking for, `kv_value` is who they are; the directed
-    -- score is one inner product of a searcher's key with a prospect's
-    -- value, with the model's bias scalars folded in as extra dimensions.
+    -- Key-value matching model (see backend/kvmatching). Every person has a
+    -- `value` (who they are) and a `key` (what they are looking for), each 66
+    -- dimensions with the model's bias scalars folded in. Stored as
+    -- `value || key` so that one inner product against a searcher's
+    -- `key || value` gives the mutual score in both directions at once.
     -- Half precision: identical top-500 ordering to float4, and it keeps
     -- the row narrow enough that the search scan stays off TOAST.
-    kv_key HALFVEC(66) NOT NULL DEFAULT array_full(66, 0),
-    kv_value HALFVEC(66) NOT NULL DEFAULT array_full(66, 0),
+    kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0),
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,
@@ -793,6 +793,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS search_cache (
     age SMALLINT,
     match_percentage SMALLINT NOT NULL,
     club_distance REAL NOT NULL DEFAULT 0,
+    kv_distance REAL NOT NULL DEFAULT 0,
     personality VECTOR(47) NOT NULL,
     PRIMARY KEY (searcher_person_id, position)
 );
@@ -991,6 +992,7 @@ INSERT INTO last_online (name, seconds) VALUES ('A week ago', 604800) ON CONFLIC
 SELECT setval('sort_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM sort_by), FALSE);
 INSERT INTO sort_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
 INSERT INTO sort_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
+INSERT INTO sort_by (name) VALUES ('Mutual interest') ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('{{LAST_ONLINE_DEFAULT_NAME}}', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('All time', 3153600000) ON CONFLICT (name) DO NOTHING;
 

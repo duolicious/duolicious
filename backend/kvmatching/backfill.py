@@ -26,24 +26,22 @@ def main() -> None:
     assert len(who) == f.n == len(f.ids)
 
     ones = np.ones((f.n, 1), np.float32)
-    key = np.concatenate([look, lbias[:, None], ones], 1).astype(np.float32)
-    value = np.concatenate([who, ones, wbias[:, None]], 1).astype(np.float32)
-    print(f'{f.n} people, key/value dims {key.shape[1]}/{value.shape[1]}', flush=True)
+    value = np.concatenate([who, ones, wbias[:, None]], 1)
+    key = np.concatenate([look, lbias[:, None], ones], 1)
+    stored = np.concatenate([value, key], 1).astype(np.float32)
+    print(f'{f.n} people, stored vector {stored.shape[1]} dims', flush=True)
 
     written = 0
     with psycopg.connect(DSN) as conn:
         for start in range(0, f.n, BATCH):
             sl = slice(start, min(start + BATCH, f.n))
             rows = [
-                (int(i), '[' + ','.join(map(repr, k.tolist())) + ']',
-                 '[' + ','.join(map(repr, v.tolist())) + ']')
-                for i, k, v in zip(f.ids[sl], key[sl], value[sl])
+                ('[' + ','.join(map(repr, x.tolist())) + ']', int(i))
+                for i, x in zip(f.ids[sl], stored[sl])
             ]
             with conn.cursor() as cur:
                 cur.executemany(
-                    'UPDATE person SET kv_key = %s::halfvec, kv_value = %s::halfvec '
-                    'WHERE id = %s',
-                    [(k, v, i) for i, k, v in rows])
+                    'UPDATE person SET kv_vector = %s::halfvec WHERE id = %s', rows)
             conn.commit()
             written += len(rows)
             print(f'  {written}/{f.n}', end='\r', flush=True)

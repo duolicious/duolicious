@@ -13,7 +13,9 @@
 DROP TABLE IF EXISTS club_overlap;
 
 ALTER TABLE person
-    ADD COLUMN IF NOT EXISTS kv_key HALFVEC(66) NOT NULL DEFAULT array_full(66, 0);
+    ADD COLUMN IF NOT EXISTS kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0);
 
-ALTER TABLE person
-    ADD COLUMN IF NOT EXISTS kv_value HALFVEC(66) NOT NULL DEFAULT array_full(66, 0);
+ALTER TABLE search_cache
+    ADD COLUMN IF NOT EXISTS kv_distance REAL NOT NULL DEFAULT 0;
+
+INSERT INTO sort_by (name) VALUES ('Mutual interest') ON CONFLICT (name) DO NOTHING;

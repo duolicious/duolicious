@@ -108,9 +108,17 @@ _VERIFICATION_SATISFIED = sql_fragment("""
 _CLUB_DISTANCE = \
     'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR'
 
+_KV_DISTANCE = \
+    'prospect.kv_vector <#> %(searcher_kv_vector)s::HALFVEC'
 
-def _prospect_select(sort_by_clubs: bool) -> str:
-    club_distance = _CLUB_DISTANCE if sort_by_clubs else '0::REAL'
+SORT_MATCH = 'Match percentage'
+SORT_CLUBS = 'Similar clubs'
+SORT_KV = 'Mutual interest'
+
+
+def _prospect_select(sort_by: str) -> str:
+    club_distance = _CLUB_DISTANCE if sort_by == SORT_CLUBS else '0::REAL'
+    kv_distance = _KV_DISTANCE if sort_by == SORT_KV else '0::REAL'
 
     return f"""    SELECT
         prospect.id AS prospect_person_id,
@@ -149,13 +157,17 @@ def _prospect_select(sort_by_clubs: bool) -> str:
 
         {club_distance} AS club_distance,
 
-        (prospect.kv_value <#> %(searcher_kv_key)s::HALFVEC) + (prospect.kv_key <#> %(searcher_kv_value)s::HALFVEC) AS kv_distance"""
+        {kv_distance} AS kv_distance"""
 
-def _rank(sort_by_clubs: bool) -> str:
-    return 'club_distance' if sort_by_clubs else 'kv_distance'
+def _rank(sort_by: str) -> str:
+    if sort_by == SORT_CLUBS:
+        return 'club_distance'
+    if sort_by == SORT_KV:
+        return 'kv_distance'
+    return 'match_percentage DESC'
 
 
-def _search_cache_insert(sort_by_clubs: bool) -> str:
+def _search_cache_insert(sort_by: str) -> str:
     return f"""), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
@@ -178,6 +190,7 @@ INSERT INTO search_cache (
     age,
     match_percentage,
     club_distance,
+    kv_distance,
     personality,
     verified
 )
@@ -194,7 +207,7 @@ SELECT
                     profile_photo_uuid IS NOT NULL
             END DESC,
 
-            {_rank(sort_by_clubs)}
+            {_rank(sort_by)}
     ) AS position,
     prospect_person_id,
     prospect_uuid,
@@ -203,6 +216,7 @@ SELECT
     age,
     match_percentage,
     club_distance,
+    kv_distance,
     personality,
     verified
 FROM
@@ -221,6 +235,7 @@ ON CONFLICT (searcher_person_id, position) DO UPDATE SET
     age = EXCLUDED.age,
     match_percentage = EXCLUDED.match_percentage,
     club_distance = EXCLUDED.club_distance,
+    kv_distance = EXCLUDED.kv_distance,
     personality = EXCLUDED.personality,
     verified = EXCLUDED.verified
 """
@@ -272,8 +287,6 @@ def build_uncached_search(
         n=n,
         o=o,
         searcher_personality=row_str(prefs, 'searcher_personality'),
-        searcher_kv_key=row_str(prefs, 'searcher_kv_key'),
-        searcher_kv_value=row_str(prefs, 'searcher_kv_value'),
         searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
 
@@ -281,10 +294,12 @@ def build_uncached_search(
     if club_preference is not None:
         params['club_preference'] = club_preference
 
-    sort_by_clubs = row_str(prefs, 'sort_by') == 'Similar clubs'
-    if sort_by_clubs:
+    sort_by = row_str(prefs, 'sort_by')
+    if sort_by == SORT_CLUBS:
         params['searcher_club_vector'] = row_str(
             prefs, 'searcher_club_vector')
+    if sort_by == SORT_KV:
+        params['searcher_kv_vector'] = row_str(prefs, 'searcher_kv_vector')
 
     reverse = two_way_filters(prefs)
     params.update(reverse.params)
@@ -298,15 +313,17 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
-    if sort_by_clubs:
+    if sort_by == SORT_CLUBS:
         candidate_order = _CLUB_DISTANCE
+    elif sort_by == SORT_KV:
+        candidate_order = _KV_DISTANCE
     else:
-        candidate_order = (
-            '(prospect.kv_value <#> %(searcher_kv_key)s::HALFVEC) + (prospect.kv_key <#> %(searcher_kv_value)s::HALFVEC)')
+        candidate_order = \
+            'prospect.personality <#> %(searcher_personality)s::VECTOR'
 
     sql = f"""
 WITH candidates AS (
-{_prospect_select(sort_by_clubs)}
+{_prospect_select(sort_by)}
     FROM
 {_from_clause(club_preference)}
     WHERE
@@ -317,7 +334,7 @@ WITH candidates AS (
 
     LIMIT
         750
-{_search_cache_insert(sort_by_clubs)}"""
+{_search_cache_insert(sort_by)}"""
 
     return sql, params
 
@@ -432,9 +449,9 @@ ON
     private_page.prospect_person_id = public_page.prospect_person_id
 """
 
-Q_SORT_BY_CLUBS = """
+Q_SORT_BY = """
 SELECT
-    sort_by.name = 'Similar clubs' AS sort_by_clubs
+    sort_by.name AS sort_by
 FROM
     search_preference
 JOIN
@@ -446,7 +463,7 @@ WHERE
 """
 
 
-def build_quiz_search(sort_by_clubs: bool) -> str:
+def build_quiz_search(sort_by: str) -> str:
     return f"""
 WITH searcher AS (
     SELECT
@@ -518,7 +535,7 @@ WITH searcher AS (
                 profile_photo_uuid IS NOT NULL
         END DESC,
 
-        {_rank(sort_by_clubs)}
+        {_rank(sort_by)}
     LIMIT
         1
 )

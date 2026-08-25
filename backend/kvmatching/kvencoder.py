@@ -63,11 +63,22 @@ class KVEncoder:
         self.look = Encoder(w, 'look', self.m)
 
     def value_vector(self, who_vec: np.ndarray, wbias: np.ndarray) -> np.ndarray:
-        """[who, 1, wbias] -- the prospect side of the inner product."""
+        """[who, 1, wbias] -- dotted against another person's key."""
         ones = np.ones(who_vec.shape[:-1] + (1,), np.float32)
         return np.concatenate([who_vec, ones, wbias[..., None]], -1)
 
     def key_vector(self, look_vec: np.ndarray, lbias: np.ndarray) -> np.ndarray:
-        """[look, lbias, 1] -- the searcher side of the inner product."""
+        """[look, lbias, 1] -- dotted against another person's value."""
         ones = np.ones(look_vec.shape[:-1] + (1,), np.float32)
         return np.concatenate([look_vec, lbias[..., None], ones], -1)
+
+    def stored_vector(self, who_vec, wbias, look_vec, lbias) -> np.ndarray:
+        """`value || key`, as person.kv_vector holds it. One inner product
+        against another person's `key || value` is the mutual score."""
+        return np.concatenate([self.value_vector(who_vec, wbias),
+                               self.key_vector(look_vec, lbias)], -1)
+
+    def searcher_vector(self, who_vec, wbias, look_vec, lbias) -> np.ndarray:
+        """`key || value`: the same two halves the other way round."""
+        return np.concatenate([self.key_vector(look_vec, lbias),
+                               self.value_vector(who_vec, wbias)], -1)
