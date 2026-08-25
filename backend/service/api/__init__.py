@@ -230,7 +230,7 @@ async def get_search(
 
     scope = json.dumps([search_type, lowerClub])
 
-    if search_type == 'uncached-search':
+    if search_type in ('uncached-search', 'quiz-refresh'):
         await check_ip_and_account(request, search_rate_limit, scope=scope)
 
     return await search.get_search(s=s, n=n, o=o, club=club)

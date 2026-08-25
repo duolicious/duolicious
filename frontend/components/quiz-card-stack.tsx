@@ -40,6 +40,7 @@ import {
   removeAnonymousAnswer,
 } from '../events/anonymous-answers';
 import { saveAnswer, deleteAnswer } from '../api/answer';
+import { markSearchResultsStale } from '../events/stale-search-results';
 
 // How many questions an unauthenticated web user may answer before we ask them
 // to sign up.
@@ -187,6 +188,12 @@ const fetchNBestProspects = async (
   isPublic: boolean = false,
   answers: AnonymousAnswer[] = [],
 ): Promise<ProspectState[]> => {
+  const rebuildsSearchCache = !isPublic && (refreshNeighborhood || n > 1);
+
+  if (rebuildsSearchCache) {
+    markSearchResultsStale();
+  }
+
   const response = isPublic ?
     await japi<SearchResult[]>(
       'get',
@@ -194,8 +201,8 @@ const fetchNBestProspects = async (
         encodeURIComponent(JSON.stringify(answers))
       }&n=${n}&o=0`,
     ) :
-    refreshNeighborhood || n > 1 ?
-    await japi<SearchResult[]>('get', `/search?n=${n}&o=0`) :
+    rebuildsSearchCache ?
+    await japi<SearchResult[]>('get', `/search?n=${n}`) :
     await japi<SearchResult[]>('get', '/search');
 
   if (!response.ok) {

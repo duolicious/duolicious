@@ -102,6 +102,13 @@ echo 'Cached pages preserve the club ordering'
 [[ "$(c GET '/search?n=1&o=0' | jq -r '.[0].name')" = 'clubby' ]]
 [[ "$(c GET '/search?n=1&o=1' | jq -r '.[0].name')" = 'matchy' ]]
 
+echo 'Playing Q&A ranks by match percentage despite the club ordering'
+[[ "$(c GET '/search' | jq -r '[.[].name] | join(" ")')" = 'matchy' ]]
+[[ "$(c GET '/search?n=2' | jq -r '[.[].name] | join(" ")')" = 'matchy clubby' ]]
+
+echo 'The search tab rebuilds its own club-ranked pool afterwards'
+[[ "$(search_names_in_order)" = 'clubby matchy' ]]
+
 echo 'Leaving the shared clubs zeroes the searcher vector; order among tied prospects is unspecified'
 jc POST /leave-club -d '{ "name": "tiny club" }'
 jc POST /leave-club -d '{ "name": "tinier club" }'

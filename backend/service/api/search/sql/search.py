@@ -261,14 +261,11 @@ def search_only_clauses(prefs: Row) -> list[str]:
 
 def build_uncached_search(
     searcher_person_id: int,
-    n: int,
-    o: int,
     prefs: Row,
+    ignore_club_sort: bool,
 ) -> tuple[str, dict[str, SearchParam]]:
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
-        n=n,
-        o=o,
         searcher_personality=row_str(prefs, 'searcher_personality'),
         searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
@@ -277,7 +274,10 @@ def build_uncached_search(
     if club_preference is not None:
         params['club_preference'] = club_preference
 
-    sort_by_clubs = row_str(prefs, 'sort_by') == 'Similar clubs'
+    sort_by_clubs = (
+        not ignore_club_sort
+        and row_str(prefs, 'sort_by') == 'Similar clubs'
+    )
     if sort_by_clubs:
         params['searcher_club_vector'] = row_str(
             prefs, 'searcher_club_vector')
@@ -428,22 +428,7 @@ ON
     private_page.prospect_person_id = public_page.prospect_person_id
 """
 
-Q_SORT_BY_CLUBS = """
-SELECT
-    sort_by.name = 'Similar clubs' AS sort_by_clubs
-FROM
-    search_preference
-JOIN
-    sort_by
-ON
-    sort_by.id = search_preference.sort_by_id
-WHERE
-    search_preference.person_id = %(searcher_person_id)s
-"""
-
-
-def build_quiz_search(sort_by_clubs: bool) -> str:
-    return f"""
+Q_QUIZ_SEARCH = """
 WITH searcher AS (
     SELECT
         personality,
@@ -514,9 +499,9 @@ WITH searcher AS (
                 profile_photo_uuid IS NOT NULL
         END DESC,
 
-        {_rank(sort_by_clubs)}
+        match_percentage DESC
     LIMIT
-        1
+        %(n)s
 )
 SELECT
     public_page.profile_photo_blurhash,

@@ -10,9 +10,8 @@ from service.api.search.sql.search import (
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
     Q_DELETE_SEARCH_CACHE,
+    Q_QUIZ_SEARCH,
     Q_SET_SEARCH_PREFERENCE_CLUB,
-    Q_SORT_BY_CLUBS,
-    build_quiz_search,
     build_uncached_search,
 )
 
@@ -24,8 +23,7 @@ __all__ = [
     'Q_FEED_V2',
     'Q_PUBLIC_SEARCH',
     'Q_PUBLIC_SEARCH_WITH_ANSWERS',
+    'Q_QUIZ_SEARCH',
     'Q_SET_SEARCH_PREFERENCE_CLUB',
-    'Q_SORT_BY_CLUBS',
-    'build_quiz_search',
     'build_uncached_search',
 ]

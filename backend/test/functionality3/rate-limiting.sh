@@ -124,6 +124,26 @@ search_limit_uncached () {
   ! c GET '/search?n=1&o=0' || exit 1
 }
 
+search_limit_quiz_refresh () {
+  echo "Q&A searches that rebuild the cache should be heavily rate-limited"
+  disable_rate_limits 1 1
+  mock_ip 256.256.2.5
+  assume_role user1
+  disable_rate_limits 0 1
+
+  for x in {1..15}
+  do
+    c GET '/search?n=1'
+    sleep 0.1 # Avoid hitting the global rate limit
+  done
+  ! c GET '/search?n=1' || exit 1
+
+  echo "Q&A searches that read the cache should not be"
+  c GET '/search'
+  c GET '/search'
+  c GET '/search'
+}
+
 search_limit_cached () {
   echo "Cached search shouldn't be heavily rate-limited"
   disable_rate_limits 1 1
@@ -200,6 +220,7 @@ otp_limit_shared_with_resend
 create_users
 report_limit
 search_limit_uncached
+search_limit_quiz_refresh
 search_limit_cached
 search_limit_per_club
 search_limit_by_account

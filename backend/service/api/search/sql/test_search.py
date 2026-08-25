@@ -71,14 +71,14 @@ def maximal_prefs() -> Row:
 class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
     def test_search_applies_every_shared_filter(self) -> None:
         prefs = maximal_prefs()
-        search_sql, _ = build_uncached_search(1, 10, 0, prefs)
+        search_sql, _ = build_uncached_search(1, prefs, False)
 
         for clause in prospect_filters(prefs).clauses:
             self.assertIn(clause, search_sql)
 
     def test_search_applies_every_two_way_filter(self) -> None:
         prefs = maximal_prefs()
-        search_sql, _ = build_uncached_search(1, 10, 0, prefs)
+        search_sql, _ = build_uncached_search(1, prefs, False)
 
         reverse = two_way_filters(prefs)
         self.assertEqual(len(reverse.clauses), 1)
@@ -109,8 +109,8 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         clubs_prefs = maximal_prefs()
         clubs_prefs['sort_by'] = 'Similar clubs'
 
-        match_sql, match_params = build_uncached_search(1, 10, 0, match_prefs)
-        clubs_sql, clubs_params = build_uncached_search(1, 10, 0, clubs_prefs)
+        match_sql, match_params = build_uncached_search(1, match_prefs, False)
+        clubs_sql, clubs_params = build_uncached_search(1, clubs_prefs, False)
 
         self.assertNotIn('club_vector', match_sql)
         self.assertNotIn('searcher_club_vector', match_params)
@@ -121,6 +121,15 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         )
         self.assertNotIn('-(prospect.club_vector', clubs_sql)
         self.assertEqual(clubs_params['searcher_club_vector'], '[0]')
+
+    def test_ignoring_the_club_sort_selects_match_candidates(self) -> None:
+        clubs_prefs = maximal_prefs()
+        clubs_prefs['sort_by'] = 'Similar clubs'
+
+        quiz_sql, quiz_params = build_uncached_search(1, clubs_prefs, True)
+
+        self.assertNotIn('club_vector', quiz_sql)
+        self.assertNotIn('searcher_club_vector', quiz_params)
 
 
 if __name__ == '__main__':

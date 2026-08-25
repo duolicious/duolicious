@@ -4,7 +4,7 @@ import service.api.duotypes as t
 from service.api import sessioncache
 from service.api.qanda import personality
 from pydantic import ValidationError
-from serviceshared.database import Tx, api_tx, row_bool, row_int
+from serviceshared.database import Tx, api_tx, row_int
 from serviceshared.pgvector import to_pgvector
 from service.api.qanda.question import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
@@ -16,11 +16,10 @@ from service.api.search.sql import (
     Q_CACHED_SEARCH,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
-    Q_SORT_BY_CLUBS,
+    Q_QUIZ_SEARCH,
     Q_DELETE_SEARCH_CACHE,
     Q_FEED,
     Q_FEED_V2,
-    build_quiz_search,
     build_uncached_search,
 )
 from dataclasses import dataclass
@@ -35,27 +34,22 @@ class ClubHttpArg:
 async def _quiz_search_results(
     tx: Tx,
     searcher_person_id: int,
+    n: int,
 ) -> object:
     params = dict(
         searcher_person_id=searcher_person_id,
+        n=n,
     )
 
-    sort_by_clubs = row_bool(
-        await tx.require_one(Q_SORT_BY_CLUBS, params),
-        'sort_by_clubs',
-    )
-
-    await tx.execute(build_quiz_search(sort_by_clubs), params)
+    await tx.execute(Q_QUIZ_SEARCH, params)
     return await tx.fetchall()
 
 
-async def _uncached_search_results(
+async def _refresh_search_cache(
     tx: Tx,
     searcher_person_id: int,
-    no: Tuple[int, int],
-) -> object:
-    n, o = no
-
+    ignore_club_sort: bool,
+) -> bool:
     prefs = await tx.require_one(
         Q_SEARCH_PARAMETERS,
         dict(searcher_person_id=searcher_person_id),
@@ -63,9 +57,8 @@ async def _uncached_search_results(
 
     uncached_search, params = build_uncached_search(
         searcher_person_id=searcher_person_id,
-        n=n,
-        o=o,
         prefs=prefs,
+        ignore_club_sort=ignore_club_sort,
     )
 
     try:
@@ -73,11 +66,36 @@ async def _uncached_search_results(
 
         await tx.execute(Q_DELETE_SEARCH_CACHE, params)
         await tx.execute(uncached_search, params)
-        await tx.execute(Q_CACHED_SEARCH, params)
-        return await tx.fetchall()
+        return True
     except psycopg.errors.QueryCanceled:
         # The query probably timed-out because it was too specific
+        return False
+
+
+async def _refreshed_quiz_search_results(
+    tx: Tx,
+    searcher_person_id: int,
+    n: int,
+) -> object:
+    if not await _refresh_search_cache(
+        tx, searcher_person_id, ignore_club_sort=True
+    ):
         return []
+
+    return await _quiz_search_results(tx, searcher_person_id, n)
+
+
+async def _uncached_search_results(
+    tx: Tx,
+    searcher_person_id: int,
+    no: Tuple[int, int],
+) -> object:
+    if not await _refresh_search_cache(
+        tx, searcher_person_id, ignore_club_sort=False
+    ):
+        return []
+
+    return await _cached_search_results(tx, searcher_person_id, no)
 
 
 async def _cached_search_results(
@@ -97,22 +115,25 @@ async def _cached_search_results(
     return await tx.fetchall()
 
 
-SearchType = Literal['quiz-search', 'uncached-search', 'cached-search']
+SearchType = Literal[
+    'quiz-search', 'quiz-refresh', 'uncached-search', 'cached-search']
 
 
-def get_search_type(n: str | None, o: str | None) -> tuple[SearchType, Tuple[int, int] | None]:
-    n_: int | None = n if n is None else int(n)
-    o_: int | None = o if o is None else int(o)
+def get_search_type(n: str | None, o: str | None) -> tuple[SearchType, Tuple[int, int]]:
+    n_: int = 1 if n is None else int(n)
+    o_: int = 0 if o is None else int(o)
 
-    if n_ is not None and not n_ >= 0:
+    if not n_ >= 0:
         raise ValueError('n must be >= 0')
-    if o_ is not None and not o_ >= 0:
+    if not o_ >= 0:
         raise ValueError('o must be >= 0')
 
-    no = None if (n_ is None or o_ is None) else (n_, o_)
+    no = (n_, o_)
 
-    if no is None:
+    if o is None and n is None:
         return 'quiz-search', no
+    elif o is None:
+        return 'quiz-refresh', no
     elif no[1] == 0:
         return 'uncached-search', no
     else:
@@ -127,7 +148,7 @@ async def get_search(
 ) -> object:
     search_type, no = get_search_type(n, o)
 
-    if no is not None and no[0] > 10:
+    if no[0] > 10:
         return 'n must be less than or equal to 10', 400
 
     if s.person_id is None:
@@ -147,19 +168,22 @@ async def get_search(
         if search_type == 'quiz-search':
             result = await _quiz_search_results(
                 tx=tx,
-                searcher_person_id=s.person_id)
+                searcher_person_id=s.person_id,
+                n=no[0])
+
+        elif search_type == 'quiz-refresh':
+            result = await _refreshed_quiz_search_results(
+                tx=tx,
+                searcher_person_id=s.person_id,
+                n=no[0])
 
         elif search_type == 'uncached-search':
-            if no is None:
-                raise RuntimeError('uncached search requires pagination')
             result = await _uncached_search_results(
                 tx=tx,
                 searcher_person_id=s.person_id,
                 no=no)
 
         elif search_type == 'cached-search':
-            if no is None:
-                raise RuntimeError('cached search requires pagination')
             result = await _cached_search_results(
                 tx=tx,
                 searcher_person_id=s.person_id,
