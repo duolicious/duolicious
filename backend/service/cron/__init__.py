@@ -20,6 +20,7 @@ from service.cron.clubseo import (
     refresh_club_top_answers_forever,
 )
 from service.cron.garbagerecords import delete_garbage_records_forever
+from service.cron.kvvectors import refresh_kv_vectors_forever
 from service.cron.messagenotifications import send_notifications_forever
 from service.cron.nsfwphotorunner import predict_nsfw_photos_forever
 from service.cron.visitornotifications import (
@@ -80,6 +81,8 @@ async def main() -> None:
             send_visitor_notifications_forever(),
 
             verify_forever(),
+
+            refresh_kv_vectors_forever(),
 
             report_profiles_forever(),
 

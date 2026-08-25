@@ -18,7 +18,10 @@ from features import N_COUNTRIES, N_CLUBS, LOC_FREQS, CAT_FIELDS, PREF_MULTI, PR
 
 
 def encoder_weights(sd: dict, prefix: str) -> dict:
-    g = lambda n: sd[f'{prefix}.{n}'].numpy().astype(np.float32)
+    # float16 shifts the output vectors by at most ~1e-3, which is the
+    # resolution person.kv_vector stores them at anyway, and halves a file
+    # that ships with every deployment.
+    g = lambda n: sd[f'{prefix}.{n}'].numpy().astype(np.float16)
     return {
         f'{prefix}.w0': g('enc.net.0.weight'), f'{prefix}.b0': g('enc.net.0.bias'),
         f'{prefix}.ln_g': g('enc.net.1.weight'), f'{prefix}.ln_b': g('enc.net.1.bias'),
@@ -86,7 +89,9 @@ def main() -> None:
                             ('wbias', wb, ref['wbias'][rows]), ('lbias', lb, ref['lbias'][rows])]:
         err = float(np.abs(got - want).max())
         print(f'{name:<6} max abs error vs training output: {err:.3e}')
-        assert err < 1e-3, f'{name} does not reproduce training output'
+        # float16 weights account for ~1e-3; anything beyond that is a bug
+        # in the numpy encoder rather than quantisation.
+        assert err < 3e-3, f'{name} does not reproduce training output'
 
     pre = enc.who.pre(who_input(f, rows[:1]))
     col = int(np.flatnonzero(f.answers[rows[0]] != 0)[0])

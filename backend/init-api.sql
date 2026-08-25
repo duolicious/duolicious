@@ -301,6 +301,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- Half precision: identical top-500 ordering to float4, and it keeps
     -- the row narrow enough that the search scan stays off TOAST.
     kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0),
+    kv_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,

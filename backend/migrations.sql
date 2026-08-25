@@ -15,6 +15,10 @@ DROP TABLE IF EXISTS club_overlap;
 ALTER TABLE person
     ADD COLUMN IF NOT EXISTS kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0);
 
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS kv_vector_computed_at TIMESTAMP NOT NULL
+    DEFAULT to_timestamp(0);
+
 ALTER TABLE search_cache
     ADD COLUMN IF NOT EXISTS kv_distance REAL NOT NULL DEFAULT 0;
 
