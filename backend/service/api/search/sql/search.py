@@ -113,7 +113,7 @@ _KV_DISTANCE = \
 
 SORT_MATCH = 'Match percentage'
 SORT_CLUBS = 'Similar clubs'
-SORT_KV = 'Mutual interest'
+SORT_KV = 'Longer conversations'
 
 
 def _prospect_select(sort_by: str) -> str:

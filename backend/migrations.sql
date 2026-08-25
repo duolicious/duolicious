@@ -18,4 +18,4 @@ ALTER TABLE person
 ALTER TABLE search_cache
     ADD COLUMN IF NOT EXISTS kv_distance REAL NOT NULL DEFAULT 0;
 
-INSERT INTO sort_by (name) VALUES ('Mutual interest') ON CONFLICT (name) DO NOTHING;
+INSERT INTO sort_by (name) VALUES ('Longer conversations') ON CONFLICT (name) DO NOTHING;
