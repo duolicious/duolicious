@@ -2,8 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "data")
+from paths import DATA
 
 if "KV_SPLIT" not in os.environ:
     raise SystemExit(

@@ -3,9 +3,12 @@ import numpy as np, pandas as pd, torch
 from cache import load_features, load_evaldata
 from evaluate import Scorer, dynamic_exposure, prod_scorer
 from train import scorer_from
+from paths import run_dir
 
 p = argparse.ArgumentParser(); p.add_argument("run"); p.add_argument("--lams", default="0,0.1,0.25,0.5,1,2")
 a = p.parse_args()
+if a.run != "prod":
+    a.run = run_dir(a.run)
 device = torch.device("cuda"); f = load_features(); ed = load_evaldata(f)
 if a.run == "prod":
     sc = prod_scorer(f, device)

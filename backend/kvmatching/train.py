@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 
 from cache import load_features, load_evaldata
+from paths import DATA, run_dir, ensure_dirs
 from features import TensorFeatures
 from model import KVModel, Noise, kl, reparam
 from pairs import load_interactions, directed_labels, replies, SPLIT
@@ -17,7 +18,7 @@ from evaluate import (Scorer, quick_metrics, retrieval_metrics,
 
 def parse() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--out", required=True)
+    p.add_argument("--name", default="model", help="run name, written under KV_WORK_DIR/runs")
     p.add_argument("--m", type=int, default=64)
     p.add_argument("--n", type=int, default=32)
     p.add_argument("--hidden", type=int, default=512)
@@ -70,7 +71,7 @@ def level_targets(tp: pd.DataFrame, f, thresh: int, scheme: str = "logu",
     before SPLIT): thresh -> +1, +2 if n >= thresh; tiers -> +1, +2 if n >= 10,
     +3 if n >= 50; logb -> 1 + log(n)/log(thresh) clipped to [1, 2];
     logu -> log2(1 + n); sqrt -> sqrt(n)."""
-    d = pd.read_parquet(os.path.join("data", "dir_msgs.parquet"))
+    d = pd.read_parquet(os.path.join(DATA, "dir_msgs.parquet"))
     d["a"] = f.pid2row.reindex(d.subject_person_id).to_numpy()
     d["b"] = f.pid2row.reindex(d.object_person_id).to_numpy()
     d = d.dropna(subset=["a", "b"]).astype({"a": int, "b": int})
@@ -140,11 +141,13 @@ def scorer_from(who, look, wbias, lbias, device,
 
 def main() -> None:
     args = parse()
-    os.makedirs(args.out, exist_ok=True)
+    ensure_dirs()
+    out = run_dir(args.name)
+    os.makedirs(out, exist_ok=True)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     device = torch.device("cuda")
-    log = open(os.path.join(args.out, "log.txt"), "a")
+    log = open(os.path.join(out, "log.txt"), "a")
 
     def say(*a):
         s = " ".join(str(x) for x in a)
@@ -237,11 +240,11 @@ def main() -> None:
         say(f"epoch {epoch} eval", json.dumps(quick_metrics(sc, ed)))
 
     who, look, wbias, lbias = all_vectors(model, tf, f.n)
-    np.save(os.path.join(args.out, "who.npy"), who)
-    np.save(os.path.join(args.out, "look.npy"), look)
-    np.save(os.path.join(args.out, "wbias.npy"), wbias)
-    np.save(os.path.join(args.out, "lbias.npy"), lbias)
-    torch.save(model.state_dict(), os.path.join(args.out, "model.pt"))
+    np.save(os.path.join(out, "who.npy"), who)
+    np.save(os.path.join(out, "look.npy"), look)
+    np.save(os.path.join(out, "wbias.npy"), wbias)
+    np.save(os.path.join(out, "lbias.npy"), lbias)
+    torch.save(model.state_dict(), os.path.join(out, "model.pt"))
     sc = scorer_from(who, look, wbias, lbias, device)
     res = {"model": quick_metrics(sc, ed), "prod": quick_metrics(prod, ed),
            "baselines": bl}
@@ -253,7 +256,7 @@ def main() -> None:
         res["model"].update(agreement_probe(sc, ed))
         res["prod"].update(agreement_probe(prod, ed))
     say("final", json.dumps(res, indent=1))
-    with open(os.path.join(args.out, "metrics.json"), "w") as fh:
+    with open(os.path.join(out, "metrics.json"), "w") as fh:
         json.dump({"args": vars(args), **res}, fh, indent=1)
 
 

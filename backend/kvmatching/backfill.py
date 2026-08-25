@@ -3,25 +3,22 @@
 Run once after deploying new model weights. Vectors for people whose profile
 changes afterwards are recomputed by the application, not here.
 
-  KV_SPLIT=... python backfill.py runs/model
+  KV_SPLIT=... python backfill.py model
 """
-import os
 import sys
 import numpy as np
 import psycopg
 
 from cache import load_features
 from extract import DSN
-from kvencoder import KVEncoder
+from paths import run_dir
 
 BATCH = 5000
 
 
 def main() -> None:
-    run = sys.argv[1]
+    run = run_dir(sys.argv[1])
     f = load_features()
-    enc = KVEncoder(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kv_model.npz')) \
-        if os.path.exists('kv_model.npz') else None
     who = np.load(f'{run}/who.npy')
     look = np.load(f'{run}/look.npy')
     wbias = np.load(f'{run}/wbias.npy')

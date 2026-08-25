@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 import pandas as pd
 
 from pairs import SPLIT
+from paths import DATA, ensure_dirs
 
 DSN = os.environ.get(
     "DUO_DB_DSN",
@@ -30,7 +31,7 @@ def build_scratch(conn: psycopg.Connection) -> None:
 
 def extract(conn: psycopg.Connection, name: str) -> None:
     sql = open(os.path.join(HERE, "sql", f"{name}.sql")).read()
-    out = os.path.join(HERE, "data", f"{name}.parquet")
+    out = os.path.join(DATA, f"{name}.parquet")
     params = {"split": SPLIT.to_pydatetime()} if name == "dir_msgs" else None
     with conn.cursor() as cur:
         cur.execute(sql, params)
@@ -42,7 +43,7 @@ def extract(conn: psycopg.Connection, name: str) -> None:
 
 
 if __name__ == "__main__":
-    os.makedirs(os.path.join(HERE, "data"), exist_ok=True)
+    ensure_dirs()
     names = sys.argv[1:] or NAMES
     with psycopg.connect(DSN) as conn:
         if "dir_msgs" in names:

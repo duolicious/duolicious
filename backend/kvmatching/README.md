@@ -57,10 +57,15 @@ production container.
 
 ## Retraining
 
-Two environment variables control everything:
+Three environment variables control everything:
 
 * `DUO_DB_DSN` — where the database copy lives
   (default `host=localhost port=5432 dbname=duo_api user=postgres password=password`).
+* `KV_WORK_DIR` — where extracted data, feature caches and trained runs are
+  written (default `/tmp/duolicious-kvmatching`). Nothing derived from the
+  database is ever written inside the repository. Allow a few GB, and note
+  that `/tmp` is usually cleared on reboot: point this elsewhere to keep a
+  run around.
 * `KV_SPLIT` — the temporal train/test split date. Training only sees
   behaviour before this date; all metrics are measured on what people did
   after it. Pick a date far enough back that at least a month or two of
@@ -73,27 +78,44 @@ export KV_SPLIT=2026-05-01
 venv/bin/python extract.py        # DB -> data/*.parquet (~10 min; also builds
                                   # the scratch_kv.msg helper table in the DB)
 venv/bin/python build_cache.py    # parquet -> data/*.pkl feature caches
-venv/bin/python train.py --out runs/model
+venv/bin/python train.py --name model
 ```
+
+Runs are named, not paths: `--name model` writes to
+`$KV_WORK_DIR/runs/model`, and the tools below take the same name.
 
 `train.py`'s defaults are the shipped configuration. It logs per-epoch
 metrics against the held-out window and writes `who.npy`, `look.npy`,
-`wbias.npy`, `lbias.npy`, `model.pt` and `metrics.json` into `--out`.
+`wbias.npy`, `lbias.npy`, `model.pt` and `metrics.json` into the run
+directory.
 `metrics.json` includes the production algorithm and popularity/reply-rate
 baselines evaluated on the same held-out data for comparison.
 
 ## Serving-time knobs
 
-* `dyn.py runs/model` — simulates serving with an inbound-load penalty
+* `dyn.py model` — simulates serving with an inbound-load penalty
   (`score − λ·sd·log1p(times already shown)`) and reports how exposure
   concentration trades off against ranking quality as λ grows.
-* `knobs.py runs/model` — grid over the load penalty and a values-agreement
+* `knobs.py model` — grid over the load penalty and a values-agreement
   term (political/relationship questions), both folded into the inner
   product by appending dimensions, so neither needs retraining.
 
+## Deploying a trained model
+
+```
+venv/bin/python export.py model            # -> $KV_WORK_DIR/kv_model.npz
+venv/bin/python backfill.py model          # writes person.kv_key / kv_value
+```
+
+`export.py` freezes the encoder weights and their feature vocabulary into one
+artifact and checks that the numpy encoder (`kvencoder.py`) reproduces
+training's vectors before writing it. `backfill.py` fills in vectors for
+people who already exist; after that the application recomputes a person's
+vectors when their profile changes.
+
 ## Privacy
 
-`data/` and `runs/` contain per-user data derived from the database
-(interaction history, answers, learned per-user vectors). They are gitignored;
-never commit them or share them. The code and SQL in this directory contain
-no user data.
+Everything derived from the database — extracted parquet, feature caches,
+trained per-user vectors — is written under `KV_WORK_DIR`, outside the
+repository, so none of it can be committed by accident. Never copy it back
+in. The code and SQL in this directory contain no user data.

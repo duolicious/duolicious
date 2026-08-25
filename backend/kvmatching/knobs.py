@@ -12,13 +12,14 @@ from cache import load_features, load_evaldata
 from evaluate import (Scorer, quick_metrics, retrieval_metrics, exposure_metrics,
                       agreement_probe, POLITICAL_QIDS, SEX_QIDS, normalize)
 from pairs import load_interactions, SPLIT
+from paths import DATA, run_dir
 from train import scorer_from
 
 VALUES_QIDS = POLITICAL_QIDS + SEX_QIDS + [213, 1131, 739, 931, 1665, 132, 48]
 
 
 def recent_inbound(f, days: int) -> np.ndarray:
-    m = pd.read_parquet("data/messaged.parquet")
+    m = pd.read_parquet(os.path.join(DATA, "messaged.parquet"))
     m = m[(m.created_at < SPLIT) & (m.created_at >= SPLIT - pd.Timedelta(days=days))]
     rows = f.pid2row.reindex(m.object_person_id).to_numpy()
     rows = rows[~np.isnan(rows)].astype(int)
@@ -33,11 +34,12 @@ def values_vectors(f) -> np.ndarray:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("run")
+    p.add_argument("run", help="run name under KV_WORK_DIR/runs")
     p.add_argument("--lams", default="0,0.5,1,2,4")
     p.add_argument("--gams", default="0,0.5,1,2")
     p.add_argument("--days", type=int, default=30)
     a = p.parse_args()
+    a.run = run_dir(a.run)
     device = torch.device("cuda")
     f = load_features()
     ed = load_evaldata(f)

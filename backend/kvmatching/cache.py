@@ -2,7 +2,8 @@ import glob
 import os
 import pickle
 
-from features import Features, DATA
+from features import Features
+from paths import DATA
 from evaluate import EvalData
 from pairs import SPLIT
 

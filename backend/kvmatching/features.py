@@ -3,8 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "data")
+from paths import DATA
 
 CAT_FIELDS = [
     "gender_id", "orientation_id", "ethnicity_id", "looking_for_id",

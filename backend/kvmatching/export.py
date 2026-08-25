@@ -4,14 +4,16 @@ closed (a fixed question set and fixed enums), so it only changes when a new
 model is deployed. Verifies the numpy encoder reproduces training's vectors
 before writing.
 
-  KV_SPLIT=... python export.py runs/model kv_model.npz
+  KV_SPLIT=... python export.py model [out.npz]
 """
+import os
 import sys
 import numpy as np
 import torch
 
 from cache import load_features
 from kvencoder import KVEncoder
+from paths import WORK, run_dir
 from features import N_COUNTRIES, N_CLUBS, LOC_FREQS, CAT_FIELDS, PREF_MULTI, PREF_TWO_WAY
 
 
@@ -50,7 +52,8 @@ def look_input(f, rows: np.ndarray) -> np.ndarray:
 
 
 def main() -> None:
-    run, out = sys.argv[1], sys.argv[2]
+    run = run_dir(sys.argv[1])
+    out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(WORK, 'kv_model.npz')
     f = load_features()
     sd = torch.load(f'{run}/model.pt', map_location='cpu', weights_only=True)
     m = sd['who.mu.weight'].shape[0]
@@ -95,7 +98,6 @@ def main() -> None:
     print(f'incremental update matches full recompute: {float(np.abs(incr - full).max()):.3e}')
     assert np.abs(incr - full).max() < 1e-4
 
-    import os
     print(f'wrote {out} ({os.path.getsize(out) / 1e6:.1f} MB)')
 
 
