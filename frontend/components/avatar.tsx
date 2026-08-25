@@ -11,7 +11,7 @@ import { DefaultText } from './default-text';
 import {
   IMAGES_URL,
 } from '../env/env';
-import { makeLinkProps } from '../util/navigation'
+import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { X } from "react-native-feather";
 import { ImageBackground } from "expo-image";
@@ -58,6 +58,10 @@ const Avatar = ({
   const handle = urlSlug || personUuid;
 
   const onPress = useCallback((e: GestureResponderEvent) => {
+    if (isOpenInNewTabPress(e)) {
+      return;
+    }
+
     e.preventDefault();
 
     if (!navigation) {

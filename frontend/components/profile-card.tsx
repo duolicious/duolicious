@@ -28,7 +28,7 @@ import {
 import type { HomeParamList, RootParamList } from '../navigation/linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { listen } from '../events/events';
-import { makeLinkProps } from '../util/navigation'
+import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation'
 import { X } from "react-native-feather";
 import { PageItem } from './search-tab';
 import {
@@ -240,6 +240,10 @@ const ProfileCard = ({
   >>();
 
   const itemOnPress = useCallback((e: GestureResponderEvent) => {
+    if (isOpenInNewTabPress(e)) {
+      return;
+    }
+
     e.preventDefault();
 
     if (!navigation) {

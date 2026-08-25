@@ -14,7 +14,7 @@ import { DuoliciousTopNavBar } from './top-nav-bar';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { Avatar } from './avatar';
 import { getShortElapsedTime, isMobile, assertNever, capLuminance, formatCount } from '../util/util';
-import { makeLinkProps } from '../util/navigation';
+import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation';
 import { GestureResponderEvent, LayoutChangeEvent, Pressable, Animated, ViewStyle } from 'react-native';
 import { EnlargeablePhoto } from './enlargeable-image';
 import { commonStyles } from '../styles';
@@ -326,6 +326,10 @@ const useNavigationToProfile = (
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
   return useCallback((e: GestureResponderEvent) => {
+    if (isOpenInNewTabPress(e)) {
+      return;
+    }
+
     e.preventDefault();
 
     setProspectHint(handle, { photoBlurhash });
@@ -621,6 +625,10 @@ const FacepileAvatar = ({
   );
 
   const onPress = useCallback((e: GestureResponderEvent) => {
+    if (isOpenInNewTabPress(e)) {
+      return;
+    }
+
     if (navigatesOnPress) {
       navigateToProfile(e);
     } else {
@@ -677,6 +685,10 @@ const ViewerFacepileAvatar = ({
   );
 
   const onPress = useCallback((e: GestureResponderEvent) => {
+    if (isOpenInNewTabPress(e)) {
+      return;
+    }
+
     if (navigatesOnPress) {
       navigateToProfile(e);
     } else {
