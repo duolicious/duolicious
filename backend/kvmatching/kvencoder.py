@@ -2,7 +2,7 @@
 weights are a frozen artifact shipped with a deployment, so serving only ever
 runs this forward pass.
 
-Each encoder is Linear -> LayerNorm -> GELU -> Linear -> (vector head, bias
+Each encoder is Linear -> LayerNorm -> ReLU -> Linear -> (vector head, bias
 head). The first Linear's output is the only part whose cost scales with the
 number of features a person has, so it is cached per person as `pre`: one
 changed answer updates it with a single column add, and the rest of the
@@ -13,21 +13,8 @@ import numpy as np
 EPS = 1e-5
 
 
-_ERF_P = 0.3275911
-_ERF_C = (0.254829592, -0.284496736, 1.421413741, -1.453152027, 1.061405429)
-
-
-def _erf(x: np.ndarray) -> np.ndarray:
-    """Abramowitz & Stegun 7.1.26, max error 1.5e-7 -- below float32 epsilon,
-    and it keeps serving free of a scipy dependency."""
-    sign = np.sign(x)
-    t = 1.0 / (1.0 + _ERF_P * np.abs(x))
-    poly = t * (_ERF_C[0] + t * (_ERF_C[1] + t * (_ERF_C[2] + t * (_ERF_C[3] + t * _ERF_C[4]))))
-    return sign * (1.0 - poly * np.exp(-x * x))
-
-
-def gelu(x: np.ndarray) -> np.ndarray:
-    return 0.5 * x * (1.0 + _erf(x / np.sqrt(2.0)))
+def relu(x: np.ndarray) -> np.ndarray:
+    return np.maximum(x, 0.0)
 
 
 class Encoder:
@@ -58,7 +45,7 @@ class Encoder:
         mu = pre.mean(-1, keepdims=True)
         var = pre.var(-1, keepdims=True)
         h = (pre - mu) / np.sqrt(var + EPS) * self.ln_g + self.ln_b
-        h = gelu(h) @ self.w1.T + self.b1
+        h = relu(h) @ self.w1.T + self.b1
         vec = (h @ self.wmu.T + self.bmu)[..., :self.out_dims]
         bias = h @ self.wbias.T + self.bbias
         return vec, bias[..., 0]

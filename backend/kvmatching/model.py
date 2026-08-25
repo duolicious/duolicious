@@ -34,7 +34,7 @@ class MLP(nn.Module):
             layers.append(nn.Linear(dims[i], dims[i + 1]))
             if i < len(dims) - 2:
                 layers.append(nn.LayerNorm(dims[i + 1]))
-                layers.append(nn.GELU())
+                layers.append(nn.ReLU())
                 layers.append(nn.Dropout(dropout))
         self.net = nn.Sequential(*layers)
 
