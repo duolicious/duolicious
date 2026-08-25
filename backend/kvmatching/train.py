@@ -1,0 +1,264 @@
+import argparse
+import json
+import os
+import time
+import numpy as np
+import pandas as pd
+import torch
+
+from cache import load_features, load_evaldata
+from paths import DATA, run_dir, ensure_dirs
+from features import TensorFeatures
+from model import KVModel, Noise, kl, reparam
+from pairs import load_interactions, directed_labels, replies, SPLIT
+from evaluate import (Scorer, quick_metrics, retrieval_metrics,
+                      exposure_metrics, prod_scorer, baseline_metrics,
+                      agreement_probe)
+
+
+def parse() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--name", default="model", help="run name, written under KV_WORK_DIR/runs")
+    p.add_argument("--m", type=int, default=64)
+    p.add_argument("--n", type=int, default=32)
+    p.add_argument("--hidden", type=int, default=512)
+    p.add_argument("--dropout", type=float, default=0.1)
+    p.add_argument("--beta", type=float, default=1e-3)
+    p.add_argument("--neg-weight", type=float, default=1.0)
+    p.add_argument("--skip-weight", type=float, default=1.0)
+    p.add_argument("--epochs", type=int, default=8)
+    p.add_argument("--batch", type=int, default=2048)
+    p.add_argument("--recon-batch", type=int, default=1024)
+    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--wd", type=float, default=1e-4)
+    p.add_argument("--noise-answer", type=float, default=0.3)
+    p.add_argument("--noise-cat", type=float, default=0.1)
+    p.add_argument("--noise-club", type=float, default=0.3)
+    p.add_argument("--noise-pref", type=float, default=0.1)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--full-eval", type=int, default=1)
+    p.add_argument("--msg-thresh", type=int, default=10)
+    p.add_argument("--msg-score", default="logu", choices=["thresh", "tiers", "logb", "logu", "sqrt"])
+    p.add_argument("--msg-floor", type=int, default=0, help="messaged pairs with fewer messages than this get no positive reward")
+    return p.parse_args()
+
+
+def train_pairs(f) -> pd.DataFrame:
+    df = load_interactions()
+    lab = directed_labels(df)
+    lab = lab[lab["t"] < SPLIT]
+    r = replies(df)
+    r = r[r["initiated"]][["subject_person_id", "object_person_id", "replied"]]
+    lab = lab.merge(
+        r, left_on=["a", "b"], right_on=["subject_person_id", "object_person_id"],
+        how="left")
+    lab["replied"] = lab["replied"].fillna(False).astype(bool)
+    ra = f.pid2row.reindex(lab["a"]).to_numpy()
+    rb = f.pid2row.reindex(lab["b"]).to_numpy()
+    ok = ~np.isnan(ra) & ~np.isnan(rb)
+    return pd.DataFrame({
+        "a": ra[ok].astype(np.int64),
+        "b": rb[ok].astype(np.int64),
+        "label": lab["label"].to_numpy()[ok].astype(np.float32),
+        "replied": lab["replied"].to_numpy()[ok],
+        "reported": lab["reported"].to_numpy()[ok],
+    })
+
+
+def level_targets(tp: pd.DataFrame, f, thresh: int, scheme: str = "logu",
+                  floor: int = 0) -> np.ndarray:
+    """-2 reported, -1 skipped, and for messaged pairs (n = messages sent
+    before SPLIT): thresh -> +1, +2 if n >= thresh; tiers -> +1, +2 if n >= 10,
+    +3 if n >= 50; logb -> 1 + log(n)/log(thresh) clipped to [1, 2];
+    logu -> log2(1 + n); sqrt -> sqrt(n)."""
+    d = pd.read_parquet(os.path.join(DATA, "dir_msgs.parquet"))
+    d["a"] = f.pid2row.reindex(d.subject_person_id).to_numpy()
+    d["b"] = f.pid2row.reindex(d.object_person_id).to_numpy()
+    d = d.dropna(subset=["a", "b"]).astype({"a": int, "b": int})
+    m = tp.merge(d[["a", "b", "n_before"]], on=["a", "b"], how="left")
+    n = m["n_before"].fillna(0).to_numpy()
+    y = tp["label"].to_numpy().astype(np.float32).copy()
+    y[(y < 0) & tp["reported"].to_numpy()] = -2
+    pos = y > 0
+    n1 = np.maximum(n, 1)
+    if scheme == "thresh":
+        y[pos & (n >= thresh)] = 2
+    elif scheme == "tiers":
+        y[pos & (n >= 10)] = 2
+        y[pos & (n >= 50)] = 3
+    elif scheme == "logb":
+        y[pos] = np.clip(1 + np.log(n1[pos]) / np.log(thresh), 1, 2)
+    elif scheme == "logu":
+        y[pos] = np.log2(1 + n1[pos])
+    elif scheme == "sqrt":
+        y[pos] = np.sqrt(n1[pos])
+    if floor > 0:
+        y[pos & (n < floor)] = 0.0
+    return y
+
+
+def pair_loss(neg_weight: float, C: torch.Tensor, y: torch.Tensor,
+              w: torch.Tensor) -> torch.Tensor:
+    B = C.shape[0]
+    eye = torch.eye(B, device=C.device, dtype=torch.bool)
+    diag = C.diagonal()
+    on = (w * (diag - y) ** 2).sum() / w.sum()
+    off = (C[~eye] ** 2).mean()
+    return on + neg_weight * off
+
+
+def all_vectors(model: KVModel, tf: TensorFeatures, n: int, bs: int = 4096):
+    model.eval()
+    who, look, wbias, lbias = [], [], [], []
+    with torch.no_grad():
+        for s in range(0, n, bs):
+            idx = torch.arange(s, min(n, s + bs), device=tf.device)
+            w, wb = model.who_vec(tf.who_batch(idx), False)
+            l, lb = model.look_vec(tf.look_batch(idx), False)
+            who.append(w.cpu()); wbias.append(wb.cpu())
+            look.append(l.cpu()); lbias.append(lb.cpu())
+    model.train()
+    return (torch.cat(who).numpy(), torch.cat(look).numpy(),
+            torch.cat(wbias).numpy(), torch.cat(lbias).numpy())
+
+
+def scorer_from(who, look, wbias, lbias, device,
+                use_wbias: bool = True, use_lbias: bool = True) -> Scorer:
+    """Append bias dims so that look'.who' = look.who + lbias + wbias. wbias
+    is the prospect's popularity term, lbias the searcher's eagerness term;
+    either can be switched off at scoring time."""
+    n = len(who)
+    ones = np.ones((n, 1), dtype=np.float32)
+    zeros = np.zeros(n, dtype=np.float32)
+    if not use_wbias:
+        wbias = zeros
+    if not use_lbias:
+        lbias = zeros
+    look2 = np.concatenate([look, lbias[:, None], ones], axis=1)
+    who2 = np.concatenate([who, ones, wbias[:, None]], axis=1)
+    return Scorer(look2, who2, device)
+
+
+def main() -> None:
+    args = parse()
+    ensure_dirs()
+    out = run_dir(args.name)
+    os.makedirs(out, exist_ok=True)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    device = torch.device("cuda")
+    log = open(os.path.join(out, "log.txt"), "a")
+
+    def say(*a):
+        s = " ".join(str(x) for x in a)
+        print(s, flush=True)
+        log.write(s + "\n")
+        log.flush()
+
+    say("args", json.dumps(vars(args)))
+    f = load_features()
+    ed = load_evaldata(f)
+    tf = TensorFeatures(f, device)
+    tp = train_pairs(f)
+    say("train pairs", len(tp), "pos", int((tp.label > 0).sum()),
+        "neg", int((tp.label < 0).sum()))
+
+    w = np.where(tp.label > 0, 1.0, args.skip_weight).astype(np.float32)
+    y_np = level_targets(tp, f, args.msg_thresh, args.msg_score, args.msg_floor)
+    below = (tp.label.to_numpy() > 0) & (y_np == 0)
+    say("below-floor messaged pairs", int(below.sum()))
+    say("level targets: mean", float(y_np.mean()), "positives mean", float(y_np[y_np > 0].mean()),
+        "quartiles", np.percentile(y_np[y_np > 0], [25, 50, 75, 95]).round(2).tolist())
+    A = torch.as_tensor(tp.a.to_numpy(), device=device)
+    Bi = torch.as_tensor(tp.b.to_numpy(), device=device)
+    Y = torch.as_tensor(y_np, device=device)
+    W = torch.as_tensor(w, device=device)
+
+    p = f.people
+    eligible = np.flatnonzero((p["activated"] & ~p["is_bot"]).to_numpy())
+    ELIG = torch.as_tensor(eligible, device=device)
+
+    noise = Noise(args.noise_answer, args.noise_cat, args.noise_club, args.noise_pref)
+    model = KVModel(tf, args.m, args.n, args.hidden, noise, args.dropout).to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
+    steps_per_epoch = len(tp) // args.batch
+    total = steps_per_epoch * args.epochs
+    sched = torch.optim.lr_scheduler.OneCycleLR(
+        opt, max_lr=args.lr, total_steps=total, pct_start=0.05)
+
+    prod = prod_scorer(f, device)
+    say("prod", json.dumps(quick_metrics(prod, ed)))
+    bl = baseline_metrics(f, ed, tp.a.to_numpy(), tp.b.to_numpy(),
+                          tp.label.to_numpy(), tp.replied.to_numpy())
+    say("baselines", json.dumps(bl))
+
+    step = 0
+    t0 = time.time()
+    for epoch in range(args.epochs):
+        perm = torch.randperm(len(tp), device=device)
+        acc: dict[str, float] = {}
+        for i in range(steps_per_epoch):
+            idx = perm[i * args.batch:(i + 1) * args.batch]
+            ridx = ELIG[torch.randint(len(ELIG), (args.recon_batch,), device=device)]
+            wb = tf.who_batch(ridx)
+            mu, lv = model.who.encode(wb, True)
+            rl = model.who.recon_loss(reparam(mu, lv), wb)
+            kw = kl(mu, lv)
+            lb = tf.look_batch(ridx)
+            mu2, lv2 = model.look.encode(lb, True)
+            rl2 = model.look.recon_loss(reparam(mu2, lv2), lb)
+            kl2 = kl(mu2, lv2)
+            loss = sum(rl.values()) + sum(rl2.values()) + args.beta * (kw + kl2)
+            parts: dict[str, torch.Tensor] = {
+                "recon_who": sum(rl.values()),
+                "recon_look": sum(rl2.values()),
+                "kl": kw + kl2,
+            }
+            a = A[idx]
+            b = Bi[idx]
+            la, lb_bias = model.look_vec(tf.look_batch(a), True)
+            wb_, wb_bias = model.who_vec(tf.who_batch(b), True)
+            C = la @ wb_.T + lb_bias[:, None] + wb_bias[None, :]
+            pl = pair_loss(args.neg_weight, C, Y[idx], W[idx])
+            loss = loss + pl
+            parts["pair"] = pl
+            opt.zero_grad(set_to_none=True)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+            opt.step()
+            sched.step()
+            step += 1
+            for k_, v_ in parts.items():
+                acc[k_] = acc.get(k_, 0.0) + float(v_)
+            if step % 200 == 0:
+                say(f"ep {epoch} step {step}/{total} "
+                    + " ".join(f"{k_}={v_ / 200:.4f}" for k_, v_ in acc.items())
+                    + f" t={time.time() - t0:.0f}s")
+                acc = {}
+        who, look, wbias, lbias = all_vectors(model, tf, f.n)
+        sc = scorer_from(who, look, wbias, lbias, device)
+        say(f"epoch {epoch} eval", json.dumps(quick_metrics(sc, ed)))
+
+    who, look, wbias, lbias = all_vectors(model, tf, f.n)
+    np.save(os.path.join(out, "who.npy"), who)
+    np.save(os.path.join(out, "look.npy"), look)
+    np.save(os.path.join(out, "wbias.npy"), wbias)
+    np.save(os.path.join(out, "lbias.npy"), lbias)
+    torch.save(model.state_dict(), os.path.join(out, "model.pt"))
+    sc = scorer_from(who, look, wbias, lbias, device)
+    res = {"model": quick_metrics(sc, ed), "prod": quick_metrics(prod, ed),
+           "baselines": bl}
+    if args.full_eval:
+        res["model"].update(retrieval_metrics(sc, ed))
+        res["prod"].update(retrieval_metrics(prod, ed))
+        res["model"].update(exposure_metrics(sc, ed))
+        res["prod"].update(exposure_metrics(prod, ed))
+        res["model"].update(agreement_probe(sc, ed))
+        res["prod"].update(agreement_probe(prod, ed))
+    say("final", json.dumps(res, indent=1))
+    with open(os.path.join(out, "metrics.json"), "w") as fh:
+        json.dump({"args": vars(args), **res}, fh, indent=1)
+
+
+if __name__ == "__main__":
+    main()

@@ -292,6 +292,16 @@ CREATE TABLE IF NOT EXISTS person (
     personality VECTOR(47) NOT NULL DEFAULT array_full(47, 0),
     club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
     club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
+
+    -- Key-value matching model (see backend/kvmatching). Every person has a
+    -- `value` (who they are) and a `key` (what they are looking for), each 66
+    -- dimensions with the model's bias scalars folded in. Stored as
+    -- `value || key` so that one inner product against a searcher's
+    -- `key || value` gives the mutual score in both directions at once.
+    -- Half precision: identical top-500 ordering to float4, and it keeps
+    -- the row narrow enough that a search scan stays off TOAST.
+    kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0),
+    kv_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,

@@ -1,4 +1,5 @@
 from serviceshared.database import Row, Tx, api_tx
+from serviceshared.kvmatching import refresh_vectors
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Tuple, Literal
@@ -1607,6 +1608,7 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
     async with api_tx() as tx:
         if q1: await tx.execute(q1, params)
         if q2: await tx.execute(q2, params)
+        await refresh_vectors(tx, [s.person_id])
 
     if field_name == 'show_my_online_status' and s.person_uuid is not None:
         await redis_publish_online(
@@ -1764,6 +1766,10 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         if tx.rowcount != 1:
             return f'Invalid value for {field_name}', 400
 
+        # The searcher's own `key` half decides the order of their next
+        # search, so this cannot wait for the backfill cron.
+        await refresh_vectors(tx, [s.person_id])
+
     return None
 
 async def post_search_filter_answer(
@@ -1875,8 +1881,8 @@ async def post_search_filter_answer(
         answer = (await tx.require_one(q, params)).get('j')
         if answer is None:
             return dict(error=error), 400
-        else:
-            return dict(answer=answer)
+        await refresh_vectors(tx, [s.person_id])
+        return dict(answer=answer)
 
 async def get_search_clubs(
         s: t.SessionInfo | None,
@@ -1917,6 +1923,7 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
         rows = await row_tx.fetchall()
         await tx.execute(
             Q_REFRESH_CLUB_VECTOR, dict(person_id=s.person_id))
+        await refresh_vectors(tx, [s.person_id])
 
     if rows:
         return f"Joined {req.name}", 200
@@ -1933,6 +1940,7 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
         await tx.execute(Q_LEAVE_CLUB, params)
         await tx.execute(
             Q_REFRESH_CLUB_VECTOR, dict(person_id=s.person_id))
+        await refresh_vectors(tx, [s.person_id])
 
 async def get_update_notifications(
     email: str,

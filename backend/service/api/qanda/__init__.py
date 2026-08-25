@@ -31,6 +31,7 @@ from serviceshared.constants import (
     ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
 )
 from serviceshared.database import Row, Tx, api_tx
+from serviceshared.kvmatching import refresh_vectors
 from serviceshared.pgvector import to_pgvector
 import service.api.duotypes as t
 from service.api.qanda import personality
@@ -306,8 +307,11 @@ async def _set_answer_with_retry(
     for attempt in range(_SET_ANSWER_TRIES):
         try:
             async with api_tx() as tx:
-                return await _set_answer(
+                result = await _set_answer(
                     tx, person_id, question_id, answer, public, delete)
+                if result is not None:
+                    await refresh_vectors(tx, [person_id])
+                return result
         except _SET_ANSWER_RETRYABLE:
             if attempt == _SET_ANSWER_TRIES - 1:
                 raise
@@ -387,6 +391,9 @@ async def _flush_session_answers(
             delete=False,
             write_event=False,
         )
+
+    if answers:
+        await refresh_vectors(tx, [person_id])
 
     await tx.execute(
         Q_CLEAR_SESSION_ANSWERS,
