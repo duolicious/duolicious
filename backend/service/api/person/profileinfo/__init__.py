@@ -23,6 +23,7 @@ from service.api.person.sql import *
 from service.api.person.urlslug import assign_url_slug
 from serviceshared.commonsql import *
 from serviceshared.database import api_tx
+from serviceshared.kvmatching.refresh import refresh_vectors
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +212,16 @@ SET
     background_color = %(background_color)s
 WHERE id = %(person_id)s
 """
+
+# The profile fields the matching model reads (person_rows_query in
+# serviceshared/kvmatching/sql.py); changing anything else leaves the vector
+# as it is.
+KV_MODEL_PROFILE_FIELDS = frozenset((
+    'gender', 'orientation', 'ethnicity', 'location', 'height',
+    'looking_for', 'smoking', 'drinking', 'drugs', 'long_distance',
+    'relationship_status', 'has_kids', 'wants_kids', 'exercise',
+    'religion', 'star_sign',
+))
 
 @dataclass(frozen=True)
 class _ProfileField:
@@ -549,6 +560,8 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         await tx.execute(field.q1, params)
         if field.q2:
             await tx.execute(field.q2, params)
+        if field_name in KV_MODEL_PROFILE_FIELDS:
+            await refresh_vectors(tx, s.person_id)
 
     if field_name == 'show_my_online_status' and s.person_uuid is not None:
         await redis_publish_online(

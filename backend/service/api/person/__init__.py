@@ -1,4 +1,8 @@
 from serviceshared.database import Row, Tx, api_tx, row_int_list_or_none
+from serviceshared.kvmatching.refresh import (
+    apply_pref_answer_delta,
+    refresh_vectors,
+)
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
 from typing import Tuple
@@ -138,6 +142,9 @@ async def _handle_pending_club(
     if person_id is not None and pending_club_name is not None:
         await tx.execute(Q_JOIN_CLUB, club_params)
         await tx.execute(Q_SET_SEARCH_PREFERENCE_CLUB, club_params)
+        # The club itself is not a model input, but whether a club search
+        # filter is set is one, and the filter was just set above
+        await refresh_vectors(tx, person_id)
     return await tx.require_one(Q_GET_SESSION_CLUBS, club_params)
 
 
@@ -613,6 +620,8 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
             row['person_id'],
         )
 
+        await refresh_vectors(tx, row['person_id'])
+
     await sessioncache.delete_session(s.session_token_hash)
 
     return dict(**row, **clubs)
@@ -954,6 +963,10 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         if tx.rowcount != 1:
             return f'Invalid value for {field_name}', 400
 
+        # sort_by and the show-messaged/skipped toggles are not model inputs
+        if field_name not in ('sort_by', 'people_you_messaged', 'people_you_skipped'):
+            await refresh_vectors(tx, s.person_id)
+
     return None
 
 async def post_search_filter_answer(
@@ -975,11 +988,21 @@ async def post_search_filter_answer(
         else Q_UPSERT_SEARCH_FILTER_ANSWER)
 
     async with api_tx() as tx:
+        old_tx = await tx.execute(Q_SELECT_SEARCH_FILTER_ANSWER, params)
+        old: Row | None = await old_tx.fetchone()
+        old_raw = old['answer'] if old is not None else None
+
         answer = (await tx.require_one(q, params)).get('j')
         if answer is None:
             return dict(error=error), 400
-        else:
-            return dict(answer=answer)
+        await apply_pref_answer_delta(
+            tx,
+            s.person_id,
+            req.question_id,
+            bool(old_raw) if old_raw is not None else None,
+            req.answer,
+        )
+        return dict(answer=answer)
 
 
 async def get_search_clubs(

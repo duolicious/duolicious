@@ -1,4 +1,5 @@
-"""Reading the rows a person's model features are built from.
+"""The rows a person's model features are built from, and the writes that
+store their computed vector and cached preactivations.
 
 Each query serves one person or the whole population, so the training
 extraction reads exactly the columns the backend does instead of a second
@@ -26,6 +27,8 @@ SELECT
     s.wants_kids_ids, s.exercise_ids, s.religion_ids, s.star_sign_ids,
     s.min_age, s.max_age, s.min_height_cm, s.max_height_cm, s.distance,
     s.last_online_id,
+    p.count_intros_received, p.count_intros_replied, p.count_intros_sent,
+    p.count_messages_received,
     p.verification_level_id,
     p.about,
     (SELECT count(*) FROM photo WHERE photo.person_id = p.id) AS photo_count,
@@ -60,6 +63,41 @@ SELECT person_id, question_id, answer
 FROM {table}
 WHERE answer IS NOT NULL
 {scope}
+"""
+
+Q_QPRE = """
+SELECT
+    kv_who_pre::TEXT AS who_pre,
+    kv_look_pre::TEXT AS look_pre
+FROM person
+WHERE id = %(person_id)s
+AND kv_who_pre IS NOT NULL
+"""
+
+Q_WRITE_QPRE = """
+UPDATE person
+SET
+    kv_who_pre = %(who_pre)s::VECTOR,
+    kv_look_pre = %(look_pre)s::VECTOR
+WHERE id = %(person_id)s
+"""
+
+Q_ADD_QPRE = """
+UPDATE person
+SET
+    kv_who_pre = kv_who_pre + %(who_delta)s::VECTOR,
+    kv_look_pre = kv_look_pre + %(look_delta)s::VECTOR
+WHERE id = %(person_id)s
+AND kv_who_pre IS NOT NULL
+RETURNING
+    kv_who_pre::TEXT AS who_pre,
+    kv_look_pre::TEXT AS look_pre
+"""
+
+Q_WRITE_VECTOR = """
+UPDATE person
+SET kv_vector = %(vector)s::halfvec
+WHERE id = %(person_id)s
 """
 
 

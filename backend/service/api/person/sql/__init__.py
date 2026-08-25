@@ -1822,6 +1822,13 @@ WHERE
     question_id != (SELECT question_id FROM deleted_answer)
 """
 
+Q_SELECT_SEARCH_FILTER_ANSWER = """
+SELECT answer
+FROM search_preference_answer
+WHERE person_id = %(person_id)s
+AND question_id = %(question_id)s
+"""
+
 Q_UPSERT_SEARCH_FILTER_ANSWER = f"""
 WITH existing_search_preference_answer AS (
     SELECT

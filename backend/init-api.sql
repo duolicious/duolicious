@@ -282,6 +282,26 @@ CREATE TABLE IF NOT EXISTS person (
     personality VECTOR(47) NOT NULL DEFAULT array_full(47, 0),
     club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
     club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
+
+    -- Key-value matching model (see backend/kvmatching). `value || key`:
+    -- who this person is, then what they are looking for, each 66 dimensions
+    -- with the model's bias scalars folded in. Stored combined so that one
+    -- inner product against a searcher's `key || value` scores both
+    -- directions at once. Half precision: identical top-500 ordering to
+    -- float4, and narrow enough to stay inline in the tuple search scans.
+    kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0),
+
+    -- The Q&A answer blocks' contribution to each kv encoder's first-layer
+    -- preactivation, NULL until first computed. Like the integer
+    -- presence_score/absence_score behind the personality vector, these are
+    -- the running state kv_vector is derived from: an answer change is a
+    -- single column-add here rather than a re-read of every answer, and the
+    -- adds are exact because the first-layer weights ship on a fixed-point
+    -- grid whose sums float32 carries exactly. At ~2KB each they get TOASTed
+    -- out of line, off the tuple the search scans read; their dimensions
+    -- come from the model artifact, so the columns are untyped.
+    kv_who_pre VECTOR,
+    kv_look_pre VECTOR,
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,

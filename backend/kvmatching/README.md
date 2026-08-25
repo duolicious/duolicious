@@ -69,3 +69,11 @@ code, so updating the model is a deployment. After changing either side, run
 `python -m kvmatching.verify_serving` against a database copy — it rebuilds a
 sample of people from the live tables and from the extracted parquet and
 asserts the two agree column for column.
+
+`serviceshared/kvmatching/refresh.py` keeps a person's vectors in step with
+their rows: every site that changes their answers, profile or search
+preferences calls into it in the same transaction, because their own key
+decides the order of their next search. The answer blocks' contribution to
+each encoder's first layer is cached on the person row (`kv_who_pre`,
+`kv_look_pre`) and patched one column at a time, so an update costs the same
+however many questions the person has answered.

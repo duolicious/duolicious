@@ -54,7 +54,7 @@ def main() -> None:
         # In production the person row carries the behaviour counters; here
         # they are recomputed from the event tables at the SPLIT cutoff, so
         # both sides of the comparison see the same events regardless of
-        # whether this database copy has the counter columns yet.
+        # what the counter columns hold on this database copy.
         with conn.cursor() as cur:
             cur.execute(beh_counts_query(everyone=False),
                         {**BEH_PARAMS, 'person_ids': ids})
