@@ -104,14 +104,29 @@ baselines evaluated on the same held-out data for comparison.
 
 ```
 venv/bin/python export.py model            # -> $KV_WORK_DIR/kv_model.npz
-venv/bin/python backfill.py model          # writes person.kv_key / kv_value
 ```
 
-`export.py` freezes the encoder weights and their feature vocabulary into one
-artifact and checks that the numpy encoder (`kvencoder.py`) reproduces
-training's vectors before writing it. `backfill.py` fills in vectors for
-people who already exist; after that the application recomputes a person's
-vectors when their profile changes.
+`export.py` freezes the encoder weights and the feature vocabulary they were
+trained against into one artifact, and checks that the numpy encoder
+(`kvencoder.py`) reproduces training's own vectors before writing it. Copy
+that file over `service/cron/kvvectors/kv_model.npz` and commit it: the
+weights ship with the code, so updating the model is a deployment.
+
+Nothing else is needed. The `kvvectors` cron walks `person` oldest-computed
+first, so a new artifact re-vectorises everyone without any other trigger,
+and people who join or edit their profile afterwards are picked up on the
+next pass. A batch of 2,000 takes about three seconds, so a full pass over
+200k people is a few minutes of work spread over an hour or two.
+
+`backfill.py model` writes a run's vectors straight into the database. The
+cron makes it unnecessary in production -- it is a convenience for a local
+copy, where waiting for a pass to finish is tedious.
+
+Before changing either side of the feature construction, run
+`verify_serving.py` against a database copy: it rebuilds a sample of people
+through the backend's path and asserts the blocks match training's column
+for column. The encoders were fitted to that exact layout, so a column out
+of place produces plausible-looking nonsense rather than an error.
 
 ## Privacy
 
