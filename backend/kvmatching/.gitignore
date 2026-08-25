@@ -1,0 +1,5 @@
+data/
+runs/
+venv/
+__pycache__/
+NOTES.md
