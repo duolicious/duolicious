@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { CrossFade, CrossFadeText } from './cross-fade';
 import { DefaultText } from './default-text';
@@ -24,6 +25,15 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   const { width: windowWidth } = useWindowDimensions();
   const numActiveUsers = useNumActiveUsers(undefined);
   const prospectName = useBannerProspectName(prospectHandle);
+  const [showNumActiveUsers, setShowNumActiveUsers] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(
+      () => setShowNumActiveUsers((s) => !s),
+      5000
+    );
+    return () => clearInterval(interval);
+  }, []);
 
   // Longer names blow out the button's width, so fall back to the default copy.
   const label = prospectName && prospectName.length <= 7
@@ -79,37 +89,43 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
             gap: 14,
           }}
         >
-          <View
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 12,
-            }}
-          >
-            <Logo16 size={64} color={appTheme.brandColor} rectSize={0.3} />
-            <CrossFade
-              style={{ flexShrink: 1 }}
-              showFront={numActiveUsers !== undefined}
-              minBackMs={2000}
-              front={
-                <>
+          <CrossFade
+            style={{ flex: 1 }}
+            showFront={showNumActiveUsers && numActiveUsers !== undefined}
+            minBackMs={5000}
+            front={
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                }}
+              >
+                <Logo16 size={64} color={appTheme.brandColor} rectSize={0.3} />
+                <View style={{ flexShrink: 1 }}>
                   <DefaultText style={{ fontWeight: '900', fontSize: 20 }}>
                     {numActiveUsers === undefined ? '\xa0' : numActiveUsers.toLocaleString()}
                   </DefaultText>
                   <DefaultText style={{ fontWeight: '600', fontSize: 14 }}>
                     Active Members
                   </DefaultText>
-                </>
-              }
-              back={
-                <DefaultText style={{ fontWeight: '600', fontSize: 12 }}>
-                  Online dating, but based and true love-pilled
-                </DefaultText>
-              }
-            />
-          </View>
+                </View>
+              </View>
+            }
+            back={
+              <DefaultText
+                style={{
+                  fontWeight: '700',
+                  fontSize: 14,
+                  textAlign: 'center',
+                  textWrap: 'balance',
+                }}
+              >
+                {'See members\u2011only profiles by joining or signing in'}
+              </DefaultText>
+            }
+          />
           <View style={{ flex: 1 }}>
             <Pressable
               onPress={() => showSignUp(true, signUpMessage)}

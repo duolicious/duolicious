@@ -60,13 +60,12 @@ const CrossFade = ({
   const mountedAt = useRef(Date.now());
 
   useEffect(() => {
-    if (!showFront) {
-      return;
-    }
-
     const remaining = Math.max(0, minBackMs - (Date.now() - mountedAt.current));
 
-    progress.value = withDelay(remaining, withTiming(1, { duration }));
+    progress.value = withDelay(
+      remaining,
+      withTiming(showFront ? 1 : 0, { duration })
+    );
   }, [showFront]);
 
   return (

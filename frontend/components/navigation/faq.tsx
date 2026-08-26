@@ -163,6 +163,23 @@ const FAQ_ITEMS: FaqItem[] = [
     </>,
   },
   {
+    question: 'Is my profile private?',
+    Answer: () => <>
+      <Paragraph>
+        Yes, unless you say otherwise! Only people signed into Duolicious can
+        see your profile. The profiles that signed-out visitors can browse
+        belong to members who turned on the optional ‘Public Profile’ setting,
+        which is off by default.
+      </Paragraph>
+      <Paragraph>
+        If you want even more privacy, you can use ‘Verification Level’ to set
+        the minimum verification people need to find you in search results.
+        You’ll find these options under “Privacy Settings” in the “Profile”
+        tab.
+      </Paragraph>
+    </>,
+  },
+  {
     question: 'Are pics of myself required on my profile?',
     Answer: () => <>
       <Paragraph>
