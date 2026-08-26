@@ -26,6 +26,10 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   const numActiveUsers = useNumActiveUsers(undefined);
   const prospectName = useBannerProspectName(prospectHandle);
   const [showNumActiveUsers, setShowNumActiveUsers] = useState(false);
+  const [cardWidth, setCardWidth] = useState<number>();
+
+  const isNarrow =
+    (cardWidth ?? Math.min(windowWidth, COLUMN_MAX_WIDTH)) < 370;
 
   useEffect(() => {
     const interval = setInterval(
@@ -76,6 +80,12 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
         pointerEvents="box-none"
       >
         <View
+          onLayout={(e) => {
+            const { width } = e.nativeEvent.layout;
+            if (width > 0) {
+              setCardWidth(width);
+            }
+          }}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -117,8 +127,8 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
               <DefaultText
                 style={{
                   fontWeight: '900',
-                  fontSize: windowWidth < 375 ? 14 : 18,
-                  lineHeight: windowWidth < 375 ? 22 : undefined,
+                  fontSize: isNarrow ? 14 : 18,
+                  lineHeight: isNarrow ? 22 : undefined,
                   textAlign: 'center',
                   textWrap: 'balance',
                 }}
