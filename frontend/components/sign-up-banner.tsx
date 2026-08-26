@@ -29,7 +29,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   const [cardWidth, setCardWidth] = useState<number>();
 
   const isNarrow =
-    (cardWidth ?? Math.min(windowWidth, COLUMN_MAX_WIDTH)) < 370;
+    (cardWidth ?? Math.min(windowWidth, COLUMN_MAX_WIDTH)) < 400;
 
   useEffect(() => {
     const interval = setInterval(
