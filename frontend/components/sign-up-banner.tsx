@@ -116,13 +116,14 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
             back={
               <DefaultText
                 style={{
-                  fontWeight: '700',
-                  fontSize: 14,
+                  fontWeight: '900',
+                  fontSize: windowWidth < 375 ? 14 : 18,
+                  lineHeight: windowWidth < 375 ? 22 : undefined,
                   textAlign: 'center',
                   textWrap: 'balance',
                 }}
               >
-                {'See members\u2011only profiles by joining or signing in'}
+                {'See members-only profiles by joining'}
               </DefaultText>
             }
           />
