@@ -26,6 +26,7 @@ it has passed (and for everyone created since, whose row is built at
 onboarding), the exception never fires on the serving path.
 """
 import numpy as np
+from pgvector import HalfVector, Vector
 
 from serviceshared.database import Tx
 from serviceshared.kvmatching import encoder, features, rows as rowbuilder
@@ -41,7 +42,6 @@ from serviceshared.kvmatching.sql import (
     person_rows_query,
     pref_answers_query,
 )
-from serviceshared.pgvector import parse_pgvector, to_pgvector
 
 Q_PERSON_ROWS = person_rows_query(everyone=False)
 Q_ANSWERS = answers_query(everyone=False)
@@ -66,6 +66,12 @@ def _answer_value(answer: bool | None) -> float:
     return 1.0 if answer else -1.0
 
 
+def _vec(value: object) -> FloatArray:
+    if not isinstance(value, Vector):
+        raise RuntimeError(f'expected a vector, got {type(value).__name__}')
+    return value.to_numpy()
+
+
 async def _person_row(tx: Tx, person_id: int) -> Row | None:
     await tx.execute(Q_PERSON_ROWS, dict(person_id=person_id))
     rows = await tx.fetchall()
@@ -85,8 +91,7 @@ async def _fetch_qpre(tx: Tx, person_id: int) -> Qpre | None:
     rows = await tx.fetchall()
     if not rows:
         return None
-    return (parse_pgvector(str(rows[0]['who_pre'])),
-            parse_pgvector(str(rows[0]['look_pre'])))
+    return _vec(rows[0]['who_pre']), _vec(rows[0]['look_pre'])
 
 
 async def _build_qpre(tx: Tx, s: Spec, person_id: int, person: Row) -> Qpre:
@@ -103,8 +108,8 @@ async def _build_qpre(tx: Tx, s: Spec, person_id: int, person: Row) -> Qpre:
                  + blocks.pref_answers[0] @ s.look.w0[:, who_width:who_width + nq].T)
     await tx.execute(Q_WRITE_QPRE, dict(
         person_id=person_id,
-        who_pre=to_pgvector(who_qpre),
-        look_pre=to_pgvector(look_qpre),
+        who_pre=Vector(who_qpre),
+        look_pre=Vector(look_qpre),
     ))
     return who_qpre, look_qpre
 
@@ -119,7 +124,7 @@ async def _write_vector(tx: Tx, s: Spec, person_id: int, person: Row,
     stored = encoder.stored_vector(who, wbias, look, lbias)
     await tx.execute(Q_WRITE_VECTOR, dict(
         person_id=person_id,
-        vector=to_pgvector(stored),
+        vector=HalfVector(stored),
     ))
 
 
@@ -200,15 +205,14 @@ async def _apply_delta(tx: Tx, person_id: int,
                        who_delta: FloatArray, look_delta: FloatArray) -> None:
     await tx.execute(Q_ADD_QPRE, dict(
         person_id=person_id,
-        who_delta=to_pgvector(who_delta),
-        look_delta=to_pgvector(look_delta),
+        who_delta=Vector(who_delta),
+        look_delta=Vector(look_delta),
     ))
     patched = await tx.fetchall()
     if not patched:
         await refresh_vectors(tx, person_id)
         return
-    qpre = (parse_pgvector(str(patched[0]['who_pre'])),
-            parse_pgvector(str(patched[0]['look_pre'])))
+    qpre = (_vec(patched[0]['who_pre']), _vec(patched[0]['look_pre']))
     s = spec()
     person = await _person_row(tx, person_id)
     if person is None:
