@@ -107,7 +107,8 @@ metrics against the held-out window and writes `who.npy`, `look.npy`,
 `wbias.npy`, `lbias.npy`, `model.pt` and `metrics.json` into the run
 directory.
 `metrics.json` includes the production algorithm evaluated on the same
-held-out data for comparison.
+held-out data for comparison, and `python -m kvmatching.bench model`
+reproduces the observational benchmark the PR descriptions quote.
 
 ## Deploying a trained model
 
