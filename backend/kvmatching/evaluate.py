@@ -9,6 +9,8 @@ from kvmatching.pairs import SPLIT, directed_labels, load_interactions, replies
 from serviceshared.kvmatching.blocks import FloatArray, IntArray
 
 BoolArray = npt.NDArray[np.bool_]
+POLITICAL_QIDS = [167, 275, 666, 727, 1108, 1380, 1469, 1776, 1340, 242, 186, 73]
+SEX_QIDS = [40, 60, 132, 32, 108, 127, 89, 49, 21, 327, 168, 243]
 
 
 class EvalData:
@@ -21,20 +23,13 @@ class EvalData:
         df = load_interactions()
         lab = directed_labels(df)
         lab = lab[lab["t"] >= SPLIT]
-        ra = f.pid2row.reindex(lab["a"]).to_numpy()
-        rb = f.pid2row.reindex(lab["b"]).to_numpy()
-        ok = ~np.isnan(ra) & ~np.isnan(rb)
-        self.dir_a = ra[ok].astype(int)
-        self.dir_b = rb[ok].astype(int)
+        self.dir_a, self.dir_b, ok = self._rows(lab["a"], lab["b"])
         self.dir_y = (lab["label"].to_numpy()[ok] == 1)
 
         r = replies(df)
         r = r[r["initiated"] & (r["messaged_at"] >= SPLIT)]
-        ra = f.pid2row.reindex(r["subject_person_id"]).to_numpy()
-        rb = f.pid2row.reindex(r["object_person_id"]).to_numpy()
-        ok = ~np.isnan(ra) & ~np.isnan(rb)
-        self.rep_a = ra[ok].astype(int)
-        self.rep_b = rb[ok].astype(int)
+        self.rep_a, self.rep_b, ok = self._rows(
+            r["subject_person_id"], r["object_person_id"])
         self.rep_y = r["replied"].to_numpy()[ok]
         self.rep_skipped_back = r["skipped_back"].to_numpy()[ok]
 
@@ -60,11 +55,16 @@ class EvalData:
         actors = actors[np.isin(actors, self.exposure_pool)]
         self.searchers = rng.choice(actors, size=min(3000, len(actors)), replace=False)
 
+    def _rows(self, a: "pd.Series[int]",
+              b: "pd.Series[int]") -> tuple[IntArray, IntArray, BoolArray]:
+        ra = self.f.pid2row.reindex(a).to_numpy()
+        rb = self.f.pid2row.reindex(b).to_numpy()
+        ok = ~np.isnan(ra) & ~np.isnan(rb)
+        return ra[ok].astype(int), rb[ok].astype(int), ok
+
     def _mutual_gender_mask(self, a: int, cands: IntArray) -> BoolArray:
-        ga = self.gender[a]
-        gc = self.gender[cands]
-        ok_a = self.gender_ok[a][gc]
-        ok_c = self.gender_ok[cands, ga]
+        ok_a = self.gender_ok[a][self.gender[cands]]
+        ok_c = self.gender_ok[cands, self.gender[a]]
         return ok_a & ok_c
 
     def _candidates(self, a: int, b: int, k: int) -> IntArray:
@@ -74,8 +74,7 @@ class EvalData:
         return np.concatenate([[b], cands])
 
     def exposure_candidates(self, a: int) -> IntArray:
-        c = self.exposure_pool
-        c = c[c != a]
+        c = self.exposure_pool[self.exposure_pool != a]
         return c[self._mutual_gender_mask(a, c)]
 
 
@@ -83,6 +82,21 @@ def safe_auc(y: BoolArray, s: FloatArray) -> float:
     if y.sum() == 0 or y.sum() == len(y):
         return float("nan")
     return float(roc_auc_score(y, s))
+
+
+def grouped_auc(group: IntArray, y: BoolArray, s: FloatArray,
+                min_size: int = 3) -> float:
+    """Macro-averaged AUC within groups (Mann-Whitney via ranks), over
+    groups with both classes present and at least `min_size` rows."""
+    df = pd.DataFrame({"g": group, "y": y.astype(int), "s": s})
+    df["r"] = df.groupby("g")["s"].rank(method="average")
+    agg = df.groupby("g").agg(n=("y", "size"), npos=("y", "sum"))
+    rpos = df[df.y == 1].groupby("g")["r"].sum()
+    agg["rpos"] = rpos.reindex(agg.index).fillna(0)
+    agg["nneg"] = agg["n"] - agg["npos"]
+    a = agg[(agg["npos"] > 0) & (agg["nneg"] > 0) & (agg["n"] >= min_size)]
+    auc = (a["rpos"] - a["npos"] * (a["npos"] + 1) / 2) / (a["npos"] * a["nneg"])
+    return float(auc.mean())
 
 
 def gini(x: FloatArray | IntArray) -> float:
@@ -109,28 +123,48 @@ class Scorer:
     def reciprocal(self, a: IntArray, b: IntArray) -> FloatArray:
         return self.directed(a, b) + self.directed(b, a)
 
-    def rank_of_first(self, a: int, cands: IntArray, mode: str) -> int:
+    def against(self, a: int, cands: IntArray, mode: str) -> FloatArray:
         a_arr = np.full(len(cands), a)
-        s = self.reciprocal(a_arr, cands) if mode == "recip" else self.directed(a_arr, cands)
-        target = s[0]
-        return int((s[1:] > target).sum() + 1)
+        if mode == "recip":
+            return self.reciprocal(a_arr, cands)
+        return self.directed(a_arr, cands)
+
+    def rank_of_first(self, a: int, cands: IntArray, mode: str) -> int:
+        s = self.against(a, cands, mode)
+        return int((s[1:] > s[0]).sum() + 1)
 
     def topk(self, a: int, cands: IntArray, k: int, mode: str) -> IntArray:
-        a_arr = np.full(len(cands), a)
-        s = self.reciprocal(a_arr, cands) if mode == "recip" else self.directed(a_arr, cands)
-        idx = np.argpartition(-s, min(k, len(s) - 1))[:k]
-        return cands[idx]
+        s = self.against(a, cands, mode)
+        return cands[np.argpartition(-s, min(k, len(s) - 1))[:k]]
+
+
+def prod_scorer(f: Features, device: torch.device) -> Scorer:
+    return Scorer(f.personality, f.personality, device)
+
+
+def served_lists(sc: Scorer, ed: EvalData, k: int, mode: str,
+                 searchers: IntArray) -> list[tuple[int, IntArray]]:
+    out = []
+    for a in searchers:
+        cands = ed.exposure_candidates(a)
+        if len(cands):
+            out.append((int(a), sc.topk(a, cands, k, mode)))
+    return out
 
 
 def quick_metrics(sc: Scorer, ed: EvalData) -> dict[str, float]:
-    out: dict[str, float] = {}
-    out["dir_auc"] = safe_auc(ed.dir_y, sc.directed(ed.dir_a, ed.dir_b))
-    out["reply_auc_b2a"] = safe_auc(ed.rep_y, sc.directed(ed.rep_b, ed.rep_a))
-    out["reply_auc_recip"] = safe_auc(ed.rep_y, sc.reciprocal(ed.rep_a, ed.rep_b))
-    out["skipback_auc_b2a"] = safe_auc(
-        ed.rep_skipped_back, -sc.directed(ed.rep_b, ed.rep_a))
-    out.update(inbox_metrics(sc, ed))
-    return out
+    b2a = sc.directed(ed.rep_b, ed.rep_a)
+    recip = sc.reciprocal(ed.rep_a, ed.rep_b)
+    dir_s = sc.directed(ed.dir_a, ed.dir_b)
+    return {
+        "dir_auc": safe_auc(ed.dir_y, dir_s),
+        "reply_auc_b2a": safe_auc(ed.rep_y, b2a),
+        "reply_auc_recip": safe_auc(ed.rep_y, recip),
+        "skipback_auc_b2a": safe_auc(ed.rep_skipped_back, -b2a),
+        "inbox_auc_b2a": grouped_auc(ed.rep_b, ed.rep_y, b2a),
+        "inbox_auc_recip": grouped_auc(ed.rep_b, ed.rep_y, recip),
+        "per_sender_auc_a2b": grouped_auc(ed.dir_a, ed.dir_y, dir_s),
+    }
 
 
 def retrieval_metrics(sc: Scorer, ed: EvalData) -> dict[str, float]:
@@ -144,33 +178,20 @@ def retrieval_metrics(sc: Scorer, ed: EvalData) -> dict[str, float]:
     return out
 
 
-def exposure_metrics(sc: Scorer, ed: EvalData, k: int = 50, mode: str = "recip") -> dict[str, float]:
+def exposure_metrics(sc: Scorer, ed: EvalData, k: int = 50,
+                     mode: str = "recip") -> dict[str, float]:
     counts = np.zeros(ed.f.n, dtype=np.int64)
-    for a in ed.searchers:
-        cands = ed.exposure_candidates(a)
-        if len(cands) == 0:
-            continue
-        top = sc.topk(a, cands, k, mode)
+    for _, top in served_lists(sc, ed, k, mode, ed.searchers):
         counts[top] += 1
     pool_counts = counts[ed.exposure_pool]
     srt = np.sort(pool_counts)[::-1]
-    total = srt.sum()
     top1 = max(1, len(srt) // 100)
     return {
         "exposure_gini": gini(pool_counts),
-        "exposure_top1pct_share": float(srt[:top1].sum() / max(total, 1)),
+        "exposure_top1pct_share": float(srt[:top1].sum() / max(srt.sum(), 1)),
         "exposure_zero_frac": float((pool_counts == 0).mean()),
         "exposure_max": int(srt[0]),
     }
-
-
-def prod_scorer(f: Features, device: torch.device) -> Scorer:
-    return Scorer(f.personality, f.personality, device)
-
-
-
-POLITICAL_QIDS = [167, 275, 666, 727, 1108, 1380, 1469, 1776, 1340, 242, 186, 73]
-SEX_QIDS = [40, 60, 132, 32, 108, 127, 89, 49, 21, 327, 168, 243]
 
 
 def disagreement(f: Features, a: IntArray, b: IntArray, qids: list[int]) -> float:
@@ -178,54 +199,17 @@ def disagreement(f: Features, a: IntArray, b: IntArray, qids: list[int]) -> floa
     A = f.answers[a][:, cols].astype(np.int16)
     B = f.answers[b][:, cols].astype(np.int16)
     both = (A != 0) & (B != 0)
-    dis = (A * B < 0) & both
-    return float(dis.sum() / max(both.sum(), 1))
+    return float(((A * B < 0) & both).sum() / max(both.sum(), 1))
 
 
 def agreement_probe(sc: Scorer, ed: EvalData, k: int = 50, mode: str = "recip",
                     n_searchers: int = 1000) -> dict[str, float]:
-    f = ed.f
-    a_parts, b_parts = [], []
-    for a in ed.searchers[:n_searchers]:
-        cands = ed.exposure_candidates(a)
-        if len(cands) == 0:
-            continue
-        top = sc.topk(a, cands, k, mode)
-        a_parts.append(np.full(len(top), a))
-        b_parts.append(top)
-    a_all = np.concatenate(a_parts)
-    b_all = np.concatenate(b_parts)
-    rng = np.random.default_rng(1)
-    rb = rng.choice(ed.exposure_pool, size=len(b_all))
-    return {
-        "political_disagree_top": disagreement(f, a_all, b_all, POLITICAL_QIDS),
-        "political_disagree_random": disagreement(f, a_all, rb, POLITICAL_QIDS),
-        "sex_disagree_top": disagreement(f, a_all, b_all, SEX_QIDS),
-        "sex_disagree_random": disagreement(f, a_all, rb, SEX_QIDS),
-    }
-
-
-def grouped_auc(group: IntArray, y: BoolArray, s: FloatArray,
-                min_size: int = 3) -> float:
-    """Macro-averaged AUC within groups (Mann-Whitney via ranks), over
-    groups with both classes present and at least `min_size` rows."""
-    df = pd.DataFrame({"g": group, "y": y.astype(int), "s": s})
-    df["r"] = df.groupby("g")["s"].rank(method="average")
-    agg = df.groupby("g").agg(n=("y", "size"), npos=("y", "sum"))
-    rpos = df[df.y == 1].groupby("g")["r"].sum()
-    agg["rpos"] = rpos.reindex(agg.index).fillna(0)
-    agg["nneg"] = agg["n"] - agg["npos"]
-    ok = (agg["npos"] > 0) & (agg["nneg"] > 0) & (agg["n"] >= min_size)
-    a = agg[ok]
-    auc = (a["rpos"] - a["npos"] * (a["npos"] + 1) / 2) / (a["npos"] * a["nneg"])
-    return float(auc.mean())
-
-
-def inbox_metrics(sc: Scorer, ed: EvalData) -> dict[str, float]:
-    """Per-recipient ranking of the senders in their held-out inbox."""
+    served = served_lists(sc, ed, k, mode, ed.searchers[:n_searchers])
+    a_all = np.concatenate([np.full(len(top), a) for a, top in served])
+    b_all = np.concatenate([top for _, top in served])
+    rb = np.random.default_rng(1).choice(ed.exposure_pool, size=len(b_all))
     out: dict[str, float] = {}
-    out["inbox_auc_b2a"] = grouped_auc(ed.rep_b, ed.rep_y, sc.directed(ed.rep_b, ed.rep_a))
-    out["inbox_auc_recip"] = grouped_auc(ed.rep_b, ed.rep_y, sc.reciprocal(ed.rep_a, ed.rep_b))
-    out["per_sender_auc_a2b"] = grouped_auc(ed.dir_a, ed.dir_y, sc.directed(ed.dir_a, ed.dir_b))
+    for name, qids in [("political", POLITICAL_QIDS), ("sex", SEX_QIDS)]:
+        out[f"{name}_disagree_top"] = disagreement(ed.f, a_all, b_all, qids)
+        out[f"{name}_disagree_random"] = disagreement(ed.f, a_all, rb, qids)
     return out
-

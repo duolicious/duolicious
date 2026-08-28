@@ -1,17 +1,11 @@
-"""Build the matching model's inputs from live database rows.
+"""Build the matching model's inputs, in training and at serving time both.
 
-This has to agree with the training-time feature construction
-(backend/kvmatching/features.py) exactly: the encoders were fitted against
-that layout, and a column out of place produces plausible-looking nonsense
-rather than an error. `kvmatching/verify_serving.py` checks the two agree.
-
-The vocabulary (question ids, enum sizes, the country list) is
-frozen into the weight artifact, so it only moves when a new model is
-deployed. Counts encode as bucketed one-hots with zero left implicit,
-binary facts as single flags, and smooth physical quantities (year of
-birth, height, coordinates) as scalars: the scalars extrapolate to values
-outside the training range, which matters for the birth years that only
-start appearing between retrains.
+The vocabulary (question ids, enum sizes, the country list) is frozen into
+the weight artifact, so it only moves when a new model is deployed. Counts
+encode as bucketed one-hots with zero left implicit, binary facts as single
+flags, and smooth physical quantities (year of birth, height, coordinates)
+as scalars, which extrapolate past the training range — the birth years that
+only start appearing between retrains.
 """
 import re
 
