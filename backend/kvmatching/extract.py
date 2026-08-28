@@ -8,6 +8,7 @@ import pyarrow.parquet as pq
 
 from kvmatching.pairs import SPLIT
 from kvmatching.paths import DATA, ensure_dirs
+from serviceshared.kvmatching.sql import beh_counts_query
 
 DSN = os.environ.get(
     "DUO_DB_DSN",
@@ -16,11 +17,21 @@ SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
 
 NAMES = [
     "people", "prefs", "pref_answers", "messaged", "skipped",
-    "questions", "answers", "dir_msgs",
+    "questions", "answers", "dir_msgs", "beh_counts",
 ]
+
+# The behaviour counters use the serving side's own query so that training
+# sees exactly what the chat path will maintain, restricted to before SPLIT.
+# The mam cutoff is the id whose embedded timestamp is the split instant.
+BEH_PARAMS = {
+    "cutoff": SPLIT.to_pydatetime(),
+    "cutoff_mid": int(SPLIT.timestamp() * 1e6) << 8,
+}
 
 
 def read_sql(name: str) -> str:
+    if name == "beh_counts":
+        return beh_counts_query(everyone=True)
     with open(os.path.join(SQL_DIR, f"{name}.sql")) as fh:
         return fh.read()
 
@@ -37,6 +48,8 @@ def build_scratch(conn: psycopg.Connection) -> None:
 def extract(conn: psycopg.Connection, name: str) -> None:
     out = os.path.join(DATA, f"{name}.parquet")
     params = {"split": SPLIT.to_pydatetime()} if name == "dir_msgs" else None
+    if name == "beh_counts":
+        params = BEH_PARAMS
     with conn.cursor() as cur:
         cur.execute(read_sql(name), params)
         assert cur.description is not None

@@ -21,7 +21,8 @@ from serviceshared.kvmatching import features as serving_features
 from serviceshared.kvmatching import rows as serving_rows
 from serviceshared.kvmatching.spec import Spec
 from serviceshared.kvmatching.sql import (
-    Q_ANSWERS, Q_PERSON_ROWS, Q_PREF_ANSWERS)
+    Q_ANSWERS, Q_PERSON_ROWS, Q_PREF_ANSWERS, beh_counts_query)
+from kvmatching.extract import BEH_PARAMS
 
 
 def main() -> None:
@@ -43,6 +44,16 @@ def main() -> None:
         with conn.cursor() as cur:
             cur.execute(Q_PREF_ANSWERS, {'person_ids': ids})
             prefs = [(r['person_id'], r['question_id'], r['answer']) for r in cur.fetchall()]
+        # In production the person row carries the behaviour counters; here
+        # they are recomputed from the event tables at the SPLIT cutoff, so
+        # both sides of the comparison see the same events regardless of
+        # whether this database copy has the counter columns yet.
+        with conn.cursor() as cur:
+            cur.execute(beh_counts_query(everyone=False),
+                        {**BEH_PARAMS, 'person_ids': ids})
+            counts = {r['person_id']: r for r in cur.fetchall()}
+
+    people = [{**p, **counts[p['id']]} for p in people]
 
     built = serving_rows.build(spec, people, answers, prefs)
     got_ids = built.person_ids

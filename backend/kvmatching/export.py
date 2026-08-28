@@ -62,6 +62,7 @@ def who_input(f: Features, rows: IntArray) -> FloatArray:
         f.num[rows] * f.num_mask[rows], f.num_mask[rows],
         f.loc[rows],
         np.eye(N_COUNTRIES, dtype=np.float32)[f.country[rows]],
+        f.beh[rows],
     ], 1)
 
 

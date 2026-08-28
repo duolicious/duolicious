@@ -12,11 +12,12 @@ def one_hot_cats(cat: torch.Tensor, sizes: list[int]) -> torch.Tensor:
 
 class Noise:
     def __init__(self, p_answer: float, p_cat: float, p_pref: float,
-                 p_year: float = 0.0) -> None:
+                 p_year: float = 0.0, p_beh: float = 0.0) -> None:
         self.p_answer = p_answer
         self.p_cat = p_cat
         self.p_pref = p_pref
         self.p_year = p_year
+        self.p_beh = p_beh
 
 
 def drop(x: torch.Tensor, p: float) -> torch.Tensor:
@@ -55,7 +56,7 @@ class WhoDVAE(nn.Module):
         self.nq = tf.answers.shape[1]
         self.cat_sizes = tf.cat_sizes
         self.in_dim = (self.nq + sum(self.cat_sizes) + 4 + tf.loc.shape[1]
-                       + N_COUNTRIES)
+                       + N_COUNTRIES + tf.beh.shape[1])
         self.enc = MLP([self.in_dim, hidden, hidden], dropout)
         self.mu = nn.Linear(hidden, m)
         self.logvar = nn.Linear(hidden, m)
@@ -81,12 +82,22 @@ class WhoDVAE(nn.Module):
                     0, 2, (num.shape[0],), device=num.device).float() * 2 - 1
                 num = num.clone()
                 num[:, 0] = num[:, 0] + hit * sign * 0.1
+        beh = b["beh"]
+        if train and self.noise.p_beh > 0:
+            # Zero the whole block at once: an all-zero block is exactly a
+            # brand-new user, so the encoder keeps working before anyone has
+            # messaged. Trained without this, the model over-trusts the
+            # behaviour signals and generalises measurably worse.
+            keep = (torch.rand(beh.shape[0], 1, device=beh.device)
+                    >= self.noise.p_beh).float()
+            beh = beh * keep
         parts = [
             ans,
             one_hot_cats(cat, self.cat_sizes),
             num * b["num_mask"], b["num_mask"],
             b["loc"],
             F.one_hot(b["country"], N_COUNTRIES).float(),
+            beh,
         ]
         return torch.cat(parts, dim=1)
 

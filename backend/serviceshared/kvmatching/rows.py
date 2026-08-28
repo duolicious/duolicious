@@ -84,6 +84,10 @@ def build(spec: Spec, people: list[Row], answers: list[Triple],
         answers=_sparse_pm1(spec, index, answers, n),
         cats=[_ints(people, f, UNANSWERED) for f in spec.cat_fields],
         country=country,
+        intros_received=_ints(people, 'count_intros_received', 0),
+        intros_replied=_ints(people, 'count_intros_replied', 0),
+        intros_sent=_ints(people, 'count_intros_sent', 0),
+        messages_received=_ints(people, 'count_messages_received', 0),
         pref_answers=_sparse_pm1(spec, index, pref_answers, n),
         pref_multi=np.concatenate(
             [_multi_hot(people, f, int(size))

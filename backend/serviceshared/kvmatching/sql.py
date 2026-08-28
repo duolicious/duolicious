@@ -44,3 +44,70 @@ FROM search_preference_answer
 WHERE person_id = ANY(%(person_ids)s)
 AND answer IS NOT NULL
 """
+
+
+def beh_counts_query(everyone: bool) -> str:
+    """The single definition of the four behaviour counters, used by the
+    training extraction (with a cutoff, for the whole population), the
+    backfill (no cutoff, a batch of people) and `verify_serving`. A messaged
+    row is a reply when a strictly earlier row exists the other way; a tie
+    (both directions in one batch, sharing a transaction's now()) counts as
+    crossed intros, which is also how the chat path counts it live.
+
+    `messages_received` counts the recipient's own archive copies, so
+    messages from shadow-banned senders (never delivered) do not count.
+    The mam id encodes the timestamp in its high bits, so the cutoff is
+    applied to `id` directly (`cutoff_mid`), keeping the scan on the primary
+    key.
+    """
+    scope_m = ("" if everyone else
+               "AND (subject_person_id = ANY(%(person_ids)s)"
+               " OR object_person_id = ANY(%(person_ids)s))")
+    scope_p = "" if everyone else "WHERE id = ANY(%(person_ids)s)"
+    scope_a = "" if everyone else "AND person_id = ANY(%(person_ids)s)"
+    return f"""
+WITH m AS (
+    SELECT
+        subject_person_id AS s,
+        object_person_id AS o,
+        EXISTS (
+            SELECT 1 FROM messaged r
+            WHERE r.subject_person_id = m0.object_person_id
+            AND r.object_person_id = m0.subject_person_id
+            AND r.created_at < m0.created_at
+        ) AS is_reply
+    FROM messaged m0
+    WHERE (%(cutoff)s::TIMESTAMP IS NULL OR created_at < %(cutoff)s)
+    {scope_m}
+), received AS (
+    SELECT o AS pid, count(*) AS n
+    FROM m
+    WHERE NOT is_reply
+    GROUP BY o
+), sent AS (
+    SELECT
+        s AS pid,
+        count(*) FILTER (WHERE NOT is_reply) AS n_sent,
+        count(*) FILTER (WHERE is_reply) AS n_replied
+    FROM m
+    GROUP BY s
+), archive AS (
+    SELECT person_id AS pid, count(*) AS n
+    FROM mam_message
+    WHERE direction = 'I'
+    AND (%(cutoff_mid)s::BIGINT IS NULL OR id < %(cutoff_mid)s)
+    {scope_a}
+    GROUP BY person_id
+)
+SELECT
+    person.id AS person_id,
+    COALESCE(received.n, 0)::INT AS count_intros_received,
+    COALESCE(sent.n_replied, 0)::INT AS count_intros_replied,
+    COALESCE(sent.n_sent, 0)::INT AS count_intros_sent,
+    COALESCE(archive.n, 0)::INT AS count_messages_received
+FROM person
+LEFT JOIN received ON received.pid = person.id
+LEFT JOIN sent ON sent.pid = person.id
+LEFT JOIN archive ON archive.pid = person.id
+{scope_p}
+"""

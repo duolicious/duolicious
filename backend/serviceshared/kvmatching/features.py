@@ -16,6 +16,7 @@ from serviceshared.kvmatching.blocks import Blocks, F64Array, FloatArray, IntArr
 from serviceshared.kvmatching.spec import Spec
 
 BIRTH_YEAR_CENTRE, BIRTH_YEAR_SCALE = 1995.0, 10.0
+INTROS_SCALE, MESSAGES_SCALE = 2.0, 3.0
 HEIGHT_LO, HEIGHT_HI, HEIGHT_CENTRE, HEIGHT_SCALE = 120.0, 230.0, 170.0, 10.0
 PREF_NUMS = (
     ("min_age", 25.0, 10.0),
@@ -55,6 +56,28 @@ def _numeric(birth_year: F64Array, height: F64Array) -> tuple[FloatArray, FloatA
     return num.astype(np.float32), mask.astype(np.float32)
 
 
+def behaviour_features(intros_received: IntArray, intros_replied: IntArray,
+                       intros_sent: IntArray,
+                       messages_received: IntArray) -> FloatArray:
+    """How the person has messaged and been messaged, from the four counters
+    the chat path maintains (backend/service/api/chat). All are counts of
+    events, so none of these go stale with the mere passage of time. The
+    reply rate is centred so that an all-zero block is exactly a brand-new
+    user, which training simulates by zeroing the block (`Noise.p_beh`)."""
+    received = intros_received.astype(np.float64)
+    replied = intros_replied.astype(np.float64)
+    defined = received > 0
+    rate = np.where(defined, replied / np.maximum(received, 1), 0.5)
+    return np.stack([
+        np.log1p(received) / INTROS_SCALE,
+        np.log1p(messages_received) / MESSAGES_SCALE,
+        np.log1p(received - replied) / INTROS_SCALE,
+        np.log1p(intros_sent) / INTROS_SCALE,
+        (rate - 0.5) * 2,
+        defined.astype(np.float64),
+    ], axis=1).astype(np.float32)
+
+
 def who_input(spec: Spec, b: Blocks) -> FloatArray:
     cats = [
         _one_hot(values, int(size))
@@ -67,6 +90,8 @@ def who_input(spec: Spec, b: Blocks) -> FloatArray:
         num * num_mask, num_mask,
         _fourier_latlon(b.lat, b.lon, spec.loc_freqs),
         _one_hot(b.country, len(spec.countries) + 1),
+        behaviour_features(b.intros_received, b.intros_replied,
+                           b.intros_sent, b.messages_received),
     ], axis=1).astype(np.float32)
 
 

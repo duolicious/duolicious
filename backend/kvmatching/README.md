@@ -26,9 +26,17 @@ each person is both a key (what they want) and a value (what they are).
 Appending the bias scalars as extra vector dimensions
 (`[look, lbias, 1]` / `[who, 1, wbias]`) turns the whole thing into a single
 inner product, so it can be served from pgvector exactly like the existing
-`personality` column. Both encoders read only profile content (Q&A answers,
-profile fields, location, search preferences), so brand-new users get
-useful vectors immediately.
+`personality` column. The encoders read profile content (Q&A answers,
+profile fields, location, search preferences) plus four behavioural
+counters (intros received, intros replied to, intros sent, messages
+received — see `serviceshared/kvmatching/features.py:behaviour_features`).
+The counters let the model learn that inundated people reply less and rank
+them accordingly, which measurably improves reply prediction and evens out
+exposure. During training the whole behaviour block is zeroed for a random
+30% of examples — an all-zero block is exactly a brand-new user, so people
+still get useful vectors before anyone has messaged them. The counters only
+change when a message event happens, never with the mere passage of time,
+so vectors never go stale on their own.
 
 The model is two denoising VAEs (`model.py`): `WhoDVAE` encodes the profile,
 `LookDVAE` additionally encodes search preferences, and both are trained

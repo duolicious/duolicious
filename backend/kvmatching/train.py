@@ -43,6 +43,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--noise-cat", type=float, default=0.1)
     p.add_argument("--noise-pref", type=float, default=0.1)
     p.add_argument("--noise-year", type=float, default=0.1, help="chance of shifting a training example's birth year by one, so the encoder stays smooth just past the cohorts it has seen")
+    p.add_argument("--noise-beh", type=float, default=0.3, help="chance of zeroing a training example's behaviour block; see WhoDVAE.build_input")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--full-eval", type=int, default=1)
     return p.parse_args()
@@ -160,7 +161,8 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
     eligible = np.flatnonzero((p["activated"] & ~p["is_bot"]).to_numpy())
     ELIG = torch.as_tensor(eligible, device=device)
 
-    noise = Noise(args.noise_answer, args.noise_cat, args.noise_pref, args.noise_year)
+    noise = Noise(args.noise_answer, args.noise_cat, args.noise_pref,
+                  args.noise_year, args.noise_beh)
     model = KVModel(tf, args.m, args.n, args.hidden, noise, args.dropout).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
     steps_per_epoch = len(tp) // args.batch

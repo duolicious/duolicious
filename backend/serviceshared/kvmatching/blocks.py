@@ -19,6 +19,10 @@ class Blocks:
     answers: FloatArray
     cats: list[IntArray]
     country: IntArray
+    intros_received: IntArray
+    intros_replied: IntArray
+    intros_sent: IntArray
+    messages_received: IntArray
     pref_answers: FloatArray
     pref_multi: FloatArray
     pref_min_age: F64Array

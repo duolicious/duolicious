@@ -7,6 +7,7 @@ import torch
 
 from kvmatching.paths import DATA
 from serviceshared.kvmatching.blocks import F64Array, FloatArray, IntArray
+from serviceshared.kvmatching.features import behaviour_features
 
 Int8Array = npt.NDArray[np.int8]
 Batch = dict[str, torch.Tensor]
@@ -75,6 +76,19 @@ class Features:
         self.pref_two_way = self._pref_two_way(prefs)
 
         self.personality = self._personality()
+        self.beh = self._behaviour()
+
+    def _behaviour(self) -> FloatArray:
+        """The four pre-SPLIT behaviour counters (extracted with the serving
+        side's own query) through the serving side's own transform."""
+        c = pd.read_parquet(os.path.join(DATA, "beh_counts.parquet"))
+        c = c.set_index("person_id").reindex(self.ids).fillna(0)
+        return behaviour_features(
+            c["count_intros_received"].to_numpy(np.int64),
+            c["count_intros_replied"].to_numpy(np.int64),
+            c["count_intros_sent"].to_numpy(np.int64),
+            c["count_messages_received"].to_numpy(np.int64),
+        )
 
     def _load_pm1(self, filename: str, qid2col: pd.Series) -> Int8Array:
         """A (person, question) parquet of booleans as a dense +1/-1/0 block."""
@@ -171,7 +185,7 @@ class Features:
 
     def who_input_dim(self) -> int:
         return (self.nq + sum(self.cat_sizes) + 2 * 2 + self.loc.shape[1]
-                + N_COUNTRIES)
+                + N_COUNTRIES + self.beh.shape[1])
 
     def look_extra_dim(self) -> int:
         return (self.nq + sum(self.pref_multi_sizes) + 2 * self.pref_num.shape[1]
@@ -188,6 +202,7 @@ class TensorFeatures:
         self.f = f
         self.device = device
         self.answers = t(f.answers, torch.int8)
+        self.beh = t(f.beh, torch.float32)
         self.cat = t(f.cat, torch.long)
         self.num = t(f.num, torch.float32)
         self.num_mask = t(f.num_mask, torch.float32)
@@ -205,6 +220,7 @@ class TensorFeatures:
     def who_batch(self, idx: torch.Tensor) -> Batch:
         return dict(
             answers=self.answers[idx].float(),
+            beh=self.beh[idx],
             cat=self.cat[idx],
             num=self.num[idx],
             num_mask=self.num_mask[idx],
