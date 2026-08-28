@@ -1,5 +1,7 @@
 from collections.abc import Mapping
 from typing import TypeVar
+
+from pgvector import Vector
 from serviceshared.util.coerce import (
     boolean,
     int_list,
@@ -35,6 +37,13 @@ def row_int(row: Mapping[str, object], key: str) -> int:
 
 def row_str(row: Mapping[str, object], key: str) -> str:
     return string(row_value(row, key), key)
+
+
+def row_vector(row: Mapping[str, object], key: str) -> Vector:
+    value = row_value(row, key)
+    if not isinstance(value, Vector):
+        raise RuntimeError(f'{key} must be a vector')
+    return value
 
 
 def row_int_or_none(row: Mapping[str, object], key: str) -> int | None:

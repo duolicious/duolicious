@@ -13,6 +13,7 @@ numpy
 numpy==1.26.4
 onnxruntime
 openai
+pgvector
 pillow-heif
 psycopg[binary,pool]
 pydantic[email]

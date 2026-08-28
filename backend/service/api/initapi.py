@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 # This module doubles as the deploy-time entrypoint (see the bottom of the
 # file), so it configures logging the same way the services do.
@@ -8,6 +9,8 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+_init_extensions_sql_file = Path(__file__).parent.parent.parent / 'init-extensions.sql'
 
 
 def create_dbs() -> None:
@@ -45,6 +48,16 @@ def create_dbs() -> None:
                 time.sleep(1)
 
     create_db('duo_api')
+
+    # The connection pool registers pgvector's types as it opens each
+    # connection, so the extensions must exist before the pool does
+    with psycopg.connect(
+        psycopg.conninfo.make_conninfo(_conninfo, dbname='duo_api'),
+        autocommit=True,
+    ) as conn:
+        conn.execute(_init_extensions_sql_file.read_text())
+    logger.info('Created extensions')
+
 
 async def init_db() -> None:
     # Now DB_NAME exists, we do do the rest of the init.

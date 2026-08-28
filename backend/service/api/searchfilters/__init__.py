@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from textwrap import dedent, indent
 from typing import NamedTuple, TypeAlias
 
+from pgvector import Vector
+
 from serviceshared.constants import LAST_ONLINE_NOW_SECONDS
 from serviceshared.database import (
     Row,
@@ -14,7 +16,7 @@ from serviceshared.database import (
     row_str,
 )
 
-SearchParam: TypeAlias = int | str | list[int] | None
+SearchParam: TypeAlias = int | str | list[int] | Vector | None
 
 
 def sql_fragment(text: str) -> str:
@@ -263,7 +265,7 @@ SELECT
         ORDER BY question_id
     ) AS required_answer_question_ids,
     person.coordinates::TEXT AS searcher_coordinates,
-    person.personality::TEXT AS searcher_personality,
+    person.personality AS searcher_personality,
     sort_by.name AS sort_by,
     COALESCE(
         (
@@ -274,7 +276,7 @@ SELECT
             WHERE person_club.person_id = person.id
         ),
         array_full(64, 0)::VECTOR(64)
-    )::TEXT AS searcher_club_vector,
+    ) AS searcher_club_vector,
     EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
     person.height_cm AS searcher_height_cm,
 {_SEARCHER_ATTR_SELECTS},

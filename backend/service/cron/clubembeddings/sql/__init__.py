@@ -8,7 +8,7 @@ SET
 FROM
     unnest(
         %(names)s::TEXT[],
-        %(embeddings)s::TEXT[]
+        %(embeddings)s
     ) AS t(name, embedding)
 WHERE
     club.name = t.name
