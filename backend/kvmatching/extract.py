@@ -17,7 +17,7 @@ SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
 
 NAMES = [
     "people", "prefs", "pref_answers", "messaged", "skipped",
-    "questions", "answers", "dir_msgs", "beh_counts",
+    "questions", "answers", "dir_msgs", "beh_counts", "bio",
 ]
 
 # The behaviour counters use the serving side's own query so that training

@@ -7,7 +7,10 @@ import torch
 
 from kvmatching.paths import DATA
 from serviceshared.kvmatching.blocks import F64Array, FloatArray, IntArray
-from serviceshared.kvmatching.features import behaviour_features
+from serviceshared.kvmatching.features import (
+    behaviour_features,
+    profile_quality_features,
+)
 
 Int8Array = npt.NDArray[np.int8]
 Batch = dict[str, torch.Tensor]
@@ -77,6 +80,19 @@ class Features:
 
         self.personality = self._personality()
         self.beh = self._behaviour()
+        self.prof = self._profile_quality()
+
+    def _profile_quality(self) -> FloatArray:
+        """The profile-quality block, through the serving side's own
+        transform: verification level, bio traits, photo and club counts."""
+        bio = pd.read_parquet(os.path.join(DATA, "bio.parquet"))
+        bio = bio.set_index("person_id")["about"].reindex(self.ids)
+        return profile_quality_features(
+            self.people["verification_level_id"].fillna(1).to_numpy(np.int64),
+            [t if isinstance(t, str) else None for t in bio.to_numpy()],
+            self.people["photo_count"].to_numpy(np.int64),
+            self.people["club_count"].to_numpy(np.int64),
+        )
 
     def _behaviour(self) -> FloatArray:
         """The four pre-SPLIT behaviour counters (extracted with the serving
@@ -185,7 +201,7 @@ class Features:
 
     def who_input_dim(self) -> int:
         return (self.nq + sum(self.cat_sizes) + 2 * 2 + self.loc.shape[1]
-                + N_COUNTRIES + self.beh.shape[1])
+                + N_COUNTRIES + self.beh.shape[1] + self.prof.shape[1])
 
     def look_extra_dim(self) -> int:
         return (self.nq + sum(self.pref_multi_sizes) + 2 * self.pref_num.shape[1]
@@ -203,6 +219,7 @@ class TensorFeatures:
         self.device = device
         self.answers = t(f.answers, torch.int8)
         self.beh = t(f.beh, torch.float32)
+        self.prof = t(f.prof, torch.float32)
         self.cat = t(f.cat, torch.long)
         self.num = t(f.num, torch.float32)
         self.num_mask = t(f.num_mask, torch.float32)
@@ -221,6 +238,7 @@ class TensorFeatures:
         return dict(
             answers=self.answers[idx].float(),
             beh=self.beh[idx],
+            prof=self.prof[idx],
             cat=self.cat[idx],
             num=self.num[idx],
             num_mask=self.num_mask[idx],

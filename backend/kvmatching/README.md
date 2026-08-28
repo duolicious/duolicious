@@ -27,22 +27,30 @@ Appending the bias scalars as extra vector dimensions
 (`[look, lbias, 1]` / `[who, 1, wbias]`) turns the whole thing into a single
 inner product, so it can be served from pgvector exactly like the existing
 `personality` column. The encoders read profile content (Q&A answers,
-profile fields, location, search preferences) plus four behavioural
-counters (intros received, intros replied to, intros sent, messages
-received — see `serviceshared/kvmatching/features.py:behaviour_features`).
-The counters let the model learn that inundated people reply less and rank
-them accordingly, which measurably improves reply prediction and evens out
-exposure. During training the whole behaviour block is zeroed for a random
-30% of examples — an all-zero block is exactly a brand-new user, so people
-still get useful vectors before anyone has messaged them. The counters only
-change when a message event happens, never with the mere passage of time,
-so vectors never go stale on their own.
+profile fields, location, search preferences), four behavioural counters
+(intros received, intros replied to, intros sent, messages received) and a
+profile-quality block (verification level, bio readability and non-ascii
+use, photo count, clubs joined) — see
+`serviceshared/kvmatching/features.py`. The counters let the model learn
+that inundated people reply less; the profile-quality block, who is worth
+surfacing at all. Counts encode as bucketed one-hots (zero implicit),
+binary facts as flags, and smooth quantities like year of birth as scalars,
+which extrapolate to values outside the training range — the birth years
+that only start appearing between retrains. During training the behaviour
+and profile-quality blocks are each zeroed for a random 30% of examples —
+an all-zero behaviour block is exactly a brand-new user, so people still
+get useful vectors before anyone has messaged them. Every input only
+changes when its person changes (or is messaged), never with the mere
+passage of time, so vectors never go stale on their own.
 
 The model is two denoising VAEs (`model.py`): `WhoDVAE` encodes the profile,
 `LookDVAE` additionally encodes search preferences, and both are trained
 jointly on profile reconstruction (regulariser) plus a directional pair loss
 over real behaviour: messaged pairs get a target of `log2(1 + messages sent)`,
-skips −1, reported skips −2, random pairs 0.
+skips −1, reported skips −2, random pairs 0. Each encoder is four
+1024-wide layers; each decoder is a single linear map, because serving only
+ever uses the latent through inner products and a linear reconstruction
+head regularises it into exactly that shape.
 
 ## Requirements
 

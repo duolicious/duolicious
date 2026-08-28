@@ -7,8 +7,14 @@ rather than an error. `kvmatching/verify_serving.py` checks the two agree.
 
 The vocabulary (question ids, enum sizes, the country list) is
 frozen into the weight artifact, so it only moves when a new model is
-deployed.
+deployed. Counts encode as bucketed one-hots with zero left implicit,
+binary facts as single flags, and smooth physical quantities (year of
+birth, height, coordinates) as scalars: the scalars extrapolate to values
+outside the training range, which matters for the birth years that only
+start appearing between retrains.
 """
+import re
+
 import numpy as np
 import numpy.typing as npt
 
@@ -16,8 +22,18 @@ from serviceshared.kvmatching.blocks import Blocks, F64Array, FloatArray, IntArr
 from serviceshared.kvmatching.spec import Spec
 
 BIRTH_YEAR_CENTRE, BIRTH_YEAR_SCALE = 1995.0, 10.0
-INTROS_SCALE, MESSAGES_SCALE = 2.0, 3.0
 HEIGHT_LO, HEIGHT_HI, HEIGHT_CENTRE, HEIGHT_SCALE = 120.0, 230.0, 170.0, 10.0
+BEH_RECEIVED_EDGES = [3, 10, 41, 200]
+BEH_SENT_EDGES = [3, 6, 14, 35]
+BEH_MESSAGES_EDGES = [4, 9, 51, 255]
+BEH_RATE_EDGES = [0.0, 0.25, 0.6]
+N_VERIFICATION = 4
+PHOTO_EDGES = [1, 2, 3, 4]
+FLESCH_EDGES = [60.0, 90.0]
+CLUB_EDGES = [3, 9, 19, 40]
+_VOWELS = set('aeiouy')
+_WORD_RE = re.compile(r"[a-zA-Z']+")
+_SENTENCE_RE = re.compile(r'[.!?\n]+')
 PREF_NUMS = (
     ("min_age", 25.0, 10.0),
     ("max_age", 40.0, 10.0),
@@ -56,26 +72,89 @@ def _numeric(birth_year: F64Array, height: F64Array) -> tuple[FloatArray, FloatA
     return num.astype(np.float32), mask.astype(np.float32)
 
 
+def _count_bucketed(values: IntArray, edges: list[int]) -> FloatArray:
+    """A count as a one-hot over bands, with zero left all-zero: a zeroed
+    block stays exactly a brand-new user."""
+    out = np.zeros((len(values), len(edges) + 1), np.float32)
+    pos = values > 0
+    idx = (values[pos, None] >= np.array(edges)[None, :]).sum(axis=1)
+    out[np.flatnonzero(pos), idx] = 1.0
+    return out
+
+
 def behaviour_features(intros_received: IntArray, intros_replied: IntArray,
                        intros_sent: IntArray,
                        messages_received: IntArray) -> FloatArray:
     """How the person has messaged and been messaged, from the four counters
     the chat path maintains (backend/service/api/chat). All are counts of
-    events, so none of these go stale with the mere passage of time. The
-    reply rate is centred so that an all-zero block is exactly a brand-new
-    user, which training simulates by zeroing the block (`Noise.p_beh`)."""
-    received = intros_received.astype(np.float64)
-    replied = intros_replied.astype(np.float64)
+    events, so none of these go stale with the mere passage of time, and an
+    all-zero block is exactly a brand-new user, which training simulates by
+    zeroing the block (`Noise.p_beh`)."""
+    received = intros_received.astype(np.int64)
+    replied = intros_replied.astype(np.int64)
     defined = received > 0
-    rate = np.where(defined, replied / np.maximum(received, 1), 0.5)
-    return np.stack([
-        np.log1p(received) / INTROS_SCALE,
-        np.log1p(messages_received) / MESSAGES_SCALE,
-        np.log1p(received - replied) / INTROS_SCALE,
-        np.log1p(intros_sent) / INTROS_SCALE,
-        (rate - 0.5) * 2,
-        defined.astype(np.float64),
-    ], axis=1).astype(np.float32)
+    rate = np.where(defined, replied / np.maximum(received, 1), 0.0)
+    rate_bucket = np.zeros((len(received), len(BEH_RATE_EDGES) + 2), np.float32)
+    idx = (rate[:, None] > np.array(BEH_RATE_EDGES)[None, :]).sum(axis=1)
+    idx = np.where(rate >= 1.0, len(BEH_RATE_EDGES) + 1, idx)
+    rate_bucket[np.flatnonzero(defined), idx[defined]] = 1.0
+    return np.concatenate([
+        _count_bucketed(received, BEH_RECEIVED_EDGES),
+        _count_bucketed(intros_sent, BEH_SENT_EDGES),
+        _count_bucketed(messages_received, BEH_MESSAGES_EDGES),
+        _count_bucketed(received - replied, BEH_RECEIVED_EDGES),
+        rate_bucket,
+    ], axis=1)
+
+
+def _syllables(word: str) -> int:
+    prev = False
+    n = 0
+    for c in word:
+        v = c in _VOWELS
+        n += v and not prev
+        prev = v
+    if word.endswith('e') and n > 1:
+        n -= 1
+    return max(n, 1)
+
+
+def flesch_reading_ease(text: str) -> float | None:
+    words = _WORD_RE.findall(text.lower())
+    if not words:
+        return None
+    sentences = max(len(_SENTENCE_RE.findall(text)), 1)
+    syllables = sum(_syllables(w) for w in words)
+    return (206.835 - 1.015 * len(words) / sentences
+            - 84.6 * syllables / len(words))
+
+
+def profile_quality_features(verification_level_id: IntArray,
+                             about: list[str | None],
+                             photo_count: IntArray,
+                             club_count: IntArray) -> FloatArray:
+    """How much of a profile there is: the verification level, whether the
+    bio strays outside ascii, how many photos, how readable the bio is (a
+    missing or wordless bio is its own band), and how many clubs joined."""
+    n = len(about)
+    non_ascii = np.zeros(n, np.float32)
+    fre_bucket = np.zeros((n, len(FLESCH_EDGES) + 2), np.float32)
+    for i, text in enumerate(about):
+        score = flesch_reading_ease(text) if text is not None else None
+        if score is None:
+            fre_bucket[i, 0] = 1.0
+        else:
+            fre_bucket[i, 1 + sum(score >= e for e in FLESCH_EDGES)] = 1.0
+        if text is not None:
+            non_ascii[i] = any(ord(c) > 127 for c in text)
+    return np.concatenate([
+        _one_hot(verification_level_id, N_VERIFICATION),
+        non_ascii[:, None],
+        _one_hot(np.minimum(photo_count, len(PHOTO_EDGES)),
+                 len(PHOTO_EDGES) + 1),
+        fre_bucket,
+        _count_bucketed(club_count, CLUB_EDGES),
+    ], axis=1)
 
 
 def who_input(spec: Spec, b: Blocks) -> FloatArray:
@@ -92,6 +171,8 @@ def who_input(spec: Spec, b: Blocks) -> FloatArray:
         _one_hot(b.country, len(spec.countries) + 1),
         behaviour_features(b.intros_received, b.intros_replied,
                            b.intros_sent, b.messages_received),
+        profile_quality_features(b.verification_level_id, b.about,
+                                 b.photo_count, b.club_count),
     ], axis=1).astype(np.float32)
 
 

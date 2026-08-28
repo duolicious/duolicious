@@ -29,7 +29,8 @@ def parse() -> argparse.Namespace:
     p.add_argument("--name", default="model", help="run name, written under KV_WORK_DIR/runs")
     p.add_argument("--m", type=int, default=64)
     p.add_argument("--n", type=int, default=32)
-    p.add_argument("--hidden", type=int, default=512)
+    p.add_argument("--hidden", type=int, default=1024)
+    p.add_argument("--layers", type=int, default=4)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--beta", type=float, default=1e-3)
     p.add_argument("--neg-weight", type=float, default=1.0)
@@ -44,6 +45,7 @@ def parse() -> argparse.Namespace:
     p.add_argument("--noise-pref", type=float, default=0.1)
     p.add_argument("--noise-year", type=float, default=0.1, help="chance of shifting a training example's birth year by one, so the encoder stays smooth just past the cohorts it has seen")
     p.add_argument("--noise-beh", type=float, default=0.3, help="chance of zeroing a training example's behaviour block; see WhoDVAE.build_input")
+    p.add_argument("--noise-prof", type=float, default=0.3, help="chance of zeroing a training example's profile-quality block")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--full-eval", type=int, default=1)
     return p.parse_args()
@@ -162,8 +164,9 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
     ELIG = torch.as_tensor(eligible, device=device)
 
     noise = Noise(args.noise_answer, args.noise_cat, args.noise_pref,
-                  args.noise_year, args.noise_beh)
-    model = KVModel(tf, args.m, args.n, args.hidden, noise, args.dropout).to(device)
+                  args.noise_year, args.noise_beh, args.noise_prof)
+    model = KVModel(tf, args.m, args.n, args.hidden, args.layers, noise,
+                    args.dropout).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
     steps_per_epoch = len(tp) // args.batch
     total = steps_per_epoch * args.epochs

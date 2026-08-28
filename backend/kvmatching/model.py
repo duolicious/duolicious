@@ -12,12 +12,14 @@ def one_hot_cats(cat: torch.Tensor, sizes: list[int]) -> torch.Tensor:
 
 class Noise:
     def __init__(self, p_answer: float, p_cat: float, p_pref: float,
-                 p_year: float = 0.0, p_beh: float = 0.0) -> None:
+                 p_year: float = 0.0, p_beh: float = 0.0,
+                 p_prof: float = 0.0) -> None:
         self.p_answer = p_answer
         self.p_cat = p_cat
         self.p_pref = p_pref
         self.p_year = p_year
         self.p_beh = p_beh
+        self.p_prof = p_prof
 
 
 def drop(x: torch.Tensor, p: float) -> torch.Tensor:
@@ -45,9 +47,12 @@ class MLP(nn.Module):
 
 class WhoDVAE(nn.Module):
     """Denoising VAE over stable profile data: answers, basics, location,
-    country. Latent dimension `m`."""
+    country, behaviour, profile quality. Latent dimension `m`. The decoder
+    is a single linear map: serving only ever uses the latent through inner
+    products, and reconstructing through a linear head regularises it into
+    exactly that shape."""
 
-    def __init__(self, tf: TensorFeatures, m: int, hidden: int,
+    def __init__(self, tf: TensorFeatures, m: int, hidden: int, layers: int,
                  noise: Noise, dropout: float) -> None:
         super().__init__()
         self.tf = tf
@@ -56,15 +61,14 @@ class WhoDVAE(nn.Module):
         self.nq = tf.answers.shape[1]
         self.cat_sizes = tf.cat_sizes
         self.in_dim = (self.nq + sum(self.cat_sizes) + 4 + tf.loc.shape[1]
-                       + N_COUNTRIES + tf.beh.shape[1])
-        self.enc = MLP([self.in_dim, hidden, hidden], dropout)
+                       + N_COUNTRIES + tf.beh.shape[1] + tf.prof.shape[1])
+        self.enc = MLP([self.in_dim] + [hidden] * layers, dropout)
         self.mu = nn.Linear(hidden, m)
         self.logvar = nn.Linear(hidden, m)
         self.bias = nn.Linear(hidden, 1)
-        self.dec = MLP([m, hidden, hidden], dropout)
         self.out_dim = (self.nq + sum(self.cat_sizes) + 2 + tf.loc.shape[1]
                         + N_COUNTRIES)
-        self.head = nn.Linear(hidden, self.out_dim)
+        self.head = nn.Linear(m, self.out_dim)
 
     def build_input(self, b: Batch, train: bool) -> torch.Tensor:
         ans = b["answers"]
@@ -91,6 +95,11 @@ class WhoDVAE(nn.Module):
             keep = (torch.rand(beh.shape[0], 1, device=beh.device)
                     >= self.noise.p_beh).float()
             beh = beh * keep
+        prof = b["prof"]
+        if train and self.noise.p_prof > 0:
+            keep = (torch.rand(prof.shape[0], 1, device=prof.device)
+                    >= self.noise.p_prof).float()
+            prof = prof * keep
         parts = [
             ans,
             one_hot_cats(cat, self.cat_sizes),
@@ -98,6 +107,7 @@ class WhoDVAE(nn.Module):
             b["loc"],
             F.one_hot(b["country"], N_COUNTRIES).float(),
             beh,
+            prof,
         ]
         return torch.cat(parts, dim=1)
 
@@ -110,8 +120,7 @@ class WhoDVAE(nn.Module):
         return self.mu(h), self.bias(h).squeeze(1)
 
     def recon_loss(self, z: torch.Tensor, b: Batch) -> dict[str, torch.Tensor]:
-        out = self.head(self.dec(z))
-        return self.split_losses(out, b)
+        return self.split_losses(self.head(z), b)
 
     def split_losses(self, out: torch.Tensor, b: Batch) -> dict[str, torch.Tensor]:
         losses: dict[str, torch.Tensor] = {}
@@ -143,8 +152,8 @@ class LookDVAE(WhoDVAE):
     first m dims live in the same space as WhoDVAE's latent."""
 
     def __init__(self, tf: TensorFeatures, m: int, n: int, hidden: int,
-                 noise: Noise, dropout: float) -> None:
-        super().__init__(tf, m, hidden, noise, dropout)
+                 layers: int, noise: Noise, dropout: float) -> None:
+        super().__init__(tf, m, hidden, layers, noise, dropout)
         self.n = n
         self.pref_multi_sizes = tf.pref_multi_sizes
         self.npn = tf.pref_num.shape[1]
@@ -153,12 +162,11 @@ class LookDVAE(WhoDVAE):
         extra_out = (self.nq + sum(self.pref_multi_sizes) + self.npn + self.ntw)
         self.in_dim += extra_in
         self.out_dim += extra_out
-        self.enc = MLP([self.in_dim, hidden, hidden], dropout)
+        self.enc = MLP([self.in_dim] + [hidden] * layers, dropout)
         self.mu = nn.Linear(hidden, m + n)
         self.logvar = nn.Linear(hidden, m + n)
         self.bias = nn.Linear(hidden, 1)
-        self.dec = MLP([m + n, hidden, hidden], dropout)
-        self.head = nn.Linear(hidden, self.out_dim)
+        self.head = nn.Linear(m + n, self.out_dim)
 
     def build_input(self, b: Batch, train: bool) -> torch.Tensor:
         base = super().build_input(b, train)
@@ -208,11 +216,11 @@ def reparam(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
 
 class KVModel(nn.Module):
     def __init__(self, tf: TensorFeatures, m: int, n: int, hidden: int,
-                 noise: Noise, dropout: float) -> None:
+                 layers: int, noise: Noise, dropout: float) -> None:
         super().__init__()
         self.m = m
-        self.who = WhoDVAE(tf, m, hidden, noise, dropout)
-        self.look = LookDVAE(tf, m, n, hidden, noise, dropout)
+        self.who = WhoDVAE(tf, m, hidden, layers, noise, dropout)
+        self.look = LookDVAE(tf, m, n, hidden, layers, noise, dropout)
 
     def who_vec(self, b: Batch, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
         mu, bias = self.who.encode_with_bias(b, train)

@@ -44,13 +44,21 @@ def encoder_weights(
     w0 = np.round(sd[f'{prefix}.enc.net.0.weight'].numpy() / W0_QUANTUM)
     assert float(np.abs(w0).max()) < 2 ** 15, 'w0 overflows int16 at this quantum'
 
-    return {
+    out = {
         f'{prefix}.w0': w0.astype(np.int16), f'{prefix}.b0': g('enc.net.0.bias'),
-        f'{prefix}.ln_g': g('enc.net.1.weight'), f'{prefix}.ln_b': g('enc.net.1.bias'),
-        f'{prefix}.w1': g('enc.net.4.weight'), f'{prefix}.b1': g('enc.net.4.bias'),
         f'{prefix}.wmu': g('mu.weight'), f'{prefix}.bmu': g('mu.bias'),
         f'{prefix}.wbias': g('bias.weight'), f'{prefix}.bbias': g('bias.bias'),
     }
+    # The encoder MLP interleaves Linear, LayerNorm, ReLU, Dropout, so tail
+    # layer t's LayerNorm sits at net index 4t - 3 and its Linear at 4t.
+    t = 1
+    while f'{prefix}.enc.net.{4 * t}.weight' in sd:
+        out[f'{prefix}.ln_g{t}'] = g(f'enc.net.{4 * t - 3}.weight')
+        out[f'{prefix}.ln_b{t}'] = g(f'enc.net.{4 * t - 3}.bias')
+        out[f'{prefix}.w{t}'] = g(f'enc.net.{4 * t}.weight')
+        out[f'{prefix}.b{t}'] = g(f'enc.net.{4 * t}.bias')
+        t += 1
+    return out
 
 
 def who_input(f: Features, rows: IntArray) -> FloatArray:
@@ -63,6 +71,7 @@ def who_input(f: Features, rows: IntArray) -> FloatArray:
         f.loc[rows],
         np.eye(N_COUNTRIES, dtype=np.float32)[f.country[rows]],
         f.beh[rows],
+        f.prof[rows],
     ], 1)
 
 

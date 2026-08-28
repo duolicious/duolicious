@@ -17,6 +17,9 @@ SELECT
     p.sign_up_time,
     p.last_online_time,
     EXISTS (SELECT 1 FROM photo WHERE photo.person_id = p.id) AS has_photo,
+    (SELECT count(*) FROM photo WHERE photo.person_id = p.id) AS photo_count,
+    (SELECT count(*) FROM person_club pc
+     WHERE pc.person_id = p.id AND pc.activated) AS club_count,
     p.personality::REAL[] AS personality,
     p.education IS NOT NULL AS has_education,
     p.occupation IS NOT NULL AS has_occupation,

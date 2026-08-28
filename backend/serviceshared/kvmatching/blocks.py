@@ -23,6 +23,10 @@ class Blocks:
     intros_replied: IntArray
     intros_sent: IntArray
     messages_received: IntArray
+    verification_level_id: IntArray
+    about: list[str | None]
+    photo_count: IntArray
+    club_count: IntArray
     pref_answers: FloatArray
     pref_multi: FloatArray
     pref_min_age: F64Array

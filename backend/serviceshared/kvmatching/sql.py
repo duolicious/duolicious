@@ -18,6 +18,11 @@ SELECT
     s.wants_kids_ids, s.exercise_ids, s.religion_ids, s.star_sign_ids,
     s.min_age, s.max_age, s.min_height_cm, s.max_height_cm, s.distance,
     s.last_online_id,
+    p.verification_level_id,
+    p.about,
+    (SELECT count(*) FROM photo WHERE photo.person_id = p.id) AS photo_count,
+    (SELECT count(*) FROM person_club pc
+     WHERE pc.person_id = p.id AND pc.activated) AS club_count,
     s.club_name IS NOT NULL AS has_club_filter,
     s.two_way_gender, s.two_way_age, s.two_way_furthest_distance,
     s.two_way_orientation, s.two_way_relationship_status, s.two_way_looking_for,

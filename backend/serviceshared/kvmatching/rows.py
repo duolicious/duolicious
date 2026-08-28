@@ -26,6 +26,14 @@ def _float(v: object) -> float:
     return float(v)
 
 
+def _str_or_none(v: object) -> str | None:
+    if v is None or v == '':
+        return None
+    if not isinstance(v, str):
+        raise RuntimeError(f'expected a string, got {type(v).__name__}')
+    return v
+
+
 def _int_list(v: object) -> list[int]:
     if v is None:
         return []
@@ -88,6 +96,10 @@ def build(spec: Spec, people: list[Row], answers: list[Triple],
         intros_replied=_ints(people, 'count_intros_replied', 0),
         intros_sent=_ints(people, 'count_intros_sent', 0),
         messages_received=_ints(people, 'count_messages_received', 0),
+        verification_level_id=_ints(people, 'verification_level_id', 1),
+        about=[_str_or_none(p['about']) for p in people],
+        photo_count=_ints(people, 'photo_count', 0),
+        club_count=_ints(people, 'club_count', 0),
         pref_answers=_sparse_pm1(spec, index, pref_answers, n),
         pref_multi=np.concatenate(
             [_multi_hot(people, f, int(size))

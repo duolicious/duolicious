@@ -2,11 +2,12 @@
 weights are a frozen artifact shipped with a deployment, so serving only ever
 runs this forward pass.
 
-Each encoder is Linear -> LayerNorm -> ReLU -> Linear -> (vector head, bias
-head). The first Linear's output is the only part whose cost scales with the
-number of features a person has, so it is cached per person as `pre`: one
-changed answer updates it with a single column add, and the rest of the
-forward pass is a fixed-size 512-dim tail.
+Each encoder is Linear -> (LayerNorm -> ReLU -> Linear) x N -> (vector head,
+bias head); the artifact carries however many tail layers training used. The
+first Linear's output is the only part whose cost scales with the number of
+features a person has, so it is cached per person as `pre`: one changed
+answer updates it with a single column add, and the rest of the forward pass
+is a fixed-size tail.
 """
 import numpy as np
 
@@ -30,10 +31,11 @@ class Encoder:
         g = lambda n: w[f'{prefix}.{n}'].astype(np.float32)
         self.w0 = g('w0') * W0_QUANTUM
         self.b0 = g('b0')
-        self.ln_g = g('ln_g')
-        self.ln_b = g('ln_b')
-        self.w1 = g('w1')
-        self.b1 = g('b1')
+        self.tail = []
+        t = 1
+        while f'{prefix}.w{t}' in w:
+            self.tail.append((g(f'ln_g{t}'), g(f'ln_b{t}'), g(f'w{t}'), g(f'b{t}')))
+            t += 1
         self.wmu = g('wmu')
         self.bmu = g('bmu')
         self.wbias = g('wbias')
@@ -50,10 +52,12 @@ class Encoder:
 
     def head(self, pre: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Fixed-size tail: returns (vector, bias scalar)."""
-        mu = pre.mean(-1, keepdims=True)
-        var = pre.var(-1, keepdims=True)
-        h = (pre - mu) / np.sqrt(var + EPS) * self.ln_g + self.ln_b
-        h = relu(h) @ self.w1.T + self.b1
+        h = pre
+        for ln_g, ln_b, wt, bt in self.tail:
+            mu = h.mean(-1, keepdims=True)
+            var = h.var(-1, keepdims=True)
+            h = (h - mu) / np.sqrt(var + EPS) * ln_g + ln_b
+            h = relu(h) @ wt.T + bt
         vec = (h @ self.wmu.T + self.bmu)[..., :self.out_dims]
         bias = h @ self.wbias.T + self.bbias
         return vec, bias[..., 0]
