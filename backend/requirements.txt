@@ -10,6 +10,7 @@ numpy
 numpy==1.26.4
 onnxruntime
 openai
+pgvector
 Pillow
 pillow-heif
 psycopg[binary,pool]

@@ -1,6 +1,8 @@
 import unittest
 
-from serviceshared.database import Row
+from pgvector import Vector
+
+from serviceshared.database import Row, row_vector
 from service.api.search.sql.search import (
     _HIDE_ME,
     _PROSPECT_DIDNT_SKIP_SEARCHER,
@@ -44,7 +46,7 @@ def maximal_prefs() -> Row:
         distance_meters=1,
         club_preference=None,
         sort_by='Match percentage',
-        searcher_club_vector='[0]',
+        searcher_club_vector=Vector([0.0] * 64),
         min_age=18,
         max_age=99,
         min_height_cm=1,
@@ -56,7 +58,7 @@ def maximal_prefs() -> Row:
         required_answer_question_ids=[1, 2],
         searcher_person_id=1,
         searcher_coordinates='POINT(0 0)',
-        searcher_personality='[0]',
+        searcher_personality=Vector([0.0] * 47),
         searcher_age=25,
         searcher_height_cm=170,
         searcher_count_answers=1,
@@ -116,11 +118,14 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         self.assertNotIn('searcher_club_vector', match_params)
 
         self.assertIn(
-            'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR',
+            'prospect.club_vector <#> %(searcher_club_vector)s',
             clubs_sql,
         )
         self.assertNotIn('-(prospect.club_vector', clubs_sql)
-        self.assertEqual(clubs_params['searcher_club_vector'], '[0]')
+        self.assertEqual(
+            row_vector(clubs_params, 'searcher_club_vector').to_numpy().tolist(),
+            [0.0] * 64,
+        )
 
     def test_ignoring_the_club_sort_selects_match_candidates(self) -> None:
         clubs_prefs = maximal_prefs()

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import psycopg
+from pgvector.psycopg import register_vector_async
 from psycopg_pool import AsyncConnectionPool
 import random
 from contextlib import asynccontextmanager, suppress
@@ -9,6 +10,7 @@ from collections.abc import AsyncIterator, Iterable
 from serviceshared.database._row import (
     require_row,
     row_bool,
+    row_vector,
     row_int,
     row_int_list,
     row_int_list_or_none,
@@ -159,7 +161,13 @@ def _new_api_pool() -> _ApiPool:
         min_size=_pool_min_size,
         max_size=_pool_max_size,
         kwargs=dict(row_factory=psycopg.rows.dict_row),
+        configure=_register_vector_types,
     )
+
+
+async def _register_vector_types(conn: psycopg.AsyncConnection[Row]) -> None:
+    await register_vector_async(conn)
+    await conn.commit()
 
 
 # A closed pool can't be reopened, so the pool is (re)constructed on each open

@@ -1,4 +1,11 @@
-from serviceshared.database import Row, row_bool, row_int, row_str, row_str_or_none
+from serviceshared.database import (
+    Row,
+    row_bool,
+    row_int,
+    row_str,
+    row_str_or_none,
+    row_vector,
+)
 from service.api.searchfilters import (
     SearchParam,
     and_clauses,
@@ -106,7 +113,7 @@ _VERIFICATION_SATISFIED = sql_fragment("""
 """)
 
 _CLUB_DISTANCE = \
-    'prospect.club_vector <#> %(searcher_club_vector)s::VECTOR'
+    'prospect.club_vector <#> %(searcher_club_vector)s'
 
 
 def _prospect_select(sort_by_clubs: bool) -> str:
@@ -144,7 +151,7 @@ def _prospect_select(sort_by_clubs: bool) -> str:
         CLAMP(
             0,
             99,
-            100 * (1 - (prospect.personality <#> %(searcher_personality)s::VECTOR)) / 2
+            100 * (1 - (prospect.personality <#> %(searcher_personality)s)) / 2
         ) AS match_percentage,
 
         {club_distance} AS club_distance"""
@@ -266,7 +273,7 @@ def build_uncached_search(
 ) -> tuple[str, dict[str, SearchParam]]:
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
-        searcher_personality=row_str(prefs, 'searcher_personality'),
+        searcher_personality=row_vector(prefs, 'searcher_personality'),
         searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
 
@@ -279,7 +286,7 @@ def build_uncached_search(
         and row_str(prefs, 'sort_by') == 'Similar clubs'
     )
     if sort_by_clubs:
-        params['searcher_club_vector'] = row_str(
+        params['searcher_club_vector'] = row_vector(
             prefs, 'searcher_club_vector')
 
     reverse = two_way_filters(prefs)
@@ -298,7 +305,7 @@ def build_uncached_search(
         candidate_order = _CLUB_DISTANCE
     else:
         candidate_order = \
-            'prospect.personality <#> %(searcher_personality)s::VECTOR'
+            'prospect.personality <#> %(searcher_personality)s'
 
     sql = f"""
 WITH candidates AS (
