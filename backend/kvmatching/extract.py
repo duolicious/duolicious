@@ -8,7 +8,12 @@ import pyarrow.parquet as pq
 
 from kvmatching.pairs import SPLIT
 from kvmatching.paths import DATA, ensure_dirs
-from serviceshared.kvmatching.sql import beh_counts_query
+from serviceshared.kvmatching.sql import (
+    answers_query,
+    beh_counts_query,
+    person_rows_query,
+    pref_answers_query,
+)
 
 DSN = os.environ.get(
     "DUO_DB_DSN",
@@ -16,13 +21,18 @@ DSN = os.environ.get(
 SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sql")
 
 NAMES = [
-    "people", "prefs", "pref_answers", "messaged", "skipped",
-    "questions", "answers", "dir_msgs", "beh_counts", "bio",
+    "people", "eval", "answers", "pref_answers", "messaged", "skipped",
+    "questions", "dir_msgs", "beh_counts",
 ]
+BULK_QUERIES = {
+    "people": person_rows_query,
+    "answers": answers_query,
+    "pref_answers": pref_answers_query,
+    "beh_counts": beh_counts_query,
+}
 
-# The behaviour counters use the serving side's own query so that training
-# sees exactly what the chat path will maintain, restricted to before SPLIT.
-# The mam cutoff is the id whose embedded timestamp is the split instant.
+# The counters are restricted to before SPLIT; the mam cutoff is the id whose
+# embedded timestamp is the split instant.
 BEH_PARAMS = {
     "cutoff": SPLIT.to_pydatetime(),
     "cutoff_mid": int(SPLIT.timestamp() * 1e6) << 8,
@@ -30,8 +40,9 @@ BEH_PARAMS = {
 
 
 def read_sql(name: str) -> str:
-    if name == "beh_counts":
-        return beh_counts_query(everyone=True)
+    query = BULK_QUERIES.get(name)
+    if query is not None:
+        return query(everyone=True)
     with open(os.path.join(SQL_DIR, f"{name}.sql")) as fh:
         return fh.read()
 

@@ -21,7 +21,7 @@ from serviceshared.kvmatching import rows as serving_rows
 from serviceshared.kvmatching.features import look_input, who_input
 from serviceshared.kvmatching.spec import Spec
 from serviceshared.kvmatching.sql import (
-    Q_ANSWERS, Q_PERSON_ROWS, Q_PREF_ANSWERS, beh_counts_query)
+    answers_query, beh_counts_query, person_rows_query, pref_answers_query)
 from kvmatching.extract import BEH_PARAMS
 
 
@@ -34,16 +34,23 @@ def main() -> None:
     sample = np.sort(rng.choice(f.n, n, replace=False))
     ids = [int(x) for x in f.ids[sample]]
 
+    people = []
+    answers: list[tuple[int, int, bool]] = []
+    prefs: list[tuple[int, int, bool]] = []
     with psycopg.connect(DSN, row_factory=psycopg.rows.dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute(Q_PERSON_ROWS, {'person_ids': ids})
-            people = cur.fetchall()
-        with conn.cursor() as cur:
-            cur.execute(Q_ANSWERS, {'person_ids': ids})
-            answers = [(r['person_id'], r['question_id'], r['answer']) for r in cur.fetchall()]
-        with conn.cursor() as cur:
-            cur.execute(Q_PREF_ANSWERS, {'person_ids': ids})
-            prefs = [(r['person_id'], r['question_id'], r['answer']) for r in cur.fetchall()]
+            for person_id in ids:
+                params = {'person_id': person_id}
+                cur.execute(person_rows_query(everyone=False), params)
+                people.extend(cur.fetchall())
+                cur.execute(answers_query(everyone=False), params)
+                answers.extend(
+                    (r['person_id'], r['question_id'], r['answer'])
+                    for r in cur.fetchall())
+                cur.execute(pref_answers_query(everyone=False), params)
+                prefs.extend(
+                    (r['person_id'], r['question_id'], r['answer'])
+                    for r in cur.fetchall())
         # In production the person row carries the behaviour counters; here
         # they are recomputed from the event tables at the SPLIT cutoff, so
         # both sides of the comparison see the same events regardless of

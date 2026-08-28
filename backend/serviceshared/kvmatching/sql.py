@@ -1,6 +1,14 @@
-"""Reading the rows a person's model features are built from."""
+"""Reading the rows a person's model features are built from.
 
-Q_PERSON_ROWS = """
+Each query serves one person or the whole population, so the training
+extraction reads exactly the columns the backend does instead of a second
+list to keep in step with this one.
+"""
+
+
+def person_rows_query(everyone: bool) -> str:
+    scope = "" if everyone else "WHERE p.id = %(person_id)s"
+    return f"""
 SELECT
     p.id,
     EXTRACT(YEAR FROM p.date_of_birth)::INT AS birth_year,
@@ -32,22 +40,26 @@ SELECT
     s.two_way_exercise, s.two_way_star_sign
 FROM person p
 LEFT JOIN search_preference s ON s.person_id = p.id
-WHERE p.id = ANY(%(person_ids)s)
+{scope}
 ORDER BY p.id
 """
 
-Q_ANSWERS = """
-SELECT person_id, question_id, answer
-FROM answer
-WHERE person_id = ANY(%(person_ids)s)
-AND answer IS NOT NULL
-"""
 
-Q_PREF_ANSWERS = """
+def answers_query(everyone: bool) -> str:
+    return _answers_query("answer", everyone)
+
+
+def pref_answers_query(everyone: bool) -> str:
+    return _answers_query("search_preference_answer", everyone)
+
+
+def _answers_query(table: str, everyone: bool) -> str:
+    scope = "" if everyone else "AND person_id = %(person_id)s"
+    return f"""
 SELECT person_id, question_id, answer
-FROM search_preference_answer
-WHERE person_id = ANY(%(person_ids)s)
-AND answer IS NOT NULL
+FROM {table}
+WHERE answer IS NOT NULL
+{scope}
 """
 
 

@@ -50,7 +50,8 @@ class Features:
     of each rather than one per side."""
 
     def __init__(self) -> None:
-        people = pd.read_parquet(os.path.join(DATA, "people.parquet"))
+        people = pd.read_parquet(os.path.join(DATA, "people.parquet")).merge(
+            pd.read_parquet(os.path.join(DATA, "eval.parquet")), on="id")
         people = people.sort_values("id").reset_index(drop=True)
         self.people = people
         self.ids = people["id"].to_numpy()
@@ -78,22 +79,21 @@ class Features:
             self.lat, self.lon, np.array(LOC_FREQS, np.int64))
         self.country = self._country()
 
-        prefs = self._prefs()
         self.pref_answers = self._load_pm1("pref_answers.parquet", qid2col)
-        self.pref_multi_sizes, self.pref_multi = self._pref_multi(prefs)
-        self.pref_min_age = prefs["min_age"].to_numpy(float)
-        self.pref_max_age = prefs["max_age"].to_numpy(float)
-        self.pref_min_height_cm = prefs["min_height_cm"].to_numpy(float)
-        self.pref_max_height_cm = prefs["max_height_cm"].to_numpy(float)
-        self.pref_distance = prefs["distance"].to_numpy(float)
+        self.pref_multi_sizes, self.pref_multi = self._pref_multi(people)
+        self.pref_min_age = people["min_age"].to_numpy(float)
+        self.pref_max_age = people["max_age"].to_numpy(float)
+        self.pref_min_height_cm = people["min_height_cm"].to_numpy(float)
+        self.pref_max_height_cm = people["max_height_cm"].to_numpy(float)
+        self.pref_distance = people["distance"].to_numpy(float)
         self.pref_last_online_id = (
-            prefs["last_online_id"].fillna(DEFAULT_LAST_ONLINE_ID)
+            people["last_online_id"].fillna(DEFAULT_LAST_ONLINE_ID)
             .to_numpy(np.int64))
         self.pref_num, self.pref_num_mask = pref_numeric(
             self.pref_min_age, self.pref_max_age, self.pref_min_height_cm,
             self.pref_max_height_cm, self.pref_distance,
             self.pref_last_online_id)
-        self.pref_two_way = self._pref_two_way(prefs)
+        self.pref_two_way = self._pref_two_way(people)
 
         self.personality = self._personality()
         self.about = self._about()
@@ -140,9 +140,8 @@ class Features:
         )
 
     def _about(self) -> list[str | None]:
-        bio = pd.read_parquet(os.path.join(DATA, "bio.parquet"))
-        bio = bio.set_index("person_id")["about"].reindex(self.ids)
-        return [t if isinstance(t, str) else None for t in bio.to_numpy()]
+        return [t if isinstance(t, str) and t else None
+                for t in self.people["about"].to_numpy()]
 
     def _counters(self) -> tuple[IntArray, IntArray, IntArray, IntArray]:
         """The four pre-SPLIT behaviour counters, extracted with the serving
@@ -179,10 +178,6 @@ class Features:
         top = c.value_counts().index[:N_COUNTRIES - 1]
         idx = pd.Series(np.arange(1, N_COUNTRIES), index=top)
         return idx.reindex(c).fillna(0).to_numpy().astype(np.int64)
-
-    def _prefs(self) -> pd.DataFrame:
-        p = pd.read_parquet(os.path.join(DATA, "prefs.parquet"))
-        return p.set_index("person_id").reindex(self.ids)
 
     def _pref_multi(self, p: pd.DataFrame) -> tuple[list[int], list[Int8Array]]:
         sizes = []
