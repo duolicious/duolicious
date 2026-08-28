@@ -25,6 +25,8 @@ reading them at least once. That is the backfill cron's unit of work; after
 it has passed (and for everyone created since, whose row is built at
 onboarding), the exception never fires on the serving path.
 """
+import asyncio
+
 import numpy as np
 from pgvector import HalfVector, Vector
 
@@ -94,34 +96,44 @@ async def _fetch_qpre(tx: Tx, person_id: int) -> Qpre | None:
     return _vec(rows[0]['who_pre']), _vec(rows[0]['look_pre'])
 
 
-async def _build_qpre(tx: Tx, s: Spec, person_id: int, person: Row) -> Qpre:
-    """Compute and store the answer blocks' preactivation contributions from
-    scratch. Summed over only the quantised answer columns, so the result
-    lands exactly on the same grid the one-column patches add on."""
-    answers = await _fetch_triples(tx, Q_ANSWERS, person_id)
-    pref_answers = await _fetch_triples(tx, Q_PREF_ANSWERS, person_id)
+def _qpre_of(s: Spec, person: Row, answers: list[Triple],
+             pref_answers: list[Triple]) -> Qpre:
     blocks = rowbuilder.build(s, [person], answers, pref_answers)
     nq = len(s.qids)
     who_width = s.who.w0.shape[1]
     who_qpre = blocks.answers[0] @ s.who.w0[:, :nq].T
     look_qpre = (blocks.answers[0] @ s.look.w0[:, :nq].T
                  + blocks.pref_answers[0] @ s.look.w0[:, who_width:who_width + nq].T)
+    return who_qpre, look_qpre
+
+
+async def _build_qpre(tx: Tx, s: Spec, person_id: int, person: Row) -> Qpre:
+    """Compute and store the answer blocks' preactivation contributions from
+    scratch. Summed over only the quantised answer columns, so the result
+    lands exactly on the same grid the one-column patches add on."""
+    answers = await _fetch_triples(tx, Q_ANSWERS, person_id)
+    pref_answers = await _fetch_triples(tx, Q_PREF_ANSWERS, person_id)
+    qpre = await asyncio.to_thread(_qpre_of, s, person, answers, pref_answers)
     await tx.execute(Q_WRITE_QPRE, dict(
         person_id=person_id,
-        who_pre=Vector(who_qpre),
-        look_pre=Vector(look_qpre),
+        who_pre=Vector(qpre[0]),
+        look_pre=Vector(qpre[1]),
     ))
-    return who_qpre, look_qpre
+    return qpre
+
+
+def _stored_of(s: Spec, person: Row, qpre: Qpre) -> FloatArray:
+    rest = rowbuilder.build(s, [person], [], [])
+    who, wbias = s.who.head(s.who.pre(features.who_input(s, rest))[0] + qpre[0])
+    look, lbias = s.look.head(s.look.pre(features.look_input(s, rest))[0] + qpre[1])
+    return encoder.stored_vector(who, wbias, look, lbias)
 
 
 async def _write_vector(tx: Tx, s: Spec, person_id: int, person: Row,
                         qpre: Qpre) -> None:
     """Re-read the bounded inputs, add the cached answer contributions, run
     the heads, and store the vector."""
-    rest = rowbuilder.build(s, [person], [], [])
-    who, wbias = s.who.head(s.who.pre(features.who_input(s, rest))[0] + qpre[0])
-    look, lbias = s.look.head(s.look.pre(features.look_input(s, rest))[0] + qpre[1])
-    stored = encoder.stored_vector(who, wbias, look, lbias)
+    stored = await asyncio.to_thread(_stored_of, s, person, qpre)
     await tx.execute(Q_WRITE_VECTOR, dict(
         person_id=person_id,
         vector=HalfVector(stored),
