@@ -13,9 +13,9 @@ import numpy as np
 import numpy.typing as npt
 import torch
 
-from kvmatching.cache import load_features
 from kvmatching.features import (
     CAT_FIELDS,
+    Features,
     LOC_FREQS,
     N_COUNTRIES,
     PREF_MULTI,
@@ -63,7 +63,7 @@ def encoder_weights(
 def main() -> None:
     run = run_dir(sys.argv[1])
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(WORK, 'kv_model.npz')
-    f = load_features()
+    f = Features()
     sd = torch.load(f'{run}/model.pt', map_location='cpu', weights_only=True)
     m = sd['who.mu.weight'].shape[0]
 

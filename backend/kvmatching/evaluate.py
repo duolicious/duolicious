@@ -1,3 +1,7 @@
+import glob
+import os
+import pickle
+
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -6,6 +10,7 @@ from sklearn.metrics import roc_auc_score
 
 from kvmatching.features import Features
 from kvmatching.pairs import SPLIT, directed_labels, load_interactions, replies
+from kvmatching.paths import DATA
 from serviceshared.kvmatching.blocks import FloatArray, IntArray
 
 BoolArray = npt.NDArray[np.bool_]
@@ -76,6 +81,24 @@ class EvalData:
     def exposure_candidates(self, a: int) -> IntArray:
         c = self.exposure_pool[self.exposure_pool != a]
         return c[self._mutual_gender_mask(a, c)]
+
+
+def load_evaldata(f: Features) -> EvalData:
+    """Cached, because sampling the candidate pools takes minutes; stale as
+    soon as an extracted parquet or this file is newer than the cache."""
+    path = os.path.join(DATA, f"evaldata_{SPLIT.date()}.pkl")
+    inputs = glob.glob(os.path.join(DATA, "*.parquet")) + [__file__]
+    fresh = os.path.exists(path) and os.path.getmtime(path) >= max(
+        os.path.getmtime(p) for p in inputs)
+    if fresh:
+        with open(path, "rb") as fh:
+            ed: EvalData = pickle.load(fh)
+    else:
+        ed = EvalData(f)
+        with open(path, "wb") as fh:
+            pickle.dump(ed, fh, protocol=5)
+    ed.f = f
+    return ed
 
 
 def safe_auc(y: BoolArray, s: FloatArray) -> float:

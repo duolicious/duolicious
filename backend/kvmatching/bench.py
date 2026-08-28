@@ -1,9 +1,8 @@
 """The observational benchmark the PR descriptions quote: of the held-out
-first messages, rank the messaged pairs by each scorer's mutual score and
-report how often the top decile got a reply or reached a 20-message-each-way
-conversation, against the all-messages baseline. Conditioned on pairs who
-already messaged under the current ranking, so it under-credits retrieval
-changes; an A/B test settles magnitudes.
+first messages, how often the top decile of each scorer's mutual score got a
+reply or reached a 20-message-each-way conversation, against the
+all-messages baseline. Conditioned on pairs who messaged under the current
+ranking, so it under-credits retrieval changes; an A/B test settles that.
 
   KV_SPLIT=... python -m kvmatching.bench model
 """
@@ -13,8 +12,8 @@ import sys
 import numpy as np
 import pandas as pd
 import psycopg
+from pgvector.psycopg import register_vector
 
-from kvmatching.cache import load_features
 from kvmatching.extract import DSN
 from kvmatching.features import Features
 from kvmatching.pairs import SPLIT, load_interactions, replies
@@ -34,12 +33,14 @@ def mutual_scores(run: str, a: IntArray, b: IntArray) -> FloatArray:
 
 def club_vectors(f: Features) -> FloatArray:
     out = np.zeros((f.n, 64), np.float32)
-    with psycopg.connect(DSN) as conn, conn.cursor() as cur:
-        cur.execute('SELECT id, club_vector::TEXT FROM person')
-        for pid, text in cur:
-            row = f.pid2row.get(pid)
-            if row is not None and text is not None:
-                out[int(row)] = np.fromstring(text[1:-1], sep=',')
+    with psycopg.connect(DSN) as conn:
+        register_vector(conn)
+        with conn.cursor() as cur:
+            cur.execute('SELECT id, club_vector FROM person')
+            for pid, vector in cur:
+                row = f.pid2row.get(pid)
+                if row is not None and vector is not None:
+                    out[int(row)] = vector.to_numpy()
     return out
 
 
@@ -55,7 +56,7 @@ def report(label: str, scores: FloatArray, replied: FloatArray,
 
 def main() -> None:
     run = sys.argv[1] if len(sys.argv) > 1 else 'model'
-    f = load_features()
+    f = Features()
 
     r = replies(load_interactions())
     r = r[r['messaged_at'] >= SPLIT]

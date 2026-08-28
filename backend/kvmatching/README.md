@@ -7,27 +7,27 @@ service: a developer runs it by hand against a copy of the production
 database. `serviceshared/kvmatching` is the same model at serving time, and
 builds the features both sides read.
 
-Every person gets a "who I am" vector (`who`, 64 dims), a "looking for"
-vector (`look`, 64 dims) and two scalars: `wbias` (how much people tend to
-message this person) and `lbias` (how readily this person messages rather
-than skips), so that
+Every person gets a "who I am" vector (`who`) and a "looking for" vector
+(`look`), 64 dims each, plus the scalars `wbias` (how much people tend to
+message them) and `lbias` (how readily they message rather than skip), so
+that
 
     score(A -> B) = look_A . who_B + lbias_A + wbias_B
 
 and the mutual score sums both directions. Hence "key-value": each person is
-both a key (what they want) and a value (what they are). Folding the scalars
-in as extra dimensions (`[look, lbias, 1]` / `[who, 1, wbias]`) makes that a
-single inner product, served from pgvector like the existing `personality`
-column. Both encoders are denoising VAEs (`model.py`), trained jointly on
-profile reconstruction and a directional pair loss over real behaviour.
+both a key and a value, and folding the scalars in as extra dimensions makes
+the pair score one inner product, served from pgvector like the existing
+`personality` column. Both encoders are denoising VAEs (`model.py`) trained
+jointly on profile reconstruction and a directional pair loss over real
+behaviour.
 
 ## Running it
 
 You need a copy of the production database (never point this at real
-production), Python 3.12+, and a CUDA GPU with 8 GB — training takes about 25
-minutes, extraction and feature building run anywhere. From `backend/`, with
-the torch wheel matched to your driver (on CUDA 12.4, `torch==2.6.0
---index-url https://download.pytorch.org/whl/cu124`):
+production), Python 3.12+, and a CUDA GPU with 8 GB; training takes about 25
+minutes and everything else runs anywhere. From `backend/`, with the torch
+wheel matched to your driver (on CUDA 12.4, `torch==2.6.0 --index-url
+https://download.pytorch.org/whl/cu124`):
 
     python3 -m venv kvmatching/venv
     kvmatching/venv/bin/pip install -r kvmatching/requirements.txt

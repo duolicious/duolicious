@@ -1,9 +1,6 @@
-"""Where the pipeline reads and writes.
-
-Everything derived from the database -- extracted parquet, feature caches,
-trained vectors -- is per-user data, so none of it is written inside the
-repository. The default lives under /tmp; override with KV_WORK_DIR to keep
-it somewhere with more room or a longer life.
+"""Where the pipeline reads and writes: never inside the repository, because
+everything derived from the database is per-user data. Override the /tmp
+default with KV_WORK_DIR to keep a run somewhere roomier or longer-lived.
 """
 import os
 

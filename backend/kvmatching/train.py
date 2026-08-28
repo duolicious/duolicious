@@ -8,11 +8,11 @@ import numpy as np
 import pandas as pd
 import torch
 
-from kvmatching.cache import load_evaldata, load_features
 from kvmatching.evaluate import (
     Scorer,
     agreement_probe,
     exposure_metrics,
+    load_evaldata,
     prod_scorer,
     quick_metrics,
     retrieval_metrics,
@@ -124,7 +124,7 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
 
     device = torch.device("cuda")
     say("args", json.dumps(vars(args)))
-    f = load_features()
+    f = Features()
     ed = load_evaldata(f)
     tf = TensorFeatures(f, device)
     tp = train_pairs(f)
@@ -163,11 +163,11 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
             idx = perm[i * BATCH:(i + 1) * BATCH]
             ridx = ELIG[torch.randint(len(ELIG), (RECON_BATCH,), device=device)]
             wb = tf.who_batch(ridx)
-            mu, lv = model.who.encode(wb, True)
+            mu, lv, _ = model.who.encode(wb, True)
             rl = model.who.recon_loss(reparam(mu, lv), wb)
             kw = kl(mu, lv)
             lb = tf.look_batch(ridx)
-            mu2, lv2 = model.look.encode(lb, True)
+            mu2, lv2, _ = model.look.encode(lb, True)
             rl2 = model.look.recon_loss(reparam(mu2, lv2), lb)
             kl2 = kl(mu2, lv2)
             loss = sum(rl.values()) + sum(rl2.values()) + BETA * (kw + kl2)
@@ -202,10 +202,9 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
         say(f"epoch {epoch} eval", json.dumps(quick_metrics(sc, ed)))
 
     who, look, wbias, lbias = all_vectors(model, tf, f.n)
-    np.save(os.path.join(out, "who.npy"), who)
-    np.save(os.path.join(out, "look.npy"), look)
-    np.save(os.path.join(out, "wbias.npy"), wbias)
-    np.save(os.path.join(out, "lbias.npy"), lbias)
+    for name, vectors in [("who", who), ("look", look), ("wbias", wbias),
+                          ("lbias", lbias)]:
+        np.save(os.path.join(out, f"{name}.npy"), vectors)
     torch.save(model.state_dict(), os.path.join(out, "model.pt"))
     sc = scorer_from(who, look, wbias, lbias, device)
     model_metrics = quick_metrics(sc, ed)

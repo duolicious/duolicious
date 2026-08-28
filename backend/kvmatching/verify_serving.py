@@ -1,10 +1,9 @@
 """Check the rows the backend reads a person from agree with training's.
 
 Both sides build their features with the same code, so what is left to get
-wrong is the reading: a column read from the wrong place is quietly wrong
-rather than missing. This rebuilds a sample of people from the live tables
-and from the extracted parquet and compares the two, column for column. Run
-it against a database copy after changing either side.
+wrong is the reading, where a column from the wrong place is quietly wrong
+rather than missing. Rebuilds a sample of people from the live tables and
+from the extracted parquet and compares the two, column for column.
 
   KV_SPLIT=... python -m kvmatching.verify_serving [n_people] [run]
 """
@@ -14,8 +13,8 @@ import sys
 import numpy as np
 import psycopg
 
-from kvmatching.cache import load_features
 from kvmatching.extract import DSN
+from kvmatching.features import Features
 from kvmatching.paths import WORK
 
 from serviceshared.kvmatching import rows as serving_rows
@@ -29,7 +28,7 @@ from kvmatching.extract import BEH_PARAMS
 def main() -> None:
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 200
     run = sys.argv[2] if len(sys.argv) > 2 else 'model'
-    f = load_features()
+    f = Features()
     spec = Spec(os.path.join(WORK, 'kv_model.npz'))
     rng = np.random.default_rng(0)
     sample = np.sort(rng.choice(f.n, n, replace=False))

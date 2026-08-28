@@ -111,13 +111,10 @@ class WhoDVAE(nn.Module):
         ]
         return torch.cat(parts, dim=1)
 
-    def encode(self, b: Batch, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, b: Batch, train: bool) -> tuple[
+            torch.Tensor, torch.Tensor, torch.Tensor]:
         h = self.enc(self.build_input(b, train))
-        return self.mu(h), self.logvar(h)
-
-    def encode_with_bias(self, b: Batch, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
-        h = self.enc(self.build_input(b, train))
-        return self.mu(h), self.bias(h).squeeze(1)
+        return self.mu(h), self.logvar(h), self.bias(h).squeeze(1)
 
     def recon_loss(self, z: torch.Tensor, b: Batch) -> dict[str, torch.Tensor]:
         return self.split_losses(self.head(z), b)
@@ -223,9 +220,9 @@ class KVModel(nn.Module):
         self.look = LookDVAE(tf, m, n, hidden, layers, noise, dropout)
 
     def who_vec(self, b: Batch, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
-        mu, bias = self.who.encode_with_bias(b, train)
+        mu, _, bias = self.who.encode(b, train)
         return mu, bias
 
     def look_vec(self, b: Batch, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
-        mu, bias = self.look.encode_with_bias(b, train)
+        mu, _, bias = self.look.encode(b, train)
         return mu[:, :self.m], bias
