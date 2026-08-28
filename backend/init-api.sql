@@ -297,9 +297,9 @@ CREATE TABLE IF NOT EXISTS person (
     -- the running state kv_vector is derived from: an answer change is a
     -- single column-add here rather than a re-read of every answer, and the
     -- adds are exact because the first-layer weights ship on a fixed-point
-    -- grid whose sums float32 carries exactly. At ~2KB each they get TOASTed
-    -- out of line, off the tuple the search scans read; their dimensions
-    -- come from the model artifact, so the columns are untyped.
+    -- grid whose sums float32 carries exactly. At a few KB each they get
+    -- TOASTed out of line, off the tuple the search scans read; their
+    -- dimensions come from the model artifact, so the columns are untyped.
     kv_who_pre VECTOR,
     kv_look_pre VECTOR,
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),

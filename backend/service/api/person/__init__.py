@@ -1042,6 +1042,7 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_JOIN_CLUB, params)
         rows = await row_tx.fetchall()
+        await refresh_vectors(tx, s.person_id)
 
     if rows:
         return f"Joined {req.name}", 200
@@ -1056,6 +1057,7 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
 
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
+        await refresh_vectors(tx, s.person_id)
 
 async def get_update_notifications(
     email: str,
@@ -1268,6 +1270,7 @@ async def get_admin_delete_photo(token: str) -> object:
         if rows:
             params = dict(person_id=rows[0]['person_id'])
             await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
+            await refresh_vectors(tx, int(params['person_id']))
 
     if rows:
         return f'Deleted photo {rows}'
