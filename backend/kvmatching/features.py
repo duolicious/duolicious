@@ -6,11 +6,15 @@ import pandas as pd
 import torch
 
 from kvmatching.paths import DATA
-from serviceshared.kvmatching.blocks import F64Array, FloatArray, IntArray
+from serviceshared.kvmatching.blocks import Blocks, FloatArray, IntArray
 from serviceshared.kvmatching.features import (
     behaviour_features,
+    fourier_latlon,
+    numeric,
+    pref_numeric,
     profile_quality_features,
 )
+from serviceshared.kvmatching.rows import DEFAULT_LAST_ONLINE_ID, UNANSWERED
 
 Int8Array = npt.NDArray[np.int8]
 Batch = dict[str, torch.Tensor]
@@ -39,17 +43,11 @@ N_COUNTRIES = 60
 LOC_FREQS = [1, 2, 4, 8, 16, 32, 64]
 
 
-def fourier_latlon(lat: F64Array, lon: F64Array) -> FloatArray:
-    a = np.deg2rad(lat)[:, None]
-    b = np.deg2rad(lon)[:, None]
-    f = np.array(LOC_FREQS, dtype=np.float64)[None, :]
-    feats = [np.sin(a * f), np.cos(a * f), np.sin(b * f), np.cos(b * f)]
-    return np.concatenate(feats, axis=1).astype(np.float32)
-
-
 class Features:
     """Dense per-person feature blocks, indexed by row (0..N-1). `pid2row`
-    maps person ids to rows."""
+    maps person ids to rows. Every block a person's vector is built from
+    comes from the serving side's own transforms, so there is one definition
+    of each rather than one per side."""
 
     def __init__(self) -> None:
         people = pd.read_parquet(os.path.join(DATA, "people.parquet"))
@@ -63,48 +61,98 @@ class Features:
         self.qids = questions["id"].to_numpy()
         self.nq = len(self.qids)
         qid2col = pd.Series(np.arange(self.nq), index=self.qids)
-        self.questions = questions
+
+        self.birth_year = people["birth_year"].to_numpy(float)
+        self.height_cm = people["height_cm"].to_numpy(float)
+        self.lat = people["lat"].to_numpy(float)
+        self.lon = people["lon"].to_numpy(float)
+        self.verification_level_id = (
+            people["verification_level_id"].fillna(1).to_numpy(np.int64))
+        self.photo_count = people["photo_count"].to_numpy(np.int64)
+        self.club_count = people["club_count"].to_numpy(np.int64)
 
         self.answers = self._load_pm1("answers.parquet", qid2col)
         self.cat_sizes, self.cat = self._cats()
-        self.num, self.num_mask = self._nums()
+        self.num, self.num_mask = numeric(self.birth_year, self.height_cm)
         self.loc = fourier_latlon(
-            people["lat"].to_numpy(float), people["lon"].to_numpy(float))
+            self.lat, self.lon, np.array(LOC_FREQS, np.int64))
         self.country = self._country()
 
         prefs = self._prefs()
         self.pref_answers = self._load_pm1("pref_answers.parquet", qid2col)
         self.pref_multi_sizes, self.pref_multi = self._pref_multi(prefs)
-        self.pref_num, self.pref_num_mask = self._pref_nums(prefs)
+        self.pref_min_age = prefs["min_age"].to_numpy(float)
+        self.pref_max_age = prefs["max_age"].to_numpy(float)
+        self.pref_min_height_cm = prefs["min_height_cm"].to_numpy(float)
+        self.pref_max_height_cm = prefs["max_height_cm"].to_numpy(float)
+        self.pref_distance = prefs["distance"].to_numpy(float)
+        self.pref_last_online_id = (
+            prefs["last_online_id"].fillna(DEFAULT_LAST_ONLINE_ID)
+            .to_numpy(np.int64))
+        self.pref_num, self.pref_num_mask = pref_numeric(
+            self.pref_min_age, self.pref_max_age, self.pref_min_height_cm,
+            self.pref_max_height_cm, self.pref_distance,
+            self.pref_last_online_id)
         self.pref_two_way = self._pref_two_way(prefs)
 
         self.personality = self._personality()
-        self.beh = self._behaviour()
-        self.prof = self._profile_quality()
+        self.about = self._about()
+        (self.intros_received, self.intros_replied, self.intros_sent,
+         self.messages_received) = self._counters()
+        self.beh = behaviour_features(
+            self.intros_received, self.intros_replied, self.intros_sent,
+            self.messages_received)
+        self.prof = profile_quality_features(
+            self.verification_level_id, self.about, self.photo_count,
+            self.club_count)
 
-    def _profile_quality(self) -> FloatArray:
-        """The profile-quality block, through the serving side's own
-        transform: verification level, bio traits, photo and club counts."""
+    def blocks(self, rows: IntArray) -> Blocks:
+        """The given rows in the shape the serving side reads its own
+        database rows into, so training's inputs can be built by serving's
+        own code (see export.py)."""
+        return Blocks(
+            person_ids=self.ids[rows],
+            birth_year=self.birth_year[rows],
+            height_cm=self.height_cm[rows],
+            lat=self.lat[rows],
+            lon=self.lon[rows],
+            answers=self.answers[rows].astype(np.float32),
+            cats=[self.cat[rows, i] for i in range(len(CAT_FIELDS))],
+            country=self.country[rows],
+            intros_received=self.intros_received[rows],
+            intros_replied=self.intros_replied[rows],
+            intros_sent=self.intros_sent[rows],
+            messages_received=self.messages_received[rows],
+            verification_level_id=self.verification_level_id[rows],
+            about=[self.about[i] for i in rows],
+            photo_count=self.photo_count[rows],
+            club_count=self.club_count[rows],
+            pref_answers=self.pref_answers[rows].astype(np.float32),
+            pref_multi=np.concatenate(
+                [b[rows].astype(np.float32) for b in self.pref_multi], axis=1),
+            pref_min_age=self.pref_min_age[rows],
+            pref_max_age=self.pref_max_age[rows],
+            pref_min_height_cm=self.pref_min_height_cm[rows],
+            pref_max_height_cm=self.pref_max_height_cm[rows],
+            pref_distance=self.pref_distance[rows],
+            pref_last_online_id=self.pref_last_online_id[rows],
+            pref_two_way=self.pref_two_way[rows],
+        )
+
+    def _about(self) -> list[str | None]:
         bio = pd.read_parquet(os.path.join(DATA, "bio.parquet"))
         bio = bio.set_index("person_id")["about"].reindex(self.ids)
-        return profile_quality_features(
-            self.people["verification_level_id"].fillna(1).to_numpy(np.int64),
-            [t if isinstance(t, str) else None for t in bio.to_numpy()],
-            self.people["photo_count"].to_numpy(np.int64),
-            self.people["club_count"].to_numpy(np.int64),
-        )
+        return [t if isinstance(t, str) else None for t in bio.to_numpy()]
 
-    def _behaviour(self) -> FloatArray:
-        """The four pre-SPLIT behaviour counters (extracted with the serving
-        side's own query) through the serving side's own transform."""
+    def _counters(self) -> tuple[IntArray, IntArray, IntArray, IntArray]:
+        """The four pre-SPLIT behaviour counters, extracted with the serving
+        side's own query."""
         c = pd.read_parquet(os.path.join(DATA, "beh_counts.parquet"))
         c = c.set_index("person_id").reindex(self.ids).fillna(0)
-        return behaviour_features(
-            c["count_intros_received"].to_numpy(np.int64),
-            c["count_intros_replied"].to_numpy(np.int64),
-            c["count_intros_sent"].to_numpy(np.int64),
-            c["count_messages_received"].to_numpy(np.int64),
-        )
+        return (c["count_intros_received"].to_numpy(np.int64),
+                c["count_intros_replied"].to_numpy(np.int64),
+                c["count_intros_sent"].to_numpy(np.int64),
+                c["count_messages_received"].to_numpy(np.int64))
 
     def _load_pm1(self, filename: str, qid2col: pd.Series) -> Int8Array:
         """A (person, question) parquet of booleans as a dense +1/-1/0 block."""
@@ -121,21 +169,10 @@ class Features:
         sizes = []
         cols = []
         for f in CAT_FIELDS:
-            v = self.people[f].fillna(1).to_numpy(int)
+            v = self.people[f].fillna(UNANSWERED).to_numpy(int)
             sizes.append(int(v.max()) + 1)
             cols.append(v)
         return sizes, np.stack(cols, axis=1).astype(np.int64)
-
-    def _nums(self) -> tuple[FloatArray, FloatArray]:
-        # Year of birth rather than age: it never changes, so a person's
-        # vector never goes stale just because time passed.
-        year = np.clip(self.people["birth_year"].to_numpy(float), 1935, 2055)
-        h = self.people["height_cm"].to_numpy(float)
-        hm = ~np.isnan(h) & (h >= 120) & (h <= 230)
-        h = np.where(hm, h, 170.0)
-        num = np.stack([(year - 1995) / 10, (h - 170) / 10], axis=1)
-        mask = np.stack([np.ones_like(hm), hm], axis=1)
-        return num.astype(np.float32), mask.astype(np.float32)
 
     def _country(self) -> IntArray:
         c = self.people["country"].fillna("")
@@ -165,28 +202,6 @@ class Features:
             blocks.append(m)
         return sizes, blocks
 
-    def _pref_nums(self, p: pd.DataFrame) -> tuple[FloatArray, FloatArray]:
-        cols = []
-        masks = []
-        for f, center, scale in [
-            ("min_age", 25, 10), ("max_age", 40, 10),
-            ("min_height_cm", 160, 10), ("max_height_cm", 190, 10),
-        ]:
-            v = p[f].to_numpy(float)
-            m = ~np.isnan(v)
-            v = np.clip(np.where(m, v, center), center - 6 * scale, center + 6 * scale)
-            cols.append(np.where(m, (v - center) / scale, 0))
-            masks.append(m)
-        d = p["distance"].to_numpy(float)
-        dm = ~np.isnan(d)
-        cols.append(np.where(dm, (np.log1p(np.where(dm, d, 1)) - 6) / 2, 0))
-        masks.append(dm)
-        lo = p["last_online_id"].fillna(4).to_numpy(int)
-        lo_oh = np.eye(6)[lo]
-        num = np.concatenate([np.stack(cols, 1), lo_oh], axis=1)
-        mask = np.concatenate([np.stack(masks, 1), np.ones_like(lo_oh)], axis=1)
-        return num.astype(np.float32), mask.astype(np.float32)
-
     def _pref_two_way(self, p: pd.DataFrame) -> FloatArray:
         v = p[PREF_TWO_WAY + ["has_club_filter"]].fillna(False).to_numpy(bool)
         return v.astype(np.float32)
@@ -198,14 +213,6 @@ class Features:
             if values is not None:
                 out[i] = values
         return out
-
-    def who_input_dim(self) -> int:
-        return (self.nq + sum(self.cat_sizes) + 2 * 2 + self.loc.shape[1]
-                + N_COUNTRIES + self.beh.shape[1] + self.prof.shape[1])
-
-    def look_extra_dim(self) -> int:
-        return (self.nq + sum(self.pref_multi_sizes) + 2 * self.pref_num.shape[1]
-                + self.pref_two_way.shape[1])
 
 
 class TensorFeatures:

@@ -36,7 +36,3 @@ class Blocks:
     pref_distance: F64Array
     pref_last_online_id: IntArray
     pref_two_way: FloatArray
-
-    def pref_numeric_columns(self) -> list[F64Array]:
-        return [self.pref_min_age, self.pref_max_age,
-                self.pref_min_height_cm, self.pref_max_height_cm]

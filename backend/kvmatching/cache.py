@@ -4,21 +4,25 @@ import pickle
 from collections.abc import Callable
 from typing import TypeVar
 
+from kvmatching import features as train_features
 from kvmatching.evaluate import EvalData
 from kvmatching.features import Features
 from kvmatching.pairs import SPLIT
 from kvmatching.paths import DATA
+from serviceshared.kvmatching import features as serving_features
 
 T = TypeVar("T")
+SOURCES = [train_features.__file__, serving_features.__file__]
 
 
 def is_fresh(path: str) -> bool:
-    """A cache is stale as soon as any extracted parquet is newer than it, so
-    that re-running extract.py cannot leave training on old features."""
+    """A cache is stale as soon as any extracted parquet, or either of the
+    files that turn one into features, is newer than it: neither re-running
+    extract.py nor editing a feature can leave training on old features."""
     if not os.path.exists(path):
         return False
-    newest = max(os.path.getmtime(p) for p in glob.glob(os.path.join(DATA, "*.parquet")))
-    return os.path.getmtime(path) >= newest
+    inputs = glob.glob(os.path.join(DATA, "*.parquet")) + SOURCES
+    return os.path.getmtime(path) >= max(os.path.getmtime(p) for p in inputs)
 
 
 def _cached(path: str, build: Callable[[], T]) -> T:

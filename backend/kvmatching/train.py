@@ -24,30 +24,19 @@ from kvmatching.paths import DATA, ensure_dirs, run_dir
 from serviceshared.kvmatching.blocks import FloatArray
 
 
+M, N = 64, 32
+HIDDEN, LAYERS, DROPOUT = 1024, 4, 0.1
+EPOCHS, BATCH, RECON_BATCH = 8, 2048, 1024
+LR, WD, BETA = 1e-3, 1e-4, 1e-3
+NEG_WEIGHT, SKIP_WEIGHT = 1.0, 1.0
+NOISE = Noise(p_answer=0.3, p_cat=0.1, p_pref=0.1, p_year=0.1, p_beh=0.3,
+              p_prof=0.3)
+
+
 def parse() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--name", default="model", help="run name, written under KV_WORK_DIR/runs")
-    p.add_argument("--m", type=int, default=64)
-    p.add_argument("--n", type=int, default=32)
-    p.add_argument("--hidden", type=int, default=1024)
-    p.add_argument("--layers", type=int, default=4)
-    p.add_argument("--dropout", type=float, default=0.1)
-    p.add_argument("--beta", type=float, default=1e-3)
-    p.add_argument("--neg-weight", type=float, default=1.0)
-    p.add_argument("--skip-weight", type=float, default=1.0)
-    p.add_argument("--epochs", type=int, default=8)
-    p.add_argument("--batch", type=int, default=2048)
-    p.add_argument("--recon-batch", type=int, default=1024)
-    p.add_argument("--lr", type=float, default=1e-3)
-    p.add_argument("--wd", type=float, default=1e-4)
-    p.add_argument("--noise-answer", type=float, default=0.3)
-    p.add_argument("--noise-cat", type=float, default=0.1)
-    p.add_argument("--noise-pref", type=float, default=0.1)
-    p.add_argument("--noise-year", type=float, default=0.1, help="chance of shifting a training example's birth year by one, so the encoder stays smooth just past the cohorts it has seen")
-    p.add_argument("--noise-beh", type=float, default=0.3, help="chance of zeroing a training example's behaviour block; see WhoDVAE.build_input")
-    p.add_argument("--noise-prof", type=float, default=0.3, help="chance of zeroing a training example's profile-quality block")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--full-eval", type=int, default=1)
     return p.parse_args()
 
 
@@ -117,18 +106,10 @@ def all_vectors(
 
 
 def scorer_from(who: FloatArray, look: FloatArray, wbias: FloatArray,
-                lbias: FloatArray, device: torch.device,
-                use_wbias: bool = True, use_lbias: bool = True) -> Scorer:
+                lbias: FloatArray, device: torch.device) -> Scorer:
     """Append bias dims so that look'.who' = look.who + lbias + wbias. wbias
-    is the prospect's popularity term, lbias the searcher's eagerness term;
-    either can be switched off at scoring time."""
-    n = len(who)
-    ones = np.ones((n, 1), dtype=np.float32)
-    zeros = np.zeros(n, dtype=np.float32)
-    if not use_wbias:
-        wbias = zeros
-    if not use_lbias:
-        lbias = zeros
+    is the prospect's popularity term, lbias the searcher's eagerness term."""
+    ones = np.ones((len(who), 1), dtype=np.float32)
     look2 = np.concatenate([look, lbias[:, None], ones], axis=1)
     who2 = np.concatenate([who, ones, wbias[:, None]], axis=1)
     return Scorer(look2, who2, device)
@@ -150,7 +131,7 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
     say("train pairs", len(tp), "pos", int((tp.label > 0).sum()),
         "neg", int((tp.label < 0).sum()))
 
-    w = np.where(tp.label > 0, 1.0, args.skip_weight).astype(np.float32)
+    w = np.where(tp.label > 0, 1.0, SKIP_WEIGHT).astype(np.float32)
     y_np = level_targets(tp, f)
     say("level targets: mean", float(y_np.mean()), "positives mean", float(y_np[y_np > 0].mean()),
         "quartiles", np.percentile(y_np[y_np > 0], [25, 50, 75, 95]).round(2).tolist())
@@ -163,27 +144,24 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
     eligible = np.flatnonzero((p["activated"] & ~p["is_bot"]).to_numpy())
     ELIG = torch.as_tensor(eligible, device=device)
 
-    noise = Noise(args.noise_answer, args.noise_cat, args.noise_pref,
-                  args.noise_year, args.noise_beh, args.noise_prof)
-    model = KVModel(tf, args.m, args.n, args.hidden, args.layers, noise,
-                    args.dropout).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
-    steps_per_epoch = len(tp) // args.batch
-    total = steps_per_epoch * args.epochs
+    model = KVModel(tf, M, N, HIDDEN, LAYERS, NOISE, DROPOUT).to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD)
+    steps_per_epoch = len(tp) // BATCH
+    total = steps_per_epoch * EPOCHS
     sched = torch.optim.lr_scheduler.OneCycleLR(
-        opt, max_lr=args.lr, total_steps=total, pct_start=0.05)
+        opt, max_lr=LR, total_steps=total, pct_start=0.05)
 
     prod = prod_scorer(f, device)
     say("prod", json.dumps(quick_metrics(prod, ed)))
 
     step = 0
     t0 = time.time()
-    for epoch in range(args.epochs):
+    for epoch in range(EPOCHS):
         perm = torch.randperm(len(tp), device=device)
         acc: dict[str, float] = {}
         for i in range(steps_per_epoch):
-            idx = perm[i * args.batch:(i + 1) * args.batch]
-            ridx = ELIG[torch.randint(len(ELIG), (args.recon_batch,), device=device)]
+            idx = perm[i * BATCH:(i + 1) * BATCH]
+            ridx = ELIG[torch.randint(len(ELIG), (RECON_BATCH,), device=device)]
             wb = tf.who_batch(ridx)
             mu, lv = model.who.encode(wb, True)
             rl = model.who.recon_loss(reparam(mu, lv), wb)
@@ -192,7 +170,7 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
             mu2, lv2 = model.look.encode(lb, True)
             rl2 = model.look.recon_loss(reparam(mu2, lv2), lb)
             kl2 = kl(mu2, lv2)
-            loss = sum(rl.values()) + sum(rl2.values()) + args.beta * (kw + kl2)
+            loss = sum(rl.values()) + sum(rl2.values()) + BETA * (kw + kl2)
             parts: dict[str, torch.Tensor] = {
                 "recon_who": sum(rl.values()),
                 "recon_look": sum(rl2.values()),
@@ -203,7 +181,7 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
             la, lb_bias = model.look_vec(tf.look_batch(a), True)
             wb_, wb_bias = model.who_vec(tf.who_batch(b), True)
             C = la @ wb_.T + lb_bias[:, None] + wb_bias[None, :]
-            pl = pair_loss(args.neg_weight, C, Y[idx], W[idx])
+            pl = pair_loss(NEG_WEIGHT, C, Y[idx], W[idx])
             loss = loss + pl
             parts["pair"] = pl
             opt.zero_grad(set_to_none=True)
@@ -232,11 +210,10 @@ def run(args: argparse.Namespace, out: str, log: TextIO) -> None:
     sc = scorer_from(who, look, wbias, lbias, device)
     model_metrics = quick_metrics(sc, ed)
     prod_metrics = quick_metrics(prod, ed)
-    if args.full_eval:
-        for metrics, scorer in [(model_metrics, sc), (prod_metrics, prod)]:
-            metrics.update(retrieval_metrics(scorer, ed))
-            metrics.update(exposure_metrics(scorer, ed))
-            metrics.update(agreement_probe(scorer, ed))
+    for metrics, scorer in [(model_metrics, sc), (prod_metrics, prod)]:
+        metrics.update(retrieval_metrics(scorer, ed))
+        metrics.update(exposure_metrics(scorer, ed))
+        metrics.update(agreement_probe(scorer, ed))
     res: dict[str, dict[str, float]] = {
         "model": model_metrics,
         "prod": prod_metrics,

@@ -16,15 +16,14 @@ import torch
 from kvmatching.cache import load_features
 from kvmatching.features import (
     CAT_FIELDS,
-    Features,
     LOC_FREQS,
     N_COUNTRIES,
     PREF_MULTI,
     PREF_TWO_WAY,
 )
 from kvmatching.paths import WORK, run_dir
-from serviceshared.kvmatching.blocks import FloatArray, IntArray
 from serviceshared.kvmatching.encoder import W0_QUANTUM
+from serviceshared.kvmatching.features import look_input, who_input
 from serviceshared.kvmatching.spec import Spec
 
 
@@ -59,30 +58,6 @@ def encoder_weights(
         out[f'{prefix}.b{t}'] = g(f'enc.net.{4 * t}.bias')
         t += 1
     return out
-
-
-def who_input(f: Features, rows: IntArray) -> FloatArray:
-    cat = np.concatenate(
-        [np.eye(s, dtype=np.float32)[f.cat[rows, i]] for i, s in enumerate(f.cat_sizes)], 1)
-    return np.concatenate([
-        f.answers[rows].astype(np.float32),
-        cat,
-        f.num[rows] * f.num_mask[rows], f.num_mask[rows],
-        f.loc[rows],
-        np.eye(N_COUNTRIES, dtype=np.float32)[f.country[rows]],
-        f.beh[rows],
-        f.prof[rows],
-    ], 1)
-
-
-def look_input(f: Features, rows: IntArray) -> FloatArray:
-    return np.concatenate([
-        who_input(f, rows),
-        f.pref_answers[rows].astype(np.float32),
-        np.concatenate([b[rows].astype(np.float32) for b in f.pref_multi], 1),
-        f.pref_num[rows] * f.pref_num_mask[rows], f.pref_num_mask[rows],
-        f.pref_two_way[rows],
-    ], 1)
 
 
 def main() -> None:
@@ -125,8 +100,9 @@ def main() -> None:
 
     enc = Spec(out)
     rows = np.random.default_rng(0).choice(f.n, 256, replace=False)
-    who_v, wb = enc.who.forward(who_input(f, rows))
-    look_v, lb = enc.look.forward(look_input(f, rows))
+    b = f.blocks(rows)
+    who_v, wb = enc.who.forward(who_input(enc, b))
+    look_v, lb = enc.look.forward(look_input(enc, b))
     ref = {n: np.load(f'{run}/{n}.npy') for n in ['who', 'look', 'wbias', 'lbias']}
     for name, got, want in [('who', who_v, ref['who'][rows]), ('look', look_v, ref['look'][rows]),
                             ('wbias', wb, ref['wbias'][rows]), ('lbias', lb, ref['lbias'][rows])]:
@@ -136,9 +112,10 @@ def main() -> None:
         # in the numpy encoder rather than quantisation.
         assert err < 3e-3, f'{name} does not reproduce training output'
 
-    pre = enc.who.pre(who_input(f, rows[:1]))
+    one = who_input(enc, f.blocks(rows[:1]))
+    pre = enc.who.pre(one)
     col = int(np.flatnonzero(f.answers[rows[0]] != 0)[0])
-    flipped = who_input(f, rows[:1]).copy()
+    flipped = one.copy()
     delta = -2.0 * flipped[0, col]
     flipped[0, col] += delta
     incr = enc.who.head(enc.who.pre_delta(pre, col, delta))[0]

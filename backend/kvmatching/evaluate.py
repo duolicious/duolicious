@@ -54,7 +54,8 @@ class EvalData:
         self.q_cands = [self._candidates(a, b, 2000) for a, b in zip(self.q_a, self.q_b)]
 
         recent = (p["last_online_time"] >= SPLIT).to_numpy()
-        self.exposure_pool = np.flatnonzero(eligible & recent & p["has_photo"].to_numpy())
+        has_photo = p["photo_count"].to_numpy() > 0
+        self.exposure_pool = np.flatnonzero(eligible & recent & has_photo)
         actors = np.unique(np.concatenate([self.dir_a, self.rep_a]))
         actors = actors[np.isin(actors, self.exposure_pool)]
         self.searchers = rng.choice(actors, size=min(3000, len(actors)), replace=False)
@@ -165,11 +166,6 @@ def exposure_metrics(sc: Scorer, ed: EvalData, k: int = 50, mode: str = "recip")
 
 def prod_scorer(f: Features, device: torch.device) -> Scorer:
     return Scorer(f.personality, f.personality, device)
-
-
-def normalize(x: FloatArray) -> FloatArray:
-    n = np.linalg.norm(x, axis=1, keepdims=True)
-    return x / np.maximum(n, 1e-8)
 
 
 

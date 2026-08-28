@@ -1,8 +1,10 @@
-"""Check the backend's feature builder agrees with training's.
+"""Check the rows the backend reads a person from agree with training's.
 
-The encoders were fitted against the layout in features.py; if the serving
-path puts a column anywhere else the vectors are quietly wrong rather than
-missing. Run against a database copy after changing either side.
+Both sides build their features with the same code, so what is left to get
+wrong is the reading: a column read from the wrong place is quietly wrong
+rather than missing. This rebuilds a sample of people from the live tables
+and from the extracted parquet and compares the two, column for column. Run
+it against a database copy after changing either side.
 
   KV_SPLIT=... python -m kvmatching.verify_serving [n_people] [run]
 """
@@ -13,12 +15,11 @@ import numpy as np
 import psycopg
 
 from kvmatching.cache import load_features
-from kvmatching.export import look_input as train_look, who_input as train_who
 from kvmatching.extract import DSN
 from kvmatching.paths import WORK
 
-from serviceshared.kvmatching import features as serving_features
 from serviceshared.kvmatching import rows as serving_rows
+from serviceshared.kvmatching.features import look_input, who_input
 from serviceshared.kvmatching.spec import Spec
 from serviceshared.kvmatching.sql import (
     Q_ANSWERS, Q_PERSON_ROWS, Q_PREF_ANSWERS, beh_counts_query)
@@ -58,21 +59,22 @@ def main() -> None:
     built = serving_rows.build(spec, people, answers, prefs)
     got_ids = built.person_ids
     order = np.array([int(np.flatnonzero(f.ids == i)[0]) for i in got_ids])
+    extracted = f.blocks(order)
 
-    for name, serving, training in [
-        ('who', serving_features.who_input(spec, built), train_who(f, order)),
-        ('look', serving_features.look_input(spec, built), train_look(f, order)),
+    for name, live, offline in [
+        ('who', who_input(spec, built), who_input(spec, extracted)),
+        ('look', look_input(spec, built), look_input(spec, extracted)),
     ]:
-        assert serving.shape == training.shape, f'{name}: {serving.shape} vs {training.shape}'
-        delta = np.abs(serving - training)
+        assert live.shape == offline.shape, f'{name}: {live.shape} vs {offline.shape}'
+        delta = np.abs(live - offline)
         bad = np.flatnonzero(delta.max(0) > 1e-5)
-        print(f'{name:<5} {serving.shape[1]} columns, max abs difference {delta.max():.2e}, '
+        print(f'{name:<5} {live.shape[1]} columns, max abs difference {delta.max():.2e}, '
               f'{len(bad)} columns disagree')
         if len(bad):
             print(f'      first disagreeing columns: {bad[:12].tolist()}')
         assert not len(bad), f'{name} features disagree with training'
 
-    vec_s, bias_s = spec.who.forward(serving_features.who_input(spec, built))
+    vec_s, bias_s = spec.who.forward(who_input(spec, built))
     who = np.load(os.path.join(WORK, 'runs', run, 'who.npy'))[order]
     print(f'\nresulting who vectors match training output to '
           f'{np.abs(vec_s - who).max():.2e}')

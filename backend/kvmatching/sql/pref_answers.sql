@@ -1,1 +1,1 @@
-SELECT person_id, question_id, answer, accept_unanswered FROM search_preference_answer
+SELECT person_id, question_id, answer FROM search_preference_answer

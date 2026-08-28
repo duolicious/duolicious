@@ -34,23 +34,18 @@ CLUB_EDGES = [3, 9, 19, 40]
 _VOWELS = set('aeiouy')
 _WORD_RE = re.compile(r"[a-zA-Z']+")
 _SENTENCE_RE = re.compile(r'[.!?\n]+')
-PREF_NUMS = (
-    ("min_age", 25.0, 10.0),
-    ("max_age", 40.0, 10.0),
-    ("min_height_cm", 160.0, 10.0),
-    ("max_height_cm", 190.0, 10.0),
-)
+PREF_NUMS = ((25.0, 10.0), (40.0, 10.0), (160.0, 10.0), (190.0, 10.0))
 N_LAST_ONLINE = 6
 
 
-def _one_hot(values: IntArray, size: int) -> FloatArray:
+def one_hot(values: IntArray, size: int) -> FloatArray:
     out = np.zeros((len(values), size), np.float32)
     ok = (values >= 0) & (values < size)
     out[np.flatnonzero(ok), values[ok]] = 1.0
     return out
 
 
-def _fourier_latlon(lat: F64Array, lon: F64Array, freqs: IntArray) -> FloatArray:
+def fourier_latlon(lat: F64Array, lon: F64Array, freqs: IntArray) -> FloatArray:
     a = np.deg2rad(lat)[:, None]
     b = np.deg2rad(lon)[:, None]
     f = freqs.astype(np.float64)[None, :]
@@ -59,7 +54,7 @@ def _fourier_latlon(lat: F64Array, lon: F64Array, freqs: IntArray) -> FloatArray
     ).astype(np.float32)
 
 
-def _numeric(birth_year: F64Array, height: F64Array) -> tuple[FloatArray, FloatArray]:
+def numeric(birth_year: F64Array, height: F64Array) -> tuple[FloatArray, FloatArray]:
     y = np.clip(birth_year,
                 BIRTH_YEAR_CENTRE - 6 * BIRTH_YEAR_SCALE,
                 BIRTH_YEAR_CENTRE + 6 * BIRTH_YEAR_SCALE)
@@ -148,9 +143,9 @@ def profile_quality_features(verification_level_id: IntArray,
         if text is not None:
             non_ascii[i] = any(ord(c) > 127 for c in text)
     return np.concatenate([
-        _one_hot(verification_level_id, N_VERIFICATION),
+        one_hot(verification_level_id, N_VERIFICATION),
         non_ascii[:, None],
-        _one_hot(np.minimum(photo_count, len(PHOTO_EDGES)),
+        one_hot(np.minimum(photo_count, len(PHOTO_EDGES)),
                  len(PHOTO_EDGES) + 1),
         fre_bucket,
         _count_bucketed(club_count, CLUB_EDGES),
@@ -159,16 +154,16 @@ def profile_quality_features(verification_level_id: IntArray,
 
 def who_input(spec: Spec, b: Blocks) -> FloatArray:
     cats = [
-        _one_hot(values, int(size))
+        one_hot(values, int(size))
         for values, size in zip(b.cats, spec.cat_sizes)
     ]
-    num, num_mask = _numeric(b.birth_year, b.height_cm)
+    num, num_mask = numeric(b.birth_year, b.height_cm)
     return np.concatenate([
         b.answers,
         *cats,
         num * num_mask, num_mask,
-        _fourier_latlon(b.lat, b.lon, spec.loc_freqs),
-        _one_hot(b.country, len(spec.countries) + 1),
+        fourier_latlon(b.lat, b.lon, spec.loc_freqs),
+        one_hot(b.country, len(spec.countries) + 1),
         behaviour_features(b.intros_received, b.intros_replied,
                            b.intros_sent, b.messages_received),
         profile_quality_features(b.verification_level_id, b.about,
@@ -176,26 +171,31 @@ def who_input(spec: Spec, b: Blocks) -> FloatArray:
     ], axis=1).astype(np.float32)
 
 
-def _pref_numeric(b: Blocks) -> tuple[FloatArray, FloatArray]:
+def pref_numeric(min_age: F64Array, max_age: F64Array,
+                 min_height_cm: F64Array, max_height_cm: F64Array,
+                 distance: F64Array,
+                 last_online_id: IntArray) -> tuple[FloatArray, FloatArray]:
     cols: list[F64Array] = []
     masks: list[npt.NDArray[np.bool_]] = []
-    for v, (_, centre, scale) in zip(b.pref_numeric_columns(), PREF_NUMS):
+    columns = [min_age, max_age, min_height_cm, max_height_cm]
+    for v, (centre, scale) in zip(columns, PREF_NUMS):
         m = ~np.isnan(v)
         v = np.clip(np.where(m, v, centre), centre - 6 * scale, centre + 6 * scale)
         cols.append(np.where(m, (v - centre) / scale, 0.0))
         masks.append(m)
-    d = b.pref_distance
-    dm = ~np.isnan(d)
-    cols.append(np.where(dm, (np.log1p(np.where(dm, d, 1.0)) - 6.0) / 2.0, 0.0))
+    dm = ~np.isnan(distance)
+    cols.append(np.where(dm, (np.log1p(np.where(dm, distance, 1.0)) - 6.0) / 2.0, 0.0))
     masks.append(dm)
-    lo = _one_hot(b.pref_last_online_id, N_LAST_ONLINE)
+    lo = one_hot(last_online_id, N_LAST_ONLINE)
     num = np.concatenate([np.stack(cols, 1), lo], axis=1)
     mask = np.concatenate([np.stack(masks, 1), np.ones_like(lo)], axis=1)
     return num.astype(np.float32), mask.astype(np.float32)
 
 
 def look_input(spec: Spec, b: Blocks) -> FloatArray:
-    pref_num, pref_mask = _pref_numeric(b)
+    pref_num, pref_mask = pref_numeric(
+        b.pref_min_age, b.pref_max_age, b.pref_min_height_cm,
+        b.pref_max_height_cm, b.pref_distance, b.pref_last_online_id)
     return np.concatenate([
         who_input(spec, b),
         b.pref_answers,
