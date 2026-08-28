@@ -30,7 +30,7 @@ WHERE id = %(person_id)s
 """
 
 
-@dataclass(frozen=True)
+@dataclass
 class SetMessagedJob:
     from_id: int
     to_id: int
@@ -50,7 +50,11 @@ class PersonCounts:
 async def process_set_messaged_batch(
     tx: Tx,
     batch: List[SetMessagedJob],
-) -> None:
+) -> set[int]:
+    """Upsert the messaged rows, bump the counters, and return the ids of
+    everyone whose counters moved. The counter updates run in id order so
+    that overlapping message batches lock person rows without deadlocking;
+    callers must refresh kv vectors in that order too."""
     distinct_messaged = {(m.from_id, m.to_id): m for m in sorted(
             batch, key=lambda m: (m.from_id, m.to_id))}
 
@@ -81,3 +85,5 @@ async def process_set_messaged_batch(
     await tx.executemany(Q_ADD_PERSON_COUNTS, [
         dict(person_id=person_id, **asdict(person_counts))
         for person_id, person_counts in sorted(counts.items())])
+
+    return set(counts)

@@ -13,6 +13,7 @@ from service.api.chat.messagestorage.setmessaged import (
         SetMessagedJob)
 from serviceshared.batcher import Batcher
 from serviceshared.database import api_tx
+from serviceshared.kvmatching.refresh import refresh_vectors
 from service.api.chatprotocol.timestamp import now_microseconds
 from service.api.chatprotocol.message import AudioMessage, ChatMessage
 from typing import Awaitable, Callable
@@ -135,7 +136,7 @@ async def store_reaction(
                 timestamp=timestamp_microseconds,
                 deliver_to_recipient=deliver_to_recipient,
             )
-            await process_set_messaged_batch(tx, [
+            affected = await process_set_messaged_batch(tx, [
                 SetMessagedJob(
                     from_id=reactor_id,
                     to_id=partner_id,
@@ -143,6 +144,8 @@ async def store_reaction(
                     reaction_or_chat='reaction',
                 )
             ])
+            for person_id in sorted(affected):
+                await refresh_vectors(tx, person_id)
             return StoredReaction(
                 is_new_visible_reaction=True,
                 reactor_inbox_updated=True,
@@ -186,7 +189,9 @@ async def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
     async with api_tx('read committed') as tx:
         await process_store_mam_message_batch(tx, store_mam_message_jobs)
         await process_upsert_conversation_batch(tx, upsert_conversation_jobs)
-        await process_set_messaged_batch(tx, messaged_jobs)
+        affected = await process_set_messaged_batch(tx, messaged_jobs)
+        for person_id in sorted(affected):
+            await refresh_vectors(tx, person_id)
 
 _store_message_batcher = Batcher[StoreMessageJob](
     process_fn=_process_store_message_batch,

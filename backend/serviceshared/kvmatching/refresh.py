@@ -3,7 +3,10 @@
 The sites that can change a person's answers, profile or search
 preferences call into here in the same transaction as the change, because
 their own key decides the order of their next search -- a filter change that
-took a minute to show up would just look broken.
+took a minute to show up would just look broken. The chat path calls in too:
+its message events move the behaviour counters (a bounded model input read
+back like any other), and each message therefore refreshes the *recipient's*
+vector as well as any counter movement of the sender's.
 
 A person's Q&A answers are the one input that grows without bound, so the
 answer blocks' contribution to each encoder's first-layer preactivation is
