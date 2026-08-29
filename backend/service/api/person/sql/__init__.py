@@ -664,6 +664,26 @@ WITH prospect_base AS (
             ROUND(EXTRACT(EPOCH FROM NOW() - sign_up_time))
         ) AS seconds_since_sign_up,
 
+        (
+            SELECT ROUND(
+                prospect.count_intros_sent_with_reply::numeric /
+                prospect.count_intros_sent * 100,
+                1)
+            WHERE %(person_id)s IS NOT NULL
+            AND prospect.sign_up_time <= NOW() - interval '1 day'
+            AND prospect.count_intros_sent >= 5
+        ) AS gets_reply_percentage,
+
+        (
+            SELECT ROUND(
+                prospect.count_intros_received_with_reply::numeric /
+                prospect.count_intros_received * 100,
+                1)
+            WHERE %(person_id)s IS NOT NULL
+            AND prospect.sign_up_time <= NOW() - interval '1 day'
+            AND prospect.count_intros_received >= 5
+        ) AS gives_reply_percentage,
+
         viewer_rel.prospect_has_messaged_person
     FROM
         prospect_base AS prospect
@@ -930,6 +950,8 @@ SELECT
         'advertiser_friendly',       (SELECT j                         FROM advertiser_friendly),
         'seconds_since_last_online', (SELECT seconds_since_last_online FROM prospect),
         'seconds_since_sign_up',     (SELECT seconds_since_sign_up     FROM prospect),
+        'gets_reply_percentage',     (SELECT gets_reply_percentage     FROM prospect),
+        'gives_reply_percentage',    (SELECT gives_reply_percentage    FROM prospect),
         'flair',                     (SELECT computed_flair            FROM flair),
 
         -- Basics
@@ -2651,92 +2673,6 @@ SELECT
         WHERE
             %(pending_club_name)s::TEXT IS NOT NULL
     ) AS pending_club
-"""
-
-Q_MESSAGE_STATS = """
-WITH message_sent AS (
-    SELECT
-        object_person_id AS other_person_id,
-        created_at AS message_sent_at
-    FROM
-        messaged
-    JOIN
-        person
-    ON
-        person.id = messaged.subject_person_id
-    WHERE
-        person.uuid = %(prospect_uuid)s
-), message_received AS (
-    SELECT
-        subject_person_id AS other_person_id,
-        created_at AS message_received_at
-    FROM
-        messaged
-    JOIN
-        person
-    ON
-        person.id = messaged.object_person_id
-    WHERE
-        person.uuid = %(prospect_uuid)s
-), conversation AS (
-    SELECT
-        message_sent_at,
-        message_received_at
-    FROM
-        message_sent
-    FULL OUTER JOIN
-        message_received USING (other_person_id)
-), absolute_numbers AS (
-    SELECT
-        count(*) FILTER (
-            WHERE message_sent_at <= message_received_at)::real
-            AS num_intros_sent_with_reply,
-
-        count(*) FILTER (
-            WHERE message_sent_at <= message_received_at
-            OR message_received_at IS NULL)::real
-            AS num_intros_sent,
-
-        count(*) FILTER (
-            WHERE message_received_at <= message_sent_at)::real
-            AS num_intros_received_with_reply,
-
-        count(*) FILTER (
-            WHERE message_received_at <= message_sent_at
-            OR message_sent_at IS NULL)::real
-            AS num_intros_received
-    FROM
-        conversation
-), is_account_new AS (
-    SELECT
-        sign_up_time > now() - interval '1 day' AS value
-    FROM
-        person
-    WHERE
-        person.uuid = %(prospect_uuid)s
-)
-SELECT
-    CASE
-        WHEN (SELECT value FROM is_account_new)
-        THEN NULL
-
-        WHEN num_intros_sent < 5
-        THEN NULL
-
-        ELSE ROUND(num_intros_sent_with_reply / num_intros_sent * 100)
-    END AS gets_reply_percentage,
-
-    CASE
-        WHEN (SELECT value FROM is_account_new)
-        THEN NULL
-
-        WHEN num_intros_received < 5
-        THEN NULL
-
-        ELSE ROUND(num_intros_received_with_reply / num_intros_received * 100)
-    END AS gives_reply_percentage
-FROM
-    absolute_numbers
 """
 
 Q_HAS_GOLD = """

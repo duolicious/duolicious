@@ -713,6 +713,7 @@ async def process_text(
         to_id=to_id,
         msg_id=stanza_id,
         message=maybe_message,
+        is_intro=is_intro,
         deliver_to_recipient=not is_shadow_banned,
         callback=store_audio_and_notify,
         timestamp_microseconds=sent_at_microseconds)

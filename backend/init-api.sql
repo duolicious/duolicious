@@ -285,6 +285,11 @@ CREATE TABLE IF NOT EXISTS person (
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,
+    count_intros_received INT NOT NULL DEFAULT 0,
+    count_intros_received_with_reply INT NOT NULL DEFAULT 0,
+    count_intros_sent INT NOT NULL DEFAULT 0,
+    count_intros_sent_with_reply INT NOT NULL DEFAULT 0,
+    count_messages_received INT NOT NULL DEFAULT 0,
 
     -- Verification
     has_profile_picture_id SMALLINT REFERENCES yes_no(id) NOT NULL DEFAULT 2,
