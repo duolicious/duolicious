@@ -252,7 +252,7 @@ class Base64File(BaseModel):
 
         # The banned-photo check needs the async DB, which pydantic validators
         # can't await, so every handler accepting a Base64File must run it
-        # itself (via person._reject_rude_or_banned).
+        # itself (via person.rudecheck.reject_rude_or_banned).
 
         width, height = image.size
 
@@ -583,8 +583,8 @@ class PatchProfileInfo(BaseModel):
         return values
 
     # The name/occupation/education rude checks need the async DB, so they run
-    # in the handler (person.patch_profile_info), not here. The `about`
-    # rude/spam checks below stay: they're pure and don't touch the DB.
+    # in the handler (person.profileinfo.patch_profile_info), not here. The
+    # `about` rude/spam checks below stay: they're pure and don't touch the DB.
 
     @field_validator('about')
     def about_must_not_be_rude(cls, value: str | None) -> str | None:

@@ -18,6 +18,7 @@ from starlette.requests import Request
 import service.api.duotypes as t
 from service.api import location
 from service.api import person
+from service.api.person import profileinfo
 from service.api import qanda
 from service.api import search
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
@@ -327,14 +328,14 @@ async def post_deactivate(
 async def get_profile_info(
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    return await person.get_profile_info(s)
+    return await profileinfo.get_profile_info(s)
 
 @app.delete('/profile-info')
 async def delete_profile_info(
     req: t.DeleteProfileInfo,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    await person.delete_profile_info(req, s)
+    await profileinfo.delete_profile_info(req, s)
     return None
 
 @app.patch('/profile-info')
@@ -342,7 +343,7 @@ async def patch_profile_info(
     req: t.PatchProfileInfo,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    return await person.patch_profile_info(req, s)
+    return await profileinfo.patch_profile_info(req, s)
 
 @app.get('/search-filters')
 async def get_search_filters(
