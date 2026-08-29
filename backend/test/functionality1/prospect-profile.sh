@@ -12,17 +12,8 @@ q "delete from club"
 
 ../util/create-user.sh user1 0 0
 ../util/create-user.sh user2 0 0
-../util/create-user.sh user3 0 0
-../util/create-user.sh user4 0 0
-../util/create-user.sh user5 0 0
-../util/create-user.sh user6 0 0
 
-user1_id=$(q "select id from person where name = 'user1'")
 user2_id=$(q "select id from person where name = 'user2'")
-user3_id=$(q "select id from person where name = 'user3'")
-user4_id=$(q "select id from person where name = 'user4'")
-user5_id=$(q "select id from person where name = 'user5'")
-user6_id=$(q "select id from person where name = 'user6'")
 
 user2_uuid=$(q "select uuid from person where name = 'user2'")
 
@@ -233,18 +224,15 @@ diff <(echo "$response") <(echo "$expected")
 
 q "update person set sign_up_time = now() - interval '4 days'"
 
-q "delete from messaged"
+# User 2 messaged 5 people and got one reply. The chat path maintains these
+# counters; xmpp-reply-counters.sh covers the classification that moves them.
 q "
-insert into messaged (subject_person_id, object_person_id, created_at)
-values
-  -- User 2 messaged 5 people and got one reply
-  ($user2_id, $user1_id, now() - interval '3 days'),
-  ($user2_id, $user3_id, now() - interval '3 days'),
-  ($user2_id, $user4_id, now() - interval '3 days'),
-  ($user2_id, $user5_id, now() - interval '3 days'),
-  ($user2_id, $user6_id, now() - interval '3 days'),
-
-  ($user1_id, $user2_id, now() - interval '2 days')
+update person set
+  count_intros_received = 0,
+  count_intros_received_with_reply = 0,
+  count_intros_sent = 5,
+  count_intros_sent_with_reply = 1
+where id = $user2_id
 "
 
 gets_reply_percentage=$(
@@ -279,18 +267,14 @@ hidden_looking_for=$(
 
 
 
-q "delete from messaged"
+# User 2 got 5 intros and replied to one
 q "
-insert into messaged (subject_person_id, object_person_id, created_at)
-values
-  -- User 2 get 5 messages and replied to one
-  ($user1_id, $user2_id, now() - interval '3 days'),
-  ($user3_id, $user2_id, now() - interval '3 days'),
-  ($user4_id, $user2_id, now() - interval '3 days'),
-  ($user5_id, $user2_id, now() - interval '3 days'),
-  ($user6_id, $user2_id, now() - interval '3 days'),
-
-  ($user2_id, $user1_id, now() - interval '2 days')
+update person set
+  count_intros_received = 5,
+  count_intros_received_with_reply = 1,
+  count_intros_sent = 0,
+  count_intros_sent_with_reply = 0
+where id = $user2_id
 "
 
 gets_reply_percentage=$(

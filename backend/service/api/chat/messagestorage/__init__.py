@@ -33,6 +33,7 @@ def store_message(
     to_id: int,
     msg_id: str,
     message: ChatMessage | AudioMessage,
+    is_intro: bool,
     callback: Callable[[], None] | Callable[[], Awaitable[None]] | None = None,
     timestamp_microseconds: int | None = None,
     deliver_to_recipient: bool = True,
@@ -70,6 +71,8 @@ def store_message(
         messaged_job=SetMessagedJob(
             from_id=from_id,
             to_id=to_id,
+            is_intro=is_intro,
+            reaction_or_chat='chat',
         ),
     )
 
@@ -136,6 +139,8 @@ async def store_reaction(
                 SetMessagedJob(
                     from_id=reactor_id,
                     to_id=partner_id,
+                    is_intro=False,
+                    reaction_or_chat='reaction',
                 )
             ])
             return StoredReaction(
@@ -182,7 +187,6 @@ async def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
         await process_store_mam_message_batch(tx, store_mam_message_jobs)
         await process_upsert_conversation_batch(tx, upsert_conversation_jobs)
         await process_set_messaged_batch(tx, messaged_jobs)
-
 
 _store_message_batcher = Batcher[StoreMessageJob](
     process_fn=_process_store_message_batch,

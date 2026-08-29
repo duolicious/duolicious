@@ -639,34 +639,12 @@ async def get_prospect_profile(
             return '', 404
 
         # The handle may have been a url_slug; resolve to the real uuid so the
-        # message-stats query (which keys on person.uuid) gets a valid value.
+        # visit events below carry a valid one.
         prospect_uuid = api_row.get('prospect_uuid')
         prospect_id = api_row.get('prospect_id')
 
     if s is None:
-        # Reply-rate stats count replies *to* %(person_id)s, so they're
-        # meaningless for anonymous viewers - return NULL rather than 0%.
-        profile.update(dict(
-            gets_reply_percentage=None,
-            gives_reply_percentage=None,
-        ))
         return profile
-
-    # Timeout in case someone with lots of messages hogs CPU time
-    try:
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute('SET LOCAL statement_timeout = 1000') # 1 second
-            message_stats: Mapping[str, object] = await tx.require_one(
-                Q_MESSAGE_STATS,
-                dict(prospect_uuid=prospect_uuid),
-            )
-    except psycopg.errors.QueryCanceled:
-        message_stats = dict(
-            gets_reply_percentage=None,
-            gives_reply_percentage=None,
-        )
-
-    profile.update(message_stats)
 
     if s.person_id is not None and s.person_uuid is not None and \
             prospect_id is not None and prospect_uuid is not None:
