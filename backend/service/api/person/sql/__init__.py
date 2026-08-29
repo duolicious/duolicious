@@ -14,6 +14,8 @@ from serviceshared.commonsql import (
 
 MAX_CLUB_SEARCH_RESULTS = 20
 
+MAX_SEARCH_FILTER_ANSWERS = 20
+
 CLUB_QUOTA_GOLD = 100
 CLUB_QUOTA_FREE = 50
 
@@ -1789,6 +1791,96 @@ SELECT
 
         'two_way_filters',        (SELECT j FROM two_way_filters)
     ) AS j
+"""
+
+Q_DELETE_SEARCH_FILTER_ANSWER = """
+WITH deleted_answer AS (
+    DELETE FROM search_preference_answer
+    WHERE
+        person_id = %(person_id)s AND
+        question_id = %(question_id)s
+    RETURNING *
+)
+SELECT COALESCE(
+    array_agg(
+        json_build_object(
+            'question_id', question_id,
+            'question', question,
+            'topic', topic,
+            'answer', answer,
+            'accept_unanswered', accept_unanswered
+        )
+        ORDER BY question_id
+    ),
+    ARRAY[]::JSON[]
+) AS j
+FROM search_preference_answer
+LEFT JOIN question
+ON question.id = question_id
+WHERE
+    person_id = %(person_id)s AND
+    question_id != (SELECT question_id FROM deleted_answer)
+"""
+
+Q_UPSERT_SEARCH_FILTER_ANSWER = f"""
+WITH existing_search_preference_answer AS (
+    SELECT
+        person_id,
+        question_id,
+        answer,
+        accept_unanswered,
+        0 AS precedence
+    FROM search_preference_answer
+    WHERE person_id = %(person_id)s
+), new_search_preference_answer AS (
+    SELECT
+        %(person_id)s AS person_id,
+        %(question_id)s AS question_id,
+        %(answer)s AS answer,
+        %(accept_unanswered)s AS accept_unanswered,
+        1 AS precedence
+), updated_search_preference_answer AS (
+    SELECT DISTINCT ON (person_id, question_id)
+        person_id,
+        question_id,
+        answer,
+        accept_unanswered
+    FROM (
+        (SELECT * from existing_search_preference_answer)
+        UNION
+        (SELECT * from new_search_preference_answer)
+    ) AS t
+    ORDER BY person_id, question_id, precedence DESC
+), inserted_search_preference_answer AS (
+    INSERT INTO search_preference_answer (
+        person_id, question_id, answer, accept_unanswered
+    ) SELECT
+        person_id, question_id, answer, accept_unanswered
+    FROM
+        new_search_preference_answer
+    WHERE (
+        SELECT COUNT(*) FROM updated_search_preference_answer
+    ) <= {MAX_SEARCH_FILTER_ANSWERS}
+    ON CONFLICT (person_id, question_id) DO UPDATE SET
+        answer            = EXCLUDED.answer,
+        accept_unanswered = EXCLUDED.accept_unanswered
+)
+SELECT array_agg(
+    json_build_object(
+        'question_id', question_id,
+        'question', question,
+        'topic', topic,
+        'answer', answer,
+        'accept_unanswered', accept_unanswered
+    )
+    ORDER BY question_id
+) AS j
+FROM updated_search_preference_answer
+LEFT JOIN question
+ON question.id = question_id
+WHERE (
+    SELECT COUNT(*) FROM updated_search_preference_answer
+) <= {MAX_SEARCH_FILTER_ANSWERS}
 """
 
 Q_TOP_CLUBS = f"""
