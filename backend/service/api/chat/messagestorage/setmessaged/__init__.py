@@ -30,7 +30,7 @@ WHERE id = %(person_id)s
 """
 
 
-@dataclass
+@dataclass(frozen=True)
 class SetMessagedJob:
     from_id: int
     to_id: int
