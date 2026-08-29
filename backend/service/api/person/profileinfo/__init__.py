@@ -26,6 +26,193 @@ from serviceshared.database import api_tx
 
 logger = logging.getLogger(__name__)
 
+
+Q_PATCH_ABOUT = """
+WITH updated_person AS (
+    UPDATE person
+    SET
+        about = %(new_about)s::TEXT,
+
+        last_event_time =
+            CASE
+                WHEN %(added_text)s::TEXT IS NULL
+                THEN sign_up_time
+                ELSE now()
+            END,
+
+        last_event_name =
+            CASE
+                WHEN %(added_text)s::TEXT IS NULL
+                THEN 'joined'::person_event
+                ELSE 'updated-bio'::person_event
+            END,
+
+        last_event_data =
+            CASE
+                WHEN %(added_text)s::TEXT IS NULL
+                THEN
+                    '{}'::JSONB
+                ELSE
+                    jsonb_build_object(
+                        'added_text', %(added_text)s::TEXT,
+                        'body_color', body_color,
+                        'background_color', background_color
+                    )
+            END
+    WHERE
+        id = %(person_id)s
+), updated_unmoderated_person AS (
+    INSERT INTO
+        unmoderated_person (person_id, trait)
+    VALUES
+        (%(person_id)s, 'about')
+    ON CONFLICT DO NOTHING
+)
+SELECT 1
+"""
+
+Q_PATCH_PHOTO = """
+WITH existing_uuid AS (
+    SELECT
+        uuid
+    FROM
+        photo
+    WHERE
+        person_id = %(person_id)s
+    AND
+        position = %(position)s
+), undeleted_photo_insertion AS (
+    INSERT INTO undeleted_photo (
+        uuid
+    )
+    SELECT
+        uuid
+    FROM
+        existing_uuid
+), photo_insertion AS (
+    INSERT INTO photo (
+        person_id,
+        position,
+        uuid,
+        blurhash,
+        extra_exts,
+        hash,
+        width,
+        height,
+        crop_top,
+        crop_left
+    ) VALUES (
+        %(person_id)s,
+        %(position)s,
+        %(uuid)s,
+        %(blurhash)s,
+        %(extra_exts)s,
+        %(hash)s,
+        %(width)s,
+        %(height)s,
+        %(crop_top)s,
+        %(crop_left)s
+    ) ON CONFLICT (person_id, position) DO UPDATE SET
+        uuid = EXCLUDED.uuid,
+        blurhash = EXCLUDED.blurhash,
+        extra_exts = EXCLUDED.extra_exts,
+        hash = EXCLUDED.hash,
+        width = EXCLUDED.width,
+        height = EXCLUDED.height,
+        crop_top = EXCLUDED.crop_top,
+        crop_left = EXCLUDED.crop_left,
+        verified = FALSE
+), updated_person AS (
+    UPDATE person
+    SET
+        last_event_time = now(),
+        last_event_name = 'added-photo',
+        last_event_data = jsonb_build_object(
+            'added_photo_uuid', %(uuid)s,
+            'added_photo_blurhash', %(blurhash)s,
+            'added_photo_extra_exts', %(extra_exts)s::TEXT[]
+        )
+    WHERE
+        id = %(person_id)s
+)
+SELECT 1
+"""
+
+Q_PATCH_AUDIO = """
+WITH existing_uuid AS (
+    SELECT
+        uuid
+    FROM
+        audio
+    WHERE
+        person_id = %(person_id)s
+    AND
+        position = -1
+), undeleted_audio_insertion AS (
+    INSERT INTO undeleted_audio (
+        uuid
+    )
+    SELECT
+        uuid
+    FROM
+        existing_uuid
+), audio_insertion AS (
+    INSERT INTO audio (
+        person_id,
+        position,
+        uuid
+    ) VALUES (
+        %(person_id)s,
+        -1,
+        %(uuid)s
+    ) ON CONFLICT (person_id, position) DO UPDATE SET
+        uuid = EXCLUDED.uuid
+), updated_person AS (
+    UPDATE person
+    SET
+        last_event_time = now(),
+        last_event_name = 'added-voice-bio',
+        last_event_data = jsonb_build_object(
+            'added_audio_uuid', %(uuid)s
+        )
+    WHERE
+        id = %(person_id)s
+)
+SELECT 1
+"""
+
+Q_PATCH_LOCATION = """
+UPDATE person
+SET
+    coordinates
+        = location.coordinates,
+
+    verification_required
+        = location.verification_required OR person.verification_required,
+
+    location_short_friendly
+        = location.short_friendly,
+
+    location_long_friendly
+        = location.long_friendly,
+
+    location_country
+        = location.country
+FROM location
+WHERE person.id = %(person_id)s
+AND long_friendly = %(field_value)s
+"""
+
+Q_PATCH_THEME = """
+UPDATE person
+SET
+    title_color = %(title_color)s,
+    body_color = %(body_color)s,
+    background_color = %(background_color)s
+WHERE id = %(person_id)s
+"""
+
+
 async def _has_gold(person_id: int) -> bool:
     async with api_tx() as tx:
         row = await tx.require_one(Q_HAS_GOLD, dict(person_id=person_id))
@@ -64,56 +251,13 @@ async def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> Non
         async with api_tx() as tx:
             await tx.executemany(Q_DELETE_PROFILE_INFO_AUDIO, audio_files_params)
 
+
 async def _patch_profile_info_about(
     person_id: int,
     new_about: str,
 ) -> None:
     select = """
     SELECT about AS old_about FROM person WHERE id = %(person_id)s
-    """
-
-    update = """
-    WITH updated_person AS (
-        UPDATE person
-        SET
-            about = %(new_about)s::TEXT,
-
-            last_event_time =
-                CASE
-                    WHEN %(added_text)s::TEXT IS NULL
-                    THEN sign_up_time
-                    ELSE now()
-                END,
-
-            last_event_name =
-                CASE
-                    WHEN %(added_text)s::TEXT IS NULL
-                    THEN 'joined'::person_event
-                    ELSE 'updated-bio'::person_event
-                END,
-
-            last_event_data =
-                CASE
-                    WHEN %(added_text)s::TEXT IS NULL
-                    THEN
-                        '{}'::JSONB
-                    ELSE
-                        jsonb_build_object(
-                            'added_text', %(added_text)s::TEXT,
-                            'body_color', body_color,
-                            'background_color', background_color
-                        )
-                END
-        WHERE
-            id = %(person_id)s
-    ), updated_unmoderated_person AS (
-        INSERT INTO
-            unmoderated_person (person_id, trait)
-        VALUES
-            (%(person_id)s, 'about')
-        ON CONFLICT DO NOTHING
-    )
-    SELECT 1
     """
 
     async with api_tx() as tx:
@@ -129,7 +273,7 @@ async def _patch_profile_info_about(
             added_text=diff_addition_with_context(old=old_about, new=new_about),
         )
 
-        await tx.execute(update, update_params)
+        await tx.execute(Q_PATCH_ABOUT, update_params)
 
 def _person_lookup_q(column: str, table: str) -> str:
     return f"""
@@ -166,38 +310,6 @@ def _person_value_q(column: str) -> str:
     UPDATE person SET {column} = %(field_value)s
     WHERE person.id = %(person_id)s
     """
-
-
-Q_PATCH_LOCATION = """
-UPDATE person
-SET
-    coordinates
-        = location.coordinates,
-
-    verification_required
-        = location.verification_required OR person.verification_required,
-
-    location_short_friendly
-        = location.short_friendly,
-
-    location_long_friendly
-        = location.long_friendly,
-
-    location_country
-        = location.country
-FROM location
-WHERE person.id = %(person_id)s
-AND long_friendly = %(field_value)s
-"""
-
-Q_PATCH_THEME = """
-UPDATE person
-SET
-    title_color = %(title_color)s,
-    body_color = %(body_color)s,
-    background_color = %(background_color)s
-WHERE id = %(person_id)s
-"""
 
 
 @dataclass(frozen=True)
@@ -293,75 +405,8 @@ async def _patch_photo(person_id: int, field_value: object) -> object:
         **photo_geometry_params(geometry),
     )
 
-    q = """
-    WITH existing_uuid AS (
-        SELECT
-            uuid
-        FROM
-            photo
-        WHERE
-            person_id = %(person_id)s
-        AND
-            position = %(position)s
-    ), undeleted_photo_insertion AS (
-        INSERT INTO undeleted_photo (
-            uuid
-        )
-        SELECT
-            uuid
-        FROM
-            existing_uuid
-    ), photo_insertion AS (
-        INSERT INTO photo (
-            person_id,
-            position,
-            uuid,
-            blurhash,
-            extra_exts,
-            hash,
-            width,
-            height,
-            crop_top,
-            crop_left
-        ) VALUES (
-            %(person_id)s,
-            %(position)s,
-            %(uuid)s,
-            %(blurhash)s,
-            %(extra_exts)s,
-            %(hash)s,
-            %(width)s,
-            %(height)s,
-            %(crop_top)s,
-            %(crop_left)s
-        ) ON CONFLICT (person_id, position) DO UPDATE SET
-            uuid = EXCLUDED.uuid,
-            blurhash = EXCLUDED.blurhash,
-            extra_exts = EXCLUDED.extra_exts,
-            hash = EXCLUDED.hash,
-            width = EXCLUDED.width,
-            height = EXCLUDED.height,
-            crop_top = EXCLUDED.crop_top,
-            crop_left = EXCLUDED.crop_left,
-            verified = FALSE
-    ), updated_person AS (
-        UPDATE person
-        SET
-            last_event_time = now(),
-            last_event_name = 'added-photo',
-            last_event_data = jsonb_build_object(
-                'added_photo_uuid', %(uuid)s,
-                'added_photo_blurhash', %(blurhash)s,
-                'added_photo_extra_exts', %(extra_exts)s::TEXT[]
-            )
-        WHERE
-            id = %(person_id)s
-    )
-    SELECT 1
-    """
-
     async with api_tx() as tx:
-        await tx.execute(q, params)
+        await tx.execute(Q_PATCH_PHOTO, params)
         await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
 
     try:
@@ -383,51 +428,8 @@ async def _patch_audio(person_id: int, field_value: object) -> object:
         uuid=uuid,
     )
 
-    q = """
-    WITH existing_uuid AS (
-        SELECT
-            uuid
-        FROM
-            audio
-        WHERE
-            person_id = %(person_id)s
-        AND
-            position = -1
-    ), undeleted_audio_insertion AS (
-        INSERT INTO undeleted_audio (
-            uuid
-        )
-        SELECT
-            uuid
-        FROM
-            existing_uuid
-    ), audio_insertion AS (
-        INSERT INTO audio (
-            person_id,
-            position,
-            uuid
-        ) VALUES (
-            %(person_id)s,
-            -1,
-            %(uuid)s
-        ) ON CONFLICT (person_id, position) DO UPDATE SET
-            uuid = EXCLUDED.uuid
-    ), updated_person AS (
-        UPDATE person
-        SET
-            last_event_time = now(),
-            last_event_name = 'added-voice-bio',
-            last_event_data = jsonb_build_object(
-                'added_audio_uuid', %(uuid)s
-            )
-        WHERE
-            id = %(person_id)s
-    )
-    SELECT 1
-    """
-
     async with api_tx() as tx:
-        await tx.execute(q, params)
+        await tx.execute(Q_PATCH_AUDIO, params)
 
     try:
         await put_audio_in_object_store(
