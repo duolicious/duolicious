@@ -14,5 +14,5 @@ ALTER TABLE person
     ADD COLUMN IF NOT EXISTS kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0);
 
 ALTER TABLE person
-    ADD COLUMN IF NOT EXISTS kv_who_pre VECTOR,
-    ADD COLUMN IF NOT EXISTS kv_look_pre VECTOR;
+    ADD COLUMN IF NOT EXISTS kv_who_pre INT[],
+    ADD COLUMN IF NOT EXISTS kv_look_pre INT[];

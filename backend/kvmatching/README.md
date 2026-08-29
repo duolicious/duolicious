@@ -75,5 +75,6 @@ their rows: every site that changes their answers, profile or search
 preferences calls into it in the same transaction, because their own key
 decides the order of their next search. The answer blocks' contribution to
 each encoder's first layer is cached on the person row (`kv_who_pre`,
-`kv_look_pre`) and patched one column at a time, so an update costs the same
-however many questions the person has answered.
+`kv_look_pre`, as whole numbers of the integer first layer's unit) and
+patched one column at a time, so an update costs the same however many
+questions the person has answered.

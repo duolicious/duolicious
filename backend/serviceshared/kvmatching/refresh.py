@@ -28,7 +28,8 @@ onboarding), the exception never fires on the serving path.
 import asyncio
 
 import numpy as np
-from pgvector import HalfVector, Vector
+import numpy.typing as npt
+from pgvector import HalfVector
 
 from serviceshared.database import Tx
 from serviceshared.kvmatching import encoder, features, rows as rowbuilder
@@ -36,7 +37,6 @@ from serviceshared.kvmatching.blocks import FloatArray
 from serviceshared.kvmatching.rows import Row, Triple
 from serviceshared.kvmatching.spec import Spec
 from serviceshared.kvmatching.sql import (
-    Q_ADD_QPRE,
     Q_QPRE,
     Q_WRITE_QPRE,
     Q_WRITE_VECTOR,
@@ -51,7 +51,8 @@ Q_PREF_ANSWERS = pref_answers_query(everyone=False)
 
 _spec: Spec | None = None
 
-Qpre = tuple[FloatArray, FloatArray]
+Steps = npt.NDArray[np.int32]
+Qpre = tuple[Steps, Steps]
 
 
 def spec() -> Spec:
@@ -62,16 +63,16 @@ def spec() -> Spec:
     return _spec
 
 
-def _answer_value(answer: bool | None) -> float:
+def _answer_value(answer: bool | None) -> int:
     if answer is None:
-        return 0.0
-    return 1.0 if answer else -1.0
+        return 0
+    return 1 if answer else -1
 
 
-def _vec(value: object) -> FloatArray:
-    if not isinstance(value, Vector):
-        raise RuntimeError(f'expected a vector, got {type(value).__name__}')
-    return value.to_numpy()
+def _steps(value: object) -> Steps:
+    if not isinstance(value, list):
+        raise RuntimeError(f'expected an array, got {type(value).__name__}')
+    return np.asarray(value, np.int32)
 
 
 async def _person_row(tx: Tx, person_id: int) -> Row | None:
@@ -93,39 +94,40 @@ async def _fetch_qpre(tx: Tx, person_id: int) -> Qpre | None:
     rows = await tx.fetchall()
     if not rows:
         return None
-    return _vec(rows[0]['who_pre']), _vec(rows[0]['look_pre'])
+    return _steps(rows[0]['who_pre']), _steps(rows[0]['look_pre'])
 
 
 def _qpre_of(s: Spec, person: Row, answers: list[Triple],
              pref_answers: list[Triple]) -> Qpre:
     blocks = rowbuilder.build(s, [person], answers, pref_answers)
-    nq = len(s.qids)
-    who_width = s.who.w0.shape[1]
-    who_qpre = blocks.answers[0] @ s.who.w0[:, :nq].T
-    look_qpre = (blocks.answers[0] @ s.look.w0[:, :nq].T
-                 + blocks.pref_answers[0] @ s.look.w0[:, who_width:who_width + nq].T)
-    return who_qpre, look_qpre
+    return (s.who.pre_answers(features.who_input(s, blocks))[0],
+            s.look.pre_answers(features.look_input(s, blocks))[0])
 
 
 async def _build_qpre(tx: Tx, s: Spec, person_id: int, person: Row) -> Qpre:
     """Compute and store the answer blocks' preactivation contributions from
-    scratch. Summed over only the quantised answer columns, so the result
-    lands exactly on the same grid the one-column patches add on."""
+    scratch, counted in the same grid steps the one-column patches add."""
     answers = await _fetch_triples(tx, Q_ANSWERS, person_id)
     pref_answers = await _fetch_triples(tx, Q_PREF_ANSWERS, person_id)
     qpre = await asyncio.to_thread(_qpre_of, s, person, answers, pref_answers)
+    await _write_qpre(tx, person_id, qpre)
+    return qpre
+
+
+async def _write_qpre(tx: Tx, person_id: int, qpre: Qpre) -> None:
     await tx.execute(Q_WRITE_QPRE, dict(
         person_id=person_id,
-        who_pre=Vector(qpre[0]),
-        look_pre=Vector(qpre[1]),
+        who_pre=qpre[0].tolist(),
+        look_pre=qpre[1].tolist(),
     ))
-    return qpre
 
 
 def _stored_of(s: Spec, person: Row, qpre: Qpre) -> FloatArray:
     rest = rowbuilder.build(s, [person], [], [])
-    who, wbias = s.who.head(s.who.pre(features.who_input(s, rest))[0] + qpre[0])
-    look, lbias = s.look.head(s.look.pre(features.look_input(s, rest))[0] + qpre[1])
+    who, wbias = s.who.head(
+        s.who.pre_live(features.who_input(s, rest))[0] + qpre[0])
+    look, lbias = s.look.head(
+        s.look.pre_live(features.look_input(s, rest))[0] + qpre[1])
     return encoder.stored_vector(who, wbias, look, lbias)
 
 
@@ -182,12 +184,13 @@ async def apply_answer_delta(
     s = spec()
     col = s.qid_column.get(question_id)
     delta = _answer_value(new) - _answer_value(old)
-    if person_id is None or col is None or delta == 0.0:
+    if person_id is None or col is None or delta == 0:
         return
+    steps = delta * encoder.INPUT_UNIT
     await _apply_delta(
         tx, person_id,
-        s.who.w0[:, col] * delta,
-        s.look.w0[:, col] * delta,
+        s.who.w0[:, col] * steps,
+        s.look.w0[:, col] * steps,
     )
 
 
@@ -204,27 +207,23 @@ async def apply_pref_answer_delta(
     s = spec()
     col = s.qid_column.get(question_id)
     delta = _answer_value(new) - _answer_value(old)
-    if person_id is None or col is None or delta == 0.0:
+    if person_id is None or col is None or delta == 0:
         return
     await _apply_delta(
         tx, person_id,
-        np.zeros(len(s.who.w0), np.float32),
-        s.look.w0[:, s.who.w0.shape[1] + col] * delta,
+        np.zeros(len(s.who.w0), np.int32),
+        s.look.w0[:, s.who.w0.shape[1] + col] * delta * encoder.INPUT_UNIT,
     )
 
 
 async def _apply_delta(tx: Tx, person_id: int,
-                       who_delta: FloatArray, look_delta: FloatArray) -> None:
-    await tx.execute(Q_ADD_QPRE, dict(
-        person_id=person_id,
-        who_delta=Vector(who_delta),
-        look_delta=Vector(look_delta),
-    ))
-    patched = await tx.fetchall()
-    if not patched:
+                       who_delta: Steps, look_delta: Steps) -> None:
+    cached = await _fetch_qpre(tx, person_id)
+    if cached is None:
         await refresh_vectors(tx, person_id)
         return
-    qpre = (_vec(patched[0]['who_pre']), _vec(patched[0]['look_pre']))
+    qpre = (cached[0] + who_delta, cached[1] + look_delta)
+    await _write_qpre(tx, person_id, qpre)
     s = spec()
     person = await _person_row(tx, person_id)
     if person is None:

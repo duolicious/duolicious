@@ -294,14 +294,15 @@ CREATE TABLE IF NOT EXISTS person (
     -- The Q&A answer blocks' contribution to each kv encoder's first-layer
     -- preactivation, NULL until first computed. Like the integer
     -- presence_score/absence_score behind the personality vector, these are
-    -- the running state kv_vector is derived from: an answer change is a
-    -- single column-add here rather than a re-read of every answer, and the
-    -- adds are exact because the first-layer weights ship on a fixed-point
-    -- grid whose sums float32 carries exactly. At a few KB each they get
-    -- TOASTed out of line, off the tuple the search scans read; their
-    -- dimensions come from the model artifact, so the columns are untyped.
-    kv_who_pre VECTOR,
-    kv_look_pre VECTOR,
+    -- the running state kv_vector is derived from: an answer change adds one
+    -- column here rather than re-reading every answer. The first layer is
+    -- integer arithmetic (serviceshared/kvmatching/encoder.py), so these are
+    -- whole numbers of its unit and the adds stay exact however many times
+    -- they happen. At a few KB each they get TOASTed out of line, off the
+    -- tuple the search scans read; their length comes from the model
+    -- artifact.
+    kv_who_pre INT[],
+    kv_look_pre INT[],
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     count_answers SMALLINT NOT NULL DEFAULT 0,

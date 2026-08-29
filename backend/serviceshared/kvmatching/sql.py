@@ -82,18 +82,6 @@ SET
 WHERE id = %(person_id)s
 """
 
-Q_ADD_QPRE = """
-UPDATE person
-SET
-    kv_who_pre = kv_who_pre + %(who_delta)s,
-    kv_look_pre = kv_look_pre + %(look_delta)s
-WHERE id = %(person_id)s
-AND kv_who_pre IS NOT NULL
-RETURNING
-    kv_who_pre AS who_pre,
-    kv_look_pre AS look_pre
-"""
-
 Q_WRITE_VECTOR = """
 UPDATE person
 SET kv_vector = %(vector)s
