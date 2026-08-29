@@ -212,6 +212,108 @@ SET
 WHERE id = %(person_id)s
 """
 
+@dataclass(frozen=True)
+class _ProfileField:
+    q1: str
+    q2: str | None = None
+    requires_gold: bool = False
+
+def _person_lookup_q(column: str, table: str) -> str:
+    return f"""
+    UPDATE person SET {column} = {table}.id
+    FROM {table}
+    WHERE person.id = %(person_id)s
+    AND {table}.name = %(field_value)s
+    """
+
+
+def _person_verified_lookup_q(column: str, table: str,
+                              verified_column: str) -> str:
+    return f"""
+    UPDATE person
+    SET {column} = {table}.id, {verified_column} = false
+    FROM {table}
+    WHERE person.id = %(person_id)s
+    AND {table}.name = %(field_value)s
+    AND person.{column} <> {table}.id
+    """
+
+
+def _person_yes_no_q(column: str) -> str:
+    return f"""
+    UPDATE person
+    SET {column} = (
+        CASE WHEN %(field_value)s = 'Yes' THEN TRUE ELSE FALSE END)
+    WHERE id = %(person_id)s
+    """
+
+
+def _person_value_q(column: str) -> str:
+    return f"""
+    UPDATE person SET {column} = %(field_value)s
+    WHERE person.id = %(person_id)s
+    """
+
+_PROFILE_FIELDS = {
+    'gender': _ProfileField(
+        q1=_person_verified_lookup_q('gender_id', 'gender', 'verified_gender'),
+        q2=Q_UPDATE_VERIFICATION_LEVEL,
+    ),
+    'orientation': _ProfileField(
+        q1=_person_lookup_q('orientation_id', 'orientation')),
+    'ethnicity': _ProfileField(
+        q1=_person_verified_lookup_q(
+            'ethnicity_id', 'ethnicity', 'verified_ethnicity'),
+        q2=Q_UPDATE_VERIFICATION_LEVEL,
+    ),
+    'location': _ProfileField(q1=Q_PATCH_LOCATION),
+    'occupation': _ProfileField(q1=_person_value_q('occupation')),
+    'education': _ProfileField(q1=_person_value_q('education')),
+    'height': _ProfileField(q1=_person_value_q('height_cm')),
+    'looking_for': _ProfileField(
+        q1=_person_lookup_q('looking_for_id', 'looking_for')),
+    'smoking': _ProfileField(
+        q1=_person_lookup_q('smoking_id', 'yes_no_optional')),
+    'drinking': _ProfileField(q1=_person_lookup_q('drinking_id', 'frequency')),
+    'drugs': _ProfileField(q1=_person_lookup_q('drugs_id', 'yes_no_optional')),
+    'long_distance': _ProfileField(
+        q1=_person_lookup_q('long_distance_id', 'yes_no_optional')),
+    'relationship_status': _ProfileField(
+        q1=_person_lookup_q('relationship_status_id', 'relationship_status')),
+    'has_kids': _ProfileField(
+        q1=_person_lookup_q('has_kids_id', 'yes_no_maybe')),
+    'wants_kids': _ProfileField(
+        q1=_person_lookup_q('wants_kids_id', 'yes_no_maybe')),
+    'exercise': _ProfileField(q1=_person_lookup_q('exercise_id', 'frequency')),
+    'religion': _ProfileField(q1=_person_lookup_q('religion_id', 'religion')),
+    'star_sign': _ProfileField(q1=_person_lookup_q('star_sign_id', 'star_sign')),
+    'units': _ProfileField(q1=_person_lookup_q('unit_id', 'unit')),
+    'chats': _ProfileField(
+        q1=_person_lookup_q('chats_notification', 'immediacy')),
+    'intros': _ProfileField(
+        q1=_person_lookup_q('intros_notification', 'immediacy')),
+    'visitors': _ProfileField(
+        q1=_person_lookup_q('visitors_notification', 'immediacy')),
+    'verification_level': _ProfileField(
+        q1=_person_lookup_q(
+            'privacy_verification_level_id', 'verification_level')),
+    'show_my_location': _ProfileField(
+        q1=_person_lookup_q('show_my_location_id', 'yes_country_only_no'),
+        requires_gold=True,
+    ),
+    'show_my_age': _ProfileField(
+        q1=_person_yes_no_q('show_my_age'), requires_gold=True),
+    'show_my_looking_for': _ProfileField(
+        q1=_person_yes_no_q('show_my_looking_for'), requires_gold=True),
+    'hide_me_from_strangers': _ProfileField(
+        q1=_person_yes_no_q('hide_me_from_strangers'), requires_gold=True),
+    'browse_invisibly': _ProfileField(
+        q1=_person_yes_no_q('browse_invisibly'), requires_gold=True),
+    'show_my_online_status': _ProfileField(
+        q1=_person_yes_no_q('show_my_online_status')),
+    'public_profile': _ProfileField(q1=_person_yes_no_q('public_profile')),
+    'theme': _ProfileField(q1=Q_PATCH_THEME, requires_gold=True),
+}
 
 async def _has_gold(person_id: int) -> bool:
     async with api_tx() as tx:
@@ -274,111 +376,6 @@ async def _patch_profile_info_about(
         )
 
         await tx.execute(Q_PATCH_ABOUT, update_params)
-
-def _person_lookup_q(column: str, table: str) -> str:
-    return f"""
-    UPDATE person SET {column} = {table}.id
-    FROM {table}
-    WHERE person.id = %(person_id)s
-    AND {table}.name = %(field_value)s
-    """
-
-
-def _person_verified_lookup_q(column: str, table: str,
-                              verified_column: str) -> str:
-    return f"""
-    UPDATE person
-    SET {column} = {table}.id, {verified_column} = false
-    FROM {table}
-    WHERE person.id = %(person_id)s
-    AND {table}.name = %(field_value)s
-    AND person.{column} <> {table}.id
-    """
-
-
-def _person_yes_no_q(column: str) -> str:
-    return f"""
-    UPDATE person
-    SET {column} = (
-        CASE WHEN %(field_value)s = 'Yes' THEN TRUE ELSE FALSE END)
-    WHERE id = %(person_id)s
-    """
-
-
-def _person_value_q(column: str) -> str:
-    return f"""
-    UPDATE person SET {column} = %(field_value)s
-    WHERE person.id = %(person_id)s
-    """
-
-
-@dataclass(frozen=True)
-class _ProfileField:
-    q1: str
-    q2: str | None = None
-    requires_gold: bool = False
-
-
-_PROFILE_FIELDS = {
-    'gender': _ProfileField(
-        q1=_person_verified_lookup_q('gender_id', 'gender', 'verified_gender'),
-        q2=Q_UPDATE_VERIFICATION_LEVEL,
-    ),
-    'orientation': _ProfileField(
-        q1=_person_lookup_q('orientation_id', 'orientation')),
-    'ethnicity': _ProfileField(
-        q1=_person_verified_lookup_q(
-            'ethnicity_id', 'ethnicity', 'verified_ethnicity'),
-        q2=Q_UPDATE_VERIFICATION_LEVEL,
-    ),
-    'location': _ProfileField(q1=Q_PATCH_LOCATION),
-    'occupation': _ProfileField(q1=_person_value_q('occupation')),
-    'education': _ProfileField(q1=_person_value_q('education')),
-    'height': _ProfileField(q1=_person_value_q('height_cm')),
-    'looking_for': _ProfileField(
-        q1=_person_lookup_q('looking_for_id', 'looking_for')),
-    'smoking': _ProfileField(
-        q1=_person_lookup_q('smoking_id', 'yes_no_optional')),
-    'drinking': _ProfileField(q1=_person_lookup_q('drinking_id', 'frequency')),
-    'drugs': _ProfileField(q1=_person_lookup_q('drugs_id', 'yes_no_optional')),
-    'long_distance': _ProfileField(
-        q1=_person_lookup_q('long_distance_id', 'yes_no_optional')),
-    'relationship_status': _ProfileField(
-        q1=_person_lookup_q('relationship_status_id', 'relationship_status')),
-    'has_kids': _ProfileField(
-        q1=_person_lookup_q('has_kids_id', 'yes_no_maybe')),
-    'wants_kids': _ProfileField(
-        q1=_person_lookup_q('wants_kids_id', 'yes_no_maybe')),
-    'exercise': _ProfileField(q1=_person_lookup_q('exercise_id', 'frequency')),
-    'religion': _ProfileField(q1=_person_lookup_q('religion_id', 'religion')),
-    'star_sign': _ProfileField(q1=_person_lookup_q('star_sign_id', 'star_sign')),
-    'units': _ProfileField(q1=_person_lookup_q('unit_id', 'unit')),
-    'chats': _ProfileField(
-        q1=_person_lookup_q('chats_notification', 'immediacy')),
-    'intros': _ProfileField(
-        q1=_person_lookup_q('intros_notification', 'immediacy')),
-    'visitors': _ProfileField(
-        q1=_person_lookup_q('visitors_notification', 'immediacy')),
-    'verification_level': _ProfileField(
-        q1=_person_lookup_q(
-            'privacy_verification_level_id', 'verification_level')),
-    'show_my_location': _ProfileField(
-        q1=_person_lookup_q('show_my_location_id', 'yes_country_only_no'),
-        requires_gold=True,
-    ),
-    'show_my_age': _ProfileField(
-        q1=_person_yes_no_q('show_my_age'), requires_gold=True),
-    'show_my_looking_for': _ProfileField(
-        q1=_person_yes_no_q('show_my_looking_for'), requires_gold=True),
-    'hide_me_from_strangers': _ProfileField(
-        q1=_person_yes_no_q('hide_me_from_strangers'), requires_gold=True),
-    'browse_invisibly': _ProfileField(
-        q1=_person_yes_no_q('browse_invisibly'), requires_gold=True),
-    'show_my_online_status': _ProfileField(
-        q1=_person_yes_no_q('show_my_online_status')),
-    'public_profile': _ProfileField(q1=_person_yes_no_q('public_profile')),
-    'theme': _ProfileField(q1=Q_PATCH_THEME, requires_gold=True),
-}
 
 
 async def _patch_photo(person_id: int, field_value: object) -> object:
