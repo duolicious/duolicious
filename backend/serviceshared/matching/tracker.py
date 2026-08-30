@@ -11,14 +11,12 @@ import psycopg
 
 from collections.abc import Iterable
 
-from serviceshared.matching import CAPTURE_TABLES, MODELS, classify
-from serviceshared.matching.model import AnswerChange, StalenessError
+from serviceshared.matching import CAPTURES, MODELS, classify
+from serviceshared.matching.model import CapturedChange, StalenessError
 from serviceshared.tx import CursorQuery, Row, Tx
 
-_Q_OLD_ANSWER = {
-    table: f'SELECT answer FROM {table} '
-           'WHERE person_id = %(person_id)s AND question_id = %(question_id)s'
-    for table in CAPTURE_TABLES
+_CAPTURE_QUERIES = {
+    table: capture.query(table) for table, capture in CAPTURES.items()
 }
 
 
@@ -38,7 +36,7 @@ class StaleTracker:
         self._cur = cur
         self._suppressed = suppressed
         self._stale: dict[str, set[int]] = {}
-        self._answer_olds: dict[tuple[str, int, int], bool | None] = {}
+        self._captured_olds: dict[tuple[str, int, int], bool | None] = {}
         self._unattributed: set[str] = set()
         self._pending_harvest: frozenset[str] | None = None
 
@@ -47,15 +45,16 @@ class StaleTracker:
             self._unattributed |= self._pending_harvest
             self._pending_harvest = None
 
-    async def _read_answer(
-            self, table: str, person_id: int, question_id: int) -> bool | None:
+    async def _read_captured(
+            self, table: str, person_id: int, key: int) -> bool | None:
+        capture = CAPTURES[table]
         await self._cur.execute(
-            _Q_OLD_ANSWER[table],
-            dict(person_id=person_id, question_id=question_id))
+            _CAPTURE_QUERIES[table],
+            {'person_id': person_id, capture.key_column: key})
         row = await self._cur.fetchone()
-        if row is None or row['answer'] is None:
+        if row is None or row[capture.value_column] is None:
             return None
-        return bool(row['answer'])
+        return bool(row[capture.value_column])
 
     async def note_before(
         self,
@@ -69,14 +68,16 @@ class StaleTracker:
         if self._suppressed or not isinstance(query, str):
             return
         person_id = _int_param(params, 'person_id')
-        question_id = _int_param(params, 'question_id')
-        if person_id is None or question_id is None:
+        if person_id is None:
             return
         for table in classify(query).capture_tables:
-            key = (table, person_id, question_id)
-            if key not in self._answer_olds:
-                self._answer_olds[key] = await self._read_answer(
-                        table, person_id, question_id)
+            key = _int_param(params, CAPTURES[table].key_column)
+            if key is None:
+                continue
+            captured = (table, person_id, key)
+            if captured not in self._captured_olds:
+                self._captured_olds[captured] = await self._read_captured(
+                        table, person_id, key)
 
     def note_after(
         self,
@@ -97,9 +98,9 @@ class StaleTracker:
                 and classified.rowcount_reliable):
             return
         person_id = _int_param(params, 'person_id')
-        question_id = _int_param(params, 'question_id')
         captured = all(
-            (table, person_id, question_id) in self._answer_olds
+            (table, person_id, _int_param(params, CAPTURES[table].key_column))
+            in self._captured_olds
             for table in classified.capture_tables)
         if not captured:
             self._unattributed |= classified.tables
@@ -134,9 +135,9 @@ class StaleTracker:
     async def flush(self, tx: Tx) -> None:
         """Recompute whatever the transaction made stale, before it commits.
         Raises instead of committing when a watched write went unattributed:
-        the fix is making the statement carry person_id (and question_id for
-        captured tables) in its params, or report who it touched in its
-        RETURNING rows."""
+        the fix is making the statement carry person_id (and the capture's
+        key column, for captured tables) in its params, or report who it
+        touched in its RETURNING rows."""
         self._expire_harvest()
         if self._suppressed:
             return
@@ -144,19 +145,19 @@ class StaleTracker:
             raise StalenessError(
                 f'matching-model inputs in {sorted(self._unattributed)} were '
                 'written without a person to refresh; the statement must '
-                'carry person_id (and question_id for captured tables) in '
-                'its params, or return a person_id/person_ids column')
-        if not self._stale and not self._answer_olds:
+                'carry person_id (and the captured key column) in its '
+                'params, or return a person_id/person_ids column')
+        if not self._stale and not self._captured_olds:
             return
 
-        changes: dict[int, list[AnswerChange]] = {}
-        for (table, person_id, question_id), old in self._answer_olds.items():
-            new = await self._read_answer(table, person_id, question_id)
+        changes: dict[int, list[CapturedChange]] = {}
+        for (table, person_id, key), old in self._captured_olds.items():
+            new = await self._read_captured(table, person_id, key)
             if new == old:
                 continue
-            changes.setdefault(person_id, []).append(AnswerChange(
+            changes.setdefault(person_id, []).append(CapturedChange(
                 table=table,
-                question_id=question_id,
+                key=key,
                 old=old,
                 new=new,
             ))

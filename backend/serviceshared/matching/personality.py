@@ -15,7 +15,7 @@ from typing import Literal
 from pgvector import Vector
 
 from serviceshared.tx import Tx
-from serviceshared.matching.model import AnswerChange, Watch
+from serviceshared.matching.model import Capture, CapturedChange, Watch
 
 TRAIT_COUNT = 46
 
@@ -154,7 +154,7 @@ class _MatchPercentageModel:
             update_columns=frozenset({'answer'}),
             inserts=True,
             deletes=True,
-            capture=True,
+            capture=Capture(key_column='question_id', value_column='answer'),
         ),
     }
 
@@ -162,13 +162,13 @@ class _MatchPercentageModel:
         self,
         tx: Tx,
         person_id: int,
-        changes: Sequence[AnswerChange],
+        changes: Sequence[CapturedChange],
     ) -> None:
         if not changes:
             return
 
         question_tx = await tx.execute(Q_QUESTION_SCORE_VECTORS, dict(
-            question_ids=[change.question_id for change in changes]))
+            question_ids=[change.key for change in changes]))
         questions = {
             question['id']: question
             for question in await question_tx.fetchall()}
@@ -180,7 +180,7 @@ class _MatchPercentageModel:
         count = scores['count_answers']
 
         for change in changes:
-            question = questions.get(change.question_id)
+            question = questions.get(change.key)
             if question is None:
                 continue
             given = given_score_vectors(question, change.new)

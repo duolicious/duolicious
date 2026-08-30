@@ -15,9 +15,10 @@ carry `person_id`; a statement that instead learns who it touched as it
 runs (creating a person, deleting by token) reports through its own
 RETURNING rows -- a fetched column called `person_id` or `person_ids`
 attributes it, even when NULL (an explicit nobody). Writes to a captured
-table (`Watch.capture`) carry `question_id` too, and the cursor reads the
-old value just before executing the write, so models can patch derived
-sums with the (old, new) pair rather than re-reading every row. A
+table (`Watch.capture`) also carry the capture's key column, and the
+cursor reads the old value just before executing the write, so models can
+patch derived sums with the (old, new) pair rather than re-reading every
+row. A
 transaction that commits with a watched write attributed none of these
 ways raises instead of committing: the fix is always to make the statement
 say who it touched, never to remember a call.
@@ -36,7 +37,8 @@ from pglast.visitors import Visitor
 
 from serviceshared.matching import clubs, personality
 from serviceshared.matching.model import (
-    AnswerChange,
+    Capture,
+    CapturedChange,
     MatchingModel,
     StalenessError,
     Watch,
@@ -47,11 +49,14 @@ MODELS: tuple[MatchingModel, ...] = (
     clubs.MODEL,
 )
 
-CAPTURE_TABLES = frozenset(
-    table
-    for model in MODELS
-    for table, watch in model.watched.items()
-    if watch.capture)
+CAPTURES: dict[str, Capture] = {}
+for _model in MODELS:
+    for _table, _watch in _model.watched.items():
+        if _watch.capture is None:
+            continue
+        if CAPTURES.setdefault(_table, _watch.capture) != _watch.capture:
+            raise ValueError(
+                f'models disagree on how {_table} is captured')
 
 
 @dataclass(frozen=True)
@@ -126,6 +131,6 @@ def classify(query: str) -> Classification:
     return Classification(
         models=frozenset(models),
         tables=frozenset(tables),
-        capture_tables=frozenset(tables) & CAPTURE_TABLES,
+        capture_tables=frozenset(tables) & frozenset(CAPTURES),
         rowcount_reliable=top_level_dml and visitor.dml_nodes == 1,
     )

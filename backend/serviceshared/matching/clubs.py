@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 
 from serviceshared.commonsql import Q_REFRESH_CLUB_VECTOR
 from serviceshared.tx import Tx
-from serviceshared.matching.model import AnswerChange, Watch
+from serviceshared.matching.model import CapturedChange, Watch
 
 
 class _SimilarClubsModel:
@@ -19,7 +19,7 @@ class _SimilarClubsModel:
         self,
         tx: Tx,
         person_id: int,
-        changes: Sequence[AnswerChange],
+        changes: Sequence[CapturedChange],
     ) -> None:
         await tx.execute(Q_REFRESH_CLUB_VECTOR, dict(person_id=person_id))
 
