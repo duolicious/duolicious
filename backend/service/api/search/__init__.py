@@ -2,12 +2,12 @@ import json
 import psycopg
 import service.api.duotypes as t
 from service.api import sessioncache
-from service.api.qanda import personality
+from serviceshared.matching import personality
 from pydantic import ValidationError
 from pgvector import Vector
 
 from serviceshared.database import Tx, api_tx, row_int
-from service.api.qanda.question import Q_QUESTION_SCORE_VECTORS
+from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
 from collections.abc import Sequence
 from typing import Literal, Tuple

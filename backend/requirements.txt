@@ -24,3 +24,4 @@ spacy
 uvicorn[standard]
 webpush==1.0.6
 websockets
+pglast==8.4

@@ -32,8 +32,9 @@ from service.cron.profilereporter import report_profiles_forever
 import asyncio
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
-from serviceshared.database import db_pool_lifespan
+from serviceshared.database import db_pool_lifespan, triggers
 from serviceshared.batcher import start_all
+from serviceshared.matching import MODELS
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,8 @@ async def http_server() -> None:
         await asyncio.to_thread(httpd.serve_forever)
 
 async def main() -> None:
+    triggers.install(MODELS)
+
     # Open the DB pool (and its keepalive checker) for the process lifetime, then
     # start the batch consumers (e.g. notify's) on this loop before the jobs that
     # enqueue into them begin running.
