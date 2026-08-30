@@ -1,12 +1,22 @@
+"""The "Match percentage" model: a person's answers are reduced to per-trait
+`presence`/`absence` scores, which in turn produce their personality vector.
+The stored vector has one extra constant dimension appended to the 46 trait
+dimensions (giving 47) so that it is never the zero vector.
+
+The scores are running sums, so an answer change is folded in and its old
+value folded out rather than re-reading every answer; the old value arrives
+with the change (`Watch.capture`).
+"""
 import numpy
 import numpy.typing as npt
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Literal
 
-# A person's answers are reduced to per-trait `presence`/`absence` scores, which
-# in turn produce their personality vector. The stored vector has one extra
-# constant dimension appended to the 46 trait dimensions (giving 47) so that it
-# is never the zero vector.
+from pgvector import Vector
+
+from serviceshared.tx import Tx
+from serviceshared.matching.model import AnswerChange, Watch
+
 TRAIT_COUNT = 46
 
 _CONSTANT_DIMENSION = 1e-5
@@ -15,6 +25,43 @@ _CONSTANT_DIMENSION = 1e-5
 ScoreValues = Sequence[int]
 IntArray = npt.NDArray[numpy.int64]
 FloatArray = npt.NDArray[numpy.float64]
+
+# The per-trait score vectors a question contributes, used to (re)compute
+# personality vectors on the application server.
+Q_QUESTION_SCORE_VECTORS = """
+SELECT
+    id,
+    presence_given_yes,
+    presence_given_no,
+    absence_given_yes,
+    absence_given_no
+FROM
+    question
+WHERE
+    id = ANY(%(question_ids)s)
+"""
+
+Q_GET_PERSONALITY_SCORES = """
+SELECT
+    presence_score,
+    absence_score,
+    count_answers
+FROM
+    person
+WHERE
+    id = %(person_id)s
+"""
+
+Q_SET_PERSONALITY = """
+UPDATE person
+SET
+    personality    = %(personality)s,
+    presence_score = %(presence_score)s,
+    absence_score  = %(absence_score)s,
+    count_answers  = %(count_answers)s
+WHERE
+    id = %(person_id)s
+"""
 
 
 def given_score_vectors(
@@ -100,3 +147,56 @@ def personality_vector(
     return personality
 
 
+class _MatchPercentageModel:
+    name = 'match_percentage'
+    watched: Mapping[str, Watch] = {
+        'answer': Watch(
+            update_columns=frozenset({'answer'}),
+            inserts=True,
+            deletes=True,
+            capture=True,
+        ),
+    }
+
+    async def person_changed(
+        self,
+        tx: Tx,
+        person_id: int,
+        changes: Sequence[AnswerChange],
+    ) -> None:
+        if not changes:
+            return
+
+        question_tx = await tx.execute(Q_QUESTION_SCORE_VECTORS, dict(
+            question_ids=[change.question_id for change in changes]))
+        questions = {
+            question['id']: question
+            for question in await question_tx.fetchall()}
+
+        scores = await tx.require_one(
+            Q_GET_PERSONALITY_SCORES, dict(person_id=person_id))
+        presence = scores['presence_score']
+        absence = scores['absence_score']
+        count = scores['count_answers']
+
+        for change in changes:
+            question = questions.get(change.question_id)
+            if question is None:
+                continue
+            given = given_score_vectors(question, change.new)
+            presence, absence, count = fold(
+                presence, absence, count, given[0], given[1], +1)
+            given = given_score_vectors(question, change.old)
+            presence, absence, count = fold(
+                presence, absence, count, given[0], given[1], -1)
+
+        await tx.execute(Q_SET_PERSONALITY, dict(
+            person_id=person_id,
+            personality=Vector(personality_vector(presence, absence, count)),
+            presence_score=numpy.asarray(presence).tolist(),
+            absence_score=numpy.asarray(absence).tolist(),
+            count_answers=int(count),
+        ))
+
+
+MODEL = _MatchPercentageModel()

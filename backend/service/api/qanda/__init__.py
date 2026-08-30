@@ -22,7 +22,6 @@ question row; the answerer's own row isn't hot, so it stays in `_set_answer`'s
 transaction unbatched.
 """
 from dataclasses import dataclass
-import numpy
 import psycopg
 from service.api.answerspush import publish_answer_update
 from serviceshared.batcher import Batcher
@@ -31,21 +30,8 @@ from serviceshared.constants import (
     ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
 )
 from serviceshared.database import Row, Tx, api_tx
-from pgvector import Vector
 import service.api.duotypes as t
-from service.api.qanda import personality
-from service.api.qanda.question import Q_QUESTION_SCORE_VECTORS
-
-Q_GET_PERSONALITY_SCORES = """
-SELECT
-    presence_score,
-    absence_score,
-    count_answers
-FROM
-    person
-WHERE
-    id = %(person_id)s
-"""
+from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 
 Q_GET_ANSWER = """
 SELECT
@@ -115,17 +101,6 @@ AND
     last_event_name = 'answered-question'
 AND
     last_event_data->>'answered_question_id' = %(question_id)s::TEXT
-"""
-
-Q_SET_PERSONALITY = """
-UPDATE person
-SET
-    personality    = %(personality)s,
-    presence_score = %(presence_score)s,
-    absence_score  = %(absence_score)s,
-    count_answers  = %(count_answers)s
-WHERE
-    id = %(person_id)s
 """
 
 Q_ADD_YES_NO_COUNT = """
@@ -215,32 +190,11 @@ async def _set_answer(
     if question is None:
         return None
 
-    scores = await tx.require_one(
-        Q_GET_PERSONALITY_SCORES,
-        dict(person_id=person_id),
-    )
-
     old_tx = await tx.execute(
         Q_GET_ANSWER,
         dict(person_id=person_id, question_id=question_id),
     )
     old: Row | None = await old_tx.fetchone()
-
-    presence = scores['presence_score']
-    absence = scores['absence_score']
-    count = scores['count_answers']
-
-    if not delete:
-        given = personality.given_score_vectors(question, answer)
-        presence, absence, count = personality.fold(
-            presence, absence, count, given[0], given[1], +1)
-
-    if old is not None:
-        given = personality.given_score_vectors(question, old['answer'])
-        presence, absence, count = personality.fold(
-            presence, absence, count, given[0], given[1], -1)
-
-    vector = personality.personality_vector(presence, absence, count)
 
     if delete:
         await tx.execute(Q_DELETE_ANSWER, dict(
@@ -254,14 +208,6 @@ async def _set_answer(
             answer=answer,
             public=public,
         ))
-
-    await tx.execute(Q_SET_PERSONALITY, dict(
-        person_id=person_id,
-        personality=Vector(vector),
-        presence_score=numpy.asarray(presence).tolist(),
-        absence_score=numpy.asarray(absence).tolist(),
-        count_answers=int(count),
-    ))
 
     is_visible = not delete and answer is not None and bool(public)
 

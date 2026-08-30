@@ -127,6 +127,7 @@ async def maybe_run_init() -> None:
     init_sql_file = _read_sql(_init_sql_file)
 
     async with api_tx() as tx:
+        tx.suppress_stale_checks()
         await tx.execute(init_sql_file)
 
 async def init_db() -> None:
@@ -144,16 +145,20 @@ async def init_db() -> None:
     await maybe_run_init()
 
     async with api_tx('READ COMMITTED') as tx:
+        tx.suppress_stale_checks()
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(migrations_sql_file)
 
     async with api_tx() as tx:
+        tx.suppress_stale_checks()
         await tx.execute(email_domains_bad_file)
 
     async with api_tx() as tx:
+        tx.suppress_stale_checks()
         await tx.execute(email_domains_good_file)
 
     async with api_tx('READ COMMITTED') as tx:
+        tx.suppress_stale_checks()
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(banned_club_file)
 

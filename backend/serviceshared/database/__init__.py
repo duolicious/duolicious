@@ -5,7 +5,6 @@ from pgvector.psycopg import register_vector_async
 from psycopg_pool import AsyncConnectionPool
 import random
 from contextlib import asynccontextmanager, suppress
-from typing import Protocol
 from collections.abc import AsyncIterator, Iterable
 from serviceshared.database._row import (
     require_row,
@@ -28,6 +27,14 @@ from serviceshared.duoenv.shared import (
     DB_POOL_MIN_SIZE as _pool_min_size,
     DB_PORT,
     DB_USER,
+)
+from serviceshared.tx import CursorQuery, Row, Tx
+from serviceshared.matching import (
+    CAPTURE_TABLES,
+    MODELS,
+    AnswerChange,
+    StalenessError,
+    classify,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,53 +64,26 @@ _api_conninfo = psycopg.conninfo.make_conninfo(
     **(_coninfo_args | dict(dbname='duo_api'))
 )
 
-CursorQuery = str | bytes | psycopg.sql.SQL | psycopg.sql.Composed
-Row = psycopg.rows.DictRow
+_Q_OLD_ANSWER = {
+    table: f'SELECT answer FROM {table} '
+           'WHERE person_id = %(person_id)s AND question_id = %(question_id)s'
+    for table in CAPTURE_TABLES
+}
 
 
-class Tx(Protocol):
-    @property
-    def connection(self) -> psycopg.AsyncConnection[Row]:
-        ...
-
-    @property
-    def rowcount(self) -> int:
-        ...
-
-    async def execute(
-        self,
-        query: CursorQuery,
-        params: psycopg.abc.Params | None = None,
-    ) -> "Tx":
-        ...
-
-    async def require_one(
-        self,
-        query: CursorQuery,
-        params: psycopg.abc.Params | None = None,
-    ) -> Row:
-        ...
-
-    async def executemany(
-        self,
-        query: CursorQuery,
-        params_seq: Iterable[psycopg.abc.Params],
-    ) -> None:
-        ...
-
-    async def fetchone(self) -> Row | None:
-        ...
-
-    async def fetchall(self) -> list[Row]:
-        ...
-
-    async def close(self) -> None:
-        ...
+def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
+    value = params.get(key) if isinstance(params, dict) else None
+    return value if isinstance(value, int) else None
 
 
 class TxCursor:
     def __init__(self, cur: psycopg.AsyncCursor[Row]) -> None:
         self._cur = cur
+        self._stale: dict[str, set[int]] = {}
+        self._answer_olds: dict[tuple[str, int, int], bool | None] = {}
+        self._unattributed: set[str] = set()
+        self._pending_harvest: frozenset[str] | None = None
+        self._suppress_stale = False
 
     @property
     def connection(self) -> psycopg.AsyncConnection[Row]:
@@ -113,12 +93,140 @@ class TxCursor:
     def rowcount(self) -> int:
         return self._cur.rowcount
 
+    def suppress_stale_checks(self) -> None:
+        """For schema migrations and bulk maintenance: nothing this
+        transaction writes updates a matching vector. Repair the affected
+        people with the models' backfills instead."""
+        self._suppress_stale = True
+
+    def _expire_harvest(self) -> None:
+        if self._pending_harvest is not None:
+            self._unattributed |= self._pending_harvest
+            self._pending_harvest = None
+
+    async def _read_answer(
+            self, table: str, person_id: int, question_id: int) -> bool | None:
+        await self._cur.execute(
+            _Q_OLD_ANSWER[table],
+            dict(person_id=person_id, question_id=question_id))
+        row = await self._cur.fetchone()
+        if row is None or row['answer'] is None:
+            return None
+        return bool(row['answer'])
+
+    async def _pre_note(
+        self,
+        query: CursorQuery,
+        params: psycopg.abc.Params | None,
+    ) -> None:
+        """A captured table is about to be written: read the old value so
+        models can patch their derived sums instead of rebuilding them."""
+        if self._suppress_stale or not isinstance(query, str):
+            return
+        person_id = _int_param(params, 'person_id')
+        question_id = _int_param(params, 'question_id')
+        if person_id is None or question_id is None:
+            return
+        for table in classify(query).capture_tables:
+            key = (table, person_id, question_id)
+            if key not in self._answer_olds:
+                self._answer_olds[key] = await self._read_answer(
+                        table, person_id, question_id)
+
+    def _post_note(
+        self,
+        query: CursorQuery,
+        params: psycopg.abc.Params | None,
+        rowcount_known: bool = True,
+    ) -> None:
+        if self._suppress_stale or not isinstance(query, str):
+            return
+        classified = classify(query)
+        if not classified.models:
+            return
+        if (rowcount_known
+                and classified.rowcount_reliable
+                and self._cur.rowcount == 0):
+            return
+        person_id = _int_param(params, 'person_id')
+        if classified.capture_tables and (
+                person_id is None
+                or _int_param(params, 'question_id') is None):
+            self._unattributed |= classified.tables
+            return
+        if person_id is None:
+            self._pending_harvest = classified.models
+            return
+        for name in classified.models:
+            self._stale.setdefault(name, set()).add(person_id)
+
+    def _harvest(self, rows: Iterable[Row]) -> None:
+        """A watched write that could not name who it touched from its params
+        reports through its own fetched rows instead: a `person_id` or
+        `person_ids` column attributes it, even when NULL (an explicit
+        nobody)."""
+        if self._pending_harvest is None:
+            return
+        for row in rows:
+            if 'person_id' not in row and 'person_ids' not in row:
+                continue
+            person_id = row.get('person_id')
+            person_ids = row.get('person_ids')
+            attributed = [person_id] if isinstance(person_id, int) else []
+            attributed += (
+                one for one in
+                (person_ids if isinstance(person_ids, list) else [])
+                if isinstance(one, int))
+            for name in self._pending_harvest:
+                self._stale.setdefault(name, set()).update(attributed)
+            self._pending_harvest = None
+            return
+
+    async def _flush_stale(self) -> None:
+        """Recompute whatever this transaction made stale, before it commits.
+        Raises instead of committing when a watched write went unattributed:
+        the fix is making the statement carry person_id (and question_id for
+        captured tables) in its params, or report who it touched in its
+        RETURNING rows."""
+        self._expire_harvest()
+        if self._suppress_stale:
+            return
+        if self._unattributed:
+            raise StalenessError(
+                f'matching-model inputs in {sorted(self._unattributed)} were '
+                'written without a person to refresh; the statement must '
+                'carry person_id (and question_id for captured tables) in '
+                'its params, or return a person_id/person_ids column')
+        if not self._stale and not self._answer_olds:
+            return
+
+        changes: dict[int, list[AnswerChange]] = {}
+        for (table, person_id, question_id), old in self._answer_olds.items():
+            new = await self._read_answer(table, person_id, question_id)
+            if new == old:
+                continue
+            changes.setdefault(person_id, []).append(AnswerChange(
+                table=table,
+                question_id=question_id,
+                old=old,
+                new=new,
+            ))
+
+        for model in MODELS:
+            for person_id in sorted(self._stale.get(model.name, ())):
+                await model.person_changed(self, person_id, [
+                    change for change in changes.get(person_id, [])
+                    if change.table in model.watched])
+
     async def execute(
         self,
         query: CursorQuery,
         params: psycopg.abc.Params | None = None,
     ) -> Tx:
+        self._expire_harvest()
+        await self._pre_note(query, params)
         await self._cur.execute(query, params)
+        self._post_note(query, params)
         return self
 
     async def require_one(
@@ -134,13 +242,22 @@ class TxCursor:
         query: CursorQuery,
         params_seq: Iterable[psycopg.abc.Params],
     ) -> None:
-        await self._cur.executemany(query, params_seq)
+        self._expire_harvest()
+        params_list = list(params_seq)
+        await self._cur.executemany(query, params_list)
+        for params in params_list:
+            self._post_note(query, params, rowcount_known=False)
 
     async def fetchone(self) -> Row | None:
-        return await self._cur.fetchone()
+        row = await self._cur.fetchone()
+        if row is not None:
+            self._harvest([row])
+        return row
 
     async def fetchall(self) -> list[Row]:
-        return await self._cur.fetchall()
+        rows = await self._cur.fetchall()
+        self._harvest(rows)
+        return rows
 
     async def close(self) -> None:
         await self._cur.close()
@@ -211,6 +328,7 @@ async def api_tx(
                 f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'
             )
         yield cur
+        await cur._flush_stale()
 
 
 async def check_connections_forever() -> None:
