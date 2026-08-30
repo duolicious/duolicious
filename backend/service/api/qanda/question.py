@@ -46,21 +46,6 @@ OFFSET
     %(o)s;
 """
 
-# The per-trait score vectors a question contributes, used to (re)compute
-# personality vectors on the application server (see the `personality` module).
-Q_QUESTION_SCORE_VECTORS = """
-SELECT
-    id,
-    presence_given_yes,
-    presence_given_no,
-    absence_given_yes,
-    absence_given_no
-FROM
-    question
-WHERE
-    id = ANY(%(question_ids)s)
-"""
-
 Q_GET_PUBLIC_NEXT_QUESTIONS = """
 SELECT
     question.id,

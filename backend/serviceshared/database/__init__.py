@@ -5,7 +5,6 @@ from pgvector.psycopg import register_vector_async
 from psycopg_pool import AsyncConnectionPool
 import random
 from contextlib import asynccontextmanager, suppress
-from typing import Protocol
 from collections.abc import AsyncIterator, Iterable
 from serviceshared.database._row import (
     require_row,
@@ -29,6 +28,8 @@ from serviceshared.duoenv.shared import (
     DB_PORT,
     DB_USER,
 )
+from serviceshared.database.triggers import Tracker
+from serviceshared.database.tx import CursorQuery, Row, Tx
 
 logger = logging.getLogger(__name__)
 
@@ -57,53 +58,10 @@ _api_conninfo = psycopg.conninfo.make_conninfo(
     **(_coninfo_args | dict(dbname='duo_api'))
 )
 
-CursorQuery = str | bytes | psycopg.sql.SQL | psycopg.sql.Composed
-Row = psycopg.rows.DictRow
-
-
-class Tx(Protocol):
-    @property
-    def connection(self) -> psycopg.AsyncConnection[Row]:
-        ...
-
-    @property
-    def rowcount(self) -> int:
-        ...
-
-    async def execute(
-        self,
-        query: CursorQuery,
-        params: psycopg.abc.Params | None = None,
-    ) -> "Tx":
-        ...
-
-    async def require_one(
-        self,
-        query: CursorQuery,
-        params: psycopg.abc.Params | None = None,
-    ) -> Row:
-        ...
-
-    async def executemany(
-        self,
-        query: CursorQuery,
-        params_seq: Iterable[psycopg.abc.Params],
-    ) -> None:
-        ...
-
-    async def fetchone(self) -> Row | None:
-        ...
-
-    async def fetchall(self) -> list[Row]:
-        ...
-
-    async def close(self) -> None:
-        ...
-
-
 class TxCursor:
     def __init__(self, cur: psycopg.AsyncCursor[Row]) -> None:
         self._cur = cur
+        self._triggers = Tracker(cur)
 
     @property
     def connection(self) -> psycopg.AsyncConnection[Row]:
@@ -118,7 +76,9 @@ class TxCursor:
         query: CursorQuery,
         params: psycopg.abc.Params | None = None,
     ) -> Tx:
+        await self._triggers.note_before(query, params)
         await self._cur.execute(query, params)
+        self._triggers.note_after(query, params, self._cur.rowcount)
         return self
 
     async def require_one(
@@ -134,13 +94,22 @@ class TxCursor:
         query: CursorQuery,
         params_seq: Iterable[psycopg.abc.Params],
     ) -> None:
-        await self._cur.executemany(query, params_seq)
+        await self._triggers.note_before(query, None)
+        params_list = list(params_seq)
+        await self._cur.executemany(query, params_list)
+        for params in params_list:
+            self._triggers.note_after(query, params, None)
 
     async def fetchone(self) -> Row | None:
-        return await self._cur.fetchone()
+        row = await self._cur.fetchone()
+        if row is not None:
+            self._triggers.saw_rows([row])
+        return row
 
     async def fetchall(self) -> list[Row]:
-        return await self._cur.fetchall()
+        rows = await self._cur.fetchall()
+        self._triggers.saw_rows(rows)
+        return rows
 
     async def close(self) -> None:
         await self._cur.close()
@@ -211,6 +180,7 @@ async def api_tx(
                 f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'
             )
         yield cur
+        await cur._triggers.flush(cur)
 
 
 async def check_connections_forever() -> None:

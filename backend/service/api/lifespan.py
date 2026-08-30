@@ -9,12 +9,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from serviceshared.batcher import start_all
-from serviceshared.database import db_pool_lifespan
+from serviceshared.database import db_pool_lifespan, triggers
+from serviceshared.matching import MODELS
 from fastapi import FastAPI
 
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI) -> AsyncIterator[None]:
+    triggers.install(MODELS)
     async with db_pool_lifespan():
         await start_all()
         yield

@@ -2855,12 +2855,11 @@ WITH updated_person_with_gold AS (
             ELSE {CLUB_QUOTA_FREE}
         END
     RETURNING
-        person_club.club_name
+        person_club.person_id
 )
 SELECT
-    uuid as person_uuid
-FROM
-    updated_person
+    (SELECT uuid FROM updated_person) AS person_uuid,
+    (SELECT array_agg(DISTINCT person_id) FROM deleted_person_club) AS person_ids
 """
 
 

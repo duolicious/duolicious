@@ -31,3 +31,4 @@ types-ujson
 uvicorn
 websockets
 xmltodict
+pglast==8.4
