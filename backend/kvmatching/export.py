@@ -22,7 +22,7 @@ from kvmatching.features import (
     PREF_TWO_WAY,
 )
 from kvmatching.paths import WORK, run_dir
-from serviceshared.kvmatching.encoder import W0_QUANTUM
+from serviceshared.kvmatching.encoder import INPUT_UNIT, W0_QUANTUM
 from serviceshared.kvmatching.features import look_input, who_input
 from serviceshared.kvmatching.spec import Spec
 
@@ -83,9 +83,9 @@ def main() -> None:
         'pref_two_way_fields': np.array(PREF_TWO_WAY + ['has_club_filter']),
         'loc_freqs': np.array(LOC_FREQS, np.int64),
     }
-    # Even if someone answered every question adversarially, the answer
-    # blocks' first-layer sums stay below 2**24 grid steps, where float32
-    # stops being exact and column-at-a-time patching would break.
+    # Even if someone answered every question adversarially, the first
+    # layer's integer sums stay inside int32, which is what the cached
+    # preactivations are stored and patched in.
     nq = len(f.qids)
     who_width = art['who.w0'].shape[1]
     worst = max(
@@ -94,7 +94,7 @@ def main() -> None:
             + np.abs(art['look.w0'][:, who_width:who_width + nq]
                      .astype(np.int64)).sum(1).max()),
     )
-    assert worst < 2 ** 24, f'answer-block sums can leave the exact grid ({worst})'
+    assert worst * INPUT_UNIT < 2 ** 31, f'answer-block sums overflow int32 ({worst})'
 
     np.savez_compressed(out, **art)
 
@@ -108,9 +108,9 @@ def main() -> None:
                             ('wbias', wb, ref['wbias'][rows]), ('lbias', lb, ref['lbias'][rows])]:
         err = float(np.abs(got - want).max())
         print(f'{name:<6} max abs error vs training output: {err:.3e}')
-        # float16 weights account for ~1e-3; anything beyond that is a bug
-        # in the numpy encoder rather than quantisation.
-        assert err < 3e-3, f'{name} does not reproduce training output'
+        # float16 tail weights and the integer first layer account for
+        # ~4e-3; anything beyond that is a bug in the numpy encoder.
+        assert err < 6e-3, f'{name} does not reproduce training output'
 
     one = who_input(enc, f.blocks(rows[:1]))
     pre = enc.who.pre(one)
@@ -118,7 +118,7 @@ def main() -> None:
     flipped = one.copy()
     delta = -2.0 * flipped[0, col]
     flipped[0, col] += delta
-    incr = enc.who.head(enc.who.pre_delta(pre, col, delta))[0]
+    incr = enc.who.head(enc.who.pre_delta(pre, col, int(delta) * INPUT_UNIT))[0]
     full = enc.who.forward(flipped)[0]
     print(f'incremental update matches full recompute: {float(np.abs(incr - full).max()):.3e}')
     assert np.abs(incr - full).max() < 1e-4

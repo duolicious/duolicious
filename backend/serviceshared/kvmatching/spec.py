@@ -22,8 +22,11 @@ class Spec:
         self.pref_multi_sizes: npt.NDArray[np.int64] = z['pref_multi_sizes']
         self.pref_two_way_fields: list[str] = [str(x) for x in z['pref_two_way_fields']]
         self.loc_freqs: npt.NDArray[np.int64] = z['loc_freqs']
-        self.who = Encoder(weights, 'who', self.m)
-        self.look = Encoder(weights, 'look', self.m)
+        nq = len(self.qids)
+        who_width = weights['who.w0'].shape[1]
+        self.who = Encoder(weights, 'who', self.m, [(0, nq)])
+        self.look = Encoder(weights, 'look', self.m,
+                            [(0, nq), (who_width, who_width + nq)])
 
         self.qid_column = {int(q): i for i, q in enumerate(self.qids)}
         self.country_column = {c: i + 1 for i, c in enumerate(self.countries)}
