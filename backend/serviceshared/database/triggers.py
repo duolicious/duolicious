@@ -163,6 +163,14 @@ class _Writes(Visitor):
         self.dml_nodes += 1
         self.writes.append(
             (node.relation.relname, 'insert', frozenset()))  # type: ignore[attr-defined]
+        conflict = node.onConflictClause  # type: ignore[attr-defined]
+        if conflict is None or not conflict.targetList:
+            return
+        self.writes.append((
+            node.relation.relname,  # type: ignore[attr-defined]
+            'update',
+            frozenset(target.name for target in conflict.targetList),
+        ))
 
     def visit_UpdateStmt(self, ancestors: object, node: object) -> None:
         self.dml_nodes += 1
