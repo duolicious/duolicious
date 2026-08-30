@@ -120,13 +120,12 @@ class StaleTracker:
         for row in rows:
             if 'person_id' not in row and 'person_ids' not in row:
                 continue
-            person_id = row.get('person_id')
             person_ids = row.get('person_ids')
-            attributed = [person_id] if isinstance(person_id, int) else []
-            attributed += (
-                one for one in
-                (person_ids if isinstance(person_ids, list) else [])
-                if isinstance(one, int))
+            reported = [
+                row.get('person_id'),
+                *(person_ids if isinstance(person_ids, list) else []),
+            ]
+            attributed = [one for one in reported if isinstance(one, int)]
             for name in self._pending_harvest:
                 self._stale.setdefault(name, set()).update(attributed)
             self._pending_harvest = None

@@ -85,14 +85,6 @@ class TxCursor:
         self._staleness.note_after(query, params, self._cur.rowcount)
         return self
 
-    async def require_one(
-        self,
-        query: CursorQuery,
-        params: psycopg.abc.Params | None = None,
-    ) -> Row:
-        await self.execute(query, params)
-        return require_row(await self.fetchone())
-
     async def executemany(
         self,
         query: CursorQuery,
@@ -103,6 +95,14 @@ class TxCursor:
         await self._cur.executemany(query, params_list)
         for params in params_list:
             self._staleness.note_after(query, params, None)
+
+    async def require_one(
+        self,
+        query: CursorQuery,
+        params: psycopg.abc.Params | None = None,
+    ) -> Row:
+        await self.execute(query, params)
+        return require_row(await self.fetchone())
 
     async def fetchone(self) -> Row | None:
         row = await self._cur.fetchone()
