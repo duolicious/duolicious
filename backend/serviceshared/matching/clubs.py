@@ -11,11 +11,12 @@ from serviceshared.database.triggers import CapturedChange, Watch
 
 class _SimilarClubsModel:
     name = 'similar_clubs'
+    subject_column = 'person_id'
     watched: Mapping[str, Watch] = {
         'person_club': Watch(inserts=True, deletes=True),
     }
 
-    async def person_changed(
+    async def fire(
         self,
         tx: Tx,
         person_id: int,

@@ -149,6 +149,7 @@ def personality_vector(
 
 class _MatchPercentageModel:
     name = 'match_percentage'
+    subject_column = 'person_id'
     watched: Mapping[str, Watch] = {
         'answer': Watch(
             update_columns=frozenset({'answer'}),
@@ -158,7 +159,7 @@ class _MatchPercentageModel:
         ),
     }
 
-    async def person_changed(
+    async def fire(
         self,
         tx: Tx,
         person_id: int,

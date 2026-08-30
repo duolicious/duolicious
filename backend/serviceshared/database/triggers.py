@@ -1,35 +1,37 @@
 """Application-level database triggers.
 
 A trigger declares which writes it reacts to (`watched`: tables, columns,
-inserts, deletes) and what to do about the person a write touched
-(`person_changed`). `install` registers a process's triggers once, at
-startup, the way asgi.py registers middleware; a process that installs
-none -- initapi running migrations -- runs untriggered. The transaction
-layer (TxCursor) reports every statement it executes to a per-transaction
-`Tracker`, which parses each query against the installed declarations
-(`classify`, cached per query string) and fires each affected trigger for
-each affected person before the transaction commits, so a write and its
-consequences land together, atomically. No call site anywhere knows the
-triggers exist.
+inserts, deletes), what its subject is (`subject_column`, the params key
+that identifies whose row changed -- `person_id` for the matching models),
+and what to do about each affected subject (`fire`). `install` registers a
+process's triggers once, at startup, the way asgi.py registers middleware;
+a process that installs none -- initapi running migrations -- runs
+untriggered. The transaction layer (TxCursor) reports every statement it
+executes to a per-transaction `Tracker`, which parses each query against
+the installed declarations (`classify`, cached per query string) and fires
+each affected trigger for each affected subject before the transaction
+commits, so a write and its consequences land together, atomically. No
+call site anywhere knows the triggers exist.
 
-A watched write names who it touched on its own. Usually its params carry
-`person_id`; a statement that instead learns who it touched as it runs
-(creating a person, deleting by token) reports through its own RETURNING
-rows -- a fetched column called `person_id` or `person_ids` attributes
-it, even when NULL (an explicit nobody). Writes to a captured table
-(`Watch.capture`) also carry the capture's key column, and the tracker
-reads the old value just before executing the write, so triggers can
-patch derived state with the (old, new) pair rather than re-reading every
-row. A transaction that commits with a watched write attributed none of
-these ways raises instead of committing: the fix is always to make the
-statement say who it touched, never to remember a call.
+A watched write names its subjects on its own. Usually its params carry
+the trigger's subject column; a statement that instead learns who it
+touched as it runs (creating a row, deleting by token) reports through its
+own RETURNING rows -- a fetched column named after the subject column, or
+its plural with an appended `s`, attributes it, even when NULL (an
+explicit nobody). Writes to a captured table (`Watch.capture`) also carry
+the capture's key column, and the tracker reads the old value just before
+executing the write, so triggers can patch derived state with the (old,
+new) pair rather than re-reading every row. A transaction that commits
+with a watched write attributed none of these ways raises instead of
+committing: the fix is always to make the statement say who it touched,
+never to remember a call.
 
 Statements that bypass the transaction layer entirely (psql sessions) are
 the one blind spot.
 """
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Protocol
 
@@ -43,18 +45,19 @@ from serviceshared.database.tx import CursorQuery, Row, Tx
 @dataclass(frozen=True)
 class Capture:
     """How to snapshot a captured table's row around a write. The table is
-    keyed (person_id, `key_column`), both taken from the writing statement's
-    params, and the boolean `value_column` is read just before the write and
-    again before commit; the trigger receives the pair as a
-    `CapturedChange`, so it can patch derived state instead of re-reading
-    every row."""
+    keyed (subject, `key_column`), both taken from the writing statement's
+    params (the subject under the watching trigger's `subject_column`, which
+    must also be the table's column name for it), and the boolean
+    `value_column` is read just before the write and again before commit;
+    the trigger receives the pair as a `CapturedChange`, so it can patch
+    derived state instead of re-reading every row."""
     key_column: str
     value_column: str
 
-    def query(self, table: str) -> str:
+    def query(self, table: str, subject_column: str) -> str:
         return (
             f'SELECT {self.value_column} FROM {table} '
-            f'WHERE person_id = %(person_id)s '
+            f'WHERE {subject_column} = %({subject_column})s '
             f'AND {self.key_column} = %({self.key_column})s')
 
 
@@ -78,13 +81,15 @@ class CapturedChange:
 
 class Trigger(Protocol):
     name: str
+    subject_column: str
     watched: Mapping[str, Watch]
 
-    async def person_changed(
+    async def fire(
         self,
         tx: Tx,
-        person_id: int,
+        subject_id: int,
         changes: Sequence[CapturedChange],
+        /,
     ) -> None:
         ...
 
@@ -94,7 +99,8 @@ class UnattributedWriteError(RuntimeError):
 
 
 _triggers: tuple[Trigger, ...] = ()
-_captures: dict[str, Capture] = {}
+_by_name: dict[str, Trigger] = {}
+_captures: dict[str, tuple[str, Capture]] = {}
 _capture_queries: dict[str, str] = {}
 _installed = False
 
@@ -104,23 +110,29 @@ def install(triggers: Sequence[Trigger]) -> None:
     Installing the same triggers again is a no-op, so a restarted app
     lifespan in one process is fine; installing different ones raises,
     because `classify`'s cache is only coherent for one trigger set."""
-    global _triggers, _captures, _capture_queries, _installed
+    global _triggers, _by_name, _captures, _capture_queries, _installed
     if _installed and tuple(triggers) == _triggers:
         return
     if _installed:
         raise RuntimeError('different triggers are already installed')
-    captures: dict[str, Capture] = {}
+    by_name: dict[str, Trigger] = {}
+    captures: dict[str, tuple[str, Capture]] = {}
     for trigger in triggers:
+        if by_name.setdefault(trigger.name, trigger) is not trigger:
+            raise ValueError(f'two triggers are named {trigger.name}')
         for table, watch in trigger.watched.items():
             if watch.capture is None:
                 continue
-            if captures.setdefault(table, watch.capture) != watch.capture:
+            entry = (trigger.subject_column, watch.capture)
+            if captures.setdefault(table, entry) != entry:
                 raise ValueError(
                     f'triggers disagree on how {table} is captured')
     _triggers = tuple(triggers)
+    _by_name = by_name
     _captures = captures
     _capture_queries = {
-        table: capture.query(table) for table, capture in captures.items()}
+        table: capture.query(table, subject_column)
+        for table, (subject_column, capture) in captures.items()}
     _installed = True
     classify.cache_clear()
 
@@ -207,6 +219,15 @@ def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
     return value if isinstance(value, int) else None
 
 
+@dataclass
+class _PendingHarvest:
+    """A watched write whose subjects must come from its own fetched rows:
+    the statement's tables (for the error when nothing reports), and which
+    triggers await which subject column."""
+    tables: frozenset[str]
+    awaiting: dict[str, set[str]] = field(default_factory=dict)
+
+
 class Tracker:
     """One transaction's view of the installed triggers: TxCursor reports
     what it is about to run, what it ran, and what it fetched; `flush` fires
@@ -219,19 +240,19 @@ class Tracker:
         self._stale: dict[str, set[int]] = {}
         self._captured_olds: dict[tuple[str, int, int], bool | None] = {}
         self._unattributed: set[str] = set()
-        self._pending_harvest: frozenset[str] | None = None
+        self._pending_harvest: _PendingHarvest | None = None
 
     def _expire_harvest(self) -> None:
         if self._pending_harvest is not None:
-            self._unattributed |= self._pending_harvest
+            self._unattributed |= self._pending_harvest.tables
             self._pending_harvest = None
 
     async def _read_captured(
-            self, table: str, person_id: int, key: int) -> bool | None:
-        capture = _captures[table]
+            self, table: str, subject: int, key: int) -> bool | None:
+        subject_column, capture = _captures[table]
         await self._cur.execute(
             _capture_queries[table],
-            {'person_id': person_id, capture.key_column: key})
+            {subject_column: subject, capture.key_column: key})
         row = await self._cur.fetchone()
         if row is None or row[capture.value_column] is None:
             return None
@@ -248,17 +269,29 @@ class Tracker:
         self._expire_harvest()
         if not isinstance(query, str):
             return
-        person_id = _int_param(params, 'person_id')
-        if person_id is None:
-            return
         for table in classify(query).capture_tables:
-            key = _int_param(params, _captures[table].key_column)
-            if key is None:
+            subject_column, capture = _captures[table]
+            subject = _int_param(params, subject_column)
+            key = _int_param(params, capture.key_column)
+            if subject is None or key is None:
                 continue
-            captured = (table, person_id, key)
+            captured = (table, subject, key)
             if captured not in self._captured_olds:
                 self._captured_olds[captured] = await self._read_captured(
-                        table, person_id, key)
+                        table, subject, key)
+
+    def _captured(
+        self,
+        classified: Classification,
+        params: psycopg.abc.Params | None,
+    ) -> bool:
+        for table in classified.capture_tables:
+            subject_column, capture = _captures[table]
+            subject = _int_param(params, subject_column)
+            key = _int_param(params, capture.key_column)
+            if (table, subject, key) not in self._captured_olds:
+                return False
+        return True
 
     def note_after(
         self,
@@ -267,7 +300,7 @@ class Tracker:
         rowcount: int | None,
     ) -> None:
         """A statement ran (`rowcount` is None when it isn't knowable, as
-        within executemany). Attribute any watched write to a person, or
+        within executemany). Attribute any watched write to its subjects, or
         open the one-statement window for its fetched rows to do so."""
         if not isinstance(query, str):
             return
@@ -278,64 +311,69 @@ class Tracker:
                 and rowcount == 0
                 and classified.rowcount_reliable):
             return
-        person_id = _int_param(params, 'person_id')
-        captured = all(
-            (table, person_id, _int_param(params, _captures[table].key_column))
-            in self._captured_olds
-            for table in classified.capture_tables)
-        if not captured:
+        if not self._captured(classified, params):
             self._unattributed |= classified.tables
             return
-        if person_id is None:
-            self._pending_harvest = classified.triggers
-            return
+        awaiting: dict[str, set[str]] = {}
         for name in classified.triggers:
-            self._stale.setdefault(name, set()).add(person_id)
+            trigger = _by_name[name]
+            subject = _int_param(params, trigger.subject_column)
+            if subject is None:
+                awaiting.setdefault(trigger.subject_column, set()).add(name)
+            else:
+                self._stale.setdefault(name, set()).add(subject)
+        if awaiting:
+            self._pending_harvest = _PendingHarvest(
+                tables=classified.tables, awaiting=awaiting)
 
     def saw_rows(self, rows: Iterable[Row]) -> None:
-        """A watched write that could not name who it touched from its params
-        reports through its own fetched rows instead: a `person_id` or
-        `person_ids` column attributes it, even when NULL (an explicit
-        nobody)."""
-        if self._pending_harvest is None:
+        """A watched write that could not name its subjects from its params
+        reports through its own fetched rows instead: a column named after
+        the awaited subject column (or its plural) attributes it, even when
+        NULL (an explicit nobody)."""
+        pending = self._pending_harvest
+        if pending is None:
             return
         for row in rows:
-            if 'person_id' not in row and 'person_ids' not in row:
-                continue
-            person_ids = row.get('person_ids')
-            reported = [
-                row.get('person_id'),
-                *(person_ids if isinstance(person_ids, list) else []),
-            ]
-            attributed = [one for one in reported if isinstance(one, int)]
-            for name in self._pending_harvest:
-                self._stale.setdefault(name, set()).update(attributed)
-            self._pending_harvest = None
-            return
+            for subject_column in list(pending.awaiting):
+                singular, plural = subject_column, subject_column + 's'
+                if singular not in row and plural not in row:
+                    continue
+                subjects = row.get(plural)
+                reported = [
+                    row.get(singular),
+                    *(subjects if isinstance(subjects, list) else []),
+                ]
+                attributed = [one for one in reported if isinstance(one, int)]
+                for name in pending.awaiting.pop(subject_column):
+                    self._stale.setdefault(name, set()).update(attributed)
+            if not pending.awaiting:
+                self._pending_harvest = None
+                return
 
     async def flush(self, tx: Tx) -> None:
         """Fire the triggers for whatever the transaction made stale, before
         it commits. Raises instead of committing when a watched write went
-        unattributed: the fix is making the statement carry person_id (and
-        the capture's key column, for captured tables) in its params, or
-        report who it touched in its RETURNING rows."""
+        unattributed: the fix is making the statement carry the triggers'
+        subject columns (and the capture's key column, for captured tables)
+        in its params, or report its subjects in its RETURNING rows."""
         self._expire_harvest()
         if self._unattributed:
             raise UnattributedWriteError(
                 f'trigger-watched inputs in {sorted(self._unattributed)} '
-                'were written without a person to attribute them to; the '
-                'statement must carry person_id (and the captured key '
-                'column) in its params, or return a person_id/person_ids '
-                'column')
+                'were written without a subject to attribute them to; the '
+                'statement must carry the subject column (and the captured '
+                'key column) in its params, or return the subject column, '
+                'singular or plural, among its rows')
         if not self._stale and not self._captured_olds:
             return
 
         changes: dict[int, list[CapturedChange]] = {}
-        for (table, person_id, key), old in self._captured_olds.items():
-            new = await self._read_captured(table, person_id, key)
+        for (table, subject, key), old in self._captured_olds.items():
+            new = await self._read_captured(table, subject, key)
             if new == old:
                 continue
-            changes.setdefault(person_id, []).append(CapturedChange(
+            changes.setdefault(subject, []).append(CapturedChange(
                 table=table,
                 key=key,
                 old=old,
@@ -343,7 +381,7 @@ class Tracker:
             ))
 
         for trigger in _triggers:
-            for person_id in sorted(self._stale.get(trigger.name, ())):
-                await trigger.person_changed(tx, person_id, [
-                    change for change in changes.get(person_id, [])
+            for subject in sorted(self._stale.get(trigger.name, ())):
+                await trigger.fire(tx, subject, [
+                    change for change in changes.get(subject, [])
                     if change.table in trigger.watched])
