@@ -104,6 +104,11 @@ VALUES (%(owner_id)s, %(widget_id)s, %(value)s)
 ON CONFLICT (owner_id, widget_id) DO UPDATE SET value = EXCLUDED.value
 """
 
+DELETE_WIDGET = """
+DELETE FROM widget
+WHERE owner_id = %(owner_id)s AND widget_id = %(widget_id)s
+"""
+
 
 class FakeTx:
     """Answers the tracker's capture reads from a canned (owner, widget) ->
@@ -278,7 +283,6 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
         params = dict(owner_id=1, widget_id=10, value=False)
         await self.tracker.note_before(UPSERT_WIDGET, params)
         self.tracker.note_after(UPSERT_WIDGET, params, 1)
-        self.fake.values[(1, 10)] = False
         await self.flush()
         self.assertEqual(fired, [('widget_model', 1, [(10, True, False)])])
 
@@ -290,8 +294,23 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
         await self.flush()
         self.assertEqual(fired, [('widget_model', 1, [])])
 
+    async def test_captured_delete_writes_null(self) -> None:
+        self.fake.values[(1, 10)] = True
+        params = dict(owner_id=1, widget_id=10)
+        await self.tracker.note_before(DELETE_WIDGET, params)
+        self.tracker.note_after(DELETE_WIDGET, params, 1)
+        await self.flush()
+        self.assertEqual(fired, [('widget_model', 1, [(10, True, None)])])
+
     async def test_captured_write_missing_its_key_raises(self) -> None:
         params = dict(owner_id=1, value=False)
+        await self.tracker.note_before(UPSERT_WIDGET, params)
+        self.tracker.note_after(UPSERT_WIDGET, params, 1)
+        with self.assertRaises(UnattributedWriteError):
+            await self.flush()
+
+    async def test_captured_write_missing_its_value_raises(self) -> None:
+        params = dict(owner_id=1, widget_id=10)
         await self.tracker.note_before(UPSERT_WIDGET, params)
         self.tracker.note_after(UPSERT_WIDGET, params, 1)
         with self.assertRaises(UnattributedWriteError):
@@ -307,7 +326,6 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
             await self.tracker.note_before(UPSERT_WIDGET, params)
         for params in params_list:
             self.tracker.note_after(UPSERT_WIDGET, params, None)
-        self.fake.values.update({(1, 10): False, (2, 10): True})
         await self.flush()
         self.assertEqual(fired, [
             ('widget_model', 1, [(10, True, False)]),

@@ -19,9 +19,10 @@ as it runs (creating a row, deleting by token) is attributed by its call
 site, which passes the subjects fetched from the write's own rows to
 `attribute` before running its next statement -- an empty iterable is an
 explicit nobody. Writes to a captured table (`Watch.capture`) also carry
-the capture's key column, and the tracker reads the old value just before
-executing the write, so triggers can patch derived state with the (old,
-new) pair rather than re-reading every row. A transaction that commits
+the capture's key column -- and its value column, unless they are deletes
+-- and the tracker reads the old value just before executing the write,
+so triggers can patch derived state with the (old, new) pair rather than
+re-reading every row. A transaction that commits
 with a watched write attributed neither way raises instead of committing:
 the fix is always to say who the write touched, never to remember to fire
 anything.
@@ -48,10 +49,11 @@ class Capture:
     """How to snapshot a captured table's row around a write. The table is
     keyed (subject, `key_column`), both taken from the writing statement's
     params (the subject under the watching trigger's `subject_column`, which
-    must also be the table's column name for it), and the boolean
-    `value_column` is read just before the write and again before commit;
-    the trigger receives the pair as a `CapturedChange`, so it can patch
-    derived state instead of re-reading every row."""
+    must also be the table's column name for it). The boolean `value_column`
+    is read just before the write; the written value comes from the
+    statement's own params (a DELETE writes NULL). The trigger receives the
+    pair as a `CapturedChange`, so it can patch derived state instead of
+    re-reading every row."""
     key_column: str
     value_column: str
 
@@ -149,6 +151,9 @@ class Classification:
     triggers: frozenset[str]
     tables: frozenset[str]
     capture_tables: frozenset[str]
+    # Captured tables this statement only deletes from, so the written
+    # value is NULL rather than carried in the params.
+    capture_deletes: frozenset[str]
     # True when the statement's only DML is the top-level one, so a rowcount
     # of zero proves nothing changed. A write inside a CTE can move rows the
     # top-level rowcount never counts.
@@ -232,13 +237,20 @@ def classify(query: str) -> Classification:
                     triggers.add(trigger.name)
                     tables.add(table)
 
+    capture_tables = frozenset(tables) & frozenset(_captures)
     top_level_dml = (
         len(tree) == 1
         and type(tree[0].stmt).__name__ in _DML_STATEMENTS)
     return Classification(
         triggers=frozenset(triggers),
         tables=frozenset(tables),
-        capture_tables=frozenset(tables) & frozenset(_captures),
+        capture_tables=capture_tables,
+        capture_deletes=frozenset(
+            table for table in capture_tables
+            if all(
+                op == 'delete'
+                for write_table, op, _ in visitor.writes
+                if write_table == table)),
         rowcount_reliable=top_level_dml and visitor.dml_nodes == 1,
     )
 
@@ -246,6 +258,26 @@ def classify(query: str) -> Classification:
 def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
     value = params.get(key) if isinstance(params, dict) else None
     return value if type(value) is int else None
+
+
+def _bool_param(params: psycopg.abc.Params | None, key: str) -> bool | None:
+    value = params[key] if isinstance(params, dict) else None
+    if value is None or isinstance(value, bool):
+        return value
+    raise UnattributedWriteError(
+        f'a captured write carried {key} as {value!r}; a captured value '
+        'must be a bool, or NULL')
+
+
+@dataclass
+class _Captured:
+    """One captured row's journey through the transaction: the value read
+    just before its first watched write, and the value the latest watched
+    write left behind -- meaningful only once one actually wrote
+    (`wrote`)."""
+    old: bool | None
+    new: bool | None = None
+    wrote: bool = False
 
 
 @dataclass
@@ -285,7 +317,7 @@ class Tracker:
         # hooks that report to it.
         self._cur = cur
         self._stale: dict[str, set[int]] = {}
-        self._captured_olds: dict[tuple[str, int, int], bool | None] = {}
+        self._captured: dict[tuple[str, int, int], _Captured] = {}
         self._unattributed: set[str] = set()
         self._pending_harvest: _PendingHarvest | None = None
 
@@ -328,22 +360,32 @@ class Tracker:
             key = _int_param(params, capture.key_column)
             if subject is None or key is None:
                 continue
-            captured = (table, subject, key)
-            if captured not in self._captured_olds:
-                self._captured_olds[captured] = await self._read_captured(
-                        table, subject, key)
+            if (table, subject, key) not in self._captured:
+                self._captured[(table, subject, key)] = _Captured(
+                    old=await self._read_captured(table, subject, key))
 
-    def _captured(
+    def _note_captured_writes(
         self,
         classified: Classification,
         params: psycopg.abc.Params | None,
     ) -> bool:
+        """Record what each captured write left behind: NULL for a delete,
+        the value column's param otherwise. False when the write can't be
+        captured -- its params are missing a column the capture needs."""
         for table in classified.capture_tables:
             subject_column, capture = _captures[table]
             subject = _int_param(params, subject_column)
             key = _int_param(params, capture.key_column)
-            if (table, subject, key) not in self._captured_olds:
+            deletes = table in classified.capture_deletes
+            has_value = isinstance(params, dict) \
+                and capture.value_column in params
+            if subject is None or key is None or not (deletes or has_value):
                 return False
+            captured = self._captured[(table, subject, key)]
+            captured.new = (
+                None if deletes
+                else _bool_param(params, capture.value_column))
+            captured.wrote = True
         return True
 
     def note_after(
@@ -362,7 +404,7 @@ class Tracker:
                 and rowcount == 0
                 and classified.rowcount_reliable):
             return
-        if not self._captured(classified, params):
+        if not self._note_captured_writes(classified, params):
             self._unattributed |= classified.tables
             return
         awaiting: set[str] = set()
@@ -405,22 +447,21 @@ class Tracker:
                 f'trigger-watched inputs in {sorted(self._unattributed)} '
                 'were written without a subject to attribute them to; the '
                 'statement must carry the subject column (and the captured '
-                'key column) in its params, or its call site must pass the '
-                'subjects it fetched to `attribute` before the next '
-                'statement')
-        if not self._stale and not self._captured_olds:
+                'key and value columns) in its params, or its call site '
+                'must pass the subjects it fetched to `attribute` before '
+                'the next statement')
+        if not self._stale:
             return
 
         changes: dict[int, list[CapturedChange]] = {}
-        for (table, subject, key), old in self._captured_olds.items():
-            new = await self._read_captured(table, subject, key)
-            if new == old:
+        for (table, subject, key), captured in self._captured.items():
+            if not captured.wrote or captured.new == captured.old:
                 continue
             changes.setdefault(subject, []).append(CapturedChange(
                 table=table,
                 key=key,
-                old=old,
-                new=new,
+                old=captured.old,
+                new=captured.new,
             ))
 
         for trigger in _triggers:
