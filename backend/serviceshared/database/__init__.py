@@ -28,8 +28,7 @@ from serviceshared.duoenv.shared import (
     DB_PORT,
     DB_USER,
 )
-from serviceshared.tx import CursorQuery, Row, Tx
-from serviceshared.matching.tracker import StaleTracker
+from serviceshared.database.tx import CursorQuery, Row, Tx
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +63,10 @@ class TxCursor:
         cur: psycopg.AsyncCursor[Row],
         suppress_stale_checks: bool = False,
     ) -> None:
+        # Deferred: serviceshared.matching imports this package for the Tx
+        # protocol, so importing the tracker at module level would be a cycle.
+        from serviceshared.matching.tracker import StaleTracker
+
         self._cur = cur
         self._staleness = StaleTracker(cur, suppressed=suppress_stale_checks)
 

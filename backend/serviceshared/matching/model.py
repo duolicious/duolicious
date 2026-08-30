@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from serviceshared.tx import Tx
+from serviceshared.database.tx import Tx
 
 
 @dataclass(frozen=True)

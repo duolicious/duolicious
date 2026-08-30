@@ -5,7 +5,7 @@ clubembeddings cron, which sweeps everyone by `club_vector_computed_at`."""
 from collections.abc import Mapping, Sequence
 
 from serviceshared.commonsql import Q_REFRESH_CLUB_VECTOR
-from serviceshared.tx import Tx
+from serviceshared.database.tx import Tx
 from serviceshared.matching.model import CapturedChange, Watch
 
 

@@ -14,7 +14,7 @@ from typing import Literal
 
 from pgvector import Vector
 
-from serviceshared.tx import Tx
+from serviceshared.database.tx import Tx
 from serviceshared.matching.model import Capture, CapturedChange, Watch
 
 TRAIT_COUNT = 46

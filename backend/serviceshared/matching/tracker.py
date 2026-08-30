@@ -13,7 +13,7 @@ from collections.abc import Iterable
 
 from serviceshared.matching import CAPTURES, MODELS, classify
 from serviceshared.matching.model import CapturedChange, StalenessError
-from serviceshared.tx import CursorQuery, Row, Tx
+from serviceshared.database.tx import CursorQuery, Row, Tx
 
 _CAPTURE_QUERIES = {
     table: capture.query(table) for table, capture in CAPTURES.items()
