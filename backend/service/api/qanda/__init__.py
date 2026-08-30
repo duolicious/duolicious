@@ -8,8 +8,9 @@ path (`questioncard`), the MAM fetch (`Q_SELECT_MESSAGE`), and the feed's
 subject answer (`Q_FEED_V2`) all interpolate it, so the rule can't drift
 between them; it assumes the `answer` table is aliased `answer`.
 
-`_set_answer` writes the answer, personality columns, and feed event in one
-transaction, so they commit or roll back together. The answers-channel publish
+`_set_answer` writes the answer and feed event in one transaction; the
+match-percentage trigger folds the personality columns into that same
+transaction before it commits, so they all land or roll back together. The answers-channel publish
 is left to the caller, which fires it only after the transaction commits and
 only when the visible answer changed, so a rolled-back or private edit never
 reaches the wire. Two answers written truly concurrently can serialize on the

@@ -112,6 +112,9 @@ class TxCursor:
         self._triggers.saw_rows(rows)
         return rows
 
+    async def flush_triggers(self) -> None:
+        await self._triggers.flush(self)
+
     async def close(self) -> None:
         await self._cur.close()
 
@@ -181,7 +184,7 @@ async def api_tx(
                 f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'
             )
         yield cur
-        await cur._triggers.flush(cur)
+        await cur.flush_triggers()
 
 
 async def check_connections_forever() -> None:
