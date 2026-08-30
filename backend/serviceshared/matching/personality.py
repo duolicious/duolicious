@@ -150,14 +150,15 @@ def personality_vector(
 class _MatchPercentageModel:
     name = 'match_percentage'
     subject_column = 'person_id'
-    watched: Mapping[str, Watch] = {
-        'answer': Watch(
+    watched: Sequence[Watch] = (
+        Watch(
+            table='answer',
             update_columns=frozenset({'answer'}),
             inserts=True,
             deletes=True,
             capture=Capture(key_column='question_id', value_column='answer'),
         ),
-    }
+    )
 
     async def fire(
         self,

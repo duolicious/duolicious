@@ -30,7 +30,7 @@ Statements that bypass the transaction layer entirely (psql sessions) are
 the one blind spot.
 """
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Protocol
@@ -63,8 +63,9 @@ class Capture:
 
 @dataclass(frozen=True)
 class Watch:
-    """Which writes to one table fire a trigger: updates of these columns,
-    and inserts or deletes of whole rows."""
+    """Which writes to `table` fire a trigger: updates of these columns, and
+    inserts or deletes of whole rows."""
+    table: str
     update_columns: frozenset[str] = frozenset()
     inserts: bool = False
     deletes: bool = False
@@ -82,7 +83,7 @@ class CapturedChange:
 class Trigger(Protocol):
     name: str
     subject_column: str
-    watched: Mapping[str, Watch]
+    watched: Sequence[Watch]
 
     async def fire(
         self,
@@ -100,6 +101,7 @@ class UnattributedWriteError(RuntimeError):
 
 _triggers: tuple[Trigger, ...] = ()
 _by_name: dict[str, Trigger] = {}
+_watched_tables: dict[str, frozenset[str]] = {}
 _captures: dict[str, tuple[str, Capture]] = {}
 _capture_queries: dict[str, str] = {}
 _installed = False
@@ -110,7 +112,8 @@ def install(triggers: Sequence[Trigger]) -> None:
     Installing the same triggers again is a no-op, so a restarted app
     lifespan in one process is fine; installing different ones raises,
     because `classify`'s cache is only coherent for one trigger set."""
-    global _triggers, _by_name, _captures, _capture_queries, _installed
+    global _triggers, _by_name, _watched_tables, _captures, \
+        _capture_queries, _installed
     if _installed and tuple(triggers) == _triggers:
         return
     if _installed:
@@ -120,15 +123,18 @@ def install(triggers: Sequence[Trigger]) -> None:
     for trigger in triggers:
         if by_name.setdefault(trigger.name, trigger) is not trigger:
             raise ValueError(f'two triggers are named {trigger.name}')
-        for table, watch in trigger.watched.items():
+        for watch in trigger.watched:
             if watch.capture is None:
                 continue
             entry = (trigger.subject_column, watch.capture)
-            if captures.setdefault(table, entry) != entry:
+            if captures.setdefault(watch.table, entry) != entry:
                 raise ValueError(
-                    f'triggers disagree on how {table} is captured')
+                    f'triggers disagree on how {watch.table} is captured')
     _triggers = tuple(triggers)
     _by_name = by_name
+    _watched_tables = {
+        trigger.name: frozenset(watch.table for watch in trigger.watched)
+        for trigger in triggers}
     _captures = captures
     _capture_queries = {
         table: capture.query(table, subject_column)
@@ -198,10 +204,10 @@ def classify(query: str) -> Classification:
     tables: set[str] = set()
     for table, op, columns in visitor.writes:
         for trigger in _triggers:
-            watch = trigger.watched.get(table)
-            if watch and _hit(watch, op, columns):
-                triggers.add(trigger.name)
-                tables.add(table)
+            for watch in trigger.watched:
+                if watch.table == table and _hit(watch, op, columns):
+                    triggers.add(trigger.name)
+                    tables.add(table)
 
     top_level_dml = (
         len(tree) == 1
@@ -384,4 +390,4 @@ class Tracker:
             for subject in sorted(self._stale.get(trigger.name, ())):
                 await trigger.fire(tx, subject, [
                     change for change in changes.get(subject, [])
-                    if change.table in trigger.watched])
+                    if change.table in _watched_tables[trigger.name]])
