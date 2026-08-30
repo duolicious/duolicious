@@ -154,6 +154,9 @@ class FakeTx:
     async def fetchall(self) -> list[Row]:
         return []
 
+    def attribute(self, subjects: Iterable[int]) -> None:
+        raise NotImplementedError
+
     async def close(self) -> None:
         pass
 
@@ -220,10 +223,9 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
         await self.flush()
         self.assertEqual(fired, [])
 
-    async def test_returning_rows_attribute_every_row(self) -> None:
+    async def test_attribution_fires_every_subject(self) -> None:
         self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 3)
-        self.tracker.saw_rows(
-            [{'owner_id': 10}, {'owner_id': 11}, {'owner_id': 12}])
+        self.tracker.attribute([10, 11, 12])
         await self.flush()
         self.assertEqual(fired, [
             ('member_model', 10, []),
@@ -231,60 +233,39 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
             ('member_model', 12, []),
         ])
 
-    async def test_rows_report_over_repeated_fetchones(self) -> None:
+    async def test_attribution_accumulates_over_calls(self) -> None:
         self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 2)
-        self.tracker.saw_rows([{'owner_id': 10}])
-        self.tracker.saw_rows([{'owner_id': 11}])
+        self.tracker.attribute([10])
+        self.tracker.attribute([11])
         await self.flush()
         self.assertEqual(fired, [
             ('member_model', 10, []),
             ('member_model', 11, []),
         ])
 
-    async def test_unfetched_returning_raises(self) -> None:
+    async def test_unattributed_write_raises(self) -> None:
         self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
         with self.assertRaises(UnattributedWriteError):
             await self.flush()
 
-    async def test_empty_returning_is_an_explicit_nobody(self) -> None:
-        self.tracker.note_after(
-            'WITH gone AS (DELETE FROM gadget_member RETURNING owner_id) '
-            'SELECT owner_id FROM gone', dict(), 0)
-        self.tracker.saw_rows([])
+    async def test_attributing_nobody_fires_nothing(self) -> None:
+        self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
+        self.tracker.attribute([])
         await self.flush()
         self.assertEqual(fired, [])
 
-    async def test_rows_without_the_subject_column_raise(self) -> None:
+    async def test_attribution_window_closes_at_the_next_statement(
+            self) -> None:
         self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
-        self.tracker.saw_rows([{'gadget': 'g'}])
-        self.tracker.saw_rows([])
+        await self.tracker.note_before('SELECT 1', None)
+        with self.assertRaises(RuntimeError):
+            self.tracker.attribute([10])
         with self.assertRaises(UnattributedWriteError):
             await self.flush()
 
-    async def test_null_subject_is_an_explicit_nobody(self) -> None:
-        self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
-        self.tracker.saw_rows([{'owner_id': None, 'owner_ids': None}])
-        await self.flush()
-        self.assertEqual(fired, [])
-
-    async def test_plural_column_attributes_all_its_members(self) -> None:
-        self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
-        self.tracker.saw_rows([{'owner_ids': [7, None, 8]}])
-        await self.flush()
-        self.assertEqual(fired, [
-            ('member_model', 7, []),
-            ('member_model', 8, []),
-        ])
-
-    def test_wrongly_typed_subject_raises(self) -> None:
-        self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
-        with self.assertRaises(UnattributedWriteError):
-            self.tracker.saw_rows([{'owner_id': 'not-an-int'}])
-
-    def test_non_list_plural_raises(self) -> None:
-        self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
-        with self.assertRaises(UnattributedWriteError):
-            self.tracker.saw_rows([{'owner_ids': 7}])
+    def test_attribution_without_a_watched_write_raises(self) -> None:
+        with self.assertRaises(RuntimeError):
+            self.tracker.attribute([10])
 
     async def test_bool_param_is_not_a_subject(self) -> None:
         self.tracker.note_after(

@@ -102,14 +102,13 @@ class TxCursor:
             self._triggers.note_after(query, params, None)
 
     async def fetchone(self) -> Row | None:
-        row = await self._cur.fetchone()
-        self._triggers.saw_rows([] if row is None else [row])
-        return row
+        return await self._cur.fetchone()
 
     async def fetchall(self) -> list[Row]:
-        rows = await self._cur.fetchall()
-        self._triggers.saw_rows(rows)
-        return rows
+        return await self._cur.fetchall()
+
+    def attribute(self, subjects: Iterable[int]) -> None:
+        self._triggers.attribute(subjects)
 
     async def flush_triggers(self) -> None:
         await self._triggers.flush(self)

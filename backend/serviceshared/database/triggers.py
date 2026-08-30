@@ -11,21 +11,20 @@ executes to a per-transaction `Tracker`, which parses each query against
 the installed declarations (`classify`, cached per query string) and fires
 each affected trigger for each affected subject before the transaction
 commits, so a write and its consequences land together, atomically. No
-call site anywhere knows the triggers exist.
+call site fires a trigger; at most it says who a write touched.
 
-A watched write names its subjects on its own. Usually its params carry
-the trigger's subject column; a statement that instead learns who it
-touched as it runs (creating a row, deleting by token) reports through its
-own RETURNING rows -- a fetched column named after the subject column, or
-its plural with an appended `s`, attributes it, even when NULL (an
-explicit nobody), and a fetch that finds the result empty is likewise an
+A watched write names its subjects. Usually its params carry the
+trigger's subject column; a statement that instead learns who it touched
+as it runs (creating a row, deleting by token) is attributed by its call
+site, which passes the subjects fetched from the write's own rows to
+`attribute` before running its next statement -- an empty iterable is an
 explicit nobody. Writes to a captured table (`Watch.capture`) also carry
 the capture's key column, and the tracker reads the old value just before
 executing the write, so triggers can patch derived state with the (old,
 new) pair rather than re-reading every row. A transaction that commits
-with a watched write attributed none of these ways raises instead of
-committing: the fix is always to make the statement say who it touched,
-never to remember a call.
+with a watched write attributed neither way raises instead of committing:
+the fix is always to say who the write touched, never to remember to fire
+anything.
 
 Blind spots: statements that bypass the transaction layer entirely (psql
 sessions); and foreign-key cascades, whose writes to a watched table
@@ -33,7 +32,7 @@ happen under a statement that never names it.
 """
 import re
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Protocol
 
@@ -249,36 +248,17 @@ def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
     return value if type(value) is int else None
 
 
-def _subject_id(subject_column: str, value: object) -> int:
-    if type(value) is int:
-        return value
-    raise UnattributedWriteError(
-        f'a watched write reported {subject_column} as {value!r}; a '
-        'subject must be an int, or NULL for an explicit nobody')
-
-
-@dataclass
-class _Awaited:
-    """What one subject column of a harvesting write is owed: the triggers
-    waiting on it, and the subject ids its fetched rows reported -- None
-    while no row has carried the column at all (as distinct from rows
-    carrying it as NULL, an explicit nobody)."""
-    trigger_names: set[str]
-    reported_subjects: set[int] | None = None
-
-
 @dataclass
 class _PendingHarvest:
-    """A watched write whose subjects must come from its own fetched rows:
-    the statement's tables (for the error when nothing reports), and each
-    subject column the rows must produce. The window stays open until the
-    next statement, so every row of a multi-row RETURNING reports, however
-    it's fetched; `_expire_harvest` settles the whole window at once.
-    `saw_any_row` distinguishes a fetch that found the result empty (an
-    explicit nobody) from rows that never carried the column."""
+    """A watched write whose params did not carry every watching trigger's
+    subject column: the statement's tables (for the error when nothing
+    attributes it), the triggers owed subjects, and the subjects
+    `attribute` supplied -- None until it is called. The window stays open
+    until the next statement, so the call site can fetch the write's rows
+    first; `_expire_harvest` settles it."""
     tables: frozenset[str]
-    awaiting: dict[str, _Awaited] = field(default_factory=dict)
-    saw_any_row: bool = False
+    trigger_names: set[str]
+    attributed: set[int] | None = None
 
 
 class _RawCursor(Protocol):
@@ -297,8 +277,8 @@ class _RawCursor(Protocol):
 
 class Tracker:
     """One transaction's view of the installed triggers: TxCursor reports
-    what it is about to run, what it ran, and what it fetched; `flush` fires
-    whoever that made stale, before the transaction commits."""
+    what it is about to run and what it ran; `flush` fires whoever that
+    made stale, before the transaction commits."""
 
     def __init__(self, cur: _RawCursor) -> None:
         # The raw cursor, so the tracker's own reads don't re-enter the
@@ -310,19 +290,17 @@ class Tracker:
         self._pending_harvest: _PendingHarvest | None = None
 
     def _expire_harvest(self) -> None:
-        """Close the harvest window and settle it: each awaited subject
-        column either attributes everything its rows reported, or, if no row
-        carried it, condemns the write as unattributed."""
+        """Close the harvest window and settle it: an attributed write marks
+        its subjects stale for every waiting trigger; one nobody attributed
+        is condemned as unattributed."""
         pending, self._pending_harvest = self._pending_harvest, None
         if pending is None:
             return
-        for awaited in pending.awaiting.values():
-            if awaited.reported_subjects is None:
-                self._unattributed |= pending.tables
-                continue
-            for name in awaited.trigger_names:
-                self._stale.setdefault(name, set()).update(
-                    awaited.reported_subjects)
+        if pending.attributed is None:
+            self._unattributed |= pending.tables
+            return
+        for name in pending.trigger_names:
+            self._stale.setdefault(name, set()).update(pending.attributed)
 
     async def _read_captured(
             self, table: str, subject: int, key: int) -> bool | None:
@@ -387,70 +365,49 @@ class Tracker:
         if not self._captured(classified, params):
             self._unattributed |= classified.tables
             return
-        awaiting: dict[str, _Awaited] = {}
+        awaiting: set[str] = set()
         for name in classified.triggers:
             trigger = _by_name[name]
             subject = _int_param(params, trigger.subject_column)
             if subject is None:
-                awaiting.setdefault(
-                    trigger.subject_column,
-                    _Awaited(trigger_names=set()),
-                ).trigger_names.add(name)
+                awaiting.add(name)
             else:
                 self._stale.setdefault(name, set()).add(subject)
         if awaiting:
+            self._expire_harvest()
             self._pending_harvest = _PendingHarvest(
-                tables=classified.tables, awaiting=awaiting)
+                tables=classified.tables, trigger_names=awaiting)
 
-    def saw_rows(self, rows: Iterable[Row]) -> None:
-        """A watched write that could not name its subjects from its params
-        reports through its own fetched rows instead: a column named after
-        the awaited subject column (or its plural) attributes it, even when
-        NULL (an explicit nobody), and a fetch that finds the result empty
-        attributes everything as an explicit nobody. A value of any other
-        type raises rather than passing as a nobody."""
+    def attribute(self, subjects: Iterable[int]) -> None:
+        """The call site of a watched write whose params could not name its
+        subjects names them here, from the write's own fetched rows, before
+        its next statement; an empty iterable is an explicit nobody."""
         pending = self._pending_harvest
         if pending is None:
-            return
-        rows = list(rows)
-        if not rows and not pending.saw_any_row:
-            for awaited in pending.awaiting.values():
-                awaited.reported_subjects = set()
-            return
-        pending.saw_any_row = True
-        for row in rows:
-            for subject_column, awaited in pending.awaiting.items():
-                singular, plural = subject_column, subject_column + 's'
-                if singular not in row and plural not in row:
-                    continue
-                subjects = row.get(plural)
-                if subjects is not None and not isinstance(subjects, list):
-                    raise UnattributedWriteError(
-                        f'a watched write reported {plural} as '
-                        f'{subjects!r}; it must be an array of subject '
-                        'ids, or NULL for an explicit nobody')
-                values = [row.get(singular), *(subjects or [])]
-                if awaited.reported_subjects is None:
-                    awaited.reported_subjects = set()
-                awaited.reported_subjects.update(
-                    _subject_id(subject_column, one)
-                    for one in values
-                    if one is not None)
+            raise RuntimeError(
+                'nothing awaits attribution: the preceding statement either '
+                'was not a watched write or already carried its subjects in '
+                'its params')
+        if pending.attributed is None:
+            pending.attributed = set()
+        pending.attributed.update(subjects)
 
     async def flush(self, tx: Tx) -> None:
         """Fire the triggers for whatever the transaction made stale, before
         it commits. Raises instead of committing when a watched write went
         unattributed: the fix is making the statement carry the triggers'
         subject columns (and the capture's key column, for captured tables)
-        in its params, or report its subjects in its RETURNING rows."""
+        in its params, or having its call site pass the subjects it fetched
+        to `attribute`."""
         self._expire_harvest()
         if self._unattributed:
             raise UnattributedWriteError(
                 f'trigger-watched inputs in {sorted(self._unattributed)} '
                 'were written without a subject to attribute them to; the '
                 'statement must carry the subject column (and the captured '
-                'key column) in its params, or return the subject column, '
-                'singular or plural, among its rows')
+                'key column) in its params, or its call site must pass the '
+                'subjects it fetched to `attribute` before the next '
+                'statement')
         if not self._stale and not self._captured_olds:
             return
 

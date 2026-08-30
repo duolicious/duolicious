@@ -1,4 +1,4 @@
-from serviceshared.database import Row, Tx, api_tx
+from serviceshared.database import Row, Tx, api_tx, row_int_list_or_none
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
 from typing import Tuple
@@ -1373,7 +1373,12 @@ async def post_revenuecat(req: t.PostRevenuecat, auth_header: str) -> object:
         updated_rows = []
         for params in has_gold_params_seq:
             row_tx = await tx.execute(Q_UPDATE_GOLD_FROM_REVENUECAT, params)
-            updated_rows.extend(await row_tx.fetchall())
+            rows = await row_tx.fetchall()
+            tx.attribute(
+                person_id
+                for row in rows
+                for person_id in row_int_list_or_none(row, 'person_ids') or [])
+            updated_rows.extend(rows)
 
         all_uuids = set(str(x['person_uuid']) for x in has_gold_params_seq)
         updated_uuids = set(str(x['person_uuid']) for x in updated_rows)
