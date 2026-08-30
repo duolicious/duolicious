@@ -246,6 +246,21 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(UnattributedWriteError):
             await self.flush()
 
+    async def test_empty_returning_is_an_explicit_nobody(self) -> None:
+        self.tracker.note_after(
+            'WITH gone AS (DELETE FROM gadget_member RETURNING owner_id) '
+            'SELECT owner_id FROM gone', dict(), 0)
+        self.tracker.saw_rows([])
+        await self.flush()
+        self.assertEqual(fired, [])
+
+    async def test_rows_without_the_subject_column_raise(self) -> None:
+        self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
+        self.tracker.saw_rows([{'gadget': 'g'}])
+        self.tracker.saw_rows([])
+        with self.assertRaises(UnattributedWriteError):
+            await self.flush()
+
     async def test_null_subject_is_an_explicit_nobody(self) -> None:
         self.tracker.note_after(DELETE_MEMBERS, dict(gadget='g'), 1)
         self.tracker.saw_rows([{'owner_id': None, 'owner_ids': None}])

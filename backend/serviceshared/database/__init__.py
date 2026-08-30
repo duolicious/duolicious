@@ -103,8 +103,7 @@ class TxCursor:
 
     async def fetchone(self) -> Row | None:
         row = await self._cur.fetchone()
-        if row is not None:
-            self._triggers.saw_rows([row])
+        self._triggers.saw_rows([] if row is None else [row])
         return row
 
     async def fetchall(self) -> list[Row]:

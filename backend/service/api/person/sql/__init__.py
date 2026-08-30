@@ -2858,8 +2858,10 @@ WITH updated_person_with_gold AS (
         person_club.person_id
 )
 SELECT
-    (SELECT uuid FROM updated_person) AS person_uuid,
+    uuid AS person_uuid,
     (SELECT array_agg(DISTINCT person_id) FROM deleted_person_club) AS person_ids
+FROM
+    updated_person
 """
 
 

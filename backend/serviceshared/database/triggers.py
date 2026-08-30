@@ -18,7 +18,8 @@ the trigger's subject column; a statement that instead learns who it
 touched as it runs (creating a row, deleting by token) reports through its
 own RETURNING rows -- a fetched column named after the subject column, or
 its plural with an appended `s`, attributes it, even when NULL (an
-explicit nobody). Writes to a captured table (`Watch.capture`) also carry
+explicit nobody), and a fetch that finds the result empty is likewise an
+explicit nobody. Writes to a captured table (`Watch.capture`) also carry
 the capture's key column, and the tracker reads the old value just before
 executing the write, so triggers can patch derived state with the (old,
 new) pair rather than re-reading every row. A transaction that commits
@@ -272,9 +273,12 @@ class _PendingHarvest:
     the statement's tables (for the error when nothing reports), and each
     subject column the rows must produce. The window stays open until the
     next statement, so every row of a multi-row RETURNING reports, however
-    it's fetched; `_expire_harvest` settles the whole window at once."""
+    it's fetched; `_expire_harvest` settles the whole window at once.
+    `saw_any_row` distinguishes a fetch that found the result empty (an
+    explicit nobody) from rows that never carried the column."""
     tables: frozenset[str]
     awaiting: dict[str, _Awaited] = field(default_factory=dict)
+    saw_any_row: bool = False
 
 
 class _RawCursor(Protocol):
@@ -402,11 +406,18 @@ class Tracker:
         """A watched write that could not name its subjects from its params
         reports through its own fetched rows instead: a column named after
         the awaited subject column (or its plural) attributes it, even when
-        NULL (an explicit nobody). A value of any other type raises rather
-        than passing as a nobody."""
+        NULL (an explicit nobody), and a fetch that finds the result empty
+        attributes everything as an explicit nobody. A value of any other
+        type raises rather than passing as a nobody."""
         pending = self._pending_harvest
         if pending is None:
             return
+        rows = list(rows)
+        if not rows and not pending.saw_any_row:
+            for awaited in pending.awaiting.values():
+                awaited.reported_subjects = set()
+            return
+        pending.saw_any_row = True
         for row in rows:
             for subject_column, awaited in pending.awaiting.items():
                 singular, plural = subject_column, subject_column + 's'
