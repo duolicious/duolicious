@@ -20,7 +20,7 @@ from serviceshared.database.triggers import (
     classify,
     install,
 )
-from serviceshared.database.tx import CursorQuery, Row, Tx
+from serviceshared.database.tx import Row, Tx
 
 Fired = tuple[str, int, list[tuple[int, bool | None, bool | None]]]
 
@@ -126,7 +126,7 @@ class FakeTx:
 
     async def execute(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> Tx:
         assert isinstance(params, dict)
@@ -136,14 +136,14 @@ class FakeTx:
 
     async def require_one(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> Row:
         raise NotImplementedError
 
     async def executemany(
         self,
-        query: CursorQuery,
+        query: str,
         params_seq: Iterable[psycopg.abc.Params],
     ) -> None:
         raise NotImplementedError

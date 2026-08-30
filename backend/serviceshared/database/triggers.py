@@ -27,9 +27,8 @@ committing: the fix is always to make the statement say who it touched,
 never to remember a call.
 
 Blind spots: statements that bypass the transaction layer entirely (psql
-sessions); foreign-key cascades, whose writes to a watched table happen
-under a statement that never names it; and queries built as psycopg.sql
-objects rather than strings, which skip tracking.
+sessions); and foreign-key cascades, whose writes to a watched table
+happen under a statement that never names it.
 """
 import re
 from collections.abc import Iterable, Sequence
@@ -41,7 +40,7 @@ import psycopg
 from pglast import ast, parse_sql
 from pglast.visitors import Ancestor, Visitor
 
-from serviceshared.database.tx import CursorQuery, Row, Tx
+from serviceshared.database.tx import Row, Tx
 
 
 @dataclass(frozen=True)
@@ -283,7 +282,7 @@ class _RawCursor(Protocol):
 
     async def execute(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> object:
         ...
@@ -334,15 +333,13 @@ class Tracker:
 
     async def note_before(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None,
     ) -> None:
         """A statement is about to run. If it writes a captured table, read
         the old value now so triggers can patch derived state with the (old,
         new) pair instead of re-reading every row."""
         self._expire_harvest()
-        if not isinstance(query, str):
-            return
         for table in classify(query).capture_tables:
             subject_column, capture = _captures[table]
             subject = _int_param(params, subject_column)
@@ -369,15 +366,13 @@ class Tracker:
 
     def note_after(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None,
         rowcount: int | None,
     ) -> None:
         """A statement ran (`rowcount` is None when it isn't knowable, as
         within executemany). Attribute any watched write to its subjects, or
         open the one-statement window for its fetched rows to do so."""
-        if not isinstance(query, str):
-            return
         classified = classify(query)
         if not classified.triggers:
             return

@@ -2,7 +2,6 @@ import psycopg
 from collections.abc import Iterable
 from typing import Protocol
 
-CursorQuery = str | bytes | psycopg.sql.SQL | psycopg.sql.Composed
 Row = psycopg.rows.DictRow
 
 
@@ -17,21 +16,21 @@ class Tx(Protocol):
 
     async def execute(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> "Tx":
         ...
 
     async def require_one(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> Row:
         ...
 
     async def executemany(
         self,
-        query: CursorQuery,
+        query: str,
         params_seq: Iterable[psycopg.abc.Params],
     ) -> None:
         ...

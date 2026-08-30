@@ -29,7 +29,7 @@ from serviceshared.duoenv.shared import (
     DB_USER,
 )
 from serviceshared.database.triggers import Tracker
-from serviceshared.database.tx import CursorQuery, Row, Tx
+from serviceshared.database.tx import Row, Tx
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class TxCursor:
 
     async def execute(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> Tx:
         await self._triggers.note_before(query, params)
@@ -83,7 +83,7 @@ class TxCursor:
 
     async def require_one(
         self,
-        query: CursorQuery,
+        query: str,
         params: psycopg.abc.Params | None = None,
     ) -> Row:
         await self.execute(query, params)
@@ -91,7 +91,7 @@ class TxCursor:
 
     async def executemany(
         self,
-        query: CursorQuery,
+        query: str,
         params_seq: Iterable[psycopg.abc.Params],
     ) -> None:
         params_list = list(params_seq)
