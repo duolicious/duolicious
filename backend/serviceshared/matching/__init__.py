@@ -29,7 +29,7 @@ the affected people by whatever each model uses as a backfill.
 """
 import re
 from dataclasses import dataclass
-from functools import cache
+from functools import lru_cache
 
 from pglast import parse_sql
 from pglast.visitors import Visitor
@@ -101,11 +101,12 @@ _PLACEHOLDER = re.compile(r'%(\(\w+\))?s')
 _DML_STATEMENTS = ('InsertStmt', 'UpdateStmt', 'DeleteStmt')
 
 
-@cache
+@lru_cache(maxsize=4096)
 def classify(query: str) -> Classification:
     """Which models this statement can make stale. Parsed once per query
-    string ever (the queries are module-level constants), a dict hit after
-    that."""
+    string (the queries are mostly module-level constants, so in practice a
+    dict hit); the cache is bounded so dynamically built queries can't leak
+    memory."""
     tree = parse_sql(_PLACEHOLDER.sub('NULL', query))
     visitor = _Writes()
     visitor(tree)
