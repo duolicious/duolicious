@@ -7,9 +7,10 @@ adding a module here and appending it to `MODELS` -- the entrypoints
 install that tuple at startup, and no call site anywhere changes.
 """
 from serviceshared.database.triggers import Trigger
-from serviceshared.matching import clubs, personality
+from serviceshared.matching import clubs, kv, personality
 
 MODELS: tuple[Trigger, ...] = (
     personality.MODEL,
     clubs.MODEL,
+    kv.MODEL,
 )

@@ -87,7 +87,8 @@ WITH q1 AS (
         id IN (SELECT person_id FROM q7)
 )
 SELECT
-    SUM(n) AS count
+    SUM(n) AS count,
+    (SELECT array_agg(DISTINCT person_id) FROM q7) AS photo_person_ids
 FROM (
     SELECT 1 AS n FROM q1 UNION ALL
     SELECT 1 AS n FROM q2 UNION ALL

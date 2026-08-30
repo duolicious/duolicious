@@ -592,6 +592,7 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
         row = await tx.require_one(Q_FINISH_ONBOARDING, params=api_params)
+        tx.attribute([int(row['person_id'])])
 
         # If this user signed up via Google/Apple, drain the pending
         # provider identity from `duo_session` into `social_identity` now
@@ -1241,6 +1242,7 @@ async def get_admin_delete_photo(token: str) -> object:
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_ADMIN_DELETE_PHOTO, params)
         rows = await row_tx.fetchall()
+        tx.attribute(int(row['person_id']) for row in rows)
 
         if rows:
             params = dict(person_id=rows[0]['person_id'])

@@ -48,6 +48,8 @@ WHERE
     person_id = %(person_id)s
 AND
     %(do_modify)s
+AND
+    club_name IS DISTINCT FROM %(club_name)s::TEXT
 """
 
 

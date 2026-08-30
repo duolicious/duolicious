@@ -8,3 +8,11 @@
 -- fresh database is created from (this file only reaches existing databases).
 -- init-api.sql is the source of truth for the current schema; migrations.sql
 -- carries the same change to already-created databases.
+
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0);
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS kv_who_pre INT[],
+    ADD COLUMN IF NOT EXISTS kv_look_pre INT[];

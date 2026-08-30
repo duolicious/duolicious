@@ -15,6 +15,8 @@ async def delete_garbage_records_once() -> None:
     async with api_tx() as tx:
         cur = await tx.execute(Q_DELETE_GARBAGE_RECORDS)
         rows = await cur.fetchall()
+        tx.attribute(
+            int(person_id) for person_id in rows[0]['photo_person_ids'] or [])
 
     try:
         count = rows[0]['count']

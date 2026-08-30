@@ -282,9 +282,16 @@ CREATE TABLE IF NOT EXISTS person (
     personality VECTOR(47) NOT NULL DEFAULT array_full(47, 0),
     club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
     club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
+
+    kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0),
+    kv_who_pre INT[],
+    kv_look_pre INT[],
+
     presence_score INT[] NOT NULL DEFAULT array_full(46, 0),
     absence_score INT[] NOT NULL DEFAULT array_full(46, 0),
+
     count_answers SMALLINT NOT NULL DEFAULT 0,
+
     count_intros_received INT NOT NULL DEFAULT 0,
     count_intros_received_with_reply INT NOT NULL DEFAULT 0,
     count_intros_sent INT NOT NULL DEFAULT 0,

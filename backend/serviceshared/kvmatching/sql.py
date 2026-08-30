@@ -1,4 +1,5 @@
-"""Reading the rows a person's model features are built from.
+"""The rows a person's model features are built from, and the writes that
+store their computed vector and cached preactivations.
 
 Each query serves one person or the whole population, so the training
 extraction reads exactly the columns the backend does instead of a second
@@ -26,6 +27,10 @@ SELECT
     s.wants_kids_ids, s.exercise_ids, s.religion_ids, s.star_sign_ids,
     s.min_age, s.max_age, s.min_height_cm, s.max_height_cm, s.distance,
     s.last_online_id,
+    p.count_intros_received,
+    p.count_intros_received_with_reply AS count_intros_replied,
+    p.count_intros_sent,
+    p.count_messages_received,
     p.verification_level_id,
     p.about,
     (SELECT count(*) FROM photo WHERE photo.person_id = p.id) AS photo_count,
@@ -62,14 +67,38 @@ WHERE answer IS NOT NULL
 {scope}
 """
 
+Q_QPRE = """
+SELECT
+    kv_who_pre AS who_pre,
+    kv_look_pre AS look_pre
+FROM person
+WHERE id = %(person_id)s
+AND kv_who_pre IS NOT NULL
+"""
+
+Q_WRITE_QPRE = """
+UPDATE person
+SET
+    kv_who_pre = %(who_pre)s,
+    kv_look_pre = %(look_pre)s
+WHERE id = %(person_id)s
+"""
+
+Q_WRITE_VECTOR = """
+UPDATE person
+SET kv_vector = %(vector)s
+WHERE id = %(person_id)s
+"""
+
 
 def beh_counts_query(everyone: bool) -> str:
-    """The single definition of the four behaviour counters, used by the
-    training extraction (with a cutoff, for the whole population), the
-    backfill (no cutoff, a batch of people) and `verify_serving`. A messaged
-    row is a reply when a strictly earlier row exists the other way; a tie
-    (both directions in one batch, sharing a transaction's now()) counts as
-    crossed intros, which is also how the chat path counts it live.
+    """The behaviour counters as of a cutoff, for the training extraction
+    and `verify_serving`. Serving reads the live `person` columns instead
+    (`count_intros_replied` there is `count_intros_received_with_reply`),
+    which the chat path maintains and migrations.sql backfilled with this
+    same rule: a messaged row is a reply when a strictly earlier row exists
+    the other way, and a tie (both directions in one batch, sharing a
+    transaction's now()) counts as crossed intros.
 
     `messages_received` counts the recipient's own archive copies, so
     messages from shadow-banned senders (never delivered) do not count.

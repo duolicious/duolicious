@@ -88,3 +88,12 @@ class Encoder:
     def forward(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         return self.head(self.pre(x))
 
+
+def stored_vector(who: np.ndarray, wbias: np.ndarray, look: np.ndarray,
+                  lbias: np.ndarray) -> np.ndarray:
+    """`value || key` as person.kv_vector holds it: [who, 1, wbias] then
+    [look, lbias, 1]. Dotting a searcher's halves the other way round
+    (`key || value`) against this scores both directions of a pair at once."""
+    ones = np.ones(who.shape[:-1] + (1,), np.float32)
+    return np.concatenate(
+        [who, ones, wbias[..., None], look, lbias[..., None], ones], -1)
