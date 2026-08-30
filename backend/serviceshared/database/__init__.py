@@ -94,8 +94,9 @@ class TxCursor:
         query: CursorQuery,
         params_seq: Iterable[psycopg.abc.Params],
     ) -> None:
-        await self._triggers.note_before(query, None)
         params_list = list(params_seq)
+        for params in params_list:
+            await self._triggers.note_before(query, params)
         await self._cur.executemany(query, params_list)
         for params in params_list:
             self._triggers.note_after(query, params, None)
