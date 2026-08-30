@@ -77,13 +77,17 @@ def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
 
 
 class TxCursor:
-    def __init__(self, cur: psycopg.AsyncCursor[Row]) -> None:
+    def __init__(
+        self,
+        cur: psycopg.AsyncCursor[Row],
+        suppress_stale_checks: bool = False,
+    ) -> None:
         self._cur = cur
         self._stale: dict[str, set[int]] = {}
         self._answer_olds: dict[tuple[str, int, int], bool | None] = {}
         self._unattributed: set[str] = set()
         self._pending_harvest: frozenset[str] | None = None
-        self._suppress_stale = False
+        self._suppress_stale = suppress_stale_checks
 
     @property
     def connection(self) -> psycopg.AsyncConnection[Row]:
@@ -92,12 +96,6 @@ class TxCursor:
     @property
     def rowcount(self) -> int:
         return self._cur.rowcount
-
-    def suppress_stale_checks(self) -> None:
-        """For schema migrations and bulk maintenance: nothing this
-        transaction writes updates a matching vector. Repair the affected
-        people with the models' backfills instead."""
-        self._suppress_stale = True
 
     def _expire_harvest(self) -> None:
         if self._pending_harvest is not None:
@@ -315,14 +313,19 @@ async def close_db_pool() -> None:
 @asynccontextmanager
 async def api_tx(
     isolation_level: str = _default_transaction_isolation,
+    suppress_stale_checks: bool = False,
 ) -> AsyncIterator[Tx]:
+    """`suppress_stale_checks` is for schema migrations and bulk
+    maintenance: nothing the transaction writes updates a matching vector,
+    and the affected people are repaired with the models' backfills
+    instead."""
     normalized_isolation_level = isolation_level.upper()
 
     if normalized_isolation_level not in _valid_isolation_levels:
         raise ValueError(isolation_level)
 
     async with _pool().connection() as conn, conn.cursor() as raw_cur:
-        cur = TxCursor(raw_cur)
+        cur = TxCursor(raw_cur, suppress_stale_checks)
         if normalized_isolation_level != _default_transaction_isolation:
             await cur.execute(
                 f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'

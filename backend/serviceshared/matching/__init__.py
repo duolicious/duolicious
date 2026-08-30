@@ -24,8 +24,8 @@ say who it touched, never to remember a call.
 
 Statements that bypass the transaction layer entirely (psql sessions) are
 the one blind spot. Bulk maintenance that rewrites whole tables (schema
-migrations) calls `tx.suppress_stale_checks()` and repairs the affected
-people by whatever each model uses as a backfill.
+migrations) opts out with `api_tx(suppress_stale_checks=True)` and repairs
+the affected people by whatever each model uses as a backfill.
 """
 import re
 from dataclasses import dataclass

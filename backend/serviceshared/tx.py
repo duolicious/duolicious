@@ -44,6 +44,3 @@ class Tx(Protocol):
 
     async def close(self) -> None:
         ...
-
-    def suppress_stale_checks(self) -> None:
-        ...
