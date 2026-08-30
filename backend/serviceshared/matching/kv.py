@@ -79,6 +79,7 @@ class _LongerConversationsModel:
         person_id: int,
         changes: Sequence[CapturedChange],
     ) -> None:
+        return
         await refresh.refresh(tx, person_id, changes)
 
 
