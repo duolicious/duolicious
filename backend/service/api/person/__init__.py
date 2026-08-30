@@ -1376,7 +1376,9 @@ async def post_revenuecat(req: t.PostRevenuecat, auth_header: str) -> object:
             updated_rows.extend(await row_tx.fetchall())
 
         all_uuids = set(str(x['person_uuid']) for x in has_gold_params_seq)
-        updated_uuids = set(str(x['person_uuid']) for x in updated_rows)
+        updated_uuids = set(
+            str(x['person_uuid']) for x in updated_rows
+            if x['person_uuid'] is not None)
         ignored_uuids = all_uuids - updated_uuids
 
         return dict(
