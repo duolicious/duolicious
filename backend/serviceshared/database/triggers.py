@@ -226,12 +226,24 @@ def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
 
 
 @dataclass
+class _Awaited:
+    """What one subject column of a harvesting write is owed: the triggers
+    waiting on it, and the subject ids its fetched rows reported -- None
+    while no row has carried the column at all (as distinct from rows
+    carrying it as NULL, an explicit nobody)."""
+    trigger_names: set[str]
+    reported_subjects: set[int] | None = None
+
+
+@dataclass
 class _PendingHarvest:
     """A watched write whose subjects must come from its own fetched rows:
-    the statement's tables (for the error when nothing reports), and which
-    triggers await which subject column."""
+    the statement's tables (for the error when nothing reports), and each
+    subject column the rows must produce. The window stays open until the
+    next statement, so every row of a multi-row RETURNING reports, however
+    it's fetched; `_expire_harvest` settles the whole window at once."""
     tables: frozenset[str]
-    awaiting: dict[str, set[str]] = field(default_factory=dict)
+    awaiting: dict[str, _Awaited] = field(default_factory=dict)
 
 
 class Tracker:
@@ -249,9 +261,19 @@ class Tracker:
         self._pending_harvest: _PendingHarvest | None = None
 
     def _expire_harvest(self) -> None:
-        if self._pending_harvest is not None:
-            self._unattributed |= self._pending_harvest.tables
-            self._pending_harvest = None
+        """Close the harvest window and settle it: each awaited subject
+        column either attributes everything its rows reported, or, if no row
+        carried it, condemns the write as unattributed."""
+        pending, self._pending_harvest = self._pending_harvest, None
+        if pending is None:
+            return
+        for awaited in pending.awaiting.values():
+            if awaited.reported_subjects is None:
+                self._unattributed |= pending.tables
+                continue
+            for name in awaited.trigger_names:
+                self._stale.setdefault(name, set()).update(
+                    awaited.reported_subjects)
 
     async def _read_captured(
             self, table: str, subject: int, key: int) -> bool | None:
@@ -320,12 +342,15 @@ class Tracker:
         if not self._captured(classified, params):
             self._unattributed |= classified.tables
             return
-        awaiting: dict[str, set[str]] = {}
+        awaiting: dict[str, _Awaited] = {}
         for name in classified.triggers:
             trigger = _by_name[name]
             subject = _int_param(params, trigger.subject_column)
             if subject is None:
-                awaiting.setdefault(trigger.subject_column, set()).add(name)
+                awaiting.setdefault(
+                    trigger.subject_column,
+                    _Awaited(trigger_names=set()),
+                ).trigger_names.add(name)
             else:
                 self._stale.setdefault(name, set()).add(subject)
         if awaiting:
@@ -341,21 +366,19 @@ class Tracker:
         if pending is None:
             return
         for row in rows:
-            for subject_column in list(pending.awaiting):
+            for subject_column, awaited in pending.awaiting.items():
                 singular, plural = subject_column, subject_column + 's'
                 if singular not in row and plural not in row:
                     continue
                 subjects = row.get(plural)
-                reported = [
+                values = [
                     row.get(singular),
                     *(subjects if isinstance(subjects, list) else []),
                 ]
-                attributed = [one for one in reported if isinstance(one, int)]
-                for name in pending.awaiting.pop(subject_column):
-                    self._stale.setdefault(name, set()).update(attributed)
-            if not pending.awaiting:
-                self._pending_harvest = None
-                return
+                if awaited.reported_subjects is None:
+                    awaited.reported_subjects = set()
+                awaited.reported_subjects.update(
+                    one for one in values if isinstance(one, int))
 
     async def flush(self, tx: Tx) -> None:
         """Fire the triggers for whatever the transaction made stale, before
