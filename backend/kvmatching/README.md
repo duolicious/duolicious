@@ -71,10 +71,13 @@ sample of people from the live tables and from the extracted parquet and
 asserts the two agree column for column.
 
 `serviceshared/kvmatching/refresh.py` keeps a person's vectors in step with
-their rows: every site that changes their answers, profile or search
-preferences calls into it in the same transaction, because their own key
-decides the order of their next search. The answer blocks' contribution to
-each encoder's first layer is cached on the person row (`kv_who_pre`,
-`kv_look_pre`, as whole numbers of the integer first layer's unit) and
-patched one column at a time, so an update costs the same however many
-questions the person has answered.
+their rows. The model is installed as an application-level trigger
+(`serviceshared/matching/kv.py`): its `watched` declaration is the
+write-side mirror of `person_rows_query`'s input list, and the transaction
+layer refreshes whoever a transaction's writes made stale before it
+commits, so no call site anywhere mentions the model. The answer blocks'
+contribution to each encoder's first layer is cached on the person row
+(`kv_who_pre`, `kv_look_pre`, as whole numbers of the integer first
+layer's unit) and patched one column at a time from the captured (old,
+new) answer changes, so an update costs the same however many questions
+the person has answered.

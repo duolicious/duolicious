@@ -23,7 +23,6 @@ from service.api.person.sql import *
 from service.api.person.urlslug import assign_url_slug
 from serviceshared.commonsql import *
 from serviceshared.database import api_tx
-from serviceshared.kvmatching.refresh import refresh_vectors
 
 logger = logging.getLogger(__name__)
 
@@ -213,16 +212,6 @@ SET
 WHERE id = %(person_id)s
 """
 
-# The profile fields the matching model reads (person_rows_query in
-# serviceshared/kvmatching/sql.py); changing anything else leaves the vector
-# as it is.
-KV_MODEL_PROFILE_FIELDS = frozenset((
-    'gender', 'orientation', 'ethnicity', 'location', 'height',
-    'looking_for', 'smoking', 'drinking', 'drugs', 'long_distance',
-    'relationship_status', 'has_kids', 'wants_kids', 'exercise',
-    'religion', 'star_sign',
-))
-
 @dataclass(frozen=True)
 class _ProfileField:
     q1: str
@@ -359,7 +348,6 @@ async def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> Non
         async with api_tx() as tx:
             await tx.executemany(Q_DELETE_PROFILE_INFO_PHOTO, files_params)
             await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, files_params[0])
-            await refresh_vectors(tx, s.person_id)
 
     if audio_files_params:
         async with api_tx() as tx:
@@ -388,7 +376,6 @@ async def _patch_profile_info_about(
         )
 
         await tx.execute(Q_PATCH_ABOUT, update_params)
-        await refresh_vectors(tx, person_id)
 
 
 async def _patch_photo(person_id: int, field_value: object) -> object:
@@ -418,7 +405,6 @@ async def _patch_photo(person_id: int, field_value: object) -> object:
     async with api_tx() as tx:
         await tx.execute(Q_PATCH_PHOTO, params)
         await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
-        await refresh_vectors(tx, person_id)
 
     try:
         await put_image_in_object_store(uuid, base64_file, crop_size)
@@ -563,8 +549,6 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         await tx.execute(field.q1, params)
         if field.q2:
             await tx.execute(field.q2, params)
-        if field_name in KV_MODEL_PROFILE_FIELDS:
-            await refresh_vectors(tx, s.person_id)
 
     if field_name == 'show_my_online_status' and s.person_uuid is not None:
         await redis_publish_online(

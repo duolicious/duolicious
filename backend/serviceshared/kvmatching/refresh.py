@@ -1,22 +1,18 @@
 """Keep a person's matching vectors in step with their live database rows.
 
-The sites that can change a person's answers, profile or search
-preferences call into here in the same transaction as the change, because
-their own key decides the order of their next search -- a filter change that
-took a minute to show up would just look broken. The chat path calls in too:
-its message events move the behaviour counters (a bounded model input read
-back like any other), and each message therefore refreshes the *recipient's*
-vector as well as any counter movement of the sender's.
+Nothing calls in here directly: the model is registered as an
+application-level trigger (serviceshared/matching/kv.py), so the
+transaction layer fires `refresh` for whoever a transaction's writes made
+stale, before it commits -- a filter change that took even a minute to
+show up in its owner's next search would just look broken.
 
 A person's Q&A answers are the one input that grows without bound, so the
 answer blocks' contribution to each encoder's first-layer preactivation is
 cached on the person row (`kv_who_pre`, `kv_look_pre`, NULL until first
-computed) and patched one column at a time as answers change (`apply_answer_delta`, `apply_pref_answer_delta`). The patches are
-exact, not approximate: the first-layer weights ship on a fixed-point grid
-(`encoder.W0_QUANTUM`) whose sums float32 represents exactly, so repeated
-patching accumulates no rounding error. Every other input is a bounded
-handful of rows, which `refresh_vectors` re-reads before running the
-fixed-size remainder of the forward pass.
+computed). An answer change arrives from the trigger layer as an (old, new)
+pair and patches one column of the cache -- integer addition, exact however
+often it happens. Every other input is a bounded handful of rows, re-read
+before running the fixed-size remainder of the forward pass.
 
 So no path here does work proportional to how many questions the person has
 answered, with one deliberate exception: computing the cached sums for the
@@ -26,12 +22,14 @@ it has passed (and for everyone created since, whose row is built at
 onboarding), the exception never fires on the serving path.
 """
 import asyncio
+from collections.abc import Sequence
 
 import numpy as np
 import numpy.typing as npt
 from pgvector import HalfVector
 
-from serviceshared.database import Tx
+from serviceshared.database.triggers import CapturedChange
+from serviceshared.database.tx import Tx
 from serviceshared.kvmatching import encoder, features, rows as rowbuilder
 from serviceshared.kvmatching.blocks import FloatArray
 from serviceshared.kvmatching.rows import Row, Triple
@@ -48,6 +46,15 @@ from serviceshared.kvmatching.sql import (
 Q_PERSON_ROWS = person_rows_query(everyone=False)
 Q_ANSWERS = answers_query(everyone=False)
 Q_PREF_ANSWERS = pref_answers_query(everyone=False)
+
+_ANSWER_QUERIES = {
+    table: f"""
+    SELECT answer FROM {table}
+    WHERE person_id = %(person_id)s
+    AND question_id = %(question_id)s
+    """
+    for table in ('answer', 'search_preference_answer')
+}
 
 _spec: Spec | None = None
 
@@ -122,6 +129,46 @@ async def _write_qpre(tx: Tx, person_id: int, qpre: Qpre) -> None:
     ))
 
 
+async def _patch_qpre(
+    tx: Tx,
+    s: Spec,
+    person_id: int,
+    qpre: Qpre,
+    changes: Sequence[CapturedChange],
+) -> Qpre:
+    """Fold the captured answer changes into the cached sums. The new value
+    is re-read from the table rather than taken from the change, because a
+    watched statement may not have written what it carried (the filter
+    upsert refuses answers over the cap)."""
+    who_delta = np.zeros(len(s.who.w0), np.int32)
+    look_delta = np.zeros(len(s.look.w0), np.int32)
+    moved = False
+    for change in changes:
+        col = s.qid_column.get(change.key)
+        if col is None:
+            continue
+        await tx.execute(_ANSWER_QUERIES[change.table], dict(
+            person_id=person_id, question_id=change.key))
+        row = await tx.fetchone()
+        stored = row['answer'] if row is not None else None
+        current = bool(stored) if stored is not None else None
+        steps = (_answer_value(current) - _answer_value(change.old)) \
+            * encoder.INPUT_UNIT
+        if steps == 0:
+            continue
+        if change.table == 'answer':
+            who_delta += s.who.w0[:, col] * steps
+            look_delta += s.look.w0[:, col] * steps
+        else:
+            look_delta += s.look.w0[:, s.who.w0.shape[1] + col] * steps
+        moved = True
+    if not moved:
+        return qpre
+    qpre = (qpre[0] + who_delta, qpre[1] + look_delta)
+    await _write_qpre(tx, person_id, qpre)
+    return qpre
+
+
 def _stored_of(s: Spec, person: Row, qpre: Qpre) -> FloatArray:
     rest = rowbuilder.build(s, [person], [], [])
     who, wbias = s.who.head(
@@ -142,11 +189,9 @@ async def _write_vector(tx: Tx, s: Spec, person_id: int, person: Row,
     ))
 
 
-async def build_vectors(tx: Tx, person_id: int | None) -> None:
+async def build_vectors(tx: Tx, person_id: int) -> None:
     """Recompute this person's cached sums and vector from scratch, reading
     every answer they have: the backfill's unit of work."""
-    if person_id is None:
-        return
     s = spec()
     person = await _person_row(tx, person_id)
     if person is None:
@@ -155,13 +200,14 @@ async def build_vectors(tx: Tx, person_id: int | None) -> None:
     await _write_vector(tx, s, person_id, person, qpre)
 
 
-async def refresh_vectors(tx: Tx, person_id: int | None) -> None:
-    """Recompute this person's vector from the bounded inputs and the cached
-    sums, at a fixed cost however much they have answered -- except the one
-    time no cache exists yet, when it builds it. Accepts the optional
-    person_id a session carries, so callers do not have to narrow it."""
-    if person_id is None:
-        return
+async def refresh(
+    tx: Tx,
+    person_id: int,
+    changes: Sequence[CapturedChange] = (),
+) -> None:
+    """The trigger's whole job: patch the cached sums with whatever answer
+    changes were captured -- or build them the one time none exist yet --
+    then re-read the bounded inputs and rerun the fixed-size tail."""
     s = spec()
     person = await _person_row(tx, person_id)
     if person is None:
@@ -169,63 +215,6 @@ async def refresh_vectors(tx: Tx, person_id: int | None) -> None:
     qpre = await _fetch_qpre(tx, person_id)
     if qpre is None:
         qpre = await _build_qpre(tx, s, person_id, person)
-    await _write_vector(tx, s, person_id, person, qpre)
-
-
-async def apply_answer_delta(
-        tx: Tx,
-        person_id: int | None,
-        question_id: int,
-        old: bool | None,
-        new: bool | None,
-) -> None:
-    """A Q&A answer changed: patch one column of the cached preactivations and
-    rebuild the person's vector, without reading their other answers."""
-    s = spec()
-    col = s.qid_column.get(question_id)
-    delta = _answer_value(new) - _answer_value(old)
-    if person_id is None or col is None or delta == 0:
-        return
-    steps = delta * encoder.INPUT_UNIT
-    await _apply_delta(
-        tx, person_id,
-        s.who.w0[:, col] * steps,
-        s.look.w0[:, col] * steps,
-    )
-
-
-async def apply_pref_answer_delta(
-        tx: Tx,
-        person_id: int | None,
-        question_id: int,
-        old: bool | None,
-        new: bool | None,
-) -> None:
-    """Like `apply_answer_delta`, for a Q&A search-preference answer: those
-    sit right after the profile block in the look encoder's input, and do not
-    reach the who encoder."""
-    s = spec()
-    col = s.qid_column.get(question_id)
-    delta = _answer_value(new) - _answer_value(old)
-    if person_id is None or col is None or delta == 0:
-        return
-    await _apply_delta(
-        tx, person_id,
-        np.zeros(len(s.who.w0), np.int32),
-        s.look.w0[:, s.who.w0.shape[1] + col] * delta * encoder.INPUT_UNIT,
-    )
-
-
-async def _apply_delta(tx: Tx, person_id: int,
-                       who_delta: Steps, look_delta: Steps) -> None:
-    cached = await _fetch_qpre(tx, person_id)
-    if cached is None:
-        await refresh_vectors(tx, person_id)
-        return
-    qpre = (cached[0] + who_delta, cached[1] + look_delta)
-    await _write_qpre(tx, person_id, qpre)
-    s = spec()
-    person = await _person_row(tx, person_id)
-    if person is None:
-        return
+    else:
+        qpre = await _patch_qpre(tx, s, person_id, qpre, changes)
     await _write_vector(tx, s, person_id, person, qpre)

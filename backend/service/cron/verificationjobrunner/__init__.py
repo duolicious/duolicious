@@ -1,5 +1,4 @@
 from serviceshared.database import api_tx
-from serviceshared.kvmatching.refresh import refresh_vectors
 from service.cron.verificationjobrunner.sql import *
 from serviceshared.verification import verify
 from serviceshared.verification.messages import (
@@ -79,7 +78,6 @@ async def do_verification_job(verification_job: VerificationJob) -> None:
 
     async with api_tx() as tx:
         await tx.execute(Q_UPDATE_VERIFICATION_STATUS, params)
-        await refresh_vectors(tx, verification_job.person_id)
 
 async def verify_once() -> None:
     async with api_tx() as tx:

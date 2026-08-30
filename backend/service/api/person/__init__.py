@@ -1,8 +1,4 @@
 from serviceshared.database import Row, Tx, api_tx, row_int_list_or_none
-from serviceshared.kvmatching.refresh import (
-    apply_pref_answer_delta,
-    refresh_vectors,
-)
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
 from typing import Tuple
@@ -142,9 +138,6 @@ async def _handle_pending_club(
     if person_id is not None and pending_club_name is not None:
         await tx.execute(Q_JOIN_CLUB, club_params)
         await tx.execute(Q_SET_SEARCH_PREFERENCE_CLUB, club_params)
-        # The club itself is not a model input, but whether a club search
-        # filter is set is one, and the filter was just set above
-        await refresh_vectors(tx, person_id)
     return await tx.require_one(Q_GET_SESSION_CLUBS, club_params)
 
 
@@ -599,6 +592,7 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
         row = await tx.require_one(Q_FINISH_ONBOARDING, params=api_params)
+        tx.attribute([int(row['person_id'])])
 
         # If this user signed up via Google/Apple, drain the pending
         # provider identity from `duo_session` into `social_identity` now
@@ -619,8 +613,6 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
             s.session_token_hash,
             row['person_id'],
         )
-
-        await refresh_vectors(tx, row['person_id'])
 
     await sessioncache.delete_session(s.session_token_hash)
 
@@ -963,10 +955,6 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         if tx.rowcount != 1:
             return f'Invalid value for {field_name}', 400
 
-        # sort_by and the show-messaged/skipped toggles are not model inputs
-        if field_name not in ('sort_by', 'people_you_messaged', 'people_you_skipped'):
-            await refresh_vectors(tx, s.person_id)
-
     return None
 
 async def post_search_filter_answer(
@@ -988,21 +976,11 @@ async def post_search_filter_answer(
         else Q_UPSERT_SEARCH_FILTER_ANSWER)
 
     async with api_tx() as tx:
-        old_tx = await tx.execute(Q_SELECT_SEARCH_FILTER_ANSWER, params)
-        old: Row | None = await old_tx.fetchone()
-        old_raw = old['answer'] if old is not None else None
-
         answer = (await tx.require_one(q, params)).get('j')
         if answer is None:
             return dict(error=error), 400
-        await apply_pref_answer_delta(
-            tx,
-            s.person_id,
-            req.question_id,
-            bool(old_raw) if old_raw is not None else None,
-            req.answer,
-        )
-        return dict(answer=answer)
+        else:
+            return dict(answer=answer)
 
 
 async def get_search_clubs(
@@ -1042,7 +1020,6 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_JOIN_CLUB, params)
         rows = await row_tx.fetchall()
-        await refresh_vectors(tx, s.person_id)
 
     if rows:
         return f"Joined {req.name}", 200
@@ -1057,7 +1034,6 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
 
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
-        await refresh_vectors(tx, s.person_id)
 
 async def get_update_notifications(
     email: str,
@@ -1266,11 +1242,11 @@ async def get_admin_delete_photo(token: str) -> object:
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_ADMIN_DELETE_PHOTO, params)
         rows = await row_tx.fetchall()
+        tx.attribute(int(row['person_id']) for row in rows)
 
         if rows:
             params = dict(person_id=rows[0]['person_id'])
             await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
-            await refresh_vectors(tx, int(params['person_id']))
 
     if rows:
         return f'Deleted photo {rows}'

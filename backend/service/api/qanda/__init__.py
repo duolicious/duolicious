@@ -31,7 +31,6 @@ from serviceshared.constants import (
     ANSWERED_QUESTION_EVENT_REFRESH_SECONDS,
 )
 from serviceshared.database import Row, Tx, api_tx
-from serviceshared.kvmatching.refresh import apply_answer_delta
 import service.api.duotypes as t
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 
@@ -210,15 +209,6 @@ async def _set_answer(
             answer=answer,
             public=public,
         ))
-
-    old_raw = old['answer'] if old is not None else None
-    await apply_answer_delta(
-        tx,
-        person_id,
-        question_id,
-        bool(old_raw) if old_raw is not None else None,
-        None if delete else answer,
-    )
 
     is_visible = not delete and answer is not None and bool(public)
 

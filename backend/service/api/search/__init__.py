@@ -7,7 +7,6 @@ from pydantic import ValidationError
 from pgvector import Vector
 
 from serviceshared.database import Tx, api_tx, row_int
-from serviceshared.kvmatching.refresh import refresh_vectors
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
 from collections.abc import Sequence
@@ -166,9 +165,6 @@ async def get_search(
         await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
-        if tx.rowcount:
-            # Whether a club filter is set is a model feature
-            await refresh_vectors(tx, s.person_id)
 
         if search_type == 'quiz-search':
             result = await _quiz_search_results(
