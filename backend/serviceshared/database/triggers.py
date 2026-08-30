@@ -26,8 +26,10 @@ with a watched write attributed none of these ways raises instead of
 committing: the fix is always to make the statement say who it touched,
 never to remember a call.
 
-Statements that bypass the transaction layer entirely (psql sessions) are
-the one blind spot.
+Blind spots: statements that bypass the transaction layer entirely (psql
+sessions); foreign-key cascades, whose writes to a watched table happen
+under a statement that never names it; and queries built as psycopg.sql
+objects rather than strings, which skip tracking.
 """
 import re
 from collections.abc import Iterable, Sequence
