@@ -36,8 +36,8 @@ from functools import lru_cache
 from typing import Protocol
 
 import psycopg
-from pglast import parse_sql
-from pglast.visitors import Visitor
+from pglast import ast, parse_sql
+from pglast.visitors import Ancestor, Visitor
 
 from serviceshared.database.tx import CursorQuery, Row, Tx
 
@@ -154,35 +154,49 @@ class Classification:
     rowcount_reliable: bool
 
 
+def _relname(relation: ast.RangeVar | None) -> str:
+    if relation is None or relation.relname is None:
+        raise ValueError('DML statement without a target relation')
+    return relation.relname
+
+
+def _set_columns(target_list: tuple[ast.Node, ...] | None) -> frozenset[str]:
+    return frozenset(
+        target.name
+        for target in target_list or ()
+        if isinstance(target, ast.ResTarget) and target.name is not None)
+
+
 class _Writes(Visitor):
     def __init__(self) -> None:
         self.writes: list[tuple[str, str, frozenset[str]]] = []
         self.dml_nodes = 0
 
-    def visit_InsertStmt(self, ancestors: object, node: object) -> None:
+    def visit_InsertStmt(
+            self, ancestors: Ancestor, node: ast.InsertStmt) -> None:
         self.dml_nodes += 1
-        self.writes.append(
-            (node.relation.relname, 'insert', frozenset()))  # type: ignore[attr-defined]
-        conflict = node.onConflictClause  # type: ignore[attr-defined]
+        relname = _relname(node.relation)
+        self.writes.append((relname, 'insert', frozenset()))
+        conflict = node.onConflictClause
         if conflict is None or not conflict.targetList:
             return
+        self.writes.append(
+            (relname, 'update', _set_columns(conflict.targetList)))
+
+    def visit_UpdateStmt(
+            self, ancestors: Ancestor, node: ast.UpdateStmt) -> None:
+        self.dml_nodes += 1
         self.writes.append((
-            node.relation.relname,  # type: ignore[attr-defined]
+            _relname(node.relation),
             'update',
-            frozenset(target.name for target in conflict.targetList),
+            _set_columns(node.targetList),
         ))
 
-    def visit_UpdateStmt(self, ancestors: object, node: object) -> None:
-        self.dml_nodes += 1
-        columns = frozenset(
-            target.name for target in node.targetList or ())  # type: ignore[attr-defined]
-        self.writes.append(
-            (node.relation.relname, 'update', columns))  # type: ignore[attr-defined]
-
-    def visit_DeleteStmt(self, ancestors: object, node: object) -> None:
+    def visit_DeleteStmt(
+            self, ancestors: Ancestor, node: ast.DeleteStmt) -> None:
         self.dml_nodes += 1
         self.writes.append(
-            (node.relation.relname, 'delete', frozenset()))  # type: ignore[attr-defined]
+            (_relname(node.relation), 'delete', frozenset()))
 
 
 def _hit(watch: Watch, op: str, columns: frozenset[str]) -> bool:
