@@ -230,7 +230,15 @@ def classify(query: str) -> Classification:
 
 def _int_param(params: psycopg.abc.Params | None, key: str) -> int | None:
     value = params.get(key) if isinstance(params, dict) else None
-    return value if isinstance(value, int) else None
+    return value if type(value) is int else None
+
+
+def _subject_id(subject_column: str, value: object) -> int:
+    if type(value) is int:
+        return value
+    raise UnattributedWriteError(
+        f'a watched write reported {subject_column} as {value!r}; a '
+        'subject must be an int, or NULL for an explicit nobody')
 
 
 @dataclass
@@ -369,7 +377,8 @@ class Tracker:
         """A watched write that could not name its subjects from its params
         reports through its own fetched rows instead: a column named after
         the awaited subject column (or its plural) attributes it, even when
-        NULL (an explicit nobody)."""
+        NULL (an explicit nobody). A value of any other type raises rather
+        than passing as a nobody."""
         pending = self._pending_harvest
         if pending is None:
             return
@@ -379,14 +388,18 @@ class Tracker:
                 if singular not in row and plural not in row:
                     continue
                 subjects = row.get(plural)
-                values = [
-                    row.get(singular),
-                    *(subjects if isinstance(subjects, list) else []),
-                ]
+                if subjects is not None and not isinstance(subjects, list):
+                    raise UnattributedWriteError(
+                        f'a watched write reported {plural} as '
+                        f'{subjects!r}; it must be an array of subject '
+                        'ids, or NULL for an explicit nobody')
+                values = [row.get(singular), *(subjects or [])]
                 if awaited.reported_subjects is None:
                     awaited.reported_subjects = set()
                 awaited.reported_subjects.update(
-                    one for one in values if isinstance(one, int))
+                    _subject_id(subject_column, one)
+                    for one in values
+                    if one is not None)
 
     async def flush(self, tx: Tx) -> None:
         """Fire the triggers for whatever the transaction made stale, before
