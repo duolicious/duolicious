@@ -278,12 +278,26 @@ class _PendingHarvest:
     awaiting: dict[str, _Awaited] = field(default_factory=dict)
 
 
+class _RawCursor(Protocol):
+    """What the tracker needs of the raw cursor for its capture reads."""
+
+    async def execute(
+        self,
+        query: CursorQuery,
+        params: psycopg.abc.Params | None = None,
+    ) -> object:
+        ...
+
+    async def fetchone(self) -> Row | None:
+        ...
+
+
 class Tracker:
     """One transaction's view of the installed triggers: TxCursor reports
     what it is about to run, what it ran, and what it fetched; `flush` fires
     whoever that made stale, before the transaction commits."""
 
-    def __init__(self, cur: psycopg.AsyncCursor[Row]) -> None:
+    def __init__(self, cur: _RawCursor) -> None:
         # The raw cursor, so the tracker's own reads don't re-enter the
         # hooks that report to it.
         self._cur = cur
