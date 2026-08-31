@@ -5,6 +5,7 @@ from typing import (
     List,
     Annotated,
     Literal,
+    TypeAlias,
     Union,
 )
 from collections.abc import MutableMapping
@@ -39,6 +40,12 @@ from serviceshared.util import human_readable_size_metric
 from service.api.duohash import md5
 
 register_heif_opener()
+
+SortBy: TypeAlias = Literal[
+    'Match percentage',
+    'Similar clubs',
+    'Longer conversations',
+]
 
 CLUB_PATTERN = r"""^[a-zA-Z0-9/#'":_-]+( [a-zA-Z0-9/#'":_-]+)*$"""
 CLUB_MAX_LEN = 42
@@ -659,7 +666,7 @@ class PostSearchFilter(BaseModel):
 
     last_online: str | None = None
 
-    sort_by: Literal['Match percentage', 'Similar clubs'] | None = None
+    sort_by: SortBy | None = None
 
     people_you_messaged: str | None = None
     people_you_skipped: str | None = None

@@ -17,6 +17,10 @@ import numpy as np
 
 EPS = 1e-5
 
+LATENT_DIMS = 64
+HALF_DIMS = LATENT_DIMS + 2
+STORED_DIMS = 2 * HALF_DIMS
+
 W0_QUANTUM = 2.0 ** -13
 INPUT_QUANTUM = 2.0 ** -8
 PRE_QUANTUM = W0_QUANTUM * INPUT_QUANTUM
@@ -92,8 +96,15 @@ class Encoder:
 def stored_vector(who: np.ndarray, wbias: np.ndarray, look: np.ndarray,
                   lbias: np.ndarray) -> np.ndarray:
     """`value || key` as person.kv_vector holds it: [who, 1, wbias] then
-    [look, lbias, 1]. Dotting a searcher's halves the other way round
-    (`key || value`) against this scores both directions of a pair at once."""
+    [look, lbias, 1]. Dotting `searcher_vector` of one person against
+    `stored_vector` of another scores both directions of the pair at once."""
     ones = np.ones(who.shape[:-1] + (1,), np.float32)
     return np.concatenate(
         [who, ones, wbias[..., None], look, lbias[..., None], ones], -1)
+
+
+def searcher_vector(stored: np.ndarray) -> np.ndarray:
+    """`key || value`: a person's `stored_vector` with its halves the other
+    way round, which is how they query everyone else's."""
+    assert stored.shape[-1] == STORED_DIMS
+    return np.concatenate([stored[..., HALF_DIMS:], stored[..., :HALF_DIMS]], -1)

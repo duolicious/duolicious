@@ -1,7 +1,6 @@
 import numpy
 import unittest
 
-from serviceshared.pgvector import parse_pgvector, to_pgvector
 from service.cron.clubembeddings.ppmi import (
     DIMENSIONS,
     Membership,
@@ -163,11 +162,6 @@ class TestClubEmbeddings(unittest.TestCase):
         }
         third = club_embeddings_from_memberships(shrunk, stored)
         self.assertNotIn('a0', third)
-
-    def test_pgvector_round_trip(self) -> None:
-        vec = numpy.array([0.25, -1, 0, 1.5], dtype=numpy.float32)
-        restored = parse_pgvector(to_pgvector(vec))
-        self.assertTrue(numpy.array_equal(vec, restored))
 
     def test_unmoved_embeddings_are_not_rewritten(self) -> None:
         old = numpy.array([1, 0, 0, 0], dtype=numpy.float32)

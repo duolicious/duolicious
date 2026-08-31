@@ -123,3 +123,10 @@ echo 'Switching back to match percentage restores the default ordering'
 assume_role searcher
 jc POST /search-filter -d '{ "sort_by": "Match percentage" }'
 [[ "$(search_names_in_order)" = 'matchy clubby' ]]
+
+echo 'Ordering by Longer conversations serves everyone and caches its order'
+jc POST /search-filter -d '{ "sort_by": "Longer conversations" }'
+[[ "$(c GET /search-filters | jq -r '.sort_by')" = 'Longer conversations' ]]
+[[ "$(search_names_sorted)" = 'clubby matchy' ]]
+kv_order=$(search_names_in_order)
+[[ "$(c GET '/search?n=1&o=0' | jq -r '.[0].name') $(c GET '/search?n=1&o=1' | jq -r '.[0].name')" = "$kv_order" ]]

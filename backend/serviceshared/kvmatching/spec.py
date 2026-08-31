@@ -4,6 +4,7 @@ import os
 import numpy as np
 import numpy.typing as npt
 
+from serviceshared.kvmatching import encoder
 from serviceshared.kvmatching.encoder import Encoder
 
 ARTIFACT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kv_model.npz')
@@ -14,6 +15,9 @@ class Spec:
         z = np.load(path, allow_pickle=False)
         weights = {k: z[k] for k in z.files if '.' in k}
         self.m = int(z['m'])
+        if self.m != encoder.LATENT_DIMS:
+            raise RuntimeError(
+                f'artifact latent dims {self.m} != {encoder.LATENT_DIMS}')
         self.qids: npt.NDArray[np.int64] = z['qids']
         self.cat_fields: list[str] = [str(x) for x in z['cat_fields']]
         self.cat_sizes: npt.NDArray[np.int64] = z['cat_sizes']

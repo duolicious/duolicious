@@ -22,9 +22,14 @@ from kvmatching.model import KVModel, Noise, kl, reparam
 from kvmatching.pairs import SPLIT, directed_labels, load_interactions, replies
 from kvmatching.paths import DATA, ensure_dirs, run_dir
 from serviceshared.kvmatching.blocks import FloatArray
+from serviceshared.kvmatching.encoder import (
+    HALF_DIMS,
+    LATENT_DIMS,
+    stored_vector,
+)
 
 
-M, N = 64, 32
+M, N = LATENT_DIMS, 32
 HIDDEN, LAYERS, DROPOUT = 1024, 4, 0.1
 EPOCHS, BATCH, RECON_BATCH = 8, 2048, 1024
 LR, WD, BETA = 1e-3, 1e-4, 1e-3
@@ -109,10 +114,8 @@ def scorer_from(who: FloatArray, look: FloatArray, wbias: FloatArray,
                 lbias: FloatArray, device: torch.device) -> Scorer:
     """Append bias dims so that look'.who' = look.who + lbias + wbias. wbias
     is the prospect's popularity term, lbias the searcher's eagerness term."""
-    ones = np.ones((len(who), 1), dtype=np.float32)
-    look2 = np.concatenate([look, lbias[:, None], ones], axis=1)
-    who2 = np.concatenate([who, ones, wbias[:, None]], axis=1)
-    return Scorer(look2, who2, device)
+    stored = stored_vector(who, wbias, look, lbias)
+    return Scorer(stored[:, HALF_DIMS:], stored[:, :HALF_DIMS], device)
 
 
 def run(args: argparse.Namespace, out: str, log: TextIO) -> None:

@@ -1,8 +1,9 @@
 import unittest
 
-from pgvector import Vector
+from pgvector import HalfVector, Vector
 
 from serviceshared.database import Row, row_vector
+from serviceshared.kvmatching.encoder import STORED_DIMS
 from service.api.search.sql.search import (
     _HIDE_ME,
     _PROSPECT_DIDNT_SKIP_SEARCHER,
@@ -59,6 +60,7 @@ def maximal_prefs() -> Row:
         searcher_person_id=1,
         searcher_coordinates='POINT(0 0)',
         searcher_personality=Vector([0.0] * 47),
+        searcher_kv_vector=HalfVector([0.0] * STORED_DIMS),
         searcher_age=25,
         searcher_height_cm=170,
         searcher_count_answers=1,
@@ -115,15 +117,18 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         clubs_sql, clubs_params = build_uncached_search(1, clubs_prefs, False)
 
         self.assertNotIn('club_vector', match_sql)
-        self.assertNotIn('searcher_club_vector', match_params)
+        self.assertIn(
+            'prospect.personality <#> %(sort_vector)s',
+            match_sql,
+        )
 
         self.assertIn(
-            'prospect.club_vector <#> %(searcher_club_vector)s',
+            'prospect.club_vector <#> %(sort_vector)s',
             clubs_sql,
         )
         self.assertNotIn('-(prospect.club_vector', clubs_sql)
         self.assertEqual(
-            row_vector(clubs_params, 'searcher_club_vector').to_numpy().tolist(),
+            row_vector(clubs_params, 'sort_vector').to_numpy().tolist(),
             [0.0] * 64,
         )
 
@@ -134,7 +139,10 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         quiz_sql, quiz_params = build_uncached_search(1, clubs_prefs, True)
 
         self.assertNotIn('club_vector', quiz_sql)
-        self.assertNotIn('searcher_club_vector', quiz_params)
+        self.assertIn(
+            'prospect.personality <#> %(sort_vector)s',
+            quiz_sql,
+        )
 
 
 if __name__ == '__main__':

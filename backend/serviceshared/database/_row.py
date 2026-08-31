@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import TypeVar
 
-from pgvector import Vector
+from pgvector import HalfVector, Vector
 from serviceshared.util.coerce import (
     boolean,
     int_list,
@@ -43,6 +43,13 @@ def row_vector(row: Mapping[str, object], key: str) -> Vector:
     value = row_value(row, key)
     if not isinstance(value, Vector):
         raise RuntimeError(f'{key} must be a vector')
+    return value
+
+
+def row_halfvec(row: Mapping[str, object], key: str) -> HalfVector:
+    value = row_value(row, key)
+    if not isinstance(value, HalfVector):
+        raise RuntimeError(f'{key} must be a halfvec')
     return value
 
 

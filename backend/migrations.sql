@@ -16,3 +16,5 @@ ALTER TABLE person
 ALTER TABLE person
     ADD COLUMN IF NOT EXISTS kv_who_pre INT[],
     ADD COLUMN IF NOT EXISTS kv_look_pre INT[];
+
+INSERT INTO sort_by (name) VALUES ('Longer conversations') ON CONFLICT (name) DO NOTHING;
