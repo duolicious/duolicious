@@ -18,6 +18,3 @@ ALTER TABLE person
     ADD COLUMN IF NOT EXISTS kv_look_pre INT[];
 
 INSERT INTO sort_by (name) VALUES ('Longer conversations') ON CONFLICT (name) DO NOTHING;
-
-ALTER TABLE search_cache
-    DROP COLUMN IF EXISTS club_distance;
