@@ -106,4 +106,5 @@ def stored_vector(who: np.ndarray, wbias: np.ndarray, look: np.ndarray,
 def searcher_vector(stored: np.ndarray) -> np.ndarray:
     """`key || value`: a person's `stored_vector` with its halves the other
     way round, which is how they query everyone else's."""
-    return np.concatenate([stored[HALF_DIMS:], stored[:HALF_DIMS]])
+    assert stored.shape[-1] == STORED_DIMS
+    return np.concatenate([stored[..., HALF_DIMS:], stored[..., :HALF_DIMS]], -1)

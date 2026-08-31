@@ -3,6 +3,7 @@ import unittest
 from pgvector import HalfVector, Vector
 
 from serviceshared.database import Row, row_vector
+from serviceshared.kvmatching.encoder import STORED_DIMS
 from service.api.search.sql.search import (
     _HIDE_ME,
     _PROSPECT_DIDNT_SKIP_SEARCHER,
@@ -59,7 +60,7 @@ def maximal_prefs() -> Row:
         searcher_person_id=1,
         searcher_coordinates='POINT(0 0)',
         searcher_personality=Vector([0.0] * 47),
-        searcher_kv_vector=HalfVector([0.0] * 132),
+        searcher_kv_vector=HalfVector([0.0] * STORED_DIMS),
         searcher_age=25,
         searcher_height_cm=170,
         searcher_count_answers=1,
