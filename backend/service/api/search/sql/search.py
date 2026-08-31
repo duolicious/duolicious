@@ -1,5 +1,3 @@
-from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Literal, TypeAlias, get_args
 
 from pgvector import HalfVector
