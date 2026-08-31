@@ -159,8 +159,6 @@ services:
 
       DUO_CRON_MAX_RANDOM_START_DELAY: '0'
 
-      DUO_CRON_KV_BACKFILL_POLL_SECONDS: '0'
-
   s3mock:
     image: adobe/s3mock:3.12.0
 
