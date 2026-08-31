@@ -22,9 +22,10 @@ from kvmatching.model import KVModel, Noise, kl, reparam
 from kvmatching.pairs import SPLIT, directed_labels, load_interactions, replies
 from kvmatching.paths import DATA, ensure_dirs, run_dir
 from serviceshared.kvmatching.blocks import FloatArray
+from serviceshared.kvmatching.encoder import LATENT_DIMS
 
 
-M, N = 64, 32
+M, N = LATENT_DIMS, 32
 HIDDEN, LAYERS, DROPOUT = 1024, 4, 0.1
 EPOCHS, BATCH, RECON_BATCH = 8, 2048, 1024
 LR, WD, BETA = 1e-3, 1e-4, 1e-3

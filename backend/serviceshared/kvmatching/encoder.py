@@ -17,6 +17,10 @@ import numpy as np
 
 EPS = 1e-5
 
+LATENT_DIMS = 64
+HALF_DIMS = LATENT_DIMS + 2
+STORED_DIMS = 2 * HALF_DIMS
+
 W0_QUANTUM = 2.0 ** -13
 INPUT_QUANTUM = 2.0 ** -8
 PRE_QUANTUM = W0_QUANTUM * INPUT_QUANTUM
@@ -102,5 +106,4 @@ def stored_vector(who: np.ndarray, wbias: np.ndarray, look: np.ndarray,
 def searcher_vector(stored: np.ndarray) -> np.ndarray:
     """`key || value`: a person's `stored_vector` with its halves the other
     way round, which is how they query everyone else's."""
-    half = len(stored) // 2
-    return np.concatenate([stored[half:], stored[:half]])
+    return np.concatenate([stored[HALF_DIMS:], stored[:HALF_DIMS]])
