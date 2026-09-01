@@ -49,7 +49,10 @@ from serviceshared.verification.messages import (
 )
 
 
-from serviceshared.duoenv.api import ENV as DUO_ENV
+from serviceshared.duoenv.api import (
+    ENV as DUO_ENV,
+    LONGER_CONVERSATIONS_DEFAULT_SHARE,
+)
 from serviceshared.duoenv.shared import R2_ACCT_ID
 
 logger = logging.getLogger(__name__)
@@ -587,6 +590,7 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
         email=s.email,
         normalized_email=normalize_email(s.email),
         pending_club_name=s.pending_club_name,
+        longer_conversations_default_share=LONGER_CONVERSATIONS_DEFAULT_SHARE,
     )
 
     async with api_tx() as tx:
