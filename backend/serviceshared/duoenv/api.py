@@ -1,5 +1,6 @@
 from serviceshared.duoenv.read import (
     csv,
+    flag_with,
     float_with,
     int_with,
     required_str,
@@ -34,5 +35,5 @@ APPLE_ANDROID_REDIRECT_URL = stripped_str('DUO_APPLE_ANDROID_REDIRECT_URL')
 VAPID_SUBJECT = str_with('DUO_VAPID_SUBJECT', 'mailto:support@duolicious.app')
 VAPID_PRIVATE_KEY = str_with('DUO_VAPID_PRIVATE_KEY', '')
 
-LONGER_CONVERSATIONS_DEFAULT_SHARE = \
-    float_with('DUO_LONGER_CONVERSATIONS_DEFAULT_SHARE', 0.1)
+LONGER_CONVERSATIONS_DEFAULT_TRIAL = \
+    flag_with('DUO_LONGER_CONVERSATIONS_DEFAULT_TRIAL', 'true')

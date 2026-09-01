@@ -514,7 +514,7 @@ WITH onboardee_location AS (
         1
     OFFSET
         1
-), default_sort_by AS MATERIALIZED (
+), default_sort_by AS (
     SELECT
         longer_conversations,
         (
@@ -528,9 +528,12 @@ WITH onboardee_location AS (
         ) AS id
     FROM (
         SELECT
-            random() < %(longer_conversations_default_share)s
+            %(longer_conversations_default_trial)s::BOOLEAN
+                AND MOD(new_person.id, 2) = 0
                 AS longer_conversations
-    ) AS draw
+        FROM
+            new_person
+    ) AS assignment
 ), updated_session AS (
     UPDATE duo_session
     SET person_id = new_person.id
