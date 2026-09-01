@@ -5,6 +5,7 @@ from serviceshared.constants import (
     MAX_RELATED_CLUBS,
     MIN_CLUB_PAGE_MEMBERS,
 )
+from service.api.search.sql.search import SORT_KV, SORT_MATCH_PERCENTAGE
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     Q_COMPUTED_FLAIR,
@@ -513,6 +514,23 @@ WITH onboardee_location AS (
         1
     OFFSET
         1
+), default_sort_by AS MATERIALIZED (
+    SELECT
+        longer_conversations,
+        (
+            SELECT id
+            FROM sort_by
+            WHERE name = CASE
+                WHEN longer_conversations
+                THEN '{SORT_KV}'
+                ELSE '{SORT_MATCH_PERCENTAGE}'
+            END
+        ) AS id
+    FROM (
+        SELECT
+            random() < %(longer_conversations_default_share)s
+                AS longer_conversations
+    ) AS draw
 ), updated_session AS (
     UPDATE duo_session
     SET person_id = new_person.id
@@ -540,6 +558,7 @@ WITH onboardee_location AS (
         max_age,
         distance,
         last_online_id,
+        sort_by_id,
         show_messaged,
         show_skipped
     )
@@ -565,9 +584,22 @@ WITH onboardee_location AS (
         ARRAY(SELECT id FROM frequency ORDER BY id),
         ARRAY(SELECT id FROM religion ORDER BY id),
         ARRAY(SELECT id FROM star_sign ORDER BY id),
-        best_age.min_age,
-        best_age.max_age,
         CASE
+            WHEN default_sort_by.longer_conversations
+            THEN NULL
+
+            ELSE best_age.min_age
+        END,
+        CASE
+            WHEN default_sort_by.longer_conversations
+            THEN NULL
+
+            ELSE best_age.max_age
+        END,
+        CASE
+            WHEN default_sort_by.longer_conversations
+            THEN NULL
+
             WHEN best_distance.cnt < 500
             THEN NULL
 
@@ -580,9 +612,10 @@ WITH onboardee_location AS (
             ELSE best_distance.dist
         END,
         (SELECT id FROM last_online WHERE name = '{LAST_ONLINE_DEFAULT_NAME}'),
+        default_sort_by.id,
         TRUE,
         FALSE
-    FROM new_person, best_age, best_distance
+    FROM new_person, best_age, best_distance, default_sort_by
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
