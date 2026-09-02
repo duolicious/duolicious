@@ -354,7 +354,6 @@ CREATE TABLE IF NOT EXISTS person (
     sign_up_time TIMESTAMP NOT NULL DEFAULT NOW(),
     sign_in_count INT NOT NULL DEFAULT 1,
     sign_in_time TIMESTAMP NOT NULL DEFAULT NOW(),
-    last_nag_time TIMESTAMP DEFAULT to_timestamp(0),
     last_online_time TIMESTAMP NOT NULL DEFAULT NOW(),
     -- When the user last went from having zero connected chat clients to one.
     -- Unlike last_online_time, which keeps advancing for as long as the user

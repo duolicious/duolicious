@@ -33,8 +33,6 @@ FROM
 
 _Q_DO_SHOW_DONATION_NAG = f"""
 (
-        {{table}}.last_nag_time < NOW() - ({_Q_DONATION_NAG_FREQUENCY})
-    AND
         {{table}}.sign_up_time < NOW() - ({_Q_DONATION_NAG_FREQUENCY})
     AND
         {{table}}.count_answers >= 25
@@ -137,7 +135,6 @@ existing_person AS (
         person.uuid AS person_uuid,
         person.unit_id,
         person.name,
-        person.last_nag_time,
         person.sign_up_time,
         person.count_answers,
         person.has_gold

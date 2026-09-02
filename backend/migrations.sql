@@ -11,3 +11,6 @@
 
 ALTER TABLE search_cache
     DROP COLUMN IF EXISTS club_distance;
+
+ALTER TABLE person
+    DROP COLUMN IF EXISTS last_nag_time;
