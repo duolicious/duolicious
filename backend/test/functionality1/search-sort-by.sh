@@ -138,6 +138,7 @@ assume_role clubby
 jc PATCH /profile-info -d '{ "location": "Philadelphia, Pennsylvania, United States" }'
 
 assume_role searcher
+jc POST /search-filter -d '{ "furthest_distance": null }'
 jc POST /search-filter -d '{ "sort_by": "Distance" }'
 [[ "$(c GET /search-filters | jq -r '.sort_by')" = 'Distance' ]]
 [[ "$(search_names_in_order)" = 'clubby matchy' ]]
