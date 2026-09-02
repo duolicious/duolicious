@@ -122,9 +122,11 @@ _VERIFICATION_SATISFIED = sql_fragment("""
 """)
 
 _SORT_BYS: tuple[SortBy, ...] = get_args(SortBy)
-SORT_MATCH_PERCENTAGE, SORT_CLUBS, SORT_KV = _SORT_BYS
+SORT_MATCH_PERCENTAGE, SORT_CLUBS, SORT_KV, SORT_DISTANCE = _SORT_BYS
 
 _SortColumn: TypeAlias = Literal['personality', 'club_vector', 'kv_vector']
+
+_Sort: TypeAlias = tuple[str, dict[str, SearchParam]]
 
 
 def _saved_sort_by(prefs: Row) -> SortBy:
@@ -135,18 +137,29 @@ def _saved_sort_by(prefs: Row) -> SortBy:
     raise ValueError('invalid sort_by value')
 
 
-def _sort(sort_by: SortBy, prefs: Row) -> tuple[_SortColumn, SearchParam]:
+def _vector_sort(column: _SortColumn, vector: SearchParam) -> _Sort:
+    return f'prospect.{column} <#> %(sort_vector)s', dict(sort_vector=vector)
+
+
+def _sort(sort_by: SortBy, prefs: Row) -> _Sort:
     if sort_by == SORT_MATCH_PERCENTAGE:
-        return 'personality', row_vector(prefs, 'searcher_personality')
+        return _vector_sort(
+            'personality', row_vector(prefs, 'searcher_personality'))
     if sort_by == SORT_CLUBS:
-        return 'club_vector', row_vector(prefs, 'searcher_club_vector')
+        return _vector_sort(
+            'club_vector', row_vector(prefs, 'searcher_club_vector'))
     if sort_by == SORT_KV:
-        return 'kv_vector', HalfVector(searcher_vector(
-            row_halfvec(prefs, 'searcher_kv_vector').to_numpy()))
+        return _vector_sort('kv_vector', HalfVector(searcher_vector(
+            row_halfvec(prefs, 'searcher_kv_vector').to_numpy())))
+    if sort_by == SORT_DISTANCE:
+        return (
+            'prospect.coordinates <-> %(searcher_coordinates)s::GEOGRAPHY',
+            dict(searcher_coordinates=row_str(prefs, 'searcher_coordinates')),
+        )
     raise ValueError('invalid sort_by value')
 
 
-def _prospect_select(sort_column: _SortColumn) -> str:
+def _prospect_select(sort_expression: str) -> str:
     return f"""    SELECT
         prospect.id AS prospect_person_id,
 
@@ -182,7 +195,7 @@ def _prospect_select(sort_column: _SortColumn) -> str:
             100 * (1 - (prospect.personality <#> %(searcher_personality)s)) / 2
         ) AS match_percentage,
 
-        prospect.{sort_column} <#> %(sort_vector)s AS sort_distance"""
+        {sort_expression} AS sort_distance"""
 
 _SEARCH_CACHE_INSERT = """), do_promote_verified AS (
     SELECT
@@ -303,7 +316,8 @@ def build_uncached_search(
 
     sort_by = (SORT_MATCH_PERCENTAGE if ignore_sort_preference
                else _saved_sort_by(prefs))
-    sort_column, params['sort_vector'] = _sort(sort_by, prefs)
+    sort_expression, sort_params = _sort(sort_by, prefs)
+    params.update(sort_params)
 
     reverse = two_way_filters(prefs)
     params.update(reverse.params)
@@ -319,7 +333,7 @@ def build_uncached_search(
 
     sql = f"""
 WITH candidates AS (
-{_prospect_select(sort_column)}
+{_prospect_select(sort_expression)}
     FROM
 {_from_clause(club_preference)}
     WHERE

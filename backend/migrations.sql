@@ -46,3 +46,5 @@ ALTER TABLE search_preference
 
 ALTER TABLE search_preference
     ADD COLUMN IF NOT EXISTS two_way_body_type BOOLEAN NOT NULL DEFAULT FALSE;
+
+INSERT INTO sort_by (name) VALUES ('Distance') ON CONFLICT (name) DO NOTHING;

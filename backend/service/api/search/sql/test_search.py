@@ -132,6 +132,21 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
             [0.0] * 64,
         )
 
+    def test_distance_ordering_ranks_by_geographic_proximity(self) -> None:
+        prefs = maximal_prefs()
+        prefs['sort_by'] = 'Distance'
+        prefs['distance_meters'] = None
+
+        sql, params = build_uncached_search(1, prefs, False)
+
+        self.assertNotIn('%(sort_vector)s', sql)
+        self.assertIn(
+            'prospect.coordinates <-> %(searcher_coordinates)s::GEOGRAPHY'
+            ' AS sort_distance',
+            sql,
+        )
+        self.assertEqual(params['searcher_coordinates'], 'POINT(0 0)')
+
     def test_ignoring_the_club_sort_selects_match_candidates(self) -> None:
         clubs_prefs = maximal_prefs()
         clubs_prefs['sort_by'] = 'Similar clubs'
