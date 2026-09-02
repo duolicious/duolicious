@@ -33,6 +33,7 @@ ENUM_FILTERS = [
     EnumFilter('gender_ids',              'gender_id',              'gender'),
     EnumFilter('orientation_ids',         'orientation_id',         'orientation'),
     EnumFilter('ethnicity_ids',           'ethnicity_id',           'ethnicity'),
+    EnumFilter('body_type_ids',           'body_type_id',           'body_type'),
     EnumFilter('has_profile_picture_ids', 'has_profile_picture_id', 'yes_no'),
     EnumFilter('looking_for_ids',         'looking_for_id',         'looking_for'),
     EnumFilter('smoking_ids',             'smoking_id',             'yes_no_optional'),
@@ -194,6 +195,7 @@ _TWO_WAY_ENUM_COLUMNS = {
     'gender':                'gender_id',
     'orientation':           'orientation_id',
     'ethnicity':             'ethnicity_id',
+    'body_type':             'body_type_id',
     'has_a_profile_picture': 'has_profile_picture_id',
     'looking_for':           'looking_for_id',
     'smoking':               'smoking_id',
@@ -227,6 +229,7 @@ TWO_WAY_FILTER_KEYS = [
     'religion',
     'drinking',
     'height',
+    'body_type',
     'exercise',
     'star_sign',
 ]

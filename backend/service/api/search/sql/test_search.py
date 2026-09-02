@@ -34,9 +34,9 @@ SEARCH_ONLY = frozenset([
 ])
 
 _SEARCHER_ID_COLUMNS = [
-    'gender_id', 'orientation_id', 'ethnicity_id', 'has_profile_picture_id',
-    'looking_for_id', 'smoking_id', 'drinking_id', 'drugs_id',
-    'long_distance_id', 'relationship_status_id', 'has_kids_id',
+    'gender_id', 'orientation_id', 'ethnicity_id', 'body_type_id',
+    'has_profile_picture_id', 'looking_for_id', 'smoking_id', 'drinking_id',
+    'drugs_id', 'long_distance_id', 'relationship_status_id', 'has_kids_id',
     'wants_kids_id', 'exercise_id', 'religion_id', 'star_sign_id',
 ]
 

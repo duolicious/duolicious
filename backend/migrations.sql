@@ -14,3 +14,35 @@ ALTER TABLE search_cache
 
 ALTER TABLE person
     DROP COLUMN IF EXISTS last_nag_time;
+
+CREATE TABLE IF NOT EXISTS body_type (
+    id SMALLSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    UNIQUE (name)
+);
+
+INSERT INTO body_type (name) VALUES
+    ('Unanswered'),
+    ('Thin'),
+    ('Average'),
+    ('Athletic'),
+    ('Chubby'),
+    ('Big')
+ON CONFLICT (name) DO NOTHING;
+
+ALTER TABLE person
+    ADD COLUMN IF NOT EXISTS body_type_id SMALLINT
+    REFERENCES body_type(id) NOT NULL DEFAULT 1;
+
+ALTER TABLE search_preference
+    ADD COLUMN IF NOT EXISTS body_type_ids SMALLINT[];
+
+UPDATE search_preference
+SET body_type_ids = ARRAY(SELECT id FROM body_type ORDER BY id)
+WHERE body_type_ids IS NULL;
+
+ALTER TABLE search_preference
+    ALTER COLUMN body_type_ids SET NOT NULL;
+
+ALTER TABLE search_preference
+    ADD COLUMN IF NOT EXISTS two_way_body_type BOOLEAN NOT NULL DEFAULT FALSE;

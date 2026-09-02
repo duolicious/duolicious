@@ -844,6 +844,7 @@ _ENUM_SEARCH_FILTER_FIELDS = {
     'gender':                ('gender_ids',              'gender'),
     'orientation':           ('orientation_ids',         'orientation'),
     'ethnicity':             ('ethnicity_ids',           'ethnicity'),
+    'body_type':             ('body_type_ids',           'body_type'),
     'has_a_profile_picture': ('has_profile_picture_ids', 'yes_no'),
     'looking_for':           ('looking_for_ids',         'looking_for'),
     'smoking':               ('smoking_ids',             'yes_no_optional'),

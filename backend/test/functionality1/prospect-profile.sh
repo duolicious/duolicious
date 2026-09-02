@@ -35,6 +35,7 @@ expected=$(jq -r . << EOF
     "min_age": 22
   },
   "audio_bio_uuid": null,
+  "body_type": null,
   "count_answers": 0,
   "drinking": null,
   "drugs": null,
@@ -154,6 +155,7 @@ expected=$(jq -r . << EOF
     "min_age": 22
   },
   "audio_bio_uuid": null,
+  "body_type": null,
   "count_answers": 0,
   "drinking": null,
   "drugs": null,

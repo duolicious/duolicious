@@ -730,6 +730,7 @@ type UserData = {
   audio_bio_uuid: string | null,
   age: number | null,
   location: string | null
+  body_type: string | null,
   drinking: string | null,
   drugs: string | null,
   ethnicity: string | null,
@@ -847,7 +848,8 @@ const hasAnyBasics = (data: UserData | null | undefined): boolean => {
     data.religion ||
     data.star_sign ||
     data.exercise ||
-    data.height_cm
+    data.height_cm ||
+    data.body_type
   );
 };
 
@@ -1597,6 +1599,9 @@ const Body = ({
 
           {data?.exercise &&
             <Basic {...basicsTheme} icon="barbell">{data.exercise} exercises</Basic>}
+
+          {data?.body_type &&
+            <Basic {...basicsTheme} icon="body">{data.body_type}</Basic>}
 
           {data?.height_cm && signedInUser?.units === 'Metric' &&
             <Basic {...basicsTheme} icon={faRulerVertical}>{data.height_cm} cm</Basic>}

@@ -219,6 +219,12 @@ CREATE TABLE IF NOT EXISTS frequency (
     UNIQUE (name)
 );
 
+CREATE TABLE IF NOT EXISTS body_type (
+    id SMALLSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    UNIQUE (name)
+);
+
 CREATE TABLE IF NOT EXISTS relationship_status (
     id SMALLSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -312,6 +318,7 @@ CREATE TABLE IF NOT EXISTS person (
     occupation TEXT,
     education TEXT,
     height_cm SMALLINT,
+    body_type_id SMALLINT REFERENCES body_type(id) NOT NULL DEFAULT 1,
     looking_for_id SMALLINT REFERENCES looking_for(id) NOT NULL DEFAULT 1,
     smoking_id SMALLINT REFERENCES yes_no_optional(id) NOT NULL DEFAULT 1,
     drinking_id SMALLINT REFERENCES frequency(id) NOT NULL DEFAULT 1,
@@ -695,6 +702,7 @@ CREATE TABLE IF NOT EXISTS search_preference (
     gender_ids              SMALLINT[] NOT NULL,
     orientation_ids         SMALLINT[] NOT NULL,
     ethnicity_ids           SMALLINT[] NOT NULL,
+    body_type_ids           SMALLINT[] NOT NULL,
     has_profile_picture_ids SMALLINT[] NOT NULL,
     looking_for_ids         SMALLINT[] NOT NULL,
     smoking_ids             SMALLINT[] NOT NULL,
@@ -739,6 +747,7 @@ CREATE TABLE IF NOT EXISTS search_preference (
     two_way_religion              BOOLEAN NOT NULL DEFAULT FALSE,
     two_way_drinking              BOOLEAN NOT NULL DEFAULT FALSE,
     two_way_height                BOOLEAN NOT NULL DEFAULT FALSE,
+    two_way_body_type             BOOLEAN NOT NULL DEFAULT FALSE,
     two_way_exercise              BOOLEAN NOT NULL DEFAULT FALSE,
     two_way_star_sign             BOOLEAN NOT NULL DEFAULT FALSE
 );
@@ -985,6 +994,14 @@ INSERT INTO sort_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHIN
 INSERT INTO sort_by (name) VALUES ('Longer conversations') ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('{{LAST_ONLINE_DEFAULT_NAME}}', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('All time', 3153600000) ON CONFLICT (name) DO NOTHING;
+
+SELECT setval('body_type_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM body_type), FALSE);
+INSERT INTO body_type (name) VALUES ('Unanswered') ON CONFLICT (name) DO NOTHING;
+INSERT INTO body_type (name) VALUES ('Thin') ON CONFLICT (name) DO NOTHING;
+INSERT INTO body_type (name) VALUES ('Average') ON CONFLICT (name) DO NOTHING;
+INSERT INTO body_type (name) VALUES ('Athletic') ON CONFLICT (name) DO NOTHING;
+INSERT INTO body_type (name) VALUES ('Chubby') ON CONFLICT (name) DO NOTHING;
+INSERT INTO body_type (name) VALUES ('Big') ON CONFLICT (name) DO NOTHING;
 
 SELECT setval('relationship_status_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM relationship_status), FALSE);
 INSERT INTO relationship_status (name) VALUES ('Unanswered') ON CONFLICT (name) DO NOTHING;

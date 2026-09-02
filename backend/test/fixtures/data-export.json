@@ -2086,6 +2086,7 @@
         "religion_id": 1,
         "show_my_age": true,
         "title_color": "#000000",
+        "body_type_id": 1,
         "chat_seconds": 0,
         "ethnicity_id": 1,
         "sign_in_time": "2026-08-30T16:41:29.897809",
@@ -2150,6 +2151,7 @@
         "religion_name": "Unanswered",
         "sign_in_count": 1,
         "wants_kids_id": 1,
+        "body_type_name": "Unanswered",
         "ethnicity_name": "Unanswered",
         "looking_for_id": 1,
         "orientation_id": 1,
@@ -2358,6 +2360,14 @@
       "min_height_cm": null,
       "max_height_cm": null
     },
+    "body_type": [
+      "Athletic",
+      "Average",
+      "Big",
+      "Chubby",
+      "Thin",
+      "Unanswered"
+    ],
     "has_a_profile_picture": [
       "No",
       "Yes"
@@ -2464,6 +2474,7 @@
       "religion": false,
       "drinking": false,
       "height": false,
+      "body_type": false,
       "exercise": false,
       "star_sign": false
     }

@@ -455,6 +455,7 @@ test_clear () {
   test_set drugs No                       && test_clear_field drugs Unanswered
   test_set long_distance Yes              && test_clear_field long_distance Unanswered
   test_set relationship_status Single     && test_clear_field relationship_status Unanswered
+  test_set body_type Chubby               && test_clear_field body_type Unanswered
   test_set has_kids No                    && test_clear_field has_kids Unanswered
   test_set wants_kids Yes                 && test_clear_field wants_kids Unanswered
   test_set exercise Often                 && test_clear_field exercise Unanswered
@@ -483,6 +484,7 @@ test_set location "New York, New York, United States"
 test_set occupation 'Wallnut milker'
 test_set education MIT
 test_set height 184
+test_set body_type Chubby
 test_set looking_for 'Short-term dating'
 test_set smoking Yes
 test_set drinking Often
