@@ -22,6 +22,11 @@ import {
   HsvColorPickerRef,
 } from './hsv-color-picker';
 import {
+  Hsv,
+  hexToHsv,
+  hsvToHex,
+} from './util';
+import {
   DefaultText,
 } from '../../default-text';
 import {
@@ -119,16 +124,17 @@ const ColorPickerModal: React.FC = () => {
   }, [setIsShowing, shouldShow, opacity]);
 
   const hsvColorPickerRef = useRef<HsvColorPickerRef>(null);
+  const hsv = useRef<Hsv>([0, 0, 1]);
   const [backgroundColor, setBackgroundColor] = useState(initialBackgroundColor);
 
   const onDragMove = useCallback(() => {
-    setBackgroundColor(hsvColorPickerRef.current?.getColor() ?? '#ffffff');
+    hsv.current = hsvColorPickerRef.current?.getHsv() ?? hsv.current;
+
+    setBackgroundColor(hsvToHex(...hsv.current));
   }, []);
 
   const pick = useCallback(() => {
-    const color = hsvColorPickerRef.current?.getColor() ?? '#ffffff';
-
-    notify<ColorPickedEvent>('color-picked', color);
+    notify<ColorPickedEvent>('color-picked', hsvToHex(...hsv.current));
 
     setShouldShow(false);
   }, []);
@@ -150,9 +156,13 @@ const ColorPickerModal: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (shouldShow) {
-      hsvColorPickerRef.current?.setColor(initialBackgroundColor);
+    if (!shouldShow) {
+      return;
     }
+
+    hsv.current = hexToHsv(initialBackgroundColor, hsv.current);
+
+    hsvColorPickerRef.current?.setHsv(hsv.current);
   }, [hsvColorPickerRef.current, initialBackgroundColor, shouldShow]);
 
   const Button = ({onPress, title, color}: {

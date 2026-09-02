@@ -21,7 +21,6 @@ import {
 
 type HuePickerProps = {
   borderRadius: number;
-  hue: number;
   barWidth: number;
   barHeight: number;
   sliderSize: number;
@@ -40,7 +39,6 @@ const HuePicker = forwardRef<
 >((props, ref) => {
   const {
     borderRadius,
-    hue,
     barWidth,
     barHeight,
     sliderSize,
@@ -58,11 +56,9 @@ const HuePicker = forwardRef<
     '#ff0000',
   ];
 
-  const initialY = clamp(hue, 0, 360);
-
-  const baseSliderY = useRef(initialY);
-  const sliderY = useRef(initialY);
-  const animatedSliderY = useRef(new Animated.Value(initialY));
+  const baseSliderY = useRef(0);
+  const sliderY = useRef(0);
+  const animatedSliderY = useRef(new Animated.Value(0));
 
   const backgroundColor = animatedSliderY.current.interpolate({
     inputRange: hueColors.map((_, i) => i * barHeight / (hueColors.length - 1)),
