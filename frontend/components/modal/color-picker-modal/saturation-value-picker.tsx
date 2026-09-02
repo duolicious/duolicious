@@ -32,9 +32,6 @@ type SaturationValuePickerProps = {
   borderRadius: number;
   size: number;
   sliderSize: number;
-  hue: number;
-  saturation: number;
-  value: number;
   containerStyle?: ViewStyle;
   onDragMove?: () => void;
 }
@@ -47,9 +44,6 @@ const SaturationValuePicker = forwardRef<
     borderRadius,
     size,
     sliderSize,
-    hue: initialHue,
-    saturation,
-    value,
     containerStyle = {},
     onDragMove,
   } = props;
@@ -64,13 +58,10 @@ const SaturationValuePicker = forwardRef<
     '#ff0000',
   ];
 
-  const initialXY = {
-    x: clamp(size * saturation),
-    y: clamp(size * value),
-  };
+  const initialXY = { x: 0, y: 0 };
 
-  const hue = useRef(initialHue);
-  const animatedHue = useRef(new Animated.Value(initialHue));
+  const hue = useRef(0);
+  const animatedHue = useRef(new Animated.Value(0));
 
   const baseSliderXY = useRef(initialXY);
   const sliderXY = useRef(initialXY);

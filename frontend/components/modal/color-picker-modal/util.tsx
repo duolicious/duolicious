@@ -1,3 +1,5 @@
+type Hsv = [number, number, number];
+
 const clamp = (value: number, min: number = 0, max: number = 1) =>
   Math.min(Math.max(value, min), max);
 
@@ -98,9 +100,9 @@ const hexToRgb = (hex: string): [number, number, number] => {
  * @param {number} r - The red component.
  * @param {number} g - The green component.
  * @param {number} b - The blue component.
- * @return {[number, number, number]} The HSV representation (hue, saturation, value).
+ * @return {Hsv} The HSV representation (hue, saturation, value).
  */
-const rgbToHsv = (r: number, g: number, b: number): [number, number, number] => {
+const rgbToHsv = (r: number, g: number, b: number): Hsv => {
   r /= 255;
   g /= 255;
   b /= 255;
@@ -126,15 +128,27 @@ const rgbToHsv = (r: number, g: number, b: number): [number, number, number] => 
 /**
  * Converts a HEX color value directly to HSV.
  *
+ * Grey hexes leave the hue undetermined and black leaves the saturation
+ * undetermined too, so those components are taken from `fallback` instead of
+ * being flattened to zero.
+ *
  * @param {string} hex - The HEX color string.
- * @return {[number, number, number]} The HSV representation (hue, saturation, value).
+ * @param {Hsv} fallback - The HSV to take under-determined components from.
+ * @return {Hsv} The HSV representation (hue, saturation, value).
  */
-const hexToHsv = (hex: string): [number, number, number] => {
+const hexToHsv = (hex: string, fallback: Hsv): Hsv => {
   const [r, g, b] = hexToRgb(hex);
-  return rgbToHsv(r, g, b);
+  const [h, s, v] = rgbToHsv(r, g, b);
+
+  return [
+    s === 0 ? fallback[0] : h,
+    v === 0 ? fallback[1] : s,
+    v,
+  ];
 };
 
 export {
+  Hsv,
   clamp,
   hsvToHex,
   hexToHsv,

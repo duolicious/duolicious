@@ -18,8 +18,7 @@ import {
   SaturationValuePickerRef,
 } from './saturation-value-picker';
 import {
-  hexToHsv,
-  hsvToHex,
+  Hsv,
 } from './util';
 
 type HsvColorPickerProps = {
@@ -33,15 +32,12 @@ type HsvColorPickerProps = {
   satValPickerBorderRadius?: number;
   satValPickerSize?: number;
   satValPickerSliderSize?: number;
-  hue?: number,
-  saturation?: number,
-  value?: number,
   onDragMove?: () => void;
 }
 
 type HsvColorPickerRef = {
-  getColor: () => string;
-  setColor: (c: string) => void;
+  getHsv: () => Hsv;
+  setHsv: (hsv: Hsv) => void;
 };
 
 const HsvColorPicker = forwardRef<
@@ -51,43 +47,27 @@ const HsvColorPicker = forwardRef<
   const saturationValuePickerRef = useRef<SaturationValuePickerRef>(null);
   const huePickerRef = useRef<HuePickerRef>(null);
 
-  const transportHue = useCallback(() => {
+  const onHuePickerDragMove = useCallback(() => {
     const hue = huePickerRef.current?.getHue() ?? 0;
     saturationValuePickerRef.current?.setHue(hue);
-  }, []);
-
-  const onSatValPickerDragMove = useCallback(() => {
-    props.onDragMove && props.onDragMove();
-  }, []);
-
-  const onHuePickerDragMove = useCallback(() => {
-    transportHue();
 
     props.onDragMove && props.onDragMove();
   }, [props.onDragMove]);
 
-  const getColor = useCallback(() => {
-    return hsvToHex(
-      huePickerRef.current?.getHue() ?? 0,
-      saturationValuePickerRef.current?.getSaturation() ?? 0,
-      saturationValuePickerRef.current?.getValue() ?? 0,
-    );
-  }, [huePickerRef.current, saturationValuePickerRef.current]);
+  const getHsv = useCallback((): Hsv => [
+    huePickerRef.current?.getHue() ?? 0,
+    saturationValuePickerRef.current?.getSaturation() ?? 0,
+    saturationValuePickerRef.current?.getValue() ?? 0,
+  ], []);
 
-  const setColor = useCallback((c: string) => {
-    const [h, s, v] = hexToHsv(c);
-
+  const setHsv = useCallback(([h, s, v]: Hsv) => {
     huePickerRef.current?.setHue(h);
     saturationValuePickerRef.current?.setHue(h);
     saturationValuePickerRef.current?.setSaturation(s);
     saturationValuePickerRef.current?.setValue(v);
-  }, [huePickerRef.current, saturationValuePickerRef.current]);
+  }, []);
 
-  useImperativeHandle(
-    ref,
-    () => ({ getColor, setColor }),
-    [getColor, setColor],
-  );
+  useImperativeHandle(ref, () => ({ getHsv, setHsv }), [getHsv, setHsv]);
 
   return (
     <View style={[styles.container, props.containerStyle]}>
@@ -96,16 +76,12 @@ const HsvColorPicker = forwardRef<
         borderRadius={props.satValPickerBorderRadius ?? 0}
         size={props.satValPickerSize ?? 200}
         sliderSize={props.satValPickerSliderSize ?? 24}
-        hue={props.hue ?? 0}
-        saturation={props.saturation ?? 0}
-        value={props.value ?? 0}
-        onDragMove={onSatValPickerDragMove}
+        onDragMove={props.onDragMove}
         ref={saturationValuePickerRef}
       />
       <HuePicker
         containerStyle={props.huePickerContainerStyle}
         borderRadius={props.huePickerBorderRadius ?? 0}
-        hue={props.hue ?? 0}
         barWidth={props.huePickerBarWidth ?? 12}
         barHeight={props.huePickerBarHeight ?? 200}
         sliderSize={props.huePickerSliderSize ?? 24}
