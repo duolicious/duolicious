@@ -992,6 +992,7 @@ SELECT setval('sort_by_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM sort_by), 
 INSERT INTO sort_by (name) VALUES ('Match percentage') ON CONFLICT (name) DO NOTHING;
 INSERT INTO sort_by (name) VALUES ('Similar clubs') ON CONFLICT (name) DO NOTHING;
 INSERT INTO sort_by (name) VALUES ('Longer conversations') ON CONFLICT (name) DO NOTHING;
+INSERT INTO sort_by (name) VALUES ('Distance') ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('{{LAST_ONLINE_DEFAULT_NAME}}', {{LAST_ONLINE_DEFAULT_SECONDS}}) ON CONFLICT (name) DO NOTHING;
 INSERT INTO last_online (name, seconds) VALUES ('All time', 3153600000) ON CONFLICT (name) DO NOTHING;
 

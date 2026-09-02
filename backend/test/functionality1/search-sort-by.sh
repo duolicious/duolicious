@@ -130,3 +130,29 @@ jc POST /search-filter -d '{ "sort_by": "Longer conversations" }'
 [[ "$(search_names_sorted)" = 'clubby matchy' ]]
 kv_order=$(search_names_in_order)
 [[ "$(c GET '/search?n=1&o=0' | jq -r '.[0].name') $(c GET '/search?n=1&o=1' | jq -r '.[0].name')" = "$kv_order" ]]
+
+echo 'Ordering by Distance puts the nearest prospect first'
+assume_role matchy
+jc PATCH /profile-info -d '{ "location": "Los Angeles, California, United States" }'
+assume_role clubby
+jc PATCH /profile-info -d '{ "location": "Philadelphia, Pennsylvania, United States" }'
+
+assume_role searcher
+jc POST /search-filter -d '{ "furthest_distance": null }'
+jc POST /search-filter -d '{ "sort_by": "Distance" }'
+[[ "$(c GET /search-filters | jq -r '.sort_by')" = 'Distance' ]]
+[[ "$(search_names_in_order)" = 'clubby matchy' ]]
+
+echo 'Cached pages preserve the distance ordering'
+[[ "$(c GET '/search?n=1&o=0' | jq -r '.[0].name')" = 'clubby' ]]
+[[ "$(c GET '/search?n=1&o=1' | jq -r '.[0].name')" = 'matchy' ]]
+
+echo 'Moving further away re-ranks the prospect'
+assume_role clubby
+jc PATCH /profile-info -d '{ "location": "Sydney, New South Wales, Australia" }'
+assume_role searcher
+[[ "$(search_names_in_order)" = 'matchy clubby' ]]
+
+echo 'Moving the searcher re-ranks the prospects'
+jc PATCH /profile-info -d '{ "location": "Sydney, New South Wales, Australia" }'
+[[ "$(search_names_in_order)" = 'clubby matchy' ]]
