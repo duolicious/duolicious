@@ -513,24 +513,19 @@ WITH onboardee_location AS (
         1
 ), default_sort_by AS (
     SELECT
-        longer_conversations,
         (
             SELECT id
             FROM sort_by
             WHERE name = CASE
-                WHEN longer_conversations
+                WHEN
+                    %(longer_conversations_default_trial)s::BOOLEAN
+                    AND MOD(new_person.id, 2) = 0
                 THEN '{SORT_KV}'
                 ELSE '{SORT_MATCH_PERCENTAGE}'
             END
         ) AS id
-    FROM (
-        SELECT
-            %(longer_conversations_default_trial)s::BOOLEAN
-                AND MOD(new_person.id, 2) = 0
-                AS longer_conversations
-        FROM
-            new_person
-    ) AS assignment
+    FROM
+        new_person
 ), updated_session AS (
     UPDATE duo_session
     SET person_id = new_person.id
@@ -584,22 +579,9 @@ WITH onboardee_location AS (
         ARRAY(SELECT id FROM frequency ORDER BY id),
         ARRAY(SELECT id FROM religion ORDER BY id),
         ARRAY(SELECT id FROM star_sign ORDER BY id),
+        best_age.min_age,
+        best_age.max_age,
         CASE
-            WHEN default_sort_by.longer_conversations
-            THEN NULL
-
-            ELSE best_age.min_age
-        END,
-        CASE
-            WHEN default_sort_by.longer_conversations
-            THEN NULL
-
-            ELSE best_age.max_age
-        END,
-        CASE
-            WHEN default_sort_by.longer_conversations
-            THEN NULL
-
             WHEN best_distance.cnt < 500
             THEN NULL
 
