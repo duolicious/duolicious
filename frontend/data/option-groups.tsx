@@ -378,6 +378,14 @@ const ethnicities = [
   'Other'
 ];
 
+const bodyTypes = [
+  'Thin',
+  'Average',
+  'Athletic',
+  'Chubby',
+  'Big',
+];
+
 const religions = [
   'Agnostic',
   'Atheist',
@@ -931,6 +939,24 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         },
         clear: clearProfileField('height', null),
       },
+    },
+  },
+  {
+    title: 'Body Type',
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="body" />,
+    description: "How would you describe your body type?",
+    input: {
+      buttons: {
+        values: bodyTypes,
+        submit: async (bodyType: string) => {
+          const ok = (
+            await japi('patch', '/profile-info', { body_type: bodyType })
+          ).ok;
+          if (ok) patchProfileInfo({ body_type: bodyType });
+          return ok;
+        },
+        clear: clearProfileField('body_type', 'Unanswered'),
+      }
     },
   },
   {
@@ -1921,6 +1947,37 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           return true;
         },
       },
+    },
+  },
+  {
+    title: "Body Type",
+    Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="body" />,
+    description: "Which body types would you like to see in search results?",
+    input: {
+      checkChips: {
+        values: [
+          ...bodyTypes.map((x) => ({checked: true, label: x})),
+          {checked: true, label: 'Unanswered'},
+        ],
+        submit: async (bodyType: string[]) => {
+          const go = async () => {
+            const ok = (await japi(
+              'post',
+              '/search-filter',
+              { body_type: bodyType }
+            )).ok;
+            if (ok) patchSearchFilters({ body_type: bodyType });
+            return ok;
+          };
+          if (bodyType.length) {
+            searchQueue.addTask(go);
+            patchSearchFilters({ body_type: bodyType });
+            return true;
+          } else {
+            return await searchQueue.addTask(go);
+          }
+        }
+      }
     },
   },
   {

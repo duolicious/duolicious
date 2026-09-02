@@ -52,6 +52,7 @@ CLUB_MAX_LEN = 42
 PATCH_PROFILE_INFO_LOOKUP_BASICS = frozenset({
     'orientation',
     'ethnicity',
+    'body_type',
     'looking_for',
     'smoking',
     'drinking',
@@ -537,6 +538,7 @@ class PatchProfileInfo(BaseModel):
     occupation: str | None = Field(default=None, min_length=1, max_length=64)
     education: str | None = Field(default=None, min_length=1, max_length=64)
     height: int | None = None
+    body_type: str | None = None
     looking_for: str | None = None
     smoking: str | None = None
     drinking: str | None = None
@@ -642,6 +644,7 @@ class PostSearchFilter(BaseModel):
         religion: bool | None = None
         drinking: bool | None = None
         height: bool | None = None
+        body_type: bool | None = None
         exercise: bool | None = None
         star_sign: bool | None = None
 
@@ -651,6 +654,7 @@ class PostSearchFilter(BaseModel):
     age: Age | None = None
     furthest_distance: int | None = None
     height: Height | None = None
+    body_type: List[str] | None = Field(default=None, min_length=1)
     has_a_profile_picture: List[str] | None = Field(default=None, min_length=1)
     looking_for: List[str] | None = Field(default=None, min_length=1)
     smoking: List[str] | None = Field(default=None, min_length=1)

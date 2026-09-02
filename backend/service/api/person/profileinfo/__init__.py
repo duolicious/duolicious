@@ -270,6 +270,7 @@ _PROFILE_FIELDS = {
     'occupation': _ProfileField(q1=_person_value_q('occupation')),
     'education': _ProfileField(q1=_person_value_q('education')),
     'height': _ProfileField(q1=_person_value_q('height_cm')),
+    'body_type': _ProfileField(q1=_person_lookup_q('body_type_id', 'body_type')),
     'looking_for': _ProfileField(
         q1=_person_lookup_q('looking_for_id', 'looking_for')),
     'smoking': _ProfileField(

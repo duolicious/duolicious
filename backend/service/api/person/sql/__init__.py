@@ -537,6 +537,7 @@ WITH onboardee_location AS (
         gender_ids,
         orientation_ids,
         ethnicity_ids,
+        body_type_ids,
         has_profile_picture_ids,
         looking_for_ids,
         smoking_ids,
@@ -567,6 +568,7 @@ WITH onboardee_location AS (
         ),
         ARRAY(SELECT id FROM orientation ORDER BY id),
         ARRAY(SELECT id FROM ethnicity ORDER BY id),
+        ARRAY(SELECT id FROM body_type ORDER BY id),
         ARRAY(SELECT id FROM yes_no ORDER BY id),
         ARRAY(SELECT id FROM looking_for ORDER BY id),
         ARRAY(SELECT id FROM yes_no_optional ORDER BY id),
@@ -825,6 +827,10 @@ WITH prospect_base AS (
     SELECT ethnicity.name AS j
     FROM ethnicity JOIN prospect ON ethnicity_id = ethnicity.id
     WHERE ethnicity.name != 'Unanswered'
+), body_type AS (
+    SELECT body_type.name AS j
+    FROM body_type JOIN prospect ON body_type_id = body_type.id
+    WHERE body_type.name != 'Unanswered'
 ), looking_for AS (
     SELECT looking_for.name AS j
     FROM looking_for JOIN prospect ON looking_for_id = looking_for.id
@@ -978,6 +984,7 @@ SELECT
         'gender',                 (SELECT j             FROM gender),
         'orientation',            (SELECT j             FROM orientation),
         'ethnicity',              (SELECT j             FROM ethnicity),
+        'body_type',              (SELECT j             FROM body_type),
         'looking_for',            (SELECT j             FROM looking_for),
         'smoking',                (SELECT j             FROM smoking),
         'drinking',               (SELECT j             FROM drinking),
@@ -1367,6 +1374,10 @@ WITH photo_ AS (
     SELECT education AS j FROM person WHERE id = %(person_id)s
 ), height AS (
     SELECT height_cm AS j FROM person WHERE id = %(person_id)s
+), body_type AS (
+    SELECT body_type.name AS j
+    FROM body_type JOIN person ON body_type_id = body_type.id
+    WHERE person.id = %(person_id)s
 ), looking_for AS (
     SELECT looking_for.name AS j
     FROM looking_for JOIN person ON looking_for_id = looking_for.id
@@ -1522,6 +1533,7 @@ SELECT
         'occupation',             (SELECT j FROM occupation),
         'education',              (SELECT j FROM education),
         'height',                 (SELECT j FROM height),
+        'body type',              (SELECT j FROM body_type),
         'looking for',            (SELECT j FROM looking_for),
         'smoking',                (SELECT j FROM smoking),
         'drinking',               (SELECT j FROM drinking),
@@ -1692,6 +1704,10 @@ WITH answer AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
     FROM yes_no, sp
     WHERE yes_no.id = ANY(sp.has_profile_picture_ids)
+), body_type AS (
+    SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
+    FROM body_type, sp
+    WHERE body_type.id = ANY(sp.body_type_ids)
 ), looking_for AS (
     SELECT COALESCE(array_agg(name ORDER BY name), ARRAY[]::TEXT[]) AS j
     FROM looking_for, sp
@@ -1770,6 +1786,7 @@ WITH answer AS (
         'religion',              two_way_religion,
         'drinking',              two_way_drinking,
         'height',                two_way_height,
+        'body_type',             two_way_body_type,
         'exercise',              two_way_exercise,
         'star_sign',             two_way_star_sign
     ) AS j
@@ -1786,6 +1803,7 @@ SELECT
         'furthest_distance',      (SELECT j FROM furthest_distance),
         'last_online',            (SELECT j FROM last_online_pref),
         'height',                 (SELECT j FROM height),
+        'body_type',              (SELECT j FROM body_type),
         'has_a_profile_picture',  (SELECT j FROM has_a_profile_picture),
         'looking_for',            (SELECT j FROM looking_for),
         'smoking',                (SELECT j FROM smoking),
@@ -2521,6 +2539,7 @@ SELECT json_build_object(
                 verification_level.name AS verification_level_name,
                 orientation.name AS orientation_name,
                 ethnicity.name AS ethnicity_name,
+                body_type.name AS body_type_name,
                 looking_for.name AS looking_for_name,
                 smoking.name AS smoking_name,
                 drinking.name AS drinking_name,
@@ -2556,6 +2575,9 @@ SELECT json_build_object(
             LEFT JOIN
                 ethnicity ON
                 ethnicity.id = ethnicity_id
+            LEFT JOIN
+                body_type ON
+                body_type.id = body_type_id
             LEFT JOIN
                 looking_for ON
                 looking_for.id = looking_for_id

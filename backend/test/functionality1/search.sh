@@ -1041,6 +1041,7 @@ test_basic drinking 'Often' frequency
 test_basic drugs 'No' yes_no_optional
 test_basic long_distance 'Yes' yes_no_optional
 test_basic relationship_status 'Seeing someone'
+test_basic body_type 'Chubby'
 test_basic has_kids 'Yes' yes_no_optional
 test_basic wants_kids 'No' yes_no_optional
 test_basic exercise 'Never' frequency

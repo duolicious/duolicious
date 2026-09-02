@@ -13,6 +13,7 @@ const SPACE_TO_SNAKE: Record<string, string> = {
   'has kids': 'has_kids',
   'wants kids': 'wants_kids',
   'star sign': 'star_sign',
+  'body type': 'body_type',
   'verification level': 'verification_level',
   'public profile': 'public_profile',
   'show my location': 'show_my_location',
