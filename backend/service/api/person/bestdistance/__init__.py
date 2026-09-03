@@ -1,6 +1,5 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from serviceshared.util.round import round_half_up
 
 TARGET_CANDIDATES = 2000
 CANDIDATE_LIMIT = TARGET_CANDIDATES * 2
@@ -43,11 +42,11 @@ async def best_distance(
 def distance_preference(
     candidates: Candidates,
     is_joining_club: bool,
-) -> int | None:
+) -> float | None:
     if candidates.count < _MIN_CANDIDATES:
         return None
     if candidates.distance_km > _MAX_PREFERENCE_KM:
         return _MAX_PREFERENCE_KM
     if is_joining_club:
         return None
-    return round_half_up(candidates.distance_km)
+    return candidates.distance_km

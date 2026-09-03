@@ -459,7 +459,7 @@ WITH onboardee_location AS (
         %(max_age)s::SMALLINT AS max_age
 ), best_distance AS (
     SELECT
-        %(distance)s::SMALLINT AS distance
+        %(distance)s::NUMERIC::SMALLINT AS distance
 ), default_sort_by AS (
     SELECT
         (

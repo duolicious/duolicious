@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from serviceshared.util.round import round_half_up
 
 _AGE_FLOOR = 18
 _AGE_CEILING = 99
@@ -29,7 +28,7 @@ class AgeBounds:
 
 def _evaluate(coefficients: _Coefficients, age: int) -> int:
     slope, intercept = coefficients
-    return round_half_up(slope * age + intercept)
+    return round(slope * age + intercept)
 
 
 def best_age(age: int, gender: str, trial: bool) -> AgeBounds:
