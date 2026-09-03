@@ -1,8 +1,16 @@
-from serviceshared.database import Row, Tx, api_tx, row_int_list_or_none
+from serviceshared.database import (
+    Row,
+    Tx,
+    api_tx,
+    row_int,
+    row_int_list_or_none,
+    row_str,
+)
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
 from typing import Tuple
 from serviceshared.util.coerce import string
+from service.api.person.bestage import best_age
 from service.api.person.urlslug import reserve_onboardee_url_slug
 import service.api.duotypes as t
 import json
@@ -595,7 +603,22 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
 
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
-        row = await tx.require_one(Q_FINISH_ONBOARDING, params=api_params)
+
+        onboardee = await tx.require_one(
+            Q_ONBOARDEE_AGE_AND_GENDER,
+            params=dict(email=s.email),
+        )
+
+        age_bounds = best_age(
+            age=row_int(onboardee, 'age'),
+            gender=row_str(onboardee, 'gender'),
+        )
+
+        row = await tx.require_one(Q_FINISH_ONBOARDING, params=dict(
+            **api_params,
+            min_age=age_bounds.min_age,
+            max_age=age_bounds.max_age,
+        ))
         tx.attribute([int(row['person_id'])])
 
         # If this user signed up via Google/Apple, drain the pending

@@ -317,6 +317,20 @@ ON
     valid_session.person_id = existing_person.id
 """
 
+Q_ONBOARDEE_AGE_AND_GENDER = """
+SELECT
+    EXTRACT(YEAR FROM AGE(onboardee.date_of_birth))::INT AS age,
+    gender.name AS gender
+FROM
+    onboardee
+JOIN
+    gender
+ON
+    gender.id = onboardee.gender_id
+WHERE
+    onboardee.email = %(email)s
+"""
+
 Q_FINISH_ONBOARDING = f"""
 WITH onboardee_location AS (
     SELECT
@@ -389,23 +403,9 @@ WITH onboardee_location AS (
         date_of_birth,
         person.name
 ), best_age AS (
-    WITH new_person_age AS (
-        SELECT
-            EXTRACT(YEAR FROM AGE(date_of_birth)) AS age
-        FROM
-            new_person
-    ), unbounded_age_preference AS (
-        SELECT
-            round(age - 2 - (age - 18) / 5.0) AS min_age,
-            round(age + 2 + (age - 18) / 5.0) AS max_age
-        FROM
-            new_person_age
-    )
     SELECT
-        CASE WHEN min_age <= 18 THEN NULL ELSE min_age END AS min_age,
-        CASE WHEN max_age >= 99 THEN NULL ELSE max_age END AS max_age
-    FROM
-        unbounded_age_preference
+        %(min_age)s::SMALLINT AS min_age,
+        %(max_age)s::SMALLINT AS max_age
 ), best_distance AS (
     -- Use a binary search to compute the "furthest distance" search preference
     -- which causes search results to contain as close as possible to 2000 users
