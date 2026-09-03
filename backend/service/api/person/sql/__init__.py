@@ -5,7 +5,7 @@ from serviceshared.constants import (
     MAX_RELATED_CLUBS,
     MIN_CLUB_PAGE_MEMBERS,
 )
-from service.api.search.sql.search import SORT_KV, SORT_MATCH_PERCENTAGE
+from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     Q_COMPUTED_FLAIR,
