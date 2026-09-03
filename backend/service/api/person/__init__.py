@@ -672,10 +672,14 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
 
         person_id = row['person_id']
 
+        # `person_id` comes from the INSERT's own sequence rather than one of
+        # its params, so this write's subject has to be named here, in the
+        # one-statement window right after it runs and before anything else
+        # touches the transaction -- including the two calls below.
+        tx.attribute([person_id])
+
         await _update_best_distance(tx, person_id)
         await _update_best_age_filters(tx, person_id)
-
-        tx.attribute([person_id])
 
         # If this user signed up via Google/Apple, drain the pending
         # provider identity from `duo_session` into `social_identity` now
