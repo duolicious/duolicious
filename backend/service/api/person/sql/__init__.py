@@ -317,22 +317,18 @@ ON
     valid_session.person_id = existing_person.id
 """
 
-Q_NEXT_PERSON_ID = """
-SELECT nextval('person_id_seq')::INT AS person_id
-"""
-
-Q_ONBOARDEE_AGE_AND_GENDER = """
+Q_PERSON_AGE_AND_GENDER = """
 SELECT
-    EXTRACT(YEAR FROM AGE(onboardee.date_of_birth))::INT AS age,
+    EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS age,
     gender.name AS gender
 FROM
-    onboardee
+    person
 JOIN
     gender
 ON
-    gender.id = onboardee.gender_id
+    gender.id = person.gender_id
 WHERE
-    onboardee.email = %(email)s
+    person.id = %(person_id)s
 """
 
 Q_COUNT_NEARBY_CANDIDATES = """
@@ -343,28 +339,31 @@ FROM (
         1
     FROM
         person AS prospect
+    JOIN
+        person AS subject
+    ON
+        subject.id = %(person_id)s
+    JOIN
+        search_preference AS subject_preference
+    ON
+        subject_preference.person_id = subject.id
     WHERE
         prospect.activated
     AND
-        prospect.gender_id IN (
-            SELECT gender_id
-            FROM onboardee_search_preference_gender AS preference
-            WHERE preference.email = %(email)s
-        )
+        prospect.gender_id = ANY(subject_preference.gender_ids)
     AND
         EXISTS (
             SELECT 1
-            FROM search_preference AS preference
+            FROM search_preference AS prospect_preference
             WHERE
-                preference.person_id = prospect.id
+                prospect_preference.person_id = prospect.id
             AND
-                (SELECT gender_id FROM onboardee WHERE email = %(email)s) =
-                    ANY(preference.gender_ids)
+                subject.gender_id = ANY(prospect_preference.gender_ids)
         )
     AND
         ST_DWithin(
             prospect.coordinates,
-            (SELECT coordinates FROM onboardee WHERE email = %(email)s),
+            subject.coordinates,
             %(distance_metres)s
         )
     AND
@@ -378,6 +377,35 @@ FROM (
     LIMIT
         %(candidate_limit)s
 ) AS candidate
+"""
+
+Q_UPDATE_SEARCH_PREFERENCE_AGE = """
+UPDATE
+    search_preference
+SET
+    min_age = %(min_age)s,
+    max_age = %(max_age)s
+WHERE
+    person_id = %(person_id)s
+"""
+
+Q_IS_JOINING_CLUB = """
+SELECT
+    EXISTS (
+        SELECT 1
+        FROM duo_session
+        WHERE person_id = %(person_id)s
+        AND pending_club_name IS NOT NULL
+    ) AS is_joining_club
+"""
+
+Q_UPDATE_SEARCH_PREFERENCE_DISTANCE = """
+UPDATE
+    search_preference
+SET
+    distance = %(distance)s::NUMERIC::SMALLINT
+WHERE
+    person_id = %(person_id)s
 """
 
 Q_FINISH_ONBOARDING = f"""
@@ -397,7 +425,6 @@ WITH onboardee_location AS (
     LIMIT 1
 ), new_person AS (
     INSERT INTO person (
-        id,
         email,
         normalized_email,
         name,
@@ -414,7 +441,6 @@ WITH onboardee_location AS (
         location_long_friendly,
         location_country
     ) SELECT
-        %(person_id)s::INT,
         email,
         %(normalized_email)s,
         name,
@@ -453,20 +479,6 @@ WITH onboardee_location AS (
         coordinates,
         date_of_birth,
         person.name
-), best_age AS (
-    SELECT
-        %(min_age)s::SMALLINT AS min_age,
-        %(max_age)s::SMALLINT AS max_age
-), best_distance AS (
-    SELECT
-        %(distance)s::NUMERIC::SMALLINT AS distance
-), default_sort_by AS (
-    SELECT
-        (
-            SELECT id
-            FROM sort_by
-            WHERE name = '{SORT_MATCH_PERCENTAGE}'
-        ) AS id
 ), updated_session AS (
     UPDATE duo_session
     SET person_id = new_person.id
@@ -491,9 +503,6 @@ WITH onboardee_location AS (
         exercise_ids,
         religion_ids,
         star_sign_ids,
-        min_age,
-        max_age,
-        distance,
         last_online_id,
         sort_by_id,
         show_messaged,
@@ -522,14 +531,11 @@ WITH onboardee_location AS (
         ARRAY(SELECT id FROM frequency ORDER BY id),
         ARRAY(SELECT id FROM religion ORDER BY id),
         ARRAY(SELECT id FROM star_sign ORDER BY id),
-        best_age.min_age,
-        best_age.max_age,
-        best_distance.distance,
         (SELECT id FROM last_online WHERE name = '{LAST_ONLINE_DEFAULT_NAME}'),
-        default_sort_by.id,
+        (SELECT id from sort_by where name = '{SORT_MATCH_PERCENTAGE}'),
         TRUE,
         FALSE
-    FROM new_person, best_age, best_distance, default_sort_by
+    FROM new_person
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s

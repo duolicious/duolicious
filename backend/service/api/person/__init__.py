@@ -2,6 +2,7 @@ from serviceshared.database import (
     Row,
     Tx,
     api_tx,
+    row_bool,
     row_int,
     row_int_list_or_none,
     row_str,
@@ -138,6 +139,65 @@ def _otp_from_rows(rows: Sequence[Mapping[str, object]]) -> str | None:
         return otp
     except:
         return None
+
+async def _person_age_and_gender(tx: Tx, person_id: int) -> tuple[int, str]:
+    row = await tx.require_one(
+        Q_PERSON_AGE_AND_GENDER,
+        params=dict(person_id=person_id),
+    )
+    return row_int(row, 'age'), row_str(row, 'gender')
+
+
+async def _update_best_age_filters(tx: Tx, person_id: int) -> None:
+    age, gender = await _person_age_and_gender(tx, person_id)
+
+    # The 50-50 split keys on `person.id` parity, drawn from `person_id_seq`
+    # at insert time, so the arm stays recoverable from the id alone even
+    # after the user changes their filters.
+    trial = AGE_BOUNDS_TRIAL and person_id % 2 == 0
+    bounds = best_age(age=age, gender=gender, trial=trial)
+
+    await tx.execute(Q_UPDATE_SEARCH_PREFERENCE_AGE, params=dict(
+        person_id=person_id,
+        min_age=bounds.min_age,
+        max_age=bounds.max_age,
+    ))
+
+
+async def _update_best_distance(tx: Tx, person_id: int) -> None:
+    age, gender = await _person_age_and_gender(tx, person_id)
+
+    # Counts candidates through the control arm's age window regardless of
+    # which arm this person is in, so the trial's wider window can't also
+    # shrink the distance default and confound the age-bounds comparison.
+    control_bounds = best_age(age=age, gender=gender, trial=False)
+
+    async def count_within(distance_km: float) -> int:
+        counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
+            person_id=person_id,
+            distance_metres=distance_km * 1000,
+            min_age=(
+                0 if control_bounds.min_age is None else control_bounds.min_age
+            ),
+            max_age=(
+                999 if control_bounds.max_age is None else control_bounds.max_age
+            ),
+            candidate_limit=CANDIDATE_LIMIT,
+        ))
+        return row_int(counted, 'candidates')
+
+    candidates = await best_distance(count_within)
+
+    is_joining_club = row_bool(
+        await tx.require_one(Q_IS_JOINING_CLUB, params=dict(person_id=person_id)),
+        'is_joining_club',
+    )
+
+    await tx.execute(Q_UPDATE_SEARCH_PREFERENCE_DISTANCE, params=dict(
+        person_id=person_id,
+        distance=distance_preference(candidates, is_joining_club=is_joining_club),
+    ))
+
 
 async def _handle_pending_club(
     tx: Tx,
@@ -392,7 +452,6 @@ async def _sign_in_with_social(
                 person_uuid=None,
                 has_gold=False,
                 units=None,
-                do_show_donation_nag=False,
                 estimated_end_date=None,
                 name=None,
             )
@@ -602,59 +661,20 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
 
-        person_id = row_int(await tx.require_one(Q_NEXT_PERSON_ID), 'person_id')
-
-        onboardee = await tx.require_one(
-            Q_ONBOARDEE_AGE_AND_GENDER,
-            params=dict(email=s.email),
-        )
-
-        age = row_int(onboardee, 'age')
-        gender = row_str(onboardee, 'gender')
-
-        trial = AGE_BOUNDS_TRIAL and person_id % 2 == 0
-
-        age_bounds = best_age(age=age, gender=gender, trial=trial)
-
-        # The distance search counts candidates through the control arm's age
-        # window in both arms, so the trial's wider window cannot also shrink
-        # the distance default and confound the comparison.
-        control_bounds = best_age(age=age, gender=gender, trial=False)
-
-        async def count_within(distance_km: float) -> int:
-            counted = await tx.require_one(
-                Q_COUNT_NEARBY_CANDIDATES,
-                params=dict(
-                    email=s.email,
-                    distance_metres=distance_km * 1000,
-                    min_age=(
-                        0
-                        if control_bounds.min_age is None
-                        else control_bounds.min_age
-                    ),
-                    max_age=(
-                        999
-                        if control_bounds.max_age is None
-                        else control_bounds.max_age
-                    ),
-                    candidate_limit=CANDIDATE_LIMIT,
-                ),
-            )
-            return row_int(counted, 'candidates')
-
-        candidates = await best_distance(count_within)
-
-        row = await tx.require_one(Q_FINISH_ONBOARDING, params=dict(
+        finish_onboarding_params = dict(
             email=s.email,
             normalized_email=normalize_email(s.email),
-            person_id=person_id,
-            min_age=age_bounds.min_age,
-            max_age=age_bounds.max_age,
-            distance=distance_preference(
-                candidates,
-                is_joining_club=s.pending_club_name is not None,
-            ),
-        ))
+        )
+
+        row = await tx.require_one(
+            Q_FINISH_ONBOARDING,
+            params=finish_onboarding_params)
+
+        person_id = row['person_id']
+
+        await _update_best_distance(tx, person_id)
+        await _update_best_age_filters(tx, person_id)
+
         tx.attribute([person_id])
 
         # If this user signed up via Google/Apple, drain the pending
@@ -662,19 +682,19 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
         # that the new `person` row exists.
         await tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
             session_token_hash=s.session_token_hash,
-            person_id=row['person_id'],
+            person_id=person_id,
         ))
 
         clubs = await _handle_pending_club(
             tx,
-            row['person_id'],
+            person_id,
             s.pending_club_name,
         )
 
         await _flush_session_answers(
             tx,
             s.session_token_hash,
-            row['person_id'],
+            person_id,
         )
 
     await sessioncache.delete_session(s.session_token_hash)
