@@ -317,6 +317,10 @@ ON
     valid_session.person_id = existing_person.id
 """
 
+Q_NEXT_PERSON_ID = """
+SELECT nextval('person_id_seq')::INT AS person_id
+"""
+
 Q_ONBOARDEE_AGE_AND_GENDER = """
 SELECT
     EXTRACT(YEAR FROM AGE(onboardee.date_of_birth))::INT AS age,
@@ -329,6 +333,51 @@ ON
     gender.id = onboardee.gender_id
 WHERE
     onboardee.email = %(email)s
+"""
+
+Q_COUNT_NEARBY_CANDIDATES = """
+SELECT
+    count(*) AS candidates
+FROM (
+    SELECT
+        1
+    FROM
+        person AS prospect
+    WHERE
+        prospect.activated
+    AND
+        prospect.gender_id IN (
+            SELECT gender_id
+            FROM onboardee_search_preference_gender AS preference
+            WHERE preference.email = %(email)s
+        )
+    AND
+        EXISTS (
+            SELECT 1
+            FROM search_preference AS preference
+            WHERE
+                preference.person_id = prospect.id
+            AND
+                (SELECT gender_id FROM onboardee WHERE email = %(email)s) =
+                    ANY(preference.gender_ids)
+        )
+    AND
+        ST_DWithin(
+            prospect.coordinates,
+            (SELECT coordinates FROM onboardee WHERE email = %(email)s),
+            %(distance_metres)s
+        )
+    AND
+        prospect.date_of_birth <= (
+            CURRENT_DATE - INTERVAL '1 year' * %(min_age)s
+        )
+    AND
+        prospect.date_of_birth > (
+            CURRENT_DATE - INTERVAL '1 year' * (%(max_age)s + 1)
+        )
+    LIMIT
+        %(candidate_limit)s
+) AS candidate
 """
 
 Q_FINISH_ONBOARDING = f"""
@@ -348,6 +397,7 @@ WITH onboardee_location AS (
     LIMIT 1
 ), new_person AS (
     INSERT INTO person (
+        id,
         email,
         normalized_email,
         name,
@@ -364,6 +414,7 @@ WITH onboardee_location AS (
         location_long_friendly,
         location_country
     ) SELECT
+        %(person_id)s::INT,
         email,
         %(normalized_email)s,
         name,
@@ -407,125 +458,15 @@ WITH onboardee_location AS (
         %(min_age)s::SMALLINT AS min_age,
         %(max_age)s::SMALLINT AS max_age
 ), best_distance AS (
-    -- Use a binary search to compute the "furthest distance" search preference
-    -- which causes search results to contain as close as possible to 2000 users
-    WITH RECURSIVE t(dist, cnt, iters) AS (
-        VALUES
-            (    0.0,    0.0, 0),
-            (10000.0,  1.0e9, 0)
-        UNION ALL (
-            WITH two_closest AS (
-                SELECT
-                    dist,
-                    cnt,
-                    iters
-                FROM
-                    t
-                ORDER BY
-                    iters DESC,
-                    ABS(cnt - 2000),
-                    dist
-                LIMIT 2
-            ), midpoint AS (
-                SELECT
-                    AVG(dist) AS dist,
-                    MAX(iters) AS iters
-                FROM
-                    two_closest
-            ), limited_search_results AS (
-                SELECT
-                    midpoint.dist AS dist,
-                    midpoint.iters AS iters
-                FROM
-                    person AS prospect, midpoint
-                WHERE
-                    activated
-                AND
-                    -- The prospect meets the new_person's gender preference
-                    prospect.gender_id IN (
-                        SELECT gender_id
-                        FROM onboardee_search_preference_gender AS preference
-                        WHERE preference.email = (SELECT email FROM new_person)
-                    )
-                AND
-                    -- The new_person meets the prospect's gender preference
-                    EXISTS (
-                        SELECT 1
-                        FROM search_preference AS preference
-                        WHERE
-                            preference.person_id = prospect.id AND
-                            (SELECT gender_id FROM new_person) =
-                                ANY(preference.gender_ids)
-                    )
-                AND
-                    -- The prospect meets the new_person's location preference
-                    ST_DWithin(
-                        prospect.coordinates,
-                        (SELECT coordinates FROM new_person),
-                        midpoint.dist * 1000
-                    )
-                AND
-                   -- The prospect meets the new_person's age preference
-                   EXISTS (
-                        SELECT 1
-                        FROM best_age AS preference
-                        WHERE
-                            prospect.date_of_birth <= (
-                                CURRENT_DATE -
-                                INTERVAL '1 year' *
-                                COALESCE(preference.min_age, 0)
-                            )
-                        AND
-                            prospect.date_of_birth > (
-                                CURRENT_DATE -
-                                INTERVAL '1 year' *
-                                (COALESCE(preference.max_age, 999) + 1)
-                            )
-                    )
-                LIMIT
-                    2000 * 2
-            ), evaluated_midpoint AS (
-                SELECT
-                    MAX(dist) AS dist,
-                    COUNT(*) AS cnt,
-                    MAX(iters) AS iters
-                FROM
-                    limited_search_results
-            ), points AS (
-                SELECT dist, cnt, iters FROM evaluated_midpoint
-                UNION
-                SELECT dist, cnt, iters FROM two_closest
-            )
-            SELECT dist, cnt, iters + 1 FROM points WHERE iters < 5
-        )
-    )
     SELECT
-        LEAST(dist, 10000) AS dist,
-        cnt
-    FROM
-        t
-    ORDER BY
-        iters DESC,
-        dist
-    LIMIT
-        1
-    OFFSET
-        1
+        %(distance)s::SMALLINT AS distance
 ), default_sort_by AS (
     SELECT
         (
             SELECT id
             FROM sort_by
-            WHERE name = CASE
-                WHEN
-                    %(longer_conversations_default_trial)s::BOOLEAN
-                    AND MOD(new_person.id, 2) = 0
-                THEN '{SORT_KV}'
-                ELSE '{SORT_MATCH_PERCENTAGE}'
-            END
+            WHERE name = '{SORT_MATCH_PERCENTAGE}'
         ) AS id
-    FROM
-        new_person
 ), updated_session AS (
     UPDATE duo_session
     SET person_id = new_person.id
@@ -583,18 +524,7 @@ WITH onboardee_location AS (
         ARRAY(SELECT id FROM star_sign ORDER BY id),
         best_age.min_age,
         best_age.max_age,
-        CASE
-            WHEN best_distance.cnt < 500
-            THEN NULL
-
-            WHEN best_distance.dist > 8000  -- must be under 5000 miles
-            THEN 8000
-
-            WHEN %(pending_club_name)s::TEXT IS NOT NULL
-            THEN NULL
-
-            ELSE best_distance.dist
-        END,
+        best_distance.distance,
         (SELECT id FROM last_online WHERE name = '{LAST_ONLINE_DEFAULT_NAME}'),
         default_sort_by.id,
         TRUE,

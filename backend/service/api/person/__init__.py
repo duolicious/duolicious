@@ -11,6 +11,11 @@ from collections.abc import Mapping, Sequence
 from typing import Tuple
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
+from service.api.person.bestdistance import (
+    CANDIDATE_LIMIT,
+    best_distance,
+    distance_preference,
+)
 from service.api.person.urlslug import reserve_onboardee_url_slug
 import service.api.duotypes as t
 import json
@@ -58,8 +63,8 @@ from serviceshared.verification.messages import (
 
 
 from serviceshared.duoenv.api import (
+    AGE_BOUNDS_TRIAL,
     ENV as DUO_ENV,
-    LONGER_CONVERSATIONS_DEFAULT_TRIAL,
 )
 from serviceshared.duoenv.shared import R2_ACCT_ID
 
@@ -594,32 +599,63 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
     return None
 
 async def post_finish_onboarding(s: t.SessionInfo) -> object:
-    api_params = dict(
-        email=s.email,
-        normalized_email=normalize_email(s.email),
-        pending_club_name=s.pending_club_name,
-        longer_conversations_default_trial=LONGER_CONVERSATIONS_DEFAULT_TRIAL,
-    )
-
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
+
+        person_id = row_int(await tx.require_one(Q_NEXT_PERSON_ID), 'person_id')
 
         onboardee = await tx.require_one(
             Q_ONBOARDEE_AGE_AND_GENDER,
             params=dict(email=s.email),
         )
 
-        age_bounds = best_age(
-            age=row_int(onboardee, 'age'),
-            gender=row_str(onboardee, 'gender'),
-        )
+        age = row_int(onboardee, 'age')
+        gender = row_str(onboardee, 'gender')
+
+        trial = AGE_BOUNDS_TRIAL and person_id % 2 == 0
+
+        age_bounds = best_age(age=age, gender=gender, trial=trial)
+
+        # The distance search counts candidates through the control arm's age
+        # window in both arms, so the trial's wider window cannot also shrink
+        # the distance default and confound the comparison.
+        control_bounds = best_age(age=age, gender=gender, trial=False)
+
+        async def count_within(distance_km: float) -> int:
+            counted = await tx.require_one(
+                Q_COUNT_NEARBY_CANDIDATES,
+                params=dict(
+                    email=s.email,
+                    distance_metres=distance_km * 1000,
+                    min_age=(
+                        0
+                        if control_bounds.min_age is None
+                        else control_bounds.min_age
+                    ),
+                    max_age=(
+                        999
+                        if control_bounds.max_age is None
+                        else control_bounds.max_age
+                    ),
+                    candidate_limit=CANDIDATE_LIMIT,
+                ),
+            )
+            return row_int(counted, 'candidates')
+
+        candidates = await best_distance(count_within)
 
         row = await tx.require_one(Q_FINISH_ONBOARDING, params=dict(
-            **api_params,
+            email=s.email,
+            normalized_email=normalize_email(s.email),
+            person_id=person_id,
             min_age=age_bounds.min_age,
             max_age=age_bounds.max_age,
+            distance=distance_preference(
+                candidates,
+                is_joining_club=s.pending_club_name is not None,
+            ),
         ))
-        tx.attribute([int(row['person_id'])])
+        tx.attribute([person_id])
 
         # If this user signed up via Google/Apple, drain the pending
         # provider identity from `duo_session` into `social_identity` now

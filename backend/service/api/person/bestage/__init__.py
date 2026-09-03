@@ -1,17 +1,21 @@
 from dataclasses import dataclass
-import math
+from serviceshared.util.round import round_half_up
 
 _AGE_FLOOR = 18
 _AGE_CEILING = 99
 
-_DEFAULT_MIN_AGE = (0.8, 1.6)
-_DEFAULT_MAX_AGE = (1.2, -1.6)
+_Coefficients = tuple[float, float]
 
-_MIN_AGE_BY_GENDER = {
+_CONTROL_MIN_AGE: _Coefficients = (0.8, 1.6)
+_CONTROL_MAX_AGE: _Coefficients = (1.2, -1.6)
+
+_NO_OVERRIDES: dict[str, _Coefficients] = {}
+
+_TRIAL_MIN_AGE_BY_GENDER: dict[str, _Coefficients] = {
     'Man': (0.75, 1.25),
 }
 
-_MAX_AGE_BY_GENDER = {
+_TRIAL_MAX_AGE_BY_GENDER: dict[str, _Coefficients] = {
     'Man': (1.25, -1.25),
     'Woman': (2.2, -19.0),
 }
@@ -23,14 +27,17 @@ class AgeBounds:
     max_age: int | None
 
 
-def _evaluate(coefficients: tuple[float, float], age: int) -> int:
+def _evaluate(coefficients: _Coefficients, age: int) -> int:
     slope, intercept = coefficients
-    return math.floor(slope * age + intercept + 0.5)
+    return round_half_up(slope * age + intercept)
 
 
-def best_age(age: int, gender: str) -> AgeBounds:
-    min_age = _evaluate(_MIN_AGE_BY_GENDER.get(gender, _DEFAULT_MIN_AGE), age)
-    max_age = _evaluate(_MAX_AGE_BY_GENDER.get(gender, _DEFAULT_MAX_AGE), age)
+def best_age(age: int, gender: str, trial: bool) -> AgeBounds:
+    min_by_gender = _TRIAL_MIN_AGE_BY_GENDER if trial else _NO_OVERRIDES
+    max_by_gender = _TRIAL_MAX_AGE_BY_GENDER if trial else _NO_OVERRIDES
+
+    min_age = _evaluate(min_by_gender.get(gender, _CONTROL_MIN_AGE), age)
+    max_age = _evaluate(max_by_gender.get(gender, _CONTROL_MAX_AGE), age)
 
     return AgeBounds(
         min_age=None if min_age <= _AGE_FLOOR else min_age,
