@@ -5,7 +5,6 @@ from serviceshared.database import (
     row_bool,
     row_int,
     row_int_list_or_none,
-    row_str,
 )
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
@@ -63,10 +62,7 @@ from serviceshared.verification.messages import (
 )
 
 
-from serviceshared.duoenv.api import (
-    AGE_BOUNDS_TRIAL,
-    ENV as DUO_ENV,
-)
+from serviceshared.duoenv.api import ENV as DUO_ENV
 from serviceshared.duoenv.shared import R2_ACCT_ID
 
 logger = logging.getLogger(__name__)
@@ -140,48 +136,19 @@ def _otp_from_rows(rows: Sequence[Mapping[str, object]]) -> str | None:
     except:
         return None
 
-async def _person_age_and_gender(tx: Tx, person_id: int) -> tuple[int, str]:
-    row = await tx.require_one(
-        Q_PERSON_AGE_AND_GENDER,
-        params=dict(person_id=person_id),
+async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
+    age = row_int(
+        await tx.require_one(Q_PERSON_AGE, params=dict(person_id=person_id)),
+        'age',
     )
-    return row_int(row, 'age'), row_str(row, 'gender')
-
-
-async def _update_best_age_filters(tx: Tx, person_id: int) -> None:
-    age, gender = await _person_age_and_gender(tx, person_id)
-
-    # The 50-50 split keys on `person.id` parity, drawn from `person_id_seq`
-    # at insert time, so the arm stays recoverable from the id alone even
-    # after the user changes their filters.
-    trial = AGE_BOUNDS_TRIAL and person_id % 2 == 0
-    bounds = best_age(age=age, gender=gender, trial=trial)
-
-    await tx.execute(Q_UPDATE_SEARCH_PREFERENCE_AGE, params=dict(
-        person_id=person_id,
-        min_age=bounds.min_age,
-        max_age=bounds.max_age,
-    ))
-
-
-async def _update_best_distance(tx: Tx, person_id: int) -> None:
-    age, gender = await _person_age_and_gender(tx, person_id)
-
-    # Counts candidates through the control arm's age window regardless of
-    # which arm this person is in, so the trial's wider window can't also
-    # shrink the distance default and confound the age-bounds comparison.
-    control_bounds = best_age(age=age, gender=gender, trial=False)
+    bounds = best_age(age)
 
     async def count_within(distance_km: float) -> int:
         counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
             person_id=person_id,
             distance_metres=distance_km * 1000,
-            min_age=(
-                0 if control_bounds.min_age is None else control_bounds.min_age
-            ),
-            max_age=(
-                999 if control_bounds.max_age is None else control_bounds.max_age
-            ),
+            min_age=0 if bounds.min_age is None else bounds.min_age,
+            max_age=999 if bounds.max_age is None else bounds.max_age,
             candidate_limit=CANDIDATE_LIMIT,
         ))
         return row_int(counted, 'candidates')
@@ -193,8 +160,10 @@ async def _update_best_distance(tx: Tx, person_id: int) -> None:
         'is_joining_club',
     )
 
-    await tx.execute(Q_UPDATE_SEARCH_PREFERENCE_DISTANCE, params=dict(
+    await tx.execute(Q_UPDATE_BEST_SEARCH_PREFERENCES, params=dict(
         person_id=person_id,
+        min_age=bounds.min_age,
+        max_age=bounds.max_age,
         distance=distance_preference(candidates, is_joining_club=is_joining_club),
     ))
 
@@ -675,11 +644,10 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
         # `person_id` comes from the INSERT's own sequence rather than one of
         # its params, so this write's subject has to be named here, in the
         # one-statement window right after it runs and before anything else
-        # touches the transaction -- including the two calls below.
+        # touches the transaction -- including the call below.
         tx.attribute([person_id])
 
-        await _update_best_distance(tx, person_id)
-        await _update_best_age_filters(tx, person_id)
+        await _update_best_search_preferences(tx, person_id)
 
         # If this user signed up via Google/Apple, drain the pending
         # provider identity from `duo_session` into `social_identity` now
