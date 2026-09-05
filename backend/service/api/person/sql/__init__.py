@@ -317,18 +317,13 @@ ON
     valid_session.person_id = existing_person.id
 """
 
-Q_PERSON_AGE_AND_GENDER = """
+Q_PERSON_AGE = """
 SELECT
-    EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS age,
-    gender.name AS gender
+    EXTRACT(YEAR FROM AGE(date_of_birth))::INT AS age
 FROM
     person
-JOIN
-    gender
-ON
-    gender.id = person.gender_id
 WHERE
-    person.id = %(person_id)s
+    id = %(person_id)s
 """
 
 Q_COUNT_NEARBY_CANDIDATES = """
@@ -379,16 +374,6 @@ FROM (
 ) AS candidate
 """
 
-Q_UPDATE_SEARCH_PREFERENCE_AGE = """
-UPDATE
-    search_preference
-SET
-    min_age = %(min_age)s,
-    max_age = %(max_age)s
-WHERE
-    person_id = %(person_id)s
-"""
-
 Q_IS_JOINING_CLUB = """
 SELECT
     EXISTS (
@@ -399,10 +384,12 @@ SELECT
     ) AS is_joining_club
 """
 
-Q_UPDATE_SEARCH_PREFERENCE_DISTANCE = """
+Q_UPDATE_BEST_SEARCH_PREFERENCES = """
 UPDATE
     search_preference
 SET
+    min_age = %(min_age)s,
+    max_age = %(max_age)s,
     distance = %(distance)s::NUMERIC::SMALLINT
 WHERE
     person_id = %(person_id)s
