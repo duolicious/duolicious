@@ -10,13 +10,14 @@ from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
 from typing import Tuple
 from serviceshared.util.coerce import string
-from service.api.person.bestage import best_age
+from service.api.person.bestage import AgeBounds, best_age
 from service.api.person.bestdistance import (
     CANDIDATE_LIMIT,
     best_distance,
     distance_preference,
 )
 from service.api.person.urlslug import reserve_onboardee_url_slug
+from service.api.search.sql.search import SORT_DISTANCE, SORT_MATCH_PERCENTAGE
 import service.api.duotypes as t
 import json
 import secrets
@@ -62,7 +63,10 @@ from serviceshared.verification.messages import (
 )
 
 
-from serviceshared.duoenv.api import ENV as DUO_ENV
+from serviceshared.duoenv.api import (
+    DISTANCE_SORT_TRIAL,
+    ENV as DUO_ENV,
+)
 from serviceshared.duoenv.shared import R2_ACCT_ID
 
 logger = logging.getLogger(__name__)
@@ -136,13 +140,11 @@ def _otp_from_rows(rows: Sequence[Mapping[str, object]]) -> str | None:
     except:
         return None
 
-async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
-    age = row_int(
-        await tx.require_one(Q_PERSON_AGE, params=dict(person_id=person_id)),
-        'age',
-    )
-    bounds = best_age(age)
-
+async def _best_distance(
+    tx: Tx,
+    person_id: int,
+    bounds: AgeBounds,
+) -> float | None:
     async def count_within(distance_km: float) -> int:
         counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
             person_id=person_id,
@@ -160,11 +162,26 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         'is_joining_club',
     )
 
+    return distance_preference(candidates, is_joining_club=is_joining_club)
+
+
+async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
+    age = row_int(
+        await tx.require_one(Q_PERSON_AGE, params=dict(person_id=person_id)),
+        'age',
+    )
+    bounds = best_age(age)
+
+    # The 50-50 split keys on `person.id` parity so the arm stays
+    # recoverable from the id alone after the user changes their filters.
+    trial = DISTANCE_SORT_TRIAL and person_id % 2 == 0
+
     await tx.execute(Q_UPDATE_BEST_SEARCH_PREFERENCES, params=dict(
         person_id=person_id,
         min_age=bounds.min_age,
         max_age=bounds.max_age,
-        distance=distance_preference(candidates, is_joining_club=is_joining_club),
+        distance=None if trial else await _best_distance(tx, person_id, bounds),
+        sort_by=SORT_DISTANCE if trial else SORT_MATCH_PERCENTAGE,
     ))
 
 

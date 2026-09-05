@@ -5,7 +5,6 @@ from serviceshared.constants import (
     MAX_RELATED_CLUBS,
     MIN_CLUB_PAGE_MEMBERS,
 )
-from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     Q_COMPUTED_FLAIR,
@@ -390,7 +389,8 @@ UPDATE
 SET
     min_age = %(min_age)s,
     max_age = %(max_age)s,
-    distance = %(distance)s::NUMERIC::SMALLINT
+    distance = %(distance)s::NUMERIC::SMALLINT,
+    sort_by_id = (SELECT id FROM sort_by WHERE name = %(sort_by)s)
 WHERE
     person_id = %(person_id)s
 """
@@ -491,7 +491,6 @@ WITH onboardee_location AS (
         religion_ids,
         star_sign_ids,
         last_online_id,
-        sort_by_id,
         show_messaged,
         show_skipped
     )
@@ -519,7 +518,6 @@ WITH onboardee_location AS (
         ARRAY(SELECT id FROM religion ORDER BY id),
         ARRAY(SELECT id FROM star_sign ORDER BY id),
         (SELECT id FROM last_online WHERE name = '{LAST_ONLINE_DEFAULT_NAME}'),
-        (SELECT id from sort_by where name = '{SORT_MATCH_PERCENTAGE}'),
         TRUE,
         FALSE
     FROM new_person
