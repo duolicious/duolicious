@@ -1,7 +1,11 @@
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { japi } from './api';
-import { parseQueryParams, takeWebReturnParams } from './oauth-return';
+import {
+  navigateAway,
+  parseQueryParams,
+  takeWebReturnParams,
+} from './oauth-return';
 import { notify } from '../events/events';
 import { ValidationErrorToast } from '../components/toast';
 import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
@@ -44,10 +48,7 @@ const connectSpotify = async (): Promise<void> => {
   }
 
   if (Platform.OS === 'web') {
-    return new Promise<void>((resolve) => {
-      window.addEventListener('pageshow', () => resolve(), { once: true });
-      window.location.assign(authorizeUrl);
-    });
+    return navigateAway(authorizeUrl);
   }
 
   let result: WebBrowser.WebBrowserAuthSessionResult;

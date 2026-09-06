@@ -781,10 +781,10 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
     setLoginStatus("");
     setSocialLoading('apple');
     try {
-      // On web this never resolves — the page is navigating to Apple,
-      // and the sign-in is finished by the web-return effect below
-      // when the backend's callback redirects us back here. iOS and
-      // Android resolve normally.
+      // On web this only resolves when the user backs out of Apple's
+      // page; a completed sign-in is finished by the web-return effect
+      // below when the backend's callback redirects us back here. iOS
+      // and Android resolve normally.
       const result = await signInWithApple({ clubName: clubName_ ?? '' });
       if (!result.ok && !result.cancelled) {
         setLoginStatus(result.reason ?? 'Apple sign-in failed');

@@ -40,6 +40,12 @@ const takeWebReturnParams = (names: string[]): URLSearchParams | null => {
   return params;
 };
 
+const navigateAway = (url: string): Promise<void> =>
+  new Promise((resolve) => {
+    window.addEventListener('pageshow', () => resolve(), { once: true });
+    window.location.assign(url);
+  });
+
 const parseQueryParams = (url: string): URLSearchParams => {
   // Some browsers/env may not populate URL.searchParams from a relative-ish
   // string; parse the query manually as a fallback.
@@ -53,6 +59,7 @@ const parseQueryParams = (url: string): URLSearchParams => {
 
 export {
   hasWebReturnParams,
+  navigateAway,
   parseQueryParams,
   takeWebReturnParams,
 };

@@ -7,6 +7,7 @@ import * as Crypto from 'expo-crypto';
 import { useEffect, useRef } from 'react';
 import {
   hasWebReturnParams,
+  navigateAway,
   parseQueryParams,
   takeWebReturnParams,
 } from './oauth-return';
@@ -396,12 +397,9 @@ const signInWithAppleWeb = async (
     };
   }
 
-  window.location.assign(authUrl);
+  await navigateAway(authUrl);
 
-  // The page is navigating away; nothing we resolve here would be
-  // observed. Return a never-settling Promise so the caller's `await`
-  // simply suspends until the tab tears down.
-  return new Promise<AppleSignInResult>(() => {});
+  return { ok: false, cancelled: true };
 };
 
 /**
