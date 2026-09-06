@@ -75,6 +75,7 @@ const SpotifyArtist = ({
       borderRadius: 999,
       backgroundColor: chrome.backgroundColor,
       padding: 4,
+      paddingLeft: 8,
       paddingRight: 12,
     }}
   >
@@ -84,7 +85,7 @@ const SpotifyArtist = ({
         style={{
           width: 28,
           height: 28,
-          borderRadius: 14,
+          borderRadius: 4,
         }}
       />
     :
