@@ -984,7 +984,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
         });
       }
     })();
-  }, [handle]);
+  }, [handle, signedInUser?.personUuid]);
 
   const photoUuid = data === undefined ?
     undefined :
