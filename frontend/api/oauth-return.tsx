@@ -46,6 +46,9 @@ const navigateAway = (url: string): Promise<void> =>
     window.location.assign(url);
   });
 
+const webReturnTarget = (): 'web' | 'apex' =>
+  window.location.hostname === 'duolicious.app' ? 'apex' : 'web';
+
 const parseQueryParams = (url: string): URLSearchParams => {
   // Some browsers/env may not populate URL.searchParams from a relative-ish
   // string; parse the query manually as a fallback.
@@ -62,4 +65,5 @@ export {
   navigateAway,
   parseQueryParams,
   takeWebReturnParams,
+  webReturnTarget,
 };

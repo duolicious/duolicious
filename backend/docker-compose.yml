@@ -103,6 +103,7 @@ services:
       DUO_SPOTIFY_TOKEN_URL: http://spotifymock:3003/api/token
       DUO_SPOTIFY_API_URL: http://spotifymock:3003
       DUO_SPOTIFY_WEB_REDIRECT_URL: http://localhost:8081/profile
+      DUO_SPOTIFY_APEX_REDIRECT_URL: http://localhost:8081/profile
       DUO_SPOTIFY_APP_REDIRECT_URL: app.duolicious://spotify
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
