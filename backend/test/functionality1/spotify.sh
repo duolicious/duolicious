@@ -60,6 +60,12 @@ first_artist_name () {
   c GET /profile-info | jq -r '.spotify_artists[0].name'
 }
 
+make_spotify_stale () {
+  q "update person_spotify
+     set artists_synced_at = now() - interval '8 days',
+         refreshed_at = now() - interval '8 days'"
+}
+
 callback_status () {
   curl -s -o /dev/null -w '%{http_code}' \
     "http://localhost:5000/spotify/callback?$1"
@@ -231,7 +237,11 @@ cron_refreshes_artists () {
     }
   ]'
 
-  q "update person_spotify set refreshed_at = now() - interval '1 day'"
+  sleep 2
+
+  [[ "$(first_artist_name)" == 'Mock Artist One' ]]
+
+  make_spotify_stale
 
   assert_eventually 'Mock Artist Four' first_artist_name
 
@@ -254,6 +264,12 @@ failed_initial_fetch_backfills () {
 
   reset_spotify_mock
 
+  sleep 2
+
+  [[ "$(q "select jsonb_array_length(top_artists) from person_spotify")" == "0" ]]
+
+  q "update person_spotify set refreshed_at = now() - interval '2 minutes'"
+
   assert_eventually 10 q "select jsonb_array_length(top_artists) from person_spotify"
 
   j_assert_length "$(c GET /profile-info | jq '.spotify_artists')" 10
@@ -268,7 +284,7 @@ revocation_clears_tokens_and_artists () {
 
   set_spotify_mock_revoked true
 
-  q "update person_spotify set refreshed_at = now() - interval '1 day'"
+  make_spotify_stale
 
   assert_eventually 0 q "select count(*) from person_spotify"
 

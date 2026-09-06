@@ -52,11 +52,8 @@ WHERE
 ON CONFLICT (person_id) DO UPDATE SET
     refresh_token = EXCLUDED.refresh_token,
     refreshed_at = NOW(),
-    top_artists = COALESCE(%(top_artists)s::jsonb, person_spotify.top_artists),
-    artists_synced_at = COALESCE(
-        EXCLUDED.artists_synced_at,
-        person_spotify.artists_synced_at
-    )
+    top_artists = EXCLUDED.top_artists,
+    artists_synced_at = EXCLUDED.artists_synced_at
 """
 
 Q_UPDATE_PERSON_SPOTIFY = """

@@ -509,20 +509,7 @@ const MusicSection = ({data}: {data: ProfileInfo}) => {
       <ButtonWithCenteredText
         onPress={toggle}
         loading={isLoading}
-        extraChildren={
-          <View
-            style={{
-              position: 'absolute',
-              left: 18,
-              top: 0,
-              bottom: 0,
-              justifyContent: 'center',
-            }}
-            pointerEvents="none"
-          >
-            <SpotifyIcon size={22} color="white"/>
-          </View>
-        }
+        icon={<SpotifyIcon size={22} color="white"/>}
       >
         {isConnected ? 'Disconnect Spotify' : 'Connect Spotify'}
       </ButtonWithCenteredText>
