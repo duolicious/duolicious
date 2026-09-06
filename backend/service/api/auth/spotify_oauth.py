@@ -1,12 +1,10 @@
 from urllib.parse import urlencode
 
-from starlette.responses import RedirectResponse
-
 from serviceshared import spotify
 from serviceshared.database import api_tx
 from serviceshared.duoenv.spotify import SPOTIFY_CLIENT_ID
-from serviceshared.util import append_query
 from serviceshared.util.coerce import integer
+from service.api.auth.oauth_redirect import redirect, resolve_redirect_target
 
 from serviceshared.spotify.sql import (
     Q_TAKE_SPOTIFY_OAUTH_STATE,
@@ -37,25 +35,13 @@ def build_authorize_url(state: str) -> str:
     ))
 
 
-def _resolve_target(state: str) -> str | None:
-    _, _, target = state.rpartition('.')
-    return _REDIRECT_TARGETS.get(target) or None
-
-
-def _redirect(target_url: str, **params: str) -> RedirectResponse:
-    return RedirectResponse(
-        append_query(target_url, params),
-        status_code=302,
-    )
-
-
 async def handle_callback(
     *,
     code: str,
     state: str,
     error: str | None,
 ) -> object:
-    target_url = _resolve_target(state)
+    target_url = resolve_redirect_target(state, _REDIRECT_TARGETS)
     if not target_url:
         return 'Invalid Spotify authorization state', 400
 
@@ -64,17 +50,17 @@ async def handle_callback(
         row = await cur.fetchone()
 
     if row is None:
-        return _redirect(target_url, spotify_error='invalid_state')
+        return redirect(target_url, spotify_error='invalid_state')
 
     if error:
-        return _redirect(target_url, spotify_error=error)
+        return redirect(target_url, spotify_error=error)
 
     if not code:
-        return _redirect(target_url, spotify_error='missing_code')
+        return redirect(target_url, spotify_error='missing_code')
 
     tokens = await spotify.exchange_code(code, SPOTIFY_REDIRECT_URI)
     if tokens is None:
-        return _redirect(target_url, spotify_error='exchange_failed')
+        return redirect(target_url, spotify_error='exchange_failed')
 
     artists = await spotify.fetch_top_artists(tokens.access_token)
 
@@ -87,6 +73,6 @@ async def handle_callback(
         stored = await cur.fetchone()
 
     if stored is None:
-        return _redirect(target_url, spotify_error='invalid_state')
+        return redirect(target_url, spotify_error='invalid_state')
 
-    return _redirect(target_url, spotify='connected')
+    return redirect(target_url, spotify='connected')
