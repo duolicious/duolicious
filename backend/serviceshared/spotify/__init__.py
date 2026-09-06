@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class SpotifyTokens:
     access_token: str
-    expires_in: int
     refresh_token: str
 
 
@@ -54,19 +53,15 @@ def _parse_tokens(
     fallback_refresh_token: str | None = None,
 ) -> SpotifyTokens | None:
     access_token = data.get('access_token')
-    expires_in = data.get('expires_in')
     refresh_token = data.get('refresh_token') or fallback_refresh_token
 
     if not isinstance(access_token, str) or not access_token:
-        return None
-    if not isinstance(expires_in, int):
         return None
     if not isinstance(refresh_token, str) or not refresh_token:
         return None
 
     return SpotifyTokens(
         access_token=access_token,
-        expires_in=expires_in,
         refresh_token=refresh_token,
     )
 

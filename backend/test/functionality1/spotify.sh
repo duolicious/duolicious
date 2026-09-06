@@ -23,12 +23,6 @@ set_spotify_mock_artists () {
     -d "$1" > /dev/null
 }
 
-set_spotify_mock_unauthorized () {
-  curl -s -X POST 'http://localhost:3003/control/unauthorized' \
-    -H 'Content-Type: application/json' \
-    -d '{ "unauthorized": '"$1"' }' > /dev/null
-}
-
 setup () {
   reset_spotify_mock
 
@@ -265,37 +259,6 @@ failed_initial_fetch_backfills () {
   j_assert_length "$(c GET /profile-info | jq '.spotify_artists')" 10
 }
 
-api_401_alone_does_not_disconnect () {
-  echo 'A 401 from the artists API with a live refresh token defers, not disconnects'
-
-  setup
-
-  connect_spotify
-
-  set_spotify_mock_unauthorized true
-
-  q "update person_spotify set refreshed_at = now() - interval '1 day'"
-
-  sleep 3
-
-  [[ "$(q "select count(*) from person_spotify")" == "1" ]]
-  [[ "$(q "select jsonb_array_length(top_artists) from person_spotify")" == "10" ]]
-}
-
-revocation_with_unexpired_access_token () {
-  echo 'A 401 on an unexpired access token disconnects once the refresh probe fails'
-
-  setup
-
-  connect_spotify
-
-  set_spotify_mock_revoked true
-
-  q "update person_spotify set refreshed_at = now() - interval '1 day'"
-
-  assert_eventually 0 q "select count(*) from person_spotify"
-}
-
 revocation_clears_tokens_and_artists () {
   echo 'Revoking authorization at Spotify clears tokens and artists'
 
@@ -305,9 +268,7 @@ revocation_clears_tokens_and_artists () {
 
   set_spotify_mock_revoked true
 
-  q "update person_spotify set
-       access_token_expires_at = now(),
-       refreshed_at = now() - interval '1 day'"
+  q "update person_spotify set refreshed_at = now() - interval '1 day'"
 
   assert_eventually 0 q "select count(*) from person_spotify"
 
@@ -340,7 +301,5 @@ user_denial_redirects_with_error
 disconnect_empties_everything
 cron_refreshes_artists
 failed_initial_fetch_backfills
-api_401_alone_does_not_disconnect
-revocation_with_unexpired_access_token
 revocation_clears_tokens_and_artists
 deleting_account_cascades

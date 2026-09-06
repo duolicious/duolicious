@@ -1,9 +1,7 @@
 Q_STALE_PERSON_SPOTIFY_BATCH = """
 SELECT
     person_id,
-    access_token,
-    refresh_token,
-    access_token_expires_at < NOW() + INTERVAL '5 minutes' AS needs_refresh
+    refresh_token
 FROM
     person_spotify
 WHERE

@@ -1,13 +1,12 @@
 import asyncio
 import logging
 import random
-from typing import Literal
 
 from serviceshared import spotify
 from serviceshared.database import Row, api_tx
 from service.cron.cronutil import MAX_RANDOM_START_DELAY, log_stacktrace
 from service.cron.spotifyrefresh.sql import Q_STALE_PERSON_SPOTIFY_BATCH
-from serviceshared.util.coerce import boolean, integer, string
+from serviceshared.util.coerce import integer, string
 
 from serviceshared.spotify.sql import (
     Q_DISCONNECT_SPOTIFY,
@@ -25,29 +24,6 @@ from serviceshared.duoenv.cron import (
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_latest(
-    row: Row,
-) -> Literal['revoked'] | tuple[
-    spotify.SpotifyTokens | None,
-    list[spotify.SpotifyArtist] | None,
-]:
-    artists = (
-        None
-        if boolean(row['needs_refresh'])
-        else await spotify.fetch_top_artists(string(row['access_token']))
-    )
-    if artists is not None:
-        return None, artists
-
-    tokens = await spotify.refresh_tokens(string(row['refresh_token']))
-    if tokens == 'revoked':
-        return 'revoked'
-    if tokens is None:
-        return None, None
-
-    return tokens, await spotify.fetch_top_artists(tokens.access_token)
-
-
 async def _refresh_one_person(
     row: Row,
     semaphore: asyncio.Semaphore,
@@ -55,21 +31,22 @@ async def _refresh_one_person(
     person_id = integer(row['person_id'])
 
     async with semaphore:
-        outcome = await _fetch_latest(row)
+        tokens = await spotify.refresh_tokens(string(row['refresh_token']))
+        artists = (
+            await spotify.fetch_top_artists(tokens.access_token)
+            if isinstance(tokens, spotify.SpotifyTokens)
+            else None
+        )
 
-    if outcome == 'revoked':
+    if tokens == 'revoked':
         async with api_tx() as tx:
             await tx.execute(Q_DISCONNECT_SPOTIFY, dict(person_id=person_id))
         logger.info(f'Revoked; disconnected person {person_id}')
         return
 
-    tokens, artists = outcome
-
     async with api_tx() as tx:
         cur = await tx.execute(Q_UPDATE_PERSON_SPOTIFY, dict(
             person_id=person_id,
-            access_token=tokens.access_token if tokens else None,
-            expires_in=tokens.expires_in if tokens else None,
             refresh_token=tokens.refresh_token if tokens else None,
             top_artists=spotify.artists_json(artists),
         ))

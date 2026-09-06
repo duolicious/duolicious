@@ -81,8 +81,6 @@ async def handle_callback(
     async with api_tx() as tx:
         cur = await tx.execute(Q_UPSERT_PERSON_SPOTIFY, dict(
             person_id=integer(row['person_id']),
-            access_token=tokens.access_token,
-            expires_in=tokens.expires_in,
             refresh_token=tokens.refresh_token,
             top_artists=spotify.artists_json(artists),
         ))

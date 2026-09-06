@@ -36,16 +36,12 @@ RETURNING
 Q_UPSERT_PERSON_SPOTIFY = """
 INSERT INTO person_spotify (
     person_id,
-    access_token,
-    access_token_expires_at,
     refresh_token,
     top_artists,
     artists_synced_at
 )
 SELECT
     id,
-    %(access_token)s,
-    NOW() + make_interval(secs => %(expires_in)s),
     %(refresh_token)s,
     COALESCE(%(top_artists)s::jsonb, '[]'::jsonb),
     CASE WHEN %(top_artists)s::jsonb IS NULL THEN NULL ELSE NOW() END
@@ -54,8 +50,6 @@ FROM
 WHERE
     id = %(person_id)s
 ON CONFLICT (person_id) DO UPDATE SET
-    access_token = EXCLUDED.access_token,
-    access_token_expires_at = EXCLUDED.access_token_expires_at,
     refresh_token = EXCLUDED.refresh_token,
     refreshed_at = NOW(),
     top_artists = COALESCE(%(top_artists)s::jsonb, person_spotify.top_artists),
@@ -71,11 +65,6 @@ Q_UPDATE_PERSON_SPOTIFY = """
 UPDATE
     person_spotify
 SET
-    access_token = COALESCE(%(access_token)s, access_token),
-    access_token_expires_at = COALESCE(
-        NOW() + make_interval(secs => %(expires_in)s),
-        access_token_expires_at
-    ),
     refresh_token = COALESCE(%(refresh_token)s, refresh_token),
     refreshed_at = NOW(),
     top_artists = COALESCE(%(top_artists)s::jsonb, top_artists),

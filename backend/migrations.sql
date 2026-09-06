@@ -19,8 +19,6 @@ CREATE TABLE IF NOT EXISTS spotify_oauth_state (
 
 CREATE TABLE IF NOT EXISTS person_spotify (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    access_token TEXT NOT NULL,
-    access_token_expires_at TIMESTAMP NOT NULL,
     refresh_token TEXT NOT NULL,
     refreshed_at TIMESTAMP NOT NULL DEFAULT NOW(),
     artists_synced_at TIMESTAMP,

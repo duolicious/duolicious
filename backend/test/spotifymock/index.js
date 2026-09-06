@@ -58,7 +58,6 @@ const defaultArtists = [
 
 let artists = defaultArtists;
 let revoked = false;
-let unauthorizedApi = false;
 let tokenCounter = 0;
 
 const expectedAuthorization =
@@ -116,13 +115,6 @@ app.post('/api/token', (req, res) => {
 });
 
 app.get('/v1/me/top/artists', (req, res) => {
-  if (revoked || unauthorizedApi) {
-    res.status(401).json({
-      error: { status: 401, message: 'The access token expired' },
-    });
-    return;
-  }
-
   const limit = Number(req.query.limit);
   res.status(200).json({
     items: Number.isFinite(limit) ? artists.slice(0, limit) : artists,
@@ -156,15 +148,9 @@ app.post('/control/artists', (req, res) => {
   res.status(200).send();
 });
 
-app.post('/control/unauthorized', (req, res) => {
-  unauthorizedApi = !!req.body.unauthorized;
-  res.status(200).send();
-});
-
 app.delete('/control', (req, res) => {
   artists = defaultArtists;
   revoked = false;
-  unauthorizedApi = false;
   res.status(200).send();
 });
 
