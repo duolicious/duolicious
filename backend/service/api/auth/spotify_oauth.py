@@ -46,8 +46,8 @@ async def handle_callback(
         return 'Invalid Spotify authorization state', 400
 
     async with api_tx() as tx:
-        cur = await tx.execute(Q_TAKE_SPOTIFY_OAUTH_STATE, dict(state=state))
-        row = await cur.fetchone()
+        await tx.execute(Q_TAKE_SPOTIFY_OAUTH_STATE, dict(state=state))
+        row = await tx.fetchone()
 
     if row is None:
         return redirect(target_url, spotify_error='invalid_state')
