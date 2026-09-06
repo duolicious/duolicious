@@ -65,14 +65,10 @@ async def handle_callback(
     artists = await spotify.fetch_top_artists(tokens.access_token)
 
     async with api_tx() as tx:
-        cur = await tx.execute(Q_UPSERT_PERSON_SPOTIFY, dict(
+        await tx.execute(Q_UPSERT_PERSON_SPOTIFY, dict(
             person_id=integer(row['person_id']),
             refresh_token=tokens.refresh_token,
             top_artists=spotify.artists_json(artists),
         ))
-        stored = await cur.fetchone()
-
-    if stored is None:
-        return redirect(target_url, spotify_error='invalid_state')
 
     return redirect(target_url, spotify='connected')

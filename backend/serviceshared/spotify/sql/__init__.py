@@ -57,8 +57,6 @@ ON CONFLICT (person_id) DO UPDATE SET
         EXCLUDED.artists_synced_at,
         person_spotify.artists_synced_at
     )
-RETURNING
-    1
 """
 
 Q_UPDATE_PERSON_SPOTIFY = """
