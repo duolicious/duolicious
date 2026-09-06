@@ -1374,9 +1374,7 @@ WITH photo_ AS (
     WHERE person_id = %(person_id)s
 
 ), spotify AS (
-    SELECT
-        top_artists,
-        artists_synced_at IS NOT NULL AS artists_synced
+    SELECT top_artists
     FROM person_spotify
     WHERE person_id = %(person_id)s
 
@@ -1496,7 +1494,6 @@ SELECT
 
         'spotify_artists',        COALESCE((SELECT top_artists FROM spotify), '[]'::jsonb),
         'spotify_connected',      EXISTS (SELECT 1 FROM spotify),
-        'spotify_artists_synced', COALESCE((SELECT artists_synced FROM spotify), FALSE),
         'spotify_tester',         (SELECT j FROM spotify_tester),
 
         'units',                  (SELECT j FROM unit),

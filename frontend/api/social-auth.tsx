@@ -10,6 +10,7 @@ import {
   navigateAway,
   parseQueryParams,
   takeWebReturnParams,
+  webReturnTarget,
 } from './oauth-return';
 import {
   APPLE_ANDROID_RETURN_URL,
@@ -375,9 +376,7 @@ const signInWithAppleWeb = async (
   // backend's callback must 302 back to the origin the flow started on —
   // the nonce lives in this origin's sessionStorage — so the state names
   // which entry of the backend's redirect allow-list to use.
-  const target =
-    window.location.hostname === 'duolicious.app' ? 'apex' : 'web';
-  const state = `${nonce}.${target}`;
+  const state = `${nonce}.${webReturnTarget()}`;
 
   const authUrl = _buildAppleAuthorizeUrl({
     clientId: APPLE_WEB_CLIENT_ID,

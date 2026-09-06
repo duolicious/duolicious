@@ -704,7 +704,7 @@ class PostSearchFilterAnswer(BaseModel):
 
 
 class PostSpotifyAuthorize(BaseModel):
-    redirect_target: Literal['web', 'app']
+    redirect_target: Literal['web', 'apex', 'app']
 
 
 class PostJoinClub(BaseModel):

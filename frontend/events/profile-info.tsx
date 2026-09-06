@@ -53,7 +53,6 @@ type ProfileInfo = {
   clubs?: ClubItem[];
   spotify_artists?: SpotifyArtistItem[];
   spotify_connected?: boolean;
-  spotify_artists_synced?: boolean;
   spotify_tester?: boolean;
   public_profile?: string;
   photo?: { [position: string]: string | null };

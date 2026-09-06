@@ -14,6 +14,7 @@ from serviceshared.spotify.sql import (
 )
 
 from serviceshared.duoenv.api import (
+    SPOTIFY_APEX_REDIRECT_URL,
     SPOTIFY_APP_REDIRECT_URL,
     SPOTIFY_AUTHORIZE_URL,
     SPOTIFY_REDIRECT_URI,
@@ -23,6 +24,7 @@ from serviceshared.duoenv.api import (
 
 _REDIRECT_TARGETS = {
     'web': SPOTIFY_WEB_REDIRECT_URL,
+    'apex': SPOTIFY_APEX_REDIRECT_URL,
     'app': SPOTIFY_APP_REDIRECT_URL,
 }
 
@@ -65,6 +67,8 @@ async def handle_callback(
         return redirect(target_url, spotify_error='exchange_failed')
 
     artists = await spotify.fetch_top_artists(tokens.access_token)
+    if artists is None:
+        return redirect(target_url, spotify_error='fetch_failed')
 
     async with api_tx() as tx:
         await tx.execute(Q_UPSERT_PERSON_SPOTIFY, dict(

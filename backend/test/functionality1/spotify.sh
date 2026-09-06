@@ -89,7 +89,6 @@ connect_happy_path () {
   local profile=$(c GET /profile-info)
 
   [[ "$(jq -r '.spotify_connected' <<< "$profile")" == 'true' ]]
-  [[ "$(jq -r '.spotify_artists_synced' <<< "$profile")" == 'true' ]]
   [[ "$(jq -r '.spotify_tester' <<< "$profile")" == 'true' ]]
   j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 10
   [[ "$(jq -r '.spotify_artists[0].name' <<< "$profile")" == 'Mock Artist One' ]]
@@ -249,35 +248,34 @@ cron_refreshes_artists () {
   j_assert_length "$(c GET /profile-info | jq '.spotify_artists')" 1
 }
 
-failed_initial_fetch_backfills () {
-  echo 'A failed artist fetch during connect is backfilled by the cron'
+failed_initial_fetch_fails_the_connect () {
+  echo 'A failed artist fetch during connect stores nothing and reports an error'
 
   setup
 
   set_spotify_mock_artists '[ {} ]'
 
-  connect_spotify
+  mint_state web
 
-  local profile=$(c GET /profile-info)
+  local location=$(callback_location "code=mock-code&state=$state")
 
-  [[ "$(jq -r '.spotify_connected' <<< "$profile")" == 'true' ]]
-  [[ "$(jq -r '.spotify_artists_synced' <<< "$profile")" == 'false' ]]
-  [[ "$(jq -c '.spotify_artists' <<< "$profile")" == '[]' ]]
+  [[ "$location" == 'http://test-web.example/?spotify_error=fetch_failed' ]]
 
-  reset_spotify_mock
+  [[ "$(c GET /profile-info | jq -r '.spotify_connected')" == 'false' ]]
 
-  sleep 2
+  [[ "$(q "select count(*) from person_spotify")" == "0" ]]
+}
 
-  [[ "$(q "select jsonb_array_length(top_artists) from person_spotify")" == "0" ]]
+apex_returns_to_the_apex_host () {
+  echo 'A flow started on the apex host returns to the apex host'
 
-  q "update person_spotify set attempted_at = now() - interval '2 minutes'"
+  setup
 
-  assert_eventually 10 q "select jsonb_array_length(top_artists) from person_spotify"
+  mint_state apex
 
-  profile=$(c GET /profile-info)
+  local location=$(callback_location "code=mock-code&state=$state")
 
-  [[ "$(jq -r '.spotify_artists_synced' <<< "$profile")" == 'true' ]]
-  j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 10
+  [[ "$location" == 'http://test-apex.example/?spotify=connected' ]]
 }
 
 revocation_clears_tokens_and_artists () {
@@ -321,6 +319,7 @@ garbled_target_is_rejected
 user_denial_redirects_with_error
 disconnect_empties_everything
 cron_refreshes_artists
-failed_initial_fetch_backfills
+failed_initial_fetch_fails_the_connect
+apex_returns_to_the_apex_host
 revocation_clears_tokens_and_artists
 deleting_account_cascades

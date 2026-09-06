@@ -503,9 +503,7 @@ const MusicSection = ({data}: {data: ProfileInfo}) => {
       }
       {isConnected && artists.length === 0 &&
         <MusicHint>
-          {data.spotify_artists_synced
-            ? 'Spotify hasn’t got enough listening history to pick your top artists yet'
-            : 'Your top Spotify artists will show up here once we’ve fetched them'}
+          Spotify hasn’t got enough listening history to pick your top artists yet
         </MusicHint>
       }
       <ButtonWithCenteredText

@@ -37,14 +37,12 @@ Q_UPSERT_PERSON_SPOTIFY = """
 INSERT INTO person_spotify (
     person_id,
     refresh_token,
-    top_artists,
-    artists_synced_at
+    top_artists
 )
 SELECT
     id,
     %(refresh_token)s,
-    COALESCE(%(top_artists)s::jsonb, '[]'::jsonb),
-    CASE WHEN %(top_artists)s::jsonb IS NULL THEN NULL ELSE NOW() END
+    %(top_artists)s::jsonb
 FROM
     person
 WHERE
@@ -53,7 +51,7 @@ ON CONFLICT (person_id) DO UPDATE SET
     refresh_token = EXCLUDED.refresh_token,
     attempted_at = NOW(),
     top_artists = EXCLUDED.top_artists,
-    artists_synced_at = EXCLUDED.artists_synced_at
+    artists_synced_at = NOW()
 """
 
 Q_UPDATE_PERSON_SPOTIFY = """

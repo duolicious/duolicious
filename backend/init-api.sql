@@ -652,7 +652,7 @@ CREATE TABLE IF NOT EXISTS person_spotify (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     refresh_token TEXT NOT NULL,
     attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    artists_synced_at TIMESTAMP,
+    artists_synced_at TIMESTAMP NOT NULL DEFAULT NOW(),
     top_artists JSONB NOT NULL DEFAULT '[]'
 );
 
