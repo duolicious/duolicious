@@ -74,6 +74,7 @@ const legibleSurface = (
 };
 
 export {
+  Surface,
   themedSurface,
   legibleSurface,
 };
