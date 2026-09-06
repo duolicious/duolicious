@@ -194,7 +194,9 @@ services:
   chatjsontest:
     build:
       context: .
-      dockerfile: chatjsontest.Dockerfile
+      dockerfile: nodemock.Dockerfile
+      args:
+        MOCK: chatjsontest
 
     volumes:
       - ./test/chatjsontest/index.js:/usr/src/app/index.js
@@ -205,7 +207,9 @@ services:
   pushmock:
     build:
       context: .
-      dockerfile: pushmock.Dockerfile
+      dockerfile: nodemock.Dockerfile
+      args:
+        MOCK: pushmock
 
     ports:
       - "3002:3002"
@@ -213,7 +217,9 @@ services:
   spotifymock:
     build:
       context: .
-      dockerfile: spotifymock.Dockerfile
+      dockerfile: nodemock.Dockerfile
+      args:
+        MOCK: spotifymock
 
     volumes:
       - ./test/spotifymock/index.js:/usr/src/app/index.js
