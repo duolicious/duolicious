@@ -291,8 +291,6 @@ revocation_with_unexpired_access_token () {
 
   set_spotify_mock_revoked true
 
-  # The access token is nowhere near expiry, so the cron only learns of the
-  # revocation from the API 401 and must confirm it at the token endpoint.
   q "update person_spotify set refreshed_at = now() - interval '1 day'"
 
   assert_eventually 0 q "select count(*) from person_spotify"
@@ -307,8 +305,6 @@ revocation_clears_tokens_and_artists () {
 
   set_spotify_mock_revoked true
 
-  # Force the next cron pass to need a token refresh, which the mock now
-  # answers with invalid_grant.
   q "update person_spotify set
        access_token_expires_at = now(),
        refreshed_at = now() - interval '1 day'"

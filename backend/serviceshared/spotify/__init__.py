@@ -87,7 +87,6 @@ async def _post_token_request(
         return None
 
     if data.get('error') == 'invalid_client':
-        # Bad credentials never succeed on retry; make the misconfiguration loud.
         logger.error('Spotify rejected the client credentials')
 
     return resp.status_code, data
@@ -132,7 +131,6 @@ async def refresh_tokens(
         logger.warning(f'Spotify token refresh returned HTTP {status_code}: {data}')
         return None
 
-    # Spotify may omit refresh_token on refresh; keep using the old one.
     return _parse_tokens(data, fallback_refresh_token=refresh_token)
 
 
@@ -205,8 +203,6 @@ async def fetch_top_artists(access_token: str) -> list[SpotifyArtist] | None:
     for item in items:
         artist = _parse_artist(item)
         if artist is None:
-            # Storing a partial list would wipe good rows; keep the stale
-            # list and let a later refresh repair it.
             logger.warning('Spotify top-artists item is malformed')
             return None
         artists.append(artist)

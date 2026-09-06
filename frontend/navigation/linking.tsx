@@ -225,9 +225,6 @@ const createLinking = () => {
   const getStateFromPath: typeof rnGetStateFromPath = (path, options) => {
     let normalized = path.replace(/\/{2,}/g, '/');
 
-    // The Spotify connect return URL (deep-link root plus an outcome query)
-    // reaches the app both as the auth session's result and as a deep link.
-    // The auth session consumes it; the deep link carries no routing intent.
     if (Platform.OS !== 'web' && isSpotifyReturn(normalized)) return undefined;
 
     // The Google sign-in flow redirects to `app.duolicious:/oauthredirect`

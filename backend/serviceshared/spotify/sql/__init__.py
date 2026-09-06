@@ -16,8 +16,6 @@ RETURNING
     1
 """
 
-# Single-use, bound to the person who minted it, and re-checks the role so a
-# state minted before the role was revoked can't complete the flow.
 Q_TAKE_SPOTIFY_OAUTH_STATE = """
 DELETE FROM
     spotify_oauth_state
@@ -35,8 +33,6 @@ RETURNING
     spotify_oauth_state.person_id
 """
 
-# A NULL `top_artists` means the fetch failed: the tokens are still stored so
-# the refresh cron can backfill, and any previous list is kept.
 Q_UPSERT_PERSON_SPOTIFY = """
 INSERT INTO person_spotify (
     person_id,
@@ -71,9 +67,6 @@ RETURNING
     1
 """
 
-# Update-only so a refresh in flight while the person disconnects can't
-# resurrect the connection. NULL tokens only bump `refreshed_at` so the cron
-# queue rotates; NULL `top_artists` keeps the previous list.
 Q_UPDATE_PERSON_SPOTIFY = """
 UPDATE
     person_spotify
@@ -96,8 +89,6 @@ RETURNING
     1
 """
 
-# Spotify policy requires deleting the user's content when authorization
-# ends, so /disconnect-spotify and revocation share this.
 Q_DISCONNECT_SPOTIFY = """
 DELETE FROM
     person_spotify

@@ -21,13 +21,6 @@ const hasWebReturnParams = (names: string[]): boolean => {
   return names.some((name) => params.has(name));
 };
 
-/**
- * If any of `names` are present in the snapshotted query string, consumes
- * the snapshot and strips those params from the URL via
- * `history.replaceState` - so a refresh won't re-trigger the flow - and
- * returns the params. Returns null (without side effects) otherwise, and
- * always on platforms other than web.
- */
 const takeWebReturnParams = (names: string[]): URLSearchParams | null => {
   const params = new URLSearchParams(_webReturnSearch);
   if (!names.some((name) => params.has(name))) return null;

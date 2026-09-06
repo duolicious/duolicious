@@ -426,12 +426,6 @@ async def post_spotify_authorize(
 ) -> object:
     return await person.post_spotify_authorize(req, s)
 
-# Spotify OAuth callback. This remains unauthenticated: Spotify redirects the
-# user's browser here, which we convert into a redirect response for the
-# allow-listed client return URL. See `auth/spotify_oauth.py`.
-#
-# Like the Apple callback, this is on its own rate-limit scope so a single
-# connect flow doesn't double-bill against the authed endpoints.
 @app.get('/spotify/callback')
 async def get_spotify_callback(
     request: Request,

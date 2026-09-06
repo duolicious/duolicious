@@ -17,9 +17,6 @@ const notifyError = (error: string) =>
 const notifyConnectFailed = () =>
   notifyError('Couldn’t connect Spotify. Try again later.');
 
-// Returns whether the connect succeeded and toasts when it failed. Denial is
-// the user's own action, so it's silent. The error string in the query is
-// never shown: anyone can put anything there.
 const consumeReturnParams = (params: URLSearchParams): boolean => {
   const connected = params.get('spotify') === 'connected';
   if (!connected && params.get('spotify_error') !== 'access_denied') {
@@ -28,16 +25,6 @@ const consumeReturnParams = (params: URLSearchParams): boolean => {
   return connected;
 };
 
-/**
- * Starts the "Connect Spotify" OAuth flow.
- *
- * - Native opens the authorize URL in an in-app browser session; the
- *   backend's `/spotify/callback` 302s to the app's universal-link return
- *   URL with the outcome in query params.
- * - Web is a full-page navigation (same reasoning as the Apple web
- *   sign-in): the backend 302s back to the SPA root, and the outcome is
- *   picked up on the next page load via `showPendingSpotifyConnectToast()`.
- */
 const connectSpotify = async (): Promise<void> => {
   const response = await japi<PostSpotifyAuthorizeResponse>(
     'post',
@@ -52,9 +39,6 @@ const connectSpotify = async (): Promise<void> => {
   }
 
   if (Platform.OS === 'web') {
-    // The page is navigating away, so this only settles when the user backs
-    // out of the consent screen and the browser restores this page from the
-    // back/forward cache, which fires `pageshow`.
     return new Promise<void>((resolve) => {
       window.addEventListener('pageshow', () => resolve(), { once: true });
       window.location.assign(authorizeUrl);
@@ -85,12 +69,6 @@ const connectSpotify = async (): Promise<void> => {
   }
 };
 
-/**
- * On web, completes the connect flow started by `connectSpotify()`. Called
- * from the app root once the toast host is mounted, so the outcome isn't
- * lost when the user doesn't visit the profile tab after the redirect back.
- * `/profile-info` is fetched fresh on mount anyway, so no refetch is needed.
- */
 const showPendingSpotifyConnectToast = (): void => {
   const params = takeWebReturnParams(['spotify', 'spotify_error']);
   if (params) {

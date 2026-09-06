@@ -704,8 +704,6 @@ class PostSearchFilterAnswer(BaseModel):
 
 
 class PostSpotifyAuthorize(BaseModel):
-    # Which env-configured allow-listed URL the callback should 302 back to
-    # after Spotify redirects to the API. See `auth/spotify_oauth.py`.
     redirect_target: Literal['web', 'app']
 
 

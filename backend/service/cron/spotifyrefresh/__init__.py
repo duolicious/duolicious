@@ -25,9 +25,6 @@ from serviceshared.duoenv.cron import (
 logger = logging.getLogger(__name__)
 
 
-# A failed fetch on the stored access token doesn't prove the grant is gone
-# (Spotify invalidates access tokens early on e.g. password changes); only
-# `invalid_grant` from the token endpoint does.
 async def _fetch_latest(
     row: Row,
 ) -> Literal['revoked'] | tuple[

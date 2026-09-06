@@ -96,8 +96,6 @@ services:
       DUO_APPLE_APEX_REDIRECT_URL: http://duolicious.app/
       DUO_APPLE_ANDROID_REDIRECT_URL: https://get.duolicious.app/
 
-      # The dev defaults point at the `spotifymock` service so the connect
-      # flow round-trips without real credentials.
       DUO_SPOTIFY_CLIENT_ID: dev-spotify-client-id
       DUO_SPOTIFY_CLIENT_SECRET: dev-spotify-client-secret
       DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback

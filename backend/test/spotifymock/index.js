@@ -3,10 +3,6 @@ const bodyParser = require('body-parser');
 
 const PORT = process.env.PORT || 3003;
 
-// Canned artists in Spotify's /v1/me/top/artists shape. Name lengths vary and
-// one artist has no images so the frontend's wrapping and fallback art can be
-// checked against the mock. Image URLs use localhost so a browser driving the
-// dev stack can load them.
 const images = (n) => [640, 320, 160].map((size) => ({
   url: `http://localhost:${PORT}/image/${n}-${size}.svg`,
   height: size,
@@ -62,12 +58,9 @@ const defaultArtists = [
 
 let artists = defaultArtists;
 let revoked = false;
-// Only the artists API rejects the caller; the token endpoint keeps working.
 let unauthorizedApi = false;
 let tokenCounter = 0;
 
-// Like the real token endpoint, reject requests whose Basic auth doesn't
-// carry the registered client credentials.
 const expectedAuthorization =
   process.env.SPOTIFY_MOCK_CLIENT_ID && process.env.SPOTIFY_MOCK_CLIENT_SECRET
     ? 'Basic ' + Buffer.from(
@@ -81,7 +74,6 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// Approves instantly and bounces the browser back with a canned code.
 app.get('/authorize', (req, res) => {
   const redirectUri = req.query.redirect_uri;
   const state = req.query.state;

@@ -1,5 +1,3 @@
-# artists_synced_at (last successful store) drives staleness; refreshed_at
-# (last attempt) drives retry backoff.
 Q_STALE_PERSON_SPOTIFY_BATCH = """
 SELECT
     person_id,

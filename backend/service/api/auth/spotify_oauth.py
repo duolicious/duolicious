@@ -1,14 +1,3 @@
-"""
-Spotify OAuth: `build_authorize_url` for POST /spotify/authorize and
-`handle_callback` for GET /spotify/callback.
-
-Like `apple_oauth.py`, the client can't pick the redirect target URL-side
-(that would be an open redirect). It names a target (`web` or `app`) in the
-`state` suffix, which Spotify echoes back unchanged, and that name resolves
-against the env-configured allow-list here.
-"""
-
-
 from urllib.parse import urlencode
 
 from starlette.responses import RedirectResponse
