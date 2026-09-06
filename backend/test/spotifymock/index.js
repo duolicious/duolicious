@@ -28,32 +28,6 @@ const defaultArtists = [
   },
   { id: 'artist-id-9', name: 'Canned Heatless', images: images(9) },
   { id: 'artist-id-10', name: 'Fixture', images: images(10) },
-  { id: 'artist-id-11', name: 'Placebo Domingo', images: images(11) },
-  { id: 'artist-id-12', name: 'The Null Terminators', images: images(12) },
-  {
-    id: 'artist-id-13',
-    name: 'Society for the Preservation of Extremely Roundabout and Deliberately Overlong Band Names',
-    images: images(13),
-  },
-  { id: 'artist-id-14', name: 'Dummy & the Stand-Ins', images: images(14) },
-  { id: 'artist-id-15', name: 'Lorem Ipsum Quartet', images: images(15) },
-  {
-    id: 'artist-id-16',
-    name: 'Ersatz Brass Ensemble of the Greater Mockington Metropolitan Area and Surrounding Boroughs',
-    images: images(16),
-  },
-  { id: 'artist-id-17', name: 'Faux Real', images: images(17) },
-  { id: 'artist-id-18', name: 'Scaffold', images: images(18) },
-  {
-    id: 'artist-id-19',
-    name: 'The Copy of a Copy of a Copy Orchestra',
-    images: images(19),
-  },
-  {
-    id: 'artist-id-20',
-    name: 'Test Pattern feat. the Synthetic String Section',
-    images: images(20),
-  },
 ];
 
 let artists = defaultArtists;
