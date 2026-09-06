@@ -6,6 +6,12 @@ import { notify } from '../events/events';
 import { ValidationErrorToast } from '../components/toast';
 import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
 
+type SpotifyArtistItem = {
+  spotify_id: string,
+  name: string,
+  image_url: string | null,
+};
+
 type PostSpotifyAuthorizeResponse = {
   authorize_url?: string
 };
@@ -85,6 +91,7 @@ const disconnectSpotify = async (): Promise<void> => {
 };
 
 export {
+  SpotifyArtistItem,
   connectSpotify,
   disconnectSpotify,
   showPendingSpotifyConnectToast,

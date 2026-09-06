@@ -3,7 +3,7 @@ import { api } from '../api/api';
 import { listen, notify, lastEvent } from './events';
 import { notifyUpdatedVerification } from '../verification/verification';
 import type { ClubItem } from '../club/club';
-import type { SpotifyArtistItem } from '../components/spotify-artists';
+import type { SpotifyArtistItem } from '../api/spotify';
 
 // The GET /profile-info response uses space-separated keys for some fields
 // (e.g. 'looking for') while the PATCH endpoint and DB columns use snake_case
