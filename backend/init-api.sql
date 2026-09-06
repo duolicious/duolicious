@@ -642,6 +642,20 @@ CREATE TABLE IF NOT EXISTS club_seo (
     generated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS spotify_oauth_state (
+    state TEXT PRIMARY KEY,
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    expires_at TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes')
+);
+
+CREATE TABLE IF NOT EXISTS person_spotify (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    refresh_token TEXT NOT NULL,
+    attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    artists_synced_at TIMESTAMP,
+    top_artists JSONB NOT NULL DEFAULT '[]'
+);
+
 CREATE TABLE IF NOT EXISTS deleted_photo_admin_token (
     token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     photo_uuid TEXT NOT NULL,
@@ -863,6 +877,9 @@ CREATE INDEX IF NOT EXISTS idx__question__question ON question USING GIST(questi
 
 CREATE INDEX IF NOT EXISTS idx__club__name ON club USING GIST(name gist_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx__club__count_members__name ON club(count_members, name);
+
+CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
+ON person_spotify(attempted_at);
 
 CREATE INDEX IF NOT EXISTS idx__banned_person__ip_address ON banned_person(ip_address);
 CREATE INDEX IF NOT EXISTS idx__banned_person__expires_at ON banned_person(expires_at);

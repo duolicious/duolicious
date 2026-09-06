@@ -703,6 +703,10 @@ class PostSearchFilterAnswer(BaseModel):
     accept_unanswered: bool
 
 
+class PostSpotifyAuthorize(BaseModel):
+    redirect_target: Literal['web', 'app']
+
+
 class PostJoinClub(BaseModel):
     name: ClubName
 

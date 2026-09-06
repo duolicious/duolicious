@@ -220,19 +220,18 @@ const createLinking = () => {
   const getStateFromPath: typeof rnGetStateFromPath = (path, options) => {
     let normalized = path.replace(/\/{2,}/g, '/');
 
-    // The Google sign-in flow redirects to `app.duolicious:/oauthredirect`
-    // (expo-auth-session derives this from the package name). On Android that
-    // custom-scheme redirect is *also* delivered to the app as a deep link —
-    // the scheme is a registered intent filter — so React Navigation's linking
-    // sees the path `oauthredirect`. Because the prospect-profile route matches
-    // any bare slug (`[a-z0-9_-]+`), it would navigate to a "Profile not found"
-    // prospect screen, which `navigateAfterAuth` then preserves over the real
-    // post-sign-in redirect. expo-auth-session consumes the redirect separately
-    // to finish the token exchange, so this stray deep link carries no routing
-    // intent: collapse it to the root and let the post-sign-in redirect take
-    // over. (Note the leading slash is optional — the custom scheme has no host,
-    // so the extracted path arrives as `oauthredirect`, not `/oauthredirect`.)
-    if (/^\/?oauthredirect(?=$|[/?#])/.test(normalized)) normalized = '/';
+    // The Google sign-in flow returns to `app.duolicious:/oauthredirect` and
+    // the Spotify connect flow to `app.duolicious://spotify`. On Android those
+    // custom-scheme returns are *also* delivered as deep links, and because the
+    // prospect-profile route matches any bare slug (`[a-z0-9_-]+`) they would
+    // open a "Profile not found" prospect screen. The auth session consumes the
+    // return separately, so the stray deep link carries no routing intent:
+    // ignore it and stay on the current screen. (The leading slash is optional
+    // because the custom scheme has no host.)
+    if (
+      Platform.OS !== 'web' &&
+      /^\/?(oauthredirect|spotify)(?=$|[/?#])/.test(normalized)
+    ) return undefined;
 
     if (normalized === '/me' || normalized.startsWith('/me/')) normalized = '/';
     if (normalized === '/welcome' || normalized.startsWith('/welcome/')) normalized = '/';

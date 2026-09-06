@@ -485,12 +485,6 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
 
 type SocialProvider = 'google' | 'apple';
 
-// Brand button with the icon pinned to the left edge and the label
-// centered against the full button width. The centering is handled by
-// `ButtonWithCenteredText`'s own flex layout — we just drop the icon
-// in as an absolutely-positioned `extraChildren` so it sits over the
-// (otherwise centered) text without shifting it.
-//
 // Text size / weight mirrors the bottom "Sign Up or Sign In" CTA
 // (`fontSize: 16, fontWeight: '700'`) so all primary buttons in the
 // onboarding flow look identical.
@@ -519,20 +513,7 @@ const PrimaryAuthButton = ({
     containerStyle={{ marginTop: 0, marginBottom: 10 }}
     fontSize={16}
     textStyle={{ fontWeight: '700' }}
-    extraChildren={
-      <View
-        style={{
-          position: 'absolute',
-          left: 18,
-          top: 0,
-          bottom: 0,
-          justifyContent: 'center',
-        }}
-        pointerEvents="none"
-      >
-        {icon}
-      </View>
-    }
+    icon={icon}
   >
     {children}
   </ButtonWithCenteredText>
@@ -781,10 +762,10 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
     setLoginStatus("");
     setSocialLoading('apple');
     try {
-      // On web this never resolves — the page is navigating to Apple,
-      // and the sign-in is finished by the web-return effect below
-      // when the backend's callback redirects us back here. iOS and
-      // Android resolve normally.
+      // On web this only resolves when the user backs out of Apple's
+      // page; a completed sign-in is finished by the web-return effect
+      // below when the backend's callback redirects us back here. iOS
+      // and Android resolve normally.
       const result = await signInWithApple({ clubName: clubName_ ?? '' });
       if (!result.ok && !result.cancelled) {
         setLoginStatus(result.reason ?? 'Apple sign-in failed');

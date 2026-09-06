@@ -867,6 +867,16 @@ WITH prospect_base AS (
     ) AS j
     FROM clubs
     WHERE NOT is_mutual
+), spotify_artists_json AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT top_artists
+                FROM person_spotify
+                WHERE person_id = (SELECT id FROM prospect)
+            ),
+            '[]'::jsonb
+        ) AS j
 ), flair AS (
     SELECT
         ({Q_COMPUTED_FLAIR}) AS computed_flair
@@ -924,6 +934,9 @@ SELECT
         -- Clubs
         'mutual_clubs',           (SELECT j             FROM mutual_clubs_json),
         'other_clubs',            (SELECT j             FROM other_clubs_json),
+
+        -- Music
+        'spotify_artists',        (SELECT j             FROM spotify_artists_json),
 
         -- Verifications
         'verified_age',           (SELECT verified_age       FROM prospect),
@@ -1360,6 +1373,18 @@ WITH photo_ AS (
     JOIN club ON club.name = club_name
     WHERE person_id = %(person_id)s
 
+), spotify AS (
+    SELECT
+        top_artists,
+        artists_synced_at IS NOT NULL AS artists_synced
+    FROM person_spotify
+    WHERE person_id = %(person_id)s
+
+), spotify_tester AS (
+    SELECT 'spotify-tester' = ANY(roles) AS j
+    FROM person
+    WHERE id = %(person_id)s
+
 ), unit AS (
     SELECT unit.name AS j
     FROM unit JOIN person ON unit_id = unit.id
@@ -1468,6 +1493,11 @@ SELECT
         'star sign',              (SELECT j FROM star_sign),
 
         'clubs',                  (SELECT j FROM clubs),
+
+        'spotify_artists',        COALESCE((SELECT top_artists FROM spotify), '[]'::jsonb),
+        'spotify_connected',      EXISTS (SELECT 1 FROM spotify),
+        'spotify_artists_synced', COALESCE((SELECT artists_synced FROM spotify), FALSE),
+        'spotify_tester',         (SELECT j FROM spotify_tester),
 
         'units',                  (SELECT j FROM unit),
 
@@ -2633,6 +2663,19 @@ SELECT json_build_object(
             person_club
         WHERE
             person_id = %(person_id)s
+    ),
+
+    'person_spotify', (
+        SELECT
+            json_agg(row_to_json(t))
+        FROM (
+            SELECT
+                top_artists
+            FROM
+                person_spotify
+            WHERE
+                person_id = %(person_id)s
+        ) AS t
     ),
 
     'skipped', (

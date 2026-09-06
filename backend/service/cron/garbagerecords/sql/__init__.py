@@ -85,6 +85,13 @@ WITH q1 AS (
         last_event_data = '{{}}'  -- Escape python's f-string syntax
     WHERE
         id IN (SELECT person_id FROM q7)
+), q11 AS (
+    DELETE FROM
+        spotify_oauth_state
+    WHERE
+        expires_at < NOW()
+    RETURNING
+        1
 )
 SELECT
     SUM(n) AS count,
@@ -97,6 +104,7 @@ FROM (
     SELECT 1 AS n FROM q5 UNION ALL
     SELECT 1 AS n FROM q6 UNION ALL
     SELECT 1 AS n FROM q7 UNION ALL
-    SELECT 1 AS n FROM q8
+    SELECT 1 AS n FROM q8 UNION ALL
+    SELECT 1 AS n FROM q11
 ) AS t(n)
 """

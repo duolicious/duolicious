@@ -16,7 +16,7 @@ import {
   ProfileInfo,
   getProfileInfo,
   patchProfileInfo,
-  setProfileInfo,
+  refreshProfileInfo,
   useProfileInfo,
 } from '../events/profile-info';
 import {
@@ -62,15 +62,17 @@ import * as _ from "lodash";
 import { aboutQueue, nameQueue } from '../api/queue';
 import { ClubSelector } from './club-selector';
 import { ClubItem } from '../club/club';
+import {
+  connectSpotify,
+  disconnectSpotify,
+} from '../api/spotify';
+import { SpotifyArtists, SpotifyIcon } from './spotify-artists';
 import { listen, notify } from '../events/events';
 import { ButtonWithCenteredText } from './button/centered-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { logout } from '../chat/application-layer';
 import { DetailedVerificationBadges } from './verification-badge';
-import {
-  notifyUpdatedVerification,
-  listenUpdatedVerification,
-} from '../verification/verification';
+import { listenUpdatedVerification } from '../verification/verification';
 import { InviteEntrypoint } from './invite';
 import { InvitePicker } from './invite';
 import { AudioBio } from './audio-bio';
@@ -87,12 +89,6 @@ import { INVITE_URL } from '../env/env';
 import { Pressable } from 'react-native-gesture-handler';
 import { copyProfileLink } from '../util/util';
 
-
-type ProfileInfoResponse = {
-  photo_verification: { [position: string]: boolean }
-  name: string
-  flair: string
-};
 
 type ProfileInfoPatchResponse = {
   url_slug?: string
@@ -247,19 +243,7 @@ const ProfileTab_ = ({navigation}: ProfileTabScreenProps) => {
   const data = useProfileInfo();
 
   useEffect(() => {
-    (async () => {
-      const response = await api<ProfileInfoResponse>('get', '/profile-info');
-      if (!response.json) {
-        return;
-      }
-
-      setProfileInfo(response.json);
-
-      notifyUpdatedVerification({ photos: response.json.photo_verification });
-
-      notify<string>('updated-name', response.json.name);
-      notify<string>('updated-flair', response.json.flair);
-    })();
+    refreshProfileInfo();
   }, [signedInUser?.hasGold === true]);
 
   const {
@@ -481,6 +465,59 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
           height: 200,
         }}
       />
+    </View>
+  );
+};
+
+const MusicHint = ({ children }: { children: string }) => (
+  <DefaultText
+    style={{
+      color: '#999',
+      textAlign: 'center',
+      marginRight: 10,
+      marginLeft: 10,
+    }}
+  >
+    {children}
+  </DefaultText>
+);
+
+const MusicSection = ({data}: {data: ProfileInfo}) => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const isConnected = data.spotify_connected === true;
+  const artists = data.spotify_artists ?? [];
+
+  const toggle = useCallback(async () => {
+    setIsLoading(true);
+    await (isConnected ? disconnectSpotify() : connectSpotify());
+    setIsLoading(false);
+  }, [isConnected]);
+
+  return (
+    <View>
+      {isConnected && artists.length > 0 &&
+        <View style={{ marginTop: 5, marginBottom: 5 }}>
+          <SpotifyArtists artists={artists}/>
+        </View>
+      }
+      {isConnected && artists.length === 0 &&
+        <MusicHint>
+          {data.spotify_artists_synced
+            ? 'Spotify hasn’t got enough listening history to pick your top artists yet'
+            : 'Your top Spotify artists will show up here once we’ve fetched them'}
+        </MusicHint>
+      }
+      <ButtonWithCenteredText
+        onPress={toggle}
+        loading={isLoading}
+        icon={<SpotifyIcon size={22} color="white"/>}
+      >
+        {isConnected ? 'Disconnect Spotify' : 'Connect Spotify'}
+      </ButtonWithCenteredText>
+      {!isConnected &&
+        <MusicHint>Show your top Spotify artists on your profile</MusicHint>
+      }
     </View>
   );
 };
@@ -707,6 +744,11 @@ const Options = ({ navigation, data }: {
         }
       />
       <InviteEntrypoint navigation={navigation}/>
+
+      {(data.spotify_tester === true || data.spotify_connected === true) && <>
+        <Title>Music</Title>
+        <MusicSection data={data}/>
+      </>}
 
       <Title>Themes</Title>
       {

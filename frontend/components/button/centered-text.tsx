@@ -2,6 +2,7 @@ import {
   Animated,
   Pressable,
   TextStyle,
+  View,
   ViewStyle,
 } from 'react-native';
 import {
@@ -21,6 +22,7 @@ type ButtonWithCenteredTextApi = {
 type ButtonWithCenteredTextProps = {
   children?: ReactNode
   extraChildren?: ReactNode
+  icon?: ReactNode
   innerRef?: RefObject<ButtonWithCenteredTextApi | undefined>
   backgroundColor?: string
   borderColor?: string
@@ -38,6 +40,7 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
   const {
     children,
     extraChildren,
+    icon,
     innerRef,
     backgroundColor,
     borderColor,
@@ -146,6 +149,20 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
           </DefaultText>
         }
         {!loading && extraChildren}
+        {!loading && icon &&
+          <View
+            style={{
+              position: 'absolute',
+              left: 18,
+              top: 0,
+              bottom: 0,
+              justifyContent: 'center',
+            }}
+            pointerEvents="none"
+          >
+            {icon}
+          </View>
+        }
       </Animated.View>
     </Pressable>
   );

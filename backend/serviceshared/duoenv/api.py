@@ -32,6 +32,23 @@ APPLE_WEB_REDIRECT_URL = stripped_str('DUO_APPLE_WEB_REDIRECT_URL')
 APPLE_APEX_REDIRECT_URL = stripped_str('DUO_APPLE_APEX_REDIRECT_URL')
 APPLE_ANDROID_REDIRECT_URL = stripped_str('DUO_APPLE_ANDROID_REDIRECT_URL')
 
+SPOTIFY_REDIRECT_URI = str_with(
+    'DUO_SPOTIFY_REDIRECT_URI',
+    'https://api.duolicious.app/spotify/callback',
+)
+SPOTIFY_AUTHORIZE_URL = str_with(
+    'DUO_SPOTIFY_AUTHORIZE_URL',
+    'https://accounts.spotify.com/authorize',
+)
+SPOTIFY_WEB_REDIRECT_URL = str_with(
+    'DUO_SPOTIFY_WEB_REDIRECT_URL',
+    'https://web.duolicious.app/profile',
+)
+SPOTIFY_APP_REDIRECT_URL = str_with(
+    'DUO_SPOTIFY_APP_REDIRECT_URL',
+    'app.duolicious://spotify',
+)
+
 VAPID_SUBJECT = str_with('DUO_VAPID_SUBJECT', 'mailto:support@duolicious.app')
 VAPID_PRIVATE_KEY = str_with('DUO_VAPID_PRIVATE_KEY', '')
 

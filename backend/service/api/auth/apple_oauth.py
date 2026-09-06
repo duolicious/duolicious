@@ -41,10 +41,7 @@ Env vars:
 """
 
 
-from starlette.responses import RedirectResponse
-
-from serviceshared.util import append_query
-
+from service.api.auth.oauth_redirect import redirect, resolve_redirect_target
 
 from serviceshared.duoenv.api import (
     APPLE_ANDROID_REDIRECT_URL,
@@ -60,39 +57,24 @@ _REDIRECT_TARGETS = {
 }
 
 
-def _resolve_target(state: str) -> str | None:
-    # `state` is `<csrf-nonce>.<target>`; we only care about the target
-    # suffix. The nonce is verified client-side after the redirect.
-    try:
-        _, _, target = state.rpartition('.')
-    except:
-        return None
-    return _REDIRECT_TARGETS.get(target) or None
-
-
 def handle_callback(
     *,
     id_token: str,
     state: str,
     error: str | None,
 ) -> object:
-    target_url = _resolve_target(state)
+    target_url = resolve_redirect_target(state, _REDIRECT_TARGETS)
     if not target_url:
         return 'Invalid Apple sign-in state', 400
 
     if error:
-        return RedirectResponse(append_query(target_url, dict(
-            apple_error=error,
-            apple_state=state,
-        )), status_code=302)
+        return redirect(target_url, apple_error=error, apple_state=state)
 
     if not id_token:
-        return RedirectResponse(append_query(target_url, dict(
+        return redirect(
+            target_url,
             apple_error='missing_id_token',
             apple_state=state,
-        )), status_code=302)
+        )
 
-    return RedirectResponse(append_query(target_url, dict(
-        apple_id_token=id_token,
-        apple_state=state,
-    )), status_code=302)
+    return redirect(target_url, apple_id_token=id_token, apple_state=state)

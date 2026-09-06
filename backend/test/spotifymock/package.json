@@ -1,0 +1,11 @@
+{
+  "name": "spotifymock",
+  "version": "1.0.0",
+  "description": "Mocks Spotify's token and top-artists endpoints during tests.",
+  "main": "index.js",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "express": "^4.19.2"
+  }
+}
