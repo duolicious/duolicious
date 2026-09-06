@@ -74,9 +74,8 @@ const SpotifyArtist = ({
       borderWidth: 1,
       borderRadius: 999,
       backgroundColor: chrome.backgroundColor,
-      padding: 4,
-      paddingLeft: 8,
-      paddingRight: 12,
+      paddingVertical: 4,
+      paddingHorizontal: 12,
     }}
   >
     {artist.image_url ?
