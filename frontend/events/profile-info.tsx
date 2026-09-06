@@ -1,7 +1,9 @@
 import { useLayoutEffect, useState } from 'react';
+import { api } from '../api/api';
 import { listen, notify, lastEvent } from './events';
+import { notifyUpdatedVerification } from '../verification/verification';
 import type { ClubItem } from '../club/club';
-import type { SpotifyArtistItem } from '../spotify/spotify';
+import type { SpotifyArtistItem } from '../components/spotify-artists';
 
 // The GET /profile-info response uses space-separated keys for some fields
 // (e.g. 'looking for') while the PATCH endpoint and DB columns use snake_case
@@ -65,6 +67,12 @@ type ProfileInfo = {
   [key: string]: unknown;
 };
 
+type ProfileInfoResponse = ProfileInfo & {
+  photo_verification: { [position: string]: boolean }
+  name: string
+  flair: string
+};
+
 const EVENT_KEY = 'profile-info';
 
 const getProfileInfo = (): ProfileInfo | undefined => {
@@ -85,6 +93,20 @@ const resetProfileInfo = () => {
   notify<ProfileInfo | undefined>(EVENT_KEY, undefined);
 };
 
+const refreshProfileInfo = async () => {
+  const response = await api<ProfileInfoResponse>('get', '/profile-info');
+  if (!response.json) {
+    return;
+  }
+
+  setProfileInfo(response.json);
+
+  notifyUpdatedVerification({ photos: response.json.photo_verification });
+
+  notify<string>('updated-name', response.json.name);
+  notify<string>('updated-flair', response.json.flair);
+};
+
 const useProfileInfo = () => {
   const [value, setValue] = useState<ProfileInfo | undefined>(getProfileInfo());
 
@@ -99,6 +121,7 @@ export {
   ProfileInfo,
   getProfileInfo,
   patchProfileInfo,
+  refreshProfileInfo,
   resetProfileInfo,
   setProfileInfo,
   useProfileInfo,

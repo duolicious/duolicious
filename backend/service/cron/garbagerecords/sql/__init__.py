@@ -63,13 +63,6 @@ WITH q1 AS (
         expires_at < NOW()
     RETURNING
         1
-), q11 AS (
-    DELETE FROM
-        spotify_oauth_state
-    WHERE
-        expires_at < NOW()
-    RETURNING
-        1
 ), q9 AS (
     INSERT INTO
         undeleted_photo (uuid)
@@ -92,6 +85,13 @@ WITH q1 AS (
         last_event_data = '{{}}'  -- Escape python's f-string syntax
     WHERE
         id IN (SELECT person_id FROM q7)
+), q11 AS (
+    DELETE FROM
+        spotify_oauth_state
+    WHERE
+        expires_at < NOW()
+    RETURNING
+        1
 )
 SELECT
     SUM(n) AS count,

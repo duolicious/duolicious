@@ -3,12 +3,10 @@ const bodyParser = require('body-parser');
 
 const PORT = process.env.PORT || 3003;
 
-// Canned artists in Spotify's /v1/me/top/artists shape. Control endpoints can
-// swap these (for cron-refresh tests) or flip the mock into "revoked" mode
-// (for revocation tests). Name lengths vary — and one artist has no images —
-// so the frontend's chip wrapping and fallback art can be checked against the
-// mock. Image URLs use localhost so a browser driving the dev stack can load
-// them; the mock serves them itself via /image/.
+// Canned artists in Spotify's /v1/me/top/artists shape. Name lengths vary and
+// one artist has no images so the frontend's wrapping and fallback art can be
+// checked against the mock. Image URLs use localhost so a browser driving the
+// dev stack can load them.
 const images = (n) => [640, 320, 160].map((size) => ({
   url: `http://localhost:${PORT}/image/${n}-${size}.svg`,
   height: size,
@@ -64,17 +62,12 @@ const defaultArtists = [
 
 let artists = defaultArtists;
 let revoked = false;
-// Unlike `revoked`, only the artists API rejects the caller; the token
-// endpoint keeps working. Simulates an access token invalidated early (e.g.
-// by a password change) while the grant itself is still alive.
+// Only the artists API rejects the caller; the token endpoint keeps working.
 let unauthorizedApi = false;
 let tokenCounter = 0;
 
 // Like the real token endpoint, reject requests whose Basic auth doesn't
-// carry the registered client credentials. This is what catches a service
-// that was never given DUO_SPOTIFY_CLIENT_ID/SECRET — duoenv silently
-// defaults those to the empty string. A mock started without credentials of
-// its own rejects everything rather than accepting that same empty pair.
+// carry the registered client credentials.
 const expectedAuthorization =
   process.env.SPOTIFY_MOCK_CLIENT_ID && process.env.SPOTIFY_MOCK_CLIENT_SECRET
     ? 'Basic ' + Buffer.from(
@@ -88,9 +81,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// Spotify's authorize page. The real one shows a consent screen; the mock
-// approves instantly and bounces the browser back to redirect_uri with a
-// canned code, so the dev stack can round-trip the whole connect flow.
+// Approves instantly and bounces the browser back with a canned code.
 app.get('/authorize', (req, res) => {
   const redirectUri = req.query.redirect_uri;
   const state = req.query.state;
@@ -104,9 +95,6 @@ app.get('/authorize', (req, res) => {
   res.redirect(302, url.toString());
 });
 
-// Spotify's token endpoint: serves both the authorization_code exchange and
-// refresh_token grants with canned tokens. In revoked mode it answers the way
-// Spotify does once the user has withdrawn authorization.
 app.post('/api/token', (req, res) => {
   if (!expectedAuthorization ||
       req.headers.authorization !== expectedAuthorization) {
@@ -149,9 +137,6 @@ app.get('/v1/me/top/artists', (req, res) => {
   });
 });
 
-// Placeholder artist art, referenced by the canned artists' image URLs. Real
-// Spotify serves JPEGs from a CDN; the mock serves deterministic SVGs so the
-// frontend has something visible to render in dev.
 app.get('/image/:file', (req, res) => {
   const match = /^(\d+)-(\d+)\.svg$/.exec(req.params.file);
   if (!match) {
@@ -169,7 +154,6 @@ app.get('/image/:file', (req, res) => {
   );
 });
 
-// Control endpoints for the tests.
 app.post('/control/revoked', (req, res) => {
   revoked = !!req.body.revoked;
   res.status(200).send();

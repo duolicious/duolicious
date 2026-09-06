@@ -16,10 +16,8 @@ RETURNING
     1
 """
 
-# Single-use: the DELETE consumes the state so a replayed callback can't
-# reuse it, and the RETURNING binds the callback to the person who minted it
-# (CSRF). The role check re-runs here so a state minted before the role was
-# revoked can't complete the flow.
+# Single-use, bound to the person who minted it, and re-checks the role so a
+# state minted before the role was revoked can't complete the flow.
 Q_TAKE_SPOTIFY_OAUTH_STATE = """
 DELETE FROM
     spotify_oauth_state
@@ -37,74 +35,72 @@ RETURNING
     spotify_oauth_state.person_id
 """
 
+# A NULL `top_artists` means the fetch failed: the tokens are still stored so
+# the refresh cron can backfill, and any previous list is kept.
 Q_UPSERT_PERSON_SPOTIFY = """
 INSERT INTO person_spotify (
     person_id,
     access_token,
     access_token_expires_at,
     refresh_token,
-    refreshed_at
+    top_artists,
+    artists_synced_at
 )
-VALUES (
-    %(person_id)s,
+SELECT
+    id,
     %(access_token)s,
     NOW() + make_interval(secs => %(expires_in)s),
     %(refresh_token)s,
-    NOW()
-)
+    COALESCE(%(top_artists)s::jsonb, '[]'::jsonb),
+    CASE WHEN %(top_artists)s::jsonb IS NULL THEN NULL ELSE NOW() END
+FROM
+    person
+WHERE
+    id = %(person_id)s
 ON CONFLICT (person_id) DO UPDATE SET
     access_token = EXCLUDED.access_token,
     access_token_expires_at = EXCLUDED.access_token_expires_at,
     refresh_token = EXCLUDED.refresh_token,
-    refreshed_at = NOW()
+    refreshed_at = NOW(),
+    top_artists = COALESCE(%(top_artists)s::jsonb, person_spotify.top_artists),
+    artists_synced_at = COALESCE(
+        EXCLUDED.artists_synced_at,
+        person_spotify.artists_synced_at
+    )
+RETURNING
+    1
 """
 
-# Update-only counterpart of Q_UPSERT_PERSON_SPOTIFY for the refresh cron:
-# matching zero rows (RETURNING nothing) means the person disconnected while
-# the refresh was in flight, and re-creating the row would resurrect a
-# connection they just asked to remove.
+# Update-only so a refresh in flight while the person disconnects can't
+# resurrect the connection. NULL tokens only bump `refreshed_at` so the cron
+# queue rotates; NULL `top_artists` keeps the previous list.
 Q_UPDATE_PERSON_SPOTIFY = """
 UPDATE
     person_spotify
 SET
-    access_token = %(access_token)s,
-    access_token_expires_at = NOW() + make_interval(secs => %(expires_in)s),
-    refresh_token = %(refresh_token)s,
-    refreshed_at = NOW()
+    access_token = COALESCE(%(access_token)s, access_token),
+    access_token_expires_at = COALESCE(
+        NOW() + make_interval(secs => %(expires_in)s),
+        access_token_expires_at
+    ),
+    refresh_token = COALESCE(%(refresh_token)s, refresh_token),
+    refreshed_at = NOW(),
+    top_artists = COALESCE(%(top_artists)s::jsonb, top_artists),
+    artists_synced_at = CASE
+        WHEN %(top_artists)s::jsonb IS NULL THEN artists_synced_at
+        ELSE NOW()
+    END
 WHERE
     person_id = %(person_id)s
 RETURNING
     1
 """
 
-Q_TOUCH_PERSON_SPOTIFY = """
-UPDATE
-    person_spotify
-SET
-    refreshed_at = NOW()
-WHERE
-    person_id = %(person_id)s
-RETURNING
-    1
-"""
-
-Q_SET_SPOTIFY_ARTISTS = """
-UPDATE
-    person_spotify
-SET
-    top_artists = %(top_artists)s::jsonb,
-    artists_synced_at = NOW()
-WHERE
-    person_id = %(person_id)s
-"""
-
-# Used both by /disconnect-spotify and by the refresh cron when Spotify
-# reports the authorization revoked: Spotify policy requires deleting the
-# user's content when authorization ends, so both paths behave identically.
+# Spotify policy requires deleting the user's content when authorization
+# ends, so /disconnect-spotify and revocation share this.
 Q_DISCONNECT_SPOTIFY = """
 DELETE FROM
     person_spotify
 WHERE
     person_id = %(person_id)s
 """
-

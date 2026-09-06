@@ -27,14 +27,5 @@ CREATE TABLE IF NOT EXISTS person_spotify (
     top_artists JSONB NOT NULL DEFAULT '[]'
 );
 
--- For databases that booted an earlier revision of this branch, where
--- person_spotify existed without these columns and the artists lived in the
--- since-dropped spotify_artist / person_spotify_artist tables.
-ALTER TABLE person_spotify ADD COLUMN IF NOT EXISTS artists_synced_at TIMESTAMP;
-ALTER TABLE person_spotify
-    ADD COLUMN IF NOT EXISTS top_artists JSONB NOT NULL DEFAULT '[]';
-DROP TABLE IF EXISTS person_spotify_artist;
-DROP TABLE IF EXISTS spotify_artist;
-
 CREATE INDEX IF NOT EXISTS idx__person_spotify__refreshed_at
     ON person_spotify(refreshed_at);

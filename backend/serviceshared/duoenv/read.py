@@ -24,13 +24,6 @@ def stripped_str(name: str) -> str:
     return os.environ.get(name, '').strip()
 
 
-def required_stripped_str(name: str) -> str:
-    value = required_str(name).strip()
-    if not value:
-        raise RuntimeError(f'The environment variable {name} must not be empty')
-    return value
-
-
 def int_with(name: str, default: int) -> int:
     raw = os.environ.get(name)
     return default if raw is None else _parse_int(name, raw)

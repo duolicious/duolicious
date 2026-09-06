@@ -209,6 +209,11 @@ const linkingConfig: LinkingOptions<RootParamList>['config'] = {
   },
 };
 
+const isSpotifyReturn = (path: string): boolean => {
+  const query = new URLSearchParams(path.split('?')[1] ?? '');
+  return query.has('spotify') || query.has('spotify_error');
+};
+
 const createLinking = () => {
   const prefixes =
     Platform.OS === 'web'
@@ -219,6 +224,11 @@ const createLinking = () => {
 
   const getStateFromPath: typeof rnGetStateFromPath = (path, options) => {
     let normalized = path.replace(/\/{2,}/g, '/');
+
+    // The Spotify connect return URL (deep-link root plus an outcome query)
+    // reaches the app both as the auth session's result and as a deep link.
+    // The auth session consumes it; the deep link carries no routing intent.
+    if (Platform.OS !== 'web' && isSpotifyReturn(normalized)) return undefined;
 
     // The Google sign-in flow redirects to `app.duolicious:/oauthredirect`
     // (expo-auth-session derives this from the package name). On Android that

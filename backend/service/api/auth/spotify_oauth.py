@@ -1,37 +1,33 @@
 """
-Spotify OAuth callback (GET /spotify/callback).
+Spotify OAuth: `build_authorize_url` for POST /spotify/authorize and
+`handle_callback` for GET /spotify/callback.
 
-The flow is backend-callback (see `backend/spotify/__init__.py`):
-`POST /spotify/authorize` mints a single-use `state` bound to the signed-in
-person, Spotify sends the user back here with a `code`, and this module
-exchanges the code with the client secret, fetches the user's top artists,
-stores everything, then 302s the user back to the client.
-
-Like `apple_oauth.py`, the redirect target is *not* picked by the client
-URL-side — that would be an open redirect. The client encodes a target name
-(`web` or `app`) inside the OAuth `state` parameter, which Spotify echoes
-back unchanged; we resolve that name against an env-configured allow-list.
-
-Env vars:
-    DUO_SPOTIFY_WEB_REDIRECT_URL  Final redirect target after a web
-                                  connect. Typically the SPA root.
-    DUO_SPOTIFY_APP_REDIRECT_URL  Final redirect target after a native-app
-                                  connect. Must be the Universal Link /
-                                  App Link the native client passes to
-                                  expo-web-browser as `returnUrl`.
+Like `apple_oauth.py`, the client can't pick the redirect target URL-side
+(that would be an open redirect). It names a target (`web` or `app`) in the
+`state` suffix, which Spotify echoes back unchanged, and that name resolves
+against the env-configured allow-list here.
 """
 
+
+from urllib.parse import urlencode
 
 from starlette.responses import RedirectResponse
 
 from serviceshared import spotify
 from serviceshared.database import api_tx
-from serviceshared.spotify.sql import Q_TAKE_SPOTIFY_OAUTH_STATE
-from serviceshared.spotify.store import store_spotify_connection
+from serviceshared.duoenv.spotify import SPOTIFY_CLIENT_ID
 from serviceshared.util import append_query
+from serviceshared.util.coerce import integer
+
+from serviceshared.spotify.sql import (
+    Q_TAKE_SPOTIFY_OAUTH_STATE,
+    Q_UPSERT_PERSON_SPOTIFY,
+)
 
 from serviceshared.duoenv.api import (
     SPOTIFY_APP_REDIRECT_URL,
+    SPOTIFY_AUTHORIZE_URL,
+    SPOTIFY_REDIRECT_URI,
     SPOTIFY_WEB_REDIRECT_URL,
 )
 
@@ -42,9 +38,17 @@ _REDIRECT_TARGETS = {
 }
 
 
+def build_authorize_url(state: str) -> str:
+    return SPOTIFY_AUTHORIZE_URL + '?' + urlencode(dict(
+        client_id=SPOTIFY_CLIENT_ID,
+        response_type='code',
+        redirect_uri=SPOTIFY_REDIRECT_URI,
+        scope='user-top-read',
+        state=state,
+    ))
+
+
 def _resolve_target(state: str) -> str | None:
-    # `state` is `<csrf-nonce>.<target>`; the nonce half is consumed
-    # server-side via `Q_TAKE_SPOTIFY_OAUTH_STATE`.
     _, _, target = state.rpartition('.')
     return _REDIRECT_TARGETS.get(target) or None
 
@@ -66,16 +70,12 @@ async def handle_callback(
     if not target_url:
         return 'Invalid Spotify authorization state', 400
 
-    # Atomically consume the state: single-use (replay protection) and bound
-    # to the person who minted it (CSRF protection).
     async with api_tx() as tx:
         cur = await tx.execute(Q_TAKE_SPOTIFY_OAUTH_STATE, dict(state=state))
-        rows = await cur.fetchall()
+        row = await cur.fetchone()
 
-    if not rows:
+    if row is None:
         return _redirect(target_url, spotify_error='invalid_state')
-
-    person_id = rows[0]['person_id']
 
     if error:
         return _redirect(target_url, spotify_error=error)
@@ -83,16 +83,23 @@ async def handle_callback(
     if not code:
         return _redirect(target_url, spotify_error='missing_code')
 
-    tokens = await spotify.exchange_code(code)
+    tokens = await spotify.exchange_code(code, SPOTIFY_REDIRECT_URI)
     if tokens is None:
         return _redirect(target_url, spotify_error='exchange_failed')
 
-    fetched = await spotify.fetch_top_artists(tokens.access_token)
-    # A failed fetch still stores the tokens; the refresh cron backfills the
-    # artists later.
-    artists = fetched if isinstance(fetched, list) else None
+    artists = await spotify.fetch_top_artists(tokens.access_token)
 
     async with api_tx() as tx:
-        await store_spotify_connection(tx, person_id, tokens, artists)
+        cur = await tx.execute(Q_UPSERT_PERSON_SPOTIFY, dict(
+            person_id=integer(row['person_id']),
+            access_token=tokens.access_token,
+            expires_in=tokens.expires_in,
+            refresh_token=tokens.refresh_token,
+            top_artists=spotify.artists_json(artists),
+        ))
+        stored = await cur.fetchone()
+
+    if stored is None:
+        return _redirect(target_url, spotify_error='invalid_state')
 
     return _redirect(target_url, spotify='connected')

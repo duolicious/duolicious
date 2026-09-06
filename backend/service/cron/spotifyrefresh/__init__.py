@@ -7,9 +7,12 @@ from serviceshared import spotify
 from serviceshared.database import Row, api_tx
 from service.cron.cronutil import MAX_RANDOM_START_DELAY, log_stacktrace
 from service.cron.spotifyrefresh.sql import Q_STALE_PERSON_SPOTIFY_BATCH
-from serviceshared.spotify.sql import Q_DISCONNECT_SPOTIFY
-from serviceshared.spotify.store import update_spotify_connection
 from serviceshared.util.coerce import boolean, integer, string
+
+from serviceshared.spotify.sql import (
+    Q_DISCONNECT_SPOTIFY,
+    Q_UPDATE_PERSON_SPOTIFY,
+)
 
 from serviceshared.duoenv.cron import (
     SPOTIFY_BATCH_SIZE,
@@ -22,55 +25,30 @@ from serviceshared.duoenv.cron import (
 logger = logging.getLogger(__name__)
 
 
-async def _refresh_and_fetch(
-    refresh_token: str,
-) -> Literal['revoked'] | tuple[
-    spotify.SpotifyTokens | None,
-    list[spotify.SpotifyArtist] | Literal['unauthorized'] | None,
-]:
-    refreshed = await spotify.refresh_tokens(refresh_token)
-
-    if refreshed == 'revoked':
-        return 'revoked'
-
-    if refreshed is None:
-        # Transient refresh failure; retry after the backoff.
-        return None, None
-
-    return refreshed, await spotify.fetch_top_artists(refreshed.access_token)
-
-
+# A failed fetch on the stored access token doesn't prove the grant is gone
+# (Spotify invalidates access tokens early on e.g. password changes); only
+# `invalid_grant` from the token endpoint does.
 async def _fetch_latest(
     row: Row,
 ) -> Literal['revoked'] | tuple[
     spotify.SpotifyTokens | None,
     list[spotify.SpotifyArtist] | None,
 ]:
-    fetched_with_stored = (
+    artists = (
         None
         if boolean(row['needs_refresh'])
         else await spotify.fetch_top_artists(string(row['access_token']))
     )
+    if artists is not None:
+        return None, artists
 
-    if isinstance(fetched_with_stored, list):
-        return None, fetched_with_stored
-
-    # The stored access token is expired, was rejected, or the fetch failed.
-    # A 401/403 alone doesn't prove the grant is gone (Spotify invalidates
-    # access tokens early on e.g. password changes, and 403 also covers
-    # dev-mode allow-list removal); only `invalid_grant` from the token
-    # endpoint does. Refresh and retry before concluding anything.
-    outcome = await _refresh_and_fetch(string(row['refresh_token']))
-
-    if outcome == 'revoked':
+    tokens = await spotify.refresh_tokens(string(row['refresh_token']))
+    if tokens == 'revoked':
         return 'revoked'
+    if tokens is None:
+        return None, None
 
-    tokens, fetched = outcome
-
-    # A fetch that still fails on a just-refreshed token — even with
-    # 401/403 — is anomalous, not revocation: the refresh proved the grant
-    # alive. Keep the tokens and defer the artists.
-    return tokens, fetched if isinstance(fetched, list) else None
+    return tokens, await spotify.fetch_top_artists(tokens.access_token)
 
 
 async def _refresh_one_person(
@@ -79,15 +57,10 @@ async def _refresh_one_person(
 ) -> None:
     person_id = integer(row['person_id'])
 
-    # Only the Spotify calls are gated by the semaphore; the DB work either
-    # side of them is cheap and benefits from running unblocked.
     async with semaphore:
         outcome = await _fetch_latest(row)
 
     if outcome == 'revoked':
-        # Spotify policy requires deleting the user's content when
-        # authorization ends, so revocation behaves exactly like
-        # /disconnect-spotify.
         async with api_tx() as tx:
             await tx.execute(Q_DISCONNECT_SPOTIFY, dict(person_id=person_id))
         logger.info(f'Revoked; disconnected person {person_id}')
@@ -96,13 +69,18 @@ async def _refresh_one_person(
     tokens, artists = outcome
 
     async with api_tx() as tx:
-        stored = await update_spotify_connection(tx, person_id, tokens, artists)
+        cur = await tx.execute(Q_UPDATE_PERSON_SPOTIFY, dict(
+            person_id=person_id,
+            access_token=tokens.access_token if tokens else None,
+            expires_in=tokens.expires_in if tokens else None,
+            refresh_token=tokens.refresh_token if tokens else None,
+            top_artists=spotify.artists_json(artists),
+        ))
+        stored = await cur.fetchone()
 
-    if not stored:
+    if stored is None:
         logger.info(f'Person {person_id} disconnected mid-refresh; skipping')
-        return
-
-    if artists is None:
+    elif artists is None:
         logger.warning(f'Fetch failed for person {person_id}; deferring')
     else:
         logger.info(f'Stored {len(artists)} artists for person {person_id}')
@@ -117,13 +95,7 @@ async def refresh_spotify_once() -> None:
         ))
         rows = await cur.fetchall()
 
-    if not rows:
-        return
-
     semaphore = asyncio.Semaphore(SPOTIFY_CONCURRENCY)
-    # return_exceptions so one person's failure doesn't cancel the others;
-    # `_refresh_one_person` already handles expected Spotify errors, so
-    # anything that surfaces here is unexpected and worth logging.
     results = await asyncio.gather(
         *(_refresh_one_person(row, semaphore) for row in rows),
         return_exceptions=True,

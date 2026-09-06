@@ -3,7 +3,6 @@ from serviceshared.duoenv.read import (
     int_with,
     required_int,
     required_str,
-    required_stripped_str,
     str_or_none,
     str_with,
 )
@@ -45,16 +44,3 @@ OFFPEAK_FUNCTION_OVERRIDE = \
 VERIFICATION_IMAGE_BASE_URL = str_or_none('DUO_VERIFICATION_IMAGE_BASE_URL')
 VERIFICATION_MOCK_RESPONSE_FILE = \
     str_or_none('DUO_VERIFICATION_MOCK_RESPONSE_FILE')
-
-SPOTIFY_CLIENT_ID = required_stripped_str('DUO_SPOTIFY_CLIENT_ID')
-SPOTIFY_CLIENT_SECRET = required_stripped_str('DUO_SPOTIFY_CLIENT_SECRET')
-SPOTIFY_REDIRECT_URI = required_stripped_str('DUO_SPOTIFY_REDIRECT_URI')
-SPOTIFY_AUTHORIZE_URL = str_with(
-    'DUO_SPOTIFY_AUTHORIZE_URL',
-    'https://accounts.spotify.com/authorize',
-)
-SPOTIFY_TOKEN_URL = str_with(
-    'DUO_SPOTIFY_TOKEN_URL',
-    'https://accounts.spotify.com/api/token',
-)
-SPOTIFY_API_URL = str_with('DUO_SPOTIFY_API_URL', 'https://api.spotify.com')

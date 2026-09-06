@@ -1,7 +1,5 @@
-# `artists_synced_at` (last successful artist store) drives staleness;
-# `refreshed_at` (last attempt) drives retry backoff. Keeping them separate is
-# what lets a failed fetch retry after `retry_seconds` instead of waiting out
-# the full `max_age_days`.
+# artists_synced_at (last successful store) drives staleness; refreshed_at
+# (last attempt) drives retry backoff.
 Q_STALE_PERSON_SPOTIFY_BATCH = """
 SELECT
     person_id,

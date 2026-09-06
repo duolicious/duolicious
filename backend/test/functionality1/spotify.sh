@@ -43,7 +43,6 @@ setup () {
   assume_role user1
 }
 
-# Mint a state via /spotify/authorize and export it as `state`.
 mint_state () {
   local authorize_url=$(
     jc POST /spotify/authorize -d '{ "redirect_target": "'"${1:-web}"'" }' \
@@ -58,10 +57,13 @@ mint_state () {
   [[ -n "$state" ]]
 }
 
-# Hit the (redirecting) callback and print the redirect Location.
 callback_location () {
   curl -s -o /dev/null -w '%{redirect_url}' \
     "http://localhost:5000/spotify/callback?$1"
+}
+
+first_artist_name () {
+  c GET /profile-info | jq -r '.spotify_artists[0].name'
 }
 
 callback_status () {
@@ -91,10 +93,8 @@ connect_happy_path () {
   j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 10
   [[ "$(jq -r '.spotify_artists[0].name' <<< "$profile")" == 'Mock Artist One' ]]
   [[ "$(jq -r '.spotify_artists[0].spotify_id' <<< "$profile")" == 'artist-id-1' ]]
-  [[ "$(jq -r '.spotify_artists[0].image_url_small' <<< "$profile")" == \
+  [[ "$(jq -r '.spotify_artists[0].image_url' <<< "$profile")" == \
      'http://localhost:3003/image/1-160.svg' ]]
-  [[ "$(jq -r '.spotify_artists[0].image_url_large' <<< "$profile")" == \
-     'http://localhost:3003/image/1-320.svg' ]]
 
   [[ "$(q "select count(*) from person_spotify")" == "1" ]]
   [[ "$(q "select jsonb_array_length(top_artists) from person_spotify")" == "10" ]]
@@ -239,24 +239,9 @@ cron_refreshes_artists () {
 
   q "update person_spotify set refreshed_at = now() - interval '1 day'"
 
-  local elapsed=0
-  while (( elapsed < 10 ))
-  do
-    if [[ "$(c GET /profile-info | jq -r '.spotify_artists[0].name')" == \
-          'Mock Artist Four' ]]
-    then
-      break
-    fi
+  assert_eventually 'Mock Artist Four' first_artist_name
 
-    sleep 1
-
-    (( elapsed += 1 )) || true
-  done
-
-  local profile=$(c GET /profile-info)
-
-  j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 1
-  [[ "$(jq -r '.spotify_artists[0].name' <<< "$profile")" == 'Mock Artist Four' ]]
+  j_assert_length "$(c GET /profile-info | jq '.spotify_artists')" 1
 }
 
 failed_initial_fetch_backfills () {
@@ -275,19 +260,7 @@ failed_initial_fetch_backfills () {
 
   reset_spotify_mock
 
-  local elapsed=0
-  while (( elapsed < 10 ))
-  do
-    if [[ "$(q "select jsonb_array_length(top_artists) from person_spotify")" == \
-          "10" ]]
-    then
-      break
-    fi
-
-    sleep 1
-
-    (( elapsed += 1 )) || true
-  done
+  assert_eventually 10 q "select jsonb_array_length(top_artists) from person_spotify"
 
   j_assert_length "$(c GET /profile-info | jq '.spotify_artists')" 10
 }
@@ -322,20 +295,7 @@ revocation_with_unexpired_access_token () {
   # revocation from the API 401 and must confirm it at the token endpoint.
   q "update person_spotify set refreshed_at = now() - interval '1 day'"
 
-  local elapsed=0
-  while (( elapsed < 10 ))
-  do
-    if [[ "$(q "select count(*) from person_spotify")" == "0" ]]
-    then
-      break
-    fi
-
-    sleep 1
-
-    (( elapsed += 1 )) || true
-  done
-
-  [[ "$(q "select count(*) from person_spotify")" == "0" ]]
+  assert_eventually 0 q "select count(*) from person_spotify"
 }
 
 revocation_clears_tokens_and_artists () {
@@ -353,20 +313,7 @@ revocation_clears_tokens_and_artists () {
        access_token_expires_at = now(),
        refreshed_at = now() - interval '1 day'"
 
-  local elapsed=0
-  while (( elapsed < 10 ))
-  do
-    if [[ "$(q "select count(*) from person_spotify")" == "0" ]]
-    then
-      break
-    fi
-
-    sleep 1
-
-    (( elapsed += 1 )) || true
-  done
-
-  [[ "$(q "select count(*) from person_spotify")" == "0" ]]
+  assert_eventually 0 q "select count(*) from person_spotify"
 
   local profile=$(c GET /profile-info)
 

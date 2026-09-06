@@ -1,39 +1,25 @@
-"""
-Spotify Web API client for the "top artists on profiles" integration.
-
-The OAuth flow is backend-callback: the client never sees the client ID or
-secret. `build_authorize_url` mints the URL the user is sent to;
-`exchange_code` / `refresh_tokens` talk to Spotify's token endpoint with the
-client secret; `fetch_top_artists` reads the user's top artists with the
-`user-top-read` scope.
-
-The authorize/token/API base URLs are overridable so the functional tests can
-point them at the `spotifymock` service (same pattern as
-`DUO_NOTIFICATION_API_URL` -> pushmock).
-"""
-
 import base64
+import dataclasses
+import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
-from urllib.parse import urlencode
 
 import httpx
 
 from serviceshared.httpxclient import make_http_client
 from serviceshared.util.coerce import mapping, mapping_sequence, mapping_sequence_or_empty
 
-from serviceshared.duoenv.shared import (
+from serviceshared.duoenv.spotify import (
     SPOTIFY_API_URL,
-    SPOTIFY_AUTHORIZE_URL,
     SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET,
-    SPOTIFY_REDIRECT_URI,
     SPOTIFY_TOKEN_URL,
 )
 
 TOP_ARTISTS_LIMIT = 10
+MIN_IMAGE_DIMENSION = 160
 
 logger = logging.getLogger(__name__)
 
@@ -49,23 +35,18 @@ class SpotifyTokens:
 class SpotifyArtist:
     spotify_id: str
     name: str
-    image_url_small: str | None
-    image_url_large: str | None
+    image_url: str | None
+
+
+def artists_json(artists: list[SpotifyArtist] | None) -> str | None:
+    if artists is None:
+        return None
+    return json.dumps([dataclasses.asdict(artist) for artist in artists])
 
 
 def _basic_auth_header() -> str:
     credentials = f'{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}'
     return 'Basic ' + base64.b64encode(credentials.encode()).decode()
-
-
-def build_authorize_url(state: str) -> str:
-    return SPOTIFY_AUTHORIZE_URL + '?' + urlencode(dict(
-        client_id=SPOTIFY_CLIENT_ID,
-        response_type='code',
-        redirect_uri=SPOTIFY_REDIRECT_URI,
-        scope='user-top-read',
-        state=state,
-    ))
 
 
 def _parse_tokens(
@@ -106,19 +87,17 @@ async def _post_token_request(
         return None
 
     if data.get('error') == 'invalid_client':
-        # Bad DUO_SPOTIFY_CLIENT_ID/SECRET can never succeed on retry, but
-        # every caller treats a failed request as transient — make the
-        # misconfiguration loud.
+        # Bad credentials never succeed on retry; make the misconfiguration loud.
         logger.error('Spotify rejected the client credentials')
 
     return resp.status_code, data
 
 
-async def exchange_code(code: str) -> SpotifyTokens | None:
+async def exchange_code(code: str, redirect_uri: str) -> SpotifyTokens | None:
     response = await _post_token_request(dict(
         grant_type='authorization_code',
         code=code,
-        redirect_uri=SPOTIFY_REDIRECT_URI,
+        redirect_uri=redirect_uri,
     ))
 
     if response is None:
@@ -157,10 +136,7 @@ async def refresh_tokens(
     return _parse_tokens(data, fallback_refresh_token=refresh_token)
 
 
-def _pick_image_url(
-    images: object,
-    min_dimension: int,
-) -> str | None:
+def _pick_image_url(images: object) -> str | None:
     candidates = []
     for image in mapping_sequence_or_empty(images):
         url = image.get('url')
@@ -172,15 +148,15 @@ def _pick_image_url(
             continue
         candidates.append((min(height, width), url))
 
-    if not candidates:
-        return None
-
-    big_enough = [c for c in candidates if c[0] >= min_dimension]
+    big_enough = [c for c in candidates if c[0] >= MIN_IMAGE_DIMENSION]
 
     if big_enough:
         return min(big_enough)[1]
 
-    return max(candidates)[1]
+    if candidates:
+        return max(candidates)[1]
+
+    return None
 
 
 def _parse_artist(item: Mapping[str, object]) -> SpotifyArtist | None:
@@ -195,14 +171,11 @@ def _parse_artist(item: Mapping[str, object]) -> SpotifyArtist | None:
     return SpotifyArtist(
         spotify_id=spotify_id,
         name=name,
-        image_url_small=_pick_image_url(item.get('images'), 160),
-        image_url_large=_pick_image_url(item.get('images'), 320),
+        image_url=_pick_image_url(item.get('images')),
     )
 
 
-async def fetch_top_artists(
-    access_token: str,
-) -> list[SpotifyArtist] | Literal['unauthorized'] | None:
+async def fetch_top_artists(access_token: str) -> list[SpotifyArtist] | None:
     url = (
         f'{SPOTIFY_API_URL}/v1/me/top/artists'
         f'?limit={TOP_ARTISTS_LIMIT}&time_range=medium_term'
@@ -218,9 +191,6 @@ async def fetch_top_artists(
         logger.warning(f'Spotify top-artists request failed: {e}')
         return None
 
-    if resp.status_code in (401, 403):
-        return 'unauthorized'
-
     if resp.status_code != 200:
         logger.warning(f'Spotify top-artists returned HTTP {resp.status_code}')
         return None
@@ -235,9 +205,8 @@ async def fetch_top_artists(
     for item in items:
         artist = _parse_artist(item)
         if artist is None:
-            # One unparseable artist marks the whole response malformed:
-            # storing a partial (or empty) list would wipe good rows, while
-            # keeping the stale list lets a later refresh repair it.
+            # Storing a partial list would wipe good rows; keep the stale
+            # list and let a later refresh repair it.
             logger.warning('Spotify top-artists item is malformed')
             return None
         artists.append(artist)

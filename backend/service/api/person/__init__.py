@@ -22,7 +22,7 @@ import service.api.duotypes as t
 import json
 import secrets
 from service.api import sessioncache
-from serviceshared import spotify
+from service.api.auth.spotify_oauth import build_authorize_url
 from serviceshared.spotify.sql import (
     Q_DISCONNECT_SPOTIFY,
     Q_INSERT_SPOTIFY_OAUTH_STATE,
@@ -1131,7 +1131,7 @@ async def post_spotify_authorize(
     if row is None:
         return 'Requires the spotify-tester role', 403
 
-    return dict(authorize_url=spotify.build_authorize_url(state))
+    return dict(authorize_url=build_authorize_url(state))
 
 async def post_disconnect_spotify(s: t.SessionInfo) -> None:
     params = dict(person_id=s.person_id)

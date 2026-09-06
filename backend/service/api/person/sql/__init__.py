@@ -1384,8 +1384,6 @@ WITH photo_ AS (
             '[]'::jsonb
         ) AS j
 
--- Distinct from a non-empty `spotify_artists` so the edit UI can tell
--- connected-but-empty apart from not-connected.
 ), spotify_connected AS (
     SELECT
         EXISTS (
@@ -2676,17 +2674,11 @@ SELECT json_build_object(
             person_id = %(person_id)s
     ),
 
-    -- The token columns are stripped: they're credentials, not personal
-    -- data, and don't belong in a downloadable file.
     'person_spotify', (
         SELECT
             json_agg(row_to_json(t))
         FROM (
             SELECT
-                person_id,
-                access_token_expires_at,
-                refreshed_at,
-                artists_synced_at,
                 top_artists
             FROM
                 person_spotify

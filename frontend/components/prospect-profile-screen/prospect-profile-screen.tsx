@@ -76,8 +76,11 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { ClubItem, joinClub, leaveClub } from '../../club/club';
-import { SpotifyArtistItem } from '../../spotify/spotify';
-import { SpotifyArtists, SpotifyTitle } from '../spotify-artists';
+import {
+  SpotifyArtistItem,
+  SpotifyArtists,
+  SpotifyTitle,
+} from '../spotify-artists';
 import * as _ from 'lodash';
 import {
   friendlyTimeAgo,

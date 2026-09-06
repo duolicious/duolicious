@@ -653,16 +653,8 @@ CREATE TABLE IF NOT EXISTS person_spotify (
     access_token TEXT NOT NULL,
     access_token_expires_at TIMESTAMP NOT NULL,
     refresh_token TEXT NOT NULL,
-    -- Last refresh *attempt*; drives the cron's retry backoff.
     refreshed_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    -- Last time the artist list was successfully stored; NULL until the
-    -- first successful fetch. Drives the cron's staleness check.
     artists_synced_at TIMESTAMP,
-    -- The person's top artists in rank order, in the shape the profile
-    -- endpoints serve: [{spotify_id, name, image_url_small,
-    -- image_url_large}]. `spotify_id` is Spotify's artist ID, which also
-    -- serves as the open.spotify.com/artist/{id} link required for
-    -- attribution.
     top_artists JSONB NOT NULL DEFAULT '[]'
 );
 

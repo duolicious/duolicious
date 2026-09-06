@@ -16,7 +16,7 @@ import {
   ProfileInfo,
   getProfileInfo,
   patchProfileInfo,
-  setProfileInfo,
+  refreshProfileInfo,
   useProfileInfo,
 } from '../events/profile-info';
 import {
@@ -67,16 +67,12 @@ import {
   disconnectSpotify,
 } from '../api/spotify';
 import { SpotifyArtists, SpotifyIcon } from './spotify-artists';
-import { ValidationErrorToast } from './toast';
 import { listen, notify } from '../events/events';
 import { ButtonWithCenteredText } from './button/centered-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { logout } from '../chat/application-layer';
 import { DetailedVerificationBadges } from './verification-badge';
-import {
-  notifyUpdatedVerification,
-  listenUpdatedVerification,
-} from '../verification/verification';
+import { listenUpdatedVerification } from '../verification/verification';
 import { InviteEntrypoint } from './invite';
 import { InvitePicker } from './invite';
 import { AudioBio } from './audio-bio';
@@ -93,12 +89,6 @@ import { INVITE_URL } from '../env/env';
 import { Pressable } from 'react-native-gesture-handler';
 import { copyProfileLink } from '../util/util';
 
-
-type ProfileInfoResponse = {
-  photo_verification: { [position: string]: boolean }
-  name: string
-  flair: string
-};
 
 type ProfileInfoPatchResponse = {
   url_slug?: string
@@ -253,19 +243,7 @@ const ProfileTab_ = ({navigation}: ProfileTabScreenProps) => {
   const data = useProfileInfo();
 
   useEffect(() => {
-    (async () => {
-      const response = await api<ProfileInfoResponse>('get', '/profile-info');
-      if (!response.json) {
-        return;
-      }
-
-      setProfileInfo(response.json);
-
-      notifyUpdatedVerification({ photos: response.json.photo_verification });
-
-      notify<string>('updated-name', response.json.name);
-      notify<string>('updated-flair', response.json.flair);
-    })();
+    refreshProfileInfo();
   }, [signedInUser?.hasGold === true]);
 
   const {
@@ -491,34 +469,30 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
   );
 };
 
+const MusicHint = ({ children }: { children: string }) => (
+  <DefaultText
+    style={{
+      color: '#999',
+      textAlign: 'center',
+      marginRight: 10,
+      marginLeft: 10,
+    }}
+  >
+    {children}
+  </DefaultText>
+);
+
 const MusicSection = ({data}: {data: ProfileInfo}) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const connect = useCallback(async () => {
-    setIsLoading(true);
-    const result = await connectSpotify();
-    if (!result.ok && !result.cancelled && result.reason) {
-      const reason = result.reason;
-      notify<React.FC>('toast', () => <ValidationErrorToast error={reason} />);
-    }
-    setIsLoading(false);
-  }, []);
-
-  const disconnect = useCallback(async () => {
-    setIsLoading(true);
-    const ok = await disconnectSpotify();
-    if (!ok) {
-      notify<React.FC>('toast', () =>
-        <ValidationErrorToast
-          error="Couldn’t disconnect Spotify. Try again later."
-        />
-      );
-    }
-    setIsLoading(false);
-  }, []);
-
   const isConnected = data.spotify_connected === true;
   const artists = data.spotify_artists ?? [];
+
+  const toggle = useCallback(async () => {
+    setIsLoading(true);
+    await (isConnected ? disconnectSpotify() : connectSpotify());
+    setIsLoading(false);
+  }, [isConnected]);
 
   return (
     <View>
@@ -528,19 +502,12 @@ const MusicSection = ({data}: {data: ProfileInfo}) => {
         </View>
       }
       {isConnected && artists.length === 0 &&
-        <DefaultText
-          style={{
-            color: '#999',
-            textAlign: 'center',
-            marginRight: 10,
-            marginLeft: 10,
-          }}
-        >
+        <MusicHint>
           Your top Spotify artists will show up here once we’ve fetched them
-        </DefaultText>
+        </MusicHint>
       }
       <ButtonWithCenteredText
-        onPress={isConnected ? disconnect : connect}
+        onPress={toggle}
         loading={isLoading}
         extraChildren={
           <View
@@ -560,16 +527,7 @@ const MusicSection = ({data}: {data: ProfileInfo}) => {
         {isConnected ? 'Disconnect Spotify' : 'Connect Spotify'}
       </ButtonWithCenteredText>
       {!isConnected &&
-        <DefaultText
-          style={{
-            color: '#999',
-            textAlign: 'center',
-            marginRight: 10,
-            marginLeft: 10,
-          }}
-        >
-          Show your top Spotify artists on your profile
-        </DefaultText>
+        <MusicHint>Show your top Spotify artists on your profile</MusicHint>
       }
     </View>
   );

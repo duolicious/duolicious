@@ -96,9 +96,8 @@ services:
       DUO_APPLE_APEX_REDIRECT_URL: http://duolicious.app/
       DUO_APPLE_ANDROID_REDIRECT_URL: https://get.duolicious.app/
 
-      # Spotify OAuth. Real values come from the Spotify developer dashboard
-      # in production; the dev defaults point at the `spotifymock` service so
-      # the connect flow round-trips without real credentials.
+      # The dev defaults point at the `spotifymock` service so the connect
+      # flow round-trips without real credentials.
       DUO_SPOTIFY_CLIENT_ID: dev-spotify-client-id
       DUO_SPOTIFY_CLIENT_SECRET: dev-spotify-client-secret
       DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback
@@ -171,12 +170,8 @@ services:
 
       DUO_CRON_MAX_RANDOM_START_DELAY: '0'
 
-      # The refresh cron talks to Spotify's token endpoint itself, so it
-      # needs the client credentials too, not just the api service. The
-      # redirect URI is unused by the cron but required by duoenv at boot.
       DUO_SPOTIFY_CLIENT_ID: dev-spotify-client-id
       DUO_SPOTIFY_CLIENT_SECRET: dev-spotify-client-secret
-      DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback
       DUO_SPOTIFY_TOKEN_URL: http://spotifymock:3003/api/token
       DUO_SPOTIFY_API_URL: http://spotifymock:3003
 
@@ -226,8 +221,6 @@ services:
       - ./test/spotifymock/index.js:/usr/src/app/index.js
 
     environment:
-      # The mock rejects token requests whose Basic auth doesn't match, so a
-      # service missing DUO_SPOTIFY_CLIENT_ID/SECRET fails loudly.
       SPOTIFY_MOCK_CLIENT_ID: dev-spotify-client-id
       SPOTIFY_MOCK_CLIENT_SECRET: dev-spotify-client-secret
 
