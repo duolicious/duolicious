@@ -22,8 +22,8 @@ const hasWebReturnParams = (names: string[]): boolean => {
 };
 
 const takeWebReturnParams = (names: string[]): URLSearchParams | null => {
+  if (!hasWebReturnParams(names)) return null;
   const params = new URLSearchParams(_webReturnSearch);
-  if (!names.some((name) => params.has(name))) return null;
   _webReturnSearch = '';
 
   try {
