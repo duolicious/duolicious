@@ -651,7 +651,7 @@ CREATE TABLE IF NOT EXISTS spotify_oauth_state (
 CREATE TABLE IF NOT EXISTS person_spotify (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     refresh_token TEXT NOT NULL,
-    refreshed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
     artists_synced_at TIMESTAMP,
     top_artists JSONB NOT NULL DEFAULT '[]'
 );
@@ -878,8 +878,8 @@ CREATE INDEX IF NOT EXISTS idx__question__question ON question USING GIST(questi
 CREATE INDEX IF NOT EXISTS idx__club__name ON club USING GIST(name gist_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx__club__count_members__name ON club(count_members, name);
 
-CREATE INDEX IF NOT EXISTS idx__person_spotify__refreshed_at
-ON person_spotify(refreshed_at);
+CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
+ON person_spotify(attempted_at);
 
 CREATE INDEX IF NOT EXISTS idx__banned_person__ip_address ON banned_person(ip_address);
 CREATE INDEX IF NOT EXISTS idx__banned_person__expires_at ON banned_person(expires_at);

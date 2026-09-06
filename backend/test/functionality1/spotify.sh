@@ -63,7 +63,7 @@ first_artist_name () {
 make_spotify_stale () {
   q "update person_spotify
      set artists_synced_at = now() - interval '8 days',
-         refreshed_at = now() - interval '8 days'"
+         attempted_at = now() - interval '8 days'"
 }
 
 callback_status () {
@@ -89,6 +89,7 @@ connect_happy_path () {
   local profile=$(c GET /profile-info)
 
   [[ "$(jq -r '.spotify_connected' <<< "$profile")" == 'true' ]]
+  [[ "$(jq -r '.spotify_artists_synced' <<< "$profile")" == 'true' ]]
   [[ "$(jq -r '.spotify_tester' <<< "$profile")" == 'true' ]]
   j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 10
   [[ "$(jq -r '.spotify_artists[0].name' <<< "$profile")" == 'Mock Artist One' ]]
@@ -260,6 +261,7 @@ failed_initial_fetch_backfills () {
   local profile=$(c GET /profile-info)
 
   [[ "$(jq -r '.spotify_connected' <<< "$profile")" == 'true' ]]
+  [[ "$(jq -r '.spotify_artists_synced' <<< "$profile")" == 'false' ]]
   [[ "$(jq -c '.spotify_artists' <<< "$profile")" == '[]' ]]
 
   reset_spotify_mock
@@ -268,11 +270,14 @@ failed_initial_fetch_backfills () {
 
   [[ "$(q "select jsonb_array_length(top_artists) from person_spotify")" == "0" ]]
 
-  q "update person_spotify set refreshed_at = now() - interval '2 minutes'"
+  q "update person_spotify set attempted_at = now() - interval '2 minutes'"
 
   assert_eventually 10 q "select jsonb_array_length(top_artists) from person_spotify"
 
-  j_assert_length "$(c GET /profile-info | jq '.spotify_artists')" 10
+  profile=$(c GET /profile-info)
+
+  [[ "$(jq -r '.spotify_artists_synced' <<< "$profile")" == 'true' ]]
+  j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 10
 }
 
 revocation_clears_tokens_and_artists () {

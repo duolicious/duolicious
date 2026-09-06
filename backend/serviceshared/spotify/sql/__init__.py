@@ -51,7 +51,7 @@ WHERE
     id = %(person_id)s
 ON CONFLICT (person_id) DO UPDATE SET
     refresh_token = EXCLUDED.refresh_token,
-    refreshed_at = NOW(),
+    attempted_at = NOW(),
     top_artists = EXCLUDED.top_artists,
     artists_synced_at = EXCLUDED.artists_synced_at
 """
@@ -61,7 +61,7 @@ UPDATE
     person_spotify
 SET
     refresh_token = COALESCE(%(refresh_token)s, refresh_token),
-    refreshed_at = NOW(),
+    attempted_at = NOW(),
     top_artists = COALESCE(%(top_artists)s::jsonb, top_artists),
     artists_synced_at = CASE
         WHEN %(top_artists)s::jsonb IS NULL THEN artists_synced_at

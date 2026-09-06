@@ -1,5 +1,7 @@
 from urllib.parse import urlencode
 
+from starlette.responses import RedirectResponse
+
 from serviceshared import spotify
 from serviceshared.database import api_tx
 from serviceshared.duoenv.spotify import SPOTIFY_CLIENT_ID
@@ -40,7 +42,7 @@ async def handle_callback(
     code: str,
     state: str,
     error: str | None,
-) -> object:
+) -> RedirectResponse | tuple[str, int]:
     target_url = resolve_redirect_target(state, _REDIRECT_TARGETS)
     if not target_url:
         return 'Invalid Spotify authorization state', 400

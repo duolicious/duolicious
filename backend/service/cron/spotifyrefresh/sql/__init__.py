@@ -11,9 +11,9 @@ WHERE
         artists_synced_at < NOW() - make_interval(days => %(max_age_days)s)
     )
 AND
-    refreshed_at < NOW() - make_interval(secs => %(retry_seconds)s)
+    attempted_at < NOW() - make_interval(secs => %(retry_seconds)s)
 ORDER BY
-    refreshed_at
+    attempted_at
 LIMIT
     %(batch_size)s
 """

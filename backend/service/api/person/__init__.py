@@ -1116,7 +1116,7 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
 async def post_spotify_authorize(
     req: t.PostSpotifyAuthorize,
     s: t.SessionInfo,
-) -> object:
+) -> dict[str, str] | tuple[str, int]:
     state = f'{secrets.token_urlsafe(32)}.{req.redirect_target}'
 
     params = dict(

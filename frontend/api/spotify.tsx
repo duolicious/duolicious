@@ -7,7 +7,10 @@ import {
   takeWebReturnParams,
 } from './oauth-return';
 import { notify } from '../events/events';
-import { ValidationErrorToast } from '../components/toast';
+import { DefaultText } from '../components/default-text';
+import { SpotifyIcon } from '../components/spotify-artists';
+import { ToastContainer, ValidationErrorToast } from '../components/toast';
+import { useAppTheme } from '../app-theme/app-theme';
 import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
 
 type SpotifyArtistItem = {
@@ -17,7 +20,7 @@ type SpotifyArtistItem = {
 };
 
 type PostSpotifyAuthorizeResponse = {
-  authorize_url?: string
+  authorize_url: string
 };
 
 const notifyError = (error: string) =>
@@ -26,9 +29,24 @@ const notifyError = (error: string) =>
 const notifyConnectFailed = () =>
   notifyError('Couldn’t connect Spotify. Try again later.');
 
-const consumeReturnParams = (params: URLSearchParams): boolean => {
+const ConnectedToast = () => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <ToastContainer>
+      <SpotifyIcon size={24} color={appTheme.secondaryColor} />
+      <DefaultText style={{ color: appTheme.secondaryColor, fontWeight: '700' }}>
+        Spotify connected
+      </DefaultText>
+    </ToastContainer>
+  );
+};
+
+const reportConnectResult = (params: URLSearchParams): boolean => {
   const connected = params.get('spotify') === 'connected';
-  if (!connected && params.get('spotify_error') !== 'access_denied') {
+  if (connected) {
+    notify<React.FC>('toast', ConnectedToast);
+  } else if (params.get('spotify_error') !== 'access_denied') {
     notifyConnectFailed();
   }
   return connected;
@@ -41,11 +59,12 @@ const connectSpotify = async (): Promise<void> => {
     { redirect_target: Platform.OS === 'web' ? 'web' : 'app' },
   );
 
-  const authorizeUrl = response.json?.authorize_url;
-  if (!response.ok || !authorizeUrl) {
+  if (!response.ok || !response.json) {
     notifyConnectFailed();
     return;
   }
+
+  const authorizeUrl = response.json.authorize_url;
 
   if (Platform.OS === 'web') {
     return navigateAway(authorizeUrl);
@@ -70,7 +89,7 @@ const connectSpotify = async (): Promise<void> => {
     return;
   }
 
-  if (consumeReturnParams(parseQueryParams(result.url))) {
+  if (reportConnectResult(parseQueryParams(result.url))) {
     await refreshProfileInfo();
   }
 };
@@ -78,7 +97,7 @@ const connectSpotify = async (): Promise<void> => {
 const showPendingSpotifyConnectToast = (): void => {
   const params = takeWebReturnParams(['spotify', 'spotify_error']);
   if (params) {
-    consumeReturnParams(params);
+    reportConnectResult(params);
   }
 };
 
