@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
-import { CrossFade, CrossFadeText } from './cross-fade';
+import { CrossFadeText } from './cross-fade';
 import { DefaultText } from './default-text';
-import { Logo16 } from './logo';
 import { isMobile } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
 import { showSignUp } from './modal/sign-up-modal';
-import { useNumActiveUsers } from './welcome-screen';
 import { useBannerProspectName } from '../events/banner-prospect-name';
 import { useSignUpBanner } from '../events/sign-up-banner';
 import { COLUMN_MAX_WIDTH } from '../constants/constants';
@@ -23,21 +21,11 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
 }) => {
   const { appTheme } = useAppTheme();
   const { width: windowWidth } = useWindowDimensions();
-  const numActiveUsers = useNumActiveUsers(undefined);
   const prospectName = useBannerProspectName(prospectHandle);
-  const [showNumActiveUsers, setShowNumActiveUsers] = useState(false);
   const [cardWidth, setCardWidth] = useState<number>();
 
   const isNarrow =
     (cardWidth ?? Math.min(windowWidth, COLUMN_MAX_WIDTH)) < 400;
-
-  useEffect(() => {
-    const interval = setInterval(
-      () => setShowNumActiveUsers((s) => !s),
-      5000
-    );
-    return () => clearInterval(interval);
-  }, []);
 
   // Longer names blow out the button's width, so fall back to the default copy.
   const label = prospectName && prospectName.length <= 7
@@ -99,44 +87,18 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
             gap: 14,
           }}
         >
-          <CrossFade
-            style={{ flex: 1 }}
-            showFront={showNumActiveUsers && numActiveUsers !== undefined}
-            minBackMs={5000}
-            front={
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 12,
-                }}
-              >
-                <Logo16 size={64} color={appTheme.brandColor} rectSize={0.3} />
-                <View style={{ flexShrink: 1 }}>
-                  <DefaultText style={{ fontWeight: '900', fontSize: 20 }}>
-                    {numActiveUsers === undefined ? '\xa0' : numActiveUsers.toLocaleString()}
-                  </DefaultText>
-                  <DefaultText style={{ fontWeight: '600', fontSize: 14 }}>
-                    Active Members
-                  </DefaultText>
-                </View>
-              </View>
-            }
-            back={
-              <DefaultText
-                style={{
-                  fontWeight: '900',
-                  fontSize: isNarrow ? 14 : 18,
-                  lineHeight: isNarrow ? 22 : undefined,
-                  textAlign: 'center',
-                  textWrap: 'balance',
-                }}
-              >
-                {'See members-only profiles by joining'}
-              </DefaultText>
-            }
-          />
+          <DefaultText
+            style={{
+              flex: 1,
+              fontWeight: '900',
+              fontSize: isNarrow ? 14 : 18,
+              lineHeight: isNarrow ? 22 : undefined,
+              textAlign: 'center',
+              textWrap: 'balance',
+            }}
+          >
+            {'See members-only profiles by joining'}
+          </DefaultText>
           <View style={{ flex: 1 }}>
             <Pressable
               onPress={() => showSignUp(true, signUpMessage)}
