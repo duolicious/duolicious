@@ -27,3 +27,7 @@ CREATE TABLE IF NOT EXISTS person_spotify (
 
 CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
     ON person_spotify(attempted_at);
+
+DELETE FROM person_spotify WHERE artists_synced_at IS NULL;
+ALTER TABLE person_spotify ALTER COLUMN artists_synced_at SET NOT NULL;
+ALTER TABLE person_spotify ALTER COLUMN artists_synced_at SET DEFAULT NOW();
