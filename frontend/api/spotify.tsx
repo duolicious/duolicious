@@ -5,6 +5,7 @@ import {
   navigateAway,
   parseQueryParams,
   takeWebReturnParams,
+  webReturnTarget,
 } from './oauth-return';
 import { notify } from '../events/events';
 import { DefaultText } from '../components/default-text';
@@ -56,7 +57,7 @@ const connectSpotify = async (): Promise<void> => {
   const response = await japi<PostSpotifyAuthorizeResponse>(
     'post',
     '/spotify/authorize',
-    { redirect_target: Platform.OS === 'web' ? 'web' : 'app' },
+    { redirect_target: Platform.OS === 'web' ? webReturnTarget() : 'app' },
   );
 
   if (!response.ok || !response.json) {

@@ -44,6 +44,10 @@ SPOTIFY_WEB_REDIRECT_URL = str_with(
     'DUO_SPOTIFY_WEB_REDIRECT_URL',
     'https://web.duolicious.app/profile',
 )
+SPOTIFY_APEX_REDIRECT_URL = str_with(
+    'DUO_SPOTIFY_APEX_REDIRECT_URL',
+    'https://duolicious.app/profile',
+)
 SPOTIFY_APP_REDIRECT_URL = str_with(
     'DUO_SPOTIFY_APP_REDIRECT_URL',
     'app.duolicious://spotify',

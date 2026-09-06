@@ -280,6 +280,18 @@ failed_initial_fetch_backfills () {
   j_assert_length "$(jq '.spotify_artists' <<< "$profile")" 10
 }
 
+apex_returns_to_the_apex_host () {
+  echo 'A flow started on the apex host returns to the apex host'
+
+  setup
+
+  mint_state apex
+
+  local location=$(callback_location "code=mock-code&state=$state")
+
+  [[ "$location" == 'http://test-apex.example/?spotify=connected' ]]
+}
+
 revocation_clears_tokens_and_artists () {
   echo 'Revoking authorization at Spotify clears tokens and artists'
 
@@ -322,5 +334,6 @@ user_denial_redirects_with_error
 disconnect_empties_everything
 cron_refreshes_artists
 failed_initial_fetch_backfills
+apex_returns_to_the_apex_host
 revocation_clears_tokens_and_artists
 deleting_account_cascades

@@ -14,6 +14,7 @@ from serviceshared.spotify.sql import (
 )
 
 from serviceshared.duoenv.api import (
+    SPOTIFY_APEX_REDIRECT_URL,
     SPOTIFY_APP_REDIRECT_URL,
     SPOTIFY_AUTHORIZE_URL,
     SPOTIFY_REDIRECT_URI,
@@ -23,6 +24,7 @@ from serviceshared.duoenv.api import (
 
 _REDIRECT_TARGETS = {
     'web': SPOTIFY_WEB_REDIRECT_URL,
+    'apex': SPOTIFY_APEX_REDIRECT_URL,
     'app': SPOTIFY_APP_REDIRECT_URL,
 }
 
