@@ -22,6 +22,11 @@ import service.api.duotypes as t
 import json
 import secrets
 from service.api import sessioncache
+from serviceshared import spotify
+from serviceshared.spotify.sql import (
+    Q_DISCONNECT_SPOTIFY,
+    Q_INSERT_SPOTIFY_OAUTH_STATE,
+)
 from service.api.duohash import sha512
 from service.api.person.sql import *
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
@@ -1107,6 +1112,32 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
 
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
+
+async def post_spotify_authorize(
+    req: t.PostSpotifyAuthorize,
+    s: t.SessionInfo,
+) -> object:
+    state = f'{secrets.token_urlsafe(32)}.{req.redirect_target}'
+
+    params = dict(
+        state=state,
+        person_id=s.person_id,
+    )
+
+    async with api_tx() as tx:
+        await tx.execute(Q_INSERT_SPOTIFY_OAUTH_STATE, params)
+        row = await tx.fetchone()
+
+    if row is None:
+        return 'Requires the spotify-tester role', 403
+
+    return dict(authorize_url=spotify.build_authorize_url(state))
+
+async def post_disconnect_spotify(s: t.SessionInfo) -> None:
+    params = dict(person_id=s.person_id)
+
+    async with api_tx() as tx:
+        await tx.execute(Q_DISCONNECT_SPOTIFY, params)
 
 async def get_update_notifications(
     email: str,

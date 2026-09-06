@@ -63,6 +63,13 @@ WITH q1 AS (
         expires_at < NOW()
     RETURNING
         1
+), q11 AS (
+    DELETE FROM
+        spotify_oauth_state
+    WHERE
+        expires_at < NOW()
+    RETURNING
+        1
 ), q9 AS (
     INSERT INTO
         undeleted_photo (uuid)
@@ -97,6 +104,7 @@ FROM (
     SELECT 1 AS n FROM q5 UNION ALL
     SELECT 1 AS n FROM q6 UNION ALL
     SELECT 1 AS n FROM q7 UNION ALL
-    SELECT 1 AS n FROM q8
+    SELECT 1 AS n FROM q8 UNION ALL
+    SELECT 1 AS n FROM q11
 ) AS t(n)
 """

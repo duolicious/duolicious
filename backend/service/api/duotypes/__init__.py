@@ -703,6 +703,12 @@ class PostSearchFilterAnswer(BaseModel):
     accept_unanswered: bool
 
 
+class PostSpotifyAuthorize(BaseModel):
+    # Which env-configured allow-listed URL the callback should 302 back to
+    # after Spotify redirects to the API. See `auth/spotify_oauth.py`.
+    redirect_target: Literal['web', 'app']
+
+
 class PostJoinClub(BaseModel):
     name: ClubName
 

@@ -6,6 +6,11 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef } from 'react';
 import {
+  hasWebReturnParams,
+  parseQueryParams,
+  takeWebReturnParams,
+} from './oauth-return';
+import {
   APPLE_ANDROID_RETURN_URL,
   APPLE_REDIRECT_URI,
   APPLE_WEB_CLIENT_ID,
@@ -23,21 +28,6 @@ const errorCode = (e: unknown): string | undefined =>
   typeof e === 'object' && e !== null && 'code' in e && typeof e.code === 'string'
     ? e.code
     : undefined;
-
-// Required so that the OAuth redirect dismisses the in-app browser
-// session on iOS / Android. Calling this once at module load is the
-// pattern documented by Expo.
-WebBrowser.maybeCompleteAuthSession();
-
-// Apple's web callback returns to the SPA with the result in the query
-// string, but the navigation container rewrites the URL (stripping those
-// params) as soon as it mounts. Snapshot the query at module load - which
-// runs on the fresh page load before navigation mounts - so the return can
-// still be read once the sign-up modal mounts the welcome flow.
-let _appleWebReturnSearch =
-  Platform.OS === 'web' && typeof window !== 'undefined'
-    ? window.location.search
-    : '';
 
 // sessionStorage key that carries the nonce (and arbitrary caller
 // context) across the full-page redirect to Apple and back. Versioned
@@ -340,7 +330,7 @@ const signInWithAppleAndroid = async (): Promise<AppleSignInResult> => {
     return { ok: false, cancelled: false, reason: 'Apple sign-in failed' };
   }
 
-  const params = _parseQueryParams(result.url);
+  const params = parseQueryParams(result.url);
   const error = params.get('apple_error');
   if (error) {
     return { ok: false, cancelled: false, reason: `Apple: ${error}` };
@@ -432,15 +422,16 @@ export const consumePendingAppleWebSignIn = (): {
   result: AppleSignInResult;
   context: Record<string, string>;
 } | null => {
-  if (Platform.OS !== 'web') return null;
-  if (typeof window === 'undefined') return null;
+  const params = takeWebReturnParams([
+    'apple_id_token',
+    'apple_error',
+    'apple_state',
+  ]);
+  if (!params) return null;
 
-  const params = new URLSearchParams(_appleWebReturnSearch);
   const idToken = params.get('apple_id_token');
   const error = params.get('apple_error');
   const returnedState = params.get('apple_state');
-  if (!idToken && !error && !returnedState) return null;
-  _appleWebReturnSearch = '';
 
   let pending: _ApplePending | null = null;
   try {
@@ -451,23 +442,6 @@ export const consumePendingAppleWebSignIn = (): {
   }
   try {
     sessionStorage.removeItem(_APPLE_PENDING_KEY);
-  } catch {}
-
-  // Strip the Apple-specific query params before anything else can
-  // observe them — that way a refresh on this screen doesn't re-attempt
-  // the sign-in with a now-empty sessionStorage. Preserve any other
-  // params that happened to be on the URL.
-  try {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('apple_id_token');
-    url.searchParams.delete('apple_error');
-    url.searchParams.delete('apple_state');
-    const cleanSearch = url.searchParams.toString();
-    window.history.replaceState(
-      null,
-      '',
-      url.pathname + (cleanSearch ? `?${cleanSearch}` : '') + url.hash,
-    );
   } catch {}
 
   const context = pending?.context ?? {};
@@ -513,23 +487,5 @@ export const consumePendingAppleWebSignIn = (): {
   };
 };
 
-export const hasPendingAppleWebSignIn = (): boolean => {
-  if (Platform.OS !== 'web') return false;
-  const params = new URLSearchParams(_appleWebReturnSearch);
-  return (
-    params.has('apple_id_token') ||
-    params.has('apple_error') ||
-    params.has('apple_state')
-  );
-};
-
-const _parseQueryParams = (url: string): URLSearchParams => {
-  // Some browsers/env may not populate URL.searchParams from a relative-ish
-  // string; parse the query manually as a fallback.
-  try {
-    return new URL(url).searchParams;
-  } catch {
-    const q = url.split('?')[1] ?? '';
-    return new URLSearchParams(q.split('#')[0]);
-  }
-};
+export const hasPendingAppleWebSignIn = (): boolean =>
+  hasWebReturnParams(['apple_id_token', 'apple_error', 'apple_state']);

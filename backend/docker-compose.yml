@@ -95,6 +95,18 @@ services:
       DUO_APPLE_WEB_REDIRECT_URL: http://web.duolicious.app/
       DUO_APPLE_APEX_REDIRECT_URL: http://duolicious.app/
       DUO_APPLE_ANDROID_REDIRECT_URL: https://get.duolicious.app/
+
+      # Spotify OAuth. Real values come from the Spotify developer dashboard
+      # in production; the dev defaults point at the `spotifymock` service so
+      # the connect flow round-trips without real credentials.
+      DUO_SPOTIFY_CLIENT_ID: dev-spotify-client-id
+      DUO_SPOTIFY_CLIENT_SECRET: dev-spotify-client-secret
+      DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback
+      DUO_SPOTIFY_AUTHORIZE_URL: http://localhost:3003/authorize
+      DUO_SPOTIFY_TOKEN_URL: http://spotifymock:3003/api/token
+      DUO_SPOTIFY_API_URL: http://spotifymock:3003
+      DUO_SPOTIFY_WEB_REDIRECT_URL: http://localhost:8081/
+      DUO_SPOTIFY_APP_REDIRECT_URL: https://get.duolicious.app/
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -159,6 +171,15 @@ services:
 
       DUO_CRON_MAX_RANDOM_START_DELAY: '0'
 
+      # The refresh cron talks to Spotify's token endpoint itself, so it
+      # needs the client credentials too, not just the api service. The
+      # redirect URI is unused by the cron but required by duoenv at boot.
+      DUO_SPOTIFY_CLIENT_ID: dev-spotify-client-id
+      DUO_SPOTIFY_CLIENT_SECRET: dev-spotify-client-secret
+      DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback
+      DUO_SPOTIFY_TOKEN_URL: http://spotifymock:3003/api/token
+      DUO_SPOTIFY_API_URL: http://spotifymock:3003
+
   s3mock:
     image: adobe/s3mock:3.12.0
 
@@ -195,6 +216,23 @@ services:
 
     ports:
       - "3002:3002"
+
+  spotifymock:
+    build:
+      context: .
+      dockerfile: spotifymock.Dockerfile
+
+    volumes:
+      - ./test/spotifymock/index.js:/usr/src/app/index.js
+
+    environment:
+      # The mock rejects token requests whose Basic auth doesn't match, so a
+      # service missing DUO_SPOTIFY_CLIENT_ID/SECRET fails loudly.
+      SPOTIFY_MOCK_CLIENT_ID: dev-spotify-client-id
+      SPOTIFY_MOCK_CLIENT_SECRET: dev-spotify-client-secret
+
+    ports:
+      - "3003:3003"
 
   firehol:
     build:

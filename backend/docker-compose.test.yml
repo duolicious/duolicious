@@ -92,6 +92,21 @@ services:
       # The `/chat` WebSocket endpoint sends live push notifications; the
       # `pushmock` service records them so tests can assert on them.
       DUO_NOTIFICATION_API_URL: http://pushmock:3002
+
+      # Spotify OAuth. The token and API URLs point at the `spotifymock`
+      # service; the authorize URL is never fetched server-side (the client
+      # navigates there), so tests only parse `state` out of it.
+      DUO_SPOTIFY_CLIENT_ID: test-spotify-client-id
+      DUO_SPOTIFY_CLIENT_SECRET: test-spotify-client-secret
+      DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback
+      DUO_SPOTIFY_AUTHORIZE_URL: http://spotifymock:3003/authorize
+      DUO_SPOTIFY_TOKEN_URL: http://spotifymock:3003/api/token
+      DUO_SPOTIFY_API_URL: http://spotifymock:3003
+      # Where /spotify/callback redirects the user afterwards. Test values
+      # can be any URL — the tests only assert on the redirect Location
+      # header.
+      DUO_SPOTIFY_WEB_REDIRECT_URL: http://test-web.example/
+      DUO_SPOTIFY_APP_REDIRECT_URL: http://test-app.example/
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -173,6 +188,19 @@ services:
 
       DUO_CRON_MAX_RANDOM_START_DELAY: '0'
 
+      # The refresh cron talks to Spotify's token endpoint itself, so it
+      # needs the client credentials too, not just the api service. The
+      # spotifymock rejects mismatched credentials, so leaving these out
+      # fails the cron tests.
+      DUO_SPOTIFY_CLIENT_ID: test-spotify-client-id
+      DUO_SPOTIFY_CLIENT_SECRET: test-spotify-client-secret
+      DUO_SPOTIFY_REDIRECT_URI: http://localhost:5000/spotify/callback
+      DUO_SPOTIFY_TOKEN_URL: http://spotifymock:3003/api/token
+      DUO_SPOTIFY_API_URL: http://spotifymock:3003
+      DUO_CRON_SPOTIFY_POLL_SECONDS: '1'
+      DUO_CRON_SPOTIFY_MAX_AGE_DAYS: '0'
+      DUO_CRON_SPOTIFY_RETRY_SECONDS: '0'
+
   s3mock:
     image: adobe/s3mock:3.12.0
 
@@ -206,6 +234,20 @@ services:
 
     ports:
       - "3002:3002"
+
+  spotifymock:
+    build:
+      context: .
+      dockerfile: spotifymock.Dockerfile
+
+    environment:
+      # The mock rejects token requests whose Basic auth doesn't match, so a
+      # service missing DUO_SPOTIFY_CLIENT_ID/SECRET fails loudly.
+      SPOTIFY_MOCK_CLIENT_ID: test-spotify-client-id
+      SPOTIFY_MOCK_CLIENT_SECRET: test-spotify-client-secret
+
+    ports:
+      - "3003:3003"
 
   firehol:
     build:

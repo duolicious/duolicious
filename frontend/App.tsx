@@ -2,6 +2,7 @@ import {
   Platform,
 } from 'react-native';
 import {
+  useEffect,
   useMemo,
 } from 'react';
 import {
@@ -45,6 +46,7 @@ import { SignUpBanner } from './components/sign-up-banner';
 import { useAppThemeLoader, useAppTheme } from './app-theme/app-theme';
 import { useAppStartup } from './app-startup/app-startup';
 import { useAppNavigation } from './navigation/app-navigation';
+import { showPendingSpotifyConnectToast } from './api/spotify';
 
 verificationWatcher();
 
@@ -85,6 +87,14 @@ const App = () => {
   const numUnread =
     (stats?.numUnreadChats ?? 0) +
     (stats?.numUnreadIntros ?? 0);
+
+  const appReady = !isLoading && initialState !== undefined;
+
+  useEffect(() => {
+    if (appReady) {
+      showPendingSpotifyConnectToast();
+    }
+  }, [appReady]);
 
   if (serverStatus !== "ok") {
     return <UtilityScreen serverStatus={serverStatus} />

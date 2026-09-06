@@ -20,6 +20,7 @@ from service.cron.clubseo import (
     refresh_club_top_answers_forever,
 )
 from service.cron.garbagerecords import delete_garbage_records_forever
+from service.cron.spotifyrefresh import refresh_spotify_forever
 from service.cron.messagenotifications import send_notifications_forever
 from service.cron.nsfwphotorunner import predict_nsfw_photos_forever
 from service.cron.visitornotifications import (
@@ -97,6 +98,8 @@ async def main() -> None:
             repool_queued_club_vectors_forever(),
 
             refresh_club_seo_forever(),
+
+            refresh_spotify_forever(),
 
             http_server(),
         )

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from 'react';
 import { listen, notify, lastEvent } from './events';
 import type { ClubItem } from '../club/club';
+import type { SpotifyArtistItem } from '../spotify/spotify';
 
 // The GET /profile-info response uses space-separated keys for some fields
 // (e.g. 'looking for') while the PATCH endpoint and DB columns use snake_case
@@ -48,6 +49,9 @@ type ProfileInfo = {
   height?: number;
   theme?: ProfileInfoTheme;
   clubs?: ClubItem[];
+  spotify_artists?: SpotifyArtistItem[];
+  spotify_connected?: boolean;
+  spotify_tester?: boolean;
   public_profile?: string;
   photo?: { [position: string]: string | null };
   photo_extra_exts?: { [position: string]: string[] };

@@ -76,6 +76,8 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { ClubItem, joinClub, leaveClub } from '../../club/club';
+import { SpotifyArtistItem } from '../../spotify/spotify';
+import { SpotifyArtists, SpotifyTitle } from '../spotify-artists';
 import * as _ from 'lodash';
 import {
   friendlyTimeAgo,
@@ -720,6 +722,7 @@ type UserData = {
   about: string,
   mutual_clubs: string[],
   other_clubs: string[],
+  spotify_artists: SpotifyArtistItem[],
   gender: string,
   match_percentage: number | null,
   photo_uuids: string[],
@@ -1667,6 +1670,14 @@ const Body = ({
         {profilePhoto(5)}
 
         {profilePhoto(6)}
+
+        {(data?.spotify_artists ?? []).length > 0 && <>
+          <SpotifyTitle color={data?.theme?.title_color}/>
+          <SpotifyArtists
+            artists={data?.spotify_artists ?? []}
+            textStyle={clubsTheme.textStyle}
+          />
+        </>}
 
         {hasAnyStats(data) && <>
           <Title style={{color: data?.theme?.title_color}}>Stats</Title>

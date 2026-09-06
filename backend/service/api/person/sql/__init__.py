@@ -867,6 +867,16 @@ WITH prospect_base AS (
     ) AS j
     FROM clubs
     WHERE NOT is_mutual
+), spotify_artists_json AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT top_artists
+                FROM person_spotify
+                WHERE person_id = (SELECT id FROM prospect)
+            ),
+            '[]'::jsonb
+        ) AS j
 ), flair AS (
     SELECT
         ({Q_COMPUTED_FLAIR}) AS computed_flair
@@ -924,6 +934,9 @@ SELECT
         -- Clubs
         'mutual_clubs',           (SELECT j             FROM mutual_clubs_json),
         'other_clubs',            (SELECT j             FROM other_clubs_json),
+
+        -- Music
+        'spotify_artists',        (SELECT j             FROM spotify_artists_json),
 
         -- Verifications
         'verified_age',           (SELECT verified_age       FROM prospect),
@@ -1360,6 +1373,30 @@ WITH photo_ AS (
     JOIN club ON club.name = club_name
     WHERE person_id = %(person_id)s
 
+), spotify_artists AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT top_artists
+                FROM person_spotify
+                WHERE person_id = %(person_id)s
+            ),
+            '[]'::jsonb
+        ) AS j
+
+-- Distinct from a non-empty `spotify_artists` so the edit UI can tell
+-- connected-but-empty apart from not-connected.
+), spotify_connected AS (
+    SELECT
+        EXISTS (
+            SELECT 1 FROM person_spotify WHERE person_id = %(person_id)s
+        ) AS j
+
+), spotify_tester AS (
+    SELECT 'spotify-tester' = ANY(roles) AS j
+    FROM person
+    WHERE id = %(person_id)s
+
 ), unit AS (
     SELECT unit.name AS j
     FROM unit JOIN person ON unit_id = unit.id
@@ -1468,6 +1505,10 @@ SELECT
         'star sign',              (SELECT j FROM star_sign),
 
         'clubs',                  (SELECT j FROM clubs),
+
+        'spotify_artists',        (SELECT j FROM spotify_artists),
+        'spotify_connected',      (SELECT j FROM spotify_connected),
+        'spotify_tester',         (SELECT j FROM spotify_tester),
 
         'units',                  (SELECT j FROM unit),
 
@@ -2633,6 +2674,25 @@ SELECT json_build_object(
             person_club
         WHERE
             person_id = %(person_id)s
+    ),
+
+    -- The token columns are stripped: they're credentials, not personal
+    -- data, and don't belong in a downloadable file.
+    'person_spotify', (
+        SELECT
+            json_agg(row_to_json(t))
+        FROM (
+            SELECT
+                person_id,
+                access_token_expires_at,
+                refreshed_at,
+                artists_synced_at,
+                top_artists
+            FROM
+                person_spotify
+            WHERE
+                person_id = %(person_id)s
+        ) AS t
     ),
 
     'skipped', (

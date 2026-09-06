@@ -22,7 +22,7 @@ from service.api.person import profileinfo
 from service.api import qanda
 from service.api import search
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
-from service.api.auth import apple_oauth
+from service.api.auth import apple_oauth, spotify_oauth
 from service.api.qanda import question
 from service.api.asgi import app
 from service.api.auth.bearer import session
@@ -417,6 +417,40 @@ async def post_leave_club(
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     await person.post_leave_club(req, s)
+    return None
+
+@app.post('/spotify/authorize')
+async def post_spotify_authorize(
+    req: t.PostSpotifyAuthorize,
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    return await person.post_spotify_authorize(req, s)
+
+# Spotify OAuth callback. This remains unauthenticated: Spotify redirects the
+# user's browser here, which we convert into a redirect response for the
+# allow-listed client return URL. See `auth/spotify_oauth.py`.
+#
+# Like the Apple callback, this is on its own rate-limit scope so a single
+# connect flow doesn't double-bill against the authed endpoints.
+@app.get('/spotify/callback')
+async def get_spotify_callback(
+    request: Request,
+    _limited: None = Depends(ip_rate_limit(
+        auth_rate_limit,
+        scope='spotify_oauth_callback',
+    )),
+) -> object:
+    return await spotify_oauth.handle_callback(
+        code=request.query_params.get('code') or '',
+        state=request.query_params.get('state') or '',
+        error=request.query_params.get('error'),
+    )
+
+@app.post('/disconnect-spotify')
+async def post_disconnect_spotify(
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    await person.post_disconnect_spotify(s)
     return None
 
 @app.get('/update-notifications')

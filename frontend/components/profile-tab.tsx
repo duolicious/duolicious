@@ -62,6 +62,12 @@ import * as _ from "lodash";
 import { aboutQueue, nameQueue } from '../api/queue';
 import { ClubSelector } from './club-selector';
 import { ClubItem } from '../club/club';
+import {
+  connectSpotify,
+  disconnectSpotify,
+} from '../api/spotify';
+import { SpotifyArtists, SpotifyIcon } from './spotify-artists';
+import { ValidationErrorToast } from './toast';
 import { listen, notify } from '../events/events';
 import { ButtonWithCenteredText } from './button/centered-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -485,6 +491,90 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
   );
 };
 
+const MusicSection = ({data}: {data: ProfileInfo}) => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const connect = useCallback(async () => {
+    setIsLoading(true);
+    const result = await connectSpotify();
+    if (!result.ok && !result.cancelled && result.reason) {
+      const reason = result.reason;
+      notify<React.FC>('toast', () => <ValidationErrorToast error={reason} />);
+    }
+    setIsLoading(false);
+  }, []);
+
+  const disconnect = useCallback(async () => {
+    setIsLoading(true);
+    const ok = await disconnectSpotify();
+    if (!ok) {
+      notify<React.FC>('toast', () =>
+        <ValidationErrorToast
+          error="Couldn’t disconnect Spotify. Try again later."
+        />
+      );
+    }
+    setIsLoading(false);
+  }, []);
+
+  const isConnected = data.spotify_connected === true;
+  const artists = data.spotify_artists ?? [];
+
+  return (
+    <View>
+      {isConnected && artists.length > 0 &&
+        <View style={{ marginTop: 5, marginBottom: 5 }}>
+          <SpotifyArtists artists={artists}/>
+        </View>
+      }
+      {isConnected && artists.length === 0 &&
+        <DefaultText
+          style={{
+            color: '#999',
+            textAlign: 'center',
+            marginRight: 10,
+            marginLeft: 10,
+          }}
+        >
+          Your top Spotify artists will show up here once we’ve fetched them
+        </DefaultText>
+      }
+      <ButtonWithCenteredText
+        onPress={isConnected ? disconnect : connect}
+        loading={isLoading}
+        extraChildren={
+          <View
+            style={{
+              position: 'absolute',
+              left: 18,
+              top: 0,
+              bottom: 0,
+              justifyContent: 'center',
+            }}
+            pointerEvents="none"
+          >
+            <SpotifyIcon size={22} color="white"/>
+          </View>
+        }
+      >
+        {isConnected ? 'Disconnect Spotify' : 'Connect Spotify'}
+      </ButtonWithCenteredText>
+      {!isConnected &&
+        <DefaultText
+          style={{
+            color: '#999',
+            textAlign: 'center',
+            marginRight: 10,
+            marginLeft: 10,
+          }}
+        >
+          Show your top Spotify artists on your profile
+        </DefaultText>
+      }
+    </View>
+  );
+};
+
 const optionGroupToDataKey = (og: OptionGroup<OptionGroupInputs>) =>
   og.title.toLowerCase().replaceAll(' ', '_');
 
@@ -707,6 +797,11 @@ const Options = ({ navigation, data }: {
         }
       />
       <InviteEntrypoint navigation={navigation}/>
+
+      {(data.spotify_tester === true || data.spotify_connected === true) && <>
+        <Title>Music</Title>
+        <MusicSection data={data}/>
+      </>}
 
       <Title>Themes</Title>
       {
