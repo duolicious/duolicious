@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { japi } from './api';
 import { parseQueryParams, takeWebReturnParams } from './oauth-return';
-import { DEEP_LINK_HOSTNAME } from '../env/env';
 import { notify } from '../events/events';
 import { ValidationErrorToast } from '../components/toast';
 import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
@@ -49,7 +48,7 @@ const connectSpotify = async (): Promise<void> => {
   try {
     result = await WebBrowser.openAuthSessionAsync(
       authorizeUrl,
-      `https://${DEEP_LINK_HOSTNAME}/`,
+      'app.duolicious://spotify',
     );
   } catch {
     notifyConnectFailed();
