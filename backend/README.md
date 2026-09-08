@@ -23,7 +23,7 @@ curl -sf http://localhost:5000/health && echo OK
 Run one test file in a disposable environment:
 
 ```bash
-./test/util/with-container.sh ./test/functionality1/status.sh
+./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
 Run an entire test suite (e.g. all tests in functionality1):
