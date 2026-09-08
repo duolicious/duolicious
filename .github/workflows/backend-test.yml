@@ -49,6 +49,24 @@ jobs:
           DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
           DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
 
+  functionality-tests-4:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
+
+      - name: Run functionality tests
+        run: ./test/util/with-container.sh ./test/functionality.sh 4
+        env:
+          DUO_EMAIL_KEY: 'not-a-real-key'
+          DUO_EMAIL_URL: 'https://example.com'
+
+          DUO_R2_BUCKET_NAME: s3-mock-bucket
+          DUO_R2_ACCT_ID: unused-in-dev-env
+          DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
+          DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
+
   functionality-tests-2:
     runs-on: ubuntu-latest
 
@@ -115,6 +133,60 @@ jobs:
 
       - name: Run functionality tests
         run: ./test/util/with-container.sh ./test/functionality.sh 6
+        env:
+          DUO_EMAIL_KEY: 'not-a-real-key'
+          DUO_EMAIL_URL: 'https://example.com'
+
+          DUO_R2_BUCKET_NAME: s3-mock-bucket
+          DUO_R2_ACCT_ID: unused-in-dev-env
+          DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
+          DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
+
+  functionality-tests-7:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
+
+      - name: Run functionality tests
+        run: ./test/util/with-container.sh ./test/functionality.sh 7
+        env:
+          DUO_EMAIL_KEY: 'not-a-real-key'
+          DUO_EMAIL_URL: 'https://example.com'
+
+          DUO_R2_BUCKET_NAME: s3-mock-bucket
+          DUO_R2_ACCT_ID: unused-in-dev-env
+          DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
+          DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
+
+  functionality-tests-8:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
+
+      - name: Run functionality tests
+        run: ./test/util/with-container.sh ./test/functionality.sh 8
+        env:
+          DUO_EMAIL_KEY: 'not-a-real-key'
+          DUO_EMAIL_URL: 'https://example.com'
+
+          DUO_R2_BUCKET_NAME: s3-mock-bucket
+          DUO_R2_ACCT_ID: unused-in-dev-env
+          DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
+          DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
+
+  functionality-tests-9:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
+
+      - name: Run functionality tests
+        run: ./test/util/with-container.sh ./test/functionality.sh 9
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'

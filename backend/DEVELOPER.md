@@ -58,7 +58,7 @@ Notes:
 - Run a single functionality test:
 
 ```bash
-./test/util/with-container.sh ./test/functionality1/status.sh
+./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
 - Run a whole suite:

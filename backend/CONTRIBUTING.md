@@ -46,7 +46,7 @@ Two principles shape the tree:
 - Run a single test in an ephemeral environment:
 
 ```bash
-./test/util/with-container.sh ./test/functionality1/status.sh
+./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
 - Run a full suite (e.g. functionality1):
