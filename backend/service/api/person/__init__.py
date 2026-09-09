@@ -11,11 +11,7 @@ from collections.abc import Mapping, Sequence
 from typing import Tuple
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
-from service.api.person.bestdistance import (
-    CANDIDATE_LIMIT,
-    best_distance,
-    distance_preference,
-)
+from service.api.person.bestdistance import best_distance, distance_preference
 from service.api.person.urlslug import reserve_onboardee_url_slug
 import service.api.duotypes as t
 import json
@@ -67,7 +63,10 @@ from serviceshared.verification.messages import (
 )
 
 
-from serviceshared.duoenv.api import ENV as DUO_ENV
+from serviceshared.duoenv.api import (
+    CANDIDATE_TARGET_TRIAL,
+    ENV as DUO_ENV,
+)
 from serviceshared.duoenv.shared import R2_ACCT_ID
 
 logger = logging.getLogger(__name__)
@@ -148,17 +147,20 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
     )
     bounds = best_age(age)
 
+    trial = CANDIDATE_TARGET_TRIAL and person_id % 2 == 0
+    target_candidates = 1000 if trial else 2000
+
     async def count_within(distance_km: float) -> int:
         counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
             person_id=person_id,
             distance_metres=distance_km * 1000,
             min_age=0 if bounds.min_age is None else bounds.min_age,
             max_age=999 if bounds.max_age is None else bounds.max_age,
-            candidate_limit=CANDIDATE_LIMIT,
+            candidate_limit=target_candidates * 2,
         ))
         return row_int(counted, 'candidates')
 
-    candidates = await best_distance(count_within)
+    candidates = await best_distance(count_within, target_candidates)
 
     is_joining_club = row_bool(
         await tx.require_one(Q_IS_JOINING_CLUB, params=dict(person_id=person_id)),

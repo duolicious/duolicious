@@ -1,9 +1,6 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-TARGET_CANDIDATES = 2000
-CANDIDATE_LIMIT = TARGET_CANDIDATES * 2
-
 _ITERATIONS = 5
 _SEARCH_CEILING_KM = 10000.0
 _UNREACHABLE_CANDIDATES = 10 ** 9
@@ -19,6 +16,7 @@ class Candidates:
 
 async def best_distance(
     count_within: Callable[[float], Awaitable[int]],
+    target_candidates: int,
 ) -> Candidates:
     points = [
         Candidates(0.0, 0),
@@ -29,7 +27,7 @@ async def best_distance(
     for _ in range(_ITERATIONS):
         nearest = sorted(
             points,
-            key=lambda p: (abs(p.count - TARGET_CANDIDATES), p.distance_km),
+            key=lambda p: (abs(p.count - target_candidates), p.distance_km),
         )[:2]
 
         distance_km = sum(p.distance_km for p in nearest) / 2
