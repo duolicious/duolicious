@@ -8,8 +8,6 @@ on:
       - backend/**
       - .github/workflows/backend-test.yml
   pull_request:
-    branches:
-      - main
     paths:
       - backend/**
       - .github/workflows/backend-test.yml
