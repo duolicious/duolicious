@@ -7,8 +7,6 @@ on:
       - frontend/**
       - .github/workflows/frontend-type-checks.yml
   pull_request:
-    branches:
-      - main
     paths:
       - frontend/**
       - .github/workflows/frontend-type-checks.yml
