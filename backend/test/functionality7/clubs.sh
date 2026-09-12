@@ -41,7 +41,7 @@ club_quota_without_gold () {
   ../util/create-user.sh user1 0 0
   ../util/create-user.sh user2 0 0
 
-  q "update person set has_gold = false"
+  set_gold false "true"
 
   assume_role user1
   for i in {1..50}

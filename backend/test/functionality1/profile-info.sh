@@ -35,7 +35,7 @@ test_set () {
   local field_value=$2
   local has_gold_value=${3:-true}
 
-  q "update person set has_gold = ${has_gold_value}"
+  set_gold ${has_gold_value} "true"
 
   jc PATCH /profile-info -d '{ "'"$field_name"'": "'"$field_value"'" }'
   new_field_value=$(
@@ -215,7 +215,7 @@ test_audio () {
 test_theme () {
   local has_gold_value=${1:-true}
 
-  q "update person set has_gold = ${has_gold_value}"
+  set_gold ${has_gold_value} "true"
 
   local value=$(cat << EOF
 {
@@ -390,7 +390,7 @@ test_verification_required () {
 test_show_my_location () {
   [[ "$(q "select string_agg(id || ':' || name, ',' order by id) from yes_country_only_no")" == "1:Yes,2:Country only,3:No" ]]
 
-  q "update person set has_gold = true where uuid = '$USER_UUID'::uuid"
+  set_gold true "uuid = '$USER_UUID'::uuid"
 
   jc PATCH /profile-info -d '{ "show_my_location": "Country only" }'
   [[ "$(get_field show_my_location)" == "Country only" ]]
@@ -414,9 +414,9 @@ test_show_my_location () {
 
   ! jc PATCH /profile-info -d '{ "show_my_location": "City only" }' || exit 1
 
-  q "update person set has_gold = false where uuid = '$USER_UUID'::uuid"
+  set_gold false "uuid = '$USER_UUID'::uuid"
   ! jc PATCH /profile-info -d '{ "show_my_location": "Country only" }' || exit 1
-  q "update person set has_gold = true where uuid = '$USER_UUID'::uuid"
+  set_gold true "uuid = '$USER_UUID'::uuid"
 
   # Leave the fixture in its original location and visibility state.
   jc PATCH /profile-info -d '{ "location": "New York, New York, United States" }'

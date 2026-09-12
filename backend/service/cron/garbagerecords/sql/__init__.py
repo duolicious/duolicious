@@ -92,10 +92,18 @@ WITH q1 AS (
         expires_at < NOW()
     RETURNING
         1
+), q12 AS (
+    DELETE FROM
+        gold_subscription
+    WHERE
+        expires_at < NOW()
+    RETURNING
+        person_id
 )
 SELECT
     SUM(n) AS count,
-    (SELECT array_agg(DISTINCT person_id) FROM q7) AS photo_person_ids
+    (SELECT array_agg(DISTINCT person_id) FROM q7) AS photo_person_ids,
+    (SELECT array_agg(person_id) FROM q12) AS expired_gold_person_ids
 FROM (
     SELECT 1 AS n FROM q1 UNION ALL
     SELECT 1 AS n FROM q2 UNION ALL
@@ -105,6 +113,7 @@ FROM (
     SELECT 1 AS n FROM q6 UNION ALL
     SELECT 1 AS n FROM q7 UNION ALL
     SELECT 1 AS n FROM q8 UNION ALL
-    SELECT 1 AS n FROM q11
+    SELECT 1 AS n FROM q11 UNION ALL
+    SELECT 1 AS n FROM q12
 ) AS t(n)
 """

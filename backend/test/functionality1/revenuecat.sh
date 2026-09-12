@@ -48,7 +48,7 @@ has_gold_is_set_by_webhook() {
     && exit 1
 
   say "INITIAL_PURCHASE sets has_gold=true for existing user"
-  pre2_before_ip=$(q "select has_gold from person where uuid = '$user2uuid'::uuid")
+  pre2_before_ip=$(has_gold "uuid = '$user2uuid'::uuid")
   export SESSION_TOKEN=""
   response=$(
     c POST /revenuecat \
@@ -63,11 +63,11 @@ has_gold_is_set_by_webhook() {
   [[ "$(echo "$response" | jq -r '.all_uuids[0]')" == "$user1uuid" ]]
   [[ "$(echo "$response" | jq -r '.updated_uuids[0]')" == "$user1uuid" ]]
 
-  [[ "$(q "select has_gold from person where uuid = '$user1uuid'::uuid")" == t ]]
-  [[ "$(q "select has_gold from person where uuid = '$user2uuid'::uuid")" == "$pre2_before_ip" ]]
+  [[ "$(has_gold "uuid = '$user1uuid'::uuid")" == t ]]
+  [[ "$(has_gold "uuid = '$user2uuid'::uuid")" == "$pre2_before_ip" ]]
 
   say "EXPIRATION sets has_gold=false for existing user"
-  pre2_before_exp=$(q "select has_gold from person where uuid = '$user2uuid'::uuid")
+  pre2_before_exp=$(has_gold "uuid = '$user2uuid'::uuid")
   export SESSION_TOKEN=""
   response=$(
     c POST /revenuecat \
@@ -82,11 +82,11 @@ has_gold_is_set_by_webhook() {
   [[ "$(echo "$response" | jq -r '.all_uuids[0]')" == "$user1uuid" ]]
   [[ "$(echo "$response" | jq -r '.updated_uuids[0]')" == "$user1uuid" ]]
 
-  [[ "$(q "select has_gold from person where uuid = '$user1uuid'::uuid")" == f ]]
-  [[ "$(q "select has_gold from person where uuid = '$user2uuid'::uuid")" == "$pre2_before_exp" ]]
+  [[ "$(has_gold "uuid = '$user1uuid'::uuid")" == f ]]
+  [[ "$(has_gold "uuid = '$user2uuid'::uuid")" == "$pre2_before_exp" ]]
 
   say "RENEWAL sets has_gold=true for existing user"
-  pre2_before_ren=$(q "select has_gold from person where uuid = '$user2uuid'::uuid")
+  pre2_before_ren=$(has_gold "uuid = '$user2uuid'::uuid")
   export SESSION_TOKEN=""
   response=$(
     c POST /revenuecat \
@@ -101,8 +101,8 @@ has_gold_is_set_by_webhook() {
   [[ "$(echo "$response" | jq -r '.all_uuids[0]')" == "$user1uuid" ]]
   [[ "$(echo "$response" | jq -r '.updated_uuids[0]')" == "$user1uuid" ]]
 
-  [[ "$(q "select has_gold from person where uuid = '$user1uuid'::uuid")" == t ]]
-  [[ "$(q "select has_gold from person where uuid = '$user2uuid'::uuid")" == "$pre2_before_ren" ]]
+  [[ "$(has_gold "uuid = '$user1uuid'::uuid")" == t ]]
+  [[ "$(has_gold "uuid = '$user2uuid'::uuid")" == "$pre2_before_ren" ]]
 
   say "TRANSFER moves gold from user1 -> user2"
   # Ensure user2 ends up with gold, user1 without
@@ -126,12 +126,40 @@ has_gold_is_set_by_webhook() {
   [[ "$actual_all" == "$expected" ]]
   [[ "$actual_updated" == "$expected" ]]
 
-  [[ "$(q "select has_gold from person where uuid = '$user1uuid'::uuid")" == f ]]
-  [[ "$(q "select has_gold from person where uuid = '$user2uuid'::uuid")" == t ]]
+  [[ "$(has_gold "uuid = '$user1uuid'::uuid")" == f ]]
+  [[ "$(has_gold "uuid = '$user2uuid'::uuid")" == t ]]
+
+  say "TRANSFER naming one person in both lists leaves them with gold"
+  export SESSION_TOKEN=""
+  c POST /revenuecat \
+    --header "Authorization: Bearer valid-revenuecat-token" \
+    --header "Content-Type: application/json" \
+    -d '{ "event": { "type": "TRANSFER", "transferred_to": ["'"$user2uuid"'"], "transferred_from": ["'"${user2uuid^^}"'" ] } }' > /dev/null
+
+  [[ "$(has_gold "uuid = '$user2uuid'::uuid")" == t ]]
+  [[ "$(q "select count(*) from gold_subscription where person_id = (select id from person where uuid = '$user2uuid'::uuid)")" == 1 ]]
+
+  say "A grant only displaces a subscription it outlasts"
+  user2_subscription () {
+    q "select $1 from gold_subscription where person_id = (select id from person where uuid = '$user2uuid'::uuid)"
+  }
+  q "update gold_subscription set provider = 'paypal', provider_subscription_id = 'I-1' where person_id = (select id from person where uuid = '$user2uuid'::uuid)"
+  set_gold true "uuid = '$user2uuid'::uuid"
+  [[ "$(user2_subscription provider)" == paypal ]]
+  q "update gold_subscription set expires_at = now() + interval '1 day' where provider = 'paypal'"
+  set_gold true "uuid = '$user2uuid'::uuid"
+  [[ "$(user2_subscription provider)" == revenuecat ]]
+  [[ "$(user2_subscription expires_at)" == infinity ]]
+
+  say "Gold lapses once its subscription expires"
+  q "update gold_subscription set expires_at = now() - interval '1 minute' where person_id = (select id from person where uuid = '$user2uuid'::uuid)"
+
+  assert_eventually f has_gold "uuid = '$user2uuid'::uuid"
+  assert_eventually 0 q "select count(*) from gold_subscription where person_id = (select id from person where uuid = '$user2uuid'::uuid)"
 
   say "Unknown/ignored events return 200 and perform no updates"
-  pre1=$(q "select has_gold from person where uuid = '$user1uuid'::uuid")
-  pre2=$(q "select has_gold from person where uuid = '$user2uuid'::uuid")
+  pre1=$(has_gold "uuid = '$user1uuid'::uuid")
+  pre2=$(has_gold "uuid = '$user2uuid'::uuid")
   export SESSION_TOKEN=""
   c \
     POST \
@@ -139,8 +167,8 @@ has_gold_is_set_by_webhook() {
     --header "Authorization: Bearer valid-revenuecat-token" \
     --header "Content-Type: application/json" \
     -d '{ "event": { "type": "SOME_UNKNOWN_EVENT", "foo": "bar" } }' > /dev/null
-  post1=$(q "select has_gold from person where uuid = '$user1uuid'::uuid")
-  post2=$(q "select has_gold from person where uuid = '$user2uuid'::uuid")
+  post1=$(has_gold "uuid = '$user1uuid'::uuid")
+  post2=$(has_gold "uuid = '$user2uuid'::uuid")
   [[ "$pre1" == "$post1" ]]
   [[ "$pre2" == "$post2" ]]
 }
@@ -203,7 +231,7 @@ expiration_resets_settings() {
     --header "Content-Type: application/json" \
     -d '{ "event": { "type": "EXPIRATION", "app_user_id": "'"$useruuid"'" } }' > /dev/null
 
-  [[ "$(q "select has_gold from person where uuid = '$useruuid'::uuid")" == f ]]
+  [[ "$(has_gold "uuid = '$useruuid'::uuid")" == f ]]
   [[ "$(q "select title_color from person where uuid = '$useruuid'::uuid")" == "#000000" ]]
   [[ "$(q "select body_color from person where uuid = '$useruuid'::uuid")" == "#000000" ]]
   [[ "$(q "select background_color from person where uuid = '$useruuid'::uuid")" == "#ffffff" ]]
@@ -227,7 +255,7 @@ premium_features_require_gold() {
 
   say "Create user (no gold)"
   ../util/create-user.sh rcuser5 0 0
-  q "update person set has_gold = false where name = 'rcuser5'"
+  set_gold false "name = 'rcuser5'"
 
   say "Sign in as user"
   assume_role rcuser5

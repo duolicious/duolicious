@@ -133,7 +133,7 @@ assume_role alice
 [[ "$(c GET /profile-info | jq -r .url_slug)" = alice ]]
 
 # --- Name change (gold) regenerates the slug and reports is_random -----------
-q "update person set has_gold = true where email='bob@example.com'"
+set_gold true "email='bob@example.com'"
 assume_role bob
 
 # A free name → bare slug, not random.

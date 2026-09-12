@@ -1,3 +1,5 @@
+from serviceshared.gold.sql import has_gold_sql
+
 Q_LAST_MESSAGES = """
 WITH last_messages AS (
     SELECT
@@ -257,9 +259,9 @@ SELECT EXISTS (
 ) AS is_automoded_bot
 """
 
-Q_TRUSTWORTHY_REPORTS = """
+Q_TRUSTWORTHY_REPORTS = f"""
 SELECT
-    object.has_gold AS has_gold,
+    {has_gold_sql('object.id')} AS has_gold,
     ARRAY(
         SELECT
             skipped.report_reason
@@ -298,7 +300,7 @@ WHERE
     object.uuid = uuid_or_null(%(object_uuid)s::TEXT)
 """
 
-Q_SHADOW_BAN = """
+Q_SHADOW_BAN = f"""
 UPDATE
     person
 SET
@@ -306,5 +308,5 @@ SET
 WHERE
     uuid = uuid_or_null(%(object_uuid)s::TEXT)
 AND
-    NOT has_gold
+    NOT {has_gold_sql('person.id')}
 """

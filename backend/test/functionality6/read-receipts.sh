@@ -166,7 +166,7 @@ count_read_receipts () {
 
 echo "A gold user sees a read receipt once the recipient reads their message"
 
-q "update person set has_gold = true where uuid = '${user1uuid}'"
+set_gold true "uuid = '${user1uuid}'"
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "hello from user 1"
 
@@ -242,7 +242,7 @@ echo "A non-gold user sees no read receipts"
 # separate user (rather than revoking user1) is used because `fetch_has_gold`
 # is cached for 60s: user3's gold status is only ever read after this point,
 # so the cache never holds a stale `true` for them.
-q "update person set has_gold = false where uuid = '${user3uuid}'"
+set_gold false "uuid = '${user3uuid}'"
 
 send_message "$user3uuid" "$user3token" "$user2uuid" "hello from user 3"
 
