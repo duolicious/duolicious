@@ -18,8 +18,8 @@ NO_TRIAL = MONTHLY.model_copy(update=dict(trial=None))
 
 def _subscription(
     status: str,
-    start_time: str | None = None,
     last_payment_time: str | None = None,
+    start_time: str = '2026-10-01T00:00:00Z',
 ) -> paypal.PaypalSubscription:
     return paypal.PaypalSubscription.model_validate(dict(
         id='I-1',
@@ -41,10 +41,8 @@ class TestPaypal(unittest.TestCase):
              MONTHLY, datetime(2026, 2, 28, 10)),
             (_subscription('SUSPENDED', last_payment_time='2024-02-29T00:00:00Z'),
              YEARLY, datetime(2025, 2, 28)),
-            (_subscription('CANCELLED', start_time='2026-10-01T00:00:00Z'),
-             MONTHLY, datetime(2026, 10, 8)),
-            (_subscription('CANCELLED', start_time='2026-10-01T00:00:00Z'),
-             NO_TRIAL, None),
+            (_subscription('CANCELLED'), MONTHLY, datetime(2026, 10, 8)),
+            (_subscription('CANCELLED'), NO_TRIAL, datetime(2026, 10, 1)),
         ]
         for subscription, plan, expected in cases:
             self.assertEqual(paypal.paid_until(subscription, plan), expected)

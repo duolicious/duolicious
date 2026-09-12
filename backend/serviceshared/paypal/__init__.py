@@ -48,7 +48,7 @@ class PaypalSubscription(BaseModel):
         'EXPIRED',
     ]
     custom_id: str | None = None
-    start_time: UtcTime | None = None
+    start_time: UtcTime
     billing_info: _BillingInfo = _BillingInfo()
 
 
@@ -182,9 +182,9 @@ def paid_until(
     last_payment = subscription.billing_info.last_payment
     if last_payment is not None:
         return _plus(last_payment.time, plan.cycle)
-    if plan.trial is not None and subscription.start_time is not None:
+    if plan.trial is not None:
         return _plus(subscription.start_time, plan.trial)
-    return None
+    return subscription.start_time
 
 
 async def create_subscription(person_uuid: str, return_url: str) -> str | None:
