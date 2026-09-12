@@ -74,13 +74,15 @@ subscribe () {
   )
 
   subscription_id=$(sed 's/.*subscription_id=//' <<< "$approve_url")
+}
 
-  return_url=$(return_location "$approve_url")
+approve () {
+  return_location "$(return_location "$approve_url")"
 }
 
 subscribe_and_approve () {
   subscribe web
-  return_location "$return_url" > /dev/null
+  approve > /dev/null
 }
 
 approve_flow_grants_gold () {
@@ -106,7 +108,7 @@ approve_flow_grants_gold () {
 
   subscribe apex
 
-  [[ "$(return_location "$return_url")" == 'http://test-apex.example/?paypal=subscribed' ]]
+  [[ "$(approve)" == 'http://test-apex.example/?paypal=subscribed' ]]
 
   [[ "$(user_has_gold user1)" == t ]]
   [[ "$(user_has_gold user2)" == f ]]
@@ -227,7 +229,7 @@ deleting_an_account_cancels_at_paypal () {
 
   set_paypal_mock_subscription "$subscription_id" '{ "status": "APPROVED" }'
 
-  [[ "$(return_location "$return_url")" == 'http://test-web.example/?paypal=pending' ]]
+  [[ "$(return_location "http://localhost:5000/paypal/return/web?subscription_id=$subscription_id")" == 'http://test-web.example/?paypal=pending' ]]
   [[ "$(user_has_gold user1)" == f ]]
   [[ "$(subscription 'count(*)')" == "0" ]]
 
