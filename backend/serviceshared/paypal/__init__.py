@@ -171,7 +171,7 @@ def _plus(t: datetime, interval: PaypalInterval) -> datetime:
 def paid_until(
     subscription: PaypalSubscription,
     plan: PaypalPlan,
-) -> datetime | str | None:
+) -> datetime | Literal['infinity'] | None:
     if subscription.status == 'ACTIVE':
         return 'infinity'
     if subscription.status in ('APPROVAL_PENDING', 'APPROVED'):
