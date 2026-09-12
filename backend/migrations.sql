@@ -28,9 +28,15 @@ CREATE TABLE IF NOT EXISTS person_spotify (
 CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
     ON person_spotify(attempted_at);
 
+DO $$ BEGIN
+    CREATE TYPE gold_subscription_provider AS ENUM ('revenuecat', 'paypal');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 CREATE TABLE IF NOT EXISTS gold_subscription (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    provider TEXT NOT NULL CHECK (provider IN ('revenuecat', 'paypal')),
+    provider gold_subscription_provider NOT NULL,
     provider_subscription_id TEXT NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     UNIQUE (provider, provider_subscription_id)
