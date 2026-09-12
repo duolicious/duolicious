@@ -4,21 +4,14 @@ from serviceshared.constants import CLUB_QUOTA_FREE, CLUB_QUOTA_GOLD
 def has_gold_sql(person_id: str) -> str:
     return f"""EXISTS (
     SELECT 1 FROM gold_subscription
-    WHERE person_id = {person_id} AND expires_at > NOW()
-)"""
+    WHERE person_id = {person_id} AND expires_at > NOW())"""
 
 
 def club_quota_sql(has_gold: str) -> str:
-    return f"""CASE
-    WHEN {has_gold}
-    THEN {CLUB_QUOTA_GOLD}
-    ELSE {CLUB_QUOTA_FREE}
-END"""
+    return f"CASE WHEN {has_gold} THEN {CLUB_QUOTA_GOLD} ELSE {CLUB_QUOTA_FREE} END"
 
-Q_HAS_GOLD = f"""
-SELECT
-    {has_gold_sql('%(person_id)s')} AS has_gold
-"""
+
+Q_HAS_GOLD = f"SELECT {has_gold_sql('%(person_id)s')} AS has_gold"
 
 Q_SYNC_GOLD = f"""
 WITH target AS (
