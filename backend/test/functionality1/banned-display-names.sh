@@ -12,7 +12,7 @@ q "delete from person"
 ! ../util/create-user.sh i_hate_minorities 0 0 || exit 1
   ../util/create-user.sh i_love_minorities 0 0
 
-q "update person set has_gold = true"
+set_gold true "true"
 
 assume_role i_love_minorities
 

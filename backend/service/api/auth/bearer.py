@@ -49,7 +49,7 @@ class AuthError(Exception):
         self.status_code = status_code
 
 
-def _bearer_token(request: Request) -> str:
+def bearer_token(request: Request) -> str:
     """Extract the token from an `Authorization: Bearer <token>` header.
 
     Only the scheme is compared case-insensitively; the token is passed through
@@ -93,7 +93,7 @@ def session(
     overloads reflect this in the return type."""
     async def dependency(request: Request) -> duotypes.SessionInfo | None:
         try:
-            session_token_hash = sha512(_bearer_token(request))
+            session_token_hash = sha512(bearer_token(request))
 
             # sessioncache is a fast, best-effort async Redis get/set. The
             # session-row fallback uses the async DB.

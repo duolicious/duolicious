@@ -109,7 +109,7 @@ main () {
     add_audio
   fi
 
-  q "update person set has_gold = true where email = '$email'"
+  set_gold true "email = '$email'"
 
   echo "Created $username_or_email"
 }

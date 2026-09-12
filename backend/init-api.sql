@@ -385,9 +385,6 @@ CREATE TABLE IF NOT EXISTS person (
     flair TEXT[] NOT NULL DEFAULT '{}',
     roles TEXT[] NOT NULL DEFAULT '{}',
 
-    -- Subscriptions
-    has_gold BOOLEAN NOT NULL DEFAULT FALSE,
-
     -- Notifications
     intro_seconds INT NOT NULL DEFAULT 0,
     chat_seconds INT NOT NULL DEFAULT 0,
@@ -656,6 +653,14 @@ CREATE TABLE IF NOT EXISTS person_spotify (
     top_artists JSONB NOT NULL DEFAULT '[]'
 );
 
+CREATE TABLE IF NOT EXISTS gold_subscription (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    provider TEXT NOT NULL CHECK (provider IN ('revenuecat', 'paypal')),
+    provider_subscription_id TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    UNIQUE (provider, provider_subscription_id)
+);
+
 CREATE TABLE IF NOT EXISTS deleted_photo_admin_token (
     token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     photo_uuid TEXT NOT NULL,
@@ -880,6 +885,9 @@ CREATE INDEX IF NOT EXISTS idx__club__count_members__name ON club(count_members,
 
 CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
 ON person_spotify(attempted_at);
+
+CREATE INDEX IF NOT EXISTS idx__gold_subscription__expires_at
+    ON gold_subscription(expires_at);
 
 CREATE INDEX IF NOT EXISTS idx__banned_person__ip_address ON banned_person(ip_address);
 CREATE INDEX IF NOT EXISTS idx__banned_person__expires_at ON banned_person(expires_at);

@@ -23,6 +23,7 @@ from service.api import qanda
 from service.api import search
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
 from service.api.auth import apple_oauth, spotify_oauth
+from service.api.gold import revenuecat
 from service.api.qanda import question
 from service.api.asgi import app
 from service.api.auth.bearer import session
@@ -551,8 +552,7 @@ async def get_export_data(token: str) -> object:
 
 @app.post('/revenuecat')
 async def post_revenuecat(request: Request, req: t.PostRevenuecat) -> object:
-    return await person.post_revenuecat(
-        req, request.headers.get('Authorization', ''))
+    return await revenuecat.post_revenuecat(req, request)
 
 @app.websocket('/chat')
 async def websocket_chat(websocket: WebSocket) -> None:

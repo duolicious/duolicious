@@ -125,6 +125,25 @@ q () {
     | trim
 }
 
+has_gold () {
+  q "select exists (select 1 from gold_subscription where person_id = person.id and expires_at > now()) from person where $1"
+}
+
+set_gold () {
+  local event_type=EXPIRATION
+  [[ "$1" = true ]] && event_type=INITIAL_PURCHASE
+
+  q "update funding set token_hash_revenuecat = '$(printf 'valid-revenuecat-token' | sha512sum | cut -d' ' -f1)'"
+
+  for uuid in $(q "select uuid from person where $2")
+  do
+    SESSION_TOKEN="" jc POST /revenuecat \
+      --header "Authorization: Bearer valid-revenuecat-token" \
+      -d '{ "event": { "type": "'"$event_type"'", "app_user_id": "'"$uuid"'" } }' \
+      > /dev/null
+  done
+}
+
 # Dump the duo_api database to a compressed fixture file under test/fixtures/.
 # Example: qdump baseline   # writes ../fixtures/duo_api-baseline.zstd
 qdump () {

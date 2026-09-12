@@ -2307,6 +2307,13 @@
     "verification_job": null,
     "person_club": null,
     "person_spotify": null,
+    "gold_subscription": [
+      {
+        "provider": "revenuecat",
+        "provider_subscription_id": "92f09dce-3375-4f28-b16c-cef5c74582c9",
+        "expires_at": "infinity"
+      }
+    ],
     "skipped": null,
     "messaged": null,
     "mam_message": null,
