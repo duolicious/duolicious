@@ -131,4 +131,8 @@ async def post_webhook(
     if not await paypal.verify_webhook(request.headers, await request.json()):
         return 'Unauthorized', 401
 
-    return dict(ignored=not await _apply(req.resource))
+    subscription = await paypal.fetch_subscription(req.resource.id)
+    if subscription is None:
+        return 'PayPal request failed', 502
+
+    return dict(ignored=not await _apply(subscription))
