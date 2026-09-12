@@ -132,6 +132,7 @@ async def _request(
     path: str,
     model: type[T],
     json_body: Json = None,
+    accept: tuple[int, ...] = (),
 ) -> T | None:
     try:
         async with make_http_client() as client:
@@ -151,6 +152,8 @@ async def _request(
         return model.model_validate(
             response.raise_for_status().json() if response.content else {})
     except httpx.HTTPStatusError as e:
+        if e.response.status_code in accept:
+            return model.model_validate({})
         logger.warning(
             f'PayPal {method} {path} returned HTTP {e.response.status_code}: '
             f'{e.response.text}')
@@ -234,6 +237,7 @@ async def cancel_subscription(subscription_id: str) -> bool:
         f'{_subscription_path(subscription_id)}/cancel',
         _Empty,
         json_body=dict(reason='Cancelled from the app'),
+        accept=(422,),
     ) is not None
 
 

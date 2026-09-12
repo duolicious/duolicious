@@ -251,6 +251,20 @@ deleting_an_account_cancels_at_paypal () {
 
   [[ "$(subscription 'count(*)')" == "0" ]]
   [[ "$(paypal_mock_status "$subscription_id")" == 'CANCELLED' ]]
+
+  echo 'A subscription PayPal already stopped does not block deletion'
+
+  ../util/create-user.sh user3 0 0
+  set_gold false "true"
+  assume_role user3
+
+  subscribe_and_approve
+
+  set_paypal_mock_subscription "$subscription_id" '{ "status": "EXPIRED" }'
+
+  c DELETE /account
+
+  [[ "$(q "select count(*) from person where email = 'user3@example.com'")" == "0" ]]
 }
 
 clean_up () {
