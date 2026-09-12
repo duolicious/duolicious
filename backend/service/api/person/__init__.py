@@ -6,6 +6,8 @@ from serviceshared.database import (
     row_int,
 )
 from serviceshared.database._row import row_int_or_none
+from service.api.gold.paypal import live_subscription_ids
+from serviceshared import paypal
 from collections.abc import Mapping, Sequence
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
@@ -834,7 +836,7 @@ async def get_compare_answers(
 async def delete_or_ban_account(
     s: t.SessionInfo | None,
     admin_ban_token: str | None = None,
-) -> object:
+) -> list[Row]:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 30_000')  # 30 seconds
 
@@ -867,6 +869,10 @@ async def delete_or_ban_account(
             ]
         else:
             session_token_hashes = []
+
+        for subscription_id in await live_subscription_ids(tx, person_ids):
+            if not await paypal.cancel_subscription(subscription_id):
+                raise Exception('Deletion failed; Cannot cancel subscription')
 
         await tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
 

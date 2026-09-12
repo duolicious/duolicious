@@ -209,13 +209,19 @@ const ValidationErrorToast = ({error}: {error: string}) => {
   );
 };
 
-const notifyLinkCopiedToast = (label: string) => {
+const notifyErrorToast = (error: string) =>
+  notify<React.FC>('toast', () => <ValidationErrorToast error={error} />);
+
+const notifyIconToast = (
+  label: string,
+  icon: (color: string) => React.ReactNode,
+) => {
   const Toast: React.FC = () => {
     const { appTheme } = useAppTheme();
 
     return (
       <ToastContainer>
-        <FontAwesomeIcon icon={faLink} color={appTheme.secondaryColor} size={24} />
+        {icon(appTheme.secondaryColor)}
         <DefaultText style={{ color: appTheme.secondaryColor, fontWeight: '700' }}>
           {label}
         </DefaultText>
@@ -225,11 +231,18 @@ const notifyLinkCopiedToast = (label: string) => {
   notify<React.FC>('toast', Toast);
 };
 
+const notifyLinkCopiedToast = (label: string) =>
+  notifyIconToast(label, (color) =>
+    <FontAwesomeIcon icon={faLink} color={color} size={24} />
+  );
+
 export {
   SOMETHING_WENT_WRONG,
   SomethingWentWrongToast,
   Toast,
   ToastContainer,
   ValidationErrorToast,
+  notifyErrorToast,
+  notifyIconToast,
   notifyLinkCopiedToast,
 };

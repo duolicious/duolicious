@@ -7,11 +7,8 @@ import {
   takeWebReturnParams,
   webReturnTarget,
 } from './oauth-return';
-import { notify } from '../events/events';
-import { DefaultText } from '../components/default-text';
 import { SpotifyIcon } from '../components/spotify-artists';
-import { ToastContainer, ValidationErrorToast } from '../components/toast';
-import { useAppTheme } from '../app-theme/app-theme';
+import { notifyErrorToast, notifyIconToast } from '../components/toast';
 import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
 
 type SpotifyArtistItem = {
@@ -24,29 +21,15 @@ type PostSpotifyAuthorizeResponse = {
   authorize_url: string
 };
 
-const notifyError = (error: string) =>
-  notify<React.FC>('toast', () => <ValidationErrorToast error={error} />);
-
 const notifyConnectFailed = () =>
-  notifyError('Couldn’t connect Spotify. Try again later.');
-
-const ConnectedToast = () => {
-  const { appTheme } = useAppTheme();
-
-  return (
-    <ToastContainer>
-      <SpotifyIcon size={24} color={appTheme.secondaryColor} />
-      <DefaultText style={{ color: appTheme.secondaryColor, fontWeight: '700' }}>
-        Spotify connected
-      </DefaultText>
-    </ToastContainer>
-  );
-};
+  notifyErrorToast('Couldn’t connect Spotify. Try again later.');
 
 const reportConnectResult = (params: URLSearchParams): boolean => {
   const connected = params.get('spotify') === 'connected';
   if (connected) {
-    notify<React.FC>('toast', ConnectedToast);
+    notifyIconToast('Spotify connected', (color) =>
+      <SpotifyIcon size={24} color={color} />
+    );
   } else if (params.get('spotify_error') !== 'access_denied') {
     notifyConnectFailed();
   }
@@ -105,7 +88,7 @@ const showPendingSpotifyConnectToast = (): void => {
 const disconnectSpotify = async (): Promise<void> => {
   const response = await japi('post', '/disconnect-spotify');
   if (!response.ok) {
-    notifyError('Couldn’t disconnect Spotify. Try again later.');
+    notifyErrorToast('Couldn’t disconnect Spotify. Try again later.');
     return;
   }
   patchProfileInfo({ spotify_artists: [], spotify_connected: false });

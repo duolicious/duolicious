@@ -1,5 +1,5 @@
 from serviceshared.constants import ONLINE_RECENTLY_SECONDS
-from serviceshared.commonsql import PHOTO_GEOMETRY, Q_COMPUTED_FLAIR
+from serviceshared.commonsql import PHOTO_GEOMETRY, computed_flair_sql
 from serviceshared.gold.sql import has_gold_sql
 from service.api.qanda import ANSWER_VISIBLE_TO_OTHERS
 
@@ -608,7 +608,7 @@ WITH searcher AS (
         iso8601_utc(mapped_last_online_time) AS time,
         mapped_last_online_time AS last_event_time,
         mapped_last_event_data,
-        ({Q_COMPUTED_FLAIR}) AS flair,
+        ({computed_flair_sql('person_data')}) AS flair,
         age,
         gender,
         location,
@@ -1154,7 +1154,7 @@ WITH searcher AS (
         iso8601_utc(came_online_time) AS came_online_time_iso,
         came_online_time,
         mapped_last_event_data,
-        ({Q_COMPUTED_FLAIR}) AS flair,
+        ({computed_flair_sql('person_data')}) AS flair,
         age,
         gender,
         location,
