@@ -52,7 +52,6 @@ const subscriptionJson = (sub) => ({
     {
       rel: 'approve',
       href: `http://localhost:${PORT}/approve?subscription_id=${sub.id}`,
-      method: 'GET',
     },
   ],
 });
@@ -65,17 +64,23 @@ app.post('/v1/oauth2/token', (req, res) => {
   res.status(200).json({ access_token: 'mock-access-token' });
 });
 
+const newSubscription = (id, fields) => subscriptions[id] = {
+  id,
+  status: 'ACTIVE',
+  custom_id: null,
+  start_time: new Date().toISOString(),
+  last_payment_time: null,
+  return_url: null,
+  ...fields,
+};
+
 app.post('/v1/billing/subscriptions', requireBearer, (req, res) => {
   subscriptionCounter += 1;
-  const sub = {
-    id: `I-MOCK-${subscriptionCounter}`,
+  const sub = newSubscription(`I-MOCK-${subscriptionCounter}`, {
     status: 'APPROVAL_PENDING',
     custom_id: req.body.custom_id ?? null,
-    start_time: new Date().toISOString(),
-    last_payment_time: null,
     return_url: req.body.application_context?.return_url,
-  };
-  subscriptions[sub.id] = sub;
+  });
   res.status(201).json(subscriptionJson(sub));
 });
 
@@ -122,15 +127,8 @@ app.get('/approve', (req, res) => {
 });
 
 app.post('/control/subscriptions/:id', (req, res) => {
-  const sub = subscriptions[req.params.id] ?? {
-    id: req.params.id,
-    status: 'ACTIVE',
-    custom_id: null,
-    start_time: new Date().toISOString(),
-    last_payment_time: null,
-    return_url: null,
-  };
-  subscriptions[sub.id] = Object.assign(sub, req.body);
+  const { id } = req.params;
+  Object.assign(subscriptions[id] ?? newSubscription(id), req.body);
   res.status(200).send();
 });
 

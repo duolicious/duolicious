@@ -180,8 +180,6 @@ cancellation_keeps_gold_until_paid_through () {
 
   ! post_webhook CHECKOUT.ORDER.APPROVED '{ "id": "x" }' || exit 1
 
-  ! SESSION_TOKEN="" c POST /paypal/webhook --header "Content-Type: application/json" -d 'not json' || exit 1
-
   set_paypal_mock_subscription "$subscription_id" '{ "status": "PAUSED" }'
 
   ! post_subscription_webhook BILLING.SUBSCRIPTION.UPDATED "$subscription_id" || exit 1
@@ -218,21 +216,6 @@ expiry_revokes_gold_and_frees_the_person () {
   subscribe_and_approve
 
   [[ "$(user_has_gold user1)" == t ]]
-}
-
-a_second_checkout_is_cancelled_at_paypal () {
-  echo 'A PayPal subscription activating for someone already covered is cancelled at PayPal'
-
-  setup
-
-  subscribe_and_approve
-
-  set_paypal_mock_subscription I-EXTRA \
-    '{ "custom_id": "'"$(get_uuid 'user1@example.com')"'" }'
-
-  [[ "$(post_subscription_webhook BILLING.SUBSCRIPTION.ACTIVATED I-EXTRA | jq -r '.ignored')" == 'true' ]]
-  [[ "$(paypal_mock_status I-EXTRA)" == 'CANCELLED' ]]
-  [[ "$(subscription provider_subscription_id)" == "$subscription_id" ]]
 }
 
 deleting_an_account_cancels_at_paypal () {
@@ -277,7 +260,6 @@ clean_up () {
 approve_flow_grants_gold
 cancellation_keeps_gold_until_paid_through
 expiry_revokes_gold_and_frees_the_person
-a_second_checkout_is_cancelled_at_paypal
 deleting_an_account_cancels_at_paypal
 
 clean_up

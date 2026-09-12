@@ -845,8 +845,7 @@ const Options = ({ navigation, data }: {
             ? <Button_ optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
             : <DefaultText style={{ color: '#999' }}>
                 Your Gold subscription is cancelled. Gold ends on {}
-                {new Intl.DateTimeFormat(undefined, { dateStyle: 'long' })
-                  .format(new Date(data.paypal_subscription.paid_until))}.
+                {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
               </DefaultText>
           }
         </>

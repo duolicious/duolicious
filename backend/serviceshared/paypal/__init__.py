@@ -140,14 +140,12 @@ async def _request(
                 data=dict(grant_type='client_credentials'),
                 auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
             )
+            access_token = _Token.model_validate(
+                token.raise_for_status().json()).access_token
             response = await client.request(
                 method,
                 f'{PAYPAL_API_URL}{path}',
-                headers={
-                    'Authorization': 'Bearer ' + _Token.model_validate(
-                        token.raise_for_status().json()).access_token,
-                    'Content-Type': 'application/json',
-                },
+                headers=dict(Authorization=f'Bearer {access_token}'),
                 json=json_body,
             )
         return model.model_validate(

@@ -12,9 +12,7 @@ from serviceshared.util import Json
 from serviceshared.util.coerce import integer, string
 from service.api.async_lru_cache import AsyncLruCache
 from service.api.auth.oauth_redirect import redirect
-
 from service.api.gold.sql import Q_LIVE_PAYPAL_SUBSCRIPTION_IDS
-
 from serviceshared.duoenv.api import (
     PAYPAL_APEX_REDIRECT_URL,
     PAYPAL_RETURN_URL,
