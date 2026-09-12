@@ -4,9 +4,9 @@ import {
 import * as _ from "lodash";
 import { sessionToken } from '../kv-storage/session-token';
 import { makeBackoff } from '../util/util';
-import { nextEvent, notify } from '../events/events';
+import { nextEvent } from '../events/events';
 import { EV_NETWORK_CAME_ONLINE } from '../network/network';
-import { ValidationErrorToast, SOMETHING_WENT_WRONG } from '../components/toast';
+import { SOMETHING_WENT_WRONG, notifyErrorToast } from '../components/toast';
 
 const CLIENT_VERSION = 10;
 
@@ -124,7 +124,7 @@ const api = async <T = unknown>(
 
   if (validationErrors && showValidationToast) {
     for (const error of validationErrors) {
-      notify<React.FC>('toast', () => <ValidationErrorToast error={error} />);
+      notifyErrorToast(error);
     }
   }
 

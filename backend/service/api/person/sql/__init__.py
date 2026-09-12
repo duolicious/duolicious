@@ -1385,6 +1385,17 @@ WITH photo_ AS (
     FROM person
     WHERE id = %(person_id)s
 
+), paypal_subscription AS (
+    SELECT
+        json_build_object(
+            'can_cancel', expires_at = 'infinity',
+            'paid_until', iso8601_utc(expires_at)
+        ) AS j
+    FROM gold_subscription
+    WHERE person_id = %(person_id)s
+    AND provider = 'paypal'
+    AND expires_at > NOW()
+
 ), unit AS (
     SELECT unit.name AS j
     FROM unit JOIN person ON unit_id = unit.id
@@ -1526,6 +1537,8 @@ SELECT
 
         'flair', (SELECT j FROM flair)
 
+    )::jsonb || jsonb_build_object(
+        'paypal_subscription', (SELECT j FROM paypal_subscription)
     ) AS j
 """
 

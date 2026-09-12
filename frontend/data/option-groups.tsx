@@ -36,7 +36,7 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { patchProfileInfo } from '../events/profile-info';
+import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
 import {
   getSearchFilters,
   patchSearchFilters,
@@ -1250,6 +1250,22 @@ const deactivationOptionGroups: OptionGroup<OptionGroupNone>[] = [
             navigationContainerRef.reset({ routes: [ { name: 'Welcome' } ]});
           }
           return false;
+        }
+      }
+    }
+  },
+];
+
+const cancelGoldOptionGroups: OptionGroup<OptionGroupNone>[] = [
+  {
+    title: 'Cancel Gold',
+    description: 'Are you sure you want to cancel your Gold subscription? You’ll keep Gold until the end of the period you’ve paid for, and you won’t be charged again. Press “continue” to cancel.',
+    input: {
+      none: {
+        submit: async () => {
+          const { ok } = await japi('post', '/paypal/cancel');
+          if (ok) await refreshProfileInfo();
+          return ok;
         }
       }
     }
@@ -2560,6 +2576,7 @@ export {
   OptionGroupVerificationChecker,
   basicsOptionGroups,
   createAccountOptionGroups,
+  cancelGoldOptionGroups,
   deactivationOptionGroups,
   deletionOptionGroups,
   defaultSearchFilters,

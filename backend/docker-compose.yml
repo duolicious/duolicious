@@ -105,6 +105,15 @@ services:
       DUO_SPOTIFY_WEB_REDIRECT_URL: http://localhost:8081/profile
       DUO_SPOTIFY_APEX_REDIRECT_URL: http://localhost:8081/profile
       DUO_SPOTIFY_APP_REDIRECT_URL: app.duolicious://spotify
+
+      DUO_PAYPAL_API_URL: http://paypalmock:3004
+      DUO_PAYPAL_CLIENT_ID: dev-paypal-client-id
+      DUO_PAYPAL_CLIENT_SECRET: dev-paypal-client-secret
+      DUO_PAYPAL_PLAN_ID: P-TEST
+      DUO_PAYPAL_WEBHOOK_ID: WH-DEV
+      DUO_PAYPAL_RETURN_URL: http://localhost:5000/paypal/return
+      DUO_PAYPAL_WEB_REDIRECT_URL: http://localhost:8081/
+      DUO_PAYPAL_APEX_REDIRECT_URL: http://localhost:8081/
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -231,6 +240,23 @@ services:
 
     ports:
       - "3003:3003"
+
+  paypalmock:
+    build:
+      context: .
+      dockerfile: nodemock.Dockerfile
+      args:
+        MOCK: paypalmock
+
+    volumes:
+      - ./test/paypalmock/index.js:/usr/src/app/index.js
+
+    environment:
+      PAYPAL_MOCK_CLIENT_ID: dev-paypal-client-id
+      PAYPAL_MOCK_CLIENT_SECRET: dev-paypal-client-secret
+
+    ports:
+      - "3004:3004"
 
   firehol:
     build:
