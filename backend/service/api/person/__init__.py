@@ -870,14 +870,13 @@ async def delete_or_ban_account(
         else:
             session_token_hashes = []
 
-        subscription_ids = await live_subscription_ids(tx, person_ids)
+        for subscription_id in await live_subscription_ids(tx, person_ids):
+            if not await paypal.cancel_subscription(subscription_id):
+                raise Exception('Deletion failed; Cannot cancel subscription')
 
         await tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
 
     await sign_out(session_token_hashes)
-
-    for subscription_id in subscription_ids:
-        await paypal.cancel_subscription(subscription_id)
 
     return rows
 
