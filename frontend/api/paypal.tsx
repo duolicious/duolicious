@@ -11,7 +11,7 @@ const showPendingPayPalResultToast = (): void => {
   const label = GOLD_TOAST_LABELS.get(
     takeWebReturnParams(['paypal'])?.get('paypal') ?? '');
   if (label) {
-    notifyIconToast(label, () => <Logo14 size={24} color="#ffd700" />);
+    notifyIconToast(label, (color) => <Logo14 size={24} color={color} />);
   }
 };
 
