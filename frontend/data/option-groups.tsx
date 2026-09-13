@@ -36,7 +36,8 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { patchProfileInfo, refreshProfileInfo } from '../events/profile-info';
+import { patchProfileInfo } from '../events/profile-info';
+import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
   patchSearchFilters,
@@ -1262,11 +1263,7 @@ const cancelGoldOptionGroups: OptionGroup<OptionGroupNone>[] = [
     description: 'Are you sure you want to cancel your Gold subscription? You’ll keep Gold until the end of the period you’ve paid for, and you won’t be charged again. Press “continue” to cancel.',
     input: {
       none: {
-        submit: async () => {
-          const { ok } = await japi('post', '/paypal/cancel');
-          if (ok) await refreshProfileInfo();
-          return ok;
-        }
+        submit: cancelPaypalSubscription,
       }
     }
   },
