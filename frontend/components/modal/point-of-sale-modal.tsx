@@ -12,6 +12,7 @@ import { setSignedInUser } from '../../events/signed-in-user';
 import { getPurchasable } from '../../purchases/purchases';
 import { Purchasable } from '../../purchases/offering';
 import { isMobileWeb, pluralize } from '../../util/util';
+import { useAppTheme } from '../../app-theme/app-theme';
 import * as _ from 'lodash';
 
 const cardPadding = 20;
@@ -80,6 +81,7 @@ const OfferingCard = ({
   const [hasError, setHasError] = useState(false);
   const [purchasable, setPurchasable] = useState<Purchasable | null>();
   const { height: windowHeight } = useWindowDimensions();
+  const { appTheme } = useAppTheme();
 
   useEffect(() => {
     getPurchasable().then(setPurchasable, () => setPurchasable(null));
@@ -164,7 +166,7 @@ const OfferingCard = ({
               gap: 3,
             }}
           >
-            <Logo14 size={14 * 2} color="black" rectSize={0.3} />
+            <Logo14 size={14 * 2} color={appTheme.secondaryColor} rectSize={0.3} />
             <DefaultText
               style={{
                 fontFamily: 'TruenoBold',
@@ -312,6 +314,7 @@ const OfferingCard = ({
 
 const PointOfSaleModal = () => {
   const isVisible = useShowPointOfSale();
+  const { appTheme } = useAppTheme();
 
   const onPressClose = useCallback(() => showPointOfSale(false), []);
 
@@ -344,7 +347,7 @@ const PointOfSaleModal = () => {
               maxWidth: 600,
               padding: 20,
               gap: 20,
-              backgroundColor: 'white',
+              backgroundColor: appTheme.primaryColor,
               borderRadius: 5,
               flexDirection: 'column',
               overflow: 'hidden',
