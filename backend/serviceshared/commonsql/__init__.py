@@ -180,7 +180,8 @@ SELECT
     ) AS is_allowed_club_name
 """
 
-Q_COMPUTED_FLAIR = f"""
+def computed_flair_sql(person: str) -> str:
+    return f"""
     SELECT
         COALESCE(
             array_agg(DISTINCT e ORDER BY e),
@@ -190,7 +191,7 @@ Q_COMPUTED_FLAIR = f"""
         SELECT
             unnest(flair) AS e
         UNION
-            SELECT 'gold' WHERE {has_gold_sql('id')}
+            SELECT 'gold' WHERE {has_gold_sql(f'{person}.id')}
         UNION
             SELECT CASE
                 WHEN count_answers >= 1000 THEN 'q-and-a-1000'

@@ -1,0 +1,10 @@
+{
+  "name": "paypalmock",
+  "version": "1.0.0",
+  "description": "Mocks PayPal's subscriptions, plans and webhook-verification endpoints during tests.",
+  "main": "index.js",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

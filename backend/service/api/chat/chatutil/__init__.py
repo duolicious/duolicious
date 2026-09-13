@@ -61,7 +61,7 @@ SELECT id FROM person WHERE uuid = uuid_or_null(%(username)s)
 
 
 Q_FETCH_HAS_GOLD = f"""
-SELECT {has_gold_sql('id')} AS has_gold FROM person WHERE uuid = uuid_or_null(%(username)s)
+SELECT {has_gold_sql('person.id')} AS has_gold FROM person WHERE uuid = uuid_or_null(%(username)s)
 """
 
 

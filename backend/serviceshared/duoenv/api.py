@@ -53,6 +53,15 @@ SPOTIFY_APP_REDIRECT_URL = str_with(
     'app.duolicious://spotify',
 )
 
+PAYPAL_API_URL = str_with('DUO_PAYPAL_API_URL', 'https://api-m.paypal.com')
+PAYPAL_CLIENT_ID = required_str('DUO_PAYPAL_CLIENT_ID')
+PAYPAL_CLIENT_SECRET = required_str('DUO_PAYPAL_CLIENT_SECRET')
+PAYPAL_PLAN_ID = required_str('DUO_PAYPAL_PLAN_ID')
+PAYPAL_WEBHOOK_ID = required_str('DUO_PAYPAL_WEBHOOK_ID')
+PAYPAL_RETURN_URL = str_with('DUO_PAYPAL_RETURN_URL', 'https://api.duolicious.app/paypal/return')
+PAYPAL_WEB_REDIRECT_URL = str_with('DUO_PAYPAL_WEB_REDIRECT_URL', 'https://web.duolicious.app/')
+PAYPAL_APEX_REDIRECT_URL = str_with('DUO_PAYPAL_APEX_REDIRECT_URL', 'https://duolicious.app/')
+
 VAPID_SUBJECT = str_with('DUO_VAPID_SUBJECT', 'mailto:support@duolicious.app')
 VAPID_PRIVATE_KEY = str_with('DUO_VAPID_PRIVATE_KEY', '')
 

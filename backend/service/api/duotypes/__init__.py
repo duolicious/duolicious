@@ -27,6 +27,7 @@ from dateutil.relativedelta import relativedelta
 from PIL import Image
 from pillow_heif import register_heif_opener
 from serviceshared import constants
+from serviceshared.paypal import PaypalSubscription
 import io
 import base64
 import binascii
@@ -705,6 +706,14 @@ class PostSearchFilterAnswer(BaseModel):
 
 class PostSpotifyAuthorize(BaseModel):
     redirect_target: Literal['web', 'apex', 'app']
+
+
+class PostPaypalSubscribe(BaseModel):
+    redirect_target: Literal['web', 'apex']
+
+
+class PostPaypalWebhook(BaseModel):
+    resource: PaypalSubscription
 
 
 class PostJoinClub(BaseModel):
