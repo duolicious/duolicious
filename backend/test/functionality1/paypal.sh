@@ -90,7 +90,7 @@ approve_flow_grants_gold () {
 
   setup
 
-  [[ "$(c GET /paypal/plan | jq -cS .)" == '{"currency":"USD","cycle":{"unit":"month","units":1},"description":"Dark mode, custom themes and more","price":"4.99","product_name":"Gold","trial":{"unit":"day","units":7}}' ]]
+  [[ "$(c GET /paypal/plan | jq -cS .)" == '{"currency":"USD","cycle":{"unit":"week","units":1},"price":"0.99","product_name":"Gold","trial":{"unit":"day","units":7}}' ]]
 
   echo 'Pressing cancel on the PayPal page returns without gold'
 
@@ -172,10 +172,10 @@ cancellation_keeps_gold_until_paid_through () {
   jc POST /paypal/cancel
 
   [[ "$(user_has_gold user1)" == t ]]
-  [[ "$(subscription expires_at)" == "2099-02-28 00:00:00" ]]
+  [[ "$(subscription expires_at)" == "2099-02-07 00:00:00" ]]
   [[ "$(paypal_mock_status "$subscription_id")" == 'CANCELLED' ]]
   [[ "$(profile_paypal | jq -r '.can_cancel')" == 'false' ]]
-  [[ "$(profile_paypal | jq -r '.paid_until')" == "$(q "select iso8601_utc('2099-02-28'::timestamp)")" ]]
+  [[ "$(profile_paypal | jq -r '.paid_until')" == "$(q "select iso8601_utc('2099-02-07'::timestamp)")" ]]
 
   echo 'An activation webhook grants gold even if the return never arrives'
 
@@ -205,7 +205,7 @@ cancellation_keeps_gold_until_paid_through () {
 
   [[ "$(post_subscription_webhook BILLING.SUBSCRIPTION.CREATED I-PENDING | jq -r '.ignored')" == 'true' ]]
 
-  [[ "$(q "select expires_at from gold_subscription where person_id = (select id from person where email = 'user1@example.com')")" == "2099-02-28 00:00:00" ]]
+  [[ "$(q "select expires_at from gold_subscription where person_id = (select id from person where email = 'user1@example.com')")" == "2099-02-07 00:00:00" ]]
   [[ "$(subscription 'count(*)')" == "2" ]]
 }
 

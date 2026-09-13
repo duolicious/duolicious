@@ -9,7 +9,6 @@ MONTHLY = paypal.PaypalPlan(
     currency='USD',
     cycle=paypal.PaypalInterval(units=1, unit='month'),
     trial=paypal.PaypalInterval(units=7, unit='day'),
-    description='',
 )
 YEARLY = MONTHLY.model_copy(
     update=dict(cycle=paypal.PaypalInterval(units=1, unit='year')))

@@ -9,7 +9,6 @@ const expectedAuthorization = 'Basic ' + Buffer.from(
 const plan = {
   id: 'P-TEST',
   name: 'Gold',
-  description: 'Dark mode, custom themes and more',
   billing_cycles: [
     {
       tenure_type: 'TRIAL',
@@ -20,8 +19,8 @@ const plan = {
     {
       tenure_type: 'REGULAR',
       total_cycles: 0,
-      frequency: { interval_unit: 'MONTH', interval_count: 1 },
-      pricing_scheme: { fixed_price: { value: '4.99', currency_code: 'USD' } },
+      frequency: { interval_unit: 'WEEK', interval_count: 1 },
+      pricing_scheme: { fixed_price: { value: '0.99', currency_code: 'USD' } },
     },
   ],
 };

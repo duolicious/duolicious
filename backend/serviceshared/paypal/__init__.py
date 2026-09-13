@@ -91,7 +91,6 @@ class _RegularCycle(BaseModel):
 
 class _Plan(BaseModel):
     name: str
-    description: str | None = None
     billing_cycles: list[
         Annotated[_TrialCycle | _RegularCycle, Field(discriminator='tenure_type')]
     ]
@@ -103,7 +102,6 @@ class PaypalPlan(BaseModel):
     currency: str
     cycle: PaypalInterval
     trial: PaypalInterval | None
-    description: str
 
 
 class _Token(BaseModel):
@@ -227,7 +225,6 @@ async def fetch_plan() -> PaypalPlan | None:
         cycle=regular.frequency.interval(),
         trial=None if trial is None else trial.frequency.interval(
             trial.total_cycles),
-        description=plan.description or '',
     )
 
 
