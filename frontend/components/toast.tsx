@@ -25,6 +25,11 @@ const SLIDE_DURATION = 300;
 const HOLD_DURATION = 3000;
 const SWIPE_DISMISS_THRESHOLD = 20;
 
+type ToastItem = {
+  Content: React.FC,
+  holdDuration: number,
+};
+
 const slideOut = (
   translateY: SharedValue<number>,
   onDismiss: () => void,
@@ -41,12 +46,13 @@ const slideOut = (
 const slideInAndHold = (
   translateY: SharedValue<number>,
   onDismiss: () => void,
+  holdDuration: number,
 ) => {
   'worklet';
   translateY.value = withSequence(
     withTiming(0, { duration: SLIDE_DURATION }),
     withDelay(
-      HOLD_DURATION,
+      holdDuration,
       withTiming(HIDDEN_POSITION, { duration: SLIDE_DURATION }, (finished) => {
         if (finished) {
           runOnJS(onDismiss)();
@@ -60,8 +66,8 @@ const Toast: React.FC = () => {
   const insets = useSafeAreaInsets();
   const translateY = useSharedValue(HIDDEN_POSITION);
 
-  const [toastQueue, setToastQueue] = useState<React.FC[]>([]);
-  const [currentToast, setCurrentToast] = useState<React.FC | null>(null);
+  const [toastQueue, setToastQueue] = useState<ToastItem[]>([]);
+  const [currentToast, setCurrentToast] = useState<ToastItem | null>(null);
 
   const dismiss = useCallback(() => setCurrentToast(null), []);
 
@@ -78,7 +84,7 @@ const Toast: React.FC = () => {
         if (e.translationY < -SWIPE_DISMISS_THRESHOLD) {
           slideOut(translateY, dismiss, SLIDE_DURATION / 2);
         } else {
-          slideInAndHold(translateY, dismiss);
+          slideInAndHold(translateY, dismiss, HOLD_DURATION);
         }
       }),
     [translateY, dismiss],
@@ -106,15 +112,18 @@ const Toast: React.FC = () => {
     }
 
     translateY.value = HIDDEN_POSITION;
-    slideInAndHold(translateY, dismiss);
+    slideInAndHold(translateY, dismiss, currentToast.holdDuration);
   }, [currentToast === null]);
 
   useEffect(() => {
-    const appendToast = (content: React.FC) => {
-      setToastQueue(prevQueue => [...prevQueue, content]);
+    const appendToast = (content: React.FC | ToastItem) => {
+      const item = typeof content === 'function'
+        ? { Content: content, holdDuration: HOLD_DURATION }
+        : content;
+      setToastQueue(prevQueue => [...prevQueue, item]);
     };
 
-    return listen<React.FC>('toast', appendToast);
+    return listen<React.FC | ToastItem>('toast', appendToast);
   }, []);
 
   if (currentToast) {
@@ -135,7 +144,7 @@ const Toast: React.FC = () => {
       >
         <GestureDetector gesture={swipeUp}>
           <View>
-            <RenderedHoc Hoc={currentToast}/>
+            <RenderedHoc Hoc={currentToast.Content}/>
           </View>
         </GestureDetector>
       </Animated.View>
@@ -209,21 +218,33 @@ const ValidationErrorToast = ({error}: {error: string}) => {
   );
 };
 
-const notifyLinkCopiedToast = (label: string) => {
+const notifyErrorToast = (error: string) =>
+  notify<React.FC>('toast', () => <ValidationErrorToast error={error} />);
+
+const notifyIconToast = (
+  label: string,
+  icon: (color: string) => React.ReactNode,
+  holdDuration: number = HOLD_DURATION,
+) => {
   const Toast: React.FC = () => {
     const { appTheme } = useAppTheme();
 
     return (
       <ToastContainer>
-        <FontAwesomeIcon icon={faLink} color={appTheme.secondaryColor} size={24} />
+        {icon(appTheme.secondaryColor)}
         <DefaultText style={{ color: appTheme.secondaryColor, fontWeight: '700' }}>
           {label}
         </DefaultText>
       </ToastContainer>
     );
   };
-  notify<React.FC>('toast', Toast);
+  notify<ToastItem>('toast', { Content: Toast, holdDuration });
 };
+
+const notifyLinkCopiedToast = (label: string) =>
+  notifyIconToast(label, (color) =>
+    <FontAwesomeIcon icon={faLink} color={color} size={24} />
+  );
 
 export {
   SOMETHING_WENT_WRONG,
@@ -231,5 +252,7 @@ export {
   Toast,
   ToastContainer,
   ValidationErrorToast,
+  notifyErrorToast,
+  notifyIconToast,
   notifyLinkCopiedToast,
 };

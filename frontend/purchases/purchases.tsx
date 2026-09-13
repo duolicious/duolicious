@@ -1,14 +1,13 @@
 import 'react-native-get-random-values';
 import { Platform } from 'react-native';
-import Purchases, { PurchasesOffering } from 'react-native-purchases';
+import Purchases, {
+  PurchasesOffering,
+  PurchasesPackage,
+} from 'react-native-purchases';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getSignedInUser } from '../events/signed-in-user';
 import { memoizeWithTtl } from '../util/util';
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   PURE UTILITIES (easy to unit test)
-   ─────────────────────────────────────────────────────────────────────────────
-*/
+import { Offering, Purchasable, PurchaseResult } from './offering';
 
 type ApiKeys = {
   apple: string;
@@ -22,7 +21,6 @@ const API_KEYS: ApiKeys = {
   web: 'rcb_MXlKZzQKIINGfBiYlObkCLZXxzrH',
 };
 
-// 5 minutes
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
 const isExpoGo =
@@ -35,10 +33,20 @@ const selectApiKey = (os: string, expoGo: boolean, keys: ApiKeys): string => {
   return keys.web;
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   IMPURE BOUNDARY (side effects / SDK calls kept here)
-   ─────────────────────────────────────────────────────────────────────────────
-*/
+const toOffering = (
+  offering: PurchasesOffering,
+  pkg: PurchasesPackage,
+): Offering => ({
+  product_name: offering.serverDescription,
+  price: pkg.product.priceString,
+  currency: pkg.product.currencyCode,
+  cycle: { units: 1, unit: pkg.packageType.toLowerCase().replace(/ly$/, '') },
+  trial: pkg.product.introPrice && {
+    units: pkg.product.introPrice.periodNumberOfUnits,
+    unit: pkg.product.introPrice.periodUnit.toLowerCase(),
+  },
+  description: String(offering.metadata.description),
+});
 
 let configuredForAppUserId: string | undefined;
 let configureInFlight: Promise<void> | null = null;
@@ -95,21 +103,13 @@ const ensurePurchasesConfigured = async (): Promise<void> => {
   await startConfigure(() => configureForUser(personUuid, apiKey));
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   OFFERINGS (5-minute TTL)
-   ─────────────────────────────────────────────────────────────────────────────
-*/
-
 const fetchCurrentOfferingForUser = async (
   _: string
 ): Promise<PurchasesOffering | null> => {
-  // Note: personUuid is only used for cache keying; Purchases SDK is already
-  // configured for the active user when this is called.
   const offerings = await Purchases.getOfferings();
   return offerings?.current ?? null;
 };
 
-// Memoized per-user by keyFn = personUuid
 const getCurrentOfferingForUserMemoized = memoizeWithTtl<
   PurchasesOffering | null, [string]
 >(
@@ -118,23 +118,35 @@ const getCurrentOfferingForUserMemoized = memoizeWithTtl<
   (personUuid) => personUuid
 );
 
-const getCurrentOfferingCached = async (): Promise<
-  PurchasesOffering | null
-> => {
+const purchasePackage = async (
+  pkg: PurchasesPackage,
+): Promise<PurchaseResult> => {
+  try {
+    const { customerInfo } = await Purchases.purchasePackage(pkg);
+    return customerInfo.allPurchasedProductIdentifiers.includes(
+      pkg.product.identifier) ? 'purchased' : 'failed';
+  } catch (e) {
+    if (e?.userCancelled) return 'cancelled';
+    console.error(e);
+    return 'failed';
+  }
+};
+
+const getPurchasable = async (): Promise<Purchasable | null> => {
   const personUuid = getSignedInUser()?.personUuid;
   if (!personUuid) return null;
 
   await ensurePurchasesConfigured();
   const offering = await getCurrentOfferingForUserMemoized(personUuid);
-  return offering ?? null;
+  const pkg = offering?.availablePackages.at(0);
+  if (!offering || !pkg) return null;
+
+  return {
+    offering: toOffering(offering, pkg),
+    purchase: () => purchasePackage(pkg),
+  };
 };
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   EXPORTS
-   ─────────────────────────────────────────────────────────────────────────────
-*/
-
 export {
-  ensurePurchasesConfigured,
-  getCurrentOfferingCached,
+  getPurchasable,
 };

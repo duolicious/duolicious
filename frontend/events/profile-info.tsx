@@ -55,6 +55,7 @@ type ProfileInfo = {
   spotify_connected?: boolean;
   spotify_artists_synced?: boolean;
   spotify_tester?: boolean;
+  paypal_subscription?: { can_cancel: boolean, paid_until: string } | null;
   public_profile?: string;
   photo?: { [position: string]: string | null };
   photo_extra_exts?: { [position: string]: string[] };
