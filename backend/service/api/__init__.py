@@ -23,7 +23,7 @@ from service.api import qanda
 from service.api import search
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
 from service.api.auth import apple_oauth, spotify_oauth
-from service.api.gold import revenuecat
+from service.api.gold import paypal, revenuecat
 from service.api.qanda import question
 from service.api.asgi import app
 from service.api.auth.bearer import session
@@ -553,6 +553,32 @@ async def get_export_data(token: str) -> object:
 @app.post('/revenuecat')
 async def post_revenuecat(request: Request, req: t.PostRevenuecat) -> object:
     return await revenuecat.post_revenuecat(req, request)
+
+@app.get('/paypal/plan')
+async def get_paypal_plan() -> object:
+    return await paypal.get_plan()
+
+@app.post('/paypal/subscribe')
+async def post_paypal_subscribe(
+    req: t.PostPaypalSubscribe,
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    return await paypal.post_subscribe(req, s)
+
+@app.get('/paypal/return/{target}')
+async def get_paypal_return(
+    target: str = FastApiPath(pattern='^(web|apex)$'),
+    subscription_id: str = '',
+) -> object:
+    return await paypal.get_return(target, subscription_id)
+
+@app.post('/paypal/cancel')
+async def post_paypal_cancel(s: t.SessionInfo = Depends(session())) -> object:
+    return await paypal.post_cancel(s)
+
+@app.post('/paypal/webhook')
+async def post_paypal_webhook(request: Request, req: t.PostPaypalWebhook) -> object:
+    return await paypal.post_webhook(req, request)
 
 @app.websocket('/chat')
 async def websocket_chat(websocket: WebSocket) -> None:

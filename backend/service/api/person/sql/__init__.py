@@ -9,7 +9,7 @@ from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
 from serviceshared.gold.sql import club_quota_sql, has_gold_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
-    Q_COMPUTED_FLAIR,
+    computed_flair_sql,
     Q_IS_ALLOWED_CLUB_NAME,
     Q_IS_REGISTERED_BY_NORMALIZED_EMAIL,
 )
@@ -879,7 +879,7 @@ WITH prospect_base AS (
         ) AS j
 ), flair AS (
     SELECT
-        ({Q_COMPUTED_FLAIR}) AS computed_flair
+        ({computed_flair_sql('prospect')}) AS computed_flair
     FROM
         prospect
 )
@@ -1385,6 +1385,17 @@ WITH photo_ AS (
     FROM person
     WHERE id = %(person_id)s
 
+), paypal_subscription AS (
+    SELECT
+        json_build_object(
+            'can_cancel', expires_at = 'infinity',
+            'paid_until', iso8601_utc(expires_at)
+        ) AS j
+    FROM gold_subscription
+    WHERE person_id = %(person_id)s
+    AND provider = 'paypal'
+    AND expires_at > NOW()
+
 ), unit AS (
     SELECT unit.name AS j
     FROM unit JOIN person ON unit_id = unit.id
@@ -1459,7 +1470,7 @@ WITH photo_ AS (
 ), background_color AS (
     SELECT background_color AS j FROM person WHERE id = %(person_id)s
 ), flair AS (
-    SELECT ({Q_COMPUTED_FLAIR}) AS j FROM person WHERE id = %(person_id)s
+    SELECT ({computed_flair_sql('person')}) AS j FROM person WHERE id = %(person_id)s
 )
 SELECT
     json_build_object(
@@ -1526,6 +1537,8 @@ SELECT
 
         'flair', (SELECT j FROM flair)
 
+    )::jsonb || jsonb_build_object(
+        'paypal_subscription', (SELECT j FROM paypal_subscription)
     ) AS j
 """
 
