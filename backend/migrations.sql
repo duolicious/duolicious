@@ -27,3 +27,36 @@ CREATE TABLE IF NOT EXISTS person_spotify (
 
 CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
     ON person_spotify(attempted_at);
+
+DO $$ BEGIN
+    CREATE TYPE gold_subscription_provider AS ENUM ('revenuecat', 'paypal');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+CREATE TABLE IF NOT EXISTS gold_subscription (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    provider gold_subscription_provider NOT NULL,
+    provider_subscription_id TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    UNIQUE (provider, provider_subscription_id)
+);
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'person' AND column_name = 'has_gold'
+    ) THEN
+        INSERT INTO gold_subscription (provider, provider_subscription_id, person_id, expires_at)
+        SELECT 'revenuecat', uuid::text, id, 'infinity'
+        FROM person
+        WHERE has_gold;
+    END IF;
+END
+$$;
+
+ALTER TABLE person DROP COLUMN IF EXISTS has_gold;
+
+CREATE INDEX IF NOT EXISTS idx__gold_subscription__expires_at
+    ON gold_subscription(expires_at);

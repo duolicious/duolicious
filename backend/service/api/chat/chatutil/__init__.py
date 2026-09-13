@@ -1,6 +1,7 @@
 import redis.asyncio as redis
 
 from service.api.async_lru_cache import AsyncLruCache
+from serviceshared.gold.sql import has_gold_sql
 from collections.abc import Iterable
 from serviceshared.database import api_tx
 
@@ -59,8 +60,8 @@ SELECT id FROM person WHERE uuid = uuid_or_null(%(username)s)
 """
 
 
-Q_FETCH_HAS_GOLD = """
-SELECT has_gold FROM person WHERE uuid = uuid_or_null(%(username)s)
+Q_FETCH_HAS_GOLD = f"""
+SELECT {has_gold_sql('id')} AS has_gold FROM person WHERE uuid = uuid_or_null(%(username)s)
 """
 
 

@@ -4,11 +4,9 @@ from serviceshared.database import (
     api_tx,
     row_bool,
     row_int,
-    row_int_list_or_none,
 )
 from serviceshared.database._row import row_int_or_none
 from collections.abc import Mapping, Sequence
-from typing import Tuple
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
 from service.api.person.bestdistance import best_distance, distance_preference
@@ -1399,84 +1397,3 @@ async def get_export_data(token: str) -> object:
             'Content-Disposition': 'attachment; filename="export.json"',
         },
     )
-
-async def post_revenuecat(req: t.PostRevenuecat, auth_header: str) -> object:
-    def get_has_gold() -> Tuple[list[str], list[str]]:
-        match req.event:
-            case t.InitialPurchaseEvent(app_user_id=app_user_id):
-                return [], [app_user_id]
-            case t.RenewalEvent(app_user_id=app_user_id):
-                return [], [app_user_id]
-            case t.ExpirationEvent(app_user_id=app_user_id):
-                return [app_user_id], []
-            case t.TransferEvent(
-                    transferred_to=transferred_to,
-                    transferred_from=transferred_from):
-                return transferred_from, transferred_to
-
-        return [], []
-
-
-    def get_has_gold_params_seq() -> list[dict[str, object]]:
-        has_no_gold_uuids, has_gold_uuids = get_has_gold()
-
-        has_no_gold_params_seq = [
-            dict(
-                person_uuid=person_uuid,
-                has_gold=False,
-            )
-            for person_uuid in has_no_gold_uuids
-        ]
-
-        has_gold_params_seq = [
-            dict(
-                person_uuid=person_uuid,
-                has_gold=True
-            )
-            for person_uuid in has_gold_uuids
-        ]
-
-        return (
-            has_no_gold_params_seq +
-            has_gold_params_seq)
-
-
-    try:
-        bearer, revenuecat_token = auth_header.split()
-        if bearer.lower() != 'bearer':
-            raise Exception()
-    except:
-        return 'Missing or malformed authorization header', 400
-
-    has_gold_params_seq = get_has_gold_params_seq()
-
-    async with api_tx() as tx:
-        await tx.execute(
-            Q_SELECT_REVENUECAT_AUTHORIZED,
-            dict(token_hash_revenuecat=sha512(revenuecat_token)),
-        )
-        if not await tx.fetchone():
-            return 'Unauthorized', 401
-
-        if not has_gold_params_seq:
-            return 'Payload ignored because of its format', 200
-
-        updated_rows = []
-        for params in has_gold_params_seq:
-            row_tx = await tx.execute(Q_UPDATE_GOLD_FROM_REVENUECAT, params)
-            rows = await row_tx.fetchall()
-            tx.attribute(
-                person_id
-                for row in rows
-                for person_id in row_int_list_or_none(row, 'person_ids') or [])
-            updated_rows.extend(rows)
-
-        all_uuids = set(str(x['person_uuid']) for x in has_gold_params_seq)
-        updated_uuids = set(str(x['person_uuid']) for x in updated_rows)
-        ignored_uuids = all_uuids - updated_uuids
-
-        return dict(
-            all_uuids=sorted(all_uuids),
-            updated_uuids=sorted(updated_uuids),
-            ignored_uuids=sorted(ignored_uuids),
-        )

@@ -20,6 +20,7 @@ from service.api.person.images import (
 )
 from service.api.person.rudecheck import reject_rude_or_banned
 from service.api.person.sql import *
+from serviceshared.gold.sql import Q_HAS_GOLD
 from service.api.person.urlslug import assign_url_slug
 from serviceshared.commonsql import *
 from serviceshared.database import api_tx

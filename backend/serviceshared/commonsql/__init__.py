@@ -1,3 +1,5 @@
+from serviceshared.gold.sql import has_gold_sql
+
 # Whether a person already exists with this normalized email. Shared so the
 # sign-up OTP flow (`_OTP_CTE`) and the email-info lookup (`Q_EMAIL_INFO`) can
 # never disagree on what "registered" means.
@@ -178,7 +180,7 @@ SELECT
     ) AS is_allowed_club_name
 """
 
-Q_COMPUTED_FLAIR = """
+Q_COMPUTED_FLAIR = f"""
     SELECT
         COALESCE(
             array_agg(DISTINCT e ORDER BY e),
@@ -188,7 +190,7 @@ Q_COMPUTED_FLAIR = """
         SELECT
             unnest(flair) AS e
         UNION
-            SELECT 'gold' WHERE has_gold
+            SELECT 'gold' WHERE {has_gold_sql('id')}
         UNION
             SELECT CASE
                 WHEN count_answers >= 1000 THEN 'q-and-a-1000'

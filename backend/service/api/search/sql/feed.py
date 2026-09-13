@@ -1,5 +1,6 @@
 from serviceshared.constants import ONLINE_RECENTLY_SECONDS
 from serviceshared.commonsql import PHOTO_GEOMETRY, Q_COMPUTED_FLAIR
+from serviceshared.gold.sql import has_gold_sql
 from service.api.qanda import ANSWER_VISIBLE_TO_OTHERS
 
 # How many feed results to send to the client per request
@@ -272,7 +273,7 @@ WITH searcher AS (
             ) / 2
         )::SMALLINT AS match_percentage,
         flair,
-        has_gold,
+        {has_gold_sql('prospect.id')} AS has_gold,
         sign_up_time,
         -- Ads have been removed; this is kept as a constant so existing native
         -- clients (which validate this field) keep working without the DB
@@ -585,7 +586,7 @@ WITH searcher AS (
         )
 
         OR
-            prospect.has_gold
+            {has_gold_sql('prospect.id')}
     )
     -- Exclude the searcher from their own feed results
     AND
@@ -742,7 +743,7 @@ WITH searcher AS (
             ) / 2
         )::SMALLINT AS match_percentage,
         flair,
-        has_gold,
+        {has_gold_sql('prospect.id')} AS has_gold,
         sign_up_time,
         -- Ads have been removed; this is kept as a constant so existing native
         -- clients (which validate this field) keep working without the DB
@@ -1124,7 +1125,7 @@ WITH searcher AS (
         )
 
         OR
-            prospect.has_gold
+            {has_gold_sql('prospect.id')}
     )
     -- Exclude the searcher from their own feed results
     AND

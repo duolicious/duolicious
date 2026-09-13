@@ -6,6 +6,7 @@ from serviceshared.constants import (
     MIN_CLUB_PAGE_MEMBERS,
 )
 from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
+from serviceshared.gold.sql import club_quota_sql, has_gold_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     Q_COMPUTED_FLAIR,
@@ -16,9 +17,6 @@ from serviceshared.commonsql import (
 MAX_CLUB_SEARCH_RESULTS = 20
 
 MAX_SEARCH_FILTER_ANSWERS = 20
-
-CLUB_QUOTA_GOLD = 100
-CLUB_QUOTA_FREE = 50
 
 # How often the user should be nagged to donate, in days. The frequency
 # increases as funds run out.
@@ -120,7 +118,7 @@ ORDER BY
 #
 # Caller must define `existing_person_before_update` first as a CTE
 # yielding `(id)` with zero or one rows.
-_Q_POST_SIGN_IN_CTES = """
+_Q_POST_SIGN_IN_CTES = f"""
 existing_person AS (
     UPDATE
         person
@@ -137,7 +135,7 @@ existing_person AS (
         person.name,
         person.sign_up_time,
         person.count_answers,
-        person.has_gold
+        {has_gold_sql('person.id')} AS has_gold
 )
 """
 
@@ -1061,7 +1059,7 @@ WHERE
 Q_CHECK_SESSION_TOKEN = f"""
 SELECT
     name,
-    has_gold,
+    {has_gold_sql('person.id')} AS has_gold,
     {_Q_DO_SHOW_DONATION_NAG.format(table='person')},
     {_Q_ESTIMATED_END_DATE},
     (SELECT name FROM unit WHERE unit.id = person.unit_id) AS units
@@ -1942,11 +1940,7 @@ WITH is_allowed_club_name AS (
     {Q_IS_ALLOWED_CLUB_NAME.replace('%()s', '%(club_name)s')}
 ), quota AS (
   SELECT
-      CASE
-          WHEN person.has_gold
-          THEN {CLUB_QUOTA_GOLD}
-          ELSE {CLUB_QUOTA_FREE}
-      END as quota
+      {club_quota_sql(has_gold_sql('person.id'))} AS quota
   FROM
       person
   WHERE
@@ -2680,6 +2674,21 @@ SELECT json_build_object(
         ) AS t
     ),
 
+    'gold_subscription', (
+        SELECT
+            json_agg(row_to_json(t))
+        FROM (
+            SELECT
+                provider,
+                provider_subscription_id,
+                expires_at
+            FROM
+                gold_subscription
+            WHERE
+                person_id = %(person_id)s
+        ) AS t
+    ),
+
     'skipped', (
         SELECT
             json_agg(row_to_json(skipped))
@@ -2769,104 +2778,6 @@ SELECT
             %(pending_club_name)s::TEXT IS NOT NULL
     ) AS pending_club
 """
-
-Q_HAS_GOLD = """
-SELECT
-    has_gold
-FROM
-    person
-WHERE
-    id = %(person_id)s
-"""
-
-Q_SELECT_REVENUECAT_AUTHORIZED = """
-SELECT
-    1
-FROM
-    funding
-WHERE
-    token_hash_revenuecat = %(token_hash_revenuecat)s
-"""
-
-Q_UPDATE_GOLD_FROM_REVENUECAT = f"""
-WITH updated_person_with_gold AS (
-    UPDATE
-        person
-    SET
-        has_gold = TRUE
-    WHERE
-        person.uuid = uuid_or_null(%(person_uuid)s::TEXT)
-    AND
-        %(has_gold)s = TRUE
-    RETURNING
-        person.uuid
-), updated_person_without_gold AS (
-    UPDATE
-        person
-    SET
-        has_gold = FALSE,
-
-        title_color = DEFAULT,
-        body_color = DEFAULT,
-        background_color = DEFAULT,
-
-        show_my_location_id = DEFAULT,
-        show_my_age = DEFAULT,
-        show_my_looking_for = DEFAULT,
-        hide_me_from_strangers = DEFAULT,
-        browse_invisibly = DEFAULT
-    WHERE
-        person.uuid = uuid_or_null(%(person_uuid)s::TEXT)
-    AND
-        %(has_gold)s = FALSE
-    RETURNING
-        person.uuid
-), updated_person AS (
-    SELECT uuid FROM updated_person_with_gold
-    UNION
-    SELECT uuid FROM updated_person_without_gold
-), ranked_person_club AS (
-    SELECT
-        person_club.person_id,
-        person_club.club_name,
-        ROW_NUMBER() OVER (ORDER BY club.count_members ASC, club.name ASC) AS rn
-    FROM
-        person_club
-    JOIN
-        club
-    ON
-        club.name = person_club.club_name
-    JOIN
-        person
-    ON
-        person.id = person_club.person_id
-    WHERE
-        person.uuid = uuid_or_null(%(person_uuid)s::TEXT)
-), deleted_person_club AS (
-    DELETE FROM
-        person_club
-    USING
-        ranked_person_club
-    WHERE
-        person_club.person_id = ranked_person_club.person_id
-    AND
-        person_club.club_name = ranked_person_club.club_name
-    AND
-        ranked_person_club.rn > CASE
-            WHEN %(has_gold)s
-            THEN {CLUB_QUOTA_GOLD}
-            ELSE {CLUB_QUOTA_FREE}
-        END
-    RETURNING
-        person_club.person_id
-)
-SELECT
-    uuid AS person_uuid,
-    (SELECT array_agg(DISTINCT person_id) FROM deleted_person_club) AS person_ids
-FROM
-    updated_person
-"""
-
 
 # ---------------------------------------------------------------------------
 # Social login (Google / Apple)

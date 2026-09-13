@@ -285,7 +285,7 @@ setup_trustworthy_reporters () {
          count_answers = 10
      where email in ('reporter@gmail.com', 'reporter2@gmail.com')"
 
-  q "update person set has_gold = false where id = ${accused_id}"
+  set_gold false "id = ${accused_id}"
 }
 
 accused_is_shadow_banned () {
@@ -311,7 +311,7 @@ automod_shadow_bans_after_two_bot_reports () {
 automod_spares_gold_users () {
   setup_trustworthy_reporters
 
-  q "update person set has_gold = true where id = ${accused_id}"
+  set_gold true "id = ${accused_id}"
 
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "scammer" }'

@@ -7,6 +7,9 @@ MAX_AUDIO_SECONDS = 120 + 1
 
 MAX_NOTIFICATION_LENGTH = 128
 
+CLUB_QUOTA_GOLD = 100
+CLUB_QUOTA_FREE = 50
+
 # How recently someone must have been seen to be treated as "online recently"
 # by search (see `search.sql.feed`). Deliberately shorter than the window over
 # which presence itself is retained: search is ranking on freshness, so it wants
