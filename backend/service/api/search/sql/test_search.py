@@ -45,6 +45,8 @@ def maximal_prefs() -> Row:
     prefs: Row = {enum.param: [1] for enum in ENUM_FILTERS}
     prefs.update(
         distance_meters=1,
+        same_country_only=True,
+        searcher_country='United States',
         club_preference=None,
         sort_by='Match percentage',
         searcher_club_vector=Vector([0.0] * 64),

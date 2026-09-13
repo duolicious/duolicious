@@ -208,6 +208,11 @@ type OptionGroupSlider = {
     valueRewriter?: (v: number) => string,
     currentValue?: number,
     scale?: Scale,
+    toggle?: {
+      label: string,
+      submit: (input: boolean) => void,
+      currentValue?: boolean,
+    },
   }
 };
 
@@ -1504,6 +1509,17 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           patchSearchFilters({ furthest_distance: furthestDistance });
           return true;
         },
+        toggle: {
+          label: 'Same country only',
+          submit: (sameCountryOnly: boolean) => {
+            searchQueue.addTask(async () => (await japi(
+              'post',
+              '/search-filter',
+              { same_country_only: sameCountryOnly },
+            )).ok);
+            patchSearchFilters({ same_country_only: sameCountryOnly });
+          },
+        },
       },
     },
   },
@@ -2198,6 +2214,8 @@ const defaultSearchFilters = (): SearchFilters => {
       filters[key] = null;
     }
   }
+
+  filters.same_country_only = false;
 
   // `buttons` filters have no "unset" state; these mirror the server defaults.
   filters.last_online = lastOnlineDefault;

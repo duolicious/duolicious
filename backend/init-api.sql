@@ -746,6 +746,7 @@ CREATE TABLE IF NOT EXISTS search_preference (
     min_height_cm SMALLINT,
     max_height_cm SMALLINT,
     distance SMALLINT,
+    same_country_only BOOLEAN NOT NULL DEFAULT FALSE,
 
     last_online_id SMALLINT NOT NULL REFERENCES last_online(id) ON DELETE CASCADE,
 

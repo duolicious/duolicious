@@ -655,6 +655,7 @@ class PostSearchFilter(BaseModel):
     ethnicity: List[str] | None = Field(default=None, min_length=1)
     age: Age | None = None
     furthest_distance: int | None = None
+    same_country_only: bool | None = None
     height: Height | None = None
     body_type: List[str] | None = Field(default=None, min_length=1)
     has_a_profile_picture: List[str] | None = Field(default=None, min_length=1)

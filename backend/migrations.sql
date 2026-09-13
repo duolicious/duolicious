@@ -9,3 +9,4 @@
 -- init-api.sql is the source of truth for the current schema; migrations.sql
 -- carries the same change to already-created databases.
 
+ALTER TABLE search_preference ADD COLUMN IF NOT EXISTS same_country_only BOOLEAN NOT NULL DEFAULT FALSE;
