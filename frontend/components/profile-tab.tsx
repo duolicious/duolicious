@@ -838,19 +838,6 @@ const Options = ({ navigation, data }: {
         )
       }
 
-      {data.paypal_subscription &&
-        <>
-          <Title style={{ marginTop: 70 }}>Gold Subscription</Title>
-          {data.paypal_subscription.can_cancel
-            ? <Button_ optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
-            : <DefaultText style={{ color: '#999' }}>
-                Your Gold subscription is cancelled. Gold ends on {}
-                {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
-              </DefaultText>
-          }
-        </>
-      }
-
       <Title style={{ marginTop: 70 }}>Sign Out</Title>
       <ButtonForOption
         onPress={signOut}
@@ -870,6 +857,19 @@ const Options = ({ navigation, data }: {
 
       <Title style={{ marginTop: 70 }}>Deactivate My Account</Title>
       <Button_ optionGroups={deactivationOptionGroups} setting="" showSkipButton={false}/>
+
+      {data.paypal_subscription &&
+        <>
+          <Title>Gold Subscription</Title>
+          {data.paypal_subscription.can_cancel
+            ? <Button_ optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
+            : <DefaultText style={{ color: '#999' }}>
+                Your Gold subscription is cancelled. Gold ends on {}
+                {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
+              </DefaultText>
+          }
+        </>
+      }
 
       <Title>Delete My Account</Title>
       <Button_ optionGroups={deletionOptionGroups} setting=""/>
