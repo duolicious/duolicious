@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { DefaultText } from '../default-text';
 import { DefaultModal } from './default-modal';
 import { backgroundColors } from './background-colors';
@@ -7,13 +7,13 @@ import { ButtonWithCenteredText } from '../button/centered-text';
 import { Logo14 } from '../logo';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { Close } from '../button/close';
-import Purchases, { PurchasesOffering } from 'react-native-purchases';
-import * as _ from 'lodash';
-import { AppStoreBadges } from '../badges/app-store/app-store';
 import { listen, notify } from '../../events/events';
 import { setSignedInUser } from '../../events/signed-in-user';
-import { getCurrentOfferingCached } from '../../purchases/purchases';
-import { pluralize, isMobileWeb } from '../../util/util';
+import { getPurchasable } from '../../purchases/purchases';
+import { Purchasable } from '../../purchases/offering';
+import { isMobileWeb, pluralize } from '../../util/util';
+import { useAppTheme } from '../../app-theme/app-theme';
+import * as _ from 'lodash';
 
 const cardPadding = 20;
 
@@ -45,7 +45,7 @@ const PurchaseButton = ({
   onPress,
 }: {
   label: string
-  onPress: () => void,
+  onPress: () => Promise<void>,
 }) => {
   const [loading, setLoading] = useState(false);
 
@@ -53,125 +53,84 @@ const PurchaseButton = ({
     setLoading(true);
     await onPress();
     setLoading(false);
-  }, []);
+  }, [onPress]);
 
-  if (Platform.OS === 'ios' || Platform.OS === 'android') {
-    return (
-      <ButtonWithCenteredText
-        onPress={_onPress}
-        textStyle={{
-          fontWeight: 700,
-        }}
-        containerStyle={{
-          marginTop: 0,
-          marginBottom: 0,
-        }}
-        secondary={true}
-        loading={loading}
-      >
-        {label}
-      </ButtonWithCenteredText>
-    );
-  } else {
-    return (
-      <View
-        style={{
-          width: '100%',
-          alignItems: 'center',
-        }}
-      >
-        <DefaultText
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 500,
-            maxWidth: 300,
-          }}
-        >
-          Purchase via the mobile app to get these features on web
-        </DefaultText>
-        <View
-          style={{
-            maxWidth: isMobileWeb() ? 176 : 250,
-          }}
-        >
-          <AppStoreBadges/>
-        </View>
-      </View>
-    );
-  }
+  return (
+    <ButtonWithCenteredText
+      onPress={_onPress}
+      textStyle={{
+        fontWeight: 700,
+      }}
+      containerStyle={{
+        marginTop: 0,
+        marginBottom: 0,
+      }}
+      secondary={true}
+      loading={loading}
+    >
+      {label}
+    </ButtonWithCenteredText>
+  );
 };
 
-const Offering = ({
+const OfferingCard = ({
   onPressClose,
 }: {
   onPressClose: () => void,
 }) => {
   const [hasError, setHasError] = useState(false);
-  const [currentOffering, setCurrentOffering] = useState<PurchasesOffering | null>();
+  const [purchasable, setPurchasable] = useState<Purchasable | null>();
   const { height: windowHeight } = useWindowDimensions();
+  const { appTheme } = useAppTheme();
 
   useEffect(() => {
-    (async () => {
-      const offering = await getCurrentOfferingCached();
-      setCurrentOffering(offering);
-    })();
+    getPurchasable().then(setPurchasable, () => setPurchasable(null));
   }, []);
 
-  const currentPackage = currentOffering?.availablePackages.at(0);
-
-  if (!currentOffering || !currentPackage) {
+  if (!purchasable) {
     return (
       <>
-        <View
-          style={{
-            width: 100,
-            aspectRatio: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <LogoActivityIndicator size="large" color="#70f"/>
-        </View>
+        {purchasable === null
+          ? <DefaultText style={{ textAlign: 'center', fontWeight: 500 }}>
+              Something went wrong
+            </DefaultText>
+          : <View
+              style={{
+                width: 100,
+                aspectRatio: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <LogoActivityIndicator size="large" color="#70f"/>
+            </View>
+        }
         <Close onPress={onPressClose} />
       </>
     );
   }
 
-  const productName = currentOffering.serverDescription;
+  const { offering, purchase } = purchasable;
 
-  const buttonCta = (() => {
-    if (!currentPackage.product.introPrice) {
-      return `Get ${productName.toUpperCase()}`;
-    }
-
-    const numUnits = currentPackage.product.introPrice.periodNumberOfUnits;
-
-    const formattedUnits = _.capitalize(
-      pluralize(
-        currentPackage.product.introPrice.periodUnit,
-        currentPackage.product.introPrice.periodNumberOfUnits
-      )
-    );
-
-    return `Try ${numUnits} ${formattedUnits} Free`
-  })();
+  const productName = offering.product_name;
 
   const subtitle = `You’re gonna need ${productName} for that...`;
+
+  const buttonCta = offering.trial
+    ? `Try ${offering.trial.units} ${_.capitalize(pluralize(offering.trial.unit, offering.trial.units))} Free`
+    : `Get ${productName.toUpperCase()}`;
 
   const onPress = async () => {
     setHasError(false);
 
-    try {
-      const { customerInfo } = await Purchases.purchasePackage(currentPackage);
-      if (!customerInfo.allPurchasedProductIdentifiers.includes(currentPackage.product.identifier)) {
-        throw new Error('Purchase failed');
-      }
-    } catch (e) {
-      if (!e?.userCancelled) {
-        setHasError(true);
-        console.error(e);
-      }
+    const result = await purchase();
+
+    if (result === 'failed') {
+      setHasError(true);
+      return;
+    }
+
+    if (result === 'cancelled') {
       return;
     }
 
@@ -207,7 +166,7 @@ const Offering = ({
               gap: 3,
             }}
           >
-            <Logo14 size={14 * 2} color="black" rectSize={0.3} />
+            <Logo14 size={14 * 2} color={appTheme.secondaryColor} rectSize={0.3} />
             <DefaultText
               style={{
                 fontFamily: 'TruenoBold',
@@ -284,25 +243,29 @@ const Offering = ({
                 fontWeight: 700,
               }}
             >
-              {currentPackage.product.priceString} {currentPackage.product.currencyCode}
+              {offering.price} {offering.currency}
             </DefaultText>
-            {} / {currentPackage.packageType.toLowerCase().replace(/ly$/, '')}
+            {} / {offering.cycle.units === 1
+              ? offering.cycle.unit
+              : `${offering.cycle.units} ${pluralize(offering.cycle.unit, offering.cycle.units)}`}
           </DefaultText>
 
-          <DefaultText
-            style={{
-              color: '#70f',
-              fontWeight: 700,
-              fontSize: 12,
-              paddingHorizontal: 7,
-              paddingVertical: 3,
-              backgroundColor: 'white',
-              borderRadius: 999,
-              alignSelf: 'flex-start',
-            }}
-          >
-            FREE TRIAL
-          </DefaultText>
+          {offering.trial &&
+            <DefaultText
+              style={{
+                color: '#70f',
+                fontWeight: 700,
+                fontSize: 12,
+                paddingHorizontal: 7,
+                paddingVertical: 3,
+                backgroundColor: 'white',
+                borderRadius: 999,
+                alignSelf: 'flex-start',
+              }}
+            >
+              FREE TRIAL
+            </DefaultText>
+          }
 
           <DefaultText
             style={{
@@ -310,7 +273,7 @@ const Offering = ({
               paddingVertical: 14,
             }}
           >
-            {String(currentOffering.metadata.description)}
+            {offering.description}
           </DefaultText>
 
           <PurchaseButton
@@ -351,6 +314,7 @@ const Offering = ({
 
 const PointOfSaleModal = () => {
   const isVisible = useShowPointOfSale();
+  const { appTheme } = useAppTheme();
 
   const onPressClose = useCallback(() => showPointOfSale(false), []);
 
@@ -383,7 +347,7 @@ const PointOfSaleModal = () => {
               maxWidth: 600,
               padding: 20,
               gap: 20,
-              backgroundColor: 'white',
+              backgroundColor: appTheme.primaryColor,
               borderRadius: 5,
               flexDirection: 'column',
               overflow: 'hidden',
@@ -391,7 +355,7 @@ const PointOfSaleModal = () => {
               justifyContent: 'center',
             }}
           >
-            <Offering
+            <OfferingCard
               onPressClose={onPressClose}
             />
           </View>

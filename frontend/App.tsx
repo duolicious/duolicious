@@ -47,6 +47,7 @@ import { useAppThemeLoader, useAppTheme } from './app-theme/app-theme';
 import { useAppStartup } from './app-startup/app-startup';
 import { useAppNavigation } from './navigation/app-navigation';
 import { showPendingSpotifyConnectToast } from './api/spotify';
+import { showPendingPayPalResultToast } from './api/paypal';
 
 verificationWatcher();
 
@@ -93,6 +94,7 @@ const App = () => {
   useEffect(() => {
     if (appReady) {
       showPendingSpotifyConnectToast();
+      showPendingPayPalResultToast();
     }
   }, [appReady]);
 

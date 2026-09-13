@@ -37,6 +37,7 @@ import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
 import { patchProfileInfo } from '../events/profile-info';
+import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
   patchSearchFilters,
@@ -1251,6 +1252,18 @@ const deactivationOptionGroups: OptionGroup<OptionGroupNone>[] = [
           }
           return false;
         }
+      }
+    }
+  },
+];
+
+const cancelGoldOptionGroups: OptionGroup<OptionGroupNone>[] = [
+  {
+    title: 'Cancel Gold',
+    description: 'Are you sure you want to cancel your Gold subscription? You’ll keep Gold until the end of the period you’ve paid for, and you won’t be charged again. Press “continue” to cancel.',
+    input: {
+      none: {
+        submit: cancelPaypalSubscription,
       }
     }
   },
@@ -2560,6 +2573,7 @@ export {
   OptionGroupVerificationChecker,
   basicsOptionGroups,
   createAccountOptionGroups,
+  cancelGoldOptionGroups,
   deactivationOptionGroups,
   deletionOptionGroups,
   defaultSearchFilters,

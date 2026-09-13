@@ -37,6 +37,7 @@ import {
   OptionGroupInputs,
   OptionGroupPhotos,
   basicsOptionGroups,
+  cancelGoldOptionGroups,
   deactivationOptionGroups,
   deletionOptionGroups,
   generalSettingsOptionGroups,
@@ -856,6 +857,26 @@ const Options = ({ navigation, data }: {
 
       <Title style={{ marginTop: 70 }}>Deactivate My Account</Title>
       <Button_ optionGroups={deactivationOptionGroups} setting="" showSkipButton={false}/>
+
+      {data.paypal_subscription &&
+        <>
+          <Title>Gold Subscription</Title>
+          {data.paypal_subscription.can_cancel
+            ? <Button_ optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
+            : <>
+                <DefaultText style={{ color: '#999' }}>
+                  Your Gold subscription is cancelled. Gold ends on {}
+                  {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
+                </DefaultText>
+                <ButtonForOption
+                  onPress={() => showPointOfSale(true)}
+                  label="Keep Gold"
+                  setting=""
+                />
+              </>
+          }
+        </>
+      }
 
       <Title>Delete My Account</Title>
       <Button_ optionGroups={deletionOptionGroups} setting=""/>
