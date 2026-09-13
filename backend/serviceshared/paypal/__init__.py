@@ -195,6 +195,7 @@ async def create_subscription(person_uuid: str, return_url: str) -> str | None:
             custom_id=person_uuid,
             application_context=dict(
                 user_action='SUBSCRIBE_NOW',
+                shipping_preference='NO_SHIPPING',
                 return_url=return_url,
                 cancel_url=return_url,
             ),
