@@ -1658,6 +1658,9 @@ WITH answer AS (
 ), furthest_distance AS (
     SELECT distance AS j
     FROM sp
+), same_country_only AS (
+    SELECT same_country_only AS j
+    FROM sp
 ), height AS (
     SELECT json_build_object(
         'min_height_cm', min_height_cm,
@@ -1765,6 +1768,7 @@ SELECT
         'ethnicity',              (SELECT j FROM ethnicity),
         'age',                    (SELECT j FROM age),
         'furthest_distance',      (SELECT j FROM furthest_distance),
+        'same_country_only',      (SELECT j FROM same_country_only),
         'last_online',            (SELECT j FROM last_online_pref),
         'height',                 (SELECT j FROM height),
         'body_type',              (SELECT j FROM body_type),

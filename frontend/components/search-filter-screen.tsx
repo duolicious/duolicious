@@ -97,10 +97,13 @@ const getCurrentValueAsLabel = (
   } else if (isOptionGroupSlider(og.input)) {
     const currentValue = og.input.slider.currentValue;
 
-    if (currentValue === undefined) {
+    if (og.title === 'Furthest Distance') {
+      return _.compact([
+        distanceLabel(currentValue, signedInUser?.units),
+        og.input.slider.toggle?.currentValue ? 'Same country' : undefined,
+      ]).join(', ') || undefined;
+    } else if (currentValue === undefined) {
       return undefined;
-    } else if (og.title === 'Furthest Distance') {
-      return distanceLabel(currentValue, signedInUser?.units);
     } else {
       return `${currentValue}`;
     }
@@ -284,6 +287,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
         defaultValue: isImperial ? distanceMaxKm : og.input.slider.defaultValue,
         unitsLabel: isImperial ? "mi." : 'km',
         valueRewriter: isImperial ? (km: number) => distanceValueText(km, 'Imperial') : undefined,
+        toggle: { currentValue: data?.same_country_only === true },
       } } });
     }
     if (og.title === 'Age' && isOptionGroupRangeSlider(og.input)) {

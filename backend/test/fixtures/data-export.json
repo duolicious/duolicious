@@ -2363,6 +2363,7 @@
       "max_age": 30
     },
     "furthest_distance": 8000,
+    "same_country_only": false,
     "last_online": "A month ago",
     "height": {
       "min_height_cm": null,

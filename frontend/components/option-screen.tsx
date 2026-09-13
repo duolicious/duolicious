@@ -28,6 +28,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { ButtonWithCenteredText } from './button/centered-text';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { LabelledSlider } from './labelled-slider';
+import { Toggle } from './toggle';
 import { RangeSlider as RangeSlider_ } from './range-slider';
 import { DefaultText } from './default-text';
 import { DefaultTextInput } from './default-text-input';
@@ -205,6 +206,15 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
     inputValueRef.current = value;
   }, []);
 
+  const toggle = props.input.slider.toggle;
+  const [toggleValue, setToggleValue] = useState(
+    toggle?.currentValue ?? false);
+
+  const onToggle = useCallback((value: boolean) => {
+    setToggleValue(value);
+    toggle?.submit(value);
+  }, [toggle]);
+
   const submit = useCallback(async () => {
     props.setIsLoading(true);
 
@@ -256,6 +266,21 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
           marginRight: 20,
         }}
       />
+      {toggle &&
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 30,
+            marginLeft: 20,
+            marginRight: 20,
+          }}
+        >
+          <DefaultText>{toggle.label}</DefaultText>
+          <Toggle value={toggleValue} onValueChange={onToggle} />
+        </View>
+      }
       {props.showSkipButton &&
         <ButtonWithCenteredText
           onPress={submit}

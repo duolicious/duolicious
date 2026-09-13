@@ -972,6 +972,11 @@ async def post_search_filter(req: t.PostSearchFilter, s: t.SessionInfo) -> objec
         UPDATE search_preference SET distance = %(field_value)s
         WHERE person_id = %(person_id)s
         """
+    elif field_name == 'same_country_only':
+        q = """
+        UPDATE search_preference SET same_country_only = %(field_value)s
+        WHERE person_id = %(person_id)s
+        """
     elif field_name == 'last_online':
         q = """
         UPDATE search_preference SET last_online_id = last_online.id

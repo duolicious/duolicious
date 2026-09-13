@@ -122,6 +122,11 @@ _ST_DWITHIN = sql_fragment("""
 """)
 
 
+_SAME_COUNTRY = sql_fragment("""
+    prospect.location_country = %(searcher_country)s
+""")
+
+
 _SHOWS_ONLINE_STATUS = sql_fragment("""
     prospect.show_my_online_status
 """)
@@ -252,6 +257,8 @@ SELECT
 {_PARAM_ENUM_SELECTS},
 {_PARAM_BOUND_SELECTS},
     1000 * sp.distance AS distance_meters,
+    sp.same_country_only,
+    person.location_country AS searcher_country,
     sp.club_name AS club_preference,
     sp.show_messaged,
     sp.show_skipped,
@@ -331,6 +338,10 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
         params['searcher_coordinates'] = row_str(prefs, 'searcher_coordinates')
         clauses.append(_ST_DWITHIN)
 
+    if row_bool(prefs, 'same_country_only'):
+        params['searcher_country'] = row_str(prefs, 'searcher_country')
+        clauses.append(_SAME_COUNTRY)
+
     for bound in BOUND_FILTERS:
         value = row_int_or_none(prefs, bound.param)
         if value is None or (value == 0 and bound.omit_when_zero):
@@ -372,10 +383,18 @@ _REVERSE_AGE = sql_fragment("""
 
 
 _REVERSE_DISTANCE = sql_fragment("""
-    ST_DWithin(
-        prospect.coordinates,
-        %(searcher_coordinates)s::GEOGRAPHY,
-        COALESCE(1000.0 * reverse_preference.distance, 1e9)
+    (
+        ST_DWithin(
+            prospect.coordinates,
+            %(searcher_coordinates)s::GEOGRAPHY,
+            COALESCE(1000.0 * reverse_preference.distance, 1e9)
+        )
+    AND
+        (
+            NOT reverse_preference.same_country_only
+        OR
+            prospect.location_country = %(searcher_country)s
+        )
     )
 """)
 
@@ -411,6 +430,7 @@ def two_way_filters(prefs: Row) -> ProspectFilters:
         elif key == 'furthest_distance':
             checks.append(_REVERSE_DISTANCE)
             params['searcher_coordinates'] = row_str(prefs, 'searcher_coordinates')
+            params['searcher_country'] = row_str(prefs, 'searcher_country')
         elif key == 'height':
             checks.append(_REVERSE_HEIGHT)
             params['searcher_height_cm'] = row_int_or_none(prefs, 'searcher_height_cm')

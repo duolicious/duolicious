@@ -850,6 +850,37 @@ test_two_way_location_filter () {
   assert_search_names 'user1 user2'
 }
 
+test_same_country_only () {
+  setup
+
+  assume_role user2
+  jc PATCH /profile-info -d '{ "location": "Timbuktu, Tombouctou, Mali" }'
+
+  assume_role searcher
+  jc POST /search-filter -d '{ "same_country_only": true }'
+  assert_search_names user1
+
+  jc POST /search-filter -d '{ "same_country_only": false }'
+  assert_search_names 'user1 user2'
+}
+
+test_two_way_same_country_only () {
+  setup
+
+  assume_role user1
+  jc PATCH /profile-info  -d '{ "location": "Timbuktu, Tombouctou, Mali" }'
+  jc POST  /search-filter -d '{ "same_country_only": true }'
+
+  assume_role searcher
+  assert_search_names 'user1 user2'
+
+  jc POST  /search-filter -d '{ "two_way_filters": { "furthest_distance": true } }'
+  assert_search_names 'user2'
+
+  jc POST  /search-filter -d '{ "two_way_filters": { "furthest_distance": false } }'
+  assert_search_names 'user1 user2'
+}
+
 # With `two_way_filters` on, the searcher additionally hides prospects whose own
 # age filter excludes the searcher.
 test_two_way_age_filter () {
@@ -1052,6 +1083,8 @@ test_bidirectional_gender_filter
 test_one_way_location_filter
 test_one_way_age_filter
 test_two_way_location_filter
+test_same_country_only
+test_two_way_same_country_only
 test_two_way_age_filter
 test_two_way_filters_in_club
 test_two_way_filters_persist
