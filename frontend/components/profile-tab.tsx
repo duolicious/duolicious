@@ -863,10 +863,17 @@ const Options = ({ navigation, data }: {
           <Title>Gold Subscription</Title>
           {data.paypal_subscription.can_cancel
             ? <Button_ optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
-            : <DefaultText style={{ color: '#999' }}>
-                Your Gold subscription is cancelled. Gold ends on {}
-                {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
-              </DefaultText>
+            : <>
+                <DefaultText style={{ color: '#999' }}>
+                  Your Gold subscription is cancelled. Gold ends on {}
+                  {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
+                </DefaultText>
+                <ButtonForOption
+                  onPress={() => showPointOfSale(true)}
+                  label="Keep Gold"
+                  setting=""
+                />
+              </>
           }
         </>
       }

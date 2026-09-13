@@ -7,12 +7,15 @@ from starlette.responses import RedirectResponse
 import service.api.duotypes as t
 from serviceshared import paypal
 from serviceshared.database import Tx, api_tx, row_bool, row_str
-from serviceshared.gold.sql import Q_GRANT_GOLD, Q_HAS_GOLD
+from serviceshared.gold.sql import Q_GRANT_GOLD
 from serviceshared.util import Json
 from serviceshared.util.coerce import integer, string
 from service.api.async_lru_cache import AsyncLruCache
 from service.api.auth.oauth_redirect import redirect
-from service.api.gold.sql import Q_LIVE_PAYPAL_SUBSCRIPTION_IDS
+from service.api.gold.sql import (
+    Q_HAS_LIVE_SUBSCRIPTION,
+    Q_LIVE_PAYPAL_SUBSCRIPTION_IDS,
+)
 from serviceshared.duoenv.api import (
     PAYPAL_APEX_REDIRECT_URL,
     PAYPAL_RETURN_URL,
@@ -72,8 +75,9 @@ async def post_subscribe(
     s: t.SessionInfo,
 ) -> tuple[str, int] | dict[str, str]:
     async with api_tx() as tx:
-        row = await tx.require_one(Q_HAS_GOLD, dict(person_id=s.person_id))
-    if row_bool(row, 'has_gold'):
+        row = await tx.require_one(
+            Q_HAS_LIVE_SUBSCRIPTION, dict(person_id=s.person_id))
+    if row_bool(row, 'has_live_subscription'):
         return 'Already subscribed', 409
 
     approve_url = await paypal.create_subscription(

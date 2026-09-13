@@ -118,6 +118,20 @@ approve_flow_grants_gold () {
   echo 'Subscribing again while gold is refused'
 
   ! jc POST /paypal/subscribe -d '{ "redirect_target": "web" }' || exit 1
+
+  echo 'A cancelled subscription can be replaced before it runs out'
+
+  jc POST /paypal/cancel
+
+  cancelled_subscription_id=$subscription_id
+
+  subscribe_and_approve
+
+  [[ "$subscription_id" != "$cancelled_subscription_id" ]]
+  [[ "$(subscription 'count(*)')" == "1" ]]
+  [[ "$(subscription provider_subscription_id)" == "$subscription_id" ]]
+  [[ "$(subscription expires_at)" == "infinity" ]]
+  [[ "$(profile_paypal | jq -r '.can_cancel')" == 'true' ]]
 }
 
 cancellation_keeps_gold_until_paid_through () {
