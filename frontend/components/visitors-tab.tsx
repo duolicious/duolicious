@@ -1,12 +1,14 @@
 import {
   Animated as RNAnimated,
+  Platform,
   Pressable,
   StyleSheet,
   View,
+  ViewStyle,
   GestureResponderEvent,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
-import { memo, useCallback, useState, useRef } from 'react';
+import { memo, useCallback, useState, useRef, MouseEvent } from 'react';
 import { DefaultText } from './default-text';
 import { TopNavBar } from './top-nav-bar';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
@@ -88,20 +90,23 @@ const useNavigationToProfile = (
   // Profile links prefer the username (url_slug), falling back to the uuid.
   const handle = urlSlug || personUuid;
 
+  const onVisit = useCallback(() => {
+    markVisitorChecked(personUuid);
+
+    // Opening a profile straight from the "You Visited" list shouldn't yank it
+    // to the top when you navigate back; suppress that one reorder.
+    if (section === 'you_visited') {
+      suppressYouVisitedReorder(personUuid);
+    }
+  }, [personUuid, section]);
+
   const onPress = useCallback((e: GestureResponderEvent) => {
     e.preventDefault();
 
     if (verificationRequired) {
       return navigation.navigate('Profile');
     } else if (personUuid) {
-      markVisitorChecked(personUuid);
-
-      // Opening a profile straight from the "You Visited" list shouldn't yank it
-      // to the top when you navigate back; suppress that one reorder.
-      if (section === 'you_visited') {
-        suppressYouVisitedReorder(personUuid);
-      }
-
+      onVisit();
       setProspectHint(handle, { photoBlurhash });
       return navigation.navigate(
         'Prospect Profile Screen',
@@ -112,12 +117,17 @@ const useNavigationToProfile = (
       );
     }
 
-  }, [personUuid, handle, photoBlurhash, verificationRequired, section]);
+  }, [personUuid, handle, photoBlurhash, verificationRequired, onVisit]);
 
-  return {
-    onPress,
-    href: verificationRequired ? undefined : `/${handle}`
-  };
+  const href = verificationRequired ? undefined : `/${handle}`;
+
+  const onAuxClick = useCallback((e: MouseEvent) => {
+    if (href && e.button === 1) {
+      onVisit();
+    }
+  }, [href, onVisit]);
+
+  return { onPress, onAuxClick, href };
 };
 
 const VisitorsItem = ({ itemKey }: { itemKey: string }) => {
@@ -384,6 +394,7 @@ const VisitorsTab = () => {
             onContentSizeChange={onContentSizeChange}
             onScroll={onScroll}
             showsVerticalScrollIndicator={showsVerticalScrollIndicator}
+            style={listStyle}
             contentContainerStyle={styles.listContentContainerStyle}
           />
         </View>
@@ -391,6 +402,9 @@ const VisitorsTab = () => {
     </View>
   );
 };
+
+const listStyle: ViewStyle & { overflowAnchor?: 'none' } =
+  Platform.OS === 'web' ? { overflowAnchor: 'none' } : {};
 
 const styles = StyleSheet.create({
   listContentContainerStyle: {
