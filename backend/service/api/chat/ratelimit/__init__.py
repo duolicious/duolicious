@@ -6,9 +6,9 @@ from service.api.chatprotocol.outbound import MessageBlocked, Outbound
 
 class DefaultRateLimit(Enum):
     NONE = 0
-    UNVERIFIED = 15
-    BASICS = 30
-    PHOTOS = 60
+    UNVERIFIED = 32
+    BASICS = 64
+    PHOTOS = 128
 
 
 Q_RATE_LIMIT_REASON = f"""
