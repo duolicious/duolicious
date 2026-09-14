@@ -24,14 +24,15 @@ const rawClubName = (() => {
   }
 })();
 
+const clubPageTitle = (clubName) => `${clubName} Dating App - Duolicious`;
+
 if (rawClubName) {
-  const friendly = rawClubName;
-  document.title = `${friendly} - Duolicious`;
+  document.title = clubPageTitle(rawClubName);
   const desc = document.querySelector('meta[name="description"]');
   if (desc) {
     desc.setAttribute(
       'content',
-      `Meet members of the ${friendly} club on Duolicious. ` +
+      `Meet members of the ${rawClubName} club on Duolicious. ` +
       `See the community's personality lean, demographics, and shared answers.`
     );
   }
@@ -44,7 +45,7 @@ if (rawClubName) {
 const ld = (clubName, memberCount, description) => ({
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: `${clubName} - Duolicious`,
+  name: clubPageTitle(clubName),
   url: `https://duolicious.app/club/${encodeURIComponent(clubName)}`,
   description: description || `The ${clubName} club on Duolicious.`,
   isPartOf: {
@@ -251,7 +252,7 @@ const hydrate = (data) => {
     return;
   }
 
-  const pageTitle = `${data.name} - Duolicious`;
+  const pageTitle = clubPageTitle(data.name);
   document.title = pageTitle;
 
   const oneLine = data.description
