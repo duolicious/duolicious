@@ -4,6 +4,7 @@ from datetime import datetime
 from serviceshared import paypal
 
 MONTHLY = paypal.PaypalPlan(
+    id='P-1',
     product_name='Gold',
     price='4.99',
     currency='USD',
@@ -24,6 +25,7 @@ def _subscription(
         id='I-1',
         status=status,
         custom_id='uuid',
+        plan_id='P-1',
         start_time=start_time,
         billing_info=dict(
             last_payment=last_payment_time and dict(time=last_payment_time)),

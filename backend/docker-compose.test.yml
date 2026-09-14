@@ -106,7 +106,7 @@ services:
       DUO_PAYPAL_API_URL: http://paypalmock:3004
       DUO_PAYPAL_CLIENT_ID: test-paypal-client-id
       DUO_PAYPAL_CLIENT_SECRET: test-paypal-client-secret
-      DUO_PAYPAL_PLAN_ID: P-TEST
+      DUO_PAYPAL_PLAN_IDS: P-WEEK,P-MONTH,P-YEAR
       DUO_PAYPAL_WEBHOOK_ID: WH-TEST
       DUO_PAYPAL_RETURN_URL: http://localhost:5000/paypal/return
       DUO_PAYPAL_WEB_REDIRECT_URL: http://test-web.example/

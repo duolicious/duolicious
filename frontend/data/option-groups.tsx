@@ -1058,7 +1058,7 @@ const themePickerOptionGroups: OptionGroup<OptionGroupThemePicker | OptionGroupB
         submit: async (titleColor, bodyColor, backgroundColor) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Custom themes');
             return false;
           }
 
@@ -1102,7 +1102,7 @@ const themePickerOptionGroups: OptionGroup<OptionGroupThemePicker | OptionGroupB
         submit: async (input: 'On' | 'Off') => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Dark mode');
             return false;
           }
 
@@ -2343,7 +2343,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         submit: async (hideMeFromStrangers: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Hide from strangers');
             return false;
           }
 
@@ -2387,7 +2387,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         submit: async (browseInvisibly: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Browse invisibly');
             return false;
           }
 
@@ -2432,7 +2432,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         submit: async (showMyAge: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Hide your age');
             return false;
           }
 
@@ -2475,7 +2475,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         submit: async (showMyLookingFor: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Hide what you’re looking for');
             return false;
           }
 
@@ -2520,7 +2520,7 @@ const privacySettingsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         submit: async (showMyLocation: string) => {
           const { hasGold = false } = getSignedInUser() ?? {};
           if (!hasGold) {
-            showPointOfSale(true);
+            showPointOfSale('Hide your location');
             return false;
           }
 

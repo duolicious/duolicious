@@ -69,7 +69,8 @@ post_subscription_webhook () {
 
 subscribe () {
   approve_url=$(
-    jc POST /paypal/subscribe -d '{ "redirect_target": "'"$1"'" }' \
+    jc POST /paypal/subscribe \
+      -d '{ "redirect_target": "'"$1"'", "plan_id": "'"${2:-P-WEEK}"'" }' \
       | jq -r '.approve_url'
   )
 
@@ -81,16 +82,20 @@ approve () {
 }
 
 subscribe_and_approve () {
-  subscribe web
+  subscribe web "$1"
   approve > /dev/null
 }
 
 approve_flow_grants_gold () {
-  echo 'The plan endpoint exposes the offering'
+  echo 'The plans endpoint exposes every configured plan'
 
   setup
 
-  [[ "$(c GET /paypal/plan | jq -cS .)" == '{"currency":"USD","cycle":{"unit":"week","units":1},"price":"0.99","product_name":"Gold","trial":{"unit":"day","units":7}}' ]]
+  [[ "$(c GET /paypal/plans | jq -cS .)" == '[{"currency":"USD","cycle":{"unit":"week","units":1},"id":"P-WEEK","price":"1.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":1},"id":"P-MONTH","price":"3.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"year","units":1},"id":"P-YEAR","price":"30.00","product_name":"Gold","trial":null}]' ]]
+
+  echo 'Subscribing to a plan that is not offered is refused'
+
+  ! jc POST /paypal/subscribe -d '{ "redirect_target": "web", "plan_id": "P-TEST" }' || exit 1
 
   echo 'Pressing cancel on the PayPal page returns without gold'
 
@@ -117,7 +122,7 @@ approve_flow_grants_gold () {
 
   echo 'Subscribing again while gold is refused'
 
-  ! jc POST /paypal/subscribe -d '{ "redirect_target": "web" }' || exit 1
+  ! jc POST /paypal/subscribe -d '{ "redirect_target": "web", "plan_id": "P-MONTH" }' || exit 1
 
   echo 'A cancelled subscription can be replaced before it runs out'
 
@@ -147,11 +152,11 @@ cancellation_keeps_gold_until_paid_through () {
 
   subscribe_and_approve
 
-  set_paypal_mock_subscription "$subscription_id" '{ "status": "CANCELLED" }'
+  set_paypal_mock_subscription "$subscription_id" '{ "status": "CANCELLED", "plan_id": "P-TEST" }'
 
   [[ "$(post_subscription_webhook BILLING.SUBSCRIPTION.CANCELLED "$subscription_id" | jq -r '.ignored')" == 'false' ]]
 
-  echo 'A subscription cancelled during its trial keeps gold until the trial ends'
+  echo 'A subscription on a legacy plan cancelled during its trial keeps gold until the trial ends'
 
   [[ "$(user_has_gold user1)" == t ]]
   [[ "$(subscription expires_at)" == "$(q "select ('$(paypal_mock_resource "$subscription_id" | jq -r '.start_time')'::timestamptz at time zone 'utc' + interval '7 days')::timestamp")" ]]
@@ -229,9 +234,17 @@ expiry_revokes_gold_and_frees_the_person () {
 
   echo 'A lapsed subscription no longer blocks a new one'
 
-  subscribe_and_approve
+  subscribe_and_approve P-YEAR
 
   [[ "$(user_has_gold user1)" == t ]]
+
+  echo 'Cancelling keeps gold for a billing cycle of the plan the subscription is on'
+
+  set_paypal_mock_subscription "$subscription_id" '{ "last_payment_time": "2099-01-31T00:00:00Z" }'
+
+  jc POST /paypal/cancel
+
+  [[ "$(subscription expires_at)" == "2100-01-31 00:00:00" ]]
 }
 
 deleting_an_account_cancels_at_paypal () {

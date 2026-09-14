@@ -18,6 +18,7 @@ from service.api.gold.sql import (
 )
 from serviceshared.duoenv.api import (
     PAYPAL_APEX_REDIRECT_URL,
+    PAYPAL_PLAN_IDS,
     PAYPAL_RETURN_URL,
     PAYPAL_WEB_REDIRECT_URL,
 )
@@ -25,16 +26,16 @@ from serviceshared.duoenv.api import (
 logger = logging.getLogger(__name__)
 
 @AsyncLruCache(ttl=60 * 60, cache_condition=lambda plan: plan is not None)
-async def _plan() -> paypal.PaypalPlan | None:
-    return await paypal.fetch_plan()
+async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
+    return await paypal.fetch_plan(plan_id)
 
 
-async def get_plan() -> tuple[str, int] | dict[str, Json]:
-    plan = await _plan()
-    if plan is None:
+async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:
+    plans = [await _plan(plan_id) for plan_id in PAYPAL_PLAN_IDS]
+    if None in plans:
         return 'PayPal request failed', 502
 
-    return plan.model_dump()
+    return [plan.model_dump() for plan in plans if plan]
 
 
 async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
@@ -44,7 +45,7 @@ async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
 
 
 async def _apply(subscription: paypal.PaypalSubscription) -> bool:
-    plan = await _plan()
+    plan = await _plan(subscription.plan_id)
     if plan is None:
         raise RuntimeError('PayPal plan is unavailable')
 
@@ -81,6 +82,7 @@ async def post_subscribe(
         return 'Already subscribed', 409
 
     approve_url = await paypal.create_subscription(
+        req.plan_id,
         string(s.person_uuid),
         f'{PAYPAL_RETURN_URL}/{req.redirect_target}',
     )

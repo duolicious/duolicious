@@ -7,7 +7,12 @@ import Purchases, {
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getSignedInUser } from '../events/signed-in-user';
 import { memoizeWithTtl } from '../util/util';
-import { Offering, Purchasable, PurchaseResult } from './offering';
+import {
+  Offering,
+  OfferingInterval,
+  Purchasable,
+  PurchaseResult,
+} from './offering';
 
 type ApiKeys = {
   apple: string;
@@ -33,20 +38,17 @@ const selectApiKey = (os: string, expoGo: boolean, keys: ApiKeys): string => {
   return keys.web;
 };
 
-const toOffering = (
-  offering: PurchasesOffering,
-  pkg: PurchasesPackage,
-): Offering => ({
-  product_name: offering.serverDescription,
-  price: pkg.product.priceString,
-  currency: pkg.product.currencyCode,
-  cycle: { units: 1, unit: pkg.packageType.toLowerCase().replace(/ly$/, '') },
-  trial: pkg.product.introPrice && {
-    units: pkg.product.introPrice.periodNumberOfUnits,
-    unit: pkg.product.introPrice.periodUnit.toLowerCase(),
-  },
-  description: String(offering.metadata.description),
-});
+const PERIOD_UNITS: Record<string, string> = {
+  D: 'day',
+  W: 'week',
+  M: 'month',
+  Y: 'year',
+};
+
+const parsePeriod = (period: string | null): OfferingInterval | null => {
+  const match = (period ?? '').match(/^P(\d+)([DWMY])$/);
+  return match && { units: Number(match[1]), unit: PERIOD_UNITS[match[2]] };
+};
 
 let configuredForAppUserId: string | undefined;
 let configureInFlight: Promise<void> | null = null;
@@ -132,21 +134,37 @@ const purchasePackage = async (
   }
 };
 
-const getPurchasable = async (): Promise<Purchasable | null> => {
+const toPurchasable = (pkg: PurchasesPackage): Purchasable | null => {
+  const cycle = parsePeriod(pkg.product.subscriptionPeriod);
+  return cycle && {
+    price: pkg.product.priceString,
+    amount: pkg.product.price,
+    cycle,
+    trial: pkg.product.introPrice && {
+      units: pkg.product.introPrice.periodNumberOfUnits,
+      unit: pkg.product.introPrice.periodUnit.toLowerCase(),
+    },
+    purchase: () => purchasePackage(pkg),
+  };
+};
+
+const getOffering = async (): Promise<Offering | null> => {
   const personUuid = getSignedInUser()?.personUuid;
   if (!personUuid) return null;
 
   await ensurePurchasesConfigured();
   const offering = await getCurrentOfferingForUserMemoized(personUuid);
-  const pkg = offering?.availablePackages.at(0);
-  if (!offering || !pkg) return null;
+  const purchasables = offering?.availablePackages
+    .flatMap((pkg) => toPurchasable(pkg) ?? []) ?? [];
+  if (!offering || purchasables.length === 0) return null;
 
   return {
-    offering: toOffering(offering, pkg),
-    purchase: () => purchasePackage(pkg),
+    product_name: offering.serverDescription,
+    description: String(offering.metadata.description),
+    purchasables,
   };
 };
 
 export {
-  getPurchasable,
+  getOffering,
 };
