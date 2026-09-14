@@ -24,7 +24,8 @@ const rawClubName = (() => {
   }
 })();
 
-const clubPageTitle = (clubName) => `${clubName} Dating App - Duolicious`;
+const clubPageTitle = (clubName) =>
+  `${clubName.replace(/(^|\s)\S/g, (c) => c.toUpperCase())} Dating App - Duolicious`;
 
 if (rawClubName) {
   document.title = clubPageTitle(rawClubName);
