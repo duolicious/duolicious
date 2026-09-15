@@ -41,10 +41,10 @@ attach_product () {
   echo "Attached $3 ($2) to $5 as product $product_id"
 }
 
-for cycle in WEEKLY MONTHLY ANNUAL
+for cycle in WEEKLY MONTHLY THREE_MONTH
 do
   lookup_key='$rc_'"$(tr A-Z a-z <<< "$cycle")"
-  package=$(package_id "$lookup_key" "Gold $(tr A-Z a-z <<< "$cycle")")
+  package=$(package_id "$lookup_key" "Gold $(tr 'A-Z_' 'a-z ' <<< "$cycle")")
 
   for store in APP_STORE PLAY_STORE
   do
@@ -52,7 +52,7 @@ do
 
     if [[ -n "${!store_identifier}" ]]
     then
-      attach_product "$package" "$(tr A-Z a-z <<< "$store")" "${!store_identifier}" "Gold $(tr A-Z a-z <<< "$cycle")" "$lookup_key"
+      attach_product "$package" "$(tr A-Z a-z <<< "$store")" "${!store_identifier}" "Gold $(tr 'A-Z_' 'a-z ' <<< "$cycle")" "$lookup_key"
     fi
   done
 done

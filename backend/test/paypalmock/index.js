@@ -6,10 +6,10 @@ const expectedAuthorization = 'Basic ' + Buffer.from(
   process.env.PAYPAL_MOCK_CLIENT_ID + ':' + process.env.PAYPAL_MOCK_CLIENT_SECRET
 ).toString('base64');
 
-const regularCycle = (interval_unit, value) => ({
+const regularCycle = (interval_unit, interval_count, value) => ({
   tenure_type: 'REGULAR',
   total_cycles: 0,
-  frequency: { interval_unit, interval_count: 1 },
+  frequency: { interval_unit, interval_count },
   pricing_scheme: { fixed_price: { value, currency_code: 'USD' } },
 });
 
@@ -24,12 +24,12 @@ const plans = {
         frequency: { interval_unit: 'DAY', interval_count: 7 },
         pricing_scheme: { fixed_price: { value: '0', currency_code: 'USD' } },
       },
-      regularCycle('WEEK', '0.99'),
+      regularCycle('WEEK', 1, '0.99'),
     ],
   },
-  'P-WEEK': { id: 'P-WEEK', name: 'Gold', billing_cycles: [regularCycle('WEEK', '1.99')] },
-  'P-MONTH': { id: 'P-MONTH', name: 'Gold', billing_cycles: [regularCycle('MONTH', '3.99')] },
-  'P-YEAR': { id: 'P-YEAR', name: 'Gold', billing_cycles: [regularCycle('YEAR', '30.00')] },
+  'P-WEEK': { id: 'P-WEEK', name: 'Gold', billing_cycles: [regularCycle('WEEK', 1, '1.99')] },
+  'P-MONTH': { id: 'P-MONTH', name: 'Gold', billing_cycles: [regularCycle('MONTH', 1, '3.99')] },
+  'P-QUARTER': { id: 'P-QUARTER', name: 'Gold', billing_cycles: [regularCycle('MONTH', 3, '9.99')] },
 };
 
 let subscriptions = {};

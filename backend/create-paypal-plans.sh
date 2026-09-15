@@ -27,16 +27,16 @@ product_id="${DUO_PAYPAL_PRODUCT_ID:-$(
 
 create_plan () {
   paypal POST /v1/billing/plans -d "$(
-    jq -n --arg product_id "$product_id" --arg unit "$1" --arg price "$2" '{
+    jq -n --arg product_id "$product_id" --arg unit "$1" --argjson count "$2" --arg price "$3" '{
       product_id: $product_id,
       name: "Gold",
-      description: "Billed every \($unit | ascii_downcase)",
+      description: "Billed every \($count) \($unit | ascii_downcase)s",
       status: "ACTIVE",
       billing_cycles: [{
         sequence: 1,
         tenure_type: "REGULAR",
         total_cycles: 0,
-        frequency: { interval_unit: $unit, interval_count: 1 },
+        frequency: { interval_unit: $unit, interval_count: $count },
         pricing_scheme: { fixed_price: { value: $price, currency_code: "USD" } }
       }],
       payment_preferences: { auto_bill_outstanding: true, payment_failure_threshold: 3 }
@@ -44,4 +44,4 @@ create_plan () {
   )" | jq -r '.id'
 }
 
-echo "DUO_PAYPAL_PLAN_IDS=$(create_plan WEEK 1.99),$(create_plan MONTH 3.99),$(create_plan YEAR 30.00)"
+echo "DUO_PAYPAL_PLAN_IDS=$(create_plan WEEK 1 1.99),$(create_plan MONTH 1 3.99),$(create_plan MONTH 3 9.99)"

@@ -91,7 +91,7 @@ approve_flow_grants_gold () {
 
   setup
 
-  [[ "$(c GET /paypal/plans | jq -cS .)" == '[{"currency":"USD","cycle":{"unit":"week","units":1},"id":"P-WEEK","price":"1.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":1},"id":"P-MONTH","price":"3.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"year","units":1},"id":"P-YEAR","price":"30.00","product_name":"Gold","trial":null}]' ]]
+  [[ "$(c GET /paypal/plans | jq -cS .)" == '[{"currency":"USD","cycle":{"unit":"week","units":1},"id":"P-WEEK","price":"1.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":1},"id":"P-MONTH","price":"3.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":3},"id":"P-QUARTER","price":"9.99","product_name":"Gold","trial":null}]' ]]
 
   echo 'Subscribing to a plan that is not offered is refused'
 
@@ -234,7 +234,7 @@ expiry_revokes_gold_and_frees_the_person () {
 
   echo 'A lapsed subscription no longer blocks a new one'
 
-  subscribe_and_approve P-YEAR
+  subscribe_and_approve P-QUARTER
 
   [[ "$(user_has_gold user1)" == t ]]
 
@@ -244,7 +244,7 @@ expiry_revokes_gold_and_frees_the_person () {
 
   jc POST /paypal/cancel
 
-  [[ "$(subscription expires_at)" == "2100-01-31 00:00:00" ]]
+  [[ "$(subscription expires_at)" == "2099-04-30 00:00:00" ]]
 }
 
 deleting_an_account_cancels_at_paypal () {
