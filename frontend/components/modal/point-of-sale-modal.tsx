@@ -1,50 +1,79 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  SharedValue,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { X } from 'react-native-feather';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faHeart } from '@fortawesome/free-solid-svg-icons';
 import { DefaultText } from '../default-text';
 import { DefaultModal } from './default-modal';
 import { backgroundColors } from './background-colors';
 import { ButtonWithCenteredText } from '../button/centered-text';
-import { Logo14 } from '../logo';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
-import { Close } from '../button/close';
 import { listen, notify } from '../../events/events';
 import { setSignedInUser } from '../../events/signed-in-user';
-import { getPurchasable } from '../../purchases/purchases';
-import { Purchasable } from '../../purchases/offering';
-import { isMobileWeb, pluralize } from '../../util/util';
-import { useAppTheme } from '../../app-theme/app-theme';
-import * as _ from 'lodash';
+import { getOffering } from '../../purchases/purchases';
+import {
+  Offering,
+  Purchasable,
+  byCycleLength,
+  savings,
+  weeksIn,
+} from '../../purchases/offering';
+import {
+  FEATURES,
+  PointOfSaleFeature,
+  brandColor,
+  goldColor,
+} from './point-of-sale-features';
+import { pluralize } from '../../util/util';
 
-const cardPadding = 20;
+const fadedWhite = 'rgba(255, 255, 255, 0.85)';
 
-const showPointOfSale = (isVisible: boolean) => {
-  notify<boolean>('show-point-of-sale', isVisible);
+const showPointOfSale = (feature: PointOfSaleFeature) => {
+  notify<PointOfSaleFeature | null>('show-point-of-sale', feature);
 };
 
-const useShowPointOfSale = () => {
-  const [isVisible, setIsVisible] = useState<boolean>(false);
+const hidePointOfSale = () => {
+  notify<PointOfSaleFeature | null>('show-point-of-sale', null);
+};
+
+const usePointOfSale = () => {
+  const [feature, setFeature] = useState<PointOfSaleFeature>('read-receipts');
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    return listen<boolean>(
+    return listen<PointOfSaleFeature | null>(
       'show-point-of-sale',
       (x) => {
         if (x === undefined) {
           return;
         }
 
-        setIsVisible(x);
+        setIsVisible(x !== null);
+
+        if (x !== null) {
+          setFeature(x);
+        }
       }
     );
   }, []);
 
-  return isVisible;
+  return { feature, isVisible };
 };
 
 const PurchaseButton = ({
   label,
+  compact,
   onPress,
 }: {
   label: string
+  compact: boolean
   onPress: () => Promise<void>,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -58,14 +87,12 @@ const PurchaseButton = ({
   return (
     <ButtonWithCenteredText
       onPress={_onPress}
-      textStyle={{
-        fontWeight: 700,
-      }}
-      containerStyle={{
-        marginTop: 0,
-        marginBottom: 0,
-      }}
-      secondary={true}
+      textStyle={{ fontWeight: 800 }}
+      containerStyle={{ marginTop: 0, marginBottom: 0, height: compact ? 48 : 50 }}
+      backgroundColor={goldColor}
+      borderColor="black"
+      borderWidth={3}
+      textColor="black"
       loading={loading}
     >
       {label}
@@ -73,57 +100,214 @@ const PurchaseButton = ({
   );
 };
 
-const OfferingCard = ({
-  onPressClose,
+const useSelectedColor = (selected: SharedValue<number>, from: string, to: string) =>
+  useAnimatedStyle(() => ({
+    color: interpolateColor(selected.value, [0, 1], [from, to]),
+  }));
+
+const PlanCard = ({
+  purchasable,
+  purchasables,
+  isSelected,
+  isPopular,
+  compact,
+  onPress,
 }: {
-  onPressClose: () => void,
+  purchasable: Purchasable
+  purchasables: Purchasable[]
+  isSelected: boolean
+  isPopular: boolean
+  compact: boolean
+  onPress: () => void
 }) => {
-  const [hasError, setHasError] = useState(false);
-  const [purchasable, setPurchasable] = useState<Purchasable | null>();
-  const { height: windowHeight } = useWindowDimensions();
-  const { appTheme } = useAppTheme();
+  const { cycle, price, pricePerWeek } = purchasable;
+  const saving = savings(purchasable, purchasables);
+  const selected = useSharedValue(isSelected ? 1 : 0);
 
   useEffect(() => {
-    getPurchasable().then(setPurchasable, () => setPurchasable(null));
+    selected.value = withTiming(isSelected ? 1 : 0, { duration: 180 });
+  }, [isSelected, selected]);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      selected.value, [0, 1], ['rgba(255, 255, 255, 0.12)', '#ffffff']),
+    transform: [{ scale: 1 + 0.06 * selected.value }],
+  }));
+  const ringStyle = useAnimatedStyle(() => ({ opacity: selected.value }));
+  const accentStyle = useSelectedColor(selected, '#ffffff', brandColor);
+  const inkStyle = useSelectedColor(selected, '#ffffff', '#000000');
+  const subStyle = useSelectedColor(selected, 'rgba(255, 255, 255, 0.9)', '#666666');
+  const tagStyle = useSelectedColor(selected, goldColor, brandColor);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{ flex: 1, zIndex: isPopular ? 2 : 1 }}
+    >
+      <Animated.View
+        style={[
+          {
+            height: compact ? 110 : 132,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.35)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          cardStyle,
+        ]}
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              top: -3,
+              left: -3,
+              right: -3,
+              bottom: -3,
+              borderRadius: 12,
+              borderWidth: 3,
+              borderColor: 'black',
+            },
+            ringStyle,
+          ]}
+        />
+        {isPopular &&
+          <DefaultText
+            animated
+            animatedStyle={tagStyle}
+            disableTheme
+            style={{
+              fontSize: 10,
+              lineHeight: 14,
+              fontWeight: 800,
+              letterSpacing: 0.3,
+              marginBottom: compact ? 2 : 4,
+            }}
+          >
+            MOST POPULAR
+          </DefaultText>
+        }
+        <DefaultText
+          animated
+          animatedStyle={accentStyle}
+          disableTheme
+          style={{
+            fontSize: compact ? 22 : 26,
+            lineHeight: compact ? 26 : 30,
+            fontWeight: 900,
+          }}
+        >
+          {cycle.units}
+        </DefaultText>
+        <DefaultText
+          animated
+          animatedStyle={accentStyle}
+          disableTheme
+          style={{
+            fontSize: compact ? 12 : 13,
+            lineHeight: compact ? 16 : 18,
+            fontWeight: 800,
+          }}
+        >
+          {pluralize(cycle.unit, cycle.units).toUpperCase()}
+        </DefaultText>
+        <DefaultText
+          animated
+          animatedStyle={inkStyle}
+          disableTheme
+          style={{
+            marginTop: compact ? 6 : 10,
+            fontSize: compact ? 13 : 14,
+            lineHeight: compact ? 16 : 18,
+            fontWeight: 700,
+          }}
+        >
+          {price}
+        </DefaultText>
+        {weeksIn(cycle) !== 1 && pricePerWeek !== null &&
+          <DefaultText
+            animated
+            animatedStyle={subStyle}
+            disableTheme
+            style={{
+              fontSize: 11,
+              lineHeight: 14,
+              fontWeight: 500,
+            }}
+          >
+            {pricePerWeek}/wk
+          </DefaultText>
+        }
+        {isPopular && saving > 0 &&
+          <View
+            style={{
+              position: 'absolute',
+              top: -14,
+              right: -8,
+              backgroundColor: goldColor,
+              paddingVertical: 4,
+              paddingHorizontal: 8,
+              borderRadius: 999,
+              borderWidth: 2,
+              borderColor: 'black',
+              transform: [{ rotate: '8deg' }],
+            }}
+          >
+            <DefaultText
+              disableTheme
+              style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
+            >
+              SAVE {saving}%
+            </DefaultText>
+          </View>
+        }
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+const OfferingCard = ({
+  feature,
+  compact,
+}: {
+  feature: PointOfSaleFeature
+  compact: boolean
+}) => {
+  const [offering, setOffering] = useState<Offering | null>();
+  const [picked, setPicked] = useState<Purchasable | null>(null);
+  const [hasError, setHasError] = useState(false);
+  const { headline, subtitle, cta, Illustration } = FEATURES[feature];
+
+  useEffect(() => {
+    getOffering().then(setOffering, () => setOffering(null));
   }, []);
 
-  if (!purchasable) {
+  if (!offering) {
     return (
-      <>
-        {purchasable === null
-          ? <DefaultText style={{ textAlign: 'center', fontWeight: 500 }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        {offering === null
+          ? <DefaultText
+              disableTheme
+              style={{ color: 'white', textAlign: 'center', fontWeight: 500 }}
+            >
               Something went wrong
             </DefaultText>
-          : <View
-              style={{
-                width: 100,
-                aspectRatio: 1,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <LogoActivityIndicator size="large" color="#70f"/>
-            </View>
+          : <LogoActivityIndicator size="large" color="white" />
         }
-        <Close onPress={onPressClose} />
-      </>
+      </View>
     );
   }
 
-  const { offering, purchase } = purchasable;
-
-  const productName = offering.product_name;
-
-  const subtitle = `You’re gonna need ${productName} for that...`;
-
-  const buttonCta = offering.trial
-    ? `Try ${offering.trial.units} ${_.capitalize(pluralize(offering.trial.unit, offering.trial.units))} Free`
-    : `Get ${productName.toUpperCase()}`;
+  const purchasables = byCycleLength(offering.purchasables);
+  const popular = purchasables[Math.floor(purchasables.length / 2)];
+  const chosen = picked ?? popular;
 
   const onPress = async () => {
     setHasError(false);
 
-    const result = await purchase();
+    const result = await chosen.purchase();
 
     if (result === 'failed') {
       setHasError(true);
@@ -145,184 +329,155 @@ const OfferingCard = ({
       };
     });
 
-    onPressClose();
+    hidePointOfSale();
   };
-
-  const isCompact = isMobileWeb() && windowHeight < 620;
 
   return (
     <>
       <View
         style={{
-          gap: 10,
-        }}
-      >
-        <View>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 3,
-            }}
-          >
-            <Logo14 size={14 * 2} color={appTheme.secondaryColor} rectSize={0.3} />
-            <DefaultText
-              style={{
-                fontFamily: 'TruenoBold',
-                fontSize: 16,
-              }}
-            >
-              Duolicious
-            </DefaultText>
-          </View>
-          {!isCompact &&
-            <DefaultText
-              style={{
-                fontSize: 42,
-                fontWeight: 900,
-                textAlign: 'center',
-              }}
-            >
-              {productName.toUpperCase()}
-            </DefaultText>
-          }
-        </View>
-        <DefaultText
-          style={{
-            textAlign: 'center',
-          }}
-        >
-          {subtitle}
-        </DefaultText>
-      </View>
-      <View
-        style={{
-          backgroundColor: '#70f',
-          borderRadius: 10,
-          overflow: 'hidden',
-          borderWidth: 3,
+          marginTop: compact ? 8 : 16,
+          height: compact ? 96 : 150,
+          alignItems: 'center',
         }}
       >
         <View
           style={{
-            margin: cardPadding,
-            gap: 8,
+            width: 240,
+            height: 150,
+            transform: [{ scale: compact ? 0.64 : 1 }],
+            transformOrigin: 'top',
           }}
         >
-          <View
-            style={{
-              position: 'absolute',
-              top: -cardPadding,
-              right: 0,
-            }}
-          >
-            <Logo14
-              size={80}
-              color="#ffd700"
-            />
-          </View>
-          <DefaultText
-            style={{
-              fontWeight: 900,
-              fontSize: 28,
-              color: '#ffd700',
-            }}
-          >
-            {productName.toUpperCase()}
-          </DefaultText>
-
-          <DefaultText
-            style={{
-              color: 'white',
-            }}
-          >
-            <DefaultText
-              disableTheme
-              style={{
-                fontWeight: 700,
-              }}
-            >
-              {offering.price} {offering.currency}
-            </DefaultText>
-            {} / {offering.cycle.units === 1
-              ? offering.cycle.unit
-              : `${offering.cycle.units} ${pluralize(offering.cycle.unit, offering.cycle.units)}`}
-          </DefaultText>
-
-          {offering.trial &&
-            <DefaultText
-              style={{
-                color: '#70f',
-                fontWeight: 700,
-                fontSize: 12,
-                paddingHorizontal: 7,
-                paddingVertical: 3,
-                backgroundColor: 'white',
-                borderRadius: 999,
-                alignSelf: 'flex-start',
-              }}
-            >
-              FREE TRIAL
-            </DefaultText>
-          }
-
-          <DefaultText
-            style={{
-              color: 'white',
-              paddingVertical: 14,
-            }}
-          >
-            {offering.description}
-          </DefaultText>
-
-          <PurchaseButton
-            label={buttonCta}
-            onPress={onPress}
-          />
-          {hasError &&
-            <DefaultText
-              style={{
-                color: 'red',
-                textAlign: 'center',
-                fontWeight: 700,
-              }}
-            >
-              Something went wrong
-            </DefaultText>
-          }
+          <Illustration />
         </View>
-
-        {!isCompact &&
+      </View>
+      <View style={{ marginTop: compact ? 12 : 20, paddingHorizontal: 24 }}>
+        {headline.map((line, i) =>
           <DefaultText
+            key={line}
+            disableTheme
             style={{
-              fontSize: 12,
-              color: 'white',
-              backgroundColor: 'black',
-              paddingHorizontal: cardPadding,
-              paddingVertical: cardPadding / 2,
+              fontSize: compact ? 28 : 34,
+              lineHeight: compact ? 32 : 38,
+              fontWeight: 900,
+              color: i === 0 ? 'white' : goldColor,
             }}
           >
-            Subscription renews automatically. Cancel anytime.
+            {line}
+          </DefaultText>
+        )}
+      </View>
+      <DefaultText
+        disableTheme
+        style={{
+          marginTop: compact ? 8 : 10,
+          paddingHorizontal: 24,
+          fontSize: compact ? 15 : 16,
+          lineHeight: compact ? 21 : 22,
+          color: 'white',
+        }}
+      >
+        {subtitle}
+      </DefaultText>
+      <View
+        style={{
+          marginTop: compact ? 22 : 24,
+          height: compact ? 120 : 144,
+          paddingHorizontal: 24,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        {purchasables.map((purchasable) =>
+          <PlanCard
+            key={weeksIn(purchasable.cycle)}
+            purchasable={purchasable}
+            purchasables={purchasables}
+            isSelected={purchasable === chosen}
+            isPopular={purchasable === popular}
+            compact={compact}
+            onPress={() => setPicked(purchasable)}
+          />
+        )}
+      </View>
+      <View
+        style={{
+          marginTop: compact ? 16 : 18,
+          paddingHorizontal: 24,
+          flexDirection: 'row',
+          gap: 5,
+        }}
+      >
+        <FontAwesomeIcon
+          icon={faHeart}
+          size={12}
+          color={goldColor}
+          style={{ marginTop: 2 }}
+        />
+        <DefaultText
+          disableTheme
+          style={{
+            flex: 1,
+            fontSize: 12,
+            lineHeight: compact ? 16 : 17,
+            fontWeight: 500,
+            color: fadedWhite,
+          }}
+        >
+          <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
+            Gold keeps Duolicious going.
+          </DefaultText>
+          {} It covers the servers, so the core app stays free and open source.
+        </DefaultText>
+      </View>
+      <View style={{ flex: 1, minHeight: 16 }} />
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: compact ? 14 : 36,
+          gap: 8,
+        }}
+      >
+        {hasError &&
+          <DefaultText
+            disableTheme
+            style={{ color: 'white', textAlign: 'center', fontWeight: 700 }}
+          >
+            Something went wrong
           </DefaultText>
         }
+        <PurchaseButton label={cta} compact={compact} onPress={onPress} />
+        <DefaultText
+          disableTheme
+          style={{
+            textAlign: 'center',
+            fontSize: compact ? 11 : 12,
+            lineHeight: 18,
+            fontWeight: 500,
+            color: fadedWhite,
+          }}
+        >
+          Subscription renews automatically. Cancel anytime.
+        </DefaultText>
       </View>
-      <Close onPress={onPressClose} />
     </>
   );
 };
 
 const PointOfSaleModal = () => {
-  const isVisible = useShowPointOfSale();
-  const { appTheme } = useAppTheme();
-
-  const onPressClose = useCallback(() => showPointOfSale(false), []);
+  const { feature, isVisible } = usePointOfSale();
+  const { width, height } = useWindowDimensions();
+  const isFullScreen = width < 600;
+  const cardHeight = isFullScreen ? height : Math.min(height - 40, 844);
+  const compact = cardHeight < 760;
 
   return (
     <DefaultModal
       transparent={true}
       visible={isVisible}
-      onRequestClose={onPressClose}
+      onRequestClose={hidePointOfSale}
     >
       <View
         style={{
@@ -330,35 +485,60 @@ const PointOfSaleModal = () => {
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          flexDirection: 'row',
-          padding: 10,
+          padding: isFullScreen ? 0 : 20,
           ...backgroundColors.dark,
         }}
       >
         <View
           style={{
-            maxWidth: '100%',
-            alignItems: 'center',
-            justifyContent: 'center',
+            width: '100%',
+            height: '100%',
+            maxWidth: isFullScreen ? undefined : 390,
+            maxHeight: isFullScreen ? undefined : 844,
+            borderRadius: isFullScreen ? 0 : 16,
+            overflow: 'hidden',
+            backgroundColor: brandColor,
           }}
         >
           <View
             style={{
-              maxWidth: 600,
-              padding: 20,
-              gap: 20,
-              backgroundColor: appTheme.primaryColor,
-              borderRadius: 5,
-              flexDirection: 'column',
-              overflow: 'hidden',
+              height: 44,
+              marginTop: compact ? 20 : 50,
+              paddingHorizontal: 8,
+              flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'center',
+              justifyContent: 'flex-end',
             }}
           >
-            <OfferingCard
-              onPressClose={onPressClose}
-            />
+            <DefaultText
+              disableTheme
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                textAlign: 'center',
+                fontSize: 17,
+                fontWeight: 700,
+                color: 'white',
+              }}
+            >
+              Get Gold
+            </DefaultText>
+            <Pressable
+              onPress={hidePointOfSale}
+              style={{
+                width: 44,
+                height: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X stroke="white" strokeWidth={3} width={24} height={24} />
+            </Pressable>
           </View>
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+            <OfferingCard feature={feature} compact={compact} />
+          </ScrollView>
         </View>
       </View>
     </DefaultModal>
@@ -366,6 +546,7 @@ const PointOfSaleModal = () => {
 };
 
 export {
+  PointOfSaleFeature,
   showPointOfSale,
   PointOfSaleModal,
 };
