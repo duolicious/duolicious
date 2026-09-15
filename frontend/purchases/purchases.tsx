@@ -138,12 +138,9 @@ const toPurchasable = (pkg: PurchasesPackage): Purchasable | null => {
   const cycle = parsePeriod(pkg.product.subscriptionPeriod);
   return cycle && {
     price: pkg.product.priceString,
+    pricePerWeek: pkg.product.pricePerWeekString,
     amount: pkg.product.price,
     cycle,
-    trial: pkg.product.introPrice && {
-      units: pkg.product.introPrice.periodNumberOfUnits,
-      unit: pkg.product.introPrice.periodUnit.toLowerCase(),
-    },
     purchase: () => purchasePackage(pkg),
   };
 };
@@ -158,11 +155,7 @@ const getOffering = async (): Promise<Offering | null> => {
     .flatMap((pkg) => toPurchasable(pkg) ?? []) ?? [];
   if (!offering || purchasables.length === 0) return null;
 
-  return {
-    product_name: offering.serverDescription,
-    description: String(offering.metadata.description),
-    purchasables,
-  };
+  return { purchasables };
 };
 
 export {

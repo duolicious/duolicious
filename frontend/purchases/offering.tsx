@@ -9,15 +9,13 @@ type PurchaseResult = 'purchased' | 'cancelled' | 'failed';
 
 type Purchasable = {
   price: string,
+  pricePerWeek: string | null,
   amount: number,
   cycle: OfferingInterval,
-  trial: OfferingInterval | null,
   purchase: () => Promise<PurchaseResult>,
 };
 
 type Offering = {
-  product_name: string,
-  description: string,
   purchasables: Purchasable[],
 };
 
@@ -37,9 +35,6 @@ const weeklyRate = (purchasable: Purchasable) =>
 const byCycleLength = (purchasables: Purchasable[]) =>
   _.sortBy(purchasables, (p) => weeksIn(p.cycle));
 
-const bestValue = (purchasables: Purchasable[]): Purchasable =>
-  _.minBy(purchasables, weeklyRate) ?? purchasables[0];
-
 const savings = (purchasable: Purchasable, purchasables: Purchasable[]) =>
   Math.round(
     (1 - weeklyRate(purchasable) / Math.max(...purchasables.map(weeklyRate)))
@@ -51,7 +46,7 @@ export {
   OfferingInterval,
   Purchasable,
   PurchaseResult,
-  bestValue,
   byCycleLength,
   savings,
+  weeksIn,
 };

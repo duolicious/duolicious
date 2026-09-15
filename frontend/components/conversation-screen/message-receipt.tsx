@@ -48,7 +48,7 @@ const MessageReceipt = ({
     <CrossFadeText triggerKey={contentKey(content)} style={styles.container}>
       {content.kind === 'upsell' ?
         <Pressable
-          onPress={() => showPointOfSale('Read receipts')}
+          onPress={() => showPointOfSale('read-receipts')}
           hitSlop={{ top: 5, bottom: 10, left: 10, right: 10 }}
           style={styles.upsellTarget}
         >

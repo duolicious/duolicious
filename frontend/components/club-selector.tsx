@@ -105,7 +105,7 @@ const UnselectedClub = ({
     if (isAtQuota) {
       startShake();
       if (!signedInUser?.hasGold) {
-        showPointOfSale('More clubs');
+        showPointOfSale('clubs');
       }
     } else {
       onPress(clubItem)

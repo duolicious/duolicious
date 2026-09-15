@@ -1292,7 +1292,7 @@ const ColorPickerButton = ({
   const onPress = useCallback(() => {
     const { hasGold = false } = getSignedInUser() ?? {};
     if (!hasGold) {
-      showPointOfSale('Custom themes');
+      showPointOfSale('profile-theme');
       return;
     }
 

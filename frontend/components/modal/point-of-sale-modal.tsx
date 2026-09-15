@@ -1,42 +1,47 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { X } from 'react-native-feather';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faHeart } from '@fortawesome/free-solid-svg-icons';
 import { DefaultText } from '../default-text';
 import { DefaultModal } from './default-modal';
 import { backgroundColors } from './background-colors';
 import { ButtonWithCenteredText } from '../button/centered-text';
-import { Logo14 } from '../logo';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
-import { Close } from '../button/close';
 import { listen, notify } from '../../events/events';
 import { setSignedInUser } from '../../events/signed-in-user';
 import { getOffering } from '../../purchases/purchases';
 import {
   Offering,
-  OfferingInterval,
   Purchasable,
-  bestValue,
   byCycleLength,
   savings,
+  weeksIn,
 } from '../../purchases/offering';
+import {
+  FEATURES,
+  PointOfSaleFeature,
+  brandColor,
+  goldColor,
+} from './point-of-sale-features';
 import { pluralize } from '../../util/util';
-import * as _ from 'lodash';
 
-const brandColor = '#70f';
+const fadedWhite = 'rgba(255, 255, 255, 0.85)';
 
-const showPointOfSale = (feature: string) => {
-  notify<string | null>('show-point-of-sale', feature);
+const showPointOfSale = (feature: PointOfSaleFeature) => {
+  notify<PointOfSaleFeature | null>('show-point-of-sale', feature);
 };
 
 const hidePointOfSale = () => {
-  notify<string | null>('show-point-of-sale', null);
+  notify<PointOfSaleFeature | null>('show-point-of-sale', null);
 };
 
 const usePointOfSale = () => {
-  const [feature, setFeature] = useState('');
+  const [feature, setFeature] = useState<PointOfSaleFeature>('read-receipts');
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    return listen<string | null>(
+    return listen<PointOfSaleFeature | null>(
       'show-point-of-sale',
       (x) => {
         if (x === undefined) {
@@ -55,14 +60,13 @@ const usePointOfSale = () => {
   return { feature, isVisible };
 };
 
-const intervalLabel = ({ units, unit }: OfferingInterval) =>
-  `${units} ${pluralize(unit, units)}`;
-
 const PurchaseButton = ({
   label,
+  compact,
   onPress,
 }: {
   label: string
+  compact: boolean
   onPress: () => Promise<void>,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -76,15 +80,12 @@ const PurchaseButton = ({
   return (
     <ButtonWithCenteredText
       onPress={_onPress}
-      textStyle={{
-        fontWeight: 700,
-      }}
-      containerStyle={{
-        marginTop: 0,
-        marginBottom: 0,
-      }}
-      backgroundColor="white"
-      textColor={brandColor}
+      textStyle={{ fontWeight: 800 }}
+      containerStyle={{ marginTop: 0, marginBottom: 0, height: compact ? 48 : 50 }}
+      backgroundColor={goldColor}
+      borderColor="black"
+      borderWidth={3}
+      textColor="black"
       loading={loading}
     >
       {label}
@@ -92,119 +93,166 @@ const PurchaseButton = ({
   );
 };
 
-const PriceOption = ({
+const PlanCard = ({
   purchasable,
+  purchasables,
   isSelected,
-  saving,
+  isPopular,
+  compact,
   onPress,
 }: {
   purchasable: Purchasable
+  purchasables: Purchasable[]
   isSelected: boolean
-  saving: number
+  isPopular: boolean
+  compact: boolean
   onPress: () => void
 }) => {
-  const color = isSelected ? brandColor : 'white';
-  const { cycle, trial, price } = purchasable;
+  const accent = isSelected ? brandColor : 'white';
+  const ink = isSelected ? 'black' : 'white';
+  const { cycle, price, pricePerWeek } = purchasable;
+  const saving = savings(purchasable, purchasables);
 
   return (
     <Pressable
       onPress={onPress}
       style={{
-        borderRadius: 14,
-        borderWidth: 2,
-        borderColor: isSelected ? 'white' : 'rgba(255, 255, 255, 0.5)',
-        backgroundColor: isSelected ? 'white' : 'transparent',
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        flexDirection: 'row',
+        flex: 1,
+        height: compact ? 110 : 132,
+        borderRadius: 10,
+        borderWidth: isSelected ? 3 : 1,
+        borderColor: isSelected ? 'black' : 'rgba(255, 255, 255, 0.35)',
+        backgroundColor: isSelected ? 'white' : 'rgba(255, 255, 255, 0.12)',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
+        justifyContent: 'center',
+        zIndex: isPopular ? 2 : 1,
+        transform: [{ scale: isSelected ? 1.06 : 1 }],
       }}
     >
-      <View style={{ flexShrink: 1 }}>
-        <DefaultText
-          disableTheme
-          style={{ color, fontWeight: 700, fontSize: 18 }}
-        >
-          {intervalLabel(cycle)}
-        </DefaultText>
-        {trial &&
-          <DefaultText disableTheme style={{ color, fontSize: 13 }}>
-            {intervalLabel(trial)} free, then
-          </DefaultText>
-        }
-      </View>
-      <DefaultText
-        disableTheme
-        style={{ color, fontWeight: 700, fontSize: 18 }}
-      >
-        {price}
-        <DefaultText
-          disableTheme
-          style={{ color, fontWeight: 400, fontSize: 14 }}
-        >
-          {} / {cycle.units === 1 ? cycle.unit : intervalLabel(cycle)}
-        </DefaultText>
-      </DefaultText>
-      {saving > 0 &&
+      {isPopular && saving > 0 &&
         <View
           style={{
             position: 'absolute',
-            top: -12,
-            right: 14,
-            backgroundColor: '#ffd700',
+            top: -10,
+            right: -4,
+            backgroundColor: goldColor,
+            paddingVertical: 4,
+            paddingHorizontal: 8,
             borderRadius: 999,
-            paddingHorizontal: 10,
-            paddingVertical: 3,
+            borderWidth: 2,
+            borderColor: 'black',
+            transform: [{ rotate: '8deg' }],
           }}
         >
           <DefaultText
             disableTheme
-            style={{ color: 'black', fontWeight: 900, fontSize: 12 }}
+            style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
           >
             SAVE {saving}%
           </DefaultText>
         </View>
       }
+      {isPopular &&
+        <DefaultText
+          disableTheme
+          style={{
+            fontSize: 10,
+            lineHeight: 14,
+            fontWeight: 800,
+            letterSpacing: 0.3,
+            color: isSelected ? brandColor : goldColor,
+            marginBottom: compact ? 2 : 4,
+          }}
+        >
+          MOST POPULAR
+        </DefaultText>
+      }
+      <DefaultText
+        disableTheme
+        style={{
+          fontSize: compact ? 22 : 26,
+          lineHeight: compact ? 26 : 30,
+          fontWeight: 900,
+          color: accent,
+        }}
+      >
+        {cycle.units}
+      </DefaultText>
+      <DefaultText
+        disableTheme
+        style={{
+          fontSize: compact ? 12 : 13,
+          lineHeight: compact ? 16 : 18,
+          fontWeight: 800,
+          color: accent,
+        }}
+      >
+        {pluralize(cycle.unit, cycle.units).toUpperCase()}
+      </DefaultText>
+      <DefaultText
+        disableTheme
+        style={{
+          marginTop: compact ? 6 : 10,
+          fontSize: compact ? 13 : 14,
+          lineHeight: compact ? 16 : 18,
+          fontWeight: 700,
+          color: ink,
+        }}
+      >
+        {price}
+      </DefaultText>
+      {weeksIn(cycle) !== 1 && pricePerWeek !== null &&
+        <DefaultText
+          disableTheme
+          style={{
+            fontSize: 11,
+            lineHeight: 14,
+            fontWeight: 500,
+            color: isSelected ? '#666666' : 'rgba(255, 255, 255, 0.9)',
+          }}
+        >
+          {pricePerWeek}/wk
+        </DefaultText>
+      }
     </Pressable>
   );
 };
 
-const OfferingCard = ({ feature }: { feature: string }) => {
+const OfferingCard = ({
+  feature,
+  compact,
+}: {
+  feature: PointOfSaleFeature
+  compact: boolean
+}) => {
   const [offering, setOffering] = useState<Offering | null>();
-  const [selected, setSelected] = useState<Purchasable | null>(null);
+  const [picked, setPicked] = useState<Purchasable | null>(null);
   const [hasError, setHasError] = useState(false);
+  const { headline, subtitle, cta, Illustration } = FEATURES[feature];
 
   useEffect(() => {
     getOffering().then(setOffering, () => setOffering(null));
   }, []);
 
-  if (offering === undefined) {
+  if (!offering) {
     return (
-      <View style={{ alignItems: 'center' }}>
-        <LogoActivityIndicator size="large" color="white" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        {offering === null
+          ? <DefaultText
+              disableTheme
+              style={{ color: 'white', textAlign: 'center', fontWeight: 500 }}
+            >
+              Something went wrong
+            </DefaultText>
+          : <LogoActivityIndicator size="large" color="white" />
+        }
       </View>
     );
   }
 
-  if (offering === null) {
-    return (
-      <DefaultText
-        disableTheme
-        style={{ color: 'white', textAlign: 'center', fontWeight: 500 }}
-      >
-        Something went wrong
-      </DefaultText>
-    );
-  }
-
   const purchasables = byCycleLength(offering.purchasables);
-  const chosen = selected ?? bestValue(purchasables);
-
-  const buttonCta = chosen.trial
-    ? `Try ${chosen.trial.units} ${_.capitalize(pluralize(chosen.trial.unit, chosen.trial.units))} Free`
-    : `Get ${offering.product_name}`;
+  const popular = purchasables[Math.floor(purchasables.length / 2)];
+  const chosen = picked ?? popular;
 
   const onPress = async () => {
     setHasError(false);
@@ -238,58 +286,110 @@ const OfferingCard = ({ feature }: { feature: string }) => {
     <>
       <View
         style={{
-          flexDirection: 'row',
+          marginTop: compact ? 8 : 16,
+          height: compact ? 96 : 150,
           alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
         }}
       >
-        <Logo14 size={28} color="white" rectSize={0.3} />
-        <DefaultText
-          disableTheme
-          style={{ fontFamily: 'TruenoBold', fontSize: 16, color: 'white' }}
-        >
-          Duolicious
-        </DefaultText>
-      </View>
-      <View style={{ gap: 8 }}>
-        <DefaultText
-          disableTheme
+        <View
           style={{
-            fontSize: 30,
-            fontWeight: 900,
-            color: 'white',
-            textAlign: 'center',
+            width: 240,
+            height: 150,
+            transform: [{ scale: compact ? 0.64 : 1 }],
+            transformOrigin: 'top',
           }}
         >
-          {feature}
-        </DefaultText>
-        <DefaultText
-          disableTheme
-          style={{ color: 'white', textAlign: 'center' }}
-        >
-          Here’s everything you get with {offering.product_name}:
-        </DefaultText>
+          <Illustration />
+        </View>
+      </View>
+      <View style={{ marginTop: compact ? 12 : 20, paddingHorizontal: 24 }}>
+        {headline.map((line, i) =>
+          <DefaultText
+            key={line}
+            disableTheme
+            style={{
+              fontSize: compact ? 28 : 34,
+              lineHeight: compact ? 32 : 38,
+              fontWeight: 900,
+              color: i === 0 ? 'white' : goldColor,
+            }}
+          >
+            {line}
+          </DefaultText>
+        )}
       </View>
       <DefaultText
         disableTheme
-        style={{ color: 'white', lineHeight: 22, alignSelf: 'center' }}
+        style={{
+          marginTop: compact ? 8 : 10,
+          paddingHorizontal: 24,
+          fontSize: compact ? 15 : 16,
+          lineHeight: compact ? 21 : 22,
+          color: 'white',
+        }}
       >
-        {offering.description}
+        {subtitle}
       </DefaultText>
-      <View style={{ gap: 14 }}>
+      <View
+        style={{
+          marginTop: compact ? 22 : 24,
+          height: compact ? 120 : 144,
+          paddingHorizontal: 24,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
         {purchasables.map((purchasable) =>
-          <PriceOption
-            key={intervalLabel(purchasable.cycle)}
+          <PlanCard
+            key={weeksIn(purchasable.cycle)}
             purchasable={purchasable}
+            purchasables={purchasables}
             isSelected={purchasable === chosen}
-            saving={savings(purchasable, purchasables)}
-            onPress={() => setSelected(purchasable)}
+            isPopular={purchasable === popular}
+            compact={compact}
+            onPress={() => setPicked(purchasable)}
           />
         )}
       </View>
-      <View style={{ gap: 10 }}>
-        <PurchaseButton label={buttonCta} onPress={onPress} />
+      <View
+        style={{
+          marginTop: compact ? 16 : 18,
+          paddingHorizontal: 24,
+          flexDirection: 'row',
+          gap: 5,
+        }}
+      >
+        <FontAwesomeIcon
+          icon={faHeart}
+          size={12}
+          color={goldColor}
+          style={{ marginTop: 2 }}
+        />
+        <DefaultText
+          disableTheme
+          style={{
+            flex: 1,
+            fontSize: 12,
+            lineHeight: compact ? 16 : 17,
+            fontWeight: 500,
+            color: fadedWhite,
+          }}
+        >
+          <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
+            Gold keeps Duolicious going.
+          </DefaultText>
+          {} It covers the servers, so the core app stays free and open source.
+        </DefaultText>
+      </View>
+      <View style={{ flex: 1, minHeight: 16 }} />
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: compact ? 14 : 36,
+          gap: 8,
+        }}
+      >
         {hasError &&
           <DefaultText
             disableTheme
@@ -298,12 +398,15 @@ const OfferingCard = ({ feature }: { feature: string }) => {
             Something went wrong
           </DefaultText>
         }
+        <PurchaseButton label={cta} compact={compact} onPress={onPress} />
         <DefaultText
           disableTheme
           style={{
-            fontSize: 12,
-            color: 'rgba(255, 255, 255, 0.8)',
             textAlign: 'center',
+            fontSize: compact ? 11 : 12,
+            lineHeight: 18,
+            fontWeight: 500,
+            color: fadedWhite,
           }}
         >
           Subscription renews automatically. Cancel anytime.
@@ -315,8 +418,10 @@ const OfferingCard = ({ feature }: { feature: string }) => {
 
 const PointOfSaleModal = () => {
   const { feature, isVisible } = usePointOfSale();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isFullScreen = width < 600;
+  const cardHeight = isFullScreen ? height : Math.min(height - 40, 844);
+  const compact = cardHeight < 760;
 
   return (
     <DefaultModal
@@ -338,28 +443,51 @@ const PointOfSaleModal = () => {
           style={{
             width: '100%',
             height: '100%',
-            maxWidth: isFullScreen ? undefined : 480,
-            maxHeight: isFullScreen ? undefined : 800,
+            maxWidth: isFullScreen ? undefined : 390,
+            maxHeight: isFullScreen ? undefined : 844,
             borderRadius: isFullScreen ? 0 : 16,
             overflow: 'hidden',
             backgroundColor: brandColor,
           }}
         >
-          <Close
-            onPress={hidePointOfSale}
-            color="white"
-            style={{ top: 16, left: 16 }}
-          />
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: 'center',
-              padding: 20,
-              paddingTop: 48,
-              gap: 18,
+          <View
+            style={{
+              height: 44,
+              marginTop: compact ? 20 : 50,
+              paddingHorizontal: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
             }}
           >
-            <OfferingCard feature={feature} />
+            <DefaultText
+              disableTheme
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                textAlign: 'center',
+                fontSize: 17,
+                fontWeight: 700,
+                color: 'white',
+              }}
+            >
+              Get Gold
+            </DefaultText>
+            <Pressable
+              onPress={hidePointOfSale}
+              style={{
+                width: 44,
+                height: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X stroke="white" strokeWidth={3} width={24} height={24} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+            <OfferingCard feature={feature} compact={compact} />
           </ScrollView>
         </View>
       </View>
@@ -368,6 +496,7 @@ const PointOfSaleModal = () => {
 };
 
 export {
+  PointOfSaleFeature,
   showPointOfSale,
   PointOfSaleModal,
 };
