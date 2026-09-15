@@ -129,29 +129,6 @@ const PlanCard = ({
         transform: [{ scale: isSelected ? 1.06 : 1 }],
       }}
     >
-      {isPopular && saving > 0 &&
-        <View
-          style={{
-            position: 'absolute',
-            top: -10,
-            right: -4,
-            backgroundColor: goldColor,
-            paddingVertical: 4,
-            paddingHorizontal: 8,
-            borderRadius: 999,
-            borderWidth: 2,
-            borderColor: 'black',
-            transform: [{ rotate: '8deg' }],
-          }}
-        >
-          <DefaultText
-            disableTheme
-            style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
-          >
-            SAVE {saving}%
-          </DefaultText>
-        </View>
-      }
       {isPopular &&
         <DefaultText
           disableTheme
@@ -213,6 +190,29 @@ const PlanCard = ({
         >
           {pricePerWeek}/wk
         </DefaultText>
+      }
+      {isPopular && saving > 0 &&
+        <View
+          style={{
+            position: 'absolute',
+            top: -10,
+            right: -4,
+            backgroundColor: goldColor,
+            paddingVertical: 4,
+            paddingHorizontal: 8,
+            borderRadius: 999,
+            borderWidth: 2,
+            borderColor: 'black',
+            transform: [{ rotate: '8deg' }],
+          }}
+        >
+          <DefaultText
+            disableTheme
+            style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
+          >
+            SAVE {saving}%
+          </DefaultText>
+        </View>
       }
     </Pressable>
   );
