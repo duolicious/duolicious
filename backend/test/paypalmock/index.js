@@ -6,23 +6,30 @@ const expectedAuthorization = 'Basic ' + Buffer.from(
   process.env.PAYPAL_MOCK_CLIENT_ID + ':' + process.env.PAYPAL_MOCK_CLIENT_SECRET
 ).toString('base64');
 
-const plan = {
-  id: 'P-TEST',
-  name: 'Gold',
-  billing_cycles: [
-    {
-      tenure_type: 'TRIAL',
-      total_cycles: 1,
-      frequency: { interval_unit: 'DAY', interval_count: 7 },
-      pricing_scheme: { fixed_price: { value: '0', currency_code: 'USD' } },
-    },
-    {
-      tenure_type: 'REGULAR',
-      total_cycles: 0,
-      frequency: { interval_unit: 'WEEK', interval_count: 1 },
-      pricing_scheme: { fixed_price: { value: '0.99', currency_code: 'USD' } },
-    },
-  ],
+const regularCycle = (interval_unit, interval_count, value) => ({
+  tenure_type: 'REGULAR',
+  total_cycles: 0,
+  frequency: { interval_unit, interval_count },
+  pricing_scheme: { fixed_price: { value, currency_code: 'USD' } },
+});
+
+const plans = {
+  'P-TEST': {
+    id: 'P-TEST',
+    name: 'Gold',
+    billing_cycles: [
+      {
+        tenure_type: 'TRIAL',
+        total_cycles: 1,
+        frequency: { interval_unit: 'DAY', interval_count: 7 },
+        pricing_scheme: { fixed_price: { value: '0', currency_code: 'USD' } },
+      },
+      regularCycle('WEEK', 1, '0.99'),
+    ],
+  },
+  'P-WEEK': { id: 'P-WEEK', name: 'Gold', billing_cycles: [regularCycle('WEEK', 1, '1.99')] },
+  'P-MONTH': { id: 'P-MONTH', name: 'Gold', billing_cycles: [regularCycle('MONTH', 1, '3.99')] },
+  'P-QUARTER': { id: 'P-QUARTER', name: 'Gold', billing_cycles: [regularCycle('MONTH', 3, '9.99')] },
 };
 
 let subscriptions = {};
@@ -43,6 +50,7 @@ const subscriptionJson = (sub) => ({
   id: sub.id,
   status: sub.status,
   custom_id: sub.custom_id,
+  plan_id: sub.plan_id,
   start_time: sub.start_time,
   billing_info: sub.last_payment_time === null
     ? {}
@@ -67,6 +75,7 @@ const newSubscription = (id, fields) => subscriptions[id] = {
   id,
   status: 'ACTIVE',
   custom_id: null,
+  plan_id: 'P-WEEK',
   start_time: new Date().toISOString(),
   last_payment_time: null,
   return_url: null,
@@ -78,6 +87,7 @@ app.post('/v1/billing/subscriptions', requireBearer, (req, res) => {
   const sub = newSubscription(`I-MOCK-${subscriptionCounter}`, {
     status: 'APPROVAL_PENDING',
     custom_id: req.body.custom_id ?? null,
+    plan_id: req.body.plan_id,
     return_url: req.body.application_context?.return_url,
   });
   res.status(201).json(subscriptionJson(sub));
@@ -103,7 +113,8 @@ app.post('/v1/billing/subscriptions/:id/cancel', requireBearer, (req, res) => {
 });
 
 app.get('/v1/billing/plans/:id', requireBearer, (req, res) => {
-  if (req.params.id !== plan.id) {
+  const plan = plans[req.params.id];
+  if (!plan) {
     res.status(404).json({ name: 'RESOURCE_NOT_FOUND' });
     return;
   }
