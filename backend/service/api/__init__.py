@@ -554,9 +554,9 @@ async def get_export_data(token: str) -> object:
 async def post_revenuecat(request: Request, req: t.PostRevenuecat) -> object:
     return await revenuecat.post_revenuecat(req, request)
 
-@app.get('/paypal/plan')
-async def get_paypal_plan() -> object:
-    return await paypal.get_plan()
+@app.get('/paypal/plans')
+async def get_paypal_plans() -> object:
+    return await paypal.get_plans()
 
 @app.post('/paypal/subscribe')
 async def post_paypal_subscribe(

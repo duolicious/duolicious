@@ -27,6 +27,7 @@ from dateutil.relativedelta import relativedelta
 from PIL import Image
 from pillow_heif import register_heif_opener
 from serviceshared import constants
+from serviceshared.duoenv.api import PAYPAL_PLAN_IDS
 from serviceshared.paypal import PaypalSubscription
 import io
 import base64
@@ -711,6 +712,14 @@ class PostSpotifyAuthorize(BaseModel):
 
 class PostPaypalSubscribe(BaseModel):
     redirect_target: Literal['web', 'apex']
+    plan_id: str
+
+    @field_validator('plan_id')
+    @classmethod
+    def _known_plan(cls, plan_id: str) -> str:
+        if plan_id not in PAYPAL_PLAN_IDS:
+            raise ValueError('Unknown plan')
+        return plan_id
 
 
 class PostPaypalWebhook(BaseModel):
