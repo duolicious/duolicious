@@ -244,8 +244,8 @@ const PlanCard = ({
           <View
             style={{
               position: 'absolute',
-              top: -10,
-              right: -4,
+              top: -14,
+              right: -8,
               backgroundColor: goldColor,
               paddingVertical: 4,
               paddingHorizontal: 8,
