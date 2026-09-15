@@ -363,7 +363,7 @@ const DisplayName = () =>
 const FEATURES = {
   'read-receipts': {
     headline: ['HAVE THEY', 'SEEN IT?'],
-    subtitle: 'Stop wondering. See if they’ve seen your message, and when.',
+    subtitle: 'Stop wondering. Know if they’ve seen your message, and when.',
     cta: 'Show me if they’ve seen it',
     Illustration: ReadReceipts,
   },
