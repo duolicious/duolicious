@@ -129,6 +129,8 @@ const PlanCard = ({
   }, [isSelected, selected]);
 
   const cardStyle = useAnimatedStyle(() => ({
+    height: (compact ? 110 : 132) + 4 * selected.value,
+    margin: -2 * selected.value,
     borderWidth: 1 + 2 * selected.value,
     borderColor: interpolateColor(
       selected.value, [0, 1], ['rgba(255, 255, 255, 0.35)', '#000000']),
@@ -149,7 +151,6 @@ const PlanCard = ({
       <Animated.View
         style={[
           {
-            height: compact ? 110 : 132,
             borderRadius: 10,
             alignItems: 'center',
             justifyContent: 'center',
@@ -228,8 +229,8 @@ const PlanCard = ({
           <View
             style={{
               position: 'absolute',
-              top: -14,
-              right: -8,
+              top: -10,
+              right: -4,
               backgroundColor: goldColor,
               paddingVertical: 4,
               paddingHorizontal: 8,
@@ -241,7 +242,7 @@ const PlanCard = ({
           >
             <DefaultText
               disableTheme
-              style={{ color: 'black', fontSize: 11, lineHeight: 13, fontWeight: 800 }}
+              style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
             >
               SAVE {saving}%
             </DefaultText>
