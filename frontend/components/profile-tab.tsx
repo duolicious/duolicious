@@ -348,7 +348,7 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
     } else if (r.validationErrors[0] === 'Spam') {
       stateSetter('spam');
     } else if (r.text === 'Requires gold') {
-      showPointOfSale(true);
+      showPointOfSale('display-name');
       stateSetter('needs gold');
     } else {
       stateSetter('error');
@@ -869,7 +869,7 @@ const Options = ({ navigation, data }: {
                   {new Date(data.paypal_subscription.paid_until).toLocaleDateString(undefined, { dateStyle: 'long' })}.
                 </DefaultText>
                 <ButtonForOption
-                  onPress={() => showPointOfSale(true)}
+                  onPress={() => showPointOfSale('read-receipts')}
                   label="Keep Gold"
                   setting=""
                 />
