@@ -129,15 +129,11 @@ const PlanCard = ({
   }, [isSelected, selected]);
 
   const cardStyle = useAnimatedStyle(() => ({
-    height: (compact ? 110 : 132) + 4 * selected.value,
-    margin: -2 * selected.value,
-    borderWidth: 1 + 2 * selected.value,
-    borderColor: interpolateColor(
-      selected.value, [0, 1], ['rgba(255, 255, 255, 0.35)', '#000000']),
     backgroundColor: interpolateColor(
       selected.value, [0, 1], ['rgba(255, 255, 255, 0.12)', '#ffffff']),
     transform: [{ scale: 1 + 0.06 * selected.value }],
   }));
+  const ringStyle = useAnimatedStyle(() => ({ opacity: selected.value }));
   const accentStyle = useSelectedColor(selected, '#ffffff', brandColor);
   const inkStyle = useSelectedColor(selected, '#ffffff', '#000000');
   const subStyle = useSelectedColor(selected, 'rgba(255, 255, 255, 0.9)', '#666666');
@@ -151,13 +147,32 @@ const PlanCard = ({
       <Animated.View
         style={[
           {
+            height: compact ? 110 : 132,
             borderRadius: 10,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.35)',
             alignItems: 'center',
             justifyContent: 'center',
           },
           cardStyle,
         ]}
       >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              top: -3,
+              left: -3,
+              right: -3,
+              bottom: -3,
+              borderRadius: 12,
+              borderWidth: 3,
+              borderColor: 'black',
+            },
+            ringStyle,
+          ]}
+        />
         {isPopular &&
           <DefaultText
             animated
