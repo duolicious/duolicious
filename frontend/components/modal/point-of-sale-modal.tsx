@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  SharedValue,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { X } from 'react-native-feather';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faHeart } from '@fortawesome/free-solid-svg-icons';
@@ -93,6 +100,11 @@ const PurchaseButton = ({
   );
 };
 
+const useSelectedColor = (selected: SharedValue<number>, from: string, to: string) =>
+  useAnimatedStyle(() => ({
+    color: interpolateColor(selected.value, [0, 1], [from, to]),
+  }));
+
 const PlanCard = ({
   purchasable,
   purchasables,
@@ -108,112 +120,134 @@ const PlanCard = ({
   compact: boolean
   onPress: () => void
 }) => {
-  const accent = isSelected ? brandColor : 'white';
-  const ink = isSelected ? 'black' : 'white';
   const { cycle, price, pricePerWeek } = purchasable;
   const saving = savings(purchasable, purchasables);
+  const selected = useSharedValue(isSelected ? 1 : 0);
+
+  useEffect(() => {
+    selected.value = withTiming(isSelected ? 1 : 0, { duration: 180 });
+  }, [isSelected, selected]);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    borderWidth: 1 + 2 * selected.value,
+    borderColor: interpolateColor(
+      selected.value, [0, 1], ['rgba(255, 255, 255, 0.35)', '#000000']),
+    backgroundColor: interpolateColor(
+      selected.value, [0, 1], ['rgba(255, 255, 255, 0.12)', '#ffffff']),
+    transform: [{ scale: 1 + 0.06 * selected.value }],
+  }));
+  const accentStyle = useSelectedColor(selected, '#ffffff', brandColor);
+  const inkStyle = useSelectedColor(selected, '#ffffff', '#000000');
+  const subStyle = useSelectedColor(selected, 'rgba(255, 255, 255, 0.9)', '#666666');
+  const tagStyle = useSelectedColor(selected, goldColor, brandColor);
 
   return (
     <Pressable
       onPress={onPress}
-      style={{
-        flex: 1,
-        height: compact ? 110 : 132,
-        borderRadius: 10,
-        borderWidth: isSelected ? 3 : 1,
-        borderColor: isSelected ? 'black' : 'rgba(255, 255, 255, 0.35)',
-        backgroundColor: isSelected ? 'white' : 'rgba(255, 255, 255, 0.12)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: isPopular ? 2 : 1,
-        transform: [{ scale: isSelected ? 1.06 : 1 }],
-      }}
+      style={{ flex: 1, zIndex: isPopular ? 2 : 1 }}
     >
-      {isPopular &&
-        <DefaultText
-          disableTheme
-          style={{
-            fontSize: 10,
-            lineHeight: 14,
-            fontWeight: 800,
-            letterSpacing: 0.3,
-            color: isSelected ? brandColor : goldColor,
-            marginBottom: compact ? 2 : 4,
-          }}
-        >
-          MOST POPULAR
-        </DefaultText>
-      }
-      <DefaultText
-        disableTheme
-        style={{
-          fontSize: compact ? 22 : 26,
-          lineHeight: compact ? 26 : 30,
-          fontWeight: 900,
-          color: accent,
-        }}
+      <Animated.View
+        style={[
+          {
+            height: compact ? 110 : 132,
+            borderRadius: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          cardStyle,
+        ]}
       >
-        {cycle.units}
-      </DefaultText>
-      <DefaultText
-        disableTheme
-        style={{
-          fontSize: compact ? 12 : 13,
-          lineHeight: compact ? 16 : 18,
-          fontWeight: 800,
-          color: accent,
-        }}
-      >
-        {pluralize(cycle.unit, cycle.units).toUpperCase()}
-      </DefaultText>
-      <DefaultText
-        disableTheme
-        style={{
-          marginTop: compact ? 6 : 10,
-          fontSize: compact ? 13 : 14,
-          lineHeight: compact ? 16 : 18,
-          fontWeight: 700,
-          color: ink,
-        }}
-      >
-        {price}
-      </DefaultText>
-      {weeksIn(cycle) !== 1 && pricePerWeek !== null &&
-        <DefaultText
-          disableTheme
-          style={{
-            fontSize: 11,
-            lineHeight: 14,
-            fontWeight: 500,
-            color: isSelected ? '#666666' : 'rgba(255, 255, 255, 0.9)',
-          }}
-        >
-          {pricePerWeek}/wk
-        </DefaultText>
-      }
-      {isPopular && saving > 0 &&
-        <View
-          style={{
-            position: 'absolute',
-            top: -10,
-            right: -4,
-            backgroundColor: goldColor,
-            paddingVertical: 4,
-            paddingHorizontal: 8,
-            borderRadius: 999,
-            borderWidth: 2,
-            borderColor: 'black',
-            transform: [{ rotate: '8deg' }],
-          }}
-        >
+        {isPopular &&
           <DefaultText
+            animated
+            animatedStyle={tagStyle}
             disableTheme
-            style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
+            style={{
+              fontSize: 10,
+              lineHeight: 14,
+              fontWeight: 800,
+              letterSpacing: 0.3,
+              marginBottom: compact ? 2 : 4,
+            }}
           >
-            SAVE {saving}%
+            MOST POPULAR
           </DefaultText>
-        </View>
-      }
+        }
+        <DefaultText
+          animated
+          animatedStyle={accentStyle}
+          disableTheme
+          style={{
+            fontSize: compact ? 22 : 26,
+            lineHeight: compact ? 26 : 30,
+            fontWeight: 900,
+          }}
+        >
+          {cycle.units}
+        </DefaultText>
+        <DefaultText
+          animated
+          animatedStyle={accentStyle}
+          disableTheme
+          style={{
+            fontSize: compact ? 12 : 13,
+            lineHeight: compact ? 16 : 18,
+            fontWeight: 800,
+          }}
+        >
+          {pluralize(cycle.unit, cycle.units).toUpperCase()}
+        </DefaultText>
+        <DefaultText
+          animated
+          animatedStyle={inkStyle}
+          disableTheme
+          style={{
+            marginTop: compact ? 6 : 10,
+            fontSize: compact ? 13 : 14,
+            lineHeight: compact ? 16 : 18,
+            fontWeight: 700,
+          }}
+        >
+          {price}
+        </DefaultText>
+        {weeksIn(cycle) !== 1 && pricePerWeek !== null &&
+          <DefaultText
+            animated
+            animatedStyle={subStyle}
+            disableTheme
+            style={{
+              fontSize: 11,
+              lineHeight: 14,
+              fontWeight: 500,
+            }}
+          >
+            {pricePerWeek}/wk
+          </DefaultText>
+        }
+        {isPopular && saving > 0 &&
+          <View
+            style={{
+              position: 'absolute',
+              top: -14,
+              right: -8,
+              backgroundColor: goldColor,
+              paddingVertical: 4,
+              paddingHorizontal: 8,
+              borderRadius: 999,
+              borderWidth: 2,
+              borderColor: 'black',
+              transform: [{ rotate: '8deg' }],
+            }}
+          >
+            <DefaultText
+              disableTheme
+              style={{ color: 'black', fontSize: 11, lineHeight: 13, fontWeight: 800 }}
+            >
+              SAVE {saving}%
+            </DefaultText>
+          </View>
+        }
+      </Animated.View>
     </Pressable>
   );
 };
