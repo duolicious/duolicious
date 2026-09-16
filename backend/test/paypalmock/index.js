@@ -27,9 +27,9 @@ const plans = {
       regularCycle('WEEK', 1, '0.99'),
     ],
   },
-  'P-WEEK': { id: 'P-WEEK', name: 'Gold', billing_cycles: [regularCycle('WEEK', 1, '1.99')] },
-  'P-MONTH': { id: 'P-MONTH', name: 'Gold', billing_cycles: [regularCycle('MONTH', 1, '3.99')] },
-  'P-QUARTER': { id: 'P-QUARTER', name: 'Gold', billing_cycles: [regularCycle('MONTH', 3, '9.99')] },
+  'P-WEEK': { id: 'P-WEEK', name: 'Gold', billing_cycles: [regularCycle('WEEK', 1, '4.99')] },
+  'P-MONTH': { id: 'P-MONTH', name: 'Gold', billing_cycles: [regularCycle('MONTH', 1, '5.99')] },
+  'P-QUARTER': { id: 'P-QUARTER', name: 'Gold', billing_cycles: [regularCycle('MONTH', 3, '15.99')] },
 };
 
 let subscriptions = {};

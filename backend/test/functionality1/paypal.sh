@@ -91,7 +91,7 @@ approve_flow_grants_gold () {
 
   setup
 
-  [[ "$(c GET /paypal/plans | jq -cS .)" == '[{"currency":"USD","cycle":{"unit":"week","units":1},"id":"P-WEEK","price":"1.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":1},"id":"P-MONTH","price":"3.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":3},"id":"P-QUARTER","price":"9.99","product_name":"Gold","trial":null}]' ]]
+  [[ "$(c GET /paypal/plans | jq -cS .)" == '[{"currency":"USD","cycle":{"unit":"week","units":1},"id":"P-WEEK","price":"4.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":1},"id":"P-MONTH","price":"5.99","product_name":"Gold","trial":null},{"currency":"USD","cycle":{"unit":"month","units":3},"id":"P-QUARTER","price":"15.99","product_name":"Gold","trial":null}]' ]]
 
   echo 'Subscribing to a plan that is not offered is refused'
 

@@ -44,4 +44,4 @@ create_plan () {
   )" | jq -r '.id'
 }
 
-echo "DUO_PAYPAL_PLAN_IDS=$(create_plan WEEK 1 1.99),$(create_plan MONTH 1 3.99),$(create_plan MONTH 3 9.99)"
+echo "DUO_PAYPAL_PLAN_IDS=$(create_plan WEEK 1 4.99),$(create_plan MONTH 1 5.99),$(create_plan MONTH 3 15.99)"
