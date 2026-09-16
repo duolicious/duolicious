@@ -15,7 +15,6 @@ from serviceshared.duoenv.api import (
     PAYPAL_API_URL,
     PAYPAL_CLIENT_ID,
     PAYPAL_CLIENT_SECRET,
-    PAYPAL_PLAN_ID,
     PAYPAL_WEBHOOK_ID,
 )
 
@@ -48,6 +47,7 @@ class PaypalSubscription(BaseModel):
         'EXPIRED',
     ]
     custom_id: str | None = None
+    plan_id: str
     start_time: UtcTime
     billing_info: _BillingInfo = _BillingInfo()
 
@@ -90,6 +90,7 @@ class _RegularCycle(BaseModel):
 
 
 class _Plan(BaseModel):
+    id: str
     name: str
     billing_cycles: list[
         Annotated[_TrialCycle | _RegularCycle, Field(discriminator='tenure_type')]
@@ -97,6 +98,7 @@ class _Plan(BaseModel):
 
 
 class PaypalPlan(BaseModel):
+    id: str
     product_name: str
     price: str
     currency: str
@@ -185,13 +187,17 @@ def paid_until(
     return subscription.start_time
 
 
-async def create_subscription(person_uuid: str, return_url: str) -> str | None:
+async def create_subscription(
+    plan_id: str,
+    person_uuid: str,
+    return_url: str,
+) -> str | None:
     created = await _request(
         'POST',
         '/v1/billing/subscriptions',
         _Created,
         json_body=dict(
-            plan_id=PAYPAL_PLAN_ID,
+            plan_id=plan_id,
             custom_id=person_uuid,
             application_context=dict(
                 user_action='SUBSCRIBE_NOW',
@@ -211,8 +217,9 @@ async def fetch_subscription(subscription_id: str) -> PaypalSubscription | None:
         'GET', _subscription_path(subscription_id), PaypalSubscription)
 
 
-async def fetch_plan() -> PaypalPlan | None:
-    plan = await _request('GET', f'/v1/billing/plans/{PAYPAL_PLAN_ID}', _Plan)
+async def fetch_plan(plan_id: str) -> PaypalPlan | None:
+    plan = await _request(
+        'GET', f'/v1/billing/plans/{quote(plan_id, safe="")}', _Plan)
     if plan is None:
         return None
     regular = next(
@@ -220,6 +227,7 @@ async def fetch_plan() -> PaypalPlan | None:
     trial = next(
         (c for c in plan.billing_cycles if isinstance(c, _TrialCycle)), None)
     return PaypalPlan(
+        id=plan.id,
         product_name=plan.name,
         price=regular.pricing_scheme.fixed_price.value,
         currency=regular.pricing_scheme.fixed_price.currency_code,

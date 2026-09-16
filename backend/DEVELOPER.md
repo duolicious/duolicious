@@ -113,6 +113,16 @@ These environment variables specify where user-uploaded content is stored:
 
 These env vars get passed to the `boto3` library, so they're compatible with AWS S3 despite containing `R2` in their names. The `api` container needs to have permissions to upload files to these buckets. Deletion is handled by the `cron` container.
 
+These environment variables let web users buy Gold through PayPal:
+
+* `DUO_PAYPAL_CLIENT_ID` and `DUO_PAYPAL_CLIENT_SECRET` - Your PayPal REST app's credentials.
+* `DUO_PAYPAL_PLAN_IDS` - A comma-separated list of the PayPal billing plans to offer, e.g. the weekly, monthly and three-monthly plans. Subscriptions on plans that are no longer listed keep working until they lapse.
+* `DUO_PAYPAL_WEBHOOK_ID` - The ID of the webhook that posts subscription events to `/paypal/webhook`.
+
+`./create-paypal-plans.sh` creates the weekly ($4.99), monthly ($5.99) and three-monthly ($15.99) plans and prints the `DUO_PAYPAL_PLAN_IDS` line to use. Run it with the `api` container's `DUO_PAYPAL_CLIENT_ID` and `DUO_PAYPAL_CLIENT_SECRET`, since PayPal only lets the app that created a plan subscribe people to it, and `DUO_PAYPAL_API_URL` set to `https://api-m.sandbox.paypal.com` for the sandbox. The plans go on the app's only PayPal product, which is created if there is none; set `DUO_PAYPAL_PRODUCT_ID` if the app has several. Run it without credentials to see this as a usage message.
+
+The mobile apps buy Gold through RevenueCat, which offers whatever packages are in the current offering. `./create-revenuecat-packages.sh` makes sure the `$rc_weekly`, `$rc_monthly` and `$rc_three_month` packages exist and attaches store products to them. It reads `DUO_REVENUECAT_API_KEY` (a v2 secret key with write access to project configuration) and, for each store product you have created in App Store Connect or the Play Console, its identifier in `APP_STORE_WEEKLY`, `APP_STORE_MONTHLY`, `APP_STORE_THREE_MONTH`, `PLAY_STORE_WEEKLY`, `PLAY_STORE_MONTHLY` and `PLAY_STORE_THREE_MONTH` (Play identifiers take the form `productId:basePlanId`). Set `DUO_REVENUECAT_PROJECT_ID` only if the key can see several projects. Leave a store variable unset to skip that product, e.g. when the existing weekly product has merely had its store price changed. The script is safe to rerun. Prices live in the stores, and RevenueCat's API can't create Web Billing products, so those stay in the dashboard. Run it without a key to see this as a usage message.
+
 #### `cron` container
 
 These environment variables let the `cron` container know where your SMTP server is and how to log into it:
