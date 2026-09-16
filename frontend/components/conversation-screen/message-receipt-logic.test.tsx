@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import {
   Content,
   ReceiptState,
@@ -10,12 +10,22 @@ import {
   receiptContent,
   useReceiptSide,
 } from './message-receipt-logic';
+import { isMobile } from '../../util/util';
+
+jest.mock('../../util/util', () => ({
+  ...jest.requireActual<typeof import('../../util/util')>('../../util/util'),
+  isMobile: jest.fn(),
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { act, create } = require('react-test-renderer');
 
 const DELIVERED_AT = new Date('2026-07-21T10:30:00.000Z');
 const READ_AT = new Date('2026-07-21T10:31:00.000Z');
+
+beforeEach(() => {
+  jest.mocked(isMobile).mockReturnValue(true);
+});
 
 const state = (overrides: Partial<ReceiptState> = {}): ReceiptState => ({
   deliveredAt: DELIVERED_AT,
@@ -143,8 +153,16 @@ describe('contentText', () => {
     expect(contentText({ kind: 'unread' })).toEqual('Not seen yet');
   });
 
-  test('the upsell keeps the name of the feature it sells', () => {
-    expect(contentText({ kind: 'upsell' })).toEqual('Get read receipts');
+  test('the upsell asks what the feature answers', () => {
+    expect(contentText({ kind: 'upsell' }))
+      .toEqual('Seen or not? Tap to find out');
+  });
+
+  test('someone without a touchscreen is asked to click, not tap', () => {
+    jest.mocked(isMobile).mockReturnValue(false);
+
+    expect(contentText({ kind: 'upsell' }))
+      .toEqual('Seen or not? Click to find out');
   });
 });
 
@@ -159,9 +177,13 @@ describe('contentParts', () => {
       .toEqual('Seen');
   });
 
-  test('the other kinds carry no label', () => {
+  test('the blank slot carries no label', () => {
     expect(contentParts({ kind: 'blank' }).label).toEqual('');
-    expect(contentParts({ kind: 'upsell' }).label).toEqual('');
+  });
+
+  test('the upsell\'s question stands apart from its invitation', () => {
+    expect(contentParts({ kind: 'upsell' }))
+      .toEqual({ label: 'Seen or not?', detail: ' Tap to find out' });
   });
 
   test('the unseen status is all label', () => {

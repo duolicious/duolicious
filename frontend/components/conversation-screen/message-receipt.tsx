@@ -1,4 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faLock } from '@fortawesome/free-solid-svg-icons/faLock';
 import { DefaultText } from '../default-text';
 import { showPointOfSale } from '../modal/point-of-sale-modal';
 import { useAppTheme } from '../../app-theme/app-theme';
@@ -52,6 +54,11 @@ const MessageReceipt = ({
           hitSlop={{ top: 5, bottom: 10, left: 10, right: 10 }}
           style={styles.upsellTarget}
         >
+          <FontAwesomeIcon
+            icon={faLock}
+            size={11}
+            color={appTheme.brandColor}
+          />
           <DefaultText
             disableTheme={true}
             style={{
@@ -93,10 +100,12 @@ const styles = StyleSheet.create({
   },
   upsellTarget: {
     alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   upsellText: {
     textAlign: 'right',
-    fontWeight: '700',
     cursor: 'pointer',
   },
   labelText: {
