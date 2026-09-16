@@ -138,7 +138,7 @@ const toPurchasable = (pkg: PurchasesPackage): Purchasable | null => {
   const cycle = parsePeriod(pkg.product.subscriptionPeriod);
   return cycle && {
     price: pkg.product.priceString,
-    pricePerWeek: pkg.product.pricePerWeekString,
+    pricePerMonth: pkg.product.pricePerMonthString,
     amount: pkg.product.price,
     cycle,
     purchase: () => purchasePackage(pkg),

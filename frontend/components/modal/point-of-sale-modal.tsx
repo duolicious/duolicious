@@ -22,8 +22,8 @@ import {
   Offering,
   Purchasable,
   byCycleLength,
+  monthsIn,
   savings,
-  weeksIn,
 } from '../../purchases/offering';
 import {
   FEATURES,
@@ -120,7 +120,7 @@ const PlanCard = ({
   compact: boolean
   onPress: () => void
 }) => {
-  const { cycle, price, pricePerWeek } = purchasable;
+  const { cycle, price, pricePerMonth } = purchasable;
   const saving = savings(purchasable, purchasables);
   const selected = useSharedValue(isSelected ? 1 : 0);
 
@@ -226,7 +226,7 @@ const PlanCard = ({
         >
           {price}
         </DefaultText>
-        {weeksIn(cycle) !== 1 && pricePerWeek !== null &&
+        {monthsIn(cycle) !== 1 && pricePerMonth !== null &&
           <DefaultText
             animated
             animatedStyle={subStyle}
@@ -237,7 +237,7 @@ const PlanCard = ({
               fontWeight: 500,
             }}
           >
-            {pricePerWeek}/wk
+            {pricePerMonth}/mo
           </DefaultText>
         }
         {isPopular && saving > 0 &&
@@ -392,7 +392,7 @@ const OfferingCard = ({
       >
         {purchasables.map((purchasable) =>
           <PlanCard
-            key={weeksIn(purchasable.cycle)}
+            key={monthsIn(purchasable.cycle)}
             purchasable={purchasable}
             purchasables={purchasables}
             isSelected={purchasable === chosen}
