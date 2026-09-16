@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { longFriendlyTimestamp } from '../../util/util';
+import { isMobile, longFriendlyTimestamp } from '../../util/util';
 
 const newsKey = (deliveredAt: Date | null, readAt: Date | null): string =>
   `${deliveredAt?.getTime() ?? 0}-${readAt?.getTime() ?? 0}`;
@@ -44,7 +44,10 @@ const contentParts = (content: Content): ContentParts => {
     case 'unread':
       return { label: 'Not seen yet', detail: '' };
     case 'upsell':
-      return { label: 'Seen or not?', detail: ' Tap to find out' };
+      return {
+        label: 'Seen or not?',
+        detail: isMobile() ? ' Tap to find out' : ' Click to find out',
+      };
   }
 };
 
