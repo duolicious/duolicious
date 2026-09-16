@@ -1,21 +1,19 @@
 import { api, japi } from '../api/api';
 import { navigateAway, webReturnTarget } from '../api/oauth-return';
-import { Offering, Purchasable, PurchaseResult } from './offering';
+import { Offering, OfferingInterval, PurchaseResult, monthsIn } from './offering';
 
-const DESCRIPTION = `
-• Read receipts
-• 100 club slots
-• Dark mode & custom themes
-• Extra privacy settings
-• Update your display name
-• Special Gold badge on your profile
-`.trim();
+type Plan = {
+  id: string,
+  price: string,
+  currency: string,
+  cycle: OfferingInterval,
+};
 
-const purchase = async (): Promise<PurchaseResult> => {
+const purchase = async (planId: string): Promise<PurchaseResult> => {
   const response = await japi<{ approve_url: string }>(
     'post',
     '/paypal/subscribe',
-    { redirect_target: webReturnTarget() },
+    { redirect_target: webReturnTarget(), plan_id: planId },
   );
 
   if (response.status === 409) {
@@ -31,15 +29,24 @@ const purchase = async (): Promise<PurchaseResult> => {
   return 'cancelled';
 };
 
-const getPurchasable = async (): Promise<Purchasable | null> => {
-  const response = await api<Omit<Offering, 'description'>>('get', '/paypal/plan');
-  if (!response.ok || !response.json) return null;
+const formatPrice = (amount: number, currency: string) =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency })
+    .format(amount);
+
+const getOffering = async (): Promise<Offering | null> => {
+  const response = await api<Plan[]>('get', '/paypal/plans');
+  if (!response.ok || !response.json?.length) return null;
   return {
-    offering: { ...response.json, description: DESCRIPTION },
-    purchase,
+    purchasables: response.json.map(({ id, price, currency, cycle }) => ({
+      price: formatPrice(Number(price), currency),
+      pricePerMonth: formatPrice(Number(price) / monthsIn(cycle), currency),
+      amount: Number(price),
+      cycle,
+      purchase: () => purchase(id),
+    })),
   };
 };
 
 export {
-  getPurchasable,
+  getOffering,
 };

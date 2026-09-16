@@ -105,7 +105,7 @@ const Basic = ({children, ...rest}: {
               startShake();
             } else if (success === false && !signedInUser?.hasGold) {
               startShake();
-              showPointOfSale(true);
+              showPointOfSale('clubs');
             }
           }
         }
