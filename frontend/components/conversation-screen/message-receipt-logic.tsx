@@ -44,7 +44,7 @@ const contentParts = (content: Content): ContentParts => {
     case 'unread':
       return { label: 'Not seen yet', detail: '' };
     case 'upsell':
-      return { label: '', detail: 'Get read receipts' };
+      return { label: 'Seen or not?', detail: ' Tap to find out' };
   }
 };
 

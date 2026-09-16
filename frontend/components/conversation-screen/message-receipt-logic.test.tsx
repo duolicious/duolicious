@@ -143,8 +143,9 @@ describe('contentText', () => {
     expect(contentText({ kind: 'unread' })).toEqual('Not seen yet');
   });
 
-  test('the upsell keeps the name of the feature it sells', () => {
-    expect(contentText({ kind: 'upsell' })).toEqual('Get read receipts');
+  test('the upsell asks what the feature answers', () => {
+    expect(contentText({ kind: 'upsell' }))
+      .toEqual('Seen or not? Tap to find out');
   });
 });
 
@@ -159,9 +160,13 @@ describe('contentParts', () => {
       .toEqual('Seen');
   });
 
-  test('the other kinds carry no label', () => {
+  test('the blank slot carries no label', () => {
     expect(contentParts({ kind: 'blank' }).label).toEqual('');
-    expect(contentParts({ kind: 'upsell' }).label).toEqual('');
+  });
+
+  test('the upsell\'s question stands apart from its invitation', () => {
+    expect(contentParts({ kind: 'upsell' }))
+      .toEqual({ label: 'Seen or not?', detail: ' Tap to find out' });
   });
 
   test('the unseen status is all label', () => {
