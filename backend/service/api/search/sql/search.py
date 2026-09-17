@@ -351,7 +351,8 @@ WITH candidates AS (
 
 
 
-Q_CACHED_SEARCH = """
+def _cached_search(selection: str) -> str:
+    return f"""
 WITH page AS (
     SELECT
         prospect_person_id,
@@ -406,11 +407,8 @@ WITH page AS (
     FROM
         search_cache
     WHERE
-        searcher_person_id = %(searcher_person_id)s AND
-        position >  %(o)s AND
-        position <= %(o)s + %(n)s
-    ORDER BY
-        position
+        searcher_person_id = %(searcher_person_id)s
+{selection}
 )
 SELECT
     public_page.profile_photo_blurhash,
@@ -458,6 +456,27 @@ LEFT JOIN
 ON
     private_page.prospect_person_id = public_page.prospect_person_id
 """
+
+
+Q_CACHED_SEARCH = _cached_search("""
+    AND
+        position >  %(o)s
+    AND
+        position <= %(o)s + %(n)s
+    ORDER BY
+        position
+""")
+
+Q_CACHED_SIMILAR_PROFILES = _cached_search("""
+    AND
+        prospect_person_id != %(prospect_person_id)s
+    ORDER BY
+        personality <#> (
+            SELECT personality FROM person WHERE id = %(prospect_person_id)s
+        )
+    LIMIT
+        %(n)s
+""")
 
 Q_QUIZ_SEARCH = """
 WITH searcher AS (

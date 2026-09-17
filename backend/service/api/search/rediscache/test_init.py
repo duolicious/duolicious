@@ -115,7 +115,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
         key = rediscache._key(fetch, (), {})
         self.assertEqual(
             self.fake.expirations,
-            {key: None, f"{key}:fresh": 600, f"{key}:lock": 5},
+            {key: 1200, f"{key}:fresh": 600, f"{key}:lock": 5},
         )
 
     async def test_stale_hit_is_served_while_refreshed_once_in_background(self) -> None:
