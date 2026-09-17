@@ -957,7 +957,7 @@ test_two_way_filters_persist () {
 test_search_page_size_limit () {
   setup
 
-  ! search_names 51 || exit 1
+  ! c GET '/search?n=51&o=0' || exit 1
   search_names 50
 }
 
