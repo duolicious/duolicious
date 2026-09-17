@@ -1,6 +1,7 @@
 import asyncio
 from collections import OrderedDict
 import functools
+import math
 from typing import (
     Awaitable,
     Callable,
@@ -26,41 +27,29 @@ class AsyncLruCache:
         self,
         func: Callable[P, Awaitable[R]]
     ) -> Callable[P, Awaitable[R]]:
-        cache: OrderedDict[tuple[object, ...], asyncio.Future[R]] = OrderedDict()
+        cache: OrderedDict[tuple[object, ...], tuple[asyncio.Future[R], float]] = OrderedDict()
 
-        def evict(key: tuple[object, ...], future: asyncio.Future[R]) -> None:
-            if cache.get(key) is future:
-                del cache[key]
+        def is_live(future: asyncio.Future[R], expires_at: float) -> bool:
+            if not future.done():
+                return True
+            if future.cancelled() or future.exception() is not None:
+                return False
+            if self.cache_condition is not None and not self.cache_condition(future.result()):
+                return False
+            return expires_at > future.get_loop().time()
 
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             key: tuple[object, ...] = args + tuple(sorted(kwargs.items()))
-
-            if key in cache:
-                cache.move_to_end(key)
-                return await asyncio.shield(cache[key])
-
-            future = asyncio.ensure_future(func(*args, **kwargs))
-
-            def on_done(future: asyncio.Future[R]) -> None:
-                if (
-                    future.cancelled() or
-                    future.exception() is not None or
-                    (
-                        self.cache_condition is not None and
-                        not self.cache_condition(future.result())
-                    )
-                ):
-                    evict(key, future)
-                elif self.ttl is not None:
-                    future.get_loop().call_later(self.ttl, evict, key, future)
-
-            future.add_done_callback(on_done)
-
-            cache[key] = future
+            entry = cache.get(key)
+            if entry is None or not is_live(*entry):
+                loop = asyncio.get_running_loop()
+                expires_at = math.inf if self.ttl is None else loop.time() + self.ttl
+                entry = (asyncio.ensure_future(func(*args, **kwargs)), expires_at)
+                cache[key] = entry
+            cache.move_to_end(key)
             if len(cache) > self.maxsize:
                 cache.popitem(last=False)
-
-            return await asyncio.shield(future)
+            return await asyncio.shield(entry[0])
 
         return wrapper
