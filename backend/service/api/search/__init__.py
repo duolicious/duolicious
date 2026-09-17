@@ -1,9 +1,7 @@
-import json
 import psycopg
 import service.api.duotypes as t
 from service.api import sessioncache
 from serviceshared.matching import personality
-from pydantic import ValidationError
 from pgvector import Vector
 
 from serviceshared.database import Tx, api_tx, row_int
@@ -120,37 +118,25 @@ SearchType = Literal[
     'quiz-search', 'quiz-refresh', 'uncached-search', 'cached-search']
 
 
-def get_search_type(n: str | None, o: str | None) -> tuple[SearchType, Tuple[int, int]]:
-    n_: int = 1 if n is None else int(n)
-    o_: int = 0 if o is None else int(o)
-
-    if not n_ >= 0:
-        raise ValueError('n must be >= 0')
-    if not o_ >= 0:
-        raise ValueError('o must be >= 0')
-
-    no = (n_, o_)
-
-    if o is None and n is None:
-        return 'quiz-search', no
-    elif o is None:
-        return 'quiz-refresh', no
-    elif no[1] == 0:
-        return 'uncached-search', no
+def get_search_type(q: t.SearchQuery) -> SearchType:
+    if q.o is None and q.n is None:
+        return 'quiz-search'
+    elif q.o is None:
+        return 'quiz-refresh'
+    elif q.o == 0:
+        return 'uncached-search'
     else:
-        return 'cached-search', no
+        return 'cached-search'
 
 
 async def get_search(
     s: t.SessionInfo,
-    n: str | None,
-    o: str | None,
+    q: t.SearchQuery,
     club: ClubHttpArg | None,
 ) -> object:
-    search_type, no = get_search_type(n, o)
+    search_type = get_search_type(q)
 
-    if no[0] > 50:
-        return 'n must be less than or equal to 50', 400
+    no = (1 if q.n is None else q.n, 0 if q.o is None else q.o)
 
     if s.person_id is None:
         return '', 500
@@ -201,40 +187,25 @@ async def get_search(
     return result
 
 
-async def get_public_search(
-    n: str | None,
-    o: str | None,
-    answers: str | None = None,
-) -> object:
-    n_: int = 10 if n is None else int(n)
-    o_: int = 0 if o is None else int(o)
-
-    if not n_ >= 0:
-        raise ValueError('n must be >= 0')
-    if not o_ >= 0:
-        raise ValueError('o must be >= 0')
-
-    if n_ > 50:
-        return 'n must be less than or equal to 50', 400
-
-    if answers is not None:
-        try:
-            req = t.PublicSearchRequest(answers=json.loads(answers), n=n_, o=o_)
-        except (ValueError, ValidationError) as e:
-            return str(e), 400
-        return await _get_public_search_with_answers(req)
+async def get_public_search(q: t.PublicSearchQuery) -> object:
+    if q.answers is not None:
+        return await _get_public_search_with_answers(q.answers, q.n, q.o)
 
     public_search = await _get_public_search()
     if not isinstance(public_search, list):
         raise RuntimeError('public search cache returned a non-list value')
-    return public_search[o_:o_ + n_]
+    return public_search[q.o:q.o + q.n]
 
 
-async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
+async def _get_public_search_with_answers(
+    answers: list[t.PublicAnswer],
+    n: int,
+    o: int,
+) -> object:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(
             Q_QUESTION_SCORE_VECTORS,
-            dict(question_ids=[a.question_id for a in req.answers]),
+            dict(question_ids=[a.question_id for a in answers]),
         )
         questions = {
             row_int(q, 'id'): q
@@ -243,7 +214,7 @@ async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
 
         presence, absence, count = personality.accumulate(
             (questions[a.question_id], a.answer)
-            for a in req.answers
+            for a in answers
             if a.question_id in questions
         )
 
@@ -252,8 +223,8 @@ async def _get_public_search_with_answers(req: t.PublicSearchRequest) -> object:
 
         await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
             searcher_personality=searcher_personality,
-            n=req.n,
-            o=req.o,
+            n=n,
+            o=o,
         ))
         return await tx.fetchall()
 
