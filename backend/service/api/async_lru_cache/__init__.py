@@ -38,6 +38,13 @@ class AsyncLruCache:
                 return False
             return expires_at > future.get_loop().time()
 
+        def drop_if_dead(
+            key: tuple[object, ...],
+            entry: tuple[asyncio.Future[R], float],
+        ) -> None:
+            if cache.get(key) is entry and not is_live(*entry):
+                del cache[key]
+
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             key: tuple[object, ...] = args + tuple(sorted(kwargs.items()))
@@ -47,6 +54,7 @@ class AsyncLruCache:
                 expires_at = math.inf if self.ttl is None else loop.time() + self.ttl
                 entry = (asyncio.ensure_future(func(*args, **kwargs)), expires_at)
                 cache[key] = entry
+                entry[0].add_done_callback(lambda _: drop_if_dead(key, entry))
             cache.move_to_end(key)
             if len(cache) > self.maxsize:
                 cache.popitem(last=False)

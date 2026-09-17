@@ -158,5 +158,20 @@ class TestAsyncLRUCache(unittest.IsolatedAsyncioTestCase):
         await fetch(1)
         self.assertEqual(call_count, 3)
 
+    async def test_rejected_results_do_not_evict_cached_ones(self) -> None:
+        call_count = 0
+
+        @AsyncLruCache(maxsize=2, cache_condition=bool)
+        async def fetch(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            return x
+
+        await fetch(1)
+        await fetch(0)
+        await fetch(-1)
+        await fetch(1)
+        self.assertEqual(call_count, 3)
+
 if __name__ == '__main__':
     unittest.main()
