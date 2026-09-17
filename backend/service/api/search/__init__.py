@@ -189,7 +189,7 @@ async def get_search(
 
 async def get_public_search(q: t.PublicSearchQuery) -> object:
     if q.answers is not None:
-        return await _get_public_search_with_answers(q.answers, q.n, q.o)
+        return await _get_public_search_with_answers(q.answers.root, q.n, q.o)
 
     public_search = await _get_public_search()
     if not isinstance(public_search, list):

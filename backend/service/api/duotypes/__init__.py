@@ -361,9 +361,13 @@ class SearchQuery(BaseModel):
     club: str | None = None
 
 
+class PublicAnswers(RootModel[Annotated[
+    List[PublicAnswer], Field(max_length=PUBLIC_ANSWER_LIMIT)]]):
+    pass
+
+
 class PublicSearchQuery(BaseModel):
-    answers: Json[Annotated[
-        List[PublicAnswer], Field(max_length=PUBLIC_ANSWER_LIMIT)]] | None = None
+    answers: Json[PublicAnswers] | None = None
     n: int = Field(default=10, ge=0, le=50)
     o: int = Field(default=0, ge=0)
 
