@@ -684,6 +684,7 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
 async def get_prospect_profile(
     s: t.SessionInfo | None,
     prospect_handle: object,
+    with_similar_profiles: bool,
 ) -> object:
     params = dict(
         person_id=s.person_id if s is not None else None,
@@ -705,10 +706,11 @@ async def get_prospect_profile(
         prospect_uuid = api_row.get('prospect_uuid')
         prospect_id = row_int(api_row, 'prospect_id')
 
-    profile['similar_profiles'] = await similar_profiles(
-        viewer_person_id=s.person_id if s is not None else None,
-        prospect_person_id=prospect_id,
-    )
+    if with_similar_profiles:
+        profile['similar_profiles'] = await similar_profiles(
+            viewer_person_id=s.person_id if s is not None else None,
+            prospect_person_id=prospect_id,
+        )
 
     if s is None:
         return profile

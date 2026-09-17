@@ -20,7 +20,7 @@ set_personality () {
 }
 
 similar_names () {
-  c GET "/prospect-profile/$1" \
+  c GET "/prospect-profile/$1?similar_profiles=true" \
     | jq -r '[.similar_profiles[].name] | join(" ")'
 }
 
@@ -53,6 +53,8 @@ signed_in_sorts_cached_search_results () {
   setup
 
   assume_role viewer
+
+  [[ "$(c GET "/prospect-profile/$target_uuid" | jq 'has("similar_profiles")')" = false ]]
 
   [[ "$(similar_names "$target_uuid")" = "" ]]
 

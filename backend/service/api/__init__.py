@@ -246,9 +246,11 @@ async def get_health() -> object:
 @app.get('/prospect-profile/{prospect_handle}')
 async def get_prospect_profile(
     prospect_handle: str,
+    similar_profiles: bool = False,
     s: t.SessionInfo | None = Depends(session(optional=True)),
 ) -> object:
-    return await person.get_prospect_profile(s, prospect_handle)
+    return await person.get_prospect_profile(
+        s, prospect_handle, with_similar_profiles=similar_profiles)
 
 @app.get('/conversation-prospect/{prospect_uuid}')
 async def get_conversation_prospect(
