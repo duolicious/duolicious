@@ -373,8 +373,7 @@ class PublicSearchQuery(BaseModel):
 
 
 class ProspectProfileQuery(BaseModel):
-    similar_profiles: bool = False
-    answers: Json[PublicAnswers] | None = None
+    similar_profiles: Json[PublicAnswers] | bool = False
 
 
 class PostRequestOtp(BaseModel):

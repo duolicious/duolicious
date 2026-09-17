@@ -706,11 +706,15 @@ async def get_prospect_profile(
         prospect_uuid = api_row.get('prospect_uuid')
         prospect_id = row_int(api_row, 'prospect_id')
 
-    if q.similar_profiles:
+    if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(
             viewer_person_id=s.person_id if s is not None else None,
             prospect_person_id=prospect_id,
-            answers=q.answers.root if q.answers is not None else None,
+            answers=(
+                q.similar_profiles.root
+                if isinstance(q.similar_profiles, t.PublicAnswers)
+                else None
+            ),
         )
 
     if s is None:

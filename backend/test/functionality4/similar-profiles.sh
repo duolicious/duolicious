@@ -98,9 +98,9 @@ signed_out_scores_by_answers () {
   local answers=$(jq -rn --arg a \
     '[{ "question_id": '"$qid"', "answer": true, "public": true }]' '$a|@uri')
 
-  local response=$(c GET "/prospect-profile/$target_uuid?similar_profiles=true&answers=$answers")
+  local response=$(c GET "/prospect-profile/$target_uuid?similar_profiles=$answers")
 
-  [[ "$(echo "$response" | jq -r '[.similar_profiles[].name] | sort | join(" ")')" = "far middle near" ]]
+  [[ "$(echo "$response" | jq -r '[.similar_profiles[].name] | sort | join(" ")')" = "far middle near viewer" ]]
 
   local m_near=$(echo "$response" | jq -r '.similar_profiles[] | select(.name == "near") | .match_percentage')
   local m_far=$(echo "$response" | jq -r '.similar_profiles[] | select(.name == "far") | .match_percentage')
