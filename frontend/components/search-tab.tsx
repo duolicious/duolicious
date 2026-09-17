@@ -581,7 +581,8 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
 
   const onLayoutScreen = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     if (nativeEvent.layout.width > 0) {
-      setNumColumns(nativeEvent.layout.width >= threeColumnMinWidth ? 3 : 2);
+      setNumColumns(
+        !isMobile() && nativeEvent.layout.width >= threeColumnMinWidth ? 3 : 2);
     }
   }, []);
 
