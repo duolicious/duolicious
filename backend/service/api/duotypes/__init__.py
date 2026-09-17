@@ -357,7 +357,7 @@ class PublicAnswer(BaseModel):
 class PublicSearchRequest(BaseModel):
     answers: List[PublicAnswer] = Field(
         default_factory=list, max_length=PUBLIC_ANSWER_LIMIT)
-    n: int = Field(default=10, ge=0, le=10)
+    n: int = Field(default=10, ge=0, le=50)
     o: int = Field(default=0, ge=0)
 
 

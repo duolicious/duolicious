@@ -97,10 +97,10 @@ defaults_to_first_page () {
   [[ "$default" == "$explicit" ]]
 }
 
-rejects_n_above_ten () {
+rejects_n_above_fifty () {
   setup
 
-  ! public_search '?n=11&o=0' || exit 1
+  ! public_search '?n=51&o=0' || exit 1
 }
 
 returns_public_profiles
@@ -109,4 +109,4 @@ excludes_deactivated_and_shadow_banned
 excludes_long_offline
 pagination_limits_and_offsets
 defaults_to_first_page
-rejects_n_above_ten
+rejects_n_above_fifty

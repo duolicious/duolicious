@@ -149,8 +149,8 @@ async def get_search(
 ) -> object:
     search_type, no = get_search_type(n, o)
 
-    if no[0] > 10:
-        return 'n must be less than or equal to 10', 400
+    if no[0] > 50:
+        return 'n must be less than or equal to 50', 400
 
     if s.person_id is None:
         return '', 500
@@ -214,8 +214,8 @@ async def get_public_search(
     if not o_ >= 0:
         raise ValueError('o must be >= 0')
 
-    if n_ > 10:
-        return 'n must be less than or equal to 10', 400
+    if n_ > 50:
+        return 'n must be less than or equal to 50', 400
 
     if answers is not None:
         try:
