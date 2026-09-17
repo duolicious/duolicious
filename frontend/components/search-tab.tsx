@@ -34,6 +34,7 @@ import { japi } from '../api/api';
 import { TopNavBarButton } from './top-nav-bar-button';
 import { LinearGradient } from 'expo-linear-gradient';
 import { isMobile } from '../util/util';
+import * as _ from 'lodash';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ClubItem, sortClubs } from '../club/club';
 import { listen, lastEvent } from '../events/events';
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const fourColumnMinWidth = 500;
+const minCardWidth = 125;
 
 const scrollIndicatorInsets = {
   top: 50,
@@ -153,7 +154,7 @@ const fetchPageWithoutQueue = async (
   pageNumber: number,
   isPublic: boolean,
 ): Promise<PageItem[] | null> => {
-  const resultsPerPage = 10;
+  const resultsPerPage = 50;
   const offset = resultsPerPage * (pageNumber - 1);
 
   // Logged-out web users have no profile to rank against, so the public search
@@ -577,14 +578,17 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
 
   const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
 
-  const [numColumns, setNumColumns] = useState<number | null>(null);
+  const [width, setWidth] = useState<number | null>(null);
 
   const onLayoutScreen = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     if (nativeEvent.layout.width > 0) {
-      setNumColumns(
-        !isMobile() && nativeEvent.layout.width >= fourColumnMinWidth ? 4 : 2);
+      setWidth(nativeEvent.layout.width);
     }
   }, []);
+
+  const numColumns = isMobile() || width === null
+    ? 2
+    : _.clamp(Math.floor(width / minCardWidth), 2, 4);
 
   useEffect(() => {
     (async () => {
@@ -696,7 +700,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
           </View>
         </View>
       </DuoliciousTopNavBar>
-      {numColumns !== null && <DefaultFlatList
+      {width !== null && <DefaultFlatList
         key={
           // This is needed to trigger a re-render when the sticky header
           // indicies change. Without this, the header is blank on Android.
@@ -727,7 +731,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
             setSelectedClub={setSelectedClub}
           />
         }
-        renderItem={({item}: ListRenderItemInfo<PageItem>) => <ProfileCardMemo item={item} numColumns={numColumns} />}
+        renderItem={({item}: ListRenderItemInfo<PageItem>) => <ProfileCardMemo item={item} numColumns={numColumns} cardWidth={width / numColumns} />}
         scrollIndicatorInsets={scrollIndicatorInsets}
         onLayout={onLayout}
         onContentSizeChange={onContentSizeChange}
