@@ -319,6 +319,7 @@ const ProfileCard = ({
           age={age}
           matchPercentage={matchPercentage}
           verified={verified}
+          isCompact={numColumns > 2}
         />
         {onlineStatus === 'offline' && prospectMessagedPersonState &&
           <View
@@ -431,11 +432,12 @@ const ProfileCard = ({
   );
 };
 
-const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
+const UserDetails = ({name, age, matchPercentage, verified, isCompact, ...rest}: {
   name: string,
   age: number,
   matchPercentage: number,
   verified: boolean,
+  isCompact: boolean,
   containerStyle?: ViewStyle,
 }) => {
   const {
@@ -457,12 +459,12 @@ const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
       <View
         style={{
           flexDirection: 'row',
-          gap: 7,
+          gap: isCompact ? 4 : 7,
           alignItems: 'flex-end',
         }}
       >
         <DefaultText style={{
-          fontSize: 18,
+          fontSize: isCompact ? 14 : 18,
           fontWeight: '700',
           color: 'white',
           overflow: 'hidden',
@@ -472,7 +474,7 @@ const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
         </DefaultText>
         {verified &&
           <VerificationBadge
-            size={18}
+            size={isCompact ? 14 : 18}
             style={{
               marginBottom: 2,
             }}
@@ -481,6 +483,7 @@ const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
       </View>
       <DefaultText
         style={{
+          fontSize: isCompact ? 11 : 14,
           fontWeight: '500',
           color: 'white',
           alignSelf: 'flex-start',

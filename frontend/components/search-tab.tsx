@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const threeColumnMinWidth = 500;
+const fourColumnMinWidth = 500;
 
 const scrollIndicatorInsets = {
   top: 50,
@@ -582,7 +582,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   const onLayoutScreen = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     if (nativeEvent.layout.width > 0) {
       setNumColumns(
-        !isMobile() && nativeEvent.layout.width >= threeColumnMinWidth ? 3 : 2);
+        !isMobile() && nativeEvent.layout.width >= fourColumnMinWidth ? 4 : 2);
     }
   }, []);
 
