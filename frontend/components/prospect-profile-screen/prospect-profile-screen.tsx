@@ -85,6 +85,7 @@ import {
   bestTextOn,
   capLuminance,
   isUuid,
+  isMobile,
 } from '../../util/util';
 import { useTimeSinceLabel } from '../../util/clock';
 import { useOnline } from '../../chat/application-layer/hooks/online';
@@ -103,6 +104,9 @@ import { faChildren } from '@fortawesome/free-solid-svg-icons/faChildren'
 import { AboutText } from './about-reply';
 import { useQuote } from '../conversation-screen/quote';
 import { copyProfileLink } from '../../util/util';
+import { SimilarProfiles } from './similar-profiles';
+import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
+import type { PageItem } from '../search-tab';
 
 // The person's photos in order, so tapping any one lets the gallery page
 // through the rest.
@@ -774,6 +778,8 @@ type UserData = {
   seconds_since_sign_up: number | null,
   gets_reply_percentage: number | null,
   gives_reply_percentage: number | null,
+
+  similar_profiles?: PageItem[],
 };
 
 type FetchedUserData = UserData & { fetchedAt: number };
@@ -960,7 +966,14 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       if (isUuid(handle)) {
         setSkipped(handle, { networkState: 'fetching' });
       }
-      const response = await api<UserData>('get', `/prospect-profile/${handle}`);
+      const similarProfilesQuery = isMobile()
+        ? ''
+        : `?similar_profiles=${
+          (isAnonymousViewer && encodedAnonymousAnswers()) || 'true'}`;
+      const response = await api<UserData>(
+        'get',
+        `/prospect-profile/${handle}${similarProfilesQuery}`,
+      );
       setData(
         response?.json && { ...response.json, fetchedAt: Date.now() });
       setNotFound(response.clientError);
@@ -1164,6 +1177,10 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
             </HeartBackground>
           </Reanimated.View>
         </ScrollView>
+        <SimilarProfiles
+          items={data?.similar_profiles}
+          backgroundColor={backgroundColor}
+        />
         {showAuthedBottomButtons &&
           <View
             style={{

@@ -308,6 +308,21 @@ const safeBestTextOn = (
   }
 };
 
+const compositeOver = (rgba: string, hex: string): string => {
+  const m = rgba.match(
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/
+  );
+  if (!m || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    return rgba;
+  }
+  const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+  const channel = (i: number) => Math.round(
+    parseFloat(m[i + 1]) * alpha +
+    parseInt(hex.slice(1 + 2 * i, 3 + 2 * i), 16) * (1 - alpha)
+  ).toString(16).padStart(2, '0');
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+};
+
 /**
  * Cap a color's WCAG relative luminance to a maximum value.
  * If the color's luminance <= maxL, it's returned unchanged.
@@ -476,6 +491,7 @@ export {
   pluralize,
   getLuminance,
   bestTextOn,
+  compositeOver,
   safeBestTextOn,
   capLuminance,
   formatCount,

@@ -43,7 +43,7 @@ import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { onPressInvite } from '../components/invite';
 import { useAppTheme } from '../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
-import { anonymousAnswers } from '../events/anonymous-answers';
+import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { consumeStaleSearchResults } from '../events/stale-search-results';
 import { flushSearchFilterWrites } from '../events/search-filters';
 import { SearchFiltersHint } from './hints/search-filters-hint';
@@ -160,10 +160,8 @@ const fetchPageWithoutQueue = async (
   // Logged-out web users have no profile to rank against, so the public search
   // is ranked by the answers they've given in the Q&A tab (when they've given
   // any). Signed-in users are ranked server-side from their saved answers.
-  const answersParam =
-    isPublic && anonymousAnswers.length
-      ? `&answers=${encodeURIComponent(JSON.stringify(anonymousAnswers))}`
-      : '';
+  const answers = isPublic ? encodedAnonymousAnswers() : null;
+  const answersParam = answers ? `&answers=${answers}` : '';
 
   const response = await japi<PageItem[]>(
     'get',

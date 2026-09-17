@@ -17,14 +17,15 @@ const OnlineDot = ({
   outerD,
   innerD,
   coreD,
+  ringColor,
   style,
 }: {
   outerD: number,
   innerD: number,
   coreD?: number,
+  ringColor: string,
   style?: StyleProp<ViewStyle>,
 }) => {
-  const { appTheme } = useAppTheme();
 
   return (
     <View
@@ -32,7 +33,7 @@ const OnlineDot = ({
       // PixelRatio rounding actually take effect in layout.
       style={[
         {
-          backgroundColor: appTheme.primaryColor,
+          backgroundColor: ringColor,
           borderRadius: 999,
           width: outerD,
           height: outerD,
@@ -55,7 +56,7 @@ const OnlineDot = ({
         {coreD !== undefined &&
           <View
             style={{
-              backgroundColor: appTheme.primaryColor,
+              backgroundColor: ringColor,
               borderRadius: 999,
               width: coreD,
               height: coreD,
@@ -73,6 +74,7 @@ const LastOnlineBadge = ({
   innerD,
   ringW,
   fontSize,
+  ringColor,
   style,
 }: {
   lastOnlineAt: number,
@@ -80,16 +82,16 @@ const LastOnlineBadge = ({
   innerD: number,
   ringW: number,
   fontSize: number,
+  ringColor: string,
   style?: StyleProp<ViewStyle>,
 }) => {
-  const { appTheme } = useAppTheme();
   const label = useTimeSinceLabel(lastOnlineAt, friendlyTimeSince);
 
   return (
     <View
       style={[
         {
-          backgroundColor: appTheme.primaryColor,
+          backgroundColor: ringColor,
           borderRadius: 999,
           height: outerD,
           paddingHorizontal: ringW,
@@ -146,6 +148,7 @@ const OnlineIndicator = ({
   personUuid,
   size,
   borderWidth,
+  ringColor,
   style,
 }: {
   personUuid: string | null | undefined;
@@ -153,10 +156,14 @@ const OnlineIndicator = ({
   size: number;
   /** Thickness of the white ring, in logical points. */
   borderWidth: number;
+  /** Ring color; defaults to the theme's page background. */
+  ringColor?: string;
   /** Extra container styles. */
   style?: StyleProp<ViewStyle>,
 }) => {
+  const { appTheme } = useAppTheme();
   const presence = useOnline(personUuid);
+  const ringBackgroundColor = ringColor ?? appTheme.primaryColor;
 
   /**
    * Snap all dimensions to the physical pixel‑grid.
@@ -183,7 +190,14 @@ const OnlineIndicator = ({
   if (presence.status === 'offline') {
     return null;
   } else if (presence.status === 'online') {
-    return <OnlineDot outerD={outerD} innerD={innerD} style={style} />;
+    return (
+      <OnlineDot
+        outerD={outerD}
+        innerD={innerD}
+        ringColor={ringBackgroundColor}
+        style={style}
+      />
+    );
   } else if (presence.status === 'online-recently') {
     // Servers predating `@seconds_ago` report the sighting without its age.
     return presence.lastOnlineAt === null ? (
@@ -191,6 +205,7 @@ const OnlineIndicator = ({
         outerD={outerD}
         innerD={innerD}
         coreD={coreD}
+        ringColor={ringBackgroundColor}
         style={style}
       />
     ) : (
@@ -200,6 +215,7 @@ const OnlineIndicator = ({
         innerD={innerD}
         ringW={ringW}
         fontSize={fontSize}
+        ringColor={ringBackgroundColor}
         style={style}
       />
     );
