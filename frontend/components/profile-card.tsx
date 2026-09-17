@@ -41,6 +41,7 @@ import { faLock } from '@fortawesome/free-solid-svg-icons/faLock'
 import { useOnline } from '../chat/application-layer/hooks/online';
 import { useSkipped } from '../hide-and-block/hide-and-block';
 import { OnlineIndicator } from './online-indicator';
+import * as _ from 'lodash';
 import { useAppTheme } from '../app-theme/app-theme';
 import { setProspectHint } from '../navigation/prospect-cache';
 
@@ -199,8 +200,12 @@ const PhotoOrSkeleton = memo(PhotoOrSkeleton_);
 
 const ProfileCard = ({
   item,
+  numColumns,
+  cardWidth,
 }: {
   item: PageItem,
+  numColumns: number,
+  cardWidth: number,
 }) => {
   const {
     name: name,
@@ -296,14 +301,13 @@ const ProfileCard = ({
   return (
     <Pressable
       onPress={itemOnPress}
-      style={{ flex: 0.5, aspectRatio: 1, overflow: 'hidden', borderRadius: 5 }}
+      style={{ flex: 1 / numColumns, aspectRatio: 1, overflow: 'hidden', borderRadius: 5 }}
       {...link}
     >
       <View
         style={{
           width: '100%',
           height: '100%',
-          borderBottomRightRadius: onlineStatus !== 'offline' ? 24 : undefined,
           overflow: 'hidden',
         }}
       >
@@ -317,6 +321,7 @@ const ProfileCard = ({
           age={age}
           matchPercentage={matchPercentage}
           verified={verified}
+          cardWidth={cardWidth}
         />
         {onlineStatus === 'offline' && prospectMessagedPersonState &&
           <View
@@ -398,26 +403,26 @@ const ProfileCard = ({
         >
           <FontAwesomeIcon
             icon={faLock}
-            size={30}
+            size={sizeForCardWidth(cardWidth, 18, 30)}
             style={{color: 'white'}}
           />
           <DefaultText
             style={{
               color: 'white',
               fontWeight: '900',
-              fontSize: 22,
+              fontSize: sizeForCardWidth(cardWidth, 14, 22),
               textAlign: 'center',
-              padding: 10,
+              padding: sizeForCardWidth(cardWidth, 4, 10),
             }}
           >
             Verification Required
           </DefaultText>
           <DefaultText
             style={{
-              fontSize: 12,
-              color: '#ccc',
+              fontSize: sizeForCardWidth(cardWidth, 10, 12),
+              color: '#fff',
               textAlign: 'center',
-              paddingHorizontal: 10,
+              paddingHorizontal: sizeForCardWidth(cardWidth, 4, 10),
             }}
           >
             This person only lets people with
@@ -429,11 +434,15 @@ const ProfileCard = ({
   );
 };
 
-const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
+const sizeForCardWidth = (cardWidth: number, min: number, max: number) =>
+  min + (max - min) * _.clamp((cardWidth - 140) / (180 - 140), 0, 1);
+
+const UserDetails = ({name, age, matchPercentage, verified, cardWidth, ...rest}: {
   name: string,
   age: number,
   matchPercentage: number,
   verified: boolean,
+  cardWidth: number,
   containerStyle?: ViewStyle,
 }) => {
   const {
@@ -455,12 +464,12 @@ const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
       <View
         style={{
           flexDirection: 'row',
-          gap: 7,
+          gap: sizeForCardWidth(cardWidth, 5, 7),
           alignItems: 'flex-end',
         }}
       >
         <DefaultText style={{
-          fontSize: 18,
+          fontSize: sizeForCardWidth(cardWidth, 14, 18),
           fontWeight: '700',
           color: 'white',
           overflow: 'hidden',
@@ -470,7 +479,7 @@ const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
         </DefaultText>
         {verified &&
           <VerificationBadge
-            size={18}
+            size={sizeForCardWidth(cardWidth, 14, 18)}
             style={{
               marginBottom: 2,
             }}
@@ -479,6 +488,7 @@ const UserDetails = ({name, age, matchPercentage, verified, ...rest}: {
       </View>
       <DefaultText
         style={{
+          fontSize: sizeForCardWidth(cardWidth, 12, 14),
           fontWeight: '500',
           color: 'white',
           alignSelf: 'flex-start',
