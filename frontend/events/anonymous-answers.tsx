@@ -34,3 +34,9 @@ export {
   removeAnonymousAnswer,
   clearAnonymousAnswers,
 };
+const encodedAnonymousAnswers = (): string | null =>
+  anonymousAnswers.length
+    ? encodeURIComponent(JSON.stringify(anonymousAnswers))
+    : null;
+
+  encodedAnonymousAnswers,

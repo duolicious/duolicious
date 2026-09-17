@@ -105,6 +105,7 @@ import { AboutText } from './about-reply';
 import { useQuote } from '../conversation-screen/quote';
 import { copyProfileLink } from '../../util/util';
 import { SimilarProfiles } from './similar-profiles';
+import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
 import type { PageItem } from '../search-tab';
 
 // The person's photos in order, so tapping any one lets the gallery page
@@ -965,9 +966,13 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       if (isUuid(handle)) {
         setSkipped(handle, { networkState: 'fetching' });
       }
+      const similarProfilesQuery = isMobile()
+        ? ''
+        : `?similar_profiles=${
+          (isAnonymousViewer && encodedAnonymousAnswers()) || 'true'}`;
       const response = await api<UserData>(
         'get',
-        `/prospect-profile/${handle}${isMobile() ? '' : '?similar_profiles=true'}`,
+        `/prospect-profile/${handle}${similarProfilesQuery}`,
       );
       setData(
         response?.json && { ...response.json, fetchedAt: Date.now() });
