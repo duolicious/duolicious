@@ -17,6 +17,7 @@ from service.api.search.sql import (
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_PUBLIC_SIMILAR_PROFILES,
+    Q_PUBLIC_SIMILAR_PROFILES_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
     Q_DELETE_SEARCH_CACHE,
     Q_FEED,
@@ -202,32 +203,36 @@ async def get_public_search(q: t.PublicSearchQuery) -> object:
     return public_search[q.o:q.o + q.n]
 
 
+async def _searcher_personality(
+    tx: Tx,
+    answers: list[t.PublicAnswer],
+) -> Vector:
+    await tx.execute(
+        Q_QUESTION_SCORE_VECTORS,
+        dict(question_ids=[a.question_id for a in answers]),
+    )
+    questions = {
+        row_int(q, 'id'): q
+        for q in await tx.fetchall()
+    }
+
+    presence, absence, count = personality.accumulate(
+        (questions[a.question_id], a.answer)
+        for a in answers
+        if a.question_id in questions
+    )
+
+    return Vector(personality.personality_vector(presence, absence, count))
+
+
 async def _get_public_search_with_answers(
     answers: list[t.PublicAnswer],
     n: int,
     o: int,
 ) -> object:
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(
-            Q_QUESTION_SCORE_VECTORS,
-            dict(question_ids=[a.question_id for a in answers]),
-        )
-        questions = {
-            row_int(q, 'id'): q
-            for q in await tx.fetchall()
-        }
-
-        presence, absence, count = personality.accumulate(
-            (questions[a.question_id], a.answer)
-            for a in answers
-            if a.question_id in questions
-        )
-
-        searcher_personality = Vector(
-            personality.personality_vector(presence, absence, count))
-
         await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
-            searcher_personality=searcher_personality,
+            searcher_personality=await _searcher_personality(tx, answers),
             n=n,
             o=o,
         ))
@@ -237,13 +242,23 @@ async def _get_public_search_with_answers(
 async def similar_profiles(
     viewer_person_id: int | None,
     prospect_person_id: int,
+    answers: list[t.PublicAnswer] | None,
 ) -> object:
-    if viewer_person_id is None:
+    if viewer_person_id is not None:
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute(Q_CACHED_SIMILAR_PROFILES, dict(
+                searcher_person_id=viewer_person_id,
+                prospect_person_id=prospect_person_id,
+                n=_NUM_SIMILAR_PROFILES,
+            ))
+            return await tx.fetchall()
+
+    if answers is None:
         return await _public_similar_profiles(prospect_person_id)
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_CACHED_SIMILAR_PROFILES, dict(
-            searcher_person_id=viewer_person_id,
+        await tx.execute(Q_PUBLIC_SIMILAR_PROFILES_WITH_ANSWERS, dict(
+            searcher_personality=await _searcher_personality(tx, answers),
             prospect_person_id=prospect_person_id,
             n=_NUM_SIMILAR_PROFILES,
         ))

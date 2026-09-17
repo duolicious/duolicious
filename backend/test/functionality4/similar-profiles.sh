@@ -77,5 +77,37 @@ signed_out_sorts_public_search_results () {
   [[ "$(similar_names "$near_uuid")" = "target far" ]]
 }
 
+signed_out_scores_by_answers () {
+  setup
+
+  local qid=$(SESSION_TOKEN="" c GET '/public-next-questions?n=1&o=0' | jq -r '.[0].id')
+
+  assume_role near
+  jc POST /answer -d '{ "question_id": '"$qid"', "answer": true,  "public": true }'
+
+  assume_role far
+  jc POST /answer -d '{ "question_id": '"$qid"', "answer": false, "public": true }'
+
+  SESSION_TOKEN=""
+
+  [[ "$(
+    c GET "/prospect-profile/$target_uuid?similar_profiles=true" \
+      | jq -r '[.similar_profiles[].match_percentage] | unique | join(" ")'
+  )" = "50" ]]
+
+  local answers=$(jq -rn --arg a \
+    '[{ "question_id": '"$qid"', "answer": true, "public": true }]' '$a|@uri')
+
+  local response=$(c GET "/prospect-profile/$target_uuid?similar_profiles=$answers")
+
+  [[ "$(echo "$response" | jq -r '[.similar_profiles[].name] | sort | join(" ")')" = "far middle near viewer" ]]
+
+  local m_near=$(echo "$response" | jq -r '.similar_profiles[] | select(.name == "near") | .match_percentage')
+  local m_far=$(echo "$response" | jq -r '.similar_profiles[] | select(.name == "far") | .match_percentage')
+
+  [[ "$m_near" -gt "$m_far" ]]
+}
+
 signed_in_sorts_cached_search_results
 signed_out_sorts_public_search_results
+signed_out_scores_by_answers
