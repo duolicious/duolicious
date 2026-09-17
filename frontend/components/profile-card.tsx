@@ -308,7 +308,6 @@ const ProfileCard = ({
         style={{
           width: '100%',
           height: '100%',
-          borderBottomRightRadius: onlineStatus !== 'offline' ? 24 : undefined,
           overflow: 'hidden',
         }}
       >
@@ -317,15 +316,13 @@ const ProfileCard = ({
           photoUuid={photoUuid}
           photoBlurhash={photoBlurhash}
         />
-        {!verificationRequired &&
-          <UserDetails
-            name={name}
-            age={age}
-            matchPercentage={matchPercentage}
-            verified={verified}
-            cardWidth={cardWidth}
-          />
-        }
+        <UserDetails
+          name={name}
+          age={age}
+          matchPercentage={matchPercentage}
+          verified={verified}
+          cardWidth={cardWidth}
+        />
         {onlineStatus === 'offline' && prospectMessagedPersonState &&
           <View
             style={{
@@ -423,7 +420,7 @@ const ProfileCard = ({
           <DefaultText
             style={{
               fontSize: sizeForCardWidth(cardWidth, 10, 12),
-              color: '#ccc',
+              color: '#fff',
               textAlign: 'center',
               paddingHorizontal: sizeForCardWidth(cardWidth, 4, 10),
             }}
