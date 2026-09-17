@@ -85,6 +85,7 @@ import {
   bestTextOn,
   capLuminance,
   isUuid,
+  isMobile,
 } from '../../util/util';
 import { useTimeSinceLabel } from '../../util/clock';
 import { useOnline } from '../../chat/application-layer/hooks/online';
@@ -777,7 +778,7 @@ type UserData = {
   gets_reply_percentage: number | null,
   gives_reply_percentage: number | null,
 
-  similar_profiles: PageItem[],
+  similar_profiles?: PageItem[],
 };
 
 type FetchedUserData = UserData & { fetchedAt: number };
@@ -964,7 +965,10 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       if (isUuid(handle)) {
         setSkipped(handle, { networkState: 'fetching' });
       }
-      const response = await api<UserData>('get', `/prospect-profile/${handle}`);
+      const response = await api<UserData>(
+        'get',
+        `/prospect-profile/${handle}${isMobile() ? '' : '?similar_profiles=true'}`,
+      );
       setData(
         response?.json && { ...response.json, fetchedAt: Date.now() });
       setNotFound(response.clientError);
