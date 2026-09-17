@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { ProfileCard } from '../profile-card';
 import type { PageItem } from '../search-tab';
-import { isMobile } from '../../util/util';
+import { compositeOver, isMobile } from '../../util/util';
 import * as _ from 'lodash';
 import { commonStyles } from '../../styles';
 import { SidePanelCard, SidePanelHeading } from '../navigation/side-panel';
+import { legibleSurface } from '../../app-theme/surface';
 
 const PANEL_WIDTH = 320;
 const PANEL_GAP = 32;
@@ -22,7 +23,10 @@ const CARD_WIDTH = (
   - GRID_GAP
 ) / NUM_COLUMNS;
 
-const SimilarProfiles = ({ items }: { items: PageItem[] | undefined }) => {
+const SimilarProfiles = ({ items, backgroundColor }: {
+  items: PageItem[] | undefined
+  backgroundColor: string
+}) => {
   const { width, height } = useWindowDimensions();
   const [headingHeight, setHeadingHeight] = useState(0);
 
@@ -49,8 +53,12 @@ const SimilarProfiles = ({ items }: { items: PageItem[] | undefined }) => {
     return null;
   }
 
+  const surface = legibleSurface(backgroundColor);
+  const surfaceColor = compositeOver(surface.backgroundColor, backgroundColor);
+
   return (
     <SidePanelCard
+      surface={surface}
       style={{
         position: 'absolute',
         top: PANEL_TOP,
@@ -59,7 +67,9 @@ const SimilarProfiles = ({ items }: { items: PageItem[] | undefined }) => {
       }}
     >
       <View onLayout={(e) => setHeadingHeight(e.nativeEvent.layout.height)}>
-        <SidePanelHeading isFirst={true}>Similar profiles</SidePanelHeading>
+        <SidePanelHeading isFirst={true} color={surface.color}>
+          Similar profiles
+        </SidePanelHeading>
       </View>
       <View
         style={{
@@ -79,6 +89,7 @@ const SimilarProfiles = ({ items }: { items: PageItem[] | undefined }) => {
                 item={item}
                 numColumns={NUM_COLUMNS}
                 cardWidth={CARD_WIDTH}
+                surfaceColor={surfaceColor}
               />
             )}
           </View>

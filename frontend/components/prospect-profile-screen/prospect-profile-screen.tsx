@@ -1172,7 +1172,10 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
             </HeartBackground>
           </Reanimated.View>
         </ScrollView>
-        <SimilarProfiles items={data?.similar_profiles}/>
+        <SimilarProfiles
+          items={data?.similar_profiles}
+          backgroundColor={backgroundColor}
+        />
         {showAuthedBottomButtons &&
           <View
             style={{

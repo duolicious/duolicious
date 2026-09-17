@@ -1,21 +1,31 @@
 import { ReactNode } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { commonStyles } from '../../styles';
-import { useAppTheme } from '../../app-theme/app-theme';
+import { Surface, useAppTheme } from '../../app-theme/app-theme';
 
-const SidePanelCard = ({ style, children }: {
+const SidePanelCard = ({ style, surface, children }: {
   style?: ViewStyle
+  surface?: Surface
   children: ReactNode
 }) => {
   const { appTheme } = useAppTheme();
+
+  const colors = surface
+    ? {
+        backgroundColor: surface.backgroundColor,
+        borderTopColor: surface.borderColor,
+        borderLeftColor: surface.borderColor,
+        borderRightColor: surface.borderColor,
+        borderBottomColor: surface.borderColor,
+      }
+    : { backgroundColor: appTheme.primaryColor, ...appTheme.card };
 
   return (
     <View
       style={{
         overflow: 'hidden',
-        backgroundColor: appTheme.primaryColor,
         ...commonStyles.cardBorders,
-        ...appTheme.card,
+        ...colors,
         ...style,
       }}
     >
@@ -24,9 +34,10 @@ const SidePanelCard = ({ style, children }: {
   );
 };
 
-const SidePanelHeading = ({ children, isFirst }: {
+const SidePanelHeading = ({ children, isFirst, color }: {
   children: ReactNode
   isFirst?: boolean
+  color?: string
 }) => {
   const { appTheme } = useAppTheme();
 
@@ -34,7 +45,7 @@ const SidePanelHeading = ({ children, isFirst }: {
     <h2
       style={{
         margin: 0,
-        color: appTheme.secondaryColor,
+        color: color ?? appTheme.secondaryColor,
         fontFamily: 'MontserratBlack',
         fontWeight: 'normal',
         fontSize: 18,

@@ -202,10 +202,12 @@ const ProfileCard = ({
   item,
   numColumns,
   cardWidth,
+  surfaceColor,
 }: {
   item: PageItem,
   numColumns: number,
   cardWidth: number,
+  surfaceColor?: string,
 }) => {
   const {
     name: name,
@@ -361,6 +363,7 @@ const ProfileCard = ({
         personUuid={personUuid}
         size={24}
         borderWidth={4}
+        ringColor={surfaceColor}
         style={{
           position: 'absolute',
           bottom: -4,
