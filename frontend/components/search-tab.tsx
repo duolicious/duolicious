@@ -93,6 +93,8 @@ const styles = StyleSheet.create({
   },
 });
 
+const threeColumnMinWidth = 500;
+
 const scrollIndicatorInsets = {
   top: 50,
 };
@@ -575,6 +577,14 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
 
   const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
 
+  const [numColumns, setNumColumns] = useState<number | null>(null);
+
+  const onLayoutScreen = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    if (nativeEvent.layout.width > 0) {
+      setNumColumns(nativeEvent.layout.width >= threeColumnMinWidth ? 3 : 2);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       if (!(await seenSearchFiltersHint())) {
@@ -639,7 +649,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   }, []);
 
   return (
-    <View style={styles.safeAreaView}>
+    <View style={styles.safeAreaView} onLayout={onLayoutScreen}>
       <DuoliciousTopNavBar>
         {Platform.OS === 'web' &&
           <TopNavBarButton
@@ -685,11 +695,11 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
           </View>
         </View>
       </DuoliciousTopNavBar>
-      <DefaultFlatList
+      {numColumns !== null && <DefaultFlatList
         key={
           // This is needed to trigger a re-render when the sticky header
           // indicies change. Without this, the header is blank on Android.
-          String(hasClubs)
+          JSON.stringify([hasClubs, numColumns])
         }
         ref={listRef}
         innerRef={observeListRef}
@@ -707,7 +717,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         dataKey={JSON.stringify([selectedClub, isPublic])}
         hideListHeaderComponentWhenEmpty={!hasClubs}
         hideListHeaderComponentWhenLoading={!hasClubs}
-        numColumns={2}
+        numColumns={numColumns}
         contentContainerStyle={styles.listContainerStyle}
         ListHeaderComponent={
           <ListHeaderComponent
@@ -716,7 +726,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
             setSelectedClub={setSelectedClub}
           />
         }
-        renderItem={({item}: ListRenderItemInfo<PageItem>) => <ProfileCardMemo item={item} />}
+        renderItem={({item}: ListRenderItemInfo<PageItem>) => <ProfileCardMemo item={item} numColumns={numColumns} />}
         scrollIndicatorInsets={scrollIndicatorInsets}
         onLayout={onLayout}
         onContentSizeChange={onContentSizeChange}
@@ -725,7 +735,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         stickyHeaderHiddenOnScroll={hasClubs}
         stickyHeaderIndices={hasClubs ? [0] : []}
         columnWrapperStyle={styles.listColumnWraperStyle}
-      />
+      />}
     </View>
   );
 };

@@ -199,8 +199,10 @@ const PhotoOrSkeleton = memo(PhotoOrSkeleton_);
 
 const ProfileCard = ({
   item,
+  numColumns,
 }: {
   item: PageItem,
+  numColumns: number,
 }) => {
   const {
     name: name,
@@ -296,7 +298,7 @@ const ProfileCard = ({
   return (
     <Pressable
       onPress={itemOnPress}
-      style={{ flex: 0.5, aspectRatio: 1, overflow: 'hidden', borderRadius: 5 }}
+      style={{ flex: 1 / numColumns, aspectRatio: 1, overflow: 'hidden', borderRadius: 5 }}
       {...link}
     >
       <View
