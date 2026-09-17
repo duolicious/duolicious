@@ -716,7 +716,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
           "Something went wrong while fetching search results"
         }
         endText={
-          "No more matches to show"
+          "See more matches by adjusting your search filters or clubs"
         }
         fetchPage={fetchPage(selectedClub, isPublic)}
         dataKey={JSON.stringify([selectedClub, isPublic])}
