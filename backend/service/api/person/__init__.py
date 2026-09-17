@@ -25,6 +25,7 @@ from serviceshared.spotify.sql import (
 from service.api.duohash import sha512
 from service.api.person.sql import *
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
+from service.api.search import similar_profiles
 from service.api.searchfilters import TWO_WAY_FILTER_KEYS
 from serviceshared.commonsql import *
 from service.api.qanda import _flush_session_answers
@@ -683,6 +684,7 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
 async def get_prospect_profile(
     s: t.SessionInfo | None,
     prospect_handle: object,
+    with_similar_profiles: bool,
 ) -> object:
     params = dict(
         person_id=s.person_id if s is not None else None,
@@ -702,13 +704,19 @@ async def get_prospect_profile(
         # The handle may have been a url_slug; resolve to the real uuid so the
         # visit events below carry a valid one.
         prospect_uuid = api_row.get('prospect_uuid')
-        prospect_id = api_row.get('prospect_id')
+        prospect_id = row_int(api_row, 'prospect_id')
+
+    if with_similar_profiles:
+        profile['similar_profiles'] = await similar_profiles(
+            viewer_person_id=s.person_id if s is not None else None,
+            prospect_person_id=prospect_id,
+        )
 
     if s is None:
         return profile
 
     if s.person_id is not None and s.person_uuid is not None and \
-            prospect_id is not None and prospect_uuid is not None:
+            prospect_uuid is not None:
         seconds_since_last_online = profile.get('seconds_since_last_online')
         prospect_online = (
             isinstance(seconds_since_last_online, (int, float)) and

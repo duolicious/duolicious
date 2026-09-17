@@ -6,30 +6,6 @@ Wrap any async function whose result is worth memoizing across requests/processe
     @redis_cache(ttl=60)
     async def get_public_search():
         ...
-
-A result is served as-is for `ttl` seconds. After that it is still served, but
-the first request to see it stale recomputes it in the background, so no request
-waits on the function while a result of any age exists. Only a cold cache makes
-requests wait: one request across all workers takes a short-lived Redis lock and
-runs the function, while the rest re-read Redis once a second until its result
-appears.
-
-The cache is keyed by the wrapped function's identity plus a stable hash of its
-arguments, so different argument sets are cached separately. Results round-trip
-through JSON, so a cache hit returns JSON-compatible types (e.g. a `uuid.UUID`
-comes back as its string form) -- the same shape the API serializes into the
-HTTP response anyway.
-
-Caveat: a `date`/`datetime` in a result serialises to ISO-8601 here but to an
-HTTP-date in the API's response encoder, so a cache hit and a cache miss would
-render such a field differently. Only cache functions whose results carry no
-date/datetime values (they'd also be indistinguishable from plain strings on
-the way back out).
-
-Like `sessioncache`, Redis is treated as a best-effort accelerator: any Redis
-error -- or an argument/result that can't be encoded into a stable cache key --
-degrades to simply calling the wrapped function, so callers keep working off the
-database alone.
 """
 
 import asyncio
@@ -118,7 +94,7 @@ def redis_cache(ttl: int) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, A
             result = await func(*args, **kwargs)
             with suppress(Exception):
                 async with _redis.pipeline() as pipe:
-                    pipe.set(key, json.dumps(result, default=_default))
+                    pipe.set(key, json.dumps(result, default=_default), ex=ttl * 2)
                     pipe.set(f"{key}:fresh", "1", ex=ttl)
                     await pipe.execute()
             return result

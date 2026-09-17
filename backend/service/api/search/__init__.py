@@ -13,8 +13,10 @@ from service.api.searchfilters import Q_SEARCH_PARAMETERS
 from service.api.search.sql import (
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
+    Q_CACHED_SIMILAR_PROFILES,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
+    Q_PUBLIC_SIMILAR_PROFILES,
     Q_QUIZ_SEARCH,
     Q_DELETE_SEARCH_CACHE,
     Q_FEED,
@@ -23,6 +25,9 @@ from service.api.search.sql import (
 )
 from dataclasses import dataclass
 from datetime import datetime
+
+
+_NUM_SIMILAR_PROFILES = 8
 
 
 @dataclass
@@ -225,6 +230,32 @@ async def _get_public_search_with_answers(
             searcher_personality=searcher_personality,
             n=n,
             o=o,
+        ))
+        return await tx.fetchall()
+
+
+async def similar_profiles(
+    viewer_person_id: int | None,
+    prospect_person_id: int,
+) -> object:
+    if viewer_person_id is None:
+        return await _public_similar_profiles(prospect_person_id)
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(Q_CACHED_SIMILAR_PROFILES, dict(
+            searcher_person_id=viewer_person_id,
+            prospect_person_id=prospect_person_id,
+            n=_NUM_SIMILAR_PROFILES,
+        ))
+        return await tx.fetchall()
+
+
+@redis_cache(ttl=60)
+async def _public_similar_profiles(prospect_person_id: int) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(Q_PUBLIC_SIMILAR_PROFILES, dict(
+            prospect_person_id=prospect_person_id,
+            n=_NUM_SIMILAR_PROFILES,
         ))
         return await tx.fetchall()
 
