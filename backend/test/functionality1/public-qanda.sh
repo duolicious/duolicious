@@ -66,7 +66,7 @@ public_search_returns_matches () {
   local with_pct=$(echo "$response" | jq '[.[] | select(.match_percentage != null)] | length')
   [[ "$with_pct" -eq 2 ]]
 
-  ! { SESSION_TOKEN="" c GET "/public-search?answers=$empty&n=11&o=0"; } || exit 1
+  ! { SESSION_TOKEN="" c GET "/public-search?answers=$empty&n=51&o=0"; } || exit 1
 }
 
 # A prospect who answered a question the same way as the searcher should rank

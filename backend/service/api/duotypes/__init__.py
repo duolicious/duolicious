@@ -15,6 +15,7 @@ from pydantic import (
     ConfigDict,
     EmailStr,
     Field,
+    Json,
     RootModel,
     StringConstraints,
     field_validator,
@@ -354,10 +355,20 @@ class PublicAnswer(BaseModel):
     public: bool = True
 
 
-class PublicSearchRequest(BaseModel):
-    answers: List[PublicAnswer] = Field(
-        default_factory=list, max_length=PUBLIC_ANSWER_LIMIT)
-    n: int = Field(default=10, ge=0, le=10)
+class SearchQuery(BaseModel):
+    n: int | None = Field(default=None, ge=0, le=50)
+    o: int | None = Field(default=None, ge=0)
+    club: str | None = None
+
+
+class PublicAnswers(RootModel[Annotated[
+    List[PublicAnswer], Field(max_length=PUBLIC_ANSWER_LIMIT)]]):
+    pass
+
+
+class PublicSearchQuery(BaseModel):
+    answers: Json[PublicAnswers] | None = None
+    n: int = Field(default=10, ge=0, le=50)
     o: int = Field(default=0, ge=0)
 
 

@@ -10,9 +10,10 @@ in `service.api.bootstrap`.
 
 import json
 import time
+from typing import Annotated
 from urllib.parse import parse_qsl
 
-from fastapi import Body, Depends, Path as FastApiPath, WebSocket
+from fastapi import Body, Depends, Path as FastApiPath, Query, WebSocket
 from starlette.requests import Request
 
 import service.api.duotypes as t
@@ -214,36 +215,28 @@ async def delete_answer(
 @app.get('/search')
 async def get_search(
     request: Request,
+    q: Annotated[t.SearchQuery, Query()],
     s: t.SessionInfo = Depends(session())
 ) -> object:
-    n = request.query_params.get('n')
-    o = request.query_params.get('o')
-
-    rawClub = request.query_params.get('club')
-    lowerClub = None if rawClub is None else rawClub.lower().strip()
+    lowerClub = None if q.club is None else q.club.lower().strip()
 
     club = (
-        search.ClubHttpArg(lowerClub if lowerClub != '\0' else None)
-        if 'club' in request.query_params
-        else None
+        None if lowerClub is None
+        else search.ClubHttpArg(lowerClub if lowerClub != '\0' else None)
     )
 
-    search_type, _ = search.get_search_type(n, o)
+    search_type = search.get_search_type(q)
 
     scope = json.dumps([search_type, lowerClub])
 
     if search_type in ('uncached-search', 'quiz-refresh'):
         await check_ip_and_account(request, search_rate_limit, scope=scope)
 
-    return await search.get_search(s=s, n=n, o=o, club=club)
+    return await search.get_search(s=s, q=q, club=club)
 
 @app.get('/public-search')
-async def get_public_search(request: Request) -> object:
-    return await search.get_public_search(
-        n=request.query_params.get('n'),
-        o=request.query_params.get('o'),
-        answers=request.query_params.get('answers'),
-    )
+async def get_public_search(q: Annotated[t.PublicSearchQuery, Query()]) -> object:
+    return await search.get_public_search(q)
 
 @app.get('/health')
 @rate_limit_exempt
