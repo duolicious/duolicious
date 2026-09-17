@@ -13,12 +13,12 @@ class FakeRedis:
 
     def __init__(self) -> None:
         self.store: dict[str, str] = {}
-        self.expirations: dict[str, int] = {}
+        self.expirations: dict[str, int | None] = {}
 
     async def mget(self, *keys: str) -> list[str | None]:
         return [self.store.get(key) for key in keys]
 
-    async def set(self, key: str, value: str, ex: int, nx: bool = False) -> bool | None:
+    async def set(self, key: str, value: str, ex: int | None = None, nx: bool = False) -> bool | None:
         if nx and key in self.store:
             return None
         self.store[key] = value
@@ -40,7 +40,7 @@ class ExplodingRedis:
     async def mget(self, *keys: str) -> None:
         raise ConnectionError("redis down")
 
-    async def set(self, key: str, value: str, ex: int, nx: bool = False) -> None:
+    async def set(self, key: str, value: str, ex: int | None = None, nx: bool = False) -> None:
         raise ConnectionError("redis down")
 
     def pipeline(self) -> "FakePipeline":
@@ -50,9 +50,9 @@ class ExplodingRedis:
 class FakePipeline:
     def __init__(self, redis: FakeRedis | ExplodingRedis) -> None:
         self.redis = redis
-        self.commands: list[tuple[str, str, int]] = []
+        self.commands: list[tuple[str, str, int | None]] = []
 
-    def set(self, key: str, value: str, ex: int) -> None:
+    def set(self, key: str, value: str, ex: int | None = None) -> None:
         self.commands.append((key, value, ex))
 
     async def execute(self) -> None:
@@ -81,7 +81,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
     async def test_caches_result(self) -> None:
         call_count = 0
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch() -> dict[str, int]:
             nonlocal call_count
             call_count += 1
@@ -94,7 +94,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
     async def test_distinct_args_cached_separately(self) -> None:
         call_count = 0
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch(x: int, y: int = 0) -> int:
             nonlocal call_count
             call_count += 1
@@ -111,17 +111,17 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
         async def fetch() -> str:
             return "x"
 
-        await redis_cache(ttl=600, stale=6000)(fetch)()
+        await redis_cache(ttl=600)(fetch)()
         key = rediscache._key(fetch, (), {})
         self.assertEqual(
             self.fake.expirations,
-            {key: 6600, f"{key}:fresh": 600, f"{key}:lock": 5},
+            {key: None, f"{key}:fresh": 600, f"{key}:lock": 5},
         )
 
     async def test_stale_hit_is_served_while_refreshed_once_in_background(self) -> None:
         call_count = 0
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch() -> int:
             nonlocal call_count
             call_count += 1
@@ -142,7 +142,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
     async def test_failed_background_refresh_is_logged_and_stale_still_served(self) -> None:
         call_count = 0
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch() -> int:
             nonlocal call_count
             call_count += 1
@@ -169,8 +169,8 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0.05)
             return {"value": call_count}
 
-        worker_a = redis_cache(ttl=600, stale=6000)(fetch)
-        worker_b = redis_cache(ttl=600, stale=6000)(fetch)
+        worker_a = redis_cache(ttl=600)(fetch)
+        worker_b = redis_cache(ttl=600)(fetch)
 
         self.assertEqual(
             await asyncio.gather(*[worker_a() for _ in range(5)], *[worker_b() for _ in range(5)]),
@@ -188,7 +188,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
 
         await self.fake.set(f"{rediscache._key(fetch, (), {})}:lock", "1", ex=5)
 
-        waiter = asyncio.ensure_future(redis_cache(ttl=600, stale=6000)(fetch)())
+        waiter = asyncio.ensure_future(redis_cache(ttl=600)(fetch)())
         await asyncio.sleep(0.05)
         self.assertEqual(call_count, 0)
 
@@ -196,7 +196,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await waiter, 1)
 
     async def test_failed_cold_call_raises_and_caches_nothing(self) -> None:
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch() -> int:
             raise ValueError()
 
@@ -207,7 +207,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
     async def test_serializes_db_types(self) -> None:
         u = uuid.uuid4()
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch() -> list[dict[str, uuid.UUID | Decimal | str]]:
             return [{"prospect_uuid": u, "age": Decimal("27"), "name": "Bob"}]
 
@@ -226,7 +226,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
     async def test_redis_errors_degrade_to_calling_function(self) -> None:
         call_count = 0
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch() -> int:
             nonlocal call_count
             call_count += 1
@@ -240,7 +240,7 @@ class TestRedisCache(unittest.IsolatedAsyncioTestCase):
     async def test_unserializable_arg_skips_cache(self) -> None:
         call_count = 0
 
-        @redis_cache(ttl=600, stale=6000)
+        @redis_cache(ttl=600)
         async def fetch(obj: object) -> int:
             nonlocal call_count
             call_count += 1

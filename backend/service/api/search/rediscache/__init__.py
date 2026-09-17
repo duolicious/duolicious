@@ -1,19 +1,18 @@
 """
-Generic Redis-backed result cache, exposed as the `redis_cache(ttl, stale)`
-decorator.
+Generic Redis-backed result cache, exposed as the `redis_cache(ttl)` decorator.
 
 Wrap any async function whose result is worth memoizing across requests/processes:
 
-    @redis_cache(ttl=60, stale=10 * 60)
+    @redis_cache(ttl=60)
     async def get_public_search():
         ...
 
-A result is served as-is for `ttl` seconds. For a further `stale` seconds it is
-still served, but the first request to see it stale recomputes it in the
-background, so no request waits on the function while a result of any age
-exists. Only a cold cache makes requests wait: one request across all workers
-takes a short-lived Redis lock and runs the function, while the rest re-read
-Redis once a second until its result appears.
+A result is served as-is for `ttl` seconds. After that it is still served, but
+the first request to see it stale recomputes it in the background, so no request
+waits on the function while a result of any age exists. Only a cold cache makes
+requests wait: one request across all workers takes a short-lived Redis lock and
+runs the function, while the rest re-read Redis once a second until its result
+appears.
 
 The cache is keyed by the wrapped function's identity plus a stable hash of its
 arguments, so different argument sets are cached separately. Results round-trip
@@ -104,12 +103,9 @@ def _spawn(refresh: Coroutine[object, object, None]) -> None:
     task.add_done_callback(_refreshes.discard)
 
 
-def redis_cache(
-    ttl: int,
-    stale: int,
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
-    """Serve the wrapped async function's result from Redis for `ttl` seconds,
-    then for `stale` more seconds while it is recomputed in the background."""
+def redis_cache(ttl: int) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
+    """Serve the wrapped async function's result from Redis, recomputing it in
+    the background once it is older than `ttl` seconds."""
     def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         async def read(key: str) -> tuple[R, bool] | None:
             with suppress(Exception):
@@ -122,7 +118,7 @@ def redis_cache(
             result = await func(*args, **kwargs)
             with suppress(Exception):
                 async with _redis.pipeline() as pipe:
-                    pipe.set(key, json.dumps(result, default=_default), ex=ttl + stale)
+                    pipe.set(key, json.dumps(result, default=_default))
                     pipe.set(f"{key}:fresh", "1", ex=ttl)
                     await pipe.execute()
             return result

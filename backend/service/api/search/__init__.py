@@ -229,7 +229,7 @@ async def _get_public_search_with_answers(
         return await tx.fetchall()
 
 
-@redis_cache(ttl=60, stale=10 * 60)
+@redis_cache(ttl=60)
 async def _get_public_search() -> Sequence[object]:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_PUBLIC_SEARCH)
