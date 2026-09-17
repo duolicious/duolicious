@@ -83,5 +83,95 @@ class TestAsyncLRUCache(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await fetch(2, y=3), 6)  # Cache hit
         self.assertEqual(call_count, 3)  # Function should be called thrice
 
+    async def test_concurrent_misses_share_one_call(self) -> None:
+        call_count = 0
+
+        @AsyncLruCache(maxsize=2, ttl=0.1)
+        async def fetch(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.05)
+            return x * 2
+
+        self.assertEqual(await asyncio.gather(*[fetch(1) for _ in range(10)]), [2] * 10)
+        self.assertEqual(call_count, 1)
+
+        await asyncio.sleep(0.15)
+        self.assertEqual(await asyncio.gather(*[fetch(1) for _ in range(10)]), [2] * 10)
+        self.assertEqual(call_count, 2)
+
+    async def test_exceptions_are_shared_but_not_cached(self) -> None:
+        call_count = 0
+
+        @AsyncLruCache(maxsize=2)
+        async def fetch(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.05)
+            if call_count == 1:
+                raise ValueError()
+            return x * 2
+
+        results = await asyncio.gather(
+            *[fetch(1) for _ in range(3)], return_exceptions=True)
+        self.assertTrue(all(isinstance(r, ValueError) for r in results))
+        self.assertEqual(call_count, 1)
+
+        self.assertEqual(await fetch(1), 2)
+        self.assertEqual(call_count, 2)
+
+    async def test_cancelled_caller_does_not_cancel_shared_call(self) -> None:
+        call_count = 0
+
+        @AsyncLruCache(maxsize=2)
+        async def fetch(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.05)
+            return x * 2
+
+        cancelled = asyncio.ensure_future(fetch(1))
+        waiting = asyncio.ensure_future(fetch(1))
+        await asyncio.sleep(0.01)
+        cancelled.cancel()
+
+        self.assertEqual(await waiting, 2)
+        self.assertEqual(await fetch(1), 2)
+        self.assertEqual(call_count, 1)
+
+    async def test_expiry_of_an_evicted_entry_spares_its_replacement(self) -> None:
+        call_count = 0
+
+        @AsyncLruCache(maxsize=1, ttl=0.1)
+        async def fetch(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        await fetch(1)
+        await fetch(2)
+        await asyncio.sleep(0.05)
+        await fetch(1)
+        self.assertEqual(call_count, 3)
+
+        await asyncio.sleep(0.07)
+        await fetch(1)
+        self.assertEqual(call_count, 3)
+
+    async def test_rejected_results_do_not_evict_cached_ones(self) -> None:
+        call_count = 0
+
+        @AsyncLruCache(maxsize=2, cache_condition=bool)
+        async def fetch(x: int) -> int:
+            nonlocal call_count
+            call_count += 1
+            return x
+
+        await fetch(1)
+        await fetch(0)
+        await fetch(-1)
+        await fetch(1)
+        self.assertEqual(call_count, 3)
+
 if __name__ == '__main__':
     unittest.main()
