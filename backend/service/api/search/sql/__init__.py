@@ -6,6 +6,7 @@ from service.api.search.sql.public import (
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_PUBLIC_SIMILAR_PROFILES,
+    Q_PUBLIC_SIMILAR_PROFILES_WITH_ANSWERS,
 )
 from service.api.search.sql.search import (
     Q_APPLY_CLUB_PREFERENCE,

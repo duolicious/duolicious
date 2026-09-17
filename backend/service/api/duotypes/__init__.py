@@ -372,6 +372,11 @@ class PublicSearchQuery(BaseModel):
     o: int = Field(default=0, ge=0)
 
 
+class ProspectProfileQuery(BaseModel):
+    similar_profiles: bool = False
+    answers: Json[PublicAnswers] | None = None
+
+
 class PostRequestOtp(BaseModel):
     email: EmailStr
     pending_club_name: PendingClubName = Field(

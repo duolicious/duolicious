@@ -85,10 +85,9 @@ ORDER BY
 """,
 )
 
-# Like `Q_PUBLIC_SEARCH`, but ranks public profiles by how well they match the
-# answers an unauthenticated user has given so far
-Q_PUBLIC_SEARCH_WITH_ANSWERS = _public_search(
-    match_percentage="""
+# How well a prospect matches the answers an unauthenticated user has given so
+# far
+_ANSWERS_MATCH_PERCENTAGE = """
     CLAMP(
         0,
         99,
@@ -96,7 +95,21 @@ Q_PUBLIC_SEARCH_WITH_ANSWERS = _public_search(
             1 - (prospect.personality <#> %(searcher_personality)s::vector(47))
         ) / 2
     )::SMALLINT
-""",
+"""
+
+_SIMILAR_PROFILES_TAIL = """
+AND
+    prospect.id != %(prospect_person_id)s
+ORDER BY
+    prospect.personality <#> (
+        SELECT personality FROM person WHERE id = %(prospect_person_id)s
+    )
+LIMIT
+    %(n)s
+"""
+
+Q_PUBLIC_SEARCH_WITH_ANSWERS = _public_search(
+    match_percentage=_ANSWERS_MATCH_PERCENTAGE,
     tail="""
 ORDER BY
     match_percentage DESC,
@@ -110,14 +123,10 @@ OFFSET
 
 Q_PUBLIC_SIMILAR_PROFILES = _public_search(
     match_percentage="50",
-    tail="""
-AND
-    prospect.id != %(prospect_person_id)s
-ORDER BY
-    prospect.personality <#> (
-        SELECT personality FROM person WHERE id = %(prospect_person_id)s
-    )
-LIMIT
-    %(n)s
-""",
+    tail=_SIMILAR_PROFILES_TAIL,
+)
+
+Q_PUBLIC_SIMILAR_PROFILES_WITH_ANSWERS = _public_search(
+    match_percentage=_ANSWERS_MATCH_PERCENTAGE,
+    tail=_SIMILAR_PROFILES_TAIL,
 )
