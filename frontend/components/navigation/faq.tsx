@@ -1,10 +1,10 @@
 import { CSSProperties, Children, useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { defaultFontFamily, defaultFontSize } from '../default-text';
-import { commonStyles } from '../../styles';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { api } from '../../api/api';
+import { SidePanelCard, SidePanelHeading } from './side-panel';
 
 type GenderStats = {
   gender_ratio: number | null
@@ -454,43 +454,11 @@ const FaqDetails = ({ question, Answer, isFirst }: FaqItem & {
   );
 };
 
-const SectionHeading = ({ children, isFirst }: {
-  children: React.ReactNode
-  isFirst?: boolean
-}) => {
-  const { appTheme } = useAppTheme();
-
-  return (
-    <h2
-      style={{
-        margin: 0,
-        color: appTheme.secondaryColor,
-        fontFamily: 'MontserratBlack',
-        fontWeight: 'normal',
-        fontSize: 18,
-        padding: `${isFirst ? 14 : 32}px 16px 6px`,
-      }}
-    >
-      {children}
-    </h2>
-  );
-};
-
 const Faq = () => {
-  const { appTheme } = useAppTheme();
-
   return (
-    <View
-      style={{
-        flex: 1,
-        overflow: 'hidden',
-        backgroundColor: appTheme.primaryColor,
-        ...commonStyles.cardBorders,
-        ...appTheme.card,
-      }}
-    >
+    <SidePanelCard style={{ flex: 1 }}>
       <ScrollView>
-        <SectionHeading isFirst={true}>Touch grass? No.</SectionHeading>
+        <SidePanelHeading isFirst={true}>Touch grass? No.</SidePanelHeading>
 
         <div style={{ padding: '0 16px 14px' }}>
           <Paragraph>
@@ -503,7 +471,7 @@ const Faq = () => {
           </Paragraph>
         </div>
 
-        <SectionHeading>Frequently asked questions</SectionHeading>
+        <SidePanelHeading>Frequently asked questions</SidePanelHeading>
 
         <div style={{ paddingLeft: 16, paddingRight: 16 }}>
           {FAQ_ITEMS.map((faqItem, i) =>
@@ -511,7 +479,7 @@ const Faq = () => {
           )}
         </div>
       </ScrollView>
-    </View>
+    </SidePanelCard>
   );
 };
 
