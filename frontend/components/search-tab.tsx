@@ -704,7 +704,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         key={
           // This is needed to trigger a re-render when the sticky header
           // indicies change. Without this, the header is blank on Android.
-          JSON.stringify([hasClubs, numColumns])
+          String(hasClubs)
         }
         ref={listRef}
         innerRef={observeListRef}

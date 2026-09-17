@@ -2,6 +2,7 @@ import {
   FlatList,
   FlatListProps,
   LayoutChangeEvent,
+  ListRenderItem,
   StyleProp,
   StyleSheet,
   View,
@@ -11,6 +12,7 @@ import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
   ComponentType,
   ForwardedRef,
+  Fragment,
   MutableRefObject,
   ReactElement,
   Ref,
@@ -27,6 +29,7 @@ import { RenderedHoc } from './rendered-hoc';
 import { FlashList, FlashListProps, FlashListRef } from '@shopify/flash-list';
 import { useAppTheme } from '../app-theme/app-theme';
 import { COLUMN_MAX_WIDTH } from '../constants/constants';
+import * as _ from 'lodash';
 
 const styles = StyleSheet.create({
   activityIndicator: {
@@ -60,6 +63,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: COLUMN_MAX_WIDTH,
     alignSelf: 'center',
+  },
+  row: {
+    flexDirection: 'row',
   },
 });
 
@@ -174,24 +180,28 @@ const setBookRefreshingInBooks = <ItemT,>(
 
 type DefaultFlatListProps<ItemT> =
   Omit<
-    FlatListProps<ItemT> & {
-      emptyText?: string,
-      errorText?: string,
-      endText?: string,
-      endTextStyle?: StyleProp<ViewStyle>,
-      fetchPage: (pageNumber: number) => Promise<ItemT[] | null>,
-      hideListHeaderComponentWhenEmpty?: boolean,
-      hideListHeaderComponentWhenLoading?: boolean,
-      dataKey?: string,
-      disableRefresh?: boolean,
-      innerRef?: RefCallback<FlatList<ItemT>> | MutableRefObject<FlatList<ItemT> | null>,
-    },
+    FlatListProps<ItemT[]>,
     | "ListEmptyComponent"
     | "ListFooterComponent"
     | "data"
+    | "keyExtractor"
     | "onRefresh"
     | "refreshing"
-  >;
+    | "renderItem"
+  > & {
+    renderItem: ListRenderItem<ItemT>,
+    keyExtractor?: (item: ItemT, index: number) => string,
+    emptyText?: string,
+    errorText?: string,
+    endText?: string,
+    endTextStyle?: StyleProp<ViewStyle>,
+    fetchPage: (pageNumber: number) => Promise<ItemT[] | null>,
+    hideListHeaderComponentWhenEmpty?: boolean,
+    hideListHeaderComponentWhenLoading?: boolean,
+    dataKey?: string,
+    disableRefresh?: boolean,
+    innerRef?: RefCallback<FlatList<ItemT[]>> | MutableRefObject<FlatList<ItemT[]> | null>,
+  };
 
 type DefaultFlashListProps<ItemT> =
   Omit<
@@ -417,7 +427,15 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     onContentSizeChange,
     keyExtractor,
     onLayout,
-  } = useList<ItemT, FlatList<ItemT>>(ref, props);
+  } = useList<ItemT, FlatList<ItemT[]>>(ref, props);
+
+  const {
+    numColumns = 1,
+    columnWrapperStyle,
+    renderItem,
+    keyExtractor: itemKeyExtractor = keyExtractor,
+    ...listProps
+  } = props;
 
   return (
     <FlatList
@@ -436,7 +454,6 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
       onRefresh={props.disableRefresh ? undefined : onRefresh}
       onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
       onEndReached={fetchNextPage}
-      data={items}
       ListEmptyComponent={
         <ListEmptyComponent
           isComplete={isBookComplete(book)}
@@ -451,7 +468,19 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
           EndTextNotice={<EndTextNotice endText={props.endText} />}
         />
       }
-      {...props}
+      {...listProps}
+      data={_.chunk(items, numColumns)}
+      renderItem={({ item: row, index, separators }) =>
+        numColumns === 1 ?
+          renderItem({ item: row[0], index, separators }) :
+          <View style={[styles.row, columnWrapperStyle]}>
+            {row.map((item, i) =>
+              <Fragment key={i}>
+                {renderItem({ item, index: index * numColumns + i, separators })}
+              </Fragment>
+            )}
+          </View>
+      }
       contentContainerStyle={[
         styles.flatList,
         props.contentContainerStyle,
@@ -470,7 +499,7 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
         />
       }
       onContentSizeChange={onContentSizeChange}
-      keyExtractor={props.keyExtractor ?? keyExtractor}
+      keyExtractor={(row, index) => itemKeyExtractor(row[0], index)}
       initialNumToRender={1}
       windowSize={5}
       onLayout={onLayout}
