@@ -4,6 +4,7 @@ import Animated, {
   SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -35,6 +36,40 @@ const FadeLayers = ({ progress, front, back, style }: FadeLayersProps) => {
         </Animated.View>
       }
     </View>
+  );
+};
+
+type CrossFadeProps = {
+  showFront: boolean
+  front: ReactNode
+  back: ReactNode
+  minBackMs?: number
+  duration?: number
+  style?: StyleProp<ViewStyle>
+};
+
+const CrossFade = ({
+  showFront,
+  front,
+  back,
+  minBackMs = 0,
+  duration = 500,
+  style,
+}: CrossFadeProps) => {
+  const progress = useSharedValue(0);
+  const mountedAt = useRef(Date.now());
+
+  useEffect(() => {
+    const remaining = Math.max(0, minBackMs - (Date.now() - mountedAt.current));
+
+    progress.value = withDelay(
+      remaining,
+      withTiming(showFront ? 1 : 0, { duration })
+    );
+  }, [showFront]);
+
+  return (
+    <FadeLayers progress={progress} front={front} back={back} style={style} />
   );
 };
 
@@ -117,5 +152,6 @@ const CrossFadeText = ({
 };
 
 export {
+  CrossFade,
   CrossFadeText,
 };
