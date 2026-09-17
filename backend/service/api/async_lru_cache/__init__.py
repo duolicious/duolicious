@@ -26,42 +26,41 @@ class AsyncLruCache:
         self,
         func: Callable[P, Awaitable[R]]
     ) -> Callable[P, Awaitable[R]]:
-        cache: OrderedDict[
-            tuple[object, ...],
-            tuple[R, asyncio.TimerHandle | None],
-        ] = OrderedDict()
+        cache: OrderedDict[tuple[object, ...], asyncio.Future[R]] = OrderedDict()
+
+        def evict(key: tuple[object, ...], future: asyncio.Future[R]) -> None:
+            if cache.get(key) is future:
+                del cache[key]
 
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             key: tuple[object, ...] = args + tuple(sorted(kwargs.items()))
 
-            # Return the cached result if available
             if key in cache:
-                cache.move_to_end(key)  # Mark as recently used
-                return cache[key][0]
+                cache.move_to_end(key)
+                return await asyncio.shield(cache[key])
 
-            # Compute result as it's not cached
-            result = await func(*args, **kwargs)
+            future = asyncio.ensure_future(func(*args, **kwargs))
 
-            # Determine if the result should be cached
-            should_cache = self.cache_condition is None or self.cache_condition(result)
-            if not should_cache:
-                return result
+            def on_done(future: asyncio.Future[R]) -> None:
+                if (
+                    future.cancelled() or
+                    future.exception() is not None or
+                    (
+                        self.cache_condition is not None and
+                        not self.cache_condition(future.result())
+                    )
+                ):
+                    evict(key, future)
+                elif self.ttl is not None:
+                    future.get_loop().call_later(self.ttl, evict, key, future)
 
-            # Cache the result with optional TTL
-            if self.ttl is not None:
-                loop = asyncio.get_running_loop()
-                timer = loop.call_later(self.ttl, lambda: cache.pop(key, None))
-                cache[key] = (result, timer)
-            else:
-                cache[key] = (result, None)
+            future.add_done_callback(on_done)
 
-            # Manage cache size
+            cache[key] = future
             if len(cache) > self.maxsize:
-                oldest_key, oldest_value = cache.popitem(last=False)
-                if oldest_value[1]:
-                    oldest_value[1].cancel()  # Cancel the timer if it exists
+                cache.popitem(last=False)
 
-            return result
+            return await asyncio.shield(future)
 
         return wrapper
