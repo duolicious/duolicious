@@ -8,7 +8,6 @@ import {
   TextStyle,
   View,
   ViewStyle,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -1048,7 +1047,8 @@ const ProspectProfile = ({
   paddingBottom: number,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
-  const roundPrimaryPhoto = useWindowDimensions().width > 600;
+  const [containerWidth, setContainerWidth] = useState(0);
+  const roundPrimaryPhoto = containerWidth > COLUMN_MAX_WIDTH;
   const backgroundColor = useProfileBackgroundColor(data);
 
   const animatedStyle = useAnimatedStyle(
@@ -1072,7 +1072,10 @@ const ProspectProfile = ({
   );
 
   return (
-    <ScrollView style={{ backgroundColor }}>
+    <ScrollView
+      style={{ backgroundColor }}
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+    >
       <Reanimated.View style={animatedStyle}>
         <HeartBackground
           style={{
