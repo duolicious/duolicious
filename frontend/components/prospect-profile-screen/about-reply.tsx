@@ -31,6 +31,14 @@ const WebAboutText = ({
     if (!isFocused) return;
 
     const handler = () => {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLInputElement
+      ) {
+        return;
+      }
+
       const selection = window.getSelection?.();
       const node = ref.current as unknown as Node | null;
 
