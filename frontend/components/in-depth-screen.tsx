@@ -55,6 +55,7 @@ type InDepthListItem =
 type ProspectProfileResponse = {
   person_id: number,
   name: string,
+  url_slug: string,
 };
 
 const sideMargins = {
@@ -283,6 +284,7 @@ const InDepthAnswer = ({
 
   const onPressReply = useNavigationToConversation(
     personUuid ?? '',
+    getProspectHint(personUuid)?.urlSlug ?? null,
     item.prospect_name,
     photoUuid,
     photoBlurhash,
@@ -406,6 +408,7 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
       setProspectHint(personUuid, {
         personId: j.person_id,
         name: j.name,
+        urlSlug: j.url_slug,
       });
     })();
     return () => { cancelled = true; };

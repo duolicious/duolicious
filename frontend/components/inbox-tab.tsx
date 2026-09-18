@@ -88,6 +88,7 @@ const RenderItem = ({ item, isOpen }: { item: string, isOpen: boolean }) => {
       wasRead={conversation.lastMessageRead}
       name={conversation.name}
       personUuid={conversation.personUuid}
+      urlSlug={conversation.urlSlug}
       photoUuid={conversation.photoUuid}
       photoBlurhash={conversation.photoBlurhash}
       matchPercentage={conversation.matchPercentage}
@@ -393,7 +394,7 @@ const InboxTab = () => {
   );
 };
 
-const InboxPanel = ({ openPersonUuid }: { openPersonUuid: string }) => (
+const InboxPanel = memo(({ openPersonUuid }: { openPersonUuid?: string }) => (
   <>
     <View style={styles.panelHeader}>
       <InboxTitle />
@@ -401,7 +402,7 @@ const InboxPanel = ({ openPersonUuid }: { openPersonUuid: string }) => (
     </View>
     <InboxList openPersonUuid={openPersonUuid} />
   </>
-);
+));
 
 const styles = StyleSheet.create({
   safeAreaView: {

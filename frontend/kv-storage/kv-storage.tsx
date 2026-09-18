@@ -14,6 +14,7 @@ const KEYS = [
   'navigation_state',
   'draft_messages',
   'person_uuid',
+  'prospect_profiles',
   'seen_inbox_filter_hint',
   'seen_reply_hint',
   'seen_search_filters_hint',
