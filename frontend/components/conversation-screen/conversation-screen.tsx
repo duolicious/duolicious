@@ -527,24 +527,21 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   }, [handle]);
 
   const applyProspect = useCallback((j: ConversationProspectResponse) => {
-    const nextName: string | undefined = j.name ?? undefined;
-    const nextPhotoUuid: string | null = j.photo_uuid ?? null;
-    const nextPhotoBlurhash: string | null = j.photo_blurhash ?? null;
-    const nextIsAvailableUser: boolean = !!j.is_available;
-    setName(nextName);
-    setPhotoUuid(nextPhotoUuid);
-    setPhotoBlurhash(nextPhotoBlurhash);
-    setIsAvailableUser(nextIsAvailableUser);
+    const hint = {
+      name: j.name ?? undefined,
+      photoUuid: j.photo_uuid ?? null,
+      photoBlurhash: j.photo_blurhash ?? null,
+      isAvailableUser: !!j.is_available,
+      personUuid: j.person_uuid,
+    };
+    setName(hint.name);
+    setPhotoUuid(hint.photoUuid);
+    setPhotoBlurhash(hint.photoBlurhash);
+    setIsAvailableUser(hint.isAvailableUser);
     setIsSkipped(j.is_skipped ?? false);
     setUrlSlug(j.url_slug ?? null);
     setPersonUuid(j.person_uuid ?? hintedPersonUuid(handle));
-    setProspectHint(handle, {
-      name: nextName,
-      photoUuid: nextPhotoUuid,
-      photoBlurhash: nextPhotoBlurhash,
-      isAvailableUser: nextIsAvailableUser,
-      personUuid: j.person_uuid,
-    });
+    setProspectHint(handle, hint);
   }, [handle]);
 
   const applyProfile = useCallback((data: FetchedUserData) => applyProspect({
