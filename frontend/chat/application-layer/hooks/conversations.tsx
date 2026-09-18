@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { compareArrays } from '../../../util/util';
 import { Inbox, Conversation, getInbox } from '../index';
-import { lastEvent, listen, notify } from '../../../events/events';
+import {
+  lastEvent,
+  listen,
+  notify,
+  useDerivedEvent,
+} from '../../../events/events';
 import {
   inboxApplySearchFilters,
   inboxOrder,
@@ -192,19 +197,9 @@ const setInboxSettings = (patch: Partial<InboxSettings>) => {
 };
 
 const useInboxSettings = (): InboxSettings => {
-  const [settings, setSettings] = useState(getInboxSettings);
+  useEffect(() => { loadInboxSettings(); }, []);
 
-  useEffect(() => {
-    loadInboxSettings();
-
-    return listen<InboxSettings>(
-      EV_INBOX_SETTINGS,
-      (s) => setSettings(s ?? defaultInboxSettings),
-      true,
-    );
-  }, []);
-
-  return settings;
+  return useDerivedEvent(EV_INBOX_SETTINGS, getInboxSettings, []);
 };
 
 type ConversationsState = InboxSettings & {
