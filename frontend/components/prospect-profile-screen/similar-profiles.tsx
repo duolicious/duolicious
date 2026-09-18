@@ -1,11 +1,13 @@
 import { View, useWindowDimensions } from 'react-native';
 import { useState } from 'react';
+import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { ProfileCard } from '../profile-card';
 import type { PageItem } from '../search-tab';
 import { compositeOver } from '../../util/util';
 import * as _ from 'lodash';
 import { commonStyles } from '../../styles';
 import {
+  SIDE_PANEL_GAP,
   SIDE_PANEL_TOP,
   SIDE_PANEL_WIDTH,
   SidePanelCard,
@@ -24,12 +26,12 @@ const CARD_WIDTH = (
   - GRID_GAP
 ) / NUM_COLUMNS;
 
-const SimilarProfiles = ({ items, backgroundColor, left }: {
+const SimilarProfiles = ({ items, backgroundColor, paddingRight }: {
   items: PageItem[]
   backgroundColor: string
-  left: number
+  paddingRight: number
 }) => {
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [headingHeight, setHeadingHeight] = useState(0);
 
   const numRows = Math.max(
@@ -56,7 +58,7 @@ const SimilarProfiles = ({ items, backgroundColor, left }: {
       style={{
         position: 'absolute',
         top: SIDE_PANEL_TOP,
-        left,
+        left: (width - paddingRight + COLUMN_MAX_WIDTH) / 2 + SIDE_PANEL_GAP,
         width: SIDE_PANEL_WIDTH,
       }}
     >

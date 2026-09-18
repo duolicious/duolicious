@@ -112,7 +112,6 @@ import { useQuote } from '../conversation-screen/quote';
 import { copyProfileLink } from '../../util/util';
 import { SimilarProfiles } from './similar-profiles';
 import {
-  SIDE_PANEL_GAP,
   SidePanelCard,
   fitsSidePanels,
   sidePanelsMinWidth,
@@ -1052,7 +1051,7 @@ const ProspectProfile = ({
   canReply: boolean,
   showShareAndReport: boolean,
   paddingBottom: number,
-  paddingRight: number,
+  paddingRight?: number,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
   const [roundPrimaryPhoto, setRoundPrimaryPhoto] = useState(false);
@@ -1161,7 +1160,6 @@ const ProspectProfilePanel = memo(({ handle, data, style }: {
         canReply={false}
         showShareAndReport={false}
         paddingBottom={0}
-        paddingRight={0}
       />
     </SidePanelCard>
   );
@@ -1257,7 +1255,6 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
   const columnPaddingRight = showSimilarProfiles
     ? Math.max(0, sidePanelsMinWidth(2) - width)
     : 0;
-  const columnLeft = (width - columnPaddingRight - COLUMN_MAX_WIDTH) / 2;
 
   return (
     <>
@@ -1315,7 +1312,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
           <SimilarProfiles
             items={similarProfiles}
             backgroundColor={backgroundColor}
-            left={columnLeft + COLUMN_MAX_WIDTH + SIDE_PANEL_GAP}
+            paddingRight={columnPaddingRight}
           />
         }
         {showAuthedBottomButtons &&
