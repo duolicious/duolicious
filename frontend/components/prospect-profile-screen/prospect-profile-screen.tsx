@@ -46,7 +46,7 @@ import { InDepthScreen } from '../in-depth-screen';
 import { ButtonWithCenteredText } from '../button/centered-text';
 import { api } from '../../api/api';
 import { cmToFeetInchesStr } from '../../units/units';
-import { getSignedInUser, useSignedInUser } from '../../events/signed-in-user';
+import { useSignedInUser } from '../../events/signed-in-user';
 import { navigateToConversation } from '../../navigation/use-navigation-to-conversation';
 import { postSkipped } from '../../hide-and-block/hide-and-block';
 import { Basic, Basics } from '../basic';
@@ -941,17 +941,6 @@ const cacheProspectProfile = async (profile: FetchedUserData) =>
 
 const resetProspectProfileCache = () => storeKv('prospect_profiles', null);
 
-const fetchProspectProfile = async (path: string) => {
-  const response = await api<UserData>('get', path);
-  const profile =
-    response?.json && { ...response.json, fetchedAt: Date.now() };
-  if (profile && profile.person_uuid !== getSignedInUser()?.personUuid) {
-    cacheProspectProfile(profile);
-  }
-  return { response, profile };
-};
-
-
 const prospectProfilePath = (
   handle: string,
   similarProfiles: boolean,
@@ -1001,10 +990,15 @@ const useProspectProfile = (
       if (isUuid(handle)) {
         setSkipped(handle, { networkState: 'fetching' });
       }
-      const { response, profile } = await fetchProspectProfile(
-        prospectProfilePath(handle, similarProfiles, !signedInUser));
+      const response = await api<UserData>(
+        'get', prospectProfilePath(handle, similarProfiles, !signedInUser));
       if (cancelled) return;
+      const profile =
+        response?.json && { ...response.json, fetchedAt: Date.now() };
       setResult({ handle, data: profile, notFound: response.clientError });
+      if (profile && profile.person_uuid !== signedInUser?.personUuid) {
+        cacheProspectProfile(profile);
+      }
       if (profile) {
         onDataRef.current?.(profile);
       }
