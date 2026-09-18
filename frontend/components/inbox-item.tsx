@@ -11,7 +11,7 @@ import { Avatar } from './avatar';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../navigation/linking';
-import { friendlyTimestamp } from '../util/util';
+import { friendlyTimestamp, isMobile } from '../util/util';
 import { VerificationBadge } from './verification-badge';
 import { usePressableAnimation } from '../animation/animation';
 import { setProspectHint } from '../navigation/prospect-cache';
@@ -26,6 +26,7 @@ const IntrosItem = ({
   photoBlurhash,
   matchPercentage,
   lastMessageTimestamp,
+  isAvailableUser,
   isVerified,
   isOpen = false,
 }: {
@@ -50,6 +51,13 @@ const IntrosItem = ({
   const handle = urlSlug || personUuid;
 
   const onPress = useCallback(() => {
+    if (!isMobile()) {
+      navigateToConversation(
+        navigation,
+        { personUuid, urlSlug, name, photoUuid, photoBlurhash, isAvailableUser },
+      );
+      return;
+    }
     setProspectHint(handle, { name, photoUuid, photoBlurhash });
     navigation.navigate(
       'Prospect Profile Screen',
@@ -58,7 +66,7 @@ const IntrosItem = ({
         params: { personUuid: handle },
       }
     );
-  }, [handle, name, photoUuid, photoBlurhash]);
+  }, [handle, personUuid, urlSlug, name, photoUuid, photoBlurhash, isAvailableUser]);
 
   return (
     <Pressable
