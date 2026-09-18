@@ -1,6 +1,5 @@
 from serviceshared.duoenv.read import (
     csv,
-    flag_with,
     float_with,
     int_with,
     required_str,
@@ -64,5 +63,3 @@ PAYPAL_APEX_REDIRECT_URL = str_with('DUO_PAYPAL_APEX_REDIRECT_URL', 'https://duo
 
 VAPID_SUBJECT = str_with('DUO_VAPID_SUBJECT', 'mailto:support@duolicious.app')
 VAPID_PRIVATE_KEY = str_with('DUO_VAPID_PRIVATE_KEY', '')
-
-CANDIDATE_TARGET_TRIAL = flag_with('DUO_CANDIDATE_TARGET_TRIAL', 'true')
