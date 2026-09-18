@@ -1047,8 +1047,7 @@ const ProspectProfile = ({
   paddingBottom: number,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const roundPrimaryPhoto = containerWidth > COLUMN_MAX_WIDTH;
+  const [roundPrimaryPhoto, setRoundPrimaryPhoto] = useState(false);
   const backgroundColor = useProfileBackgroundColor(data);
 
   const animatedStyle = useAnimatedStyle(
@@ -1074,7 +1073,8 @@ const ProspectProfile = ({
   return (
     <ScrollView
       style={{ backgroundColor }}
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) =>
+        setRoundPrimaryPhoto(e.nativeEvent.layout.width > COLUMN_MAX_WIDTH)}
     >
       <Reanimated.View style={animatedStyle}>
         <HeartBackground
