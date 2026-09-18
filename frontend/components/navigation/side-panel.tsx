@@ -2,6 +2,16 @@ import { ReactNode } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { commonStyles } from '../../styles';
 import { Surface, useAppTheme } from '../../app-theme/app-theme';
+import { COLUMN_MAX_WIDTH } from '../../constants/constants';
+import { isMobile } from '../../util/util';
+
+const SIDE_PANEL_WIDTH = 320;
+const SIDE_PANEL_GAP = 32;
+const SIDE_PANEL_TOP = 20;
+
+const fitsSidePanels = (windowWidth: number, numPanels: number): boolean =>
+  !isMobile() &&
+  windowWidth >= COLUMN_MAX_WIDTH + numPanels * (SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP);
 
 const SidePanelCard = ({ style, surface, children }: {
   style?: ViewStyle
@@ -58,6 +68,10 @@ const SidePanelHeading = ({ children, isFirst, color }: {
 };
 
 export {
+  SIDE_PANEL_GAP,
+  SIDE_PANEL_TOP,
+  SIDE_PANEL_WIDTH,
   SidePanelCard,
   SidePanelHeading,
+  fitsSidePanels,
 };

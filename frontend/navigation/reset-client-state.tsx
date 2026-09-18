@@ -4,6 +4,8 @@ import { resetSearchFilterAnswers } from './search-filter-state';
 import { resetProfileInfo } from '../events/profile-info';
 import { resetSearchFilters } from '../events/search-filters';
 import { resetViewerAnswers } from '../api/answer';
+import { resetInboxSettings } from '../chat/application-layer/hooks/conversations';
+import { resetProspectProfileCache } from '../components/prospect-profile-screen/prospect-profile-screen';
 
 // Drop every piece of in-memory, user-scoped client state. Call this from
 // any path that signs the user out (explicit sign-out, account deletion,
@@ -24,4 +26,6 @@ export const resetUserScopedClientState = () => {
   resetProfileInfo();
   resetSearchFilters();
   resetViewerAnswers();
+  resetInboxSettings();
+  resetProspectProfileCache();
 };

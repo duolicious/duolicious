@@ -8,6 +8,8 @@ import { Logo16 } from './logo';
 import { isMobile } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
 
+const TOP_NAV_BAR_HEIGHT = 40;
+
 const TopNavBar = (props: {
   containerStyle?: ViewStyle,
   style?: ViewStyle,
@@ -31,7 +33,7 @@ const TopNavBar = (props: {
         style={{
           width: '100%',
           maxWidth: 600,
-          height: 40,
+          height: TOP_NAV_BAR_HEIGHT,
           alignSelf: 'center',
           alignItems: 'center',
           justifyContent: 'center',
@@ -98,5 +100,6 @@ const DuoliciousTopNavBar = (props: {
 
 export {
   DuoliciousTopNavBar,
+  TOP_NAV_BAR_HEIGHT,
   TopNavBar,
 };

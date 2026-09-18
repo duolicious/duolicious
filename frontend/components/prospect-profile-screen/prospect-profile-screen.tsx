@@ -27,7 +27,11 @@ import {
   NativeStackScreenProps,
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
-import { CompositeNavigationProp, CompositeScreenProps } from '@react-navigation/native';
+import {
+  CompositeNavigationProp,
+  CompositeScreenProps,
+  useNavigation,
+} from '@react-navigation/native';
 import type { ProspectParamList, RootParamList } from '../../navigation/linking';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { DefaultText } from '../default-text';
@@ -105,6 +109,7 @@ import { AboutText } from './about-reply';
 import { useQuote } from '../conversation-screen/quote';
 import { copyProfileLink } from '../../util/util';
 import { SimilarProfiles } from './similar-profiles';
+import { SidePanelCard } from '../navigation/side-panel';
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
 import type { PageItem } from '../search-tab';
 
@@ -454,8 +459,7 @@ const AnonymousSignInCta = ({navigation, name}: {
   );
 };
 
-const SeeQAndAButton = ({navigation, personUuid, name}: {
-  navigation: ProspectScreenNavigation,
+const SeeQAndAButton = ({personUuid, name}: {
   personUuid: string | null | undefined,
   name: string | undefined,
 }) => {
@@ -485,10 +489,7 @@ const SeeQAndAButton = ({navigation, personUuid, name}: {
     </View>
   ).current;
 
-  const onPress = useCallback(() => {
-    if (!personUuid) return;
-    navigation.navigate('In-Depth', { personUuid });
-  }, [personUuid]);
+  const onPress = useNavigationToInDepth(personUuid);
 
   return (
     <ButtonWithCenteredText
@@ -869,6 +870,254 @@ const Content = (navigationRef: ProspectNavigationRef) =>  {
   />;
 };
 
+const useProfileBackgroundColor = (data: UserData | undefined): string => {
+  const { appThemeName, appTheme } = useAppTheme();
+
+  const uncappedBackgroundColor = data?.theme?.background_color
+      ?? appTheme.primaryColor;
+
+  return appThemeName === 'dark'
+    ? capLuminance(uncappedBackgroundColor)
+    : uncappedBackgroundColor;
+};
+
+const firstOrNull = <T,>(xs: T[] | undefined): T | null | undefined =>
+  xs === undefined ? undefined : xs[0] ?? null;
+
+const primaryPhotoBlurhash = (handle: string, data: UserData | undefined) =>
+  getProspectHint(handle)?.photoBlurhash || firstOrNull(data?.photo_blurhashes);
+
+const useNavigationToInDepth = (personUuid: string | null | undefined) => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
+
+  return useCallback(() => {
+    if (!personUuid) return;
+    navigation.navigate(
+      'Prospect Profile Screen',
+      { screen: 'In-Depth', params: { personUuid } },
+    );
+  }, [navigation, personUuid]);
+};
+
+const PROSPECT_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const prospectProfileCache = new Map<string, FetchedUserData>();
+
+const isFresh = (profile: FetchedUserData) =>
+  Date.now() - profile.fetchedAt < PROSPECT_PROFILE_CACHE_TTL_MS;
+
+const cachedProspectProfile = (path: string): FetchedUserData | undefined => {
+  const profile = prospectProfileCache.get(path);
+  return profile && isFresh(profile) ? profile : undefined;
+};
+
+const cacheProspectProfile = (path: string, profile: FetchedUserData) => {
+  for (const [key, cached] of prospectProfileCache) {
+    if (!isFresh(cached)) prospectProfileCache.delete(key);
+  }
+  prospectProfileCache.set(path, profile);
+};
+
+const resetProspectProfileCache = () => prospectProfileCache.clear();
+
+const prospectProfilePath = (
+  handle: string,
+  similarProfiles: boolean,
+  isAnonymousViewer: boolean,
+) => {
+  const similarProfilesQuery = similarProfiles
+    ? (isAnonymousViewer && encodedAnonymousAnswers()) || 'true'
+    : 'false';
+  return `/prospect-profile/${handle}?similar_profiles=${similarProfilesQuery}`;
+};
+
+const useProspectProfile = (handle: string, similarProfiles: boolean) => {
+  const [signedInUser] = useSignedInUser();
+  const [data, setData] = useState<FetchedUserData | undefined>(
+    () => cachedProspectProfile(
+      prospectProfilePath(handle, similarProfiles, !signedInUser)));
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    const path = prospectProfilePath(handle, similarProfiles, !signedInUser);
+    const cached = cachedProspectProfile(path);
+    setData(cached);
+    setNotFound(false);
+    if (cached) {
+      return;
+    }
+    (async () => {
+      // The skip cache is keyed by the canonical uuid. When the handle is a
+      // uuid we can show the "fetching" state immediately; for a slug we settle
+      // it once the profile (which carries `person_uuid`) lands.
+      if (isUuid(handle)) {
+        setSkipped(handle, { networkState: 'fetching' });
+      }
+      const response = await api<UserData>('get', path);
+      const profile =
+        response?.json && { ...response.json, fetchedAt: Date.now() };
+      if (profile && profile.person_uuid !== signedInUser?.personUuid) {
+        cacheProspectProfile(path, profile);
+      }
+      setData(profile);
+      setNotFound(response.clientError);
+      const canonicalUuid = response?.json?.person_uuid ?? (
+        isUuid(handle) ? handle : undefined);
+      if (canonicalUuid) {
+        setSkipped(
+          canonicalUuid,
+          {
+            isSkipped: response?.json?.is_skipped ?? false,
+            networkState: 'settled',
+          }
+        );
+        // Make `personId` / `name` available to sibling screens (e.g. In-Depth,
+        // navigated to by the canonical uuid) so they don't have to refetch
+        // this endpoint just to resolve the numeric id required by `/compare-*`
+        // APIs.
+        setProspectHint(canonicalUuid, {
+          personId: response.json.person_id,
+          name: response.json.name,
+        });
+      }
+    })();
+  }, [handle, signedInUser?.personUuid, similarProfiles]);
+
+  return {
+    data,
+    notFound,
+    personUuid: data?.person_uuid ?? (isUuid(handle) ? handle : undefined),
+  };
+};
+
+const ProspectProfile = ({
+  handle,
+  personUuid,
+  data,
+  canReply,
+  showShareAndReport,
+  roundPrimaryPhoto,
+  paddingBottom,
+}: {
+  handle: string,
+  personUuid: string | undefined,
+  data: FetchedUserData | undefined,
+  canReply: boolean,
+  showShareAndReport: boolean,
+  roundPrimaryPhoto: boolean,
+  paddingBottom: number,
+}) => {
+  const backgroundColor = useProfileBackgroundColor(data);
+
+  const animatedStyle = useAnimatedStyle(
+    () => ({ backgroundColor: withTiming(backgroundColor) }),
+    [backgroundColor]
+  );
+
+  const album = useMemo(
+    () => buildAlbum(
+      data?.photo_uuids,
+      data?.photo_extra_exts,
+      data?.photo_geometries,
+      data?.photo_blurhashes,
+    ),
+    [
+      data?.photo_uuids,
+      data?.photo_extra_exts,
+      data?.photo_geometries,
+      data?.photo_blurhashes,
+    ],
+  );
+
+  return (
+    <ScrollView style={{ backgroundColor }}>
+      <Reanimated.View style={animatedStyle}>
+        <HeartBackground
+          style={{
+            width: '100%',
+            height: '100%',
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: COLUMN_MAX_WIDTH,
+              alignSelf: 'center',
+              paddingBottom,
+            }}
+          >
+            <EnlargeablePhoto
+              photoUuid={firstOrNull(data?.photo_uuids)}
+              photoExtraExts={firstOrNull(data?.photo_extra_exts)}
+              photoBlurhash={primaryPhotoBlurhash(handle, data)}
+              photoGeometry={album[0]?.geometry}
+              album={album}
+              isPrimary={true}
+              isVerified={data?.photo_verifications[0]}
+              borderRadius={
+                roundPrimaryPhoto ? primaryPhotoBigScreenRadii : undefined}
+              style={
+                roundPrimaryPhoto ?
+                commonStyles.primaryEnlargeablePhotoBigScreen :
+                undefined
+              }
+            />
+            <ProspectUserDetails
+              personUuid={personUuid}
+              name={data?.name}
+              age={data?.age}
+              gender={data?.gender}
+              userLocation={data?.location}
+              verified={verificationLevelId(data) > 1}
+              matchPercentage={data?.match_percentage}
+              titleColor={data?.theme?.title_color}
+              bodyColor={data?.theme?.body_color}
+            />
+            <Body
+              personUuid={personUuid}
+              data={data}
+              canReply={canReply}
+              showShareAndReport={showShareAndReport}
+            />
+          </View>
+        </HeartBackground>
+      </Reanimated.View>
+    </ScrollView>
+  );
+};
+
+const ProspectProfilePanel = ({ personUuid, style }: {
+  personUuid: string,
+  style: ViewStyle,
+}) => {
+  const { data, notFound } = useProspectProfile(personUuid, false);
+  const backgroundColor = useProfileBackgroundColor(data);
+
+  if (notFound) {
+    return null;
+  }
+
+  return (
+    <SidePanelCard
+      surface={{
+        backgroundColor,
+        borderColor: legibleSurface(backgroundColor).borderColor,
+      }}
+      style={style}
+    >
+      <ProspectProfile
+        handle={personUuid}
+        personUuid={personUuid}
+        data={data}
+        canReply={false}
+        showShareAndReport={false}
+        roundPrimaryPhoto={true}
+        paddingBottom={0}
+      />
+    </SidePanelCard>
+  );
+};
+
 const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps & {
   navigationRef: ProspectNavigationRef,
 }) => {
@@ -886,16 +1135,15 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
   const handle = route.params.personUuid;
 
   const [signedInUser] = useSignedInUser();
-  const [data, setData] = useState<FetchedUserData | undefined>(undefined);
 
-  const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
+  const { data, notFound, personUuid } =
+    useProspectProfile(handle, !isMobile());
 
   // `showBottomButtons` and `photoBlurhash` are intentionally NOT route params:
   // the former is derived from who's signed in (plus an optional one-shot
   // hint from the caller), the latter is an optimistic rendering hint stashed
   // in prospect-cache by the navigating caller. This keeps URLs clean
   // (`/:username`) and navigation state serializable.
-  const hint = getProspectHint(handle);
   const isViewingSelf =
     !!signedInUser?.personUuid && (
       signedInUser.personUuid === personUuid ||
@@ -933,15 +1181,12 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 
   const showAuthedBottomButtons =
     !isAnonymousViewer && !isViewingSelf && !hideBottomButtonsHint;
-  const photoBlurhashParam = hint?.photoBlurhash;
 
-  const { appThemeName, appTheme } = useAppTheme();
+  const { appTheme } = useAppTheme();
   // Wait for `data` to resolve so the CTA doesn't briefly flash before
   // `notFound` flips on for 404'd profiles.
   const showAnonymousSignInCta =
     isAnonymousViewer && !!data && !hideBottomButtonsHint;
-  const personId = data?.person_id;
-  const [notFound, setNotFound] = useState(false);
   useSkipped(personUuid, () => navigation.popToTop());
 
   // Surface the prospect's name in the browser tab. We prefer the freshly
@@ -956,124 +1201,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 
   const { width } = useWindowDimensions();
 
-  useEffect(() => {
-    setData(undefined);
-    setNotFound(false);
-    (async () => {
-      // The skip cache is keyed by the canonical uuid. When the handle is a
-      // uuid we can show the "fetching" state immediately; for a slug we settle
-      // it once the profile (which carries `person_uuid`) lands.
-      if (isUuid(handle)) {
-        setSkipped(handle, { networkState: 'fetching' });
-      }
-      const similarProfilesQuery = isMobile()
-        ? ''
-        : `?similar_profiles=${
-          (isAnonymousViewer && encodedAnonymousAnswers()) || 'true'}`;
-      const response = await api<UserData>(
-        'get',
-        `/prospect-profile/${handle}${similarProfilesQuery}`,
-      );
-      setData(
-        response?.json && { ...response.json, fetchedAt: Date.now() });
-      setNotFound(response.clientError);
-      const canonicalUuid = response?.json?.person_uuid ?? (
-        isUuid(handle) ? handle : undefined);
-      if (canonicalUuid) {
-        setSkipped(
-          canonicalUuid,
-          {
-            isSkipped: response?.json?.is_skipped ?? false,
-            networkState: 'settled',
-          }
-        );
-        // Make `personId` / `name` available to sibling screens (e.g. In-Depth,
-        // navigated to by the canonical uuid) so they don't have to refetch
-        // this endpoint just to resolve the numeric id required by `/compare-*`
-        // APIs.
-        setProspectHint(canonicalUuid, {
-          personId: response.json.person_id,
-          name: response.json.name,
-        });
-      }
-    })();
-  }, [handle, signedInUser?.personUuid]);
-
-  const photoUuid = data === undefined ?
-    undefined :
-    data.photo_uuids.length === 0 ?
-    null :
-    data.photo_uuids[0];
-
-  const photoUuids = data?.photo_uuids;
-
-  const photoExtraExts = data?.photo_extra_exts;
-
-  const photoBlurhashes = data?.photo_blurhashes;
-
-  const imageVerifications = data?.photo_verifications;
-
-  const album = useMemo(
-    () => buildAlbum(
-      data?.photo_uuids,
-      data?.photo_extra_exts,
-      data?.photo_geometries,
-      data?.photo_blurhashes,
-    ),
-    [
-      data?.photo_uuids,
-      data?.photo_extra_exts,
-      data?.photo_geometries,
-      data?.photo_blurhashes,
-    ],
-  );
-
-  const photoUuid0 = (() => {
-    if (photoUuids === undefined) {
-      return undefined;
-    }
-    if (photoUuids.length === 0) {
-      return null;
-    }
-    return photoUuids[0];
-  })();
-
-  const photoExtraExts0 = (() => {
-    if (photoExtraExts === undefined) {
-      return undefined;
-    }
-    if (photoExtraExts.length === 0) {
-      return null;
-    }
-    return photoExtraExts[0];
-  })();
-
-  const photoBlurhash0 = (() => {
-    if (photoBlurhashParam) {
-      return photoBlurhashParam;
-    }
-    if (photoBlurhashes === undefined) {
-      return undefined;
-    }
-    if (photoBlurhashes.length === 0) {
-      return null;
-    }
-    return photoBlurhashes[0];
-  })();
-
-  const imageVerification0 = imageVerifications && imageVerifications[0];
-
-  const uncappedBackgroundColor = data?.theme?.background_color
-      ?? appTheme.primaryColor;
-
-  const backgroundColor = appThemeName === 'dark'
-    ? capLuminance(uncappedBackgroundColor)
-    : uncappedBackgroundColor;
-
-  const animatedStyle = useAnimatedStyle(
-    () => ({ backgroundColor: withTiming(backgroundColor) }),
-    [backgroundColor]
-  );
+  const backgroundColor = useProfileBackgroundColor(data);
 
   return (
     <>
@@ -1118,65 +1246,16 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
         </View>
       }
       {!notFound && <>
-        <ScrollView style={{ backgroundColor }}>
-          <Reanimated.View style={animatedStyle}>
-            <HeartBackground
-              style={{
-                width: '100%',
-                height: '100%',
-              }}
-            >
-              <View
-                style={{
-                  width: '100%',
-                  maxWidth: COLUMN_MAX_WIDTH,
-                  alignSelf: 'center',
-                  paddingBottom:
-                    showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100,
-                }}
-              >
-                <EnlargeablePhoto
-                  photoUuid={photoUuid0}
-                  photoExtraExts={photoExtraExts0}
-                  photoBlurhash={photoBlurhash0}
-                  photoGeometry={album[0]?.geometry}
-                  album={album}
-                  isPrimary={true}
-                  isVerified={imageVerification0}
-                  borderRadius={
-                    width > 600 ?
-                    primaryPhotoBigScreenRadii :
-                    undefined
-                  }
-                  style={
-                    width > 600 ?
-                    commonStyles.primaryEnlargeablePhotoBigScreen :
-                    undefined
-                  }
-                />
-                <ProspectUserDetails
-                  navigation={navigation}
-                  personId={personId}
-                  personUuid={personUuid}
-                  name={data?.name}
-                  age={data?.age}
-                  gender={data?.gender}
-                  userLocation={data?.location}
-                  verified={verificationLevelId(data) > 1}
-                  matchPercentage={data?.match_percentage}
-                  titleColor={data?.theme?.title_color}
-                  bodyColor={data?.theme?.body_color}
-                />
-                <Body
-                  navigation={navigation}
-                  personUuid={personUuid}
-                  data={data}
-                  canReply={showAuthedBottomButtons}
-                />
-              </View>
-            </HeartBackground>
-          </Reanimated.View>
-        </ScrollView>
+        <ProspectProfile
+          handle={handle}
+          personUuid={personUuid}
+          data={data}
+          canReply={showAuthedBottomButtons}
+          showShareAndReport={true}
+          roundPrimaryPhoto={width > 600}
+          paddingBottom={
+            showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100}
+        />
         <SimilarProfiles
           items={data?.similar_profiles}
           backgroundColor={backgroundColor}
@@ -1208,8 +1287,8 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
                 navigation={navigation}
                 personUuid={personUuid}
                 name={data?.name}
-                photoUuid={photoUuid}
-                photoBlurhash={photoBlurhash0}
+                photoUuid={firstOrNull(data?.photo_uuids)}
+                photoBlurhash={primaryPhotoBlurhash(handle, data)}
               />
             </View>
           </View>
@@ -1226,8 +1305,6 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 };
 
 const ProspectUserDetails = ({
-  navigation,
-  personId,
   personUuid,
   name,
   age,
@@ -1238,8 +1315,6 @@ const ProspectUserDetails = ({
   titleColor,
   bodyColor,
 }: {
-  navigation: ProspectScreenNavigation,
-  personId: number | undefined,
   personUuid: string | null | undefined,
   name: string | undefined,
   age: number | null | undefined,
@@ -1254,13 +1329,7 @@ const ProspectUserDetails = ({
 
   const metaColor = bodyColor ?? appTheme.hintColor;
 
-  const onPressDonutChart = useCallback(() => {
-    if (personId === undefined) return;
-    if (name === undefined) return;
-    if (!personUuid) return;
-
-    navigation.navigate('In-Depth', { personUuid });
-  }, [navigation, personUuid, personId, name]);
+  const onPressDonutChart = useNavigationToInDepth(personUuid);
 
   return (
     <View
@@ -1421,15 +1490,15 @@ const LastOnlineStat = ({
 };
 
 const Body = ({
-  navigation,
   personUuid,
   data,
-  canReply = false,
+  canReply,
+  showShareAndReport,
 }: {
-  navigation: ProspectScreenNavigation,
   personUuid: string | undefined,
   data: FetchedUserData | undefined,
-  canReply?: boolean,
+  canReply: boolean,
+  showShareAndReport: boolean,
 }) => {
   const { appThemeName, appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
@@ -1469,12 +1538,7 @@ const Body = ({
   const isViewingSelf =
     !!signedInUser?.personUuid && signedInUser.personUuid === personUuid;
 
-  const uncappedBackgroundColor = data?.theme?.background_color
-      ?? appTheme.primaryColor;
-
-  const backgroundColor = appThemeName === 'dark'
-    ? capLuminance(uncappedBackgroundColor)
-    : uncappedBackgroundColor;
+  const backgroundColor = useProfileBackgroundColor(data);
 
   const lookingForCardColors = themedSurface(
     appThemeName,
@@ -1747,15 +1811,15 @@ const Body = ({
 
         {!!data?.count_answers && !!signedInUser &&
           <SeeQAndAButton
-            navigation={navigation}
             personUuid={personUuid}
             name={data?.name}
           />}
-        <ShareButton
-          personUuid={data?.url_slug}
-          backgroundColor={backgroundColor}
-        />
-        {!isViewingSelf && !!signedInUser &&
+        {showShareAndReport &&
+          <ShareButton
+            personUuid={data?.url_slug}
+            backgroundColor={backgroundColor}
+          />}
+        {showShareAndReport && !isViewingSelf && !!signedInUser &&
           <BlockButton
             name={data?.name}
             personUuid={personUuid}
@@ -1782,6 +1846,8 @@ const styles = StyleSheet.create({
 
 export {
   InDepthScreen,
+  ProspectProfilePanel,
   ProspectProfileScreen,
+  resetProspectProfileCache,
 };
 export type { ProspectNavigationRef };

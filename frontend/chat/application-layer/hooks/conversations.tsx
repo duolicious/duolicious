@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { compareArrays } from '../../../util/util';
 import { Inbox, Conversation, getInbox } from '../index';
-import { listen } from '../../../events/events';
+import { lastEvent, listen, notify } from '../../../events/events';
+import {
+  inboxApplySearchFilters,
+  inboxOrder,
+  inboxSection,
+} from '../../../kv-storage/inbox';
 import * as _ from 'lodash';
 
 
@@ -131,110 +136,138 @@ const computeConversationIds = (
   };
 };
 
-type ConversationsState = {
-  conversations: string[] | null
-  numIntrosWithinFilters: number | null
+type InboxSettings = {
   sectionIndex: number
   sortByIndex: number
   showArchive: boolean
   applySearchFilters: boolean
 };
 
-// The settings with the conversation list (and its search-filter boundary)
-// re-derived from the given inbox. Every state transition goes through here
-// so the derived fields always describe the settings they sit beside.
+const EV_INBOX_SETTINGS = 'inbox-settings';
+
+const defaultInboxSettings: InboxSettings = {
+  sectionIndex: 0,
+  sortByIndex: 0,
+  showArchive: false,
+  applySearchFilters: false,
+};
+
+const getInboxSettings = (): InboxSettings =>
+  lastEvent<InboxSettings>(EV_INBOX_SETTINGS) ?? defaultInboxSettings;
+
+const updateInboxSettings = (patch: Partial<InboxSettings>) =>
+  notify<InboxSettings>(EV_INBOX_SETTINGS, { ...getInboxSettings(), ...patch });
+
+let hasLoadedInboxSettings = false;
+
+const loadInboxSettings = async () => {
+  if (hasLoadedInboxSettings) return;
+  hasLoadedInboxSettings = true;
+
+  const [sortByIndex, sectionIndex, applySearchFilters] = await Promise.all([
+    inboxOrder(),
+    inboxSection(),
+    inboxApplySearchFilters(),
+  ]);
+
+  updateInboxSettings({
+    sortByIndex,
+    sectionIndex,
+    applySearchFilters: !!applySearchFilters,
+  });
+};
+
+const resetInboxSettings = () => {
+  hasLoadedInboxSettings = false;
+  notify<InboxSettings>(EV_INBOX_SETTINGS, defaultInboxSettings);
+};
+
+const setInboxSectionIndex = (sectionIndex: number) => {
+  updateInboxSettings({ sectionIndex });
+  inboxSection(sectionIndex);
+};
+
+const setInboxSortByIndex = (sortByIndex: number) => {
+  updateInboxSettings({ sortByIndex });
+  inboxOrder(sortByIndex);
+};
+
+const setInboxApplySearchFilters = (applySearchFilters: boolean) => {
+  updateInboxSettings({ applySearchFilters });
+  inboxApplySearchFilters(applySearchFilters ? 1 : 0);
+};
+
+const setInboxShowArchive = (showArchive: boolean) =>
+  updateInboxSettings({ showArchive });
+
+const useInboxSettings = (): InboxSettings => {
+  const [settings, setSettings] = useState(getInboxSettings);
+
+  useEffect(() => {
+    loadInboxSettings();
+
+    return listen<InboxSettings>(
+      EV_INBOX_SETTINGS,
+      (s) => setSettings(s ?? defaultInboxSettings),
+      true,
+    );
+  }, []);
+
+  return settings;
+};
+
+type ConversationsState = InboxSettings & {
+  conversations: string[] | null
+  numIntrosWithinFilters: number | null
+};
+
 const withComputedConversations = (
-  state: ConversationsState,
+  settings: InboxSettings,
   inbox: Inbox | null,
 ): ConversationsState => {
-  const section = getSection(state.sectionIndex, state.showArchive);
-  const sortBy = getSortBy(state.sortByIndex);
+  const section = getSection(settings.sectionIndex, settings.showArchive);
+  const sortBy = getSortBy(settings.sortByIndex);
 
   const computed = computeConversationIds(
-    inbox, section, sortBy, state.applySearchFilters);
+    inbox, section, sortBy, settings.applySearchFilters);
 
   return {
-    ...state,
-    conversations: computed === null ? null : computed.ids,
-    numIntrosWithinFilters:
-      computed === null ? null : computed.numIntrosWithinFilters,
+    ...settings,
+    conversations: computed?.ids ?? null,
+    numIntrosWithinFilters: computed?.numIntrosWithinFilters ?? null,
   };
 };
 
-const useConversations = () => {
-  const [state, setState] = useState<ConversationsState>({
-    conversations: null,
-    numIntrosWithinFilters: null,
-    sectionIndex: 0,
-    sortByIndex: 0,
-    showArchive: false,
-    applySearchFilters: false,
-  });
+const useConversations = (): ConversationsState => {
+  const settings = useInboxSettings();
 
-  // Subscribe to inbox updates and update only when the derived list changes.
+  const [state, setState] = useState(
+    () => withComputedConversations(settings, getInbox()));
+
   useEffect(() => {
-    const onUpdate = (newInbox?: Inbox | null) => {
-      setState((oldState) => {
-        const newState = withComputedConversations(oldState, newInbox ?? null);
+    const update = () => setState((oldState) => {
+      const newState = withComputedConversations(settings, getInbox());
 
-        const unchanged =
-          _.isEqual(oldState.conversations, newState.conversations) &&
-          oldState.numIntrosWithinFilters === newState.numIntrosWithinFilters;
-
-        return unchanged ? oldState : newState;
-      });
-    };
-
-    return listen<Inbox | null>('inbox', onUpdate, true);
-  }, []);
-
-  const setSectionIndex = useCallback((sectionIndex: number) => {
-    setState((oldState) =>
-      oldState.sectionIndex === sectionIndex
-        ? oldState
-        : withComputedConversations({ ...oldState, sectionIndex }, getInbox())
-    );
-  }, []);
-
-  const setSortByIndex = useCallback((sortByIndex: number) => {
-    setState((oldState) =>
-      oldState.sortByIndex === sortByIndex
-        ? oldState
-        : withComputedConversations({ ...oldState, sortByIndex }, getInbox())
-    );
-  }, []);
-
-  const setApplySearchFilters = useCallback((applySearchFilters: boolean) => {
-    setState((oldState) =>
-      oldState.applySearchFilters === applySearchFilters
-        ? oldState
-        : withComputedConversations(
-            { ...oldState, applySearchFilters }, getInbox())
-    );
-  }, []);
-
-  const setShowArchive = useCallback((f: (showArchive: boolean) => boolean) => {
-    setState((oldState) => {
-      const showArchive = f(oldState.showArchive);
-
-      return oldState.showArchive === showArchive
-        ? oldState
-        : withComputedConversations({ ...oldState, showArchive }, getInbox());
+      return _.isEqual(oldState, newState) ? oldState : newState;
     });
-  }, []);
 
-  return {
-    ...state,
-    setSectionIndex,
-    setSortByIndex,
-    setApplySearchFilters,
-    setShowArchive,
-  }
+    update();
+
+    return listen<Inbox | null>('inbox', update);
+  }, [settings]);
+
+  return state;
 };
 
 export {
   MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
   computeConversationIds,
+  resetInboxSettings,
+  setInboxApplySearchFilters,
+  setInboxSectionIndex,
+  setInboxShowArchive,
+  setInboxSortByIndex,
   sortConversations,
   useConversations,
+  useInboxSettings,
 };
