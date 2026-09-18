@@ -965,6 +965,7 @@ Q_SELECT_CONVERSATION_PROSPECT = """
 WITH prospect AS (
     SELECT
         person.id,
+        person.uuid,
         person.name,
         person.url_slug
     FROM
@@ -983,7 +984,11 @@ WITH prospect AS (
     ON
         TRUE
     WHERE
-        uuid = uuid_or_null(%(prospect_uuid)s::TEXT)
+        (
+            uuid = uuid_or_null(%(prospect_handle)s::TEXT)
+        OR
+            url_slug = %(prospect_handle)s
+        )
     AND
         activated
     AND (
@@ -1015,6 +1020,9 @@ WITH prospect AS (
         OR
             person.id = %(person_id)s
     )
+    ORDER BY
+        (uuid = uuid_or_null(%(prospect_handle)s::TEXT)) DESC NULLS LAST
+    LIMIT 1
 ), primary_photo AS (
     SELECT
         photo.uuid AS photo_uuid,
@@ -1046,6 +1054,7 @@ SELECT
         -- actionable?" so future cases (e.g. temporarily-deactivated accounts
         -- where we still want to render the name) can diverge cleanly.
         'is_available',   true,
+        'person_uuid',    (SELECT uuid           FROM prospect),
         'name',           (SELECT name           FROM prospect),
         'url_slug',       (SELECT url_slug       FROM prospect),
         'photo_uuid',     (SELECT photo_uuid     FROM primary_photo),

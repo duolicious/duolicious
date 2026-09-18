@@ -251,12 +251,12 @@ async def get_prospect_profile(
 ) -> object:
     return await person.get_prospect_profile(s, prospect_handle, q)
 
-@app.get('/conversation-prospect/{prospect_uuid}')
+@app.get('/conversation-prospect/{prospect_handle}')
 async def get_conversation_prospect(
-    prospect_uuid: str,
+    prospect_handle: str,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    return await person.get_conversation_prospect(s, prospect_uuid)
+    return await person.get_conversation_prospect(s, prospect_handle)
 
 @app.post('/skip/by-uuid/{prospect_uuid}')
 async def post_skip_by_uuid(

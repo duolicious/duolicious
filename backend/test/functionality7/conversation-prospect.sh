@@ -51,6 +51,7 @@ returns_only_header_fields () {
   expected=$(jq -r . << EOF
 {
   "is_available": true,
+  "person_uuid": "${user2_uuid}",
   "name": "user2",
   "url_slug": "user2",
   "photo_uuid": null,
@@ -61,6 +62,10 @@ EOF
 )
 
   diff <(echo "$response" | jq -S .) <(echo "$expected" | jq -S .)
+
+  diff \
+    <(c GET "/conversation-prospect/user2" | jq -S .) \
+    <(echo "$expected" | jq -S .)
 }
 
 reflects_skipped_state () {

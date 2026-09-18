@@ -745,10 +745,10 @@ async def get_prospect_profile(
 
     return profile
 
-async def get_conversation_prospect(s: t.SessionInfo, prospect_uuid: str) -> object:
+async def get_conversation_prospect(s: t.SessionInfo, prospect_handle: str) -> object:
     params = dict(
         person_id=s.person_id,
-        prospect_uuid=prospect_uuid,
+        prospect_handle=prospect_handle,
     )
 
     async with api_tx('READ COMMITTED') as tx:
