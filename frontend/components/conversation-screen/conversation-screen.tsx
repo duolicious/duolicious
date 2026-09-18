@@ -62,7 +62,7 @@ import {
   NativeStackNavigationProp,
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
-import { useNavigationState } from '@react-navigation/native';
+import { useIsFocused, useNavigationState } from '@react-navigation/native';
 import { getTopRouteName } from '../../navigation/linking';
 import type { RootParamList } from '../../navigation/linking';
 import { useDraftMessage } from '../../chat/application-layer/hooks/draft-message';
@@ -660,9 +660,13 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     notify('show-gif-picker');
   }, []);
 
+  const isScreenFocused = useIsFocused();
+
   useEffect(() => {
+    if (!isScreenFocused) return;
+
     return listen<GifPickedEvent>('gif-picked', onPressSend);
-  }, [onPressSend]);
+  }, [onPressSend, isScreenFocused]);
 
   const onAudioComplete = useCallback((audioBase64: string) => {
     if (!personUuid) return;
