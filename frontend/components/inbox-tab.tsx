@@ -24,10 +24,7 @@ import { ButtonGroup } from './button-group';
 import { useInboxStats } from '../chat/application-layer/hooks/inbox-stats';
 import {
   MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
-  setInboxApplySearchFilters,
-  setInboxSectionIndex,
-  setInboxShowArchive,
-  setInboxSortByIndex,
+  setInboxSettings,
   useConversations,
   useInboxSettings,
 } from '../chat/application-layer/hooks/conversations';
@@ -226,7 +223,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
                 'Chats'  + chatsNumericalLabel
               ]}
               selectedIndex={sectionIndex}
-              onPress={setInboxSectionIndex}
+              onPress={(sectionIndex) => setInboxSettings({ sectionIndex })}
               containerStyle={{
                 marginTop: 5,
                 marginLeft: 20,
@@ -236,7 +233,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
             <ButtonGroup
               buttons={['Best Matches First', 'Latest First']}
               selectedIndex={sortByIndex}
-              onPress={setInboxSortByIndex}
+              onPress={(sortByIndex) => setInboxSettings({ sortByIndex })}
               secondary={true}
               disabled={sectionIndex === 1}
               containerStyle={{
@@ -336,11 +333,11 @@ const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
 
   const onPressFilterButton = useCallback(() => {
     dismissFilterHint();
-    setInboxApplySearchFilters(!applySearchFilters);
+    setInboxSettings({ applySearchFilters: !applySearchFilters });
   }, [applySearchFilters]);
 
   const onPressArchiveButton = useCallback(() => {
-    setInboxShowArchive(!showArchive);
+    setInboxSettings({ showArchive: !showArchive });
   }, [showArchive]);
 
   useFocusEffect(

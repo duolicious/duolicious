@@ -182,23 +182,14 @@ const resetInboxSettings = () => {
   notify<InboxSettings>(EV_INBOX_SETTINGS, defaultInboxSettings);
 };
 
-const setInboxSectionIndex = (sectionIndex: number) => {
-  updateInboxSettings({ sectionIndex });
-  inboxSection(sectionIndex);
+const setInboxSettings = (patch: Partial<InboxSettings>) => {
+  updateInboxSettings(patch);
+  if (patch.sectionIndex !== undefined) inboxSection(patch.sectionIndex);
+  if (patch.sortByIndex !== undefined) inboxOrder(patch.sortByIndex);
+  if (patch.applySearchFilters !== undefined) {
+    inboxApplySearchFilters(patch.applySearchFilters ? 1 : 0);
+  }
 };
-
-const setInboxSortByIndex = (sortByIndex: number) => {
-  updateInboxSettings({ sortByIndex });
-  inboxOrder(sortByIndex);
-};
-
-const setInboxApplySearchFilters = (applySearchFilters: boolean) => {
-  updateInboxSettings({ applySearchFilters });
-  inboxApplySearchFilters(applySearchFilters ? 1 : 0);
-};
-
-const setInboxShowArchive = (showArchive: boolean) =>
-  updateInboxSettings({ showArchive });
 
 const useInboxSettings = (): InboxSettings => {
   const [settings, setSettings] = useState(getInboxSettings);
@@ -263,10 +254,7 @@ export {
   MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
   computeConversationIds,
   resetInboxSettings,
-  setInboxApplySearchFilters,
-  setInboxSectionIndex,
-  setInboxShowArchive,
-  setInboxSortByIndex,
+  setInboxSettings,
   sortConversations,
   useConversations,
   useInboxSettings,
