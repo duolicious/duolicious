@@ -12,7 +12,6 @@ import {
   SIDE_PANEL_WIDTH,
   SidePanelCard,
   SidePanelHeading,
-  fitsSidePanels,
 } from '../navigation/side-panel';
 import { legibleSurface } from '../../app-theme/surface';
 
@@ -27,9 +26,10 @@ const CARD_WIDTH = (
   - GRID_GAP
 ) / NUM_COLUMNS;
 
-const SimilarProfiles = ({ items, backgroundColor }: {
-  items: PageItem[] | undefined
+const SimilarProfiles = ({ items, backgroundColor, paddingRight }: {
+  items: PageItem[]
   backgroundColor: string
+  paddingRight: number
 }) => {
   const { width, height } = useWindowDimensions();
   const [headingHeight, setHeadingHeight] = useState(0);
@@ -49,10 +49,6 @@ const SimilarProfiles = ({ items, backgroundColor }: {
     )
   );
 
-  if (!fitsSidePanels(width, 2) || !items?.length) {
-    return null;
-  }
-
   const surface = legibleSurface(backgroundColor);
   const surfaceColor = compositeOver(surface.backgroundColor, backgroundColor);
 
@@ -62,7 +58,7 @@ const SimilarProfiles = ({ items, backgroundColor }: {
       style={{
         position: 'absolute',
         top: SIDE_PANEL_TOP,
-        left: width / 2 + COLUMN_MAX_WIDTH / 2 + SIDE_PANEL_GAP,
+        left: (width - paddingRight + COLUMN_MAX_WIDTH) / 2 + SIDE_PANEL_GAP,
         width: SIDE_PANEL_WIDTH,
       }}
     >

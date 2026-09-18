@@ -8,6 +8,7 @@ import {
   TextStyle,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -110,7 +111,11 @@ import { AboutText } from './about-reply';
 import { useQuote } from '../conversation-screen/quote';
 import { copyProfileLink } from '../../util/util';
 import { SimilarProfiles } from './similar-profiles';
-import { SidePanelCard } from '../navigation/side-panel';
+import {
+  SidePanelCard,
+  fitsSidePanels,
+  sidePanelsMinWidth,
+} from '../navigation/side-panel';
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
 import { storeKv } from '../../kv-storage/kv-storage';
 import type { PageItem } from '../search-tab';
@@ -1039,12 +1044,14 @@ const ProspectProfile = ({
   canReply,
   showShareAndReport,
   paddingBottom,
+  paddingRight,
 }: {
   handle: string,
   data: FetchedUserData | undefined,
   canReply: boolean,
   showShareAndReport: boolean,
   paddingBottom: number,
+  paddingRight?: number,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
   const [roundPrimaryPhoto, setRoundPrimaryPhoto] = useState(false);
@@ -1081,6 +1088,7 @@ const ProspectProfile = ({
           style={{
             width: '100%',
             height: '100%',
+            paddingRight,
           }}
         >
           <View
@@ -1240,6 +1248,14 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 
   const backgroundColor = useProfileBackgroundColor(data);
 
+  const { width } = useWindowDimensions();
+  const similarProfiles = data?.similar_profiles ?? [];
+  const showSimilarProfiles =
+    similarProfiles.length > 0 && fitsSidePanels(width, 1);
+  const columnPaddingRight = showSimilarProfiles
+    ? Math.max(0, sidePanelsMinWidth(2) - width)
+    : 0;
+
   return (
     <>
       {notFound &&
@@ -1290,11 +1306,15 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
           showShareAndReport={true}
           paddingBottom={
             showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100}
+          paddingRight={columnPaddingRight}
         />
-        <SimilarProfiles
-          items={data?.similar_profiles}
-          backgroundColor={backgroundColor}
-        />
+        {showSimilarProfiles &&
+          <SimilarProfiles
+            items={similarProfiles}
+            backgroundColor={backgroundColor}
+            paddingRight={columnPaddingRight}
+          />
+        }
         {showAuthedBottomButtons &&
           <View
             style={{
@@ -1303,6 +1323,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
               width: '100%',
               maxWidth: COLUMN_MAX_WIDTH,
               alignSelf: 'center',
+              marginRight: columnPaddingRight,
               zIndex: 999,
               overflow: 'visible',
               justifyContent: 'center',
