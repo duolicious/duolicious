@@ -15,6 +15,7 @@ import { friendlyTimestamp } from '../util/util';
 import { VerificationBadge } from './verification-badge';
 import { usePressableAnimation } from '../animation/animation';
 import { setProspectHint } from '../navigation/prospect-cache';
+import { navigateToConversation } from '../navigation/use-navigation-to-conversation';
 
 const IntrosItem = ({
   wasRead,
@@ -154,6 +155,7 @@ const ChatsItem = ({
   wasRead,
   name,
   personUuid,
+  urlSlug,
   photoUuid,
   photoBlurhash,
   matchPercentage,
@@ -166,6 +168,7 @@ const ChatsItem = ({
   wasRead: boolean
   name: string
   personUuid: string
+  urlSlug: string | null
   photoUuid: string | null
   photoBlurhash: string | null
   matchPercentage: number
@@ -180,14 +183,11 @@ const ChatsItem = ({
   const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
 
   const onPress = useCallback(() => {
-    setProspectHint(personUuid, {
-      name,
-      photoUuid,
-      photoBlurhash,
-      isAvailableUser,
-    });
-    navigation.navigate('Conversation Screen', { personUuid });
-  }, [personUuid, name, photoUuid, photoBlurhash, isAvailableUser]);
+    navigateToConversation(
+      navigation,
+      { personUuid, urlSlug, name, photoUuid, photoBlurhash, isAvailableUser },
+    );
+  }, [personUuid, urlSlug, name, photoUuid, photoBlurhash, isAvailableUser]);
 
   return (
     <Pressable

@@ -21,6 +21,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -47,7 +48,7 @@ import { api } from '../../api/api';
 import { TopNavBarButton } from '../top-nav-bar-button';
 import { RotateCcw, Flag, X } from "react-native-feather";
 import { postSkipped } from '../../hide-and-block/hide-and-block';
-import { delay, possessive } from '../../util/util';
+import { delay, isUuid, possessive } from '../../util/util';
 import { ReportModalInitialData } from '../modal/report-modal';
 import { listen, notify } from '../../events/events';
 import { ImageBackground } from 'expo-image';
@@ -72,7 +73,11 @@ import { getProspectHint, setProspectHint } from '../../navigation/prospect-cach
 import { dismissConversationNotificationsOnMobile } from '../../notifications/mobile';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { INBOX_PANEL_HEADER_HEIGHT, InboxPanel } from '../inbox-tab';
-import { ProspectProfilePanel } from '../prospect-profile-screen/prospect-profile-screen';
+import {
+  FetchedUserData,
+  ProspectProfilePanel,
+  useProspectProfile,
+} from '../prospect-profile-screen/prospect-profile-screen';
 import {
   SIDE_PANEL_GAP,
   SIDE_PANEL_TOP,
@@ -82,6 +87,7 @@ import {
 } from '../navigation/side-panel';
 
 type ConversationProspectResponse = {
+  person_uuid?: string,
   name?: string,
   photo_uuid?: string | null,
   photo_blurhash?: string | null,
@@ -306,6 +312,7 @@ const Menu = ({
 
 const ConversationScreenNavBar = ({
   navigation,
+  handle,
   personUuid,
   urlSlug,
   isAvailableUser,
@@ -317,7 +324,8 @@ const ConversationScreenNavBar = ({
   setIsSkipped,
 }: {
   navigation: NativeStackNavigationProp<RootParamList>,
-  personUuid: string,
+  handle: string,
+  personUuid: string | undefined,
   urlSlug: string | null,
   isAvailableUser: boolean,
   photoUuid: string | null | undefined,
@@ -330,14 +338,14 @@ const ConversationScreenNavBar = ({
   const { appTheme } = useAppTheme();
   const [showMenu, setShowMenu] = useState(false);
 
-  // Profile links prefer the username (url_slug), falling back to the uuid.
-  const handle = urlSlug || personUuid;
+  // Profile links prefer the username (url_slug), falling back to the handle.
+  const profileHandle = urlSlug || handle;
 
   const onPressName = useCallback(() => {
     if (isAvailableUser) {
       // The user is already in this conversation, so the prospect's bottom
       // "send intro" buttons would be redundant.
-      setProspectHint(handle, {
+      setProspectHint(profileHandle, {
         name,
         photoBlurhash,
         hideBottomButtons: true,
@@ -346,11 +354,11 @@ const ConversationScreenNavBar = ({
         'Prospect Profile Screen',
         {
           screen: 'Prospect Profile',
-          params: { personUuid: handle },
+          params: { personUuid: profileHandle },
         }
       );
     }
-  }, [isAvailableUser, name, handle, photoBlurhash]);
+  }, [isAvailableUser, name, profileHandle, photoBlurhash]);
 
   const toggleMenu = useCallback(() => {
     setShowMenu(x => !x);
@@ -437,7 +445,7 @@ const ConversationScreenNavBar = ({
           }}
         />
       </Pressable>
-      {isAvailableUser &&
+      {isAvailableUser && personUuid &&
         <TopNavBarButton
           onPress={toggleMenu}
           iconName="ellipsis-vertical"
@@ -445,7 +453,7 @@ const ConversationScreenNavBar = ({
           secondary={true}
         />
       }
-      {showMenu &&
+      {showMenu && personUuid &&
         <Menu
           navigation={navigation}
           name={name}
@@ -469,6 +477,9 @@ const useOpenedFromInboxOrUrl = (routeKey: string): boolean =>
     return !home || getTopRouteName(home.state) === 'Inbox';
   });
 
+const hintedPersonUuid = (handle: string): string | undefined =>
+  isUuid(handle) ? handle : getProspectHint(handle)?.personUuid;
+
 const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootParamList, 'Conversation Screen'>) => {
   const { appTheme } = useAppTheme();
   const { width } = useWindowDimensions();
@@ -487,8 +498,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   const scrollOffsetRef = useRef(0);
   const layoutMeasurementRef = useRef({ height: 0 });
 
-  const personUuid: string = route?.params?.personUuid;
-
   // Descriptive details (name, photo, availability, skipped state) are not
   // passed through route params (URL-safe). They are populated from an
   // in-memory hint cache for an optimistic render, and confirmed / filled in
@@ -496,7 +505,10 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   // bar's overflow menu. We use that endpoint rather than `/prospect-profile`
   // because the latter records the request as a profile visit — opening a
   // chat shouldn't surface the user in the prospect's "Visitors" tab.
-  const initialHint = getProspectHint(personUuid) ?? {};
+  const handle = route.params.personUuid;
+
+  const initialHint = getProspectHint(handle) ?? {};
+  const [personUuid, setPersonUuid] = useState(() => hintedPersonUuid(handle));
   const [name, setName] = useState<string | undefined>(initialHint.name);
   const [photoUuid, setPhotoUuid] = useState<string | null | undefined>(
     initialHint.photoUuid);
@@ -509,13 +521,55 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   // to their profile by username rather than uuid.
   const [urlSlug, setUrlSlug] = useState<string | null>(null);
 
+  const markUnavailable = useCallback(() => {
+    setIsAvailableUser(false);
+    setProspectHint(handle, { isAvailableUser: false });
+  }, [handle]);
+
+  const applyProspect = useCallback((j: ConversationProspectResponse) => {
+    const hint = {
+      name: j.name ?? undefined,
+      photoUuid: j.photo_uuid ?? null,
+      photoBlurhash: j.photo_blurhash ?? null,
+      isAvailableUser: !!j.is_available,
+      personUuid: j.person_uuid,
+    };
+    setName(hint.name);
+    setPhotoUuid(hint.photoUuid);
+    setPhotoBlurhash(hint.photoBlurhash);
+    setIsAvailableUser(hint.isAvailableUser);
+    setIsSkipped(j.is_skipped ?? false);
+    setUrlSlug(j.url_slug ?? null);
+    setPersonUuid(j.person_uuid ?? hintedPersonUuid(handle));
+    setProspectHint(handle, hint);
+  }, [handle]);
+
+  const applyProfile = useCallback((data: FetchedUserData) => applyProspect({
+    name: data.name,
+    photo_uuid: data.photo_uuids[0] ?? null,
+    photo_blurhash: data.photo_blurhashes[0] ?? null,
+    is_available: true,
+    is_skipped: data.is_skipped,
+    url_slug: data.url_slug,
+    person_uuid: data.person_uuid,
+  }), [applyProspect]);
+
+  const profile = useProspectProfile(
+    showProfilePanel ? handle : undefined, false, applyProfile);
+
   useEffect(() => {
-    if (!personUuid) return;
-    // Re-seed from the (possibly newly populated) hint on every personUuid
+    if (profile.notFound) {
+      markUnavailable();
+    }
+  }, [profile.notFound]);
+
+  useEffect(() => {
+    // Re-seed from the (possibly newly populated) hint on every handle
     // change. `useState` initializers only run on first mount, so when the
-    // screen instance is reused with a different uuid we'd otherwise show
+    // screen instance is reused with a different handle we'd otherwise show
     // the previous prospect's name and photo until the API resolves.
-    const hint = getProspectHint(personUuid) ?? {};
+    const hint = getProspectHint(handle) ?? {};
+    setPersonUuid(hintedPersonUuid(handle));
     setName(hint.name);
     setPhotoUuid(hint.photoUuid);
     setPhotoBlurhash(hint.photoBlurhash);
@@ -523,39 +577,24 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     setIsSkipped(undefined);
     setUrlSlug(null);
 
+    if (showProfilePanel) return;
+
     let cancelled = false;
     (async () => {
-      const response = await api<ConversationProspectResponse>('get', `/conversation-prospect/${personUuid}`);
+      const response = await api<ConversationProspectResponse>('get', `/conversation-prospect/${handle}`);
       if (cancelled) return;
       if (!response.ok) {
         // Hard-deleted prospects 404 here. Mark them unavailable so the
         // "this user is no longer reachable" UI renders on a cold-start
-        // deep-link to `/chat/<uuid>` (where there's no inbox-item
+        // deep-link to `/chat/<handle>` (where there's no inbox-item
         // hint to seed `isAvailableUser` from).
-        setIsAvailableUser(false);
-        setProspectHint(personUuid, { isAvailableUser: false });
+        markUnavailable();
         return;
       }
-      const j = response.json ?? {};
-      const nextName: string | undefined = j.name ?? undefined;
-      const nextPhotoUuid: string | null = j.photo_uuid ?? null;
-      const nextPhotoBlurhash: string | null = j.photo_blurhash ?? null;
-      const nextIsAvailableUser: boolean = !!j.is_available;
-      setName(nextName);
-      setPhotoUuid(nextPhotoUuid);
-      setPhotoBlurhash(nextPhotoBlurhash);
-      setIsAvailableUser(nextIsAvailableUser);
-      setIsSkipped(j.is_skipped ?? false);
-      setUrlSlug(j.url_slug ?? null);
-      setProspectHint(personUuid, {
-        name: nextName,
-        photoUuid: nextPhotoUuid,
-        photoBlurhash: nextPhotoBlurhash,
-        isAvailableUser: nextIsAvailableUser,
-      });
+      applyProspect(response.json ?? {});
     })();
     return () => { cancelled = true; };
-  }, [personUuid]);
+  }, [handle, showProfilePanel]);
 
   // Surface the other person's name in the browser tab. App.tsx's
   // `documentTitle.formatter` reads `options.title` from the focused screen
@@ -574,6 +613,8 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   const listRef = useRef<ScrollView>(null);
 
   const onPressSend = useCallback((messageBody: string, card?: QuoteCard): void => {
+    if (!personUuid) return;
+
     const messageId = sendMessageAndNotify(
       personUuid,
       { type: 'chat-text', text: messageBody, questionCard: card }
@@ -590,7 +631,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
   const sendTypingMessage = useCallback(
     _.debounce(
-      () => sendMessageAndNotify(personUuid, { type: 'typing' }),
+      () => personUuid && sendMessageAndNotify(personUuid, { type: 'typing' }),
       1000,
       {
         leading: true,
@@ -615,6 +656,8 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   }, [onPressSend]);
 
   const onAudioComplete = useCallback((audioBase64: string) => {
+    if (!personUuid) return;
+
     const messageId = sendMessageAndNotify(
       personUuid,
       { type: 'chat-audio', audioBase64 },
@@ -622,7 +665,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     );
 
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
-  }, []);
+  }, [personUuid]);
 
   const onFocus = useCallback(async () => {
     if (listRef.current && (messageIds ?? []).length !== 0) {
@@ -632,7 +675,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   }, [messageIds]);
 
   const maybeLoadNextPage = useCallback(async () => {
-    if (hasFetchedAll.current) {
+    if (hasFetchedAll.current || !personUuid) {
       return;
     }
 
@@ -707,8 +750,10 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       return;
     }
 
-    await markDisplayed(personUuid, lastMessage.message.id, null);
-  }, [_.last(messageIds)]);
+    if (personUuid) {
+      await markDisplayed(personUuid, lastMessage.message.id, null);
+    }
+  }, [_.last(messageIds), personUuid]);
 
   useSkipped(personUuid, () => navigation.popToTop());
 
@@ -762,7 +807,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   }, [personUuid]);
 
   useEffect(() => {
-    if (isActive && isOnline) {
+    if (isActive && isOnline && personUuid) {
       fetchFirstPage(personUuid)
     }
   }, [personUuid, isActive && isOnline]);
@@ -789,6 +834,8 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
   // Listen for new messages
   useEffect(() => {
+    if (!personUuid) return;
+
     return onReceiveMessageAndNotify(
       (message: Message) => {
         if (message.type === 'chat-text' || message.type === 'chat-audio') {
@@ -828,6 +875,14 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     ? SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP
     : 0;
   const columnLeft = (width + paddingLeft - COLUMN_MAX_WIDTH) / 2;
+  const inboxPanelStyle = useMemo(() => ({
+    ...styles.sidePanel,
+    left: columnLeft - SIDE_PANEL_GAP - SIDE_PANEL_WIDTH,
+  }), [columnLeft]);
+  const profilePanelStyle = useMemo(() => ({
+    ...styles.sidePanel,
+    left: columnLeft + COLUMN_MAX_WIDTH + SIDE_PANEL_GAP,
+  }), [columnLeft]);
 
   return (
     <SafeAreaView
@@ -840,6 +895,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     >
       <ConversationScreenNavBar
         navigation={navigation}
+        handle={handle}
         personUuid={personUuid}
         urlSlug={urlSlug}
         isAvailableUser={isAvailableUser}
@@ -855,7 +911,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           <LogoActivityIndicator size="large" color={appTheme.brandColor} />
         </View>
       }
-      {messageIds !== null &&
+      {messageIds !== null && personUuid &&
         <ScrollView
           ref={listRef}
           onScroll={onScroll}
@@ -1013,22 +1069,15 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
         </DefaultText>
       }
       {showInboxPanel &&
-        <SidePanelCard
-          style={{
-            ...styles.sidePanel,
-            left: columnLeft - SIDE_PANEL_GAP - SIDE_PANEL_WIDTH,
-          }}
-        >
+        <SidePanelCard style={inboxPanelStyle}>
           <InboxPanel openPersonUuid={personUuid} />
         </SidePanelCard>
       }
-      {showProfilePanel &&
+      {showProfilePanel && !profile.notFound &&
         <ProspectProfilePanel
-          personUuid={personUuid}
-          style={{
-            ...styles.sidePanel,
-            left: columnLeft + COLUMN_MAX_WIDTH + SIDE_PANEL_GAP,
-          }}
+          handle={handle}
+          data={profile.data}
+          style={profilePanelStyle}
         />
       }
     </SafeAreaView>

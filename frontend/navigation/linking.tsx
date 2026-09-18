@@ -8,7 +8,7 @@ import {
   getPathFromState as rnGetPathFromState,
   getStateFromPath as rnGetStateFromPath,
 } from '@react-navigation/native';
-import { UUID_REGEX_SOURCE } from '../util/util';
+import { UUID_REGEX_SOURCE, isUuid } from '../util/util';
 import { getSignedInUser, isWebLoggedOut } from '../events/signed-in-user';
 import { BannerTarget } from '../events/sign-up-banner';
 import { DEEP_LINK_HOSTNAME } from '../env/env';
@@ -111,7 +111,8 @@ const focusedProspectHandle = (state: RouteState | undefined): string | undefine
 const focusedConversationHandle = (state: RouteState | undefined): string | undefined => {
   const root = state?.routes?.[state?.index ?? 0];
   if (root?.name !== 'Conversation Screen') return undefined;
-  return readPersonUuid(root.params);
+  const handle = readPersonUuid(root.params);
+  return handle && isUuid(handle) ? handle : undefined;
 };
 
 const bannerRouteTarget = (state: RouteState | undefined): BannerTarget => {
@@ -202,7 +203,7 @@ const linkingConfig: LinkingOptions<RootParamList>['config'] = {
   screens: {
     Welcome: welcomeConfig,
     Home: homeConfig,
-    'Conversation Screen': `chat/:personUuid(${UUID_REGEX_SOURCE})`,
+    'Conversation Screen': `chat/:personUuid(${UUID_REGEX_SOURCE}|${SLUG_REGEX_SOURCE})`,
     'Prospect Profile Screen': prospectConfig,
     'Gallery Screen': 'gallery/:photoUuid',
     'Invite Screen': 'invite/:clubName',

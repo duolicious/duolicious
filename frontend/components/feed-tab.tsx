@@ -1211,6 +1211,7 @@ const FeedItemAnsweredQuestion = ({
 
   const onPressReply = useNavigationToConversation(
     fields.person_uuid,
+    fields.url_slug,
     fields.name,
     fields.photo_uuid,
     fields.photo_blurhash,
@@ -1470,6 +1471,7 @@ const FeedItemUpdatedBio = ({
 
   const onPressReply = useNavigationToConversation(
     fields.person_uuid,
+    fields.url_slug,
     fields.name,
     fields.photo_uuid,
     fields.photo_blurhash,

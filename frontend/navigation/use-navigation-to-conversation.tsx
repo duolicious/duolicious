@@ -13,8 +13,27 @@ import type { RootParamList } from './linking';
 import { QuoteCard, setQuote } from '../components/conversation-screen/quote';
 import { setProspectHint } from './prospect-cache';
 
+type ConversationProspect = {
+  personUuid: string
+  urlSlug: string | null
+  name: string
+  photoUuid?: string | null
+  photoBlurhash?: string | null
+  isAvailableUser?: boolean
+};
+
+const navigateToConversation = (
+  navigation: NativeStackNavigationProp<RootParamList>,
+  { personUuid, urlSlug, ...hint }: ConversationProspect,
+) => {
+  const handle = urlSlug || personUuid;
+  setProspectHint(handle, { ...hint, personUuid });
+  navigation.navigate('Conversation Screen', { personUuid: handle });
+};
+
 const useNavigationToConversation = (
   personUuid: string,
+  urlSlug: string | null,
   name: string,
   photoUuid: string | null,
   photoBlurhash: string | null,
@@ -28,11 +47,14 @@ const useNavigationToConversation = (
 
     setQuote({ text: quote, attribution: name, card });
 
-    setProspectHint(personUuid, { name, photoUuid, photoBlurhash });
-    navigation.navigate('Conversation Screen', { personUuid });
-  }, [personUuid, name, photoUuid, photoBlurhash, quote, card]);
+    navigateToConversation(
+      navigation,
+      { personUuid, urlSlug, name, photoUuid, photoBlurhash },
+    );
+  }, [personUuid, urlSlug, name, photoUuid, photoBlurhash, quote, card]);
 };
 
 export {
+  navigateToConversation,
   useNavigationToConversation,
 };

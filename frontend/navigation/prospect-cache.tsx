@@ -12,6 +12,8 @@ type ProspectHint = {
   photoUuid?: string | null;
   photoBlurhash?: string | null;
   isAvailableUser?: boolean;
+  personUuid?: string;
+  urlSlug?: string | null;
   // Numeric id used by some legacy endpoints (compare-answers,
   // compare-personalities). Cached so screens that need it don't have to
   // round-trip through `/prospect-profile/:uuid` again.

@@ -15,6 +15,7 @@ import {
   Fragment,
   MutableRefObject,
   ReactNode,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -46,6 +47,7 @@ import { ButtonWithCenteredText } from '../button/centered-text';
 import { api } from '../../api/api';
 import { cmToFeetInchesStr } from '../../units/units';
 import { useSignedInUser } from '../../events/signed-in-user';
+import { navigateToConversation } from '../../navigation/use-navigation-to-conversation';
 import { postSkipped } from '../../hide-and-block/hide-and-block';
 import { Basic, Basics } from '../basic';
 import { themedSurface, legibleSurface } from '../../app-theme/surface';
@@ -111,6 +113,7 @@ import { copyProfileLink } from '../../util/util';
 import { SimilarProfiles } from './similar-profiles';
 import { SidePanelCard } from '../navigation/side-panel';
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
+import { storeKv } from '../../kv-storage/kv-storage';
 import type { PageItem } from '../search-tab';
 
 // The person's photos in order, so tapping any one lets the gallery page
@@ -349,19 +352,20 @@ const FloatingSkipButton = ({personUuid}: {
 };
 
 const FloatingSendIntroButton = ({
-  navigation,
   personUuid,
+  urlSlug,
   name,
   photoUuid,
   photoBlurhash,
 }: {
-  navigation: ProspectScreenNavigation,
   personUuid: string | null | undefined,
+  urlSlug: string | undefined,
   name: string | undefined,
   photoUuid: string | null | undefined,
   photoBlurhash: string | null | undefined,
 }) => {
   const { appTheme } = useAppTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
   const quote = useQuote();
 
@@ -369,9 +373,11 @@ const FloatingSendIntroButton = ({
     if (personUuid == null) return;
     if (name === undefined) return;
 
-    setProspectHint(personUuid, { name, photoUuid, photoBlurhash });
-    navigation.navigate('Conversation Screen', { personUuid });
-  }, [navigation, personUuid, name, photoUuid, photoBlurhash]);
+    navigateToConversation(
+      navigation,
+      { personUuid, urlSlug: urlSlug ?? null, name, photoUuid, photoBlurhash },
+    );
+  }, [navigation, personUuid, urlSlug, name, photoUuid, photoBlurhash]);
 
   return (
     <FloatingProfileInteractionButton
@@ -899,26 +905,41 @@ const useNavigationToInDepth = (personUuid: string | null | undefined) => {
   }, [navigation, personUuid]);
 };
 
-const PROSPECT_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
+const PROSPECT_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 
-const prospectProfileCache = new Map<string, FetchedUserData>();
+type ProspectProfileCache = Record<string, FetchedUserData>;
 
 const isFresh = (profile: FetchedUserData) =>
   Date.now() - profile.fetchedAt < PROSPECT_PROFILE_CACHE_TTL_MS;
 
-const cachedProspectProfile = (path: string): FetchedUserData | undefined => {
-  const profile = prospectProfileCache.get(path);
-  return profile && isFresh(profile) ? profile : undefined;
-};
-
-const cacheProspectProfile = (path: string, profile: FetchedUserData) => {
-  for (const [key, cached] of prospectProfileCache) {
-    if (!isFresh(cached)) prospectProfileCache.delete(key);
+const readProspectProfileCache = async (): Promise<ProspectProfileCache> => {
+  try {
+    const cache: ProspectProfileCache =
+      JSON.parse((await storeKv('prospect_profiles')) || '{}');
+    return _.pickBy(cache, isFresh);
+  } catch {
+    return {};
   }
-  prospectProfileCache.set(path, profile);
 };
 
-const resetProspectProfileCache = () => prospectProfileCache.clear();
+const cachedProspectProfile = async (
+  handle: string,
+  similarProfiles: boolean,
+): Promise<FetchedUserData | undefined> =>
+  Object.values(await readProspectProfileCache()).find((profile) =>
+    (profile.person_uuid === handle || profile.url_slug === handle) &&
+    (!similarProfiles || profile.similar_profiles !== undefined));
+
+const cacheProspectProfile = async (profile: FetchedUserData) =>
+  storeKv(
+    'prospect_profiles',
+    JSON.stringify({
+      ...(await readProspectProfileCache()),
+      [profile.person_uuid]: profile,
+    }),
+  );
+
+const resetProspectProfileCache = () => storeKv('prospect_profiles', null);
 
 const prospectProfilePath = (
   handle: string,
@@ -931,36 +952,54 @@ const prospectProfilePath = (
   return `/prospect-profile/${handle}?similar_profiles=${similarProfilesQuery}`;
 };
 
-const useProspectProfile = (handle: string, similarProfiles: boolean) => {
+const useProspectProfile = (
+  handle: string | undefined,
+  similarProfiles: boolean,
+  onData?: (profile: FetchedUserData) => void,
+) => {
   const [signedInUser] = useSignedInUser();
-  const [data, setData] = useState<FetchedUserData | undefined>(
-    () => cachedProspectProfile(
-      prospectProfilePath(handle, similarProfiles, !signedInUser)));
-  const [notFound, setNotFound] = useState(false);
+  const [result, setResult] = useState<{
+    handle: string,
+    data: FetchedUserData | undefined,
+    notFound: boolean,
+  }>();
+  const onDataRef = useRef(onData);
+  onDataRef.current = onData;
 
   useEffect(() => {
-    const path = prospectProfilePath(handle, similarProfiles, !signedInUser);
-    const cached = cachedProspectProfile(path);
-    setData(cached);
-    setNotFound(false);
-    if (cached) {
-      return;
-    }
+    if (!handle) return;
+    let cancelled = false;
     (async () => {
+      const cached = await cachedProspectProfile(handle, similarProfiles);
+      if (cancelled) return;
+      if (cached) {
+        setResult({ handle, data: cached, notFound: false });
+        onDataRef.current?.(cached);
+        setProspectHint(cached.person_uuid, {
+          personId: cached.person_id,
+          name: cached.name,
+          urlSlug: cached.url_slug,
+        });
+        return;
+      }
       // The skip cache is keyed by the canonical uuid. When the handle is a
       // uuid we can show the "fetching" state immediately; for a slug we settle
       // it once the profile (which carries `person_uuid`) lands.
       if (isUuid(handle)) {
         setSkipped(handle, { networkState: 'fetching' });
       }
-      const response = await api<UserData>('get', path);
+      const response = await api<UserData>(
+        'get', prospectProfilePath(handle, similarProfiles, !signedInUser));
+      if (cancelled) return;
       const profile =
         response?.json && { ...response.json, fetchedAt: Date.now() };
+      setResult({ handle, data: profile, notFound: response.clientError });
       if (profile && profile.person_uuid !== signedInUser?.personUuid) {
-        cacheProspectProfile(path, profile);
+        cacheProspectProfile(profile);
       }
-      setData(profile);
-      setNotFound(response.clientError);
+      if (profile) {
+        onDataRef.current?.(profile);
+      }
       const canonicalUuid = response?.json?.person_uuid ?? (
         isUuid(handle) ? handle : undefined);
       if (canonicalUuid) {
@@ -978,15 +1017,20 @@ const useProspectProfile = (handle: string, similarProfiles: boolean) => {
         setProspectHint(canonicalUuid, {
           personId: response.json.person_id,
           name: response.json.name,
+          urlSlug: response.json.url_slug,
         });
       }
     })();
+    return () => { cancelled = true; };
   }, [handle, signedInUser?.personUuid, similarProfiles]);
 
+  const current = result?.handle === handle ? result : undefined;
+
   return {
-    data,
-    notFound,
-    personUuid: data?.person_uuid ?? (isUuid(handle) ? handle : undefined),
+    data: current?.data,
+    notFound: current?.notFound ?? false,
+    personUuid: current?.data?.person_uuid ??
+      (handle && isUuid(handle) ? handle : undefined),
   };
 };
 
@@ -1084,16 +1128,12 @@ const ProspectProfile = ({
   );
 };
 
-const ProspectProfilePanel = ({ personUuid, style }: {
-  personUuid: string,
+const ProspectProfilePanel = memo(({ handle, data, style }: {
+  handle: string,
+  data: FetchedUserData | undefined,
   style: ViewStyle,
 }) => {
-  const { data, notFound } = useProspectProfile(personUuid, false);
   const backgroundColor = useProfileBackgroundColor(data);
-
-  if (notFound) {
-    return null;
-  }
 
   return (
     <SidePanelCard
@@ -1104,7 +1144,7 @@ const ProspectProfilePanel = ({ personUuid, style }: {
       style={style}
     >
       <ProspectProfile
-        handle={personUuid}
+        handle={handle}
         data={data}
         canReply={false}
         showShareAndReport={false}
@@ -1112,7 +1152,7 @@ const ProspectProfilePanel = ({ personUuid, style }: {
       />
     </SidePanelCard>
   );
-};
+});
 
 const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps & {
   navigationRef: ProspectNavigationRef,
@@ -1276,8 +1316,8 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
                 personUuid={personUuid}
               />
               <FloatingSendIntroButton
-                navigation={navigation}
                 personUuid={personUuid}
+                urlSlug={data?.url_slug}
                 name={data?.name}
                 photoUuid={firstOrNull(data?.photo_uuids)}
                 photoBlurhash={primaryPhotoBlurhash(handle, data)}
@@ -1841,5 +1881,6 @@ export {
   ProspectProfilePanel,
   ProspectProfileScreen,
   resetProspectProfileCache,
+  useProspectProfile,
 };
-export type { ProspectNavigationRef };
+export type { FetchedUserData, ProspectNavigationRef };
