@@ -11,6 +11,7 @@ import {
   TextStyle,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -24,7 +25,8 @@ import {
   useState,
 } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TopNavBar } from '../top-nav-bar';
+import { TOP_NAV_BAR_HEIGHT, TopNavBar } from '../top-nav-bar';
+import { STATUS_BAR_SPACER_EXTRA_HEIGHT } from '../status-bar-spacer';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { ChatMessage, TypingIndicator } from './chat-message';
 import { DefaultText } from '../default-text';
@@ -57,6 +59,8 @@ import {
   NativeStackNavigationProp,
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
+import { useNavigationState } from '@react-navigation/native';
+import { getTopRouteName } from '../../navigation/linking';
 import type { RootParamList } from '../../navigation/linking';
 import { useDraftMessage } from '../../chat/application-layer/hooks/draft-message';
 import { QuoteCard } from './quote';
@@ -66,6 +70,16 @@ import { OnlineIndicator } from '../online-indicator';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { getProspectHint, setProspectHint } from '../../navigation/prospect-cache';
 import { dismissConversationNotificationsOnMobile } from '../../notifications/mobile';
+import { COLUMN_MAX_WIDTH } from '../../constants/constants';
+import { INBOX_PANEL_HEADER_HEIGHT, InboxPanel } from '../inbox-tab';
+import { ProspectProfilePanel } from '../prospect-profile-screen/prospect-profile-screen';
+import {
+  SIDE_PANEL_GAP,
+  SIDE_PANEL_TOP,
+  SIDE_PANEL_WIDTH,
+  SidePanelCard,
+  fitsSidePanels,
+} from '../navigation/side-panel';
 
 type ConversationProspectResponse = {
   name?: string,
@@ -343,7 +357,7 @@ const ConversationScreenNavBar = ({
   }, []);
 
   return (
-    <TopNavBar>
+    <TopNavBar containerStyle={styles.navBar}>
       <TopNavBarButton
         onPress={() => navigation.goBack()}
         iconName="arrow-back"
@@ -445,8 +459,22 @@ const ConversationScreenNavBar = ({
   );
 };
 
+const useOpenedFromInboxOrUrl = (routeKey: string): boolean =>
+  useNavigationState((state) => {
+    const home = state.routes
+      .slice(0, state.routes.findIndex((r) => r.key === routeKey))
+      .reverse()
+      .find((r) => r.name === 'Home');
+
+    return !home || getTopRouteName(home.state) === 'Inbox';
+  });
+
 const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootParamList, 'Conversation Screen'>) => {
   const { appTheme } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const showInboxPanel =
+    useOpenedFromInboxOrUrl(route.key) && fitsSidePanels(width, 1);
+  const showProfilePanel = fitsSidePanels(width, 2);
   const [isActive, setIsActive] = useState(AppState.currentState === 'active');
   const [isOnline, setIsOnline] = useState(false);
 
@@ -796,8 +824,20 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     }, [markLastMessageRead]);
   }
 
+  const paddingLeft = showInboxPanel && !showProfilePanel
+    ? SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP
+    : 0;
+  const columnLeft = (width + paddingLeft - COLUMN_MAX_WIDTH) / 2;
+
   return (
-    <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeAreaView}>
+    <SafeAreaView
+      edges={['bottom', 'left', 'right']}
+      style={[
+        styles.safeAreaView,
+        (showInboxPanel || showProfilePanel) && styles.besidePanels,
+        { paddingLeft },
+      ]}
+    >
       <ConversationScreenNavBar
         navigation={navigation}
         personUuid={personUuid}
@@ -972,13 +1012,47 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           is inactive or was deleted.
         </DefaultText>
       }
+      {showInboxPanel &&
+        <SidePanelCard
+          style={{
+            ...styles.sidePanel,
+            left: columnLeft - SIDE_PANEL_GAP - SIDE_PANEL_WIDTH,
+          }}
+        >
+          <InboxPanel openPersonUuid={personUuid} />
+        </SidePanelCard>
+      }
+      {showProfilePanel &&
+        <ProspectProfilePanel
+          personUuid={personUuid}
+          style={{
+            ...styles.sidePanel,
+            left: columnLeft + COLUMN_MAX_WIDTH + SIDE_PANEL_GAP,
+          }}
+        />
+      }
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safeAreaView: {
-    flex: 1
+    flex: 1,
+  },
+  navBar: {
+    maxWidth: COLUMN_MAX_WIDTH,
+    alignSelf: 'center',
+  },
+  besidePanels: {
+    paddingTop:
+      SIDE_PANEL_TOP + INBOX_PANEL_HEADER_HEIGHT / 2
+      - STATUS_BAR_SPACER_EXTRA_HEIGHT - TOP_NAV_BAR_HEIGHT / 2,
+  },
+  sidePanel: {
+    position: 'absolute',
+    top: SIDE_PANEL_TOP,
+    bottom: SIDE_PANEL_TOP,
+    width: SIDE_PANEL_WIDTH,
   },
 });
 

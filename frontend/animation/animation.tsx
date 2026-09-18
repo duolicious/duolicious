@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import {
   useCallback,
+  useEffect,
   useRef,
 } from 'react';
 import { useAppTheme } from '../app-theme/app-theme';
@@ -44,10 +45,16 @@ const useShake = (): [Animated.Value, () => void] => {
   return [shakeAnimation, startShake];
 };
 
-const usePressableAnimation = () => {
+const usePressableAnimation = (isPressed = false) => {
   const { appTheme } = useAppTheme();
 
-  const animatedBackgroundColor = useRef(new Animated.Value(0)).current;
+  const restingValue = isPressed ? 1 : 0;
+
+  const animatedBackgroundColor = useRef(new Animated.Value(restingValue)).current;
+
+  useEffect(() => {
+    animatedBackgroundColor.setValue(restingValue);
+  }, [restingValue]);
 
   const backgroundColor = animatedBackgroundColor.interpolate({
     inputRange: [0, 1],
@@ -65,11 +72,11 @@ const usePressableAnimation = () => {
 
   const onPressOut = useCallback(() => {
     Animated.timing(animatedBackgroundColor, {
-      toValue: 0,
+      toValue: restingValue,
       duration: 150,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [restingValue]);
 
   return { backgroundColor, onPressIn, onPressOut };
 };

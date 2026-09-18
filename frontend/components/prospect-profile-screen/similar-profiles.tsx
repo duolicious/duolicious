@@ -3,20 +3,24 @@ import { useState } from 'react';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { ProfileCard } from '../profile-card';
 import type { PageItem } from '../search-tab';
-import { compositeOver, isMobile } from '../../util/util';
+import { compositeOver } from '../../util/util';
 import * as _ from 'lodash';
 import { commonStyles } from '../../styles';
-import { SidePanelCard, SidePanelHeading } from '../navigation/side-panel';
+import {
+  SIDE_PANEL_GAP,
+  SIDE_PANEL_TOP,
+  SIDE_PANEL_WIDTH,
+  SidePanelCard,
+  SidePanelHeading,
+  fitsSidePanels,
+} from '../navigation/side-panel';
 import { legibleSurface } from '../../app-theme/surface';
 
-const PANEL_WIDTH = 320;
-const PANEL_GAP = 32;
-const PANEL_TOP = 20;
 const PANEL_PADDING = 16;
 const NUM_COLUMNS = 2;
 const GRID_GAP = 8;
 const CARD_WIDTH = (
-  PANEL_WIDTH
+  SIDE_PANEL_WIDTH
   - 2 * PANEL_PADDING
   - commonStyles.cardBorders.borderLeftWidth
   - commonStyles.cardBorders.borderRightWidth
@@ -35,7 +39,7 @@ const SimilarProfiles = ({ items, backgroundColor }: {
     Math.floor(
       (
         height
-        - 2 * PANEL_TOP
+        - 2 * SIDE_PANEL_TOP
         - commonStyles.cardBorders.borderTopWidth
         - commonStyles.cardBorders.borderBottomWidth
         - headingHeight
@@ -45,11 +49,7 @@ const SimilarProfiles = ({ items, backgroundColor }: {
     )
   );
 
-  if (
-    isMobile() ||
-    width < COLUMN_MAX_WIDTH + 2 * (PANEL_WIDTH + 2 * PANEL_GAP) ||
-    !items?.length
-  ) {
+  if (!fitsSidePanels(width, 2) || !items?.length) {
     return null;
   }
 
@@ -61,9 +61,9 @@ const SimilarProfiles = ({ items, backgroundColor }: {
       surface={surface}
       style={{
         position: 'absolute',
-        top: PANEL_TOP,
-        left: width / 2 + COLUMN_MAX_WIDTH / 2 + PANEL_GAP,
-        width: PANEL_WIDTH,
+        top: SIDE_PANEL_TOP,
+        left: width / 2 + COLUMN_MAX_WIDTH / 2 + SIDE_PANEL_GAP,
+        width: SIDE_PANEL_WIDTH,
       }}
     >
       <View onLayout={(e) => setHeadingHeight(e.nativeEvent.layout.height)}>

@@ -26,6 +26,7 @@ const IntrosItem = ({
   matchPercentage,
   lastMessageTimestamp,
   isVerified,
+  isOpen = false,
 }: {
   wasRead: boolean
   name: string
@@ -38,10 +39,11 @@ const IntrosItem = ({
   lastMessageTimestamp: Date
   isAvailableUser: boolean
   isVerified: boolean
+  isOpen?: boolean
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
 
   // Profile links prefer the username (url_slug), falling back to the uuid.
   const handle = urlSlug || personUuid;
@@ -159,6 +161,7 @@ const ChatsItem = ({
   lastMessageTimestamp,
   isAvailableUser,
   isVerified,
+  isOpen = false,
 }: {
   wasRead: boolean
   name: string
@@ -170,10 +173,11 @@ const ChatsItem = ({
   lastMessageTimestamp: Date
   isAvailableUser: boolean
   isVerified: boolean
+  isOpen?: boolean
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
 
   const onPress = useCallback(() => {
     setProspectHint(personUuid, {

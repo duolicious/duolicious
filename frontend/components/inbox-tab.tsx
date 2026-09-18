@@ -3,6 +3,7 @@ import {
   ListRenderItemInfo,
   StyleSheet,
   View,
+  ViewStyle,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
@@ -23,14 +24,11 @@ import { ButtonGroup } from './button-group';
 import { useInboxStats } from '../chat/application-layer/hooks/inbox-stats';
 import {
   MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
+  setInboxSettings,
   useConversations,
+  useInboxSettings,
 } from '../chat/application-layer/hooks/conversations';
 import { TopNavBarButton } from './top-nav-bar-button';
-import {
-  inboxApplySearchFilters,
-  inboxOrder,
-  inboxSection,
-} from '../kv-storage/inbox';
 import { listen } from '../events/events';
 import { consumeStaleInbox } from '../events/stale-inbox';
 import { seenInboxFilterHint } from '../kv-storage/seen-hints/seen-inbox-filter-hint';
@@ -38,6 +36,8 @@ import { InboxFilterHint } from './hints/inbox-filter-hint';
 import { useFocusEffect } from '@react-navigation/native';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
+
+const INBOX_PANEL_HEADER_HEIGHT = 48;
 
 const IntrosItemMemo = memo(IntrosItem);
 const ChatsItemMemo = memo(ChatsItem);
@@ -63,7 +63,7 @@ const InboxDivider = ({ label }: { label: string }) => {
   );
 };
 
-const RenderItem = ({ item }: { item: string }) => {
+const RenderItem = ({ item, isOpen }: { item: string, isOpen: boolean }) => {
   const conversation = useConversation(item);
 
   if (!conversation) {
@@ -81,6 +81,7 @@ const RenderItem = ({ item }: { item: string }) => {
       lastMessageTimestamp={conversation.lastMessageTimestamp}
       isAvailableUser={conversation.isAvailableUser}
       isVerified={conversation.isVerified}
+      isOpen={isOpen}
     />
   } else {
     return <ChatsItemMemo
@@ -94,19 +95,18 @@ const RenderItem = ({ item }: { item: string }) => {
       lastMessageTimestamp={conversation.lastMessageTimestamp}
       isAvailableUser={conversation.isAvailableUser}
       isVerified={conversation.isVerified}
+      isOpen={isOpen}
     />
   }
 };
 
-const renderItem = ({ item }: ListRenderItemInfo<InboxListItem>) =>
-  typeof item === 'string'
-    ? <RenderItem item={item} />
-    : <InboxDivider label={item.label} />;
-
 const keyExtractor = (item: InboxListItem) =>
   typeof item === 'string' ? item : item.dividerKey;
 
-const InboxTab = () => {
+const InboxList = ({ openPersonUuid, scrollbar }: {
+  openPersonUuid?: string
+  scrollbar?: ReturnType<typeof useScrollbar>
+}) => {
   const { appTheme } = useAppTheme();
 
   const {
@@ -115,25 +115,12 @@ const InboxTab = () => {
     sectionIndex,
     sortByIndex,
     showArchive,
-    applySearchFilters,
-    setSectionIndex,
-    setSortByIndex,
-    setApplySearchFilters,
-    setShowArchive,
   } = useConversations();
 
   const stats = useInboxStats();
 
-  const [isRefreshingInbox, setIsRefreshingInbox] = useState(false);
-
   const numUnreadIntros = stats?.numUnreadIntros ?? 0;
   const numUnreadChats  = stats?.numUnreadChats  ?? 0;
-
-  const numIntros = stats?.numIntros ?? 0;
-
-  const canApplySearchFilters =
-    sectionIndex === 0 &&
-    numIntros >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
 
   const introsNumericalLabel = (
     numUnreadIntros ?
@@ -143,63 +130,6 @@ const InboxTab = () => {
     numUnreadChats  ?
     ` (${numUnreadChats})` :
     '');
-
-  const setSectionIndex_ = useCallback((value: number) => {
-    setSectionIndex(value);
-    inboxSection(value);
-  }, []);
-
-  const setSortByIndex_  = useCallback((value: number) => {
-    setSortByIndex(value);
-    inboxOrder(value);
-  }, []);
-
-  const [isFilterHintDismissed, setIsFilterHintDismissed] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      if (!(await seenInboxFilterHint())) {
-        setIsFilterHintDismissed(false);
-      }
-    })();
-  }, []);
-
-  const dismissFilterHint = useCallback(() => {
-    setIsFilterHintDismissed(true);
-    seenInboxFilterHint(true);
-  }, []);
-
-  const onPressFilterButton = useCallback(() => {
-    dismissFilterHint();
-    const value = !applySearchFilters;
-    setApplySearchFilters(value);
-    inboxApplySearchFilters(value ? 1 : 0);
-  }, [applySearchFilters]);
-
-  const onPressArchiveButton = useCallback(() => {
-    setShowArchive(x => !x);
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      const _inboxOrder = await inboxOrder();
-      const _inboxSection = await inboxSection();
-      const _inboxApplySearchFilters = await inboxApplySearchFilters();
-
-      setSectionIndex(_inboxSection);
-      setSortByIndex(_inboxOrder);
-      setApplySearchFilters(!!_inboxApplySearchFilters);
-    })();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (consumeStaleInbox()) {
-        setIsRefreshingInbox(true);
-        refreshInbox().finally(() => setIsRefreshingInbox(false));
-      }
-    }, [])
-  );
 
   const listData = useMemo<InboxListItem[] | null>(() => {
     if (conversations === null) {
@@ -264,112 +194,80 @@ const InboxTab = () => {
     }
   })();
 
-  const {
-    onLayout,
-    onContentSizeChange,
-    onScroll,
-    showsVerticalScrollIndicator,
-    observeListRef,
-  } = useScrollbar('inbox');
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<InboxListItem>) =>
+      typeof item === 'string'
+        ? <RenderItem item={item} isOpen={item === openPersonUuid} />
+        : <InboxDivider label={item.label} />,
+    [openPersonUuid],
+  );
+
+  if (listData === null) {
+    return (
+      <View style={{height: '100%', justifyContent: 'center', alignItems: 'center'}}>
+        <LogoActivityIndicator size="large" color={appTheme.brandColor} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.safeAreaView}>
-      <InboxTabNavBar
-        showArchive={showArchive}
-        applySearchFilters={applySearchFilters}
-        isRefreshingInbox={isRefreshingInbox}
-        showFilterButton={canApplySearchFilters}
-        showFilterHint={
-          !isFilterHintDismissed &&
-          !showArchive &&
-          canApplySearchFilters
+    <View style={styles.flatListContainer} onLayout={scrollbar?.onLayout}>
+      <Animated.FlatList<InboxListItem>
+        ref={scrollbar?.observeListRef}
+        data={listData}
+        ListHeaderComponent={<>{
+          !showArchive && <>
+            <ButtonGroup
+              buttons={[
+                'Intros' + introsNumericalLabel,
+                'Chats'  + chatsNumericalLabel
+              ]}
+              selectedIndex={sectionIndex}
+              onPress={(sectionIndex) => setInboxSettings({ sectionIndex })}
+              containerStyle={{
+                marginTop: 5,
+                marginLeft: 20,
+                marginRight: 20,
+              }}
+            />
+            <ButtonGroup
+              buttons={['Best Matches First', 'Latest First']}
+              selectedIndex={sortByIndex}
+              onPress={(sortByIndex) => setInboxSettings({ sortByIndex })}
+              secondary={true}
+              disabled={sectionIndex === 1}
+              containerStyle={{
+                flexGrow: 1,
+                marginLeft: 20,
+                marginRight: 20,
+              }}
+            />
+          </>
+        }</>}
+        ListEmptyComponent={
+          <DefaultText style={styles.emptyText}>
+            {emptyText}
+          </DefaultText>
         }
-        onPressArchiveButton={onPressArchiveButton}
-        onPressFilterButton={onPressFilterButton}
-        onDismissFilterHint={dismissFilterHint}
+        ListFooterComponent={
+          listData.length > 0 ?
+            <DefaultText style={styles.endText}>{endText}</DefaultText> :
+            null
+        }
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        onContentSizeChange={scrollbar?.onContentSizeChange}
+        onScroll={scrollbar?.onScroll}
+        showsVerticalScrollIndicator={scrollbar?.showsVerticalScrollIndicator}
+        contentContainerStyle={styles.flatList}
       />
-      {listData === null &&
-        <View style={{height: '100%', justifyContent: 'center', alignItems: 'center'}}>
-          <LogoActivityIndicator size="large" color={appTheme.brandColor} />
-        </View>
-      }
-      {listData !== null &&
-        <View style={styles.flatListContainer} onLayout={onLayout}>
-          <Animated.FlatList<InboxListItem>
-            ref={observeListRef}
-            data={listData}
-            ListHeaderComponent={<>{
-              !showArchive && <>
-                <ButtonGroup
-                  buttons={[
-                    'Intros' + introsNumericalLabel,
-                    'Chats'  + chatsNumericalLabel
-                  ]}
-                  selectedIndex={sectionIndex}
-                  onPress={setSectionIndex_}
-                  containerStyle={{
-                    marginTop: 5,
-                    marginLeft: 20,
-                    marginRight: 20,
-                  }}
-                />
-                <ButtonGroup
-                  buttons={['Best Matches First', 'Latest First']}
-                  selectedIndex={sortByIndex}
-                  onPress={setSortByIndex_}
-                  secondary={true}
-                  disabled={sectionIndex === 1}
-                  containerStyle={{
-                    flexGrow: 1,
-                    marginLeft: 20,
-                    marginRight: 20,
-                  }}
-                />
-              </>
-            }</>}
-            ListEmptyComponent={
-              <DefaultText style={styles.emptyText}>
-                {emptyText}
-              </DefaultText>
-            }
-            ListFooterComponent={
-              listData.length > 0 ?
-                <DefaultText style={styles.endText}>{endText}</DefaultText> :
-                null
-            }
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            onContentSizeChange={onContentSizeChange}
-            onScroll={onScroll}
-            showsVerticalScrollIndicator={showsVerticalScrollIndicator}
-            contentContainerStyle={styles.flatList}
-          />
-        </View>
-      }
     </View>
   );
 };
 
-const InboxTabNavBar = ({
-  showArchive,
-  applySearchFilters,
-  isRefreshingInbox,
-  showFilterButton,
-  showFilterHint,
-  onPressArchiveButton,
-  onPressFilterButton,
-  onDismissFilterHint,
-}: {
-  showArchive: boolean,
-  applySearchFilters: boolean,
-  isRefreshingInbox: boolean,
-  showFilterButton: boolean,
-  showFilterHint: boolean,
-  onPressArchiveButton: () => void,
-  onPressFilterButton: () => void,
-  onDismissFilterHint: () => void,
-}) => {
+const InboxTitle = () => {
   const { appTheme } = useAppTheme();
+  const { showArchive } = useInboxSettings();
   const [isOnline, setIsOnline] = useState(false);
 
   useLayoutEffect(() => {
@@ -381,57 +279,129 @@ const InboxTabNavBar = ({
   }, []);
 
   return (
-    <TopNavBar>
-      <View>
-        <DefaultText
+    <View>
+      <DefaultText
+        style={{
+          fontWeight: '700',
+          fontSize: 20,
+        }}
+      >
+        {'Inbox' + (showArchive ? ' (Archive)' : '')}
+      </DefaultText>
+      {!isOnline &&
+        <ActivityIndicator
+          size="small"
+          color={appTheme.brandColor}
           style={{
-            fontWeight: '700',
-            fontSize: 20,
+            position: 'absolute',
+            right: -40,
+            top: 3,
           }}
-        >
-          {'Inbox' + (showArchive ? ' (Archive)' : '')}
-        </DefaultText>
-        {!isOnline &&
-          <ActivityIndicator
-            size="small"
-            color={appTheme.brandColor}
-            style={{
-              position: 'absolute',
-              right: -40,
-              top: 3,
-            }}
-          />
-        }
-      </View>
-      <View style={styles.navBarButtons}>
-        {!showArchive && showFilterButton &&
-          <Animated.View entering={FadeIn} exiting={FadeOut}>
-            <TopNavBarButton
-              onPress={onPressFilterButton}
-              iconName={applySearchFilters ? 'funnel' : 'funnel-outline'}
-              overlayIconName={applySearchFilters ? 'checkmark-circle' : undefined}
-              position={null}
-              secondary={false}
-              label="Filter"
-              loading={isRefreshingInbox}
-            />
-            {showFilterHint &&
-              <InboxFilterHint onDismiss={onDismissFilterHint} />
-            }
-          </Animated.View>
-        }
-        <TopNavBarButton
-          onPress={onPressArchiveButton}
-          iconName={showArchive ? 'chatbubbles-outline' : 'file-tray-full-outline'}
-          position={null}
-          secondary={false}
-          label={showArchive ? "Inbox" : "Archive"}
-          style={styles.archiveButton}
         />
-      </View>
-    </TopNavBar>
+      }
+    </View>
   );
 };
+
+const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
+  const { sectionIndex, showArchive, applySearchFilters } = useInboxSettings();
+
+  const stats = useInboxStats();
+
+  const [isRefreshingInbox, setIsRefreshingInbox] = useState(false);
+
+  const numIntros = stats?.numIntros ?? 0;
+
+  const canApplySearchFilters =
+    sectionIndex === 0 &&
+    numIntros >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
+
+  const [isFilterHintDismissed, setIsFilterHintDismissed] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (!(await seenInboxFilterHint())) {
+        setIsFilterHintDismissed(false);
+      }
+    })();
+  }, []);
+
+  const dismissFilterHint = useCallback(() => {
+    setIsFilterHintDismissed(true);
+    seenInboxFilterHint(true);
+  }, []);
+
+  const onPressFilterButton = useCallback(() => {
+    dismissFilterHint();
+    setInboxSettings({ applySearchFilters: !applySearchFilters });
+  }, [applySearchFilters]);
+
+  const onPressArchiveButton = useCallback(() => {
+    setInboxSettings({ showArchive: !showArchive });
+  }, [showArchive]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (consumeStaleInbox()) {
+        setIsRefreshingInbox(true);
+        refreshInbox().finally(() => setIsRefreshingInbox(false));
+      }
+    }, [])
+  );
+
+  return (
+    <View style={style}>
+      {!showArchive && canApplySearchFilters &&
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
+          <TopNavBarButton
+            onPress={onPressFilterButton}
+            iconName={applySearchFilters ? 'funnel' : 'funnel-outline'}
+            overlayIconName={applySearchFilters ? 'checkmark-circle' : undefined}
+            position={null}
+            secondary={false}
+            label="Filter"
+            loading={isRefreshingInbox}
+          />
+          {!isFilterHintDismissed &&
+            <InboxFilterHint onDismiss={dismissFilterHint} />
+          }
+        </Animated.View>
+      }
+      <TopNavBarButton
+        onPress={onPressArchiveButton}
+        iconName={showArchive ? 'chatbubbles-outline' : 'file-tray-full-outline'}
+        position={null}
+        secondary={false}
+        label={showArchive ? "Inbox" : "Archive"}
+        style={styles.archiveButton}
+      />
+    </View>
+  );
+};
+
+const InboxTab = () => {
+  const scrollbar = useScrollbar('inbox');
+
+  return (
+    <View style={styles.safeAreaView}>
+      <TopNavBar>
+        <InboxTitle />
+        <InboxNavBarButtons style={styles.navBarButtons} />
+      </TopNavBar>
+      <InboxList scrollbar={scrollbar} />
+    </View>
+  );
+};
+
+const InboxPanel = ({ openPersonUuid }: { openPersonUuid: string }) => (
+  <>
+    <View style={styles.panelHeader}>
+      <InboxTitle />
+      <InboxNavBarButtons style={styles.panelButtons} />
+    </View>
+    <InboxList openPersonUuid={openPersonUuid} />
+  </>
+);
 
 const styles = StyleSheet.create({
   safeAreaView: {
@@ -480,6 +450,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     right: 10,
   },
+  panelHeader: {
+    height: INBOX_PANEL_HEADER_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+    paddingRight: 10,
+  },
+  panelButtons: {
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   // Spacing lives here rather than as `gap` on navBarButtons because
   // reanimated's exiting animation positions the leaving filter button as if
   // the row had no gap, making it jump flush against this button.
@@ -498,4 +481,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export { InboxTab };
+export { INBOX_PANEL_HEADER_HEIGHT, InboxPanel, InboxTab };
