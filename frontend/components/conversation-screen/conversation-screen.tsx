@@ -357,7 +357,7 @@ const ConversationScreenNavBar = ({
   }, []);
 
   return (
-    <TopNavBar>
+    <TopNavBar containerStyle={styles.navBar}>
       <TopNavBarButton
         onPress={() => navigation.goBack()}
         iconName="arrow-back"
@@ -824,201 +824,211 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     }, [markLastMessageRead]);
   }
 
+  const paddingLeft = showInboxPanel && !showProfilePanel
+    ? SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP
+    : 0;
+  const columnLeft = (width + paddingLeft - COLUMN_MAX_WIDTH) / 2;
+
   return (
-    <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeAreaView}>
+    <SafeAreaView
+      edges={['bottom', 'left', 'right']}
+      style={[
+        styles.safeAreaView,
+        (showInboxPanel || showProfilePanel) && styles.besidePanels,
+        { paddingLeft },
+      ]}
+    >
+      <ConversationScreenNavBar
+        navigation={navigation}
+        personUuid={personUuid}
+        urlSlug={urlSlug}
+        isAvailableUser={isAvailableUser}
+        photoUuid={photoUuid}
+        photoBlurhash={photoBlurhash}
+        name={name}
+        isOnline={isOnline}
+        isSkipped={isSkipped}
+        setIsSkipped={setIsSkipped}
+      />
+      {messageIds === null &&
+        <View style={{flexGrow: 1, justifyContent: 'center', alignItems: 'center'}}>
+          <LogoActivityIndicator size="large" color={appTheme.brandColor} />
+        </View>
+      }
+      {messageIds !== null &&
+        <ScrollView
+          ref={listRef}
+          onScroll={onScroll}
+          onContentSizeChange={(_, contentHeight) => {
+            const distanceToBottom = (
+              contentHeight - (
+                scrollOffsetRef.current + layoutMeasurementRef.current.height
+              )
+            );
+
+            if (listRef.current && distanceToBottom < 100) {
+              listRef.current.scrollToEnd({ animated: true });
+            }
+          }}
+          scrollEventThrottle={0}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0
+          }}
+          contentContainerStyle={{
+            paddingTop: 10,
+            maxWidth: 600,
+            width: '100%',
+            alignSelf: 'center',
+            ...(messageIds.length === 0 ? {
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexGrow: 1,
+            } : {}),
+            gap: 10,
+          }}
+        >
+          {messageIds.length === 0 &&
+            <>
+              <ImageBackground
+                source={photoUuid && {
+                  uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
+                  height: 450,
+                  width: 450,
+                }}
+                placeholder={photoBlurhash && { blurhash: photoBlurhash }}
+                transition={150}
+                style={{
+                  height: 200,
+                  width: 200,
+                  margin: 2,
+                  borderRadius: 999,
+                  borderColor: 'white',
+                  backgroundColor: photoUuid ? 'white' : appTheme.avatarBackgroundColor,
+                  overflow: 'hidden',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  alignSelf: 'center',
+                }}
+              >
+                {!photoUuid &&
+                  <Ionicons
+                    style={{
+                      fontSize: 40,
+                      color: appTheme.avatarColor,
+                    }}
+                    name={'person'}
+                  />
+                }
+              </ImageBackground>
+              {name &&
+                <>
+                  <DefaultText
+                    style={{
+                      marginTop: 20,
+                      marginBottom: 10,
+                      fontFamily: 'Trueno',
+                      textAlign: 'center',
+                      marginLeft: '15%',
+                      marginRight: '15%',
+                    }}
+                  >
+                    This is the start of your conversation with {name}
+                  </DefaultText>
+                  <DefaultText
+                    style={{
+                      textAlign: 'center',
+                      marginLeft: '10%',
+                      marginRight: '10%',
+                    }}
+                  >
+                    Intros on Duolicious have to be totally unique! Try
+                    asking {name} about something interesting on their profile...
+                  </DefaultText>
+                </>
+              }
+            </>
+          }
+          {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i, uniqueMessageIds) => {
+            const [previousMessage, message] = [
+              getMessage(uniqueMessageIds[i - 1]),
+              getMessage(messageId)];
+
+            return (
+              <Fragment key={messageId}>
+                {previousMessage && message &&
+                  <MessageDivider
+                    previousMessage={previousMessage.message}
+                    message={message.message}
+                  />
+                }
+                <ChatMessage
+                  messageId={messageId}
+                  personUuid={personUuid}
+                  name={name}
+                  avatarUuid={photoUuid}
+                  isLastMessage={i === uniqueMessageIds.length - 1}
+                />
+              </Fragment>
+            );
+          })}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+            }}
+          >
+            <TypingIndicator
+              personUuid={personUuid}
+              avatarUuid={photoUuid}
+            />
+          </View>
+        </ScrollView>
+      }
+      {isAvailableUser && draft !== null &&
+        <Input
+          initialValue={draft}
+          onPressSend={onPressSend}
+          onChange={onChange}
+          onPressGif={onPressGif}
+          onAudioComplete={onAudioComplete}
+          onFocus={onFocus}
+        />
+      }
+      {!isAvailableUser &&
+        <DefaultText
+          style={{
+            maxWidth: 600,
+            width: '100%',
+            alignSelf: 'center',
+            textAlign: 'center',
+            padding: 5,
+            paddingTop: 10,
+            paddingBottom: 10,
+            backgroundColor: appTheme.interactiveBorderColor,
+            fontFamily: 'Trueno',
+          }}
+        >
+          This person isn’t available right now. This often means their account
+          is inactive or was deleted.
+        </DefaultText>
+      }
       {showInboxPanel &&
-        <SidePanelCard style={styles.sidePanel}>
+        <SidePanelCard
+          style={{
+            ...styles.sidePanel,
+            left: columnLeft - SIDE_PANEL_GAP - SIDE_PANEL_WIDTH,
+          }}
+        >
           <InboxPanel openPersonUuid={personUuid} />
         </SidePanelCard>
       }
-      {!showInboxPanel && showProfilePanel &&
-        <View style={styles.sidePanel} />
-      }
-      <View
-        style={[
-          styles.column,
-          (showInboxPanel || showProfilePanel) && styles.columnBesidePanels,
-        ]}
-      >
-        <ConversationScreenNavBar
-          navigation={navigation}
-          personUuid={personUuid}
-          urlSlug={urlSlug}
-          isAvailableUser={isAvailableUser}
-          photoUuid={photoUuid}
-          photoBlurhash={photoBlurhash}
-          name={name}
-          isOnline={isOnline}
-          isSkipped={isSkipped}
-          setIsSkipped={setIsSkipped}
-        />
-        {messageIds === null &&
-          <View style={{flexGrow: 1, justifyContent: 'center', alignItems: 'center'}}>
-            <LogoActivityIndicator size="large" color={appTheme.brandColor} />
-          </View>
-        }
-        {messageIds !== null &&
-          <ScrollView
-            ref={listRef}
-            onScroll={onScroll}
-            onContentSizeChange={(_, contentHeight) => {
-              const distanceToBottom = (
-                contentHeight - (
-                  scrollOffsetRef.current + layoutMeasurementRef.current.height
-                )
-              );
-
-              if (listRef.current && distanceToBottom < 100) {
-                listRef.current.scrollToEnd({ animated: true });
-              }
-            }}
-            scrollEventThrottle={0}
-            maintainVisibleContentPosition={{
-              minIndexForVisible: 0
-            }}
-            contentContainerStyle={{
-              paddingTop: 10,
-              maxWidth: 600,
-              width: '100%',
-              alignSelf: 'center',
-              ...(messageIds.length === 0 ? {
-                justifyContent: 'center',
-                alignItems: 'center',
-                flexGrow: 1,
-              } : {}),
-              gap: 10,
-            }}
-          >
-            {messageIds.length === 0 &&
-              <>
-                <ImageBackground
-                  source={photoUuid && {
-                    uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-                    height: 450,
-                    width: 450,
-                  }}
-                  placeholder={photoBlurhash && { blurhash: photoBlurhash }}
-                  transition={150}
-                  style={{
-                    height: 200,
-                    width: 200,
-                    margin: 2,
-                    borderRadius: 999,
-                    borderColor: 'white',
-                    backgroundColor: photoUuid ? 'white' : appTheme.avatarBackgroundColor,
-                    overflow: 'hidden',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    alignSelf: 'center',
-                  }}
-                >
-                  {!photoUuid &&
-                    <Ionicons
-                      style={{
-                        fontSize: 40,
-                        color: appTheme.avatarColor,
-                      }}
-                      name={'person'}
-                    />
-                  }
-                </ImageBackground>
-                {name &&
-                  <>
-                    <DefaultText
-                      style={{
-                        marginTop: 20,
-                        marginBottom: 10,
-                        fontFamily: 'Trueno',
-                        textAlign: 'center',
-                        marginLeft: '15%',
-                        marginRight: '15%',
-                      }}
-                    >
-                      This is the start of your conversation with {name}
-                    </DefaultText>
-                    <DefaultText
-                      style={{
-                        textAlign: 'center',
-                        marginLeft: '10%',
-                        marginRight: '10%',
-                      }}
-                    >
-                      Intros on Duolicious have to be totally unique! Try
-                      asking {name} about something interesting on their profile...
-                    </DefaultText>
-                  </>
-                }
-              </>
-            }
-            {messageIds.length > 0 && [... new Set(messageIds)].map((messageId, i, uniqueMessageIds) => {
-              const [previousMessage, message] = [
-                getMessage(uniqueMessageIds[i - 1]),
-                getMessage(messageId)];
-
-              return (
-                <Fragment key={messageId}>
-                  {previousMessage && message &&
-                    <MessageDivider
-                      previousMessage={previousMessage.message}
-                      message={message.message}
-                    />
-                  }
-                  <ChatMessage
-                    messageId={messageId}
-                    personUuid={personUuid}
-                    name={name}
-                    avatarUuid={photoUuid}
-                    isLastMessage={i === uniqueMessageIds.length - 1}
-                  />
-                </Fragment>
-              );
-            })}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-              }}
-            >
-              <TypingIndicator
-                personUuid={personUuid}
-                avatarUuid={photoUuid}
-              />
-            </View>
-          </ScrollView>
-        }
-        {isAvailableUser && draft !== null &&
-          <Input
-            initialValue={draft}
-            onPressSend={onPressSend}
-            onChange={onChange}
-            onPressGif={onPressGif}
-            onAudioComplete={onAudioComplete}
-            onFocus={onFocus}
-          />
-        }
-        {!isAvailableUser &&
-          <DefaultText
-            style={{
-              maxWidth: 600,
-              width: '100%',
-              alignSelf: 'center',
-              textAlign: 'center',
-              padding: 5,
-              paddingTop: 10,
-              paddingBottom: 10,
-              backgroundColor: appTheme.interactiveBorderColor,
-              fontFamily: 'Trueno',
-            }}
-          >
-            This person isn’t available right now. This often means their account
-            is inactive or was deleted.
-          </DefaultText>
-        }
-      </View>
       {showProfilePanel &&
         <ProspectProfilePanel
           personUuid={personUuid}
-          style={styles.sidePanel}
+          style={{
+            ...styles.sidePanel,
+            left: columnLeft + COLUMN_MAX_WIDTH + SIDE_PANEL_GAP,
+          }}
         />
       }
     </SafeAreaView>
@@ -1028,22 +1038,21 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 const styles = StyleSheet.create({
   safeAreaView: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
   },
-  column: {
-    flex: 1,
+  navBar: {
     maxWidth: COLUMN_MAX_WIDTH,
+    alignSelf: 'center',
   },
-  columnBesidePanels: {
+  besidePanels: {
     paddingTop:
       SIDE_PANEL_TOP + INBOX_PANEL_HEADER_HEIGHT / 2
       - STATUS_BAR_SPACER_EXTRA_HEIGHT - TOP_NAV_BAR_HEIGHT / 2,
   },
   sidePanel: {
+    position: 'absolute',
+    top: SIDE_PANEL_TOP,
+    bottom: SIDE_PANEL_TOP,
     width: SIDE_PANEL_WIDTH,
-    marginVertical: SIDE_PANEL_TOP,
-    marginHorizontal: SIDE_PANEL_GAP,
   },
 });
 
