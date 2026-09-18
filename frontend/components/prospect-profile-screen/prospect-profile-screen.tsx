@@ -952,19 +952,17 @@ const prospectProfilePath = (
   return `/prospect-profile/${handle}?similar_profiles=${similarProfilesQuery}`;
 };
 
-type ProspectProfileResult = {
-  handle: string,
-  data: FetchedUserData | undefined,
-  notFound: boolean,
-};
-
 const useProspectProfile = (
   handle: string | undefined,
   similarProfiles: boolean,
   onData?: (profile: FetchedUserData) => void,
 ) => {
   const [signedInUser] = useSignedInUser();
-  const [result, setResult] = useState<ProspectProfileResult>();
+  const [result, setResult] = useState<{
+    handle: string,
+    data: FetchedUserData | undefined,
+    notFound: boolean,
+  }>();
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
 
