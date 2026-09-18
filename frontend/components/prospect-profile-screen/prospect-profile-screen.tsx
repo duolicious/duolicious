@@ -992,21 +992,19 @@ const useProspectProfile = (handle: string, similarProfiles: boolean) => {
 
 const ProspectProfile = ({
   handle,
-  personUuid,
   data,
   canReply,
   showShareAndReport,
-  roundPrimaryPhoto,
   paddingBottom,
 }: {
   handle: string,
-  personUuid: string | undefined,
   data: FetchedUserData | undefined,
   canReply: boolean,
   showShareAndReport: boolean,
-  roundPrimaryPhoto: boolean,
   paddingBottom: number,
 }) => {
+  const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
+  const roundPrimaryPhoto = useWindowDimensions().width > 600;
   const backgroundColor = useProfileBackgroundColor(data);
 
   const animatedStyle = useAnimatedStyle(
@@ -1107,11 +1105,9 @@ const ProspectProfilePanel = ({ personUuid, style }: {
     >
       <ProspectProfile
         handle={personUuid}
-        personUuid={personUuid}
         data={data}
         canReply={false}
         showShareAndReport={false}
-        roundPrimaryPhoto={true}
         paddingBottom={0}
       />
     </SidePanelCard>
@@ -1199,8 +1195,6 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
     setBannerProspectName(handle, screenTitle);
   }, [navigation, handle, screenTitle]);
 
-  const { width } = useWindowDimensions();
-
   const backgroundColor = useProfileBackgroundColor(data);
 
   return (
@@ -1248,11 +1242,9 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       {!notFound && <>
         <ProspectProfile
           handle={handle}
-          personUuid={personUuid}
           data={data}
           canReply={showAuthedBottomButtons}
           showShareAndReport={true}
-          roundPrimaryPhoto={width > 600}
           paddingBottom={
             showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100}
         />
