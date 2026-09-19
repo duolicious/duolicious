@@ -415,8 +415,8 @@ const OfferingCard = ({
       <View
         style={{
           paddingHorizontal: 16,
-          paddingBottom: compact ? 14 : trial ? 22 : 36,
-          gap: trial ? 16 : 8,
+          paddingBottom: compact ? 14 : 22,
+          gap: 16,
         }}
       >
         {hasError &&
@@ -437,16 +437,17 @@ const OfferingCard = ({
           style={{
             textAlign: 'center',
             fontSize: compact ? 11 : 12,
-            lineHeight: trial ? 16 : 18,
+            lineHeight: 16,
             fontWeight: 500,
             color: fadedWhite,
           }}
         >
-          {trial &&
-            <DefaultText disableTheme style={{ fontWeight: 800, color: 'white' }}>
-              {intervalText(trial)} free, then {renewalText(chosen)}.{'\n'}
-            </DefaultText>
-          }
+          <DefaultText
+            disableTheme
+            style={{ fontWeight: 800, color: trial ? 'white' : 'transparent' }}
+          >
+            {trial && `${intervalText(trial)} free, then ${renewalText(chosen)}.`}{'\n'}
+          </DefaultText>
           Subscription renews automatically. Cancel anytime.
         </DefaultText>
       </View>
