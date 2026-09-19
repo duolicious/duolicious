@@ -18,7 +18,6 @@ from service.api.gold.sql import (
 )
 from serviceshared.duoenv.api import (
     PAYPAL_APEX_REDIRECT_URL,
-    PAYPAL_PLAN_IDS,
     PAYPAL_RETURN_URL,
     PAYPAL_WEB_REDIRECT_URL,
 )
@@ -36,12 +35,17 @@ async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
     return None if dump is None else paypal.PaypalPlan.model_validate(dump)
 
 
-async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:
-    plans = [await _plan(plan_id) for plan_id in PAYPAL_PLAN_IDS]
-    if None in plans:
-        return 'PayPal request failed', 502
+@redis_cache(ttl=10)
+async def _plans() -> list[dict[str, Json]] | None:
+    plans = await paypal.fetch_plans()
+    return None if plans is None else [plan.model_dump() for plan in plans]
 
-    return [plan.model_dump() for plan in plans if plan]
+
+async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:
+    plans = await _plans()
+    if plans is None:
+        return 'PayPal request failed', 502
+    return plans
 
 
 async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
@@ -81,6 +85,12 @@ async def post_subscribe(
     req: t.PostPaypalSubscribe,
     s: t.SessionInfo,
 ) -> tuple[str, int] | dict[str, str]:
+    plans = await _plans()
+    if plans is None:
+        return 'PayPal request failed', 502
+    if req.plan_id not in [plan['id'] for plan in plans]:
+        return 'Unknown plan', 422
+
     async with api_tx() as tx:
         row = await tx.require_one(
             Q_HAS_LIVE_SUBSCRIPTION, dict(person_id=s.person_id))
