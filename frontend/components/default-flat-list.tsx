@@ -3,6 +3,7 @@ import {
   FlatListProps,
   LayoutChangeEvent,
   ListRenderItem,
+  ListRenderItemInfo,
   StyleProp,
   StyleSheet,
   View,
@@ -21,6 +22,7 @@ import {
   memo,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -287,16 +289,16 @@ const ListEmptyComponent = memo(({
 const ListFooterComponent = memo(({
   isComplete,
   isEmpty,
-  EndTextNotice,
+  endText,
 }: {
   isComplete: boolean,
   isEmpty: boolean,
-  EndTextNotice: ComponentType | ReactElement | null | undefined,
+  endText: string | undefined,
 }) => {
   if (isComplete && isEmpty) {
     return <></>;
   } else if (isComplete && !isEmpty) {
-    return <RenderedHoc Hoc={EndTextNotice}/>;
+    return <EndTextNotice endText={endText}/>;
   } else {
     return <LoadingIndicator/>;
   }
@@ -330,11 +332,17 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
 
   const dataKey = props.dataKey ?? 'default-key';
 
+  const {
+    fetchPage,
+    onContentSizeChange: onContentSizeChangeProp,
+    onLayout: onLayoutProp,
+  } = props;
+
   const keyExtractor = useCallback((item: ItemT, index: number) => {
     return JSON.stringify({dataKey, index});
   }, [dataKey]);
 
-  const fetchNextPage = async () => {
+  const fetchNextPage = useCallback(async () => {
     if (viewportHeight.current < 1e-3) {
       // FlashList seems to be calling `onEndReached` repeatedly when occluded
       return;
@@ -353,7 +361,7 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
 
     setBookFetchingInBooks(books, dataKey);
 
-    const page = await props.fetchPage(pageNumberToFetchVal);
+    const page = await fetchPage(pageNumberToFetchVal);
 
     if (page === null) {
       setBookErrorInBooks(books, dataKey);
@@ -362,9 +370,9 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
     }
 
     setBooks(oldBooks => ({ ...oldBooks, ...books }));
-  };
+  }, [books, dataKey, fetchPage]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     const book = getBookOrDefault(books, dataKey);
 
     if (book.isRefreshing) return;
@@ -374,21 +382,19 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
     setBooks(oldBooks => ({ ...oldBooks, ...books }));
 
     fetchNextPage();
-  };
+  }, [books, dataKey, fetchNextPage]);
 
   useImperativeHandle(ref, () => ({ refresh: onRefresh }), [onRefresh]);
 
-  const onContentSizeChange = (width: number, height: number) => {
+  const onContentSizeChange = useCallback((width: number, height: number) => {
     contentHeight.current = height;
 
     if (contentHeight.current < viewportHeight.current) {
       fetchNextPage();
     }
 
-    if (props.onContentSizeChange) {
-      props.onContentSizeChange(width, height);
-    }
-  };
+    onContentSizeChangeProp?.(width, height);
+  }, [fetchNextPage, onContentSizeChangeProp]);
 
   const onLayout = useCallback((params: LayoutChangeEvent) => {
     viewportHeight.current = params.nativeEvent.layout.height;
@@ -397,20 +403,62 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
       fetchNextPage();
     }
 
-    if (props.onLayout) {
-      props.onLayout(params);
-    }
-  }, []);
+    onLayoutProp?.(params);
+  }, [fetchNextPage, onLayoutProp]);
 
   const book = getBookOrDefault(books, dataKey);
-  const items = bookToItems(book);
+  const items = useMemo(
+    () => bookToItems(getBookOrDefault(books, dataKey)),
+    [books, dataKey]);
+
+  const isComplete = isBookComplete(book);
+  const isEmpty = isBookEmpty(book);
+  const isLoading = isBookFetching(book);
+  const isError = book.isError;
+
+  const slots = useMemo(() => ({
+    ListHeaderComponent:
+      <ListHeaderComponent
+        isEmpty={isEmpty}
+        isLoading={isLoading}
+        hideListHeaderComponentWhenEmpty={
+          props.hideListHeaderComponentWhenEmpty ?? false
+        }
+        hideListHeaderComponentWhenLoading={
+          props.hideListHeaderComponentWhenLoading ?? true
+        }
+        ListHeaderComponent={props.ListHeaderComponent}
+      />,
+    ListEmptyComponent:
+      <ListEmptyComponent
+        isComplete={isComplete}
+        isError={isError}
+        errorText={props.errorText}
+        emptyText={props.emptyText} />,
+    ListFooterComponent:
+      <ListFooterComponent
+        isComplete={isComplete}
+        isEmpty={isEmpty}
+        endText={props.endText} />,
+  }), [
+    isComplete,
+    isEmpty,
+    isError,
+    isLoading,
+    props.hideListHeaderComponentWhenEmpty,
+    props.hideListHeaderComponentWhenLoading,
+    props.ListHeaderComponent,
+    props.errorText,
+    props.emptyText,
+    props.endText,
+  ]);
 
   return {
     flatList,
     onRefresh,
     fetchNextPage,
     items,
-    book,
+    slots,
     onContentSizeChange,
     keyExtractor,
     onLayout,
@@ -423,7 +471,7 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     onRefresh,
     fetchNextPage,
     items,
-    book,
+    slots,
     onContentSizeChange,
     keyExtractor,
     onLayout,
@@ -436,6 +484,29 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     keyExtractor: itemKeyExtractor = keyExtractor,
     ...listProps
   } = props;
+
+  const data = useMemo(() => _.chunk(items, numColumns), [items, numColumns]);
+
+  const renderRow = useCallback(
+    ({ item: row, index, separators }: ListRenderItemInfo<ItemT[]>) =>
+      numColumns === 1 ?
+        renderItem({ item: row[0], index, separators }) :
+        <View style={[styles.row, columnWrapperStyle]}>
+          {row.map((item, i) =>
+            <Fragment key={i}>
+              {renderItem({ item, index: index * numColumns + i, separators })}
+            </Fragment>
+          )}
+        </View>,
+    [renderItem, numColumns, columnWrapperStyle]);
+
+  const rowKeyExtractor = useCallback(
+    (row: ItemT[], index: number) => itemKeyExtractor(row[0], index),
+    [itemKeyExtractor]);
+
+  const contentContainerStyle = useMemo(
+    () => [styles.flatList, props.contentContainerStyle],
+    [props.contentContainerStyle]);
 
   return (
     <FlatList
@@ -454,52 +525,13 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
       onRefresh={props.disableRefresh ? undefined : onRefresh}
       onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
       onEndReached={fetchNextPage}
-      ListEmptyComponent={
-        <ListEmptyComponent
-          isComplete={isBookComplete(book)}
-          isError={book.isError}
-          errorText={props.errorText}
-          emptyText={props.emptyText} />
-      }
-      ListFooterComponent={
-        <ListFooterComponent
-          isComplete={isBookComplete(book)}
-          isEmpty={isBookEmpty(book)}
-          EndTextNotice={<EndTextNotice endText={props.endText} />}
-        />
-      }
       {...listProps}
-      data={_.chunk(items, numColumns)}
-      renderItem={({ item: row, index, separators }) =>
-        numColumns === 1 ?
-          renderItem({ item: row[0], index, separators }) :
-          <View style={[styles.row, columnWrapperStyle]}>
-            {row.map((item, i) =>
-              <Fragment key={i}>
-                {renderItem({ item, index: index * numColumns + i, separators })}
-              </Fragment>
-            )}
-          </View>
-      }
-      contentContainerStyle={[
-        styles.flatList,
-        props.contentContainerStyle,
-      ]}
-      ListHeaderComponent={
-        <ListHeaderComponent
-            isEmpty={isBookEmpty(book)}
-            isLoading={isBookFetching(book)}
-            hideListHeaderComponentWhenEmpty={
-              props.hideListHeaderComponentWhenEmpty ?? false
-            }
-            hideListHeaderComponentWhenLoading={
-              props.hideListHeaderComponentWhenLoading ?? true
-            }
-            ListHeaderComponent={props.ListHeaderComponent}
-        />
-      }
+      {...slots}
+      data={data}
+      renderItem={renderRow}
+      contentContainerStyle={contentContainerStyle}
       onContentSizeChange={onContentSizeChange}
-      keyExtractor={(row, index) => itemKeyExtractor(row[0], index)}
+      keyExtractor={rowKeyExtractor}
       initialNumToRender={1}
       windowSize={5}
       onLayout={onLayout}
@@ -513,11 +545,16 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
     onRefresh,
     fetchNextPage,
     items,
-    book,
+    slots,
     onContentSizeChange,
     keyExtractor,
     onLayout,
   } = useList<ItemT, FlashListRef<ItemT>>(ref, props);
+
+  const contentContainerStyle = useMemo(() => ({
+    ...styles.flatList,
+    ...(props.contentContainerStyle as object | undefined),
+  }), [props.contentContainerStyle]);
 
   return (
     <FlashList
@@ -537,38 +574,9 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
       onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
       onEndReached={fetchNextPage}
       data={items}
-      ListEmptyComponent={
-        <ListEmptyComponent
-          isComplete={isBookComplete(book)}
-          isError={book.isError}
-          errorText={props.errorText}
-          emptyText={props.emptyText} />
-      }
-      ListFooterComponent={
-        <ListFooterComponent
-          isComplete={isBookComplete(book)}
-          isEmpty={isBookEmpty(book)}
-          EndTextNotice={<EndTextNotice endText={props.endText} />}
-        />
-      }
       {...props}
-      contentContainerStyle={{
-        ...styles.flatList,
-        ...(props.contentContainerStyle as object | undefined),
-      }}
-      ListHeaderComponent={
-        <ListHeaderComponent
-            isEmpty={isBookEmpty(book)}
-            isLoading={isBookFetching(book)}
-            hideListHeaderComponentWhenEmpty={
-              props.hideListHeaderComponentWhenEmpty ?? false
-            }
-            hideListHeaderComponentWhenLoading={
-              props.hideListHeaderComponentWhenLoading ?? true
-            }
-            ListHeaderComponent={props.ListHeaderComponent}
-        />
-      }
+      {...slots}
+      contentContainerStyle={contentContainerStyle}
       onContentSizeChange={onContentSizeChange}
       keyExtractor={props.keyExtractor ?? keyExtractor}
       onLayout={onLayout}
