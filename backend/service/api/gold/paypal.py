@@ -1,8 +1,6 @@
 import logging
 from collections.abc import Iterable
 
-import redis.asyncio as redis
-
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
@@ -13,6 +11,7 @@ from serviceshared.gold.sql import Q_GRANT_GOLD
 from serviceshared.util import Json
 from serviceshared.util.coerce import integer, string
 from service.api.auth.oauth_redirect import redirect
+from service.api.search.rediscache import redis_cache
 from service.api.gold.sql import (
     Q_HAS_LIVE_SUBSCRIPTION,
     Q_LIVE_PAYPAL_SUBSCRIPTION_IDS,
@@ -22,32 +21,27 @@ from serviceshared.duoenv.api import (
     PAYPAL_PLAN_IDS,
     PAYPAL_RETURN_URL,
     PAYPAL_WEB_REDIRECT_URL,
-    REDIS_HOST,
-    REDIS_PORT,
 )
 
 logger = logging.getLogger(__name__)
 
-_redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-
-
-async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
-    key = f'paypal:plan:{plan_id}'
-    cached = await _redis.get(key)
-    if cached is not None:
-        return paypal.PaypalPlan.model_validate_json(cached)
+@redis_cache(ttl=10)
+async def _plan_dump(plan_id: str) -> dict[str, Json]:
     plan = await paypal.fetch_plan(plan_id)
-    if plan is not None:
-        await _redis.set(key, plan.model_dump_json(), ex=10)
-    return plan
+    if plan is None:
+        raise RuntimeError('PayPal plan is unavailable')
+    return plan.model_dump()
+
+
+async def _plan(plan_id: str) -> paypal.PaypalPlan:
+    return paypal.PaypalPlan.model_validate(await _plan_dump(plan_id))
 
 
 async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:
-    plans = [await _plan(plan_id) for plan_id in PAYPAL_PLAN_IDS]
-    if None in plans:
+    try:
+        return [await _plan_dump(plan_id) for plan_id in PAYPAL_PLAN_IDS]
+    except RuntimeError:
         return 'PayPal request failed', 502
-
-    return [plan.model_dump() for plan in plans if plan]
 
 
 async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
@@ -58,9 +52,6 @@ async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
 
 async def _apply(subscription: paypal.PaypalSubscription) -> bool:
     plan = await _plan(subscription.plan_id)
-    if plan is None:
-        raise RuntimeError('PayPal plan is unavailable')
-
     expires_at = paypal.paid_until(subscription, plan)
     if expires_at is None:
         return False
