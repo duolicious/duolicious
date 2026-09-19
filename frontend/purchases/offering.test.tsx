@@ -2,13 +2,13 @@ import {
   Purchasable,
   byCycleLength,
   intervalText,
-  monthsIn,
   renewalText,
+  weeksIn,
 } from './offering';
 
 const purchasable = (amount: number, units: number, unit: string): Purchasable => ({
   price: `$${amount}`,
-  pricePerMonth: null,
+  pricePerWeek: null,
   cycle: { units, unit },
   trial: null,
   purchase: async () => 'purchased',
@@ -22,7 +22,7 @@ test('longer cycles cost less per month', () => {
   const sorted = byCycleLength([quarter, week, month]);
 
   expect(sorted).toEqual([week, month, quarter]);
-  expect(sorted.map((p) => monthsIn(p.cycle))).toEqual([12 / 52, 1, 3]);
+  expect(sorted.map((p) => weeksIn(p.cycle))).toEqual([1, 52 / 12, 13]);
 });
 
 test('trial and renewal copy', () => {

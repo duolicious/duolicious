@@ -10,7 +10,7 @@ type PurchaseResult = 'purchased' | 'cancelled' | 'failed';
 
 type Purchasable = {
   price: string,
-  pricePerMonth: string | null,
+  pricePerWeek: string | null,
   cycle: OfferingInterval,
   trial: OfferingInterval | null,
   purchase: () => Promise<PurchaseResult>,
@@ -20,18 +20,18 @@ type Offering = {
   purchasables: Purchasable[],
 };
 
-const MONTHS_PER_UNIT: Record<string, number> = {
-  day: 12 / 365,
-  week: 12 / 52,
-  month: 1,
-  year: 12,
+const WEEKS_PER_UNIT: Record<string, number> = {
+  day: 1 / 7,
+  week: 1,
+  month: 52 / 12,
+  year: 52,
 };
 
-const monthsIn = (cycle: OfferingInterval) =>
-  cycle.units * (MONTHS_PER_UNIT[cycle.unit] ?? 1);
+const weeksIn = (cycle: OfferingInterval) =>
+  cycle.units * (WEEKS_PER_UNIT[cycle.unit] ?? 1);
 
 const byCycleLength = (purchasables: Purchasable[]) =>
-  _.sortBy(purchasables, (p) => monthsIn(p.cycle));
+  _.sortBy(purchasables, (p) => weeksIn(p.cycle));
 
 const intervalText = ({ units, unit }: OfferingInterval) =>
   `${units} ${pluralize(unit, units)}`;
@@ -48,6 +48,6 @@ export {
   PurchaseResult,
   byCycleLength,
   intervalText,
-  monthsIn,
   renewalText,
+  weeksIn,
 };

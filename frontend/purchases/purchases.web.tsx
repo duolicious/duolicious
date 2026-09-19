@@ -1,6 +1,6 @@
 import { api, japi } from '../api/api';
 import { navigateAway, webReturnTarget } from '../api/oauth-return';
-import { Offering, OfferingInterval, PurchaseResult, monthsIn } from './offering';
+import { Offering, OfferingInterval, PurchaseResult, weeksIn } from './offering';
 
 type Plan = {
   id: string,
@@ -40,7 +40,7 @@ const getOffering = async (): Promise<Offering | null> => {
   return {
     purchasables: response.json.map(({ id, price, currency, cycle, trial }) => ({
       price: formatPrice(Number(price), currency),
-      pricePerMonth: formatPrice(Number(price) / monthsIn(cycle), currency),
+      pricePerWeek: formatPrice(Number(price) / weeksIn(cycle), currency),
       cycle,
       trial,
       purchase: () => purchase(id),

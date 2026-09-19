@@ -23,8 +23,8 @@ import {
   Purchasable,
   byCycleLength,
   intervalText,
-  monthsIn,
   renewalText,
+  weeksIn,
 } from '../../purchases/offering';
 import {
   FEATURES,
@@ -117,7 +117,7 @@ const PlanCard = ({
   compact: boolean
   onPress: () => void
 }) => {
-  const { cycle, price, pricePerMonth, trial } = purchasable;
+  const { cycle, price, pricePerWeek, trial } = purchasable;
   const selected = useSharedValue(isSelected ? 1 : 0);
 
   useEffect(() => {
@@ -205,7 +205,7 @@ const PlanCard = ({
         >
           {price}
         </DefaultText>
-        {monthsIn(cycle) !== 1 && pricePerMonth !== null &&
+        {weeksIn(cycle) !== 1 && pricePerWeek !== null &&
           <DefaultText
             animated
             animatedStyle={subStyle}
@@ -216,7 +216,7 @@ const PlanCard = ({
               fontWeight: 500,
             }}
           >
-            {pricePerMonth}/mo
+            {pricePerWeek}/wk
           </DefaultText>
         }
         {trial &&
@@ -373,7 +373,7 @@ const OfferingCard = ({
       >
         {purchasables.map((purchasable) =>
           <PlanCard
-            key={monthsIn(purchasable.cycle)}
+            key={weeksIn(purchasable.cycle)}
             purchasable={purchasable}
             isSelected={purchasable === chosen}
             compact={compact}
