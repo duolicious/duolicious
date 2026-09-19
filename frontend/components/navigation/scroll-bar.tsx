@@ -37,24 +37,32 @@ type ScrollViewData = {
   offset?: number;
 };
 
+type ScrollViewValues = {
+  controller: string | null;
+  contentHeight: number;
+  scrollViewHeight: number;
+};
+
+const sameScrollViewValues = (a: ScrollViewValues, b: ScrollViewValues) =>
+  a.controller === b.controller &&
+  a.contentHeight === b.contentHeight &&
+  a.scrollViewHeight === b.scrollViewHeight;
+
 const Scrollbar = () => {
   /**
    * Single piece of state storing:
    *  - which ScrollView is controlling the scrollbar
    *  - the content/viewport heights
-   *  - the current offset
+   * The offset lives in a ref: it changes every scroll frame and only moves
+   * the thumb, which is driven by a shared value.
    */
-  const [scrollViewValues, setScrollViewValues] = useState<{
-    controller: string | null;
-    contentHeight: number;
-    scrollViewHeight: number;
-    offset: number;
-  }>({
+  const [scrollViewValues, setScrollViewValues] = useState<ScrollViewValues>({
     controller: null,
     contentHeight: 0,
     scrollViewHeight: 0,
-    offset: 0,
   });
+
+  const offsetRef = useRef(0);
 
   // We still keep a ref to the controlling ScrollView’s data,
   // mostly so we can store the onThumbDrag callback.
@@ -127,10 +135,9 @@ const Scrollbar = () => {
   const tryControl = (data: ScrollViewData): boolean => {
     // Attempt to acquire lock
     if (data.onThumbDrag) {
-      setScrollViewValues(prev => ({
-        ...prev,
-        controller: data.controller,
-      }));
+      setScrollViewValues(prev => prev.controller === data.controller
+        ? prev
+        : { ...prev, controller: data.controller });
       scrollViewDataRef.current.controller = data.controller;
       return true;
     }
@@ -140,10 +147,9 @@ const Scrollbar = () => {
       data.onThumbDrag === null &&
       data.controller === scrollViewDataRef.current.controller
     ) {
-      setScrollViewValues(prev => ({
-        ...prev,
-        controller: null,
-      }));
+      setScrollViewValues(prev => prev.controller === null
+        ? prev
+        : { ...prev, controller: null });
       scrollViewDataRef.current.controller = null;
       return false;
     }
@@ -199,9 +205,9 @@ const Scrollbar = () => {
   }));
 
   /**
-   * 1) Whenever scrollViewValues (contentHeight, scrollViewHeight, offset) changes,
+   * 1) Whenever scrollViewValues (contentHeight, scrollViewHeight) changes,
    *    store them in refs so PanResponder can read updated data.
-   * 2) If we’re not dragging, move the thumb to match the new offset.
+   * 2) If we’re not dragging, move the thumb to match the current offset.
    */
   useEffect(() => {
     contentHeightRef.current = scrollViewValues.contentHeight;
@@ -214,12 +220,11 @@ const Scrollbar = () => {
     maxThumbOffsetShared.value = trackHeight - thumbHeight;
 
     if (!isDragging.current) {
-      updateThumbPosition(scrollViewValues.offset);
+      updateThumbPosition(offsetRef.current);
     }
   }, [
     scrollViewValues.contentHeight,
     scrollViewValues.scrollViewHeight,
-    scrollViewValues.offset,
     thumbHeight,
     trackHeight,
   ]);
@@ -243,13 +248,12 @@ const Scrollbar = () => {
       return;
     }
 
-    // The current ScrollView offset in px (use state offset)
     const oldMaxScroll = oldContentHeight - scrollViewValues.scrollViewHeight;
     const newMaxScroll =
       scrollViewValues.contentHeight - scrollViewValues.scrollViewHeight;
 
     // Keep same absolute offset, but clamp if new content is smaller
-    const oldScrollY = Math.max(0, Math.min(oldMaxScroll, scrollViewValues.offset));
+    const oldScrollY = Math.max(0, Math.min(oldMaxScroll, offsetRef.current));
     const newScrollY = Math.max(0, Math.min(newMaxScroll, oldScrollY));
     updateThumbPosition(newScrollY);
 
@@ -259,10 +263,9 @@ const Scrollbar = () => {
   }, [scrollViewValues.contentHeight, scrollViewValues.scrollViewHeight]);
 
   /**
-   * Listen for the scrollview to mount or update. Instead of immediately calling
-   * updateThumbPosition(data.offset), we just set our state. Then the effect above
-   * will handle repositioning the thumb once contentHeight/scrollViewHeight/offset
-   * have all updated in React.
+   * Listen for the scrollview to mount or update. The offset moves the thumb
+   * straight away without a render. The heights go through state so the
+   * effect above repositions the thumb once the new thumb height is known.
    */
   useEffect(() => {
     return listen<ScrollViewData>(
@@ -279,14 +282,21 @@ const Scrollbar = () => {
           scrollViewDataRef.current.onThumbDrag = data.onThumbDrag;
         }
 
-        // Update state in one go. If data.contentHeight or data.scrollViewHeight are null,
-        // we preserve the existing values.
-        setScrollViewValues((prev) => ({
-          controller: data.controller ?? prev.controller,
-          contentHeight: data.contentHeight ?? prev.contentHeight,
-          scrollViewHeight: data.scrollViewHeight ?? prev.scrollViewHeight,
-          offset: data.offset ?? prev.offset,
-        }));
+        if (data.offset !== undefined) {
+          offsetRef.current = data.offset;
+        }
+        if (data.offset !== undefined && !isDragging.current) {
+          updateThumbPosition(data.offset);
+        }
+
+        setScrollViewValues((prev) => {
+          const next = {
+            controller: data.controller ?? prev.controller,
+            contentHeight: data.contentHeight ?? prev.contentHeight,
+            scrollViewHeight: data.scrollViewHeight ?? prev.scrollViewHeight,
+          };
+          return sameScrollViewValues(prev, next) ? prev : next;
+        });
       },
       true
     );
@@ -306,8 +316,7 @@ const Scrollbar = () => {
     const maxScroll =
       contentHeightRef.current - scrollHeightRef.current;
 
-    // Use current offset from state
-    let currentScrollY = Math.max(0, Math.min(maxScroll, scrollViewValues.offset));
+    const currentScrollY = Math.max(0, Math.min(maxScroll, offsetRef.current));
 
     // Apply the delta. Might need to tune this factor for a better feel
     const newScrollY = Math.min(
