@@ -14,6 +14,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -651,6 +652,31 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     );
   }, []);
 
+  const fetchSearchPage = useMemo(
+    () => fetchPage(selectedClub, isPublic),
+    [selectedClub, isPublic]);
+
+  const listHeaderComponent = useMemo(() =>
+    <ListHeaderComponent
+      hasClubs={hasClubs}
+      selectedClub={selectedClub}
+      setSelectedClub={setSelectedClub}
+    />,
+    [hasClubs, selectedClub]);
+
+  const cardWidth = (width ?? 0) / numColumns;
+
+  const renderItem = useCallback(
+    ({item}: ListRenderItemInfo<PageItem>) =>
+      <ProfileCardMemo
+        item={item}
+        numColumns={numColumns}
+        cardWidth={cardWidth}
+      />,
+    [numColumns, cardWidth]);
+
+  const stickyHeaderIndices = useMemo(() => hasClubs ? [0] : [], [hasClubs]);
+
   return (
     <View style={styles.safeAreaView} onLayout={onLayoutScreen}>
       <DuoliciousTopNavBar>
@@ -716,27 +742,21 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         endText={
           "See more matches by adjusting your search filters or clubs"
         }
-        fetchPage={fetchPage(selectedClub, isPublic)}
+        fetchPage={fetchSearchPage}
         dataKey={JSON.stringify([selectedClub, isPublic])}
         hideListHeaderComponentWhenEmpty={!hasClubs}
         hideListHeaderComponentWhenLoading={!hasClubs}
         numColumns={numColumns}
         contentContainerStyle={styles.listContainerStyle}
-        ListHeaderComponent={
-          <ListHeaderComponent
-            hasClubs={hasClubs}
-            selectedClub={selectedClub}
-            setSelectedClub={setSelectedClub}
-          />
-        }
-        renderItem={({item}: ListRenderItemInfo<PageItem>) => <ProfileCardMemo item={item} numColumns={numColumns} cardWidth={width / numColumns} />}
+        ListHeaderComponent={listHeaderComponent}
+        renderItem={renderItem}
         scrollIndicatorInsets={scrollIndicatorInsets}
         onLayout={onLayout}
         onContentSizeChange={onContentSizeChange}
         onScroll={onScroll}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         stickyHeaderHiddenOnScroll={hasClubs}
-        stickyHeaderIndices={hasClubs ? [0] : []}
+        stickyHeaderIndices={stickyHeaderIndices}
         columnWrapperStyle={styles.listColumnWraperStyle}
       />}
     </View>

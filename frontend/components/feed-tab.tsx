@@ -1572,6 +1572,11 @@ const FeedItem = ({ dataItem }: { dataItem: DataItem }) => {
   }
 };
 
+const renderItem = ({ item }: { item: DataItem }) =>
+  <FeedItem dataItem={item} />;
+
+const keyExtractor = (item: DataItem) => item.person_uuid;
+
 const FeedTab = () => {
   const {
     onLayout,
@@ -1623,10 +1628,8 @@ const FeedTab = () => {
         }
         fetchPage={fetchPage}
         contentContainerStyle={styles.listContentContainerStyle}
-        renderItem={({ item }: { item: DataItem }) =>
-          <FeedItem dataItem={item} />
-        }
-        keyExtractor={(item: DataItem) => item.person_uuid}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
         onLayout={onLayout}
         onContentSizeChange={onContentSizeChange}
         onScroll={onScroll}
