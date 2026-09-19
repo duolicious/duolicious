@@ -17,6 +17,7 @@ const plans = {
   'P-TEST': {
     id: 'P-TEST',
     name: 'Gold',
+    status: 'INACTIVE',
     billing_cycles: [
       {
         tenure_type: 'TRIAL',
@@ -27,9 +28,9 @@ const plans = {
       regularCycle('WEEK', 1, '0.99'),
     ],
   },
-  'P-WEEK': { id: 'P-WEEK', name: 'Gold', billing_cycles: [regularCycle('WEEK', 1, '4.99')] },
-  'P-MONTH': { id: 'P-MONTH', name: 'Gold', billing_cycles: [regularCycle('MONTH', 1, '5.99')] },
-  'P-QUARTER': { id: 'P-QUARTER', name: 'Gold', billing_cycles: [regularCycle('MONTH', 3, '15.99')] },
+  'P-WEEK': { id: 'P-WEEK', name: 'Gold', status: 'ACTIVE', billing_cycles: [regularCycle('WEEK', 1, '4.99')] },
+  'P-MONTH': { id: 'P-MONTH', name: 'Gold', status: 'ACTIVE', billing_cycles: [regularCycle('MONTH', 1, '5.99')] },
+  'P-QUARTER': { id: 'P-QUARTER', name: 'Gold', status: 'ACTIVE', billing_cycles: [regularCycle('MONTH', 3, '15.99')] },
 };
 
 let subscriptions = {};
@@ -110,6 +111,10 @@ app.post('/v1/billing/subscriptions/:id/cancel', requireBearer, (req, res) => {
   }
   sub.status = 'CANCELLED';
   res.status(204).send();
+});
+
+app.get('/v1/billing/plans', requireBearer, (req, res) => {
+  res.status(200).json({ plans: Object.values(plans), total_pages: 1 });
 });
 
 app.get('/v1/billing/plans/:id', requireBearer, (req, res) => {

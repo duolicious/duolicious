@@ -92,9 +92,15 @@ class _RegularCycle(BaseModel):
 class _Plan(BaseModel):
     id: str
     name: str
+    status: str
     billing_cycles: list[
         Annotated[_TrialCycle | _RegularCycle, Field(discriminator='tenure_type')]
     ]
+
+
+class _PlanList(BaseModel):
+    plans: list[_Plan]
+    total_pages: int = 1
 
 
 class PaypalPlan(BaseModel):
@@ -133,6 +139,7 @@ async def _request(
     model: type[T],
     json_body: Json = None,
     accept: tuple[int, ...] = (),
+    headers: Mapping[str, str] = {},
 ) -> T | None:
     try:
         async with make_http_client() as client:
@@ -146,7 +153,7 @@ async def _request(
             response = await client.request(
                 method,
                 f'{PAYPAL_API_URL}{path}',
-                headers=dict(Authorization=f'Bearer {access_token}'),
+                headers=dict(Authorization=f'Bearer {access_token}', **headers),
                 json=json_body,
             )
         return model.model_validate(
@@ -217,11 +224,7 @@ async def fetch_subscription(subscription_id: str) -> PaypalSubscription | None:
         'GET', _subscription_path(subscription_id), PaypalSubscription)
 
 
-async def fetch_plan(plan_id: str) -> PaypalPlan | None:
-    plan = await _request(
-        'GET', f'/v1/billing/plans/{quote(plan_id, safe="")}', _Plan)
-    if plan is None:
-        return None
+def _to_plan(plan: _Plan) -> PaypalPlan:
     regular = next(
         c for c in plan.billing_cycles if isinstance(c, _RegularCycle))
     trial = next(
@@ -235,6 +238,30 @@ async def fetch_plan(plan_id: str) -> PaypalPlan | None:
         trial=None if trial is None else trial.frequency.interval(
             trial.total_cycles),
     )
+
+
+async def fetch_plan(plan_id: str) -> PaypalPlan | None:
+    plan = await _request(
+        'GET', f'/v1/billing/plans/{quote(plan_id, safe="")}', _Plan)
+    return None if plan is None else _to_plan(plan)
+
+
+async def fetch_plans() -> list[PaypalPlan] | None:
+    plans: list[PaypalPlan] = []
+    page = 1
+    while True:
+        listed = await _request(
+            'GET',
+            f'/v1/billing/plans?page_size=20&page={page}&total_required=true',
+            _PlanList,
+            headers=dict(Prefer='return=representation'),
+        )
+        if listed is None:
+            return None
+        plans += [_to_plan(p) for p in listed.plans if p.status == 'ACTIVE']
+        if page >= listed.total_pages:
+            return plans
+        page += 1
 
 
 async def cancel_subscription(subscription_id: str) -> bool:

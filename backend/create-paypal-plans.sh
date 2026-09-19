@@ -4,8 +4,8 @@ set -eo pipefail
 
 usage () {
   cat >&2 <<'USAGE'
-Creates the weekly, monthly and three-monthly Gold plans on PayPal and prints
-the DUO_PAYPAL_PLAN_IDS line to set on the api container.
+Creates the weekly, monthly and three-monthly Gold plans on PayPal. The api
+container offers every active plan, so deactivate the plans these replace.
 
 Required, and they must be the api container's own values, since PayPal only
 lets the app that created a plan use it:
@@ -82,4 +82,4 @@ weekly=$(create_plan WEEK 1 4.99)
 monthly=$(create_plan MONTH 1 5.99)
 three_monthly=$(create_plan MONTH 3 15.99)
 
-echo "DUO_PAYPAL_PLAN_IDS=$weekly,$monthly,$three_monthly"
+echo "Created plans $weekly, $monthly and $three_monthly"
