@@ -4,7 +4,6 @@ import {
   intervalText,
   monthsIn,
   renewalText,
-  savings,
 } from './offering';
 
 const purchasable = (amount: number, units: number, unit: string): Purchasable => ({
@@ -25,7 +24,6 @@ test('longer cycles cost less per month', () => {
 
   expect(sorted).toEqual([week, month, quarter]);
   expect(sorted.map((p) => monthsIn(p.cycle))).toEqual([12 / 52, 1, 3]);
-  expect(sorted.map((p) => savings(p, sorted))).toEqual([0, 72, 75]);
 });
 
 test('trial and renewal copy', () => {

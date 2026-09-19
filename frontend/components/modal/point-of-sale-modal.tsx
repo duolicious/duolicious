@@ -25,7 +25,6 @@ import {
   intervalText,
   monthsIn,
   renewalText,
-  savings,
 } from '../../purchases/offering';
 import {
   FEATURES,
@@ -109,22 +108,16 @@ const useSelectedColor = (selected: SharedValue<number>, from: string, to: strin
 
 const PlanCard = ({
   purchasable,
-  purchasables,
   isSelected,
-  isPopular,
   compact,
   onPress,
 }: {
   purchasable: Purchasable
-  purchasables: Purchasable[]
   isSelected: boolean
-  isPopular: boolean
   compact: boolean
   onPress: () => void
 }) => {
   const { cycle, price, pricePerMonth, trial } = purchasable;
-  const saving = savings(purchasable, purchasables);
-  const badge = trial ? 'FREE TRIAL' : isPopular && saving > 0 && `SAVE ${saving}%`;
   const selected = useSharedValue(isSelected ? 1 : 0);
 
   useEffect(() => {
@@ -140,12 +133,11 @@ const PlanCard = ({
   const accentStyle = useSelectedColor(selected, '#ffffff', brandColor);
   const inkStyle = useSelectedColor(selected, '#ffffff', '#000000');
   const subStyle = useSelectedColor(selected, 'rgba(255, 255, 255, 0.9)', '#666666');
-  const tagStyle = useSelectedColor(selected, goldColor, brandColor);
 
   return (
     <Pressable
       onPress={onPress}
-      style={{ flex: 1, zIndex: isPopular || trial ? 2 : 1 }}
+      style={{ flex: 1, zIndex: trial ? 2 : 1 }}
     >
       <Animated.View
         style={[
@@ -176,22 +168,6 @@ const PlanCard = ({
             ringStyle,
           ]}
         />
-        {isPopular &&
-          <DefaultText
-            animated
-            animatedStyle={tagStyle}
-            disableTheme
-            style={{
-              fontSize: 10,
-              lineHeight: 14,
-              fontWeight: 800,
-              letterSpacing: 0.3,
-              marginBottom: compact ? 2 : 4,
-            }}
-          >
-            MOST POPULAR
-          </DefaultText>
-        }
         <DefaultText
           animated
           animatedStyle={accentStyle}
@@ -243,7 +219,7 @@ const PlanCard = ({
             {pricePerMonth}/mo
           </DefaultText>
         }
-        {badge &&
+        {trial &&
           <View
             style={{
               position: 'absolute',
@@ -262,7 +238,7 @@ const PlanCard = ({
               disableTheme
               style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
             >
-              {badge}
+              FREE TRIAL
             </DefaultText>
           </View>
         }
@@ -305,8 +281,8 @@ const OfferingCard = ({
 
   const purchasables = byCycleLength(offering.purchasables);
   const withTrial = purchasables.find((p) => p.trial);
-  const popular = purchasables[Math.floor(purchasables.length / 2)];
-  const chosen = picked ?? withTrial ?? popular;
+  const middle = purchasables[Math.floor(purchasables.length / 2)];
+  const chosen = picked ?? withTrial ?? middle;
   const trial = chosen.trial;
 
   const onPress = async () => {
@@ -399,9 +375,7 @@ const OfferingCard = ({
           <PlanCard
             key={monthsIn(purchasable.cycle)}
             purchasable={purchasable}
-            purchasables={purchasables}
             isSelected={purchasable === chosen}
-            isPopular={!withTrial && purchasable === popular}
             compact={compact}
             onPress={() => setPicked(purchasable)}
           />

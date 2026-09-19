@@ -31,17 +31,8 @@ const MONTHS_PER_UNIT: Record<string, number> = {
 const monthsIn = (cycle: OfferingInterval) =>
   cycle.units * (MONTHS_PER_UNIT[cycle.unit] ?? 1);
 
-const monthlyRate = (purchasable: Purchasable) =>
-  purchasable.amount / monthsIn(purchasable.cycle);
-
 const byCycleLength = (purchasables: Purchasable[]) =>
   _.sortBy(purchasables, (p) => monthsIn(p.cycle));
-
-const savings = (purchasable: Purchasable, purchasables: Purchasable[]) =>
-  Math.round(
-    (1 - monthlyRate(purchasable) / Math.max(...purchasables.map(monthlyRate)))
-    * 100
-  );
 
 const intervalText = ({ units, unit }: OfferingInterval) =>
   `${units} ${pluralize(unit, units)}`;
@@ -60,5 +51,4 @@ export {
   intervalText,
   monthsIn,
   renewalText,
-  savings,
 };
