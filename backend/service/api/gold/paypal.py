@@ -25,7 +25,7 @@ from serviceshared.duoenv.api import (
 
 logger = logging.getLogger(__name__)
 
-@AsyncLruCache(ttl=60 * 60, cache_condition=lambda plan: plan is not None)
+@AsyncLruCache(ttl=10, cache_condition=lambda plan: plan is not None)
 async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
     return await paypal.fetch_plan(plan_id)
 
