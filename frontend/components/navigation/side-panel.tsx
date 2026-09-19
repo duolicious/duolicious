@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { View, ViewStyle } from 'react-native';
+import { ReactNode, useEffect, useState } from 'react';
+import { Dimensions, View, ViewStyle } from 'react-native';
 import { commonStyles } from '../../styles';
 import { Surface, useAppTheme } from '../../app-theme/app-theme';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
@@ -21,6 +21,23 @@ const fitsSidePanels = (
   columnWidth = COLUMN_MAX_WIDTH,
 ): boolean =>
   !isMobile() && windowWidth >= sidePanelsMinWidth(numPanels, columnWidth);
+
+const useFitsSidePanels = (
+  numPanels: number,
+  columnWidth = COLUMN_MAX_WIDTH,
+): boolean => {
+  const fits =
+    fitsSidePanels(Dimensions.get('window').width, numPanels, columnWidth);
+  const [, setFits] = useState(fits);
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) =>
+      setFits(fitsSidePanels(window.width, numPanels, columnWidth)));
+    return () => subscription.remove();
+  }, [numPanels, columnWidth]);
+
+  return fits;
+};
 
 const SidePanelCard = ({ style, surface, children }: {
   style?: ViewStyle
@@ -84,4 +101,5 @@ export {
   SidePanelHeading,
   fitsSidePanels,
   sidePanelsMinWidth,
+  useFitsSidePanels,
 };
