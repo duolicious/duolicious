@@ -79,10 +79,10 @@ import {
   useProspectProfile,
 } from '../prospect-profile-screen/prospect-profile-screen';
 import {
-  SIDE_PANEL_GAP,
   SIDE_PANEL_TOP,
   SIDE_PANEL_WIDTH,
   SidePanelCard,
+  SidePanelLayout,
   useFitsSidePanels,
 } from '../navigation/side-panel';
 
@@ -884,12 +884,21 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   }
 
   return (
-    <View style={styles.row}>
-      {showInboxPanel &&
+    <SidePanelLayout
+      style={styles.layout}
+      left={showInboxPanel &&
         <SidePanelCard style={styles.sidePanel}>
           <InboxPanel openPersonUuid={personUuid} />
         </SidePanelCard>
       }
+      right={showProfilePanel && !profile.notFound &&
+        <ProspectProfilePanel
+          handle={handle}
+          data={profile.data}
+          style={styles.sidePanel}
+        />
+      }
+    >
       <SafeAreaView
         edges={['bottom', 'left', 'right']}
         style={[
@@ -1073,26 +1082,16 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           </DefaultText>
         }
       </SafeAreaView>
-      {showProfilePanel && !profile.notFound &&
-        <ProspectProfilePanel
-          handle={handle}
-          data={profile.data}
-          style={styles.sidePanel}
-        />
-      }
-    </View>
+    </SidePanelLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  row: {
+  layout: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
   },
   safeAreaView: {
     flex: 1,
-    maxWidth: COLUMN_MAX_WIDTH,
   },
   navBar: {
     maxWidth: COLUMN_MAX_WIDTH,
@@ -1104,9 +1103,7 @@ const styles = StyleSheet.create({
       - STATUS_BAR_SPACER_EXTRA_HEIGHT - TOP_NAV_BAR_HEIGHT / 2,
   },
   sidePanel: {
-    width: SIDE_PANEL_WIDTH,
-    marginHorizontal: SIDE_PANEL_GAP,
-    marginVertical: SIDE_PANEL_TOP,
+    flex: 1,
   },
 });
 

@@ -8,7 +8,6 @@ import {
   TextStyle,
   View,
   ViewStyle,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -113,8 +112,8 @@ import { copyProfileLink } from '../../util/util';
 import { SimilarProfiles } from './similar-profiles';
 import {
   SidePanelCard,
-  fitsSidePanels,
-  sidePanelsMinWidth,
+  SidePanelLayout,
+  useFitsSidePanels,
 } from '../navigation/side-panel';
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
 import { storeKv } from '../../kv-storage/kv-storage';
@@ -1044,14 +1043,14 @@ const ProspectProfile = ({
   canReply,
   showShareAndReport,
   paddingBottom,
-  paddingRight,
+  besideSidePanel,
 }: {
   handle: string,
   data: FetchedUserData | undefined,
   canReply: boolean,
   showShareAndReport: boolean,
   paddingBottom: number,
-  paddingRight?: number,
+  besideSidePanel?: boolean,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
   const [roundPrimaryPhoto, setRoundPrimaryPhoto] = useState(false);
@@ -1088,51 +1087,45 @@ const ProspectProfile = ({
           style={{
             width: '100%',
             height: '100%',
-            paddingRight,
           }}
         >
-          <View
-            style={{
-              width: '100%',
-              maxWidth: COLUMN_MAX_WIDTH,
-              alignSelf: 'center',
-              paddingBottom,
-            }}
-          >
-            <EnlargeablePhoto
-              photoUuid={firstOrNull(data?.photo_uuids)}
-              photoExtraExts={firstOrNull(data?.photo_extra_exts)}
-              photoBlurhash={primaryPhotoBlurhash(handle, data)}
-              photoGeometry={album[0]?.geometry}
-              album={album}
-              isPrimary={true}
-              isVerified={data?.photo_verifications[0]}
-              borderRadius={
-                roundPrimaryPhoto ? primaryPhotoBigScreenRadii : undefined}
-              style={
-                roundPrimaryPhoto ?
-                commonStyles.primaryEnlargeablePhotoBigScreen :
-                undefined
-              }
-            />
-            <ProspectUserDetails
-              personUuid={personUuid}
-              name={data?.name}
-              age={data?.age}
-              gender={data?.gender}
-              userLocation={data?.location}
-              verified={verificationLevelId(data) > 1}
-              matchPercentage={data?.match_percentage}
-              titleColor={data?.theme?.title_color}
-              bodyColor={data?.theme?.body_color}
-            />
-            <Body
-              personUuid={personUuid}
-              data={data}
-              canReply={canReply}
-              showShareAndReport={showShareAndReport}
-            />
-          </View>
+          <SidePanelLayout right={besideSidePanel}>
+            <View style={{ paddingBottom }}>
+              <EnlargeablePhoto
+                photoUuid={firstOrNull(data?.photo_uuids)}
+                photoExtraExts={firstOrNull(data?.photo_extra_exts)}
+                photoBlurhash={primaryPhotoBlurhash(handle, data)}
+                photoGeometry={album[0]?.geometry}
+                album={album}
+                isPrimary={true}
+                isVerified={data?.photo_verifications[0]}
+                borderRadius={
+                  roundPrimaryPhoto ? primaryPhotoBigScreenRadii : undefined}
+                style={
+                  roundPrimaryPhoto ?
+                  commonStyles.primaryEnlargeablePhotoBigScreen :
+                  undefined
+                }
+              />
+              <ProspectUserDetails
+                personUuid={personUuid}
+                name={data?.name}
+                age={data?.age}
+                gender={data?.gender}
+                userLocation={data?.location}
+                verified={verificationLevelId(data) > 1}
+                matchPercentage={data?.match_percentage}
+                titleColor={data?.theme?.title_color}
+                bodyColor={data?.theme?.body_color}
+              />
+              <Body
+                personUuid={personUuid}
+                data={data}
+                canReply={canReply}
+                showShareAndReport={showShareAndReport}
+              />
+            </View>
+          </SidePanelLayout>
         </HeartBackground>
       </Reanimated.View>
     </ScrollView>
@@ -1248,13 +1241,9 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
 
   const backgroundColor = useProfileBackgroundColor(data);
 
-  const { width } = useWindowDimensions();
+  const fitsSidePanel = useFitsSidePanels(1);
   const similarProfiles = data?.similar_profiles ?? [];
-  const showSimilarProfiles =
-    similarProfiles.length > 0 && fitsSidePanels(width, 1);
-  const columnPaddingRight = showSimilarProfiles
-    ? Math.max(0, sidePanelsMinWidth(2) - width)
-    : 0;
+  const showSimilarProfiles = similarProfiles.length > 0 && fitsSidePanel;
 
   return (
     <>
@@ -1306,35 +1295,27 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
           showShareAndReport={true}
           paddingBottom={
             showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100}
-          paddingRight={columnPaddingRight}
+          besideSidePanel={showSimilarProfiles}
         />
-        {showSimilarProfiles &&
-          <SimilarProfiles
-            items={similarProfiles}
-            backgroundColor={backgroundColor}
-            paddingRight={columnPaddingRight}
-          />
-        }
-        {showAuthedBottomButtons &&
-          <View
-            style={{
-              position: 'absolute',
-              bottom: insets.bottom,
-              width: '100%',
-              maxWidth: COLUMN_MAX_WIDTH,
-              alignSelf: 'center',
-              marginRight: columnPaddingRight,
-              zIndex: 999,
-              overflow: 'visible',
-              justifyContent: 'center',
-              flexDirection: 'row',
-            }}
-            pointerEvents="box-none"
-          >
+        <SidePanelLayout
+          style={styles.overlay}
+          right={showSimilarProfiles &&
+            <SimilarProfiles
+              items={similarProfiles}
+              backgroundColor={backgroundColor}
+            />
+          }
+        >
+          {showAuthedBottomButtons &&
             <View
               style={{
+                position: 'absolute',
+                bottom: insets.bottom,
+                width: '100%',
+                justifyContent: 'center',
                 flexDirection: 'row',
               }}
+              pointerEvents="box-none"
             >
               <FloatingSkipButton
                 personUuid={personUuid}
@@ -1347,8 +1328,8 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
                 photoBlurhash={primaryPhotoBlurhash(handle, data)}
               />
             </View>
-          </View>
-        }
+          }
+        </SidePanelLayout>
         {showAnonymousSignInCta && Platform.OS !== 'web' &&
           <AnonymousSignInCta
             navigation={navigation}
@@ -1887,6 +1868,10 @@ const Body = ({
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+  },
   wFull: {
     width: '100%',
   },
