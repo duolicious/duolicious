@@ -26,22 +26,22 @@ from serviceshared.duoenv.api import (
 logger = logging.getLogger(__name__)
 
 @redis_cache(ttl=10)
-async def _plan_dump(plan_id: str) -> dict[str, Json]:
+async def _plan_dump(plan_id: str) -> dict[str, Json] | None:
     plan = await paypal.fetch_plan(plan_id)
-    if plan is None:
-        raise RuntimeError('PayPal plan is unavailable')
-    return plan.model_dump()
+    return None if plan is None else plan.model_dump()
 
 
-async def _plan(plan_id: str) -> paypal.PaypalPlan:
-    return paypal.PaypalPlan.model_validate(await _plan_dump(plan_id))
+async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
+    dump = await _plan_dump(plan_id)
+    return None if dump is None else paypal.PaypalPlan.model_validate(dump)
 
 
 async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:
-    try:
-        return [await _plan_dump(plan_id) for plan_id in PAYPAL_PLAN_IDS]
-    except RuntimeError:
+    plans = [await _plan(plan_id) for plan_id in PAYPAL_PLAN_IDS]
+    if None in plans:
         return 'PayPal request failed', 502
+
+    return [plan.model_dump() for plan in plans if plan]
 
 
 async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
@@ -52,6 +52,9 @@ async def live_subscription_ids(tx: Tx, person_ids: Iterable[int]) -> list[str]:
 
 async def _apply(subscription: paypal.PaypalSubscription) -> bool:
     plan = await _plan(subscription.plan_id)
+    if plan is None:
+        raise RuntimeError('PayPal plan is unavailable')
+
     expires_at = paypal.paid_until(subscription, plan)
     if expires_at is None:
         return False

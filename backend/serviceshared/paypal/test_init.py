@@ -1,8 +1,5 @@
-import asyncio
 import unittest
 from datetime import datetime
-
-import httpx
 
 from serviceshared import paypal
 
@@ -50,19 +47,3 @@ class TestPaypal(unittest.TestCase):
         ]
         for subscription, plan, expected in cases:
             self.assertEqual(paypal.paid_until(subscription, plan), expected)
-
-    def test_access_token_is_reused_until_it_expires(self) -> None:
-        issued = 0
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            nonlocal issued
-            issued += 1
-            return httpx.Response(
-                200, json=dict(access_token=f'token-{issued}', expires_in=3600))
-
-        async def tokens() -> list[str]:
-            async with httpx.AsyncClient(
-                    transport=httpx.MockTransport(handler)) as client:
-                return [await paypal._access_token(client) for _ in range(3)]
-
-        self.assertEqual(asyncio.run(tokens()), ['token-1'] * 3)

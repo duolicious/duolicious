@@ -68,7 +68,7 @@ app.post('/v1/oauth2/token', (req, res) => {
     res.status(401).json({ error: 'invalid_client' });
     return;
   }
-  res.status(200).json({ access_token: 'mock-access-token', expires_in: 32400 });
+  res.status(200).json({ access_token: 'mock-access-token' });
 });
 
 const newSubscription = (id, fields) => subscriptions[id] = {
