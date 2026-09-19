@@ -1,6 +1,8 @@
 import logging
 from collections.abc import Iterable
 
+import redis.asyncio as redis
+
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
@@ -10,7 +12,6 @@ from serviceshared.database import Tx, api_tx, row_bool, row_str
 from serviceshared.gold.sql import Q_GRANT_GOLD
 from serviceshared.util import Json
 from serviceshared.util.coerce import integer, string
-from service.api.async_lru_cache import AsyncLruCache
 from service.api.auth.oauth_redirect import redirect
 from service.api.gold.sql import (
     Q_HAS_LIVE_SUBSCRIPTION,
@@ -21,13 +22,24 @@ from serviceshared.duoenv.api import (
     PAYPAL_PLAN_IDS,
     PAYPAL_RETURN_URL,
     PAYPAL_WEB_REDIRECT_URL,
+    REDIS_HOST,
+    REDIS_PORT,
 )
 
 logger = logging.getLogger(__name__)
 
-@AsyncLruCache(ttl=10, cache_condition=lambda plan: plan is not None)
+_redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
+
 async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
-    return await paypal.fetch_plan(plan_id)
+    key = f'paypal:plan:{plan_id}'
+    cached = await _redis.get(key)
+    if cached is not None:
+        return paypal.PaypalPlan.model_validate_json(cached)
+    plan = await paypal.fetch_plan(plan_id)
+    if plan is not None:
+        await _redis.set(key, plan.model_dump_json(), ex=10)
+    return plan
 
 
 async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:

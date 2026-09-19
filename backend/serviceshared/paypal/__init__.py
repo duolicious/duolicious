@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Annotated, Literal, TypeVar
@@ -108,6 +109,7 @@ class PaypalPlan(BaseModel):
 
 class _Token(BaseModel):
     access_token: str
+    expires_in: int
 
 
 class _Link(BaseModel):
@@ -127,6 +129,24 @@ class _Empty(BaseModel):
     pass
 
 
+_token: tuple[str, float] = ('', 0.0)
+
+
+async def _access_token(client: httpx.AsyncClient) -> str:
+    global _token
+    access_token, expires_at = _token
+    if time.monotonic() < expires_at:
+        return access_token
+    response = await client.post(
+        f'{PAYPAL_API_URL}/v1/oauth2/token',
+        data=dict(grant_type='client_credentials'),
+        auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
+    )
+    token = _Token.model_validate(response.raise_for_status().json())
+    _token = (token.access_token, time.monotonic() + token.expires_in - 60)
+    return token.access_token
+
+
 async def _request(
     method: str,
     path: str,
@@ -134,24 +154,20 @@ async def _request(
     json_body: Json = None,
     accept: tuple[int, ...] = (),
 ) -> T | None:
+    global _token
     try:
         async with make_http_client() as client:
-            token = await client.post(
-                f'{PAYPAL_API_URL}/v1/oauth2/token',
-                data=dict(grant_type='client_credentials'),
-                auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
-            )
-            access_token = _Token.model_validate(
-                token.raise_for_status().json()).access_token
             response = await client.request(
                 method,
                 f'{PAYPAL_API_URL}{path}',
-                headers=dict(Authorization=f'Bearer {access_token}'),
+                headers=dict(Authorization=f'Bearer {await _access_token(client)}'),
                 json=json_body,
             )
         return model.model_validate(
             response.raise_for_status().json() if response.content else {})
     except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            _token = ('', 0.0)
         if e.response.status_code in accept:
             return model.model_validate({})
         logger.warning(
