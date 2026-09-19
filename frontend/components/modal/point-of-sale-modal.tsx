@@ -236,7 +236,7 @@ const PlanCard = ({
           >
             <DefaultText
               disableTheme
-              style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
+              style={{ color: 'black', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}
             >
               FREE TRIAL
             </DefaultText>
