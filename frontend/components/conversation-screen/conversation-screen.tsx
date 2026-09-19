@@ -563,7 +563,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   }), [applyProspect]);
 
   const profile = useProspectProfile(
-    showProfilePanel ? handle : undefined, false, applyProfile);
+    showProfilePanel ? handle : undefined, applyProfile);
 
   useEffect(() => {
     if (profile.notFound) {
