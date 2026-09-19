@@ -11,7 +11,6 @@ type PurchaseResult = 'purchased' | 'cancelled' | 'failed';
 type Purchasable = {
   price: string,
   pricePerMonth: string | null,
-  amount: number,
   cycle: OfferingInterval,
   trial: OfferingInterval | null,
   purchase: () => Promise<PurchaseResult>,

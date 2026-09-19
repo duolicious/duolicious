@@ -41,7 +41,6 @@ const getOffering = async (): Promise<Offering | null> => {
     purchasables: response.json.map(({ id, price, currency, cycle, trial }) => ({
       price: formatPrice(Number(price), currency),
       pricePerMonth: formatPrice(Number(price) / monthsIn(cycle), currency),
-      amount: Number(price),
       cycle,
       trial,
       purchase: () => purchase(id),

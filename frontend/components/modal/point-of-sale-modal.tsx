@@ -447,7 +447,7 @@ const OfferingCard = ({
               {intervalText(trial)} free, then {renewalText(chosen)}.{'\n'}
             </DefaultText>
           }
-          {trial ? 'Renews' : 'Subscription renews'} automatically. Cancel anytime.
+          Subscription renews automatically. Cancel anytime.
         </DefaultText>
       </View>
     </>

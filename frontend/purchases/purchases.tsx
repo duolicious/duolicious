@@ -144,7 +144,6 @@ const toPurchasable = (
   return cycle && {
     price: pkg.product.priceString,
     pricePerMonth: pkg.product.pricePerMonthString,
-    amount: pkg.product.price,
     cycle,
     trial: trialEligible && intro?.price === 0 ? parsePeriod(intro.period) : null,
     purchase: () => purchasePackage(pkg),

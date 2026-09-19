@@ -9,7 +9,6 @@ import {
 const purchasable = (amount: number, units: number, unit: string): Purchasable => ({
   price: `$${amount}`,
   pricePerMonth: null,
-  amount,
   cycle: { units, unit },
   trial: null,
   purchase: async () => 'purchased',
