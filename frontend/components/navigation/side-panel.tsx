@@ -9,11 +9,18 @@ const SIDE_PANEL_WIDTH = 320;
 const SIDE_PANEL_GAP = 32;
 const SIDE_PANEL_TOP = 20;
 
-const sidePanelsMinWidth = (numPanels: number): number =>
-  COLUMN_MAX_WIDTH + numPanels * (SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP);
+const sidePanelsMinWidth = (
+  numPanels: number,
+  columnWidth = COLUMN_MAX_WIDTH,
+): number =>
+  columnWidth + numPanels * (SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP);
 
-const fitsSidePanels = (windowWidth: number, numPanels: number): boolean =>
-  !isMobile() && windowWidth >= sidePanelsMinWidth(numPanels);
+const fitsSidePanels = (
+  windowWidth: number,
+  numPanels: number,
+  columnWidth = COLUMN_MAX_WIDTH,
+): boolean =>
+  !isMobile() && windowWidth >= sidePanelsMinWidth(numPanels, columnWidth);
 
 const SidePanelCard = ({ style, surface, children }: {
   style?: ViewStyle

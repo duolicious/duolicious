@@ -493,8 +493,10 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   const { appTheme } = useAppTheme();
   const { width } = useWindowDimensions();
   const showInboxPanel =
-    useOpenedFromInboxOrUrl(route.key) && fitsSidePanels(width, 1);
-  const showProfilePanel = fitsSidePanels(width, 2);
+    useOpenedFromInboxOrUrl(route.key) &&
+    fitsSidePanels(width, 1, SIDE_PANEL_WIDTH);
+  const showProfilePanel =
+    fitsSidePanels(width, showInboxPanel ? 2 : 1, SIDE_PANEL_WIDTH);
   const [isActive, setIsActive] = useState(AppState.currentState === 'active');
   const [isOnline, setIsOnline] = useState(false);
 
@@ -884,18 +886,20 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     }, [markLastMessageRead]);
   }
 
-  const paddingLeft = showInboxPanel && !showProfilePanel
-    ? SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP
-    : 0;
-  const columnLeft = (width + paddingLeft - COLUMN_MAX_WIDTH) / 2;
+  const panelSpace = SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP;
+  const paddingLeft = showInboxPanel ? panelSpace : 0;
+  const paddingRight = showProfilePanel ? panelSpace : 0;
+  const columnWidth =
+    Math.min(COLUMN_MAX_WIDTH, width - paddingLeft - paddingRight);
+  const columnLeft = (width + paddingLeft - paddingRight - columnWidth) / 2;
   const inboxPanelStyle = useMemo(() => ({
     ...styles.sidePanel,
     left: columnLeft - SIDE_PANEL_GAP - SIDE_PANEL_WIDTH,
   }), [columnLeft]);
   const profilePanelStyle = useMemo(() => ({
     ...styles.sidePanel,
-    left: columnLeft + COLUMN_MAX_WIDTH + SIDE_PANEL_GAP,
-  }), [columnLeft]);
+    left: columnLeft + columnWidth + SIDE_PANEL_GAP,
+  }), [columnLeft, columnWidth]);
 
   return (
     <SafeAreaView
@@ -903,7 +907,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       style={[
         styles.safeAreaView,
         (showInboxPanel || showProfilePanel) && styles.besidePanels,
-        { paddingLeft },
+        { paddingLeft, paddingRight },
       ]}
     >
       <ConversationScreenNavBar
