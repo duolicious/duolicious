@@ -927,11 +927,10 @@ const readProspectProfileCache = async (): Promise<ProspectProfileCache> => {
 
 const cachedProspectProfile = async (
   handle: string,
-  similarProfiles: boolean,
 ): Promise<FetchedUserData | undefined> =>
   Object.values(await readProspectProfileCache()).find((profile) =>
     (profile.person_uuid === handle || profile.url_slug === handle) &&
-    (!similarProfiles || profile.similar_profiles !== undefined));
+    (isMobile() || profile.similar_profiles !== undefined));
 
 const cacheProspectProfile = async (profile: FetchedUserData) =>
   storeKv(
@@ -946,18 +945,16 @@ const resetProspectProfileCache = () => storeKv('prospect_profiles', null);
 
 const prospectProfilePath = (
   handle: string,
-  similarProfiles: boolean,
   isAnonymousViewer: boolean,
 ) => {
-  const similarProfilesQuery = similarProfiles
-    ? (isAnonymousViewer && encodedAnonymousAnswers()) || 'true'
-    : 'false';
+  const similarProfilesQuery = isMobile()
+    ? 'false'
+    : (isAnonymousViewer && encodedAnonymousAnswers()) || 'true';
   return `/prospect-profile/${handle}?similar_profiles=${similarProfilesQuery}`;
 };
 
 const useProspectProfile = (
   handle: string | undefined,
-  similarProfiles: boolean,
   onData?: (profile: FetchedUserData) => void,
 ) => {
   const [signedInUser] = useSignedInUser();
@@ -973,7 +970,7 @@ const useProspectProfile = (
     if (!handle) return;
     let cancelled = false;
     (async () => {
-      const cached = await cachedProspectProfile(handle, similarProfiles);
+      const cached = await cachedProspectProfile(handle);
       if (cancelled) return;
       if (cached) {
         setResult({ handle, data: cached, notFound: false });
@@ -992,7 +989,7 @@ const useProspectProfile = (
         setSkipped(handle, { networkState: 'fetching' });
       }
       const response = await api<UserData>(
-        'get', prospectProfilePath(handle, similarProfiles, !signedInUser));
+        'get', prospectProfilePath(handle, !signedInUser));
       if (cancelled) return;
       const profile =
         response?.json && { ...response.json, fetchedAt: Date.now() };
@@ -1025,7 +1022,7 @@ const useProspectProfile = (
       }
     })();
     return () => { cancelled = true; };
-  }, [handle, signedInUser?.personUuid, similarProfiles]);
+  }, [handle, signedInUser?.personUuid]);
 
   const current = result?.handle === handle ? result : undefined;
 
@@ -1177,7 +1174,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
   const [signedInUser] = useSignedInUser();
 
   const { data, notFound, personUuid } =
-    useProspectProfile(handle, !isMobile());
+    useProspectProfile(handle);
 
   // `showBottomButtons` and `photoBlurhash` are intentionally NOT route params:
   // the former is derived from who's signed in (plus an optional one-shot
