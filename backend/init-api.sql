@@ -1770,7 +1770,7 @@ CREATE TABLE IF NOT EXISTS inbox (
     PRIMARY KEY(luser, remote_bare_jid)
 );
 
--- Used to time notifications appropriately
+-- TODO: Drop this table
 CREATE TABLE IF NOT EXISTS presence_histogram (
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     dow SMALLINT NOT NULL, -- 0=Sun .. 6=Sat

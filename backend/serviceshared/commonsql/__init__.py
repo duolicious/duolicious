@@ -91,36 +91,12 @@ WHERE
 Q_REFRESH_CLUB_VECTOR = _q_refresh_club_vector('id = %(person_id)s')
 
 Q_UPDATE_LAST = """
-WITH updated_person AS (
-    UPDATE
-        person
-    SET
-        last_online_time = NOW()
-    WHERE
-        uuid = %(person_uuid)s
-    RETURNING
-        id
-)
-INSERT INTO presence_histogram (
-    person_id,
-    dow,
-    hour,
-    score,
-    updated_at
-)
-SELECT
-    id,
-    EXTRACT(DOW  FROM (now() AT TIME ZONE 'UTC'))::smallint AS dow,
-    EXTRACT(HOUR FROM (now() AT TIME ZONE 'UTC'))::smallint AS hour,
-    1::FLOAT4 AS score,
-    now() AS updated_at
-FROM
-    updated_person
-ON CONFLICT (person_id, dow, hour) DO UPDATE SET
-    score = presence_histogram.score + EXCLUDED.score,
-    updated_at = EXCLUDED.updated_at
+UPDATE
+    person
+SET
+    last_online_time = NOW()
 WHERE
-    presence_histogram.updated_at < EXCLUDED.updated_at - INTERVAL '1 hour'
+    uuid = %(person_uuid)s
 """
 
 Q_UPSERT_LAST_INTRO_NOTIFICATION_TIME = """
