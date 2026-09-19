@@ -10,8 +10,8 @@ from serviceshared.database import Tx, api_tx, row_bool, row_str
 from serviceshared.gold.sql import Q_GRANT_GOLD
 from serviceshared.util import Json
 from serviceshared.util.coerce import integer, string
-from service.api.async_lru_cache import AsyncLruCache
 from service.api.auth.oauth_redirect import redirect
+from service.api.search.rediscache import redis_cache
 from service.api.gold.sql import (
     Q_HAS_LIVE_SUBSCRIPTION,
     Q_LIVE_PAYPAL_SUBSCRIPTION_IDS,
@@ -25,9 +25,15 @@ from serviceshared.duoenv.api import (
 
 logger = logging.getLogger(__name__)
 
-@AsyncLruCache(ttl=10, cache_condition=lambda plan: plan is not None)
+@redis_cache(ttl=10)
+async def _plan_dump(plan_id: str) -> dict[str, Json] | None:
+    plan = await paypal.fetch_plan(plan_id)
+    return None if plan is None else plan.model_dump()
+
+
 async def _plan(plan_id: str) -> paypal.PaypalPlan | None:
-    return await paypal.fetch_plan(plan_id)
+    dump = await _plan_dump(plan_id)
+    return None if dump is None else paypal.PaypalPlan.model_validate(dump)
 
 
 async def get_plans() -> tuple[str, int] | list[dict[str, Json]]:
