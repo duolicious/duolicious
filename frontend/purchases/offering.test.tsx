@@ -1,10 +1,18 @@
-import { Purchasable, byCycleLength, monthsIn, savings } from './offering';
+import {
+  Purchasable,
+  byCycleLength,
+  intervalText,
+  monthsIn,
+  renewalText,
+  savings,
+} from './offering';
 
 const purchasable = (amount: number, units: number, unit: string): Purchasable => ({
   price: `$${amount}`,
   pricePerMonth: null,
   amount,
   cycle: { units, unit },
+  trial: null,
   purchase: async () => 'purchased',
 });
 
@@ -18,4 +26,12 @@ test('longer cycles cost less per month', () => {
   expect(sorted).toEqual([week, month, quarter]);
   expect(sorted.map((p) => monthsIn(p.cycle))).toEqual([12 / 52, 1, 3]);
   expect(sorted.map((p) => savings(p, sorted))).toEqual([0, 72, 75]);
+});
+
+test('trial and renewal copy', () => {
+  expect(intervalText({ units: 7, unit: 'day' })).toBe('7 days');
+  expect(intervalText({ units: 1, unit: 'week' })).toBe('1 week');
+  expect(renewalText(week)).toBe('$4.99/week');
+  expect(renewalText(month)).toBe('$5.99/month');
+  expect(renewalText(quarter)).toBe('$15.99 every 3 months');
 });

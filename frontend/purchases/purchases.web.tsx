@@ -7,6 +7,7 @@ type Plan = {
   price: string,
   currency: string,
   cycle: OfferingInterval,
+  trial: OfferingInterval | null,
 };
 
 const purchase = async (planId: string): Promise<PurchaseResult> => {
@@ -37,11 +38,12 @@ const getOffering = async (): Promise<Offering | null> => {
   const response = await api<Plan[]>('get', '/paypal/plans');
   if (!response.ok || !response.json?.length) return null;
   return {
-    purchasables: response.json.map(({ id, price, currency, cycle }) => ({
+    purchasables: response.json.map(({ id, price, currency, cycle, trial }) => ({
       price: formatPrice(Number(price), currency),
       pricePerMonth: formatPrice(Number(price) / monthsIn(cycle), currency),
       amount: Number(price),
       cycle,
+      trial,
       purchase: () => purchase(id),
     })),
   };

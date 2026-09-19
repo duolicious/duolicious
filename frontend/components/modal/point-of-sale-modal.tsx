@@ -22,7 +22,9 @@ import {
   Offering,
   Purchasable,
   byCycleLength,
+  intervalText,
   monthsIn,
+  renewalText,
   savings,
 } from '../../purchases/offering';
 import {
@@ -120,8 +122,9 @@ const PlanCard = ({
   compact: boolean
   onPress: () => void
 }) => {
-  const { cycle, price, pricePerMonth } = purchasable;
+  const { cycle, price, pricePerMonth, trial } = purchasable;
   const saving = savings(purchasable, purchasables);
+  const badge = trial ? 'FREE TRIAL' : isPopular && saving > 0 && `SAVE ${saving}%`;
   const selected = useSharedValue(isSelected ? 1 : 0);
 
   useEffect(() => {
@@ -142,7 +145,7 @@ const PlanCard = ({
   return (
     <Pressable
       onPress={onPress}
-      style={{ flex: 1, zIndex: isPopular ? 2 : 1 }}
+      style={{ flex: 1, zIndex: isPopular || trial ? 2 : 1 }}
     >
       <Animated.View
         style={[
@@ -240,7 +243,7 @@ const PlanCard = ({
             {pricePerMonth}/mo
           </DefaultText>
         }
-        {isPopular && saving > 0 &&
+        {badge &&
           <View
             style={{
               position: 'absolute',
@@ -259,7 +262,7 @@ const PlanCard = ({
               disableTheme
               style={{ color: 'black', fontSize: 11, fontWeight: 800 }}
             >
-              SAVE {saving}%
+              {badge}
             </DefaultText>
           </View>
         }
@@ -301,8 +304,10 @@ const OfferingCard = ({
   }
 
   const purchasables = byCycleLength(offering.purchasables);
+  const withTrial = purchasables.find((p) => p.trial);
   const popular = purchasables[Math.floor(purchasables.length / 2)];
-  const chosen = picked ?? popular;
+  const chosen = picked ?? withTrial ?? popular;
+  const trial = chosen.trial;
 
   const onPress = async () => {
     setHasError(false);
@@ -396,7 +401,7 @@ const OfferingCard = ({
             purchasable={purchasable}
             purchasables={purchasables}
             isSelected={purchasable === chosen}
-            isPopular={purchasable === popular}
+            isPopular={!withTrial && purchasable === popular}
             compact={compact}
             onPress={() => setPicked(purchasable)}
           />
@@ -436,8 +441,8 @@ const OfferingCard = ({
       <View
         style={{
           paddingHorizontal: 16,
-          paddingBottom: compact ? 14 : 36,
-          gap: 8,
+          paddingBottom: compact ? 14 : trial ? 22 : 36,
+          gap: trial ? 16 : 8,
         }}
       >
         {hasError &&
@@ -448,18 +453,27 @@ const OfferingCard = ({
             Something went wrong
           </DefaultText>
         }
-        <PurchaseButton label={cta} compact={compact} onPress={onPress} />
+        <PurchaseButton
+          label={trial ? `Try ${intervalText(trial)} free` : cta}
+          compact={compact}
+          onPress={onPress}
+        />
         <DefaultText
           disableTheme
           style={{
             textAlign: 'center',
             fontSize: compact ? 11 : 12,
-            lineHeight: 18,
+            lineHeight: trial ? 16 : 18,
             fontWeight: 500,
             color: fadedWhite,
           }}
         >
-          Subscription renews automatically. Cancel anytime.
+          {trial &&
+            <DefaultText disableTheme style={{ fontWeight: 800, color: 'white' }}>
+              {intervalText(trial)} free, then {renewalText(chosen)}.{'\n'}
+            </DefaultText>
+          }
+          {trial ? 'Renews' : 'Subscription renews'} automatically. Cancel anytime.
         </DefaultText>
       </View>
     </>

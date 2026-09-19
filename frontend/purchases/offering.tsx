@@ -1,4 +1,5 @@
 import * as _ from 'lodash';
+import { pluralize } from '../util/util';
 
 type OfferingInterval = {
   units: number,
@@ -12,6 +13,7 @@ type Purchasable = {
   pricePerMonth: string | null,
   amount: number,
   cycle: OfferingInterval,
+  trial: OfferingInterval | null,
   purchase: () => Promise<PurchaseResult>,
 };
 
@@ -41,12 +43,22 @@ const savings = (purchasable: Purchasable, purchasables: Purchasable[]) =>
     * 100
   );
 
+const intervalText = ({ units, unit }: OfferingInterval) =>
+  `${units} ${pluralize(unit, units)}`;
+
+const renewalText = ({ price, cycle }: Purchasable) =>
+  cycle.units === 1
+    ? `${price}/${cycle.unit}`
+    : `${price} every ${intervalText(cycle)}`;
+
 export {
   Offering,
   OfferingInterval,
   Purchasable,
   PurchaseResult,
   byCycleLength,
+  intervalText,
   monthsIn,
+  renewalText,
   savings,
 };
