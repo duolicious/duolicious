@@ -910,7 +910,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 900,
     overflow: 'hidden',
-    // @ts-ignore
     whiteSpace: 'nowrap',
     textOverflow: 'clip',
   },

@@ -1,6 +1,7 @@
 import 'react-native-get-random-values';
 import { Platform } from 'react-native';
 import Purchases, {
+  INTRO_ELIGIBILITY_STATUS,
   PurchasesOffering,
   PurchasesPackage,
 } from 'react-native-purchases';
@@ -134,13 +135,17 @@ const purchasePackage = async (
   }
 };
 
-const toPurchasable = (pkg: PurchasesPackage): Purchasable | null => {
+const toPurchasable = (
+  pkg: PurchasesPackage,
+  trialEligible: boolean,
+): Purchasable | null => {
   const cycle = parsePeriod(pkg.product.subscriptionPeriod);
+  const intro = pkg.product.introPrice;
   return cycle && {
     price: pkg.product.priceString,
-    pricePerMonth: pkg.product.pricePerMonthString,
-    amount: pkg.product.price,
+    pricePerWeek: pkg.product.pricePerWeekString,
     cycle,
+    trial: trialEligible && intro?.price === 0 ? parsePeriod(intro.period) : null,
     purchase: () => purchasePackage(pkg),
   };
 };
@@ -151,9 +156,18 @@ const getOffering = async (): Promise<Offering | null> => {
 
   await ensurePurchasesConfigured();
   const offering = await getCurrentOfferingForUserMemoized(personUuid);
-  const purchasables = offering?.availablePackages
-    .flatMap((pkg) => toPurchasable(pkg) ?? []) ?? [];
-  if (!offering || purchasables.length === 0) return null;
+  if (!offering) return null;
+
+  const eligibility = await Purchases.checkTrialOrIntroductoryPriceEligibility(
+    offering.availablePackages.map((pkg) => pkg.product.identifier));
+  const purchasables = offering.availablePackages.flatMap((pkg) =>
+    toPurchasable(
+      pkg,
+      eligibility[pkg.product.identifier]?.status !==
+        INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_INELIGIBLE,
+    ) ?? []
+  );
+  if (purchasables.length === 0) return null;
 
   return { purchasables };
 };
