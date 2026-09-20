@@ -13,6 +13,7 @@ from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
 from service.api.person.bestdistance import (
     CANDIDATE_LIMIT,
+    best_country_and_distance,
     best_distance,
     distance_preference,
 )
@@ -149,17 +150,25 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
     )
     bounds = best_age(age)
 
-    async def count_within(distance_km: float) -> int:
+    async def count_within(distance_km: float, same_country_only: bool) -> int:
         counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
             person_id=person_id,
             distance_metres=distance_km * 1000,
+            same_country_only=same_country_only,
             min_age=0 if bounds.min_age is None else bounds.min_age,
             max_age=999 if bounds.max_age is None else bounds.max_age,
             candidate_limit=CANDIDATE_LIMIT,
         ))
         return row_int(counted, 'candidates')
 
-    candidates = await best_distance(count_within)
+    if person_id % 2 == 0:
+        same_country_only, candidates = await best_country_and_distance(
+            count_within
+        )
+    else:
+        same_country_only, candidates = False, await best_distance(
+            lambda distance_km: count_within(distance_km, False)
+        )
 
     is_joining_club = row_bool(
         await tx.require_one(Q_IS_JOINING_CLUB, params=dict(person_id=person_id)),
@@ -171,6 +180,7 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         min_age=bounds.min_age,
         max_age=bounds.max_age,
         distance=distance_preference(candidates, is_joining_club=is_joining_club),
+        same_country_only=same_country_only and not is_joining_club,
     ))
 
 
