@@ -596,20 +596,12 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
             if tx.rowcount != 1:
                 return 'Unknown location', 400
     elif field_name == 'coordinates':
-        params = dict(
-            email=s.email,
-            **snap_to_grid(**field_value),
-        )
+        params = dict(email=s.email, **snap_to_grid(**field_value))
 
         q_set_onboardee_field = f"""
-            INSERT INTO onboardee (
-                email,
-                coordinates
-            ) VALUES (
-                %(email)s,
-                {SQL_POINT}
-            ) ON CONFLICT (email) DO UPDATE SET
-                coordinates = EXCLUDED.coordinates
+            INSERT INTO onboardee (email, coordinates)
+            VALUES (%(email)s, {SQL_POINT})
+            ON CONFLICT (email) DO UPDATE SET coordinates = EXCLUDED.coordinates
             """
         async with api_tx() as tx:
             await tx.execute(q_set_onboardee_field, params)
