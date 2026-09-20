@@ -1,6 +1,7 @@
 from serviceshared.database import api_tx
 from service.api.async_lru_cache import AsyncLruCache
 import json
+import math
 import os
 
 _locations_json_file = os.path.join(
@@ -17,6 +18,12 @@ WHERE
 ORDER BY
     long_friendly <-> %(search_string)s
 LIMIT 10
+"""
+
+SQL_POINT = "ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326)::geography"
+
+Q_REVERSE_GEOCODE = f"""
+SELECT long_friendly FROM location ORDER BY coordinates <-> {SQL_POINT} LIMIT 1
 """
 
 async def init_db() -> None:
@@ -69,3 +76,17 @@ async def get_search_locations(q: str | None) -> object:
         row_tx = await tx.execute(Q_SEARCH_LOCATIONS, params)
         rows = await row_tx.fetchall()
         return [row['long_friendly'] for row in rows]
+
+GRID_METRES = 5000
+METRES_PER_DEGREE = 111_320
+
+def snap_to_grid(lat: float, lon: float) -> dict[str, float]:
+    step = GRID_METRES / METRES_PER_DEGREE
+    snapped_lat = max(-90.0, min(90.0, round(lat / step) * step))
+    lon_step = step / max(math.cos(math.radians(snapped_lat)), 1e-9)
+    return dict(lat=snapped_lat, lon=round(lon / lon_step) * lon_step)
+
+async def get_reverse_geocode(lat: float, lon: float) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row = await tx.require_one(Q_REVERSE_GEOCODE, snap_to_grid(lat, lon))
+        return dict(location=row['long_friendly'])

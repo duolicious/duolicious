@@ -166,6 +166,16 @@ async def get_search_locations(
 ) -> object:
     return await location.get_search_locations(request.query_params.get('q'))
 
+@app.get('/reverse-geocode')
+async def get_reverse_geocode(
+    q: Annotated[t.Coordinates, Query()],
+    s: t.SessionInfo = Depends(session(
+        expected_onboarding_status=None,
+        expected_sign_in_status=None,
+    )),
+) -> object:
+    return await location.get_reverse_geocode(q.lat, q.lon)
+
 @app.patch('/onboardee-info')
 async def patch_onboardee_info(
     req: t.PatchOnboardeeInfo,

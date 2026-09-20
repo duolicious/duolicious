@@ -54,7 +54,7 @@ trim () {
       trimmed="${trimmed%% }"
   done
 
-  printf "$trimmed"
+  printf '%s' "$trimmed"
 }
 
 # HTTP client wrapper around curl.

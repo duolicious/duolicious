@@ -45,6 +45,7 @@ import {
   OptionGroupButtons,
   OptionGroupCheckChips,
   OptionGroupGivenName,
+  LocationValue,
   OptionGroupInputs,
   OptionGroupLocationSelector,
   OptionGroupNone,
@@ -121,6 +122,7 @@ type InputProps<T extends OptionGroupInputs> = {
   onSubmitSuccess: () => void
   title: string,
   showSkipButton: boolean
+  color: string
   theme?: 'dark' | 'light'
 };
 
@@ -511,19 +513,27 @@ const Otp = forwardRef((props: InputProps<OptionGroupOtp>, ref) => {
 });
 
 const LocationSelector = forwardRef((props: InputProps<OptionGroupLocationSelector>, ref) => {
-  const [isInvalid, setIsInvalid] = useState(false);
-  const inputValueRef = useRef<string>(props.input.locationSelector.currentValue ?? '');
+  const [invalidMsg, setInvalidMsg] = useState<string | null>(null);
+  const inputValueRef = useRef<LocationValue>({
+    text: props.input.locationSelector.currentValue ?? '',
+  });
 
-  const onChangeInputValue = useCallback((value: string) => {
+  const onChangeInputValue = useCallback((value: LocationValue) => {
     inputValueRef.current = value;
+    setInvalidMsg(null);
   }, []);
 
   const submit = useCallback(async () => {
-    setIsInvalid(false);
+    if (inputValueRef.current.text === '') {
+      setInvalidMsg('Choose a location first');
+      return;
+    }
+
+    setInvalidMsg(null);
     props.setIsLoading(true);
 
-    const ok = await props.input.locationSelector.submit(inputValueRef?.current);
-    setIsInvalid(!ok);
+    const ok = await props.input.locationSelector.submit(inputValueRef.current);
+    setInvalidMsg(ok ? null : 'Never heard of it! Try again?');
     ok && props.onSubmitSuccess();
 
     props.setIsLoading(false);
@@ -534,20 +544,21 @@ const LocationSelector = forwardRef((props: InputProps<OptionGroupLocationSelect
   return (
     <>
       <LocationSelector_
-        onChangeText={onChangeInputValue}
+        onChange={onChangeInputValue}
         currentValue={inputValueRef.current}
+        color={props.color}
       />
       <DefaultText
         style={{
           zIndex: -1,
           elevation: -1,
           textAlign: 'center',
-          color: 'white',
+          color: props.color,
           marginTop: 5,
-          opacity: isInvalid ? 1 : 0,
+          opacity: invalidMsg === null ? 0 : 1,
         }}
       >
-        Never heard of it! Try again?
+        {invalidMsg}
       </DefaultText>
       {props.showSkipButton &&
         <ButtonWithCenteredText
@@ -1794,6 +1805,7 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
               onSubmitSuccess={_onSubmitSuccess}
               title={title}
               showSkipButton={showSkipButton}
+              color={color}
             />
           }
           {scrollView !== false && <>
@@ -1817,6 +1829,7 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
                   onSubmitSuccess={_onSubmitSuccess}
                   title={title}
                   showSkipButton={showSkipButton}
+                  color={color}
                 />
                 <View style={{height: 20}}/>
               </ScrollView>
