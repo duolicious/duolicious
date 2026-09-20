@@ -162,8 +162,9 @@ const ManualEntry = ({ value, onChange, onPressAutomatic, color }: {
 const LocationSelector = ({ onChange, currentValue, color }: Props) => {
   const { appTheme } = useAppTheme();
   const [value, setValue] = useState(currentValue);
-  const [manual, setManual] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'locating' | 'failed'>('idle');
+  const [status, setStatus] = useState<
+    'idle' | 'locating' | 'failed' | 'manual'
+  >('idle');
 
   const update = useCallback((next: LocationValue) => {
     setValue(next);
@@ -179,14 +180,14 @@ const LocationSelector = ({ onChange, currentValue, color }: Props) => {
 
   const detected = value.coordinates !== undefined;
 
-  if (manual) {
+  if (status === 'manual') {
     return (
       <ManualEntry
         value={value.text}
         onChange={update}
         onPressAutomatic={() => {
           update({ text: '' });
-          setManual(false);
+          setStatus('idle');
         }}
         color={color}
       />
@@ -250,14 +251,10 @@ const LocationSelector = ({ onChange, currentValue, color }: Props) => {
           }
           containerStyle={{ marginHorizontal: 20 }}
         >
-          {{
-            idle: 'Use my location',
-            locating: 'Finding your location…',
-            failed: 'Try again',
-          }[status]}
+          {status === 'failed' ? 'Try again' : status === 'locating' ? 'Finding your location…' : 'Use my location'}
         </ButtonWithCenteredText>
       }
-      <LinkText onPress={() => setManual(true)} color={color}>
+      <LinkText onPress={() => setStatus('manual')} color={color}>
         {detected ? 'Not right? Manually enter my location' : 'Manually enter my location'}
       </LinkText>
     </>
