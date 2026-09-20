@@ -106,9 +106,17 @@ type OptionGroupButtons = {
 };
 
 
+type LocationValue = {
+  text: string
+  coordinates?: { lat: number, lon: number }
+};
+
+const locationPatch = ({ text, coordinates }: LocationValue) =>
+  coordinates ? { coordinates } : { location: text };
+
 type OptionGroupLocationSelector = {
   locationSelector: {
-    submit: (input: string) => Promise<boolean>
+    submit: (input: LocationValue) => Promise<boolean>
     currentValue?: string,
   }
 };
@@ -708,10 +716,10 @@ const locationOptionGroup: OptionGroup<OptionGroupLocationSelector> = {
   description: "What city do you live in?",
   input: {
     locationSelector: {
-      submit: async (location: string) => {
-        const ok = (await japi('patch', '/profile-info', { location })).ok;
+      submit: async (value: LocationValue) => {
+        const ok = (await japi('patch', '/profile-info', locationPatch(value))).ok;
         if (ok) {
-          patchProfileInfo({ location });
+          patchProfileInfo({ location: value.text });
           markSearchResultsStale();
           markInboxStale();
         }
@@ -1371,12 +1379,12 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       title: 'Step 5 of 5: ' + locationOptionGroup.title,
       input: {
         locationSelector: {
-          submit: async (input: string) => await onboardingQueue.addTask(
+          submit: async (value: LocationValue) => await onboardingQueue.addTask(
             async () =>
               (await japi(
                 'patch',
                 '/onboardee-info',
-                { location: input })).ok
+                locationPatch(value))).ok
           ),
         }
       }
@@ -2579,6 +2587,7 @@ export {
   OptionGroupDate,
   OptionGroupGivenName,
   OptionGroupInputs,
+  LocationValue,
   OptionGroupLocationSelector,
   OptionGroupNone,
   OptionGroupOtp,

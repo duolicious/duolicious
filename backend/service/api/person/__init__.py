@@ -19,6 +19,7 @@ from service.api.person.bestdistance import (
 )
 from service.api.person.urlslug import reserve_onboardee_url_slug
 import service.api.duotypes as t
+from service.api.location import SQL_POINT, snap_to_grid
 import json
 import secrets
 from service.api import sessioncache
@@ -594,6 +595,24 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
             await tx.execute(q_set_onboardee_field, params)
             if tx.rowcount != 1:
                 return 'Unknown location', 400
+    elif field_name == 'coordinates':
+        params = dict(
+            email=s.email,
+            **snap_to_grid(**field_value),
+        )
+
+        q_set_onboardee_field = f"""
+            INSERT INTO onboardee (
+                email,
+                coordinates
+            ) VALUES (
+                %(email)s,
+                {SQL_POINT}
+            ) ON CONFLICT (email) DO UPDATE SET
+                coordinates = EXCLUDED.coordinates
+            """
+        async with api_tx() as tx:
+            await tx.execute(q_set_onboardee_field, params)
     elif field_name == 'gender':
         params = dict(
             email=s.email,

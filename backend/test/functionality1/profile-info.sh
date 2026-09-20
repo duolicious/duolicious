@@ -387,6 +387,13 @@ test_verification_required () {
   [[ "$(q "select COUNT(*) from person where verification_required")" -eq 1 ]]
 }
 
+test_coordinates () {
+  jc PATCH /profile-info -d '{ "coordinates": { "lat": -33.87, "lon": 151.21 } }'
+  [[ "$(get_field location)" == "Pyrmont, New South Wales, Australia" ]]
+  [[ "$(q "select round(ST_Y(coordinates::geometry)::numeric, 4) || ',' || round(ST_X(coordinates::geometry)::numeric, 4) from person where uuid = '$USER_UUID'")" = "-33.8663,151.1899" ]]
+  ! jc PATCH /profile-info -d '{ "coordinates": { "lat": -33.87, "lon": 181 } }'
+}
+
 test_show_my_location () {
   [[ "$(q "select string_agg(id || ':' || name, ',' order by id) from yes_country_only_no")" == "1:Yes,2:Country only,3:No" ]]
 
@@ -526,6 +533,8 @@ test_verification_loss_photo_changed
 test_verification_loss_photo_removed
 
 test_verification_required
+
+test_coordinates
 
 test_show_my_location
 

@@ -97,6 +97,14 @@ const config: ExpoConfig = {
   plugins: [
     "expo-apple-authentication",
     "expo-image-picker",
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission: "Duolicious uses your location to fill in the city on your profile so people nearby can find you.",
+        isAndroidBackgroundLocationEnabled: false,
+        isIosBackgroundLocationEnabled: false,
+      }
+    ],
     "expo-secure-store",
     [
       "expo-notifications",

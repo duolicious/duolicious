@@ -1,3 +1,4 @@
+from service.api.location import SQL_POINT, snap_to_grid
 import logging
 import secrets
 from collections.abc import Mapping
@@ -204,6 +205,36 @@ WHERE person.id = %(person_id)s
 AND long_friendly = %(field_value)s
 """
 
+Q_PATCH_COORDINATES = f"""
+UPDATE person
+SET
+    coordinates
+        = {SQL_POINT},
+
+    verification_required
+        = location.verification_required OR person.verification_required,
+
+    location_short_friendly
+        = location.short_friendly,
+
+    location_long_friendly
+        = location.long_friendly,
+
+    location_country
+        = location.country
+FROM (
+    SELECT
+        short_friendly,
+        long_friendly,
+        country,
+        verification_required
+    FROM location
+    ORDER BY coordinates <-> {SQL_POINT}
+    LIMIT 1
+) AS location
+WHERE person.id = %(person_id)s
+"""
+
 Q_PATCH_THEME = """
 UPDATE person
 SET
@@ -268,6 +299,7 @@ _PROFILE_FIELDS = {
         q2=Q_UPDATE_VERIFICATION_LEVEL,
     ),
     'location': _ProfileField(q1=Q_PATCH_LOCATION),
+    'coordinates': _ProfileField(q1=Q_PATCH_COORDINATES),
     'occupation': _ProfileField(q1=_person_value_q('occupation')),
     'education': _ProfileField(q1=_person_value_q('education')),
     'height': _ProfileField(q1=_person_value_q('height_cm')),
@@ -533,6 +565,9 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
         person_id=s.person_id,
         field_value=field_value,
     )
+
+    if field_name == 'coordinates':
+        params.update(snap_to_grid(**t.Coordinates.model_validate(field_value).model_dump()))
 
     if field_name == 'theme':
         try:

@@ -354,6 +354,11 @@ class PublicAnswer(BaseModel):
     public: bool = True
 
 
+class Coordinates(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
 class SearchQuery(BaseModel):
     n: int | None = Field(default=None, ge=0, le=50)
     o: int | None = Field(default=None, ge=0)
@@ -373,6 +378,8 @@ class PublicSearchQuery(BaseModel):
 
 class ProspectProfileQuery(BaseModel):
     similar_profiles: Json[PublicAnswers] | bool = False
+
+
 
 
 class PostRequestOtp(BaseModel):
@@ -440,6 +447,7 @@ class PatchOnboardeeInfo(BaseModel):
     )
     date_of_birth: str | None = None
     location: str | None = Field(default=None, min_length=1)
+    coordinates: Coordinates | None = None
     gender: str | None = Field(default=None, min_length=1)
     other_peoples_genders: List[str] | None = Field(default=None, min_length=1)
 
@@ -552,6 +560,7 @@ class PatchProfileInfo(BaseModel):
     orientation: str | None = None
     ethnicity: str | None = None
     location: str | None = None
+    coordinates: Coordinates | None = None
     occupation: str | None = Field(default=None, min_length=1, max_length=64)
     education: str | None = Field(default=None, min_length=1, max_length=64)
     height: int | None = None
