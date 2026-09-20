@@ -23,13 +23,7 @@ LIMIT 10
 SQL_POINT = "ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326)::geography"
 
 Q_REVERSE_GEOCODE = f"""
-SELECT
-    long_friendly
-FROM
-    location
-ORDER BY
-    coordinates <-> {SQL_POINT}
-LIMIT 1
+SELECT long_friendly FROM location ORDER BY coordinates <-> {SQL_POINT} LIMIT 1
 """
 
 async def init_db() -> None:

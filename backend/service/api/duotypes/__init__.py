@@ -380,8 +380,6 @@ class ProspectProfileQuery(BaseModel):
     similar_profiles: Json[PublicAnswers] | bool = False
 
 
-
-
 class PostRequestOtp(BaseModel):
     email: EmailStr
     pending_club_name: PendingClubName = Field(
