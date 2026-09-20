@@ -183,57 +183,42 @@ WITH existing_uuid AS (
 SELECT 1
 """
 
-Q_PATCH_LOCATION = """
-UPDATE person
-SET
-    coordinates
-        = location.coordinates,
+def _q_patch_location(location: str) -> str:
+    return f"""
+    UPDATE person
+    SET
+        coordinates
+            = location.coordinates,
 
-    verification_required
-        = location.verification_required OR person.verification_required,
+        verification_required
+            = location.verification_required OR person.verification_required,
 
-    location_short_friendly
-        = location.short_friendly,
+        location_short_friendly
+            = location.short_friendly,
 
-    location_long_friendly
-        = location.long_friendly,
+        location_long_friendly
+            = location.long_friendly,
 
-    location_country
-        = location.country
-FROM location
-WHERE person.id = %(person_id)s
-AND long_friendly = %(field_value)s
-"""
+        location_country
+            = location.country
+    FROM ({location}) AS location
+    WHERE person.id = %(person_id)s
+    """
 
-Q_PATCH_COORDINATES = f"""
-UPDATE person
-SET
-    coordinates
-        = {SQL_POINT},
+Q_PATCH_LOCATION = _q_patch_location(
+    "SELECT * FROM location WHERE long_friendly = %(field_value)s")
 
-    verification_required
-        = location.verification_required OR person.verification_required,
-
-    location_short_friendly
-        = location.short_friendly,
-
-    location_long_friendly
-        = location.long_friendly,
-
-    location_country
-        = location.country
-FROM (
+Q_PATCH_COORDINATES = _q_patch_location(f"""
     SELECT
+        {SQL_POINT} AS coordinates,
         short_friendly,
         long_friendly,
         country,
         verification_required
     FROM location
-    ORDER BY coordinates <-> {SQL_POINT}
+    ORDER BY location.coordinates <-> {SQL_POINT}
     LIMIT 1
-) AS location
-WHERE person.id = %(person_id)s
-"""
+""")
 
 Q_PATCH_THEME = """
 UPDATE person
