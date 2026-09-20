@@ -343,6 +343,12 @@ FROM (
     WHERE
         prospect.activated
     AND
+        (
+            NOT %(same_country_only)s
+        OR
+            prospect.location_country = subject.location_country
+        )
+    AND
         prospect.gender_id = ANY(subject_preference.gender_ids)
     AND
         EXISTS (
@@ -388,7 +394,8 @@ UPDATE
 SET
     min_age = %(min_age)s,
     max_age = %(max_age)s,
-    distance = %(distance)s::NUMERIC::SMALLINT
+    distance = %(distance)s::NUMERIC::SMALLINT,
+    same_country_only = %(same_country_only)s
 WHERE
     person_id = %(person_id)s
 """

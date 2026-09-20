@@ -39,6 +39,18 @@ async def best_distance(
     return midpoint
 
 
+async def best_country_and_distance(
+    count_within: Callable[[float, bool], Awaitable[int]],
+) -> tuple[bool, Candidates]:
+    for same_country_only in (True, False):
+        candidates = await best_distance(
+            lambda distance_km: count_within(distance_km, same_country_only)
+        )
+        if candidates.count >= _MIN_CANDIDATES:
+            return same_country_only, candidates
+    return False, candidates
+
+
 def distance_preference(
     candidates: Candidates,
     is_joining_club: bool,
