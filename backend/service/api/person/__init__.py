@@ -653,7 +653,10 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
 
     return None
 
-async def post_finish_onboarding(s: t.SessionInfo) -> object:
+async def post_finish_onboarding(
+    req: t.PostFinishOnboarding,
+    s: t.SessionInfo,
+) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
 
@@ -683,6 +686,10 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
             session_token_hash=s.session_token_hash,
             person_id=person_id,
         ))
+
+        utms = req.model_dump()
+        if any(utms.values()):
+            await tx.execute(Q_INSERT_PERSON_UTM, dict(person_id=person_id, **utms))
 
         clubs = await _handle_pending_club(
             tx,

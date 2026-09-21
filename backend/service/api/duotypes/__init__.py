@@ -500,6 +500,17 @@ class PatchOnboardeeInfo(BaseModel):
         arbitrary_types_allowed = True
 
 
+Utm = Annotated[str | None, Field(min_length=1, max_length=256)]
+
+
+class PostFinishOnboarding(BaseModel):
+    utm_source: Utm = None
+    utm_medium: Utm = None
+    utm_campaign: Utm = None
+    utm_term: Utm = None
+    utm_content: Utm = None
+
+
 class DeleteProfileInfo(BaseModel):
     files: List[int] | None = Field(
         default=None,

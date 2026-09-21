@@ -12,6 +12,7 @@ date_in_20_days=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)
 q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
+q "delete from person_utm"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 q "update funding set estimated_end_date = '$date_in_20_days'"
@@ -63,7 +64,10 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 1 ]]
 
 ! c GET /next-questions || exit 1
-response=$(c POST /finish-onboarding)
+! jc POST /finish-onboarding -d '{ "utm_source": "" }' || exit 1
+[[ "$(q "select count(*) from person_utm")" -eq 0 ]]
+response=$(jc POST /finish-onboarding -d '{ "utm_source": "reddit", "utm_medium": "social" }')
+[[ "$(q "select utm_source || ' ' || utm_medium || ' ' || coalesce(utm_campaign, '-') from person_utm")" = "reddit social -" ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
 [[ "$(jq -r .do_show_donation_nag <<< "$response")" = false ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]

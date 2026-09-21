@@ -10,3 +10,15 @@
 -- carries the same change to already-created databases.
 
 ALTER TABLE search_preference ADD COLUMN IF NOT EXISTS same_country_only BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS person_utm (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    utm_source TEXT,
+    utm_medium TEXT,
+    utm_campaign TEXT,
+    utm_term TEXT,
+    utm_content TEXT,
+
+    PRIMARY KEY (person_id),
+    CHECK (num_nonnulls(utm_source, utm_medium, utm_campaign, utm_term, utm_content) > 0)
+);

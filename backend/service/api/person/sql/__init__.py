@@ -2944,6 +2944,24 @@ FROM
     existing_person
 """
 
+Q_INSERT_PERSON_UTM = """
+INSERT INTO person_utm (
+    person_id,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_term,
+    utm_content
+) VALUES (
+    %(person_id)s,
+    %(utm_source)s,
+    %(utm_medium)s,
+    %(utm_campaign)s,
+    %(utm_term)s,
+    %(utm_content)s
+)
+"""
+
 # After a brand-new user finishes onboarding, drain the pending social
 # identity from `duo_session` into `social_identity`. Run inside the same
 # transaction as `Q_FINISH_ONBOARDING`, after the new `person` row exists.

@@ -466,6 +466,18 @@ CREATE TABLE IF NOT EXISTS social_identity (
 CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
     ON social_identity (person_id);
 
+CREATE TABLE IF NOT EXISTS person_utm (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    utm_source TEXT,
+    utm_medium TEXT,
+    utm_campaign TEXT,
+    utm_term TEXT,
+    utm_content TEXT,
+
+    PRIMARY KEY (person_id),
+    CHECK (num_nonnulls(utm_source, utm_medium, utm_campaign, utm_term, utm_content) > 0)
+);
+
 -- `width`, `height`, `crop_top` and `crop_left` describe how the square
 -- renditions (`900-{uuid}.jpg`, `450-{uuid}.jpg`) were cut out of
 -- `original-{uuid}.jpg`, so clients can animate between the two. All four are

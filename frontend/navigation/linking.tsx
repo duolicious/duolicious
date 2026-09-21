@@ -12,6 +12,7 @@ import { UUID_REGEX_SOURCE, isUuid } from '../util/util';
 import { getSignedInUser, isWebLoggedOut } from '../events/signed-in-user';
 import { BannerTarget } from '../events/sign-up-banner';
 import { DEEP_LINK_HOSTNAME } from '../env/env';
+import { utmQuery, withSignUpUtms } from './sign-up-utm';
 
 type WelcomeParamList = {
   'Welcome Screen': { clubName?: string; numUsers?: number } | undefined;
@@ -244,28 +245,29 @@ const createLinking = () => {
     }
 
     const pathname = normalized.split('?')[0].replace(/\/$/, '') || '/';
-    if (pathname === '/' && getSignedInUser()) {
-      return rnGetStateFromPath('/qa', options);
-    }
-    if (pathname === '/' && isWebLoggedOut()) {
-      return rnGetStateFromPath('/search', options);
-    }
+    const redirect = (to: string) =>
+      rnGetStateFromPath(to + utmQuery(normalized), options);
+    if (pathname === '/' && getSignedInUser()) return redirect('/qa');
+    if (pathname === '/' && isWebLoggedOut()) return redirect('/search');
     if (isWebLoggedOut() && GATED_LOGGED_OUT_PATHS.has(pathname)) {
-      return rnGetStateFromPath('/search', options);
+      return redirect('/search');
     }
 
     const state = rnGetStateFromPath(normalized, options);
     if (state) return state;
-    if (getSignedInUser()) return rnGetStateFromPath('/qa', options);
-    if (isWebLoggedOut()) return rnGetStateFromPath('/search', options);
+    if (getSignedInUser()) return redirect('/qa');
+    if (isWebLoggedOut()) return redirect('/search');
     return { routes: [{ name: 'Welcome' }] };
   };
+
+  const getPathFromState: typeof rnGetPathFromState = (state, options) =>
+    withSignUpUtms(rnGetPathFromState(state, options));
 
   return {
     prefixes,
     config: linkingConfig,
     getStateFromPath,
-    getPathFromState: rnGetPathFromState,
+    getPathFromState,
   };
 };
 

@@ -10,6 +10,7 @@ import {
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
+import { signUpUtms } from '../navigation/sign-up-utm';
 import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faPalette } from '@fortawesome/free-solid-svg-icons/faPalette'
@@ -1402,7 +1403,7 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           if (typeof existingSessionToken !== 'string') return false;
 
           const response = await onboardingQueue.addTask(
-            async () => await japi('post', '/finish-onboarding')
+            async () => await japi('post', '/finish-onboarding', signUpUtms())
           );
 
           await applyAuthenticatedResponse(
