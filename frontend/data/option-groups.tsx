@@ -10,7 +10,7 @@ import {
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
-import { signUpUtms } from '../navigation/sign-up-utm';
+import { signUpRef } from '../api/sign-up-ref';
 import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faPalette } from '@fortawesome/free-solid-svg-icons/faPalette'
@@ -1293,7 +1293,8 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           const existingSessionToken = await sessionToken();
           if (typeof existingSessionToken !== 'string') return 'rejected';
 
-          const response = await japi('post', '/check-otp', { otp: input });
+          const response = await japi(
+            'post', '/check-otp', { otp: input, ref: signUpRef });
 
           return await applyAuthenticatedResponse(
             response, existingSessionToken);
@@ -1403,7 +1404,7 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           if (typeof existingSessionToken !== 'string') return false;
 
           const response = await onboardingQueue.addTask(
-            async () => await japi('post', '/finish-onboarding', signUpUtms())
+            async () => await japi('post', '/finish-onboarding')
           );
 
           await applyAuthenticatedResponse(

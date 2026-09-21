@@ -303,6 +303,7 @@ async def post_check_otp(
 
     params = dict(
         otp=req.otp,
+        ref=req.ref,
         session_token_hash=s.session_token_hash,
         pending_club_name=s.pending_club_name,
     )
@@ -343,6 +344,7 @@ async def _sign_in_with_social(
     email: str,
     email_verified: bool,
     pending_club_name: str | None,
+    ref: str | None,
     remote_addr: str | None,
 ) -> object:
     """
@@ -413,7 +415,10 @@ async def _sign_in_with_social(
         pending_provider = None
         pending_sub = None
         if person_id is None:
-            await tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
+            await tx.execute(
+                Q_UPSERT_ONBOARDEE_FOR_SOCIAL,
+                dict(email=email, ref=ref),
+            )
             pending_provider = provider
             pending_sub = sub
 
@@ -461,6 +466,7 @@ async def post_sign_in_with_google(
     *,
     token: str,
     pending_club_name: str | None,
+    ref: str | None,
     remote_addr: str | None,
 ) -> object:
     try:
@@ -474,6 +480,7 @@ async def post_sign_in_with_google(
         email=claims.email,
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
+        ref=ref,
         remote_addr=remote_addr,
     )
 
@@ -482,6 +489,7 @@ async def post_sign_in_with_apple(
     token: str,
     nonce: str,
     pending_club_name: str | None,
+    ref: str | None,
     remote_addr: str | None,
 ) -> object:
     try:
@@ -495,6 +503,7 @@ async def post_sign_in_with_apple(
         email=claims.email,
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
+        ref=ref,
         remote_addr=remote_addr,
     )
 
@@ -653,10 +662,7 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
 
     return None
 
-async def post_finish_onboarding(
-    req: t.PostFinishOnboarding,
-    s: t.SessionInfo,
-) -> object:
+async def post_finish_onboarding(s: t.SessionInfo) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
 
@@ -686,10 +692,6 @@ async def post_finish_onboarding(
             session_token_hash=s.session_token_hash,
             person_id=person_id,
         ))
-
-        utms = req.model_dump()
-        if any(utms.values()):
-            await tx.execute(Q_INSERT_PERSON_UTM, dict(person_id=person_id, **utms))
 
         clubs = await _handle_pending_club(
             tx,

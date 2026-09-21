@@ -112,6 +112,8 @@ PendingClubName = Annotated[
     BeforeValidator(_normalize_club_name),
 ]
 
+SignUpRef = Annotated[str | None, Field(min_length=1, max_length=256)]
+
 _club_name_adapter = TypeAdapter(ClubName)
 
 
@@ -398,6 +400,7 @@ class PostRequestOtp(BaseModel):
 
 class PostCheckOtp(BaseModel):
     otp: str = Field(pattern=r"^\d{6}$")
+    ref: SignUpRef = None
 
 
 class PostSignInWithGoogle(BaseModel):
@@ -409,6 +412,7 @@ class PostSignInWithGoogle(BaseModel):
         min_length=1,
         max_length=CLUB_MAX_LEN,
     )
+    ref: SignUpRef = None
 
 
 class PostSignInWithApple(BaseModel):
@@ -425,6 +429,7 @@ class PostSignInWithApple(BaseModel):
         min_length=1,
         max_length=CLUB_MAX_LEN,
     )
+    ref: SignUpRef = None
 
 
 class SocialClaims(BaseModel):
@@ -498,17 +503,6 @@ class PatchOnboardeeInfo(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-
-
-Utm = Annotated[str | None, Field(min_length=1, max_length=256)]
-
-
-class PostFinishOnboarding(BaseModel):
-    utm_source: Utm = None
-    utm_medium: Utm = None
-    utm_campaign: Utm = None
-    utm_term: Utm = None
-    utm_content: Utm = None
 
 
 class DeleteProfileInfo(BaseModel):

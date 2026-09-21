@@ -415,6 +415,7 @@ CREATE TABLE IF NOT EXISTS onboardee (
     coordinates GEOGRAPHY(Point, 4326),
     gender_id SMALLINT REFERENCES gender(id),
     about TEXT,
+    ref TEXT,
 
     -- Bookkeeping
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -466,16 +467,11 @@ CREATE TABLE IF NOT EXISTS social_identity (
 CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
     ON social_identity (person_id);
 
-CREATE TABLE IF NOT EXISTS person_utm (
+CREATE TABLE IF NOT EXISTS person_ref (
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    utm_source TEXT,
-    utm_medium TEXT,
-    utm_campaign TEXT,
-    utm_term TEXT,
-    utm_content TEXT,
+    ref TEXT NOT NULL,
 
-    PRIMARY KEY (person_id),
-    CHECK (num_nonnulls(utm_source, utm_medium, utm_campaign, utm_term, utm_content) > 0)
+    PRIMARY KEY (person_id)
 );
 
 -- `width`, `height`, `crop_top` and `crop_left` describe how the square

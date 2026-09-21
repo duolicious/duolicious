@@ -291,10 +291,12 @@ WITH valid_session AS (
         id = (SELECT person_id FROM valid_session)
 ), {_Q_POST_SIGN_IN_CTES}, new_onboardee AS (
     INSERT INTO onboardee (
-        email
+        email,
+        ref
     )
     SELECT
-        email
+        email,
+        %(ref)s
     FROM
         valid_session
     WHERE NOT EXISTS (SELECT 1 FROM existing_person)
@@ -528,6 +530,12 @@ WITH onboardee_location AS (
         TRUE,
         FALSE
     FROM new_person
+), new_person_ref AS (
+    INSERT INTO person_ref (person_id, ref)
+    SELECT new_person.id, onboardee.ref
+    FROM new_person
+    JOIN onboardee ON onboardee.email = new_person.email
+    WHERE onboardee.ref IS NOT NULL
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
@@ -2891,8 +2899,8 @@ ON CONFLICT (provider, provider_sub) DO NOTHING
 # their display name later in the onboarding wizard — we deliberately
 # don't seed it from the provider.
 Q_UPSERT_ONBOARDEE_FOR_SOCIAL = """
-INSERT INTO onboardee (email)
-VALUES (%(email)s)
+INSERT INTO onboardee (email, ref)
+VALUES (%(email)s, %(ref)s)
 ON CONFLICT (email) DO NOTHING
 """
 
@@ -2942,24 +2950,6 @@ SELECT
     existing_person.name AS name
 FROM
     existing_person
-"""
-
-Q_INSERT_PERSON_UTM = """
-INSERT INTO person_utm (
-    person_id,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content
-) VALUES (
-    %(person_id)s,
-    %(utm_source)s,
-    %(utm_medium)s,
-    %(utm_campaign)s,
-    %(utm_term)s,
-    %(utm_content)s
-)
 """
 
 # After a brand-new user finishes onboarding, drain the pending social

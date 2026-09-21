@@ -22,7 +22,7 @@ response=$(
 
 SESSION_TOKEN=$(jq <<< "$response" -r '.session_token')
 
-jc POST /check-otp -d '{ "otp": "000000" }'
+jc POST /check-otp -d '{ "otp": "000000", "ref": "anime-forum" }'
 
 [[ $(jq <<< "$response" -r '.pending_club') = 'null' ]]
 
@@ -40,6 +40,7 @@ response=$(c POST /finish-onboarding)
 
 [[ $(q "select count(*) from person_club where club_name = 'anime'") = 1 ]]
 [[ $(q "select count(*) from search_preference where club_name = 'anime'") = 1 ]]
+[[ $(q "select ref from person_ref") = anime-forum ]]
 
 response=$(c POST /check-session-token)
 

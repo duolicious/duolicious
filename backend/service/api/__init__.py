@@ -97,6 +97,7 @@ async def post_sign_in_with_google(
     return await person.post_sign_in_with_google(
         token=req.id_token,
         pending_club_name=req.pending_club_name,
+        ref=req.ref,
         remote_addr=client_ip(request),
     )
 
@@ -113,6 +114,7 @@ async def post_sign_in_with_apple(
         token=req.identity_token,
         nonce=req.nonce,
         pending_club_name=req.pending_club_name,
+        ref=req.ref,
         remote_addr=client_ip(request),
     )
 
@@ -186,10 +188,9 @@ async def patch_onboardee_info(
 
 @app.post('/finish-onboarding')
 async def post_finish_onboarding(
-    req: t.PostFinishOnboarding = t.PostFinishOnboarding(),
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
 ) -> object:
-    return await person.post_finish_onboarding(req, s)
+    return await person.post_finish_onboarding(s)
 
 @app.get('/next-questions')
 async def get_next_questions(

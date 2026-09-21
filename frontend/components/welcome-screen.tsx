@@ -33,6 +33,7 @@ import { createAccountOptionGroups } from '../data/option-groups';
 import { OptionScreen } from './option-screen';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { japi } from '../api/api';
+import { signUpRef } from '../api/sign-up-ref';
 import {
   consumePendingAppleWebSignIn,
   signInWithApple,
@@ -648,12 +649,14 @@ const finishSocialSignIn = async ({
   endpoint,
   body,
   clubName,
+  ref = signUpRef,
   navigation,
   setLoginStatus,
 }: {
   endpoint: '/sign-in-with-google' | '/sign-in-with-apple',
   body: Record<string, unknown>,
   clubName: string | undefined,
+  ref?: string,
   navigation: NativeStackNavigationProp<WelcomeParamList>,
   setLoginStatus: (s: string) => void,
 }) => {
@@ -663,6 +666,7 @@ const finishSocialSignIn = async ({
     {
       ...body,
       ...(clubName && { pending_club_name: clubName }),
+      ref,
     },
     { timeout: 9999 * 1000 },
   );
@@ -766,7 +770,10 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
       // page; a completed sign-in is finished by the web-return effect
       // below when the backend's callback redirects us back here. iOS
       // and Android resolve normally.
-      const result = await signInWithApple({ clubName: clubName_ ?? '' });
+      const result = await signInWithApple({
+        clubName: clubName_ ?? '',
+        ref: signUpRef ?? '',
+      });
       if (!result.ok && !result.cancelled) {
         setLoginStatus(result.reason ?? 'Apple sign-in failed');
         return;
@@ -810,6 +817,7 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
           endpoint: '/sign-in-with-apple',
           body: { identity_token: result.identityToken, nonce: result.nonce },
           clubName: context.clubName || undefined,
+          ref: context.ref || undefined,
           navigation,
           setLoginStatus,
         });

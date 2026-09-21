@@ -12,7 +12,6 @@ import {
   getPathFromState as rnGetPathFromState,
 } from '@react-navigation/native';
 import { lastPath } from '../kv-storage/last-path';
-import { withoutUtms } from './sign-up-utm';
 import {
   createLinking,
   focusedConversationHandle,
@@ -160,7 +159,7 @@ const useAppNavigation = (
       // valid state via getStateFromPath.
       const path = rnGetPathFromState(state, linking.config);
       if (typeof path === 'string') {
-        await lastPath(withoutUtms(path.startsWith('/') ? path : `/${path}`));
+        await lastPath(path.startsWith('/') ? path : `/${path}`);
       }
     } catch (e) {
       // Some transient navigation states aren't representable as URLs (e.g.

@@ -12,7 +12,6 @@ date_in_20_days=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)
 q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
-q "delete from person_utm"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 q "update funding set estimated_end_date = '$date_in_20_days'"
@@ -35,9 +34,12 @@ otp_expiry2=$(q "SELECT otp_expiry FROM duo_session order by otp_expiry desc lim
 
 [[ "$(q "select COUNT(*) from onboardee")" -eq 0 ]]
 
-jc POST /check-otp -d '{ "otp": "000000" }'
+! jc POST /check-otp -d '{ "otp": "000000", "ref": "" }' || exit 1
+
+jc POST /check-otp -d '{ "otp": "000000", "ref": "reddit" }'
 
 [[ "$(q "select COUNT(*) from onboardee")" -eq 1 ]]
+[[ "$(q "select ref from onboardee")" = reddit ]]
 
 jc PATCH /onboardee-info -d '{ "name": "Jeff" }'
 jc PATCH /onboardee-info -d '{ "date_of_birth": "1997-05-30" }'
@@ -64,10 +66,8 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 1 ]]
 
 ! c GET /next-questions || exit 1
-! jc POST /finish-onboarding -d '{ "utm_source": "" }' || exit 1
-[[ "$(q "select count(*) from person_utm")" -eq 0 ]]
-response=$(jc POST /finish-onboarding -d '{ "utm_source": "reddit", "utm_medium": "social" }')
-[[ "$(q "select utm_source || ' ' || utm_medium || ' ' || coalesce(utm_campaign, '-') from person_utm")" = "reddit social -" ]]
+response=$(c POST /finish-onboarding)
+[[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
 [[ "$(jq -r .do_show_donation_nag <<< "$response")" = false ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]
