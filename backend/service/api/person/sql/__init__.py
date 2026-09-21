@@ -196,6 +196,7 @@ INSERT INTO duo_session (
     person_id,
     email,
     pending_club_name,
+    ref,
     otp,
     ip_address,
     answers,
@@ -217,6 +218,7 @@ SELECT
     ),
     %(email)s,
     %(pending_club_name)s,
+    %(ref)s,
     otp,
     %(ip_address)s,
     %(answers)s::jsonb,
@@ -291,12 +293,10 @@ WITH valid_session AS (
         id = (SELECT person_id FROM valid_session)
 ), {_Q_POST_SIGN_IN_CTES}, new_onboardee AS (
     INSERT INTO onboardee (
-        email,
-        ref
+        email
     )
     SELECT
-        email,
-        %(ref)s
+        email
     FROM
         valid_session
     WHERE NOT EXISTS (SELECT 1 FROM existing_person)
@@ -530,12 +530,6 @@ WITH onboardee_location AS (
         TRUE,
         FALSE
     FROM new_person
-), new_person_ref AS (
-    INSERT INTO person_ref (person_id, ref)
-    SELECT new_person.id, onboardee.ref
-    FROM new_person
-    JOIN onboardee ON onboardee.email = new_person.email
-    WHERE onboardee.ref IS NOT NULL
 ), deleted_onboardee AS (
     DELETE FROM onboardee
     WHERE email = %(email)s
@@ -2899,8 +2893,8 @@ ON CONFLICT (provider, provider_sub) DO NOTHING
 # their display name later in the onboarding wizard — we deliberately
 # don't seed it from the provider.
 Q_UPSERT_ONBOARDEE_FOR_SOCIAL = """
-INSERT INTO onboardee (email, ref)
-VALUES (%(email)s, %(ref)s)
+INSERT INTO onboardee (email)
+VALUES (%(email)s)
 ON CONFLICT (email) DO NOTHING
 """
 
@@ -2913,6 +2907,7 @@ INSERT INTO duo_session (
     person_id,
     email,
     pending_club_name,
+    ref,
     ip_address,
     signed_in,
     pending_social_provider,
@@ -2923,6 +2918,7 @@ INSERT INTO duo_session (
     %(person_id)s,
     %(email)s,
     %(pending_club_name)s,
+    %(ref)s,
     %(ip_address)s,
     TRUE,
     %(pending_social_provider)s,
@@ -2971,4 +2967,12 @@ AND
 AND
     duo_session.pending_social_sub IS NOT NULL
 ON CONFLICT (provider, provider_sub) DO NOTHING
+"""
+
+Q_INSERT_PERSON_REF = """
+INSERT INTO person_ref (person_id, ref)
+SELECT %(person_id)s, ref
+FROM duo_session
+WHERE session_token_hash = %(session_token_hash)s
+AND ref IS NOT NULL
 """

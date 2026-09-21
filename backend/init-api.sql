@@ -415,7 +415,6 @@ CREATE TABLE IF NOT EXISTS onboardee (
     coordinates GEOGRAPHY(Point, 4326),
     gender_id SMALLINT REFERENCES gender(id),
     about TEXT,
-    ref TEXT,
 
     -- Bookkeeping
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -434,6 +433,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     email TEXT NOT NULL,
     pending_club_name TEXT,
+    ref TEXT,
     otp TEXT,
     ip_address inet,
     signed_in BOOLEAN NOT NULL DEFAULT FALSE,

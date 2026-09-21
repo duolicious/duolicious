@@ -392,6 +392,7 @@ class PostRequestOtp(BaseModel):
     )
     answers: List[PublicAnswer] = Field(
         default_factory=list, max_length=PUBLIC_ANSWER_LIMIT)
+    ref: SignUpRef = None
 
     @field_validator('email', mode='before')
     def validate_email(cls, value: object) -> object:
@@ -400,7 +401,6 @@ class PostRequestOtp(BaseModel):
 
 class PostCheckOtp(BaseModel):
     otp: str = Field(pattern=r"^\d{6}$")
-    ref: SignUpRef = None
 
 
 class PostSignInWithGoogle(BaseModel):

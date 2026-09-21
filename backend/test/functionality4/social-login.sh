@@ -58,7 +58,7 @@ SESSION_TOKEN=$(jq -r .session_token <<< "$response")
 
 # Onboardee created with no name (we deliberately don't seed from provider).
 [[ "$(q "select count(*) from onboardee where email = 'new1@example.com'")" -eq 1 ]]
-[[ "$(q "select ref from onboardee where email = 'new1@example.com'")" = reddit ]]
+[[ "$(q "select ref from duo_session where email = 'new1@example.com'")" = reddit ]]
 [[ "$(q "select name is null from onboardee where email = 'new1@example.com'")" = t ]]
 
 # Session is already signed-in and carries the pending social link.

@@ -17,12 +17,12 @@ response=$(
   jc \
     POST \
     /request-otp \
-    -d '{ "email": "MAIL@example.com", "pending_club_name": "Anime" }'
+    -d '{ "email": "MAIL@example.com", "pending_club_name": "Anime", "ref": "anime-forum" }'
 )
 
 SESSION_TOKEN=$(jq <<< "$response" -r '.session_token')
 
-jc POST /check-otp -d '{ "otp": "000000", "ref": "anime-forum" }'
+jc POST /check-otp -d '{ "otp": "000000" }'
 
 [[ $(jq <<< "$response" -r '.pending_club') = 'null' ]]
 

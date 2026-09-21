@@ -16,9 +16,13 @@ q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 q "update funding set estimated_end_date = '$date_in_20_days'"
 
-response=$(jc POST /request-otp -d '{ "email": "MAIL@example.com" }')
+! jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "" }' || exit 1
+
+response=$(jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "reddit" }')
 
 SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
+
+[[ "$(q "select ref from duo_session")" = reddit ]]
 
 otp_expiry1=$(q "SELECT otp_expiry FROM duo_session order by otp_expiry desc limit 1")
 [[ -n "$otp_expiry1" ]]
@@ -34,12 +38,9 @@ otp_expiry2=$(q "SELECT otp_expiry FROM duo_session order by otp_expiry desc lim
 
 [[ "$(q "select COUNT(*) from onboardee")" -eq 0 ]]
 
-! jc POST /check-otp -d '{ "otp": "000000", "ref": "" }' || exit 1
-
-jc POST /check-otp -d '{ "otp": "000000", "ref": "reddit" }'
+jc POST /check-otp -d '{ "otp": "000000" }'
 
 [[ "$(q "select COUNT(*) from onboardee")" -eq 1 ]]
-[[ "$(q "select ref from onboardee")" = reddit ]]
 
 jc PATCH /onboardee-info -d '{ "name": "Jeff" }'
 jc PATCH /onboardee-info -d '{ "date_of_birth": "1997-05-30" }'

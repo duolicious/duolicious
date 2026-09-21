@@ -232,6 +232,7 @@ async def post_request_otp(
         email=req.email,
         normalized_email=normalized,
         pending_club_name=req.pending_club_name,
+        ref=req.ref,
         is_dev=DUO_ENV == 'dev',
         session_token_hash=session_token_hash,
         ip_address=remote_addr,
@@ -303,7 +304,6 @@ async def post_check_otp(
 
     params = dict(
         otp=req.otp,
-        ref=req.ref,
         session_token_hash=s.session_token_hash,
         pending_club_name=s.pending_club_name,
     )
@@ -415,10 +415,7 @@ async def _sign_in_with_social(
         pending_provider = None
         pending_sub = None
         if person_id is None:
-            await tx.execute(
-                Q_UPSERT_ONBOARDEE_FOR_SOCIAL,
-                dict(email=email, ref=ref),
-            )
+            await tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
             pending_provider = provider
             pending_sub = sub
 
@@ -427,6 +424,7 @@ async def _sign_in_with_social(
             person_id=person_id,
             email=email,
             pending_club_name=pending_club_name,
+            ref=ref,
             ip_address=remote_addr,
             pending_social_provider=pending_provider,
             pending_social_sub=pending_sub,
@@ -689,6 +687,11 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
         # provider identity from `duo_session` into `social_identity` now
         # that the new `person` row exists.
         await tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
+            session_token_hash=s.session_token_hash,
+            person_id=person_id,
+        ))
+
+        await tx.execute(Q_INSERT_PERSON_REF, dict(
             session_token_hash=s.session_token_hash,
             person_id=person_id,
         ))

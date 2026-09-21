@@ -10,7 +10,6 @@ import {
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
-import { signUpRef } from '../api/sign-up-ref';
 import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faPalette } from '@fortawesome/free-solid-svg-icons/faPalette'
@@ -1293,8 +1292,7 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           const existingSessionToken = await sessionToken();
           if (typeof existingSessionToken !== 'string') return 'rejected';
 
-          const response = await japi(
-            'post', '/check-otp', { otp: input, ref: signUpRef });
+          const response = await japi('post', '/check-otp', { otp: input });
 
           return await applyAuthenticatedResponse(
             response, existingSessionToken);

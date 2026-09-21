@@ -971,6 +971,7 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
         email: email_,
         ...(clubName_ && { pending_club_name: clubName_ }),
         ...(anonymousAnswers.length && { answers: anonymousAnswers }),
+        ref: signUpRef,
       },
       { timeout: 9999 * 1000 },
     );
