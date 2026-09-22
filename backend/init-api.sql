@@ -433,6 +433,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     email TEXT NOT NULL,
     pending_club_name TEXT,
+    ref TEXT,
     otp TEXT,
     ip_address inet,
     signed_in BOOLEAN NOT NULL DEFAULT FALSE,
@@ -465,6 +466,13 @@ CREATE TABLE IF NOT EXISTS social_identity (
 
 CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
     ON social_identity (person_id);
+
+CREATE TABLE IF NOT EXISTS person_ref (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    ref TEXT NOT NULL,
+
+    PRIMARY KEY (person_id)
+);
 
 -- `width`, `height`, `crop_top` and `crop_left` describe how the square
 -- renditions (`900-{uuid}.jpg`, `450-{uuid}.jpg`) were cut out of

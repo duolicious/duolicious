@@ -16,9 +16,13 @@ q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 q "update funding set estimated_end_date = '$date_in_20_days'"
 
-response=$(jc POST /request-otp -d '{ "email": "MAIL@example.com" }')
+! jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "" }' || exit 1
+
+response=$(jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "reddit" }')
 
 SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
+
+[[ "$(q "select ref from duo_session")" = reddit ]]
 
 otp_expiry1=$(q "SELECT otp_expiry FROM duo_session order by otp_expiry desc limit 1")
 [[ -n "$otp_expiry1" ]]
@@ -64,6 +68,7 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 
 ! c GET /next-questions || exit 1
 response=$(c POST /finish-onboarding)
+[[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
 [[ "$(jq -r .do_show_donation_nag <<< "$response")" = false ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]

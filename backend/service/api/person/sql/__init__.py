@@ -196,6 +196,7 @@ INSERT INTO duo_session (
     person_id,
     email,
     pending_club_name,
+    ref,
     otp,
     ip_address,
     answers,
@@ -217,6 +218,7 @@ SELECT
     ),
     %(email)s,
     %(pending_club_name)s,
+    %(ref)s,
     otp,
     %(ip_address)s,
     %(answers)s::jsonb,
@@ -2905,6 +2907,7 @@ INSERT INTO duo_session (
     person_id,
     email,
     pending_club_name,
+    ref,
     ip_address,
     signed_in,
     pending_social_provider,
@@ -2915,6 +2918,7 @@ INSERT INTO duo_session (
     %(person_id)s,
     %(email)s,
     %(pending_club_name)s,
+    %(ref)s,
     %(ip_address)s,
     TRUE,
     %(pending_social_provider)s,
@@ -2963,4 +2967,12 @@ AND
 AND
     duo_session.pending_social_sub IS NOT NULL
 ON CONFLICT (provider, provider_sub) DO NOTHING
+"""
+
+Q_INSERT_PERSON_REF = """
+INSERT INTO person_ref (person_id, ref)
+SELECT %(person_id)s, ref
+FROM duo_session
+WHERE session_token_hash = %(session_token_hash)s
+AND ref IS NOT NULL
 """

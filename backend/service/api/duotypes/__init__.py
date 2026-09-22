@@ -112,6 +112,8 @@ PendingClubName = Annotated[
     BeforeValidator(_normalize_club_name),
 ]
 
+SignUpRef = Annotated[str | None, Field(min_length=1, max_length=256)]
+
 _club_name_adapter = TypeAdapter(ClubName)
 
 
@@ -390,6 +392,7 @@ class PostRequestOtp(BaseModel):
     )
     answers: List[PublicAnswer] = Field(
         default_factory=list, max_length=PUBLIC_ANSWER_LIMIT)
+    ref: SignUpRef = None
 
     @field_validator('email', mode='before')
     def validate_email(cls, value: object) -> object:
@@ -409,6 +412,7 @@ class PostSignInWithGoogle(BaseModel):
         min_length=1,
         max_length=CLUB_MAX_LEN,
     )
+    ref: SignUpRef = None
 
 
 class PostSignInWithApple(BaseModel):
@@ -425,6 +429,7 @@ class PostSignInWithApple(BaseModel):
         min_length=1,
         max_length=CLUB_MAX_LEN,
     )
+    ref: SignUpRef = None
 
 
 class SocialClaims(BaseModel):

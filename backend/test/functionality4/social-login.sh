@@ -48,7 +48,7 @@ reset_db
 SESSION_TOKEN=""
 
 g_token=$(mint_google_token --sub google-sub-1 --email new1@example.com)
-response=$(jc POST /sign-in-with-google -d "{ \"id_token\": \"${g_token}\" }")
+response=$(jc POST /sign-in-with-google -d "{ \"id_token\": \"${g_token}\", \"ref\": \"reddit\" }")
 
 [[ "$(jq -r .onboarded         <<< "$response")" = false ]]
 [[ "$(jq -r .person_id         <<< "$response")" = null ]]
@@ -58,6 +58,7 @@ SESSION_TOKEN=$(jq -r .session_token <<< "$response")
 
 # Onboardee created with no name (we deliberately don't seed from provider).
 [[ "$(q "select count(*) from onboardee where email = 'new1@example.com'")" -eq 1 ]]
+[[ "$(q "select ref from duo_session where email = 'new1@example.com'")" = reddit ]]
 [[ "$(q "select name is null from onboardee where email = 'new1@example.com'")" = t ]]
 
 # Session is already signed-in and carries the pending social link.
@@ -75,6 +76,7 @@ complete_onboarding_for_current_session
 
 # Now there's a person row and a matching social_identity link.
 new1_id=$(get_id 'new1@example.com')
+[[ "$(q "select ref from person_ref where person_id = $new1_id")" = reddit ]]
 [[ "$(q "select count(*) from social_identity where provider = 'google' and provider_sub = 'google-sub-1' and person_id = $new1_id")" -eq 1 ]]
 
 # ---------------------------------------------------------------------------

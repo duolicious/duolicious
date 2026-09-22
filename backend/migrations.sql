@@ -10,3 +10,12 @@
 -- carries the same change to already-created databases.
 
 ALTER TABLE search_preference ADD COLUMN IF NOT EXISTS same_country_only BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE duo_session ADD COLUMN IF NOT EXISTS ref TEXT;
+
+CREATE TABLE IF NOT EXISTS person_ref (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    ref TEXT NOT NULL,
+
+    PRIMARY KEY (person_id)
+);

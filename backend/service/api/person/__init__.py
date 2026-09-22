@@ -232,6 +232,7 @@ async def post_request_otp(
         email=req.email,
         normalized_email=normalized,
         pending_club_name=req.pending_club_name,
+        ref=req.ref,
         is_dev=DUO_ENV == 'dev',
         session_token_hash=session_token_hash,
         ip_address=remote_addr,
@@ -343,6 +344,7 @@ async def _sign_in_with_social(
     email: str,
     email_verified: bool,
     pending_club_name: str | None,
+    ref: str | None,
     remote_addr: str | None,
 ) -> object:
     """
@@ -422,6 +424,7 @@ async def _sign_in_with_social(
             person_id=person_id,
             email=email,
             pending_club_name=pending_club_name,
+            ref=ref,
             ip_address=remote_addr,
             pending_social_provider=pending_provider,
             pending_social_sub=pending_sub,
@@ -461,6 +464,7 @@ async def post_sign_in_with_google(
     *,
     token: str,
     pending_club_name: str | None,
+    ref: str | None,
     remote_addr: str | None,
 ) -> object:
     try:
@@ -474,6 +478,7 @@ async def post_sign_in_with_google(
         email=claims.email,
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
+        ref=ref,
         remote_addr=remote_addr,
     )
 
@@ -482,6 +487,7 @@ async def post_sign_in_with_apple(
     token: str,
     nonce: str,
     pending_club_name: str | None,
+    ref: str | None,
     remote_addr: str | None,
 ) -> object:
     try:
@@ -495,6 +501,7 @@ async def post_sign_in_with_apple(
         email=claims.email,
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
+        ref=ref,
         remote_addr=remote_addr,
     )
 
@@ -680,6 +687,11 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
         # provider identity from `duo_session` into `social_identity` now
         # that the new `person` row exists.
         await tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
+            session_token_hash=s.session_token_hash,
+            person_id=person_id,
+        ))
+
+        await tx.execute(Q_INSERT_PERSON_REF, dict(
             session_token_hash=s.session_token_hash,
             person_id=person_id,
         ))
