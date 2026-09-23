@@ -14,28 +14,16 @@ ALTER TABLE search_preference ADD COLUMN IF NOT EXISTS same_country_only BOOLEAN
 ALTER TABLE duo_session ADD COLUMN IF NOT EXISTS ref TEXT;
 
 CREATE TABLE IF NOT EXISTS person_ref (
-    person_id INT REFERENCES person(id) ON DELETE SET NULL ON UPDATE CASCADE,
-    ref TEXT NOT NULL
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    ref TEXT NOT NULL,
+
+    PRIMARY KEY (person_id)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS person_ref__person_id__idx
-    ON person_ref (person_id);
+CREATE TABLE IF NOT EXISTS ref_sign_up_count (
+    ref TEXT NOT NULL,
+    hour TIMESTAMP NOT NULL,
+    count INT NOT NULL,
 
-ALTER TABLE person_ref DROP CONSTRAINT IF EXISTS person_ref_pkey;
-
-ALTER TABLE person_ref ALTER COLUMN person_id DROP NOT NULL;
-
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'person_ref'::regclass
-        AND conname = 'person_ref_person_id_fkey'
-        AND confdeltype = 'c'
-    ) THEN
-        ALTER TABLE person_ref DROP CONSTRAINT person_ref_person_id_fkey;
-        ALTER TABLE person_ref ADD CONSTRAINT person_ref_person_id_fkey
-            FOREIGN KEY (person_id) REFERENCES person(id)
-            ON DELETE SET NULL ON UPDATE CASCADE;
-    END IF;
-END $$;
+    PRIMARY KEY (ref, hour)
+);

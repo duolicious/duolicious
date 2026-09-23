@@ -25,6 +25,7 @@ reset_db () {
   q "delete from social_identity"
   q "delete from person"
   q "delete from onboardee"
+  q "delete from ref_sign_up_count"
   q "delete from banned_person"
   q "update funding set estimated_end_date = '$future'"
 }
@@ -77,6 +78,7 @@ complete_onboarding_for_current_session
 # Now there's a person row and a matching social_identity link.
 new1_id=$(get_id 'new1@example.com')
 [[ "$(q "select ref from person_ref where person_id = $new1_id")" = reddit ]]
+[[ "$(q "select sum(count) from ref_sign_up_count where ref = 'reddit'")" -eq 1 ]]
 [[ "$(q "select count(*) from social_identity where provider = 'google' and provider_sub = 'google-sub-1' and person_id = $new1_id")" -eq 1 ]]
 
 # ---------------------------------------------------------------------------

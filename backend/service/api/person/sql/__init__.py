@@ -2970,9 +2970,19 @@ ON CONFLICT (provider, provider_sub) DO NOTHING
 """
 
 Q_INSERT_PERSON_REF = """
-INSERT INTO person_ref (person_id, ref)
-SELECT %(person_id)s, ref
-FROM duo_session
-WHERE session_token_hash = %(session_token_hash)s
-AND ref IS NOT NULL
+WITH session_ref AS (
+    SELECT ref
+    FROM duo_session
+    WHERE session_token_hash = %(session_token_hash)s
+    AND ref IS NOT NULL
+), inserted_person_ref AS (
+    INSERT INTO person_ref (person_id, ref)
+    SELECT %(person_id)s, ref
+    FROM session_ref
+)
+INSERT INTO ref_sign_up_count (ref, hour, count)
+SELECT ref, date_trunc('hour', NOW()), 1
+FROM session_ref
+ON CONFLICT (ref, hour) DO UPDATE SET
+    count = ref_sign_up_count.count + 1
 """
