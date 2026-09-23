@@ -334,7 +334,7 @@ const FeatureCarousel = ({
       </ScrollView>
       <View
         style={{
-          marginTop: 8,
+          marginTop: 12,
           flexDirection: 'row',
           justifyContent: 'center',
           gap: 8,
