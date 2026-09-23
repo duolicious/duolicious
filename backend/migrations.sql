@@ -19,3 +19,19 @@ CREATE TABLE IF NOT EXISTS person_ref (
 
     PRIMARY KEY (person_id)
 );
+
+CREATE TABLE IF NOT EXISTS ref_sign_up_count (
+    ref TEXT NOT NULL,
+    hour TIMESTAMP NOT NULL,
+    count INT NOT NULL,
+
+    PRIMARY KEY (ref, hour)
+);
+
+INSERT INTO ref_sign_up_count (ref, hour, count)
+SELECT person_ref.ref, date_trunc('hour', person.sign_up_time), count(*)
+FROM person_ref
+JOIN person ON person.id = person_ref.person_id
+WHERE NOT EXISTS (SELECT 1 FROM ref_sign_up_count)
+GROUP BY 1, 2
+ON CONFLICT (ref, hour) DO NOTHING;

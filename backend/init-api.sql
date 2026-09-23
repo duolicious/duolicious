@@ -474,6 +474,14 @@ CREATE TABLE IF NOT EXISTS person_ref (
     PRIMARY KEY (person_id)
 );
 
+CREATE TABLE IF NOT EXISTS ref_sign_up_count (
+    ref TEXT NOT NULL,
+    hour TIMESTAMP NOT NULL,
+    count INT NOT NULL,
+
+    PRIMARY KEY (ref, hour)
+);
+
 -- `width`, `height`, `crop_top` and `crop_left` describe how the square
 -- renditions (`900-{uuid}.jpg`, `450-{uuid}.jpg`) were cut out of
 -- `original-{uuid}.jpg`, so clients can animate between the two. All four are

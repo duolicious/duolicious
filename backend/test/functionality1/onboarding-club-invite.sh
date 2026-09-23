@@ -10,6 +10,7 @@ set -xe
 q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
+q "delete from ref_sign_up_count"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 
@@ -41,6 +42,7 @@ response=$(c POST /finish-onboarding)
 [[ $(q "select count(*) from person_club where club_name = 'anime'") = 1 ]]
 [[ $(q "select count(*) from search_preference where club_name = 'anime'") = 1 ]]
 [[ $(q "select ref from person_ref") = anime-forum ]]
+[[ $(q "select count from ref_sign_up_count where ref = 'anime-forum'") = 1 ]]
 
 response=$(c POST /check-session-token)
 

@@ -12,6 +12,7 @@ date_in_20_days=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)
 q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
+q "delete from ref_sign_up_count"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 q "update funding set estimated_end_date = '$date_in_20_days'"
@@ -69,6 +70,7 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 ! c GET /next-questions || exit 1
 response=$(c POST /finish-onboarding)
 [[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
+[[ "$(q "select ref || ' ' || count || ' ' || (hour = date_trunc('hour', hour)) from ref_sign_up_count")" = "reddit 1 true" ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
 [[ "$(jq -r .do_show_donation_nag <<< "$response")" = false ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]
@@ -115,3 +117,7 @@ sleep 2
 [[ "$(q "select count_no    from question where id = 1001")" -eq 0 ]]
 [[ "$(q "select count_yes   from question where id = 1002")" -eq 0 ]]
 [[ "$(q "select count_no    from question where id = 1002")" -eq 1 ]]
+
+c DELETE /account
+[[ "$(q "select count(*) from person_ref")" -eq 0 ]]
+[[ "$(q "select ref || ' ' || count from ref_sign_up_count")" = "reddit 1" ]]
