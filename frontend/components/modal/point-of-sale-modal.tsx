@@ -436,7 +436,7 @@ const OfferingCard = ({
       <FeatureCarousel active={active} setActive={setActive} compact={compact} />
       <View
         style={{
-          marginTop: compact ? 26 : 28,
+          marginTop: compact ? 34 : 36,
           height: compact ? 120 : 144,
           paddingHorizontal: 24,
           flexDirection: 'row',
