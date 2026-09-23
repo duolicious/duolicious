@@ -275,11 +275,15 @@ const FeatureCarousel = ({
         scrollEventThrottle={16}
         onLayout={(e) => e.nativeEvent.layout.width && setWidth(e.nativeEvent.layout.width)}
         onScroll={(e) => setActive(Math.round(e.nativeEvent.contentOffset.x / width))}
+        style={{ flexGrow: 0 }}
       >
         {width > 0 && FEATURES.map(({ key, headline, subtitle, Illustration }, i) =>
-          <View key={key} style={{ width }}>
-            <Pressable
-              onPress={() => goTo((i + 1) % FEATURES.length)}
+          <Pressable
+            key={key}
+            onPress={() => goTo((i + 1) % FEATURES.length)}
+            style={{ width }}
+          >
+            <View
               style={{
                 marginTop: compact ? 8 : 16,
                 height: compact ? 96 : 150,
@@ -296,7 +300,7 @@ const FeatureCarousel = ({
               >
                 <Illustration />
               </View>
-            </Pressable>
+            </View>
             <View style={{ marginTop: compact ? 12 : 20, paddingHorizontal: 24 }}>
               {headline.map((line, j) =>
                 <DefaultText
@@ -325,12 +329,12 @@ const FeatureCarousel = ({
             >
               {subtitle}
             </DefaultText>
-          </View>
+          </Pressable>
         )}
       </ScrollView>
       <View
         style={{
-          marginTop: 12,
+          marginTop: 8,
           flexDirection: 'row',
           justifyContent: 'center',
           gap: 8,
@@ -432,7 +436,7 @@ const OfferingCard = ({
       <FeatureCarousel active={active} setActive={setActive} compact={compact} />
       <View
         style={{
-          marginTop: compact ? 14 : 18,
+          marginTop: compact ? 26 : 28,
           height: compact ? 120 : 144,
           paddingHorizontal: 24,
           flexDirection: 'row',
