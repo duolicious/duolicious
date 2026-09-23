@@ -10,6 +10,7 @@ set -xe
 q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
+q "delete from person_ref"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 

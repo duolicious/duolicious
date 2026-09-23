@@ -12,6 +12,7 @@ date_in_20_days=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)
 q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
+q "delete from person_ref"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 q "update funding set estimated_end_date = '$date_in_20_days'"
@@ -115,3 +116,7 @@ sleep 2
 [[ "$(q "select count_no    from question where id = 1001")" -eq 0 ]]
 [[ "$(q "select count_yes   from question where id = 1002")" -eq 0 ]]
 [[ "$(q "select count_no    from question where id = 1002")" -eq 1 ]]
+
+c DELETE /account
+[[ "$(q "select count(*) from person where email = 'mail@example.com'")" -eq 0 ]]
+[[ "$(q "select ref from person_ref where person_id is null")" = reddit ]]

@@ -468,11 +468,12 @@ CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
     ON social_identity (person_id);
 
 CREATE TABLE IF NOT EXISTS person_ref (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    ref TEXT NOT NULL,
-
-    PRIMARY KEY (person_id)
+    person_id INT REFERENCES person(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    ref TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS person_ref__person_id__idx
+    ON person_ref (person_id);
 
 -- `width`, `height`, `crop_top` and `crop_left` describe how the square
 -- renditions (`900-{uuid}.jpg`, `450-{uuid}.jpg`) were cut out of
