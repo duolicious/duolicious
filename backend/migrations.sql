@@ -8,3 +8,4 @@
 -- fresh database is created from (this file only reaches existing databases).
 -- init-api.sql is the source of truth for the current schema; migrations.sql
 -- carries the same change to already-created databases.
+
