@@ -360,46 +360,52 @@ const DisplayName = () =>
     <Badge icon={faPencil} left={194} top={14} size={44} />
   </>;
 
-const FEATURES = {
-  'read-receipts': {
+const FEATURES = [
+  {
+    key: 'read-receipts',
     headline: ['HAVE THEY', 'SEEN IT?'],
     subtitle: 'Stop wondering. Know if they’ve seen your message, and when.',
     cta: 'Show me if they’ve seen it',
     Illustration: ReadReceipts,
   },
-  'clubs': {
+  {
+    key: 'clubs',
     headline: ['50 CLUBS', 'ISN’T ENOUGH'],
     subtitle: 'Gold doubles your limit to 100, so every niche interest gets a spot.',
     cta: 'Give me 100 clubs',
     Illustration: Clubs,
   },
-  'dark-mode': {
+  {
+    key: 'dark-mode',
     headline: ['SCROLL AT 3AM', 'IN DARK MODE'],
     subtitle: 'Easy on the eyes when you’re up past midnight.',
     cta: 'Turn on dark mode',
     Illustration: DarkMode,
   },
-  'profile-theme': {
+  {
+    key: 'profile-theme',
     headline: ['YOUR PROFILE,', 'YOUR COLORS'],
     subtitle: 'Choose the colors other members see when they visit your profile.',
     cta: 'Pick my colors',
     Illustration: ProfileTheme,
   },
-  'privacy': {
+  {
+    key: 'privacy',
     headline: ['LURK IN', 'PEACE'],
     subtitle: 'Browse invisibly, hide from strangers, and keep your age or location to yourself.',
     cta: 'Let me lurk in peace',
     Illustration: Privacy,
   },
-  'display-name': {
+  {
+    key: 'display-name',
     headline: ['NEW NAME,', 'SAME YOU'],
     subtitle: 'Change the name people see on your profile.',
     cta: 'Change my name',
     Illustration: DisplayName,
   },
-};
+] as const;
 
-type PointOfSaleFeature = keyof typeof FEATURES;
+type PointOfSaleFeature = typeof FEATURES[number]['key'];
 
 export {
   FEATURES,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import Animated, {
   SharedValue,
@@ -247,6 +247,123 @@ const PlanCard = ({
   );
 };
 
+const FeatureCarousel = ({
+  active,
+  setActive,
+  compact,
+}: {
+  active: number
+  setActive: (active: number) => void
+  compact: boolean
+}) => {
+  const ref = useRef<ScrollView>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    ref.current?.scrollTo({ x: active * width, animated: false });
+  }, [width]);
+
+  const goTo = (i: number) => ref.current?.scrollTo({ x: i * width });
+
+  return (
+    <>
+      <ScrollView
+        ref={ref}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onLayout={(e) => e.nativeEvent.layout.width && setWidth(e.nativeEvent.layout.width)}
+        onScroll={(e) => setActive(Math.round(e.nativeEvent.contentOffset.x / width))}
+        style={{ flexGrow: 0 }}
+      >
+        {width > 0 && FEATURES.map(({ key, headline, subtitle, Illustration }, i) =>
+          <Pressable
+            key={key}
+            onPress={() => goTo((i + 1) % FEATURES.length)}
+            style={{ width }}
+          >
+            <View
+              style={{
+                marginTop: compact ? 8 : 16,
+                height: compact ? 96 : 150,
+                alignItems: 'center',
+              }}
+            >
+              <View
+                style={{
+                  width: 240,
+                  height: 150,
+                  transform: [{ scale: compact ? 0.64 : 1 }],
+                  transformOrigin: 'top',
+                }}
+              >
+                <Illustration />
+              </View>
+            </View>
+            <View style={{ marginTop: compact ? 12 : 20, paddingHorizontal: 24 }}>
+              {headline.map((line, j) =>
+                <DefaultText
+                  key={line}
+                  disableTheme
+                  style={{
+                    fontSize: compact ? 28 : 34,
+                    lineHeight: compact ? 32 : 38,
+                    fontWeight: 900,
+                    color: j === 0 ? 'white' : goldColor,
+                  }}
+                >
+                  {line}
+                </DefaultText>
+              )}
+            </View>
+            <DefaultText
+              disableTheme
+              style={{
+                marginTop: compact ? 8 : 10,
+                paddingHorizontal: 24,
+                fontSize: compact ? 15 : 16,
+                lineHeight: compact ? 21 : 22,
+                color: 'white',
+              }}
+            >
+              {subtitle}
+            </DefaultText>
+          </Pressable>
+        )}
+      </ScrollView>
+      <View
+        style={{
+          marginTop: 12,
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: 8,
+        }}
+      >
+        {FEATURES.map(({ key, headline }, i) =>
+          <Pressable
+            key={key}
+            accessibilityLabel={headline.join(' ')}
+            hitSlop={4}
+            onPress={() => goTo(i)}
+            style={{ width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: i === active ? 'white' : 'rgba(255, 255, 255, 0.35)',
+                transform: [{ scale: i === active ? 1.3 : 1 }],
+              }}
+            />
+          </Pressable>
+        )}
+      </View>
+    </>
+  );
+};
+
 const OfferingCard = ({
   feature,
   compact,
@@ -257,7 +374,8 @@ const OfferingCard = ({
   const [offering, setOffering] = useState<Offering | null>();
   const [picked, setPicked] = useState<Purchasable | null>(null);
   const [hasError, setHasError] = useState(false);
-  const { headline, subtitle, cta, Illustration } = FEATURES[feature];
+  const [active, setActive] = useState(
+    () => FEATURES.findIndex((f) => f.key === feature));
 
   useEffect(() => {
     getOffering().then(setOffering, () => setOffering(null));
@@ -315,55 +433,10 @@ const OfferingCard = ({
 
   return (
     <>
+      <FeatureCarousel active={active} setActive={setActive} compact={compact} />
       <View
         style={{
-          marginTop: compact ? 8 : 16,
-          height: compact ? 96 : 150,
-          alignItems: 'center',
-        }}
-      >
-        <View
-          style={{
-            width: 240,
-            height: 150,
-            transform: [{ scale: compact ? 0.64 : 1 }],
-            transformOrigin: 'top',
-          }}
-        >
-          <Illustration />
-        </View>
-      </View>
-      <View style={{ marginTop: compact ? 12 : 20, paddingHorizontal: 24 }}>
-        {headline.map((line, i) =>
-          <DefaultText
-            key={line}
-            disableTheme
-            style={{
-              fontSize: compact ? 28 : 34,
-              lineHeight: compact ? 32 : 38,
-              fontWeight: 900,
-              color: i === 0 ? 'white' : goldColor,
-            }}
-          >
-            {line}
-          </DefaultText>
-        )}
-      </View>
-      <DefaultText
-        disableTheme
-        style={{
-          marginTop: compact ? 8 : 10,
-          paddingHorizontal: 24,
-          fontSize: compact ? 15 : 16,
-          lineHeight: compact ? 21 : 22,
-          color: 'white',
-        }}
-      >
-        {subtitle}
-      </DefaultText>
-      <View
-        style={{
-          marginTop: compact ? 22 : 24,
+          marginTop: compact ? 34 : 36,
           height: compact ? 120 : 144,
           paddingHorizontal: 24,
           flexDirection: 'row',
@@ -383,7 +456,7 @@ const OfferingCard = ({
       </View>
       <View
         style={{
-          marginTop: compact ? 16 : 18,
+          marginTop: compact ? 12 : 18,
           paddingHorizontal: 24,
           flexDirection: 'row',
           gap: 5,
@@ -428,7 +501,7 @@ const OfferingCard = ({
           </DefaultText>
         }
         <PurchaseButton
-          label={trial ? `Try ${intervalText(trial)} free` : cta}
+          label={trial ? `Try ${intervalText(trial)} free` : FEATURES[active].cta}
           compact={compact}
           onPress={onPress}
         />
