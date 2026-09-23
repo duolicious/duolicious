@@ -70,7 +70,7 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 ! c GET /next-questions || exit 1
 response=$(c POST /finish-onboarding)
 [[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
-[[ "$(q "select ref || ' ' || count || ' ' || (hour = date_trunc('hour', hour)) from ref_sign_up_count")" = "reddit 1 t" ]]
+[[ "$(q "select ref || ' ' || count || ' ' || (hour = date_trunc('hour', hour)) from ref_sign_up_count")" = "reddit 1 true" ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
 [[ "$(jq -r .do_show_donation_nag <<< "$response")" = false ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]
