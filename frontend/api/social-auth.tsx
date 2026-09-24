@@ -13,6 +13,7 @@ import {
   webReturnTarget,
 } from './oauth-return';
 import {
+  API_URL,
   APPLE_ANDROID_RETURN_URL,
   APPLE_REDIRECT_URI,
   APPLE_WEB_CLIENT_ID,
@@ -32,19 +33,70 @@ const errorCode = (e: unknown): string | undefined =>
     : undefined;
 
 // sessionStorage key that carries the nonce (and arbitrary caller
-// context) across the full-page redirect to Apple and back. Versioned
-// so a future change to the shape doesn't pick up a stale entry left
-// over from an older deploy mid-flow.
-const _APPLE_PENDING_KEY = 'apple-signin-pending-v1';
+// context) across the full-page redirect to Apple or Discord and back.
+// Versioned so a future change to the shape doesn't pick up a stale
+// entry left over from an older deploy mid-flow.
+const _PENDING_KEY = 'web-signin-pending-v1';
 
-type _ApplePending = {
+type _Pending = {
   nonce: string;
   context: Record<string, string>;
 };
 
+const _navigateAwayToSignIn = async (
+  url: string,
+  pending: _Pending,
+): Promise<SocialSignInResult> => {
+  try {
+    sessionStorage.setItem(_PENDING_KEY, JSON.stringify(pending));
+  } catch {
+    return {
+      ok: false,
+      cancelled: false,
+      reason: 'Sign-in: sessionStorage unavailable',
+    };
+  }
+
+  await navigateAway(url);
+
+  return { ok: false, cancelled: true };
+};
+
+const _takePending = (): _Pending | null => {
+  try {
+    const raw = sessionStorage.getItem(_PENDING_KEY);
+    sessionStorage.removeItem(_PENDING_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export type SocialSignInResult =
-  | { ok: true; idToken: string }
+  | {
+      ok: true;
+      endpoint:
+        | '/sign-in-with-google'
+        | '/sign-in-with-apple'
+        | '/sign-in-with-discord';
+      body: Record<string, string>;
+    }
   | { ok: false; cancelled: boolean; reason?: string };
+
+const _googleResult = (idToken: string): SocialSignInResult => ({
+  ok: true,
+  endpoint: '/sign-in-with-google',
+  body: { id_token: idToken },
+});
+
+const _appleResult = (
+  identityToken: string,
+  nonce: string,
+): SocialSignInResult => ({
+  ok: true,
+  endpoint: '/sign-in-with-apple',
+  body: { identity_token: identityToken, nonce },
+});
 
 /**
  * Wraps `expo-auth-session/providers/google` so callers get a single
@@ -112,7 +164,7 @@ export const useGoogleSignIn = (): {
 
     // Web: implicit flow lands the id_token directly on params.
     if (params.id_token) {
-      settle(id, { ok: true, idToken: params.id_token });
+      settle(id, _googleResult(params.id_token));
       return;
     }
 
@@ -145,7 +197,7 @@ export const useGoogleSignIn = (): {
         );
         const idToken = tokenResponse.idToken;
         if (idToken) {
-          settle(id, { ok: true, idToken });
+          settle(id, _googleResult(idToken));
         } else {
           settle(id, {
             ok: false,
@@ -205,14 +257,10 @@ export const useGoogleSignIn = (): {
   };
 };
 
-export type AppleSignInResult =
-  | { ok: true; identityToken: string; nonce: string }
-  | { ok: false; cancelled: boolean; reason?: string };
-
 const _APPLE_AUTHORIZE_URL = 'https://appleid.apple.com/auth/authorize';
 
 const _generateNonce = async (): Promise<string> => {
-  const bytes = await Crypto.getRandomBytesAsync(16);
+  const bytes = await Crypto.getRandomBytesAsync(32);
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
@@ -256,7 +304,7 @@ const _buildAppleAuthorizeUrl = (params: {
  *   bottom-sheet UI doesn't fire the `form_post` redirect at all). The
  *   nonce and caller-provided `context` are stashed in `sessionStorage`
  *   before navigation; after Apple's callback redirects back to the SPA
- *   root, the caller picks them up via `consumePendingAppleWebSignIn()`.
+ *   root, the caller picks them up via `consumePendingWebSignIn()`.
  *
  * `context` is round-tripped through the web redirect so the caller can
  * resume in the same logical flow (e.g. preserve `clubName`) after the
@@ -270,13 +318,13 @@ const _buildAppleAuthorizeUrl = (params: {
  */
 export const signInWithApple = async (
   context: Record<string, string> = {},
-): Promise<AppleSignInResult> => {
+): Promise<SocialSignInResult> => {
   if (Platform.OS === 'ios') return signInWithAppleNative();
   if (Platform.OS === 'android') return signInWithAppleAndroid();
   return signInWithAppleWeb(context);
 };
 
-const signInWithAppleNative = async (): Promise<AppleSignInResult> => {
+const signInWithAppleNative = async (): Promise<SocialSignInResult> => {
   // Apple echoes this nonce verbatim into the JWT's `nonce` claim. The
   // backend compares it to the value we send alongside the token to bind
   // the token to this client session.
@@ -289,11 +337,7 @@ const signInWithAppleNative = async (): Promise<AppleSignInResult> => {
       nonce,
     });
 
-    return {
-      ok: true,
-      identityToken: credential.identityToken ?? '',
-      nonce,
-    };
+    return _appleResult(credential.identityToken ?? '', nonce);
   } catch (e: unknown) {
     // ERR_REQUEST_CANCELED is the documented code for the user dismissing
     // the system sheet; don't surface that as an error.
@@ -304,7 +348,7 @@ const signInWithAppleNative = async (): Promise<AppleSignInResult> => {
   }
 };
 
-const signInWithAppleAndroid = async (): Promise<AppleSignInResult> => {
+const signInWithAppleAndroid = async (): Promise<SocialSignInResult> => {
   // The same random nonce serves two purposes:
   //   1. Bound CSRF check on the redirect (prefix of `state`).
   //   2. Bound JWT check on the server (`nonce` URL param → JWT.nonce claim).
@@ -346,7 +390,7 @@ const signInWithAppleAndroid = async (): Promise<AppleSignInResult> => {
     return { ok: false, cancelled: false, reason: 'Apple sign-in: invalid state' };
   }
 
-  return { ok: true, identityToken: idToken, nonce };
+  return _appleResult(idToken, nonce);
 };
 
 // Web sign-in is a full-page redirect to Apple. Popup-based flows
@@ -359,8 +403,8 @@ const signInWithAppleAndroid = async (): Promise<AppleSignInResult> => {
 //
 // State that needs to span the redirect (the CSRF/JWT nonce and any
 // caller-provided context like `clubName`) is stashed in sessionStorage
-// keyed under `_APPLE_PENDING_KEY`; the symmetric reader is
-// `consumePendingAppleWebSignIn()`.
+// keyed under `_PENDING_KEY`; the symmetric reader is
+// `consumePendingWebSignIn()`.
 //
 // This function returns a Promise that never resolves: the navigation
 // is already underway by the time we return, and any callsite `await`
@@ -368,7 +412,7 @@ const signInWithAppleAndroid = async (): Promise<AppleSignInResult> => {
 // because the result lives in the *next* page load.
 const signInWithAppleWeb = async (
   context: Record<string, string>,
-): Promise<AppleSignInResult> => {
+): Promise<SocialSignInResult> => {
   // See `signInWithAppleAndroid` — same nonce binds the redirect-time
   // CSRF check (state prefix) and the server-side JWT.nonce verification.
   const nonce = await _generateNonce();
@@ -385,104 +429,171 @@ const signInWithAppleWeb = async (
     nonce,
   });
 
+  return _navigateAwayToSignIn(authUrl, { nonce, context });
+};
+
+const _discordResult = (
+  params: URLSearchParams,
+  codeVerifier: string,
+): SocialSignInResult => {
+  const code = params.get('discord_code');
+  const error = params.get('discord_error');
+  if (code) {
+    return {
+      ok: true,
+      endpoint: '/sign-in-with-discord',
+      body: { code, code_verifier: codeVerifier },
+    };
+  }
+  return {
+    ok: false,
+    cancelled: error === 'access_denied',
+    reason: `Discord: ${error}`,
+  };
+};
+
+const _discordAuthorizeUrl = async (
+  redirectTarget: 'web' | 'apex' | 'app',
+  codeVerifier: string,
+): Promise<string> => {
+  const digest = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    codeVerifier,
+    { encoding: Crypto.CryptoEncoding.BASE64 },
+  );
+  const codeChallenge = digest
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return (
+    `${API_URL}/auth/discord/authorize` +
+    `?redirect_target=${redirectTarget}&code_challenge=${codeChallenge}`
+  );
+};
+
+export const signInWithDiscord = async (
+  context: Record<string, string>,
+): Promise<SocialSignInResult> => {
+  const codeVerifier = await _generateNonce();
+
+  if (Platform.OS === 'web') {
+    return _navigateAwayToSignIn(
+      await _discordAuthorizeUrl(webReturnTarget(), codeVerifier),
+      { nonce: codeVerifier, context },
+    );
+  }
+
+  let result: WebBrowser.WebBrowserAuthSessionResult;
   try {
-    const pending: _ApplePending = { nonce, context };
-    sessionStorage.setItem(_APPLE_PENDING_KEY, JSON.stringify(pending));
-  } catch {
+    result = await WebBrowser.openAuthSessionAsync(
+      await _discordAuthorizeUrl('app', codeVerifier),
+      'app.duolicious://oauthredirect/discord',
+    );
+  } catch (e: unknown) {
     return {
       ok: false,
       cancelled: false,
-      reason: 'Apple sign-in: sessionStorage unavailable',
+      reason: errorMessage(e) ?? 'Discord sign-in failed',
     };
   }
 
-  await navigateAway(authUrl);
+  if (result.type !== 'success') {
+    return { ok: false, cancelled: true };
+  }
 
-  return { ok: false, cancelled: true };
+  return _discordResult(parseQueryParams(result.url), codeVerifier);
 };
 
-/**
- * On web, completes the Apple sign-in started by `signInWithApple()`.
- *
- * Call once on mount of whichever screen the backend's
- * `/auth/apple/callback` redirects users back to. If the URL contains
- * `apple_id_token` / `apple_state` / `apple_error`, returns the parsed
- * result alongside the `context` the caller originally passed to
- * `signInWithApple()`. Otherwise returns `null`.
- *
- * Side effects: clears the pending entry from `sessionStorage` and
- * strips the Apple-specific query params from the URL via
- * `history.replaceState`, so a refresh won't re-trigger this codepath.
- * Safe to call on platforms other than web — it's a no-op there.
- */
-export const consumePendingAppleWebSignIn = (): {
-  result: AppleSignInResult;
-  context: Record<string, string>;
-} | null => {
-  const params = takeWebReturnParams([
-    'apple_id_token',
-    'apple_error',
-    'apple_state',
-  ]);
-  if (!params) return null;
-
+const _appleWebResult = (
+  params: URLSearchParams,
+  nonce: string,
+): SocialSignInResult => {
   const idToken = params.get('apple_id_token');
   const error = params.get('apple_error');
   const returnedState = params.get('apple_state');
 
-  let pending: _ApplePending | null = null;
-  try {
-    const raw = sessionStorage.getItem(_APPLE_PENDING_KEY);
-    if (raw) pending = JSON.parse(raw) as _ApplePending;
-  } catch {
-    pending = null;
-  }
-  try {
-    sessionStorage.removeItem(_APPLE_PENDING_KEY);
-  } catch {}
-
-  const context = pending?.context ?? {};
-
-  if (!pending) {
-    // Apple redirected back but we have no record of having started
-    // the flow in this browsing context — most likely a link opened in
-    // a fresh tab. Don't trust the token: we can't verify the nonce.
-    return {
-      result: {
-        ok: false,
-        cancelled: false,
-        reason: 'Apple sign-in: missing local session',
-      },
-      context,
-    };
-  }
   if (error) {
-    return {
-      result: { ok: false, cancelled: false, reason: `Apple: ${error}` },
-      context,
-    };
+    return { ok: false, cancelled: false, reason: `Apple: ${error}` };
   }
-  if (!returnedState || !returnedState.startsWith(`${pending.nonce}.`)) {
-    return {
-      result: { ok: false, cancelled: false, reason: 'Apple sign-in: invalid state' },
-      context,
-    };
+  if (!returnedState || !returnedState.startsWith(`${nonce}.`)) {
+    return { ok: false, cancelled: false, reason: 'Apple sign-in: invalid state' };
   }
   if (!idToken) {
     return {
-      result: {
-        ok: false,
-        cancelled: false,
-        reason: 'Apple sign-in: no id_token in callback',
-      },
-      context,
+      ok: false,
+      cancelled: false,
+      reason: 'Apple sign-in: no id_token in callback',
     };
   }
-  return {
-    result: { ok: true, identityToken: idToken, nonce: pending.nonce },
-    context,
-  };
+  return _appleResult(idToken, nonce);
 };
 
-export const hasPendingAppleWebSignIn = (): boolean =>
-  hasWebReturnParams(['apple_id_token', 'apple_error', 'apple_state']);
+const _webReturns: {
+  provider: 'apple' | 'discord';
+  params: string[];
+  toResult: (params: URLSearchParams, nonce: string) => SocialSignInResult;
+}[] = [
+  {
+    provider: 'apple',
+    params: ['apple_id_token', 'apple_error', 'apple_state'],
+    toResult: _appleWebResult,
+  },
+  {
+    provider: 'discord',
+    params: ['discord_code', 'discord_error'],
+    toResult: _discordResult,
+  },
+];
+
+/**
+ * On web, completes the Apple or Discord sign-in started by
+ * `signInWithApple()` or `signInWithDiscord()`.
+ *
+ * Call once on mount of whichever screen the backend's
+ * `/auth/apple/callback` and `/auth/discord/callback` redirect users back
+ * to. If the URL contains `apple_id_token` / `apple_state` /
+ * `apple_error` or `discord_code` / `discord_error`, returns the parsed
+ * result alongside the `context` the caller originally passed. Otherwise
+ * returns `null`.
+ *
+ * Side effects: clears the pending entry from `sessionStorage` and
+ * strips the provider's query params from the URL via
+ * `history.replaceState`, so a refresh won't re-trigger this codepath.
+ * Safe to call on platforms other than web — it's a no-op there.
+ */
+export const consumePendingWebSignIn = (): {
+  provider: 'apple' | 'discord';
+  result: SocialSignInResult;
+  context: Record<string, string>;
+} | null => {
+  for (const { provider, params, toResult } of _webReturns) {
+    const returned = takeWebReturnParams(params);
+    if (!returned) continue;
+
+    const pending = _takePending();
+    if (!pending) {
+      // The provider redirected back but we have no record of having
+      // started the flow in this browsing context — most likely a link
+      // opened in a fresh tab. Don't trust the credential: we can't
+      // verify the nonce.
+      return {
+        provider,
+        result: {
+          ok: false,
+          cancelled: false,
+          reason: 'Sign-in: missing local session',
+        },
+        context: {},
+      };
+    }
+    return {
+      provider,
+      result: toResult(returned, pending.nonce),
+      context: pending.context,
+    };
+  }
+  return null;
+};
+
+export const hasPendingWebSignIn = (): boolean =>
+  _webReturns.some(({ params }) => hasWebReturnParams(params));

@@ -106,13 +106,16 @@ ClubName = Annotated[
 ]
 
 # Optional variant for /request-otp, /sign-in-with-google,
-# /sign-in-with-apple, where the client passes a pending-club-invite name.
+# /sign-in-with-apple, /sign-in-with-discord, where the client passes a
+# pending-club-invite name.
 PendingClubName = Annotated[
     str | None,
     BeforeValidator(_normalize_club_name),
 ]
 
 SignUpRef = Annotated[str | None, Field(min_length=1, max_length=256)]
+
+RedirectTarget = Literal['web', 'apex', 'app']
 
 _club_name_adapter = TypeAdapter(ClubName)
 
@@ -382,17 +385,20 @@ class ProspectProfileQuery(BaseModel):
     similar_profiles: Json[PublicAnswers] | bool = False
 
 
-class PostRequestOtp(BaseModel):
-    email: EmailStr
+class SignInRequest(BaseModel):
     pending_club_name: PendingClubName = Field(
         default=None,
         pattern=CLUB_PATTERN,
         min_length=1,
         max_length=CLUB_MAX_LEN,
     )
+    ref: SignUpRef = None
+
+
+class PostRequestOtp(SignInRequest):
+    email: EmailStr
     answers: List[PublicAnswer] = Field(
         default_factory=list, max_length=PUBLIC_ANSWER_LIMIT)
-    ref: SignUpRef = None
 
     @field_validator('email', mode='before')
     def validate_email(cls, value: object) -> object:
@@ -403,19 +409,12 @@ class PostCheckOtp(BaseModel):
     otp: str = Field(pattern=r"^\d{6}$")
 
 
-class PostSignInWithGoogle(BaseModel):
+class PostSignInWithGoogle(SignInRequest):
     # Google ID token (a JWT). Verified server-side against Google's JWKS.
     id_token: str = Field(min_length=1, max_length=4096)
-    pending_club_name: PendingClubName = Field(
-        default=None,
-        pattern=CLUB_PATTERN,
-        min_length=1,
-        max_length=CLUB_MAX_LEN,
-    )
-    ref: SignUpRef = None
 
 
-class PostSignInWithApple(BaseModel):
+class PostSignInWithApple(SignInRequest):
     # Apple identity token (a JWT). Verified server-side against Apple's JWKS.
     identity_token: str = Field(min_length=1, max_length=4096)
     # Random hex string the client passed to Apple as the `nonce` parameter
@@ -423,13 +422,22 @@ class PostSignInWithApple(BaseModel):
     # web/Android). Apple echoes it verbatim into the JWT's `nonce` claim;
     # the backend compares the two to bind the token to this client session.
     nonce: str = Field(min_length=16, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
-    pending_club_name: PendingClubName = Field(
-        default=None,
-        pattern=CLUB_PATTERN,
-        min_length=1,
-        max_length=CLUB_MAX_LEN,
-    )
-    ref: SignUpRef = None
+
+
+class PostSignInWithDiscord(SignInRequest):
+    code: str = Field(min_length=1, max_length=256)
+    code_verifier: str = Field(pattern=r'^[a-zA-Z0-9._~-]{43,128}$')
+
+
+class GetDiscordAuthorize(BaseModel):
+    redirect_target: RedirectTarget
+    code_challenge: str = Field(pattern=r'^[a-zA-Z0-9_-]{43}$')
+
+
+class GetDiscordCallback(BaseModel):
+    state: RedirectTarget
+    code: str | None = None
+    error: str | None = None
 
 
 class SocialClaims(BaseModel):
@@ -733,7 +741,7 @@ class PostSearchFilterAnswer(BaseModel):
 
 
 class PostSpotifyAuthorize(BaseModel):
-    redirect_target: Literal['web', 'apex', 'app']
+    redirect_target: RedirectTarget
 
 
 class PostPaypalSubscribe(BaseModel):

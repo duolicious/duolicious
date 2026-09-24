@@ -122,6 +122,10 @@ These environment variables let web users buy Gold through PayPal:
 
 The mobile apps buy Gold through RevenueCat, which offers whatever packages are in the current offering. `./create-revenuecat-packages.sh` makes sure the `$rc_weekly`, `$rc_monthly` and `$rc_three_month` packages exist and attaches store products to them. It reads `DUO_REVENUECAT_API_KEY` (a v2 secret key with write access to project configuration) and, for each store product you have created in App Store Connect or the Play Console, its identifier in `APP_STORE_WEEKLY`, `APP_STORE_MONTHLY`, `APP_STORE_THREE_MONTH`, `PLAY_STORE_WEEKLY`, `PLAY_STORE_MONTHLY` and `PLAY_STORE_THREE_MONTH` (Play identifiers take the form `productId:basePlanId`). Set `DUO_REVENUECAT_PROJECT_ID` only if the key can see several projects. Leave a store variable unset to skip that product, e.g. when the existing weekly product has merely had its store price changed. The script is safe to rerun. Prices live in the stores, and RevenueCat's API can't create Web Billing products, so those stay in the dashboard. Run it without a key to see this as a usage message.
 
+These environment variables let people sign in with Discord:
+
+* `DUO_DISCORD_CLIENT_ID` and `DUO_DISCORD_CLIENT_SECRET` - Your Discord application's OAuth2 credentials. Add `https://api.duolicious.app/auth/discord/callback`, or `DUO_DISCORD_REDIRECT_URI` if you set it, as a redirect on the application's OAuth2 page.
+
 #### `cron` container
 
 These environment variables let the `cron` container know where your SMTP server is and how to log into it:

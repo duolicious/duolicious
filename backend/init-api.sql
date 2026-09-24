@@ -451,7 +451,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
 );
 
 CREATE TABLE IF NOT EXISTS social_identity (
-    -- 'google' | 'apple'
+    -- 'google' | 'apple' | 'discord'
     provider TEXT NOT NULL,
     -- Stable, opaque user id from the provider (Google `sub`, Apple `sub`).
     -- Source of truth for identity; emails can change (esp. Apple relay).
