@@ -15,6 +15,7 @@ from urllib.parse import parse_qsl
 
 from fastapi import Body, Depends, Path as FastApiPath, Query, WebSocket
 from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 import service.api.duotypes as t
 from service.api import location
@@ -23,7 +24,7 @@ from service.api.person import profileinfo
 from service.api import qanda
 from service.api import search
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
-from service.api.auth import apple_oauth, spotify_oauth
+from service.api.auth import apple_oauth, discord_oauth, spotify_oauth
 from service.api.gold import paypal, revenuecat
 from service.api.qanda import question
 from service.api.asgi import app
@@ -144,6 +145,33 @@ async def post_auth_apple_callback(
         state=form.get('state') or '',
         error=form.get('error'),
     )
+
+@app.post('/sign-in-with-discord')
+async def post_sign_in_with_discord(
+    request: Request,
+    req: t.PostSignInWithDiscord,
+    _limited: None = Depends(ip_rate_limit(
+        auth_rate_limit,
+        scope='social_sign_in',
+    )),
+) -> object:
+    return await person.post_sign_in_with_discord(req, client_ip(request))
+
+@app.get('/auth/discord/authorize')
+async def get_auth_discord_authorize(
+    q: Annotated[t.GetDiscordAuthorize, Query()],
+) -> RedirectResponse:
+    return discord_oauth.authorize_redirect(q)
+
+@app.get('/auth/discord/callback')
+async def get_auth_discord_callback(
+    q: Annotated[t.GetDiscordCallback, Query()],
+    _limited: None = Depends(ip_rate_limit(
+        auth_rate_limit,
+        scope='discord_oauth_callback',
+    )),
+) -> RedirectResponse:
+    return discord_oauth.handle_callback(q)
 
 @app.post('/sign-out')
 async def post_sign_out(

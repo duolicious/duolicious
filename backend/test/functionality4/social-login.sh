@@ -30,16 +30,6 @@ reset_db () {
   q "update funding set estimated_end_date = '$future'"
 }
 
-complete_onboarding_for_current_session () {
-  jc PATCH /onboardee-info -d '{ "name": "Pat" }'
-  jc PATCH /onboardee-info -d '{ "date_of_birth": "1997-05-30" }'
-  c GET /search-locations?q=Syd
-  jc PATCH /onboardee-info -d '{ "location": "Sydney, New South Wales, Australia" }'
-  jc PATCH /onboardee-info -d '{ "gender": "Man" }'
-  jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Woman"] }'
-  c POST /finish-onboarding
-}
-
 # ---------------------------------------------------------------------------
 # 1. Brand-new sign-up via Google → onboardee created, session signed-in,
 #    pending_social_* set, social_identity row appears after

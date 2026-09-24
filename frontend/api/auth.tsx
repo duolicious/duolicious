@@ -14,7 +14,7 @@ export type AuthResult =
   | 'needs-onboarding' // a new user still has to complete onboarding
 
 // The (snake_case) response body shared by `/check-otp`,
-// `/sign-in-with-google`, and `/sign-in-with-apple`.
+// `/sign-in-with-google`, `/sign-in-with-apple`, and `/sign-in-with-discord`.
 type AuthenticatedResponse = {
   onboarded: boolean;
   person_id: number;
