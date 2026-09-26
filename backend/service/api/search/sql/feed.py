@@ -679,6 +679,7 @@ WITH searcher AS (
         url_slug AS searcher_url_slug,
         gender_id,
         EXTRACT(YEAR FROM AGE(date_of_birth)) AS searcher_age,
+        location_country AS searcher_country,
         personality,
         verification_level_id
     FROM
@@ -1034,7 +1035,8 @@ WITH searcher AS (
                 COALESCE(preference.max_age, 999) >= searcher.searcher_age
             )
     )
-    -- The prospect meets the searcher's age preference
+    -- The prospect meets the searcher's age preference and, in the
+    -- same-country trial, their "Same country only" preference
     AND EXISTS (
         SELECT
             1
@@ -1053,6 +1055,14 @@ WITH searcher AS (
                 CURRENT_DATE -
                 INTERVAL '1 year' *
                 (COALESCE(preference.max_age, 999) + 1)
+            )
+        AND
+            (
+                NOT %(same_country_only)s
+            OR
+                NOT preference.same_country_only
+            OR
+                prospect.location_country = searcher.searcher_country
             )
     )
     -- Exclude photos that might be NSFW
