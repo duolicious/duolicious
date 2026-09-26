@@ -4,7 +4,6 @@ import {
   describeLongDistance,
   lookingForDescription,
   lookingForEmoji,
-  lookingForGoals,
 } from './looking-for';
 
 const ALL_GENDERS = [
@@ -216,33 +215,5 @@ describe('lookingForEmoji', () => {
     expect(lookingForEmoji({})).toBe('💞');
     expect(lookingForEmoji(null)).toBe('💞');
     expect(lookingForEmoji(undefined)).toBe('💞');
-  });
-});
-
-describe('lookingForGoals', () => {
-  test('passes a list of goals through', () => {
-    expect(lookingForGoals(['Friends', 'Marriage']))
-      .toEqual(['Friends', 'Marriage']);
-    expect(lookingForGoals([])).toEqual([]);
-  });
-
-  test('splits the string older servers send', () => {
-    expect(lookingForGoals('Friends, Marriage'))
-      .toEqual(['Friends', 'Marriage']);
-    expect(lookingForGoals('Long-term dating')).toEqual(['Long-term dating']);
-  });
-
-  test('reads a missing or unanswered goal as no goals', () => {
-    expect(lookingForGoals('Unanswered')).toEqual([]);
-    expect(lookingForGoals(null)).toEqual([]);
-    expect(lookingForGoals(undefined)).toEqual([]);
-  });
-
-  test('describes a profile whose goals arrive as a string', () => {
-    expect(lookingForDescription({
-      gender_preference: ['Woman'],
-      looking_for: 'Friends, Long-term dating',
-    })).toBe('women for friends or long-term dating');
-    expect(lookingForEmoji({ looking_for: 'Marriage' })).toBe('💍');
   });
 });

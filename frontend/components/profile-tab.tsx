@@ -90,7 +90,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { INVITE_URL } from '../env/env';
 import { Pressable } from 'react-native-gesture-handler';
 import { copyProfileLink } from '../util/util';
-import { lookingForGoals } from './prospect-profile-screen/looking-for';
 
 
 type ProfileInfoPatchResponse = {
@@ -566,12 +565,11 @@ const Options = ({ navigation, data }: {
     }
     const value = data?.[optionGroupToDataKey(og)];
     if (value === undefined) return og;
-    if (isOptionGroupCheckChips(og.input)) {
-      const checked = lookingForGoals(value);
+    if (isOptionGroupCheckChips(og.input) && Array.isArray(value)) {
       return _.merge({}, og, { input: { checkChips: {
         values: og.input.checkChips.values.map((v) => ({
           ...v,
-          checked: checked.includes(v.label),
+          checked: value.includes(v.label),
         })),
       } } });
     }
