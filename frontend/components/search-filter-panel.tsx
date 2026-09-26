@@ -58,9 +58,15 @@ const PanelHeading = ({ og, children }: {
 
   return (
     <View style={styles.heading}>
-      {Icon && <Icon color={appTheme.secondaryColor} />}
-      <DefaultText style={styles.headingText}>{og.title}</DefaultText>
-      {children}
+      {Icon &&
+        <View style={styles.headingIcon}>
+          <Icon color={appTheme.secondaryColor} />
+        </View>
+      }
+      <View style={styles.headingTitle}>
+        <DefaultText style={styles.headingText}>{og.title}</DefaultText>
+        {children}
+      </View>
     </View>
   );
 };
@@ -264,9 +270,7 @@ const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
   return (
     <Pressable onPress={promptSignUp}>
       <PanelHeading og={og}>
-        <DefaultText style={[styles.membersOnly, { color: appTheme.hintColor }]}>
-          Members only
-        </DefaultText>
+        <DefaultText style={{ color: appTheme.hintColor }}>Members only</DefaultText>
       </PanelHeading>
       <View style={[styles.slider, styles.lockedSlider]}>
         <View
@@ -632,13 +636,26 @@ const styles = StyleSheet.create({
   },
   heading: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     paddingVertical: 2,
+  },
+  headingIcon: {
+    height: 19,
+    justifyContent: 'center',
+  },
+  headingTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    columnGap: 8,
   },
   headingText: {
     fontSize: 16,
     fontWeight: '700',
+    lineHeight: 19,
   },
   slider: {
     marginTop: 5,
@@ -718,10 +735,6 @@ const styles = StyleSheet.create({
   },
   lock: {
     fontSize: 16,
-  },
-  membersOnly: {
-    flex: 1,
-    textAlign: 'right',
   },
   lockedSlider: {
     height: 40,
