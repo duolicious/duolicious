@@ -65,7 +65,7 @@ expected=$(jq -r . << EOF
   "is_skipped": false,
   "location": "New York, New York, United States",
   "long_distance": null,
-  "looking_for": null,
+  "looking_for": [],
   "match_percentage": 50,
   "mutual_clubs": [],
   "name": "user2",
@@ -186,7 +186,7 @@ expected=$(jq -r . << EOF
   "is_skipped": false,
   "location": "New York, New York, United States",
   "long_distance": null,
-  "looking_for": null,
+  "looking_for": [],
   "match_percentage": 50,
   "mutual_clubs": ["my-club-shared-1", "my-club-shared-2"],
   "name": "user2",
@@ -257,12 +257,8 @@ assume_role user2
 jc PATCH /profile-info -d '{ "looking_for": ["Marriage", "Friends"] }'
 assume_role user1
 
-[[ "$(c GET /prospect-profile/$user2_uuid \
-  --header 'X-Duolicious-Client-Version: 11' \
-  | jq -c .looking_for)" = '["Friends","Marriage"]' ]]
-
 [[ "$(c GET /prospect-profile/$user2_uuid | jq -c .looking_for)" \
-  = '"Friends, Marriage"' ]]
+  = '["Friends","Marriage"]' ]]
 
 
 
@@ -280,11 +276,7 @@ hidden_looking_for=$(
         long_distance
       }')
 
-[[ "$hidden_looking_for" = '{"show_my_looking_for":"No","gender_preference":[],"age_preference":null,"looking_for":null,"long_distance":null}' ]]
-
-[[ "$(c GET /prospect-profile/$user2_uuid \
-  --header 'X-Duolicious-Client-Version: 11' \
-  | jq -c .looking_for)" = '[]' ]]
+[[ "$hidden_looking_for" = '{"show_my_looking_for":"No","gender_preference":[],"age_preference":null,"looking_for":[],"long_distance":null}' ]]
 
 
 

@@ -456,7 +456,6 @@ test_clear () {
   # Lookup-table basics clear to "Unanswered".
   test_set orientation Asexual            && test_clear_field orientation Unanswered
   test_set ethnicity 'Pacific Islander'   && test_clear_field ethnicity Unanswered
-  test_set looking_for 'Short-term dating' && test_clear_field looking_for Unanswered
   test_set smoking Yes                    && test_clear_field smoking Unanswered
   test_set drinking Often                 && test_clear_field drinking Unanswered
   test_set drugs No                       && test_clear_field drugs Unanswered
@@ -481,18 +480,16 @@ test_clear () {
 }
 
 test_looking_for () {
-  local v11=( --header 'X-Duolicious-Client-Version: 11' )
-
   jc PATCH /profile-info -d '{ "looking_for": ["Marriage", "Friends"] }'
-  [[ "$(c GET /profile-info "${v11[@]}" | jq -c '.["looking for"]')" \
+  [[ "$(c GET /profile-info | jq -c '.["looking for"]')" \
     == '["Friends","Marriage"]' ]]
-  [[ "$(get_field looking_for)" == 'Friends, Marriage' ]]
 
   jc PATCH /profile-info -d '{ "looking_for": [] }'
-  [[ "$(c GET /profile-info "${v11[@]}" | jq -c '.["looking for"]')" == '[]' ]]
-  [[ "$(get_field looking_for)" == 'Unanswered' ]]
+  [[ "$(c GET /profile-info | jq -c '.["looking for"]')" == '[]' ]]
 
   ! jc PATCH /profile-info -d '{ "looking_for": ["Aliens"] }' || exit 1
+  ! jc PATCH /profile-info -d '{ "looking_for": "Friends" }' || exit 1
+  ! jc PATCH /profile-info -d '{ "looking_for": null }' || exit 1
 }
 
 
@@ -507,7 +504,6 @@ test_set occupation 'Wallnut milker'
 test_set education MIT
 test_set height 184
 test_set body_type Chubby
-test_set looking_for 'Short-term dating'
 test_set smoking Yes
 test_set drinking Often
 test_set drugs No
