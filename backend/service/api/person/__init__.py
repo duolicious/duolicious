@@ -17,6 +17,7 @@ from service.api.person.bestdistance import (
     distance_preference,
 )
 from service.api.person.urlslug import reserve_onboardee_url_slug
+from service.api.trials import two_way_age_in_search_by_default
 import service.api.duotypes as t
 from service.api.location import SQL_POINT, snap_to_grid
 import json
@@ -149,12 +150,15 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         'age',
     )
     bounds = best_age(age)
+    two_way_age = two_way_age_in_search_by_default(person_id)
 
     async def count_within(distance_km: float, same_country_only: bool) -> int:
         counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
             person_id=person_id,
             distance_metres=distance_km * 1000,
             same_country_only=same_country_only,
+            two_way_age=two_way_age,
+            age=age,
             min_age=0 if bounds.min_age is None else bounds.min_age,
             max_age=999 if bounds.max_age is None else bounds.max_age,
             candidate_limit=CANDIDATE_LIMIT,
@@ -176,6 +180,7 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         max_age=bounds.max_age,
         distance=distance_preference(candidates, is_joining_club=is_joining_club),
         same_country_only=same_country_only and not is_joining_club,
+        two_way_age=two_way_age,
     ))
 
 
