@@ -8,7 +8,7 @@ test('has correct invite flow for existing users who are logged out', async ({ p
       await route.fulfill({
         json: {
           "api_version": 5,
-          "supported_client_versions": [ 9, 10 ],
+          "supported_client_versions": [ 10, 11 ],
           "statuses": [ "ok", "down for maintenance" ],
           "status_index": 0,
         }

@@ -43,6 +43,7 @@ import {
   generalSettingsOptionGroups,
   getCurrentValue,
   isOptionGroupButtons,
+  isOptionGroupCheckChips,
   isOptionGroupSlider,
   isOptionGroupThemePicker,
   notificationSettingsOptionGroups,
@@ -89,6 +90,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { INVITE_URL } from '../env/env';
 import { Pressable } from 'react-native-gesture-handler';
 import { copyProfileLink } from '../util/util';
+import { lookingForGoals } from './prospect-profile-screen/looking-for';
 
 
 type ProfileInfoPatchResponse = {
@@ -115,8 +117,10 @@ const formatHeight = (og: OptionGroup<OptionGroupInputs>): string | undefined =>
 
 const asSettingLabel = (
   value: ReturnType<typeof getCurrentValue>,
-): string | undefined =>
-  typeof value === 'string' ? value : undefined;
+): string | undefined => {
+  if (Array.isArray(value)) return value.join(', ') || undefined;
+  return typeof value === 'string' ? value : undefined;
+};
 
 const enqueueAbout = async (about: string, cb: (response: ApiResponse<ProfileInfoPatchResponse>) => void) => {
   aboutQueue.addTask(
@@ -562,6 +566,15 @@ const Options = ({ navigation, data }: {
     }
     const value = data?.[optionGroupToDataKey(og)];
     if (value === undefined) return og;
+    if (isOptionGroupCheckChips(og.input)) {
+      const checked = lookingForGoals(value);
+      return _.merge({}, og, { input: { checkChips: {
+        values: og.input.checkChips.values.map((v) => ({
+          ...v,
+          checked: checked.includes(v.label),
+        })),
+      } } });
+    }
     const inputKey = Object.keys(og.input)[0];
     return _.merge({}, og, { input: { [inputKey]: { currentValue: value } } });
   };

@@ -745,19 +745,19 @@ const orientationOptionGroup: OptionGroup<OptionGroupButtons> = {
   },
 };
 
-const lookingForOptionGroup: OptionGroup<OptionGroupButtons> = {
+const lookingForOptionGroup: OptionGroup<OptionGroupCheckChips> = {
   title: 'Looking For',
   Icon: ({ color = 'black' }) => <Ionicons style={{fontSize: 16, color}} name="eye" />,
-  description: 'What are you mainly looking for on Duolicious?',
+  description: 'What are you looking for on Duolicious? You can select more than one option',
   input: {
-    buttons: {
-      values: lookingFor,
-      submit: async (lookingFor: string) => {
-        const ok = (await japi('patch', '/profile-info', { looking_for: lookingFor })).ok;
-        if (ok) patchProfileInfo({ looking_for: lookingFor });
+    checkChips: {
+      values: lookingFor.map((x) => ({checked: false, label: x})),
+      submit: async (selected: string[]) => {
+        const goals = lookingFor.filter((x) => selected.includes(x));
+        const ok = (await japi('patch', '/profile-info', { looking_for: goals })).ok;
+        if (ok) patchProfileInfo({ looking_for: goals });
         return ok;
       },
-      clear: clearProfileField('looking_for', 'Unanswered'),
     }
   }
 };
