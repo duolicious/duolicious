@@ -79,10 +79,15 @@ const leaveClub = (name: string): void => {
   notify<ClubItem[]>('updated-clubs', updatedClubs);
 };
 
+const resetClubs = () => {
+  notify<ClubItem[] | undefined>('updated-clubs', undefined);
+};
+
 export {
   clubQuota,
   ClubItem,
   joinClub,
   leaveClub,
+  resetClubs,
   sortClubs,
 };

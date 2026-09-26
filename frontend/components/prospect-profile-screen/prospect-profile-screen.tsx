@@ -52,7 +52,7 @@ import { Basic, Basics } from '../basic';
 import { themedSurface, legibleSurface } from '../../app-theme/surface';
 import { Club, Clubs } from '../club';
 import { Stat, Stats } from '../stat';
-import { listen, notify } from '../../events/events';
+import { notify, useDerivedEvent } from '../../events/events';
 import { useBackButtonClaim } from '../../events/back-button';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { ReportModalInitialData } from '../modal/report-modal';
@@ -623,37 +623,15 @@ const AllClubs = ({
   titleColor: string | undefined,
 }) => {
   const [signedInUser] = useSignedInUser();
-  const [state, setState] = useState({
-    mutualClubs: mutualClubs,
-    otherClubs: otherClubs,
-  });
+  const viewerClubs = useDerivedEvent<ClubItem[], ClubItem[] | undefined>(
+    'updated-clubs', (cs) => cs, []);
 
-  useEffect(() => {
-    setState({ mutualClubs, otherClubs })
-  }, [mutualClubs, otherClubs]);
+  const prospectClubs = [...mutualClubs, ...otherClubs];
+  const viewerClubNames = viewerClubs?.map((c) => c.name) ?? mutualClubs;
+  const mutual = _.intersection(viewerClubNames, prospectClubs);
+  const other = _.difference(prospectClubs, viewerClubNames);
 
-  useEffect(() =>
-    listen<ClubItem[]>(
-      'updated-clubs',
-      (cs) => {
-        if (!cs) {
-          return;
-        }
-
-        setState(s => {
-          const clubs = [...new Set(cs.map(c => c.name))];
-          const prospectClubs = [...new Set([...s.otherClubs, ...s.mutualClubs])];
-
-          return {
-            mutualClubs: [..._.intersection(clubs, prospectClubs)],
-            otherClubs: [..._.difference(prospectClubs, clubs)],
-          }
-        });
-      }
-    )
-  , []);
-
-  if (state.mutualClubs.length === 0 && state.otherClubs.length === 0) {
+  if (mutual.length === 0 && other.length === 0) {
     return null;
   }
 
@@ -667,12 +645,12 @@ const AllClubs = ({
     : undefined;
 
   const childData: (AllClubsChild | null)[] = [
-    state.mutualClubs.length > 0 ? {
+    mutual.length > 0 ? {
       kind: 'Title',
       props: { style: {color: titleColor, width: '100%'}},
       kids: 'Mutual clubs' } : null,
 
-    ...state.mutualClubs.map((clubName): AllClubsChild => ({
+    ...mutual.map((clubName): AllClubsChild => ({
         kind: 'Club',
         props: {
           onPress: onPressLeave && (() => onPressLeave(clubName)),
@@ -684,17 +662,17 @@ const AllClubs = ({
         kids: null,
       })),
 
-      (state.otherClubs.length > 0 && state.mutualClubs.length > 0) ? {
+      (other.length > 0 && mutual.length > 0) ? {
         kind: 'Title',
         props: { style: {color: titleColor, width: '100%'}},
         kids: 'Other clubs' } : null,
 
-      (state.otherClubs.length > 0 && state.mutualClubs.length === 0) ? {
+      (other.length > 0 && mutual.length === 0) ? {
         kind: 'Title',
         props: { style: {color: titleColor, width: '100%'}},
         kids: 'Clubs' } : null,
 
-      ...state.otherClubs.map((clubName): AllClubsChild => ({
+      ...other.map((clubName): AllClubsChild => ({
         kind: 'Club',
         props: {
           onPress: onPressJoin && (() => onPressJoin(clubName)),

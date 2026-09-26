@@ -423,14 +423,6 @@ const ClubSelector = (props: ClubSelectorProps) => {
     );
   }, []);
 
-  useEffect(() => {
-    if (clubs && clubs.every((club) => club.name !== props.selectedClub)) {
-      hasJumpedToClubRef.current = false;
-
-      props.onChangeSelectedClub(null);
-    }
-  }, [props.selectedClub, JSON.stringify(clubs)]);
-
   const dynamicStyles = StyleSheet.create({
     selectedClubText: {
       fontSize: 16,
@@ -641,13 +633,11 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
       (cs: ClubItem[] | undefined) => {
         const { hasClubs, selectedClub } = getStateFromClubItems(cs);
 
-        if (hasClubs !== undefined) {
-          setHasClubs(hasClubs);
-        }
+        setHasClubs(hasClubs);
 
-        if (selectedClub !== undefined) {
-          setSelectedClub(selectedClub);
-        }
+        setSelectedClub((current) =>
+          selectedClub ??
+          ((cs ?? []).some((c) => c.name === current) ? current : null));
       }
     );
   }, []);
