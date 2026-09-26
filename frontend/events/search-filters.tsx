@@ -1,6 +1,6 @@
 import { useLayoutEffect, useState } from 'react';
 import * as _ from 'lodash';
-import { listen, notify, lastEvent } from './events';
+import { listen, notify, lastEvent, useDerivedEvent } from './events';
 import { markSearchResultsStale } from './stale-search-results';
 import { markInboxStale } from './stale-inbox';
 import { markFeedStale } from './stale-feed';
@@ -24,6 +24,7 @@ type SearchFilters = {
 };
 
 const EVENT_KEY = 'search-filters';
+const SEARCHED_EVENT_KEY = 'searched-search-filters';
 
 const getSearchFilters = (): SearchFilters | undefined => {
   return lastEvent<SearchFilters | undefined>(EVENT_KEY);
@@ -31,6 +32,14 @@ const getSearchFilters = (): SearchFilters | undefined => {
 
 const setSearchFilters = (next: SearchFilters | undefined) => {
   notify<SearchFilters | undefined>(EVENT_KEY, next);
+  if (next && !lastEvent<SearchFilters>(SEARCHED_EVENT_KEY)) {
+    notify<SearchFilters>(SEARCHED_EVENT_KEY, next);
+  }
+};
+
+const recordSearchedFilters = (filters: SearchFilters | undefined) => {
+  if (!filters) return;
+  notify<SearchFilters>(SEARCHED_EVENT_KEY, filters);
 };
 
 const filterValueChanged = (next: unknown, prev: unknown): boolean => {
@@ -139,6 +148,7 @@ const resetSearchFilters = () => {
   sendSearchFilterAnswers.cancel();
   pendingAnswerWrites.clear();
   notify<SearchFilters | undefined>(EVENT_KEY, undefined);
+  notify<SearchFilters | undefined>(SEARCHED_EVENT_KEY, undefined);
 };
 
 const useSearchFilters = () => {
@@ -152,15 +162,27 @@ const useSearchFilters = () => {
   return value;
 };
 
+const useHasUnsearchedChanges = (): boolean => {
+  const filters = useSearchFilters();
+  const searched = useDerivedEvent<SearchFilters, SearchFilters | undefined>(
+    SEARCHED_EVENT_KEY, (x) => x, []);
+
+  return !!filters && !!searched &&
+    _.union(Object.keys(filters), Object.keys(searched)).some(
+      (key) => filterValueChanged(filters[key], searched[key]));
+};
+
 export {
   SearchFilterAnswer,
   SearchFilters,
   flushSearchFilterWrites,
   getSearchFilters,
   patchSearchFilters,
+  recordSearchedFilters,
   resetSearchFilters,
   setSearchFilterAnswer,
   setSearchFilters,
   setTwoWayFilter,
+  useHasUnsearchedChanges,
   useSearchFilters,
 };
