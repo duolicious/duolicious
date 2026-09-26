@@ -1586,7 +1586,7 @@ const FeedTab = () => {
     observeListRef,
   } = useScrollbar('traits');
 
-  const listRef = useRef<{ refresh: () => void } | null>(null);
+  const listRef = useRef<{ refresh: () => Promise<void> } | null>(null);
 
   const onPressRefresh = useCallback(() => {
     const refresh = listRef?.current?.refresh;

@@ -45,7 +45,17 @@ import { onPressInvite } from '../components/invite';
 import { useAppTheme } from '../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
-import { consumeStaleSearchResults } from '../events/stale-search-results';
+import {
+  areSearchResultsRecent,
+  consumeStaleSearchResults,
+  recordSearchResultsFetch,
+} from '../events/stale-search-results';
+import {
+  listenSearchRequests,
+  requestSearch,
+  useIsSearching,
+  whileSearching,
+} from '../events/search-requests';
 import { flushSearchFilterWrites } from '../events/search-filters';
 import { SearchFiltersHint } from './hints/search-filters-hint';
 import { seenSearchFiltersHint } from '../kv-storage/seen-hints/seen-search-filters-hint';
@@ -172,6 +182,10 @@ const fetchPageWithoutQueue = async (
     `&club=${encodeURIComponent(club === null ? '\0' : club)}` +
     answersParam
   );
+
+  if (pageNumber === 1) {
+    recordSearchResultsFetch(response.ok);
+  }
 
   if (response.status === 429) {
     return {
@@ -554,7 +568,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     selectedClub: initialSelectedClub,
   } = getStateFromClubItems(lastEvent<ClubItem[]>('updated-clubs'));
 
-  const listRef = useRef<{ refresh: () => void } | null>(null);
+  const listRef = useRef<{ refresh: () => Promise<void> } | null>(null);
 
   const {
     onLayout,
@@ -601,9 +615,10 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     seenSearchFiltersHint(true);
   }, []);
 
-  const onPressRefresh = useCallback(() => {
-    const refresh = listRef?.current?.refresh;
-    refresh && refresh();
+  const isSearching = useIsSearching();
+
+  const onPressRefresh = useCallback(async () => {
+    await listRef.current?.refresh();
   }, []);
 
   // Changing a search filter or answering a Q&A question re-ranks these
@@ -615,12 +630,20 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
       (async () => {
         await flushSearchFilterWrites();
         if (active && consumeStaleSearchResults()) {
-          onPressRefresh();
+          whileSearching(onPressRefresh);
         }
       })();
       return () => { active = false; };
     }, [onPressRefresh])
   );
+
+  useEffect(() => {
+    return listenSearchRequests(async () => {
+      await flushSearchFilterWrites();
+      if (!consumeStaleSearchResults() && areSearchResultsRecent()) return;
+      await onPressRefresh();
+    });
+  }, [onPressRefresh]);
 
   const onPressOptions = useCallback(() => {
     dismissFiltersHint();
@@ -630,8 +653,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   }, [selectedClub, dismissFiltersHint]);
 
   useEffect(() => {
-    const refresh = listRef?.current?.refresh;
-    refresh && refresh();
+    whileSearching(onPressRefresh);
   }, [selectedClub]);
 
   useEffect(() => {
@@ -679,11 +701,12 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
       <DuoliciousTopNavBar>
         {Platform.OS === 'web' &&
           <TopNavBarButton
-            onPress={onPressRefresh}
+            onPress={requestSearch}
             iconName="refresh"
             position="left"
             secondary={true}
             label="Refresh"
+            loading={isSearching}
           />
         }
         <View

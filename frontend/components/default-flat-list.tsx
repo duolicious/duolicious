@@ -21,6 +21,7 @@ import {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -330,13 +331,20 @@ const EndTextNotice = ({
   }
 };
 
-const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: DefaultFlatListProps<ItemT> | DefaultFlashListProps<ItemT>) => {
+const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => Promise<void> }>, props: DefaultFlatListProps<ItemT> | DefaultFlashListProps<ItemT>) => {
   const contentHeight = useRef(0);
   const viewportHeight = useRef(0);
 
   const flatList = useRef<ListType | null>(null);
 
   const [books, setBooks] = useState<Books<ItemT>>({});
+
+  const firstPageWaiters = useRef<(() => void)[]>([]);
+
+  const resolveFirstPageWaiters = () =>
+    firstPageWaiters.current.splice(0).forEach((resolve) => resolve());
+
+  useEffect(() => resolveFirstPageWaiters, []);
 
   const dataKey = props.dataKey ?? 'default-key';
 
@@ -378,18 +386,28 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
     }
 
     setBooks(oldBooks => ({ ...oldBooks, ...books }));
+
+    if (pageNumberToFetchVal === 1) {
+      resolveFirstPageWaiters();
+    }
   }, [books, dataKey, fetchPage]);
 
   const onRefresh = useCallback(() => {
+    const firstPageLoaded = new Promise<void>((resolve) => {
+      firstPageWaiters.current.push(resolve);
+    });
+
     const book = getBookOrDefault(books, dataKey);
 
-    if (book.isRefreshing) return;
+    if (book.isRefreshing) return firstPageLoaded;
 
     setBookRefreshingInBooks(books, dataKey);
 
     setBooks(oldBooks => ({ ...oldBooks, ...books }));
 
     fetchNextPage();
+
+    return firstPageLoaded;
   }, [books, dataKey, fetchNextPage]);
 
   useImperativeHandle(ref, () => ({ refresh: onRefresh }), [onRefresh]);
@@ -474,7 +492,7 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
   }
 };
 
-const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref: ForwardedRef<{ refresh: () => void }>) => {
+const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref: ForwardedRef<{ refresh: () => Promise<void> }>) => {
   const {
     flatList,
     onRefresh,
@@ -548,7 +566,7 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
   );
 };
 
-const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, ref: ForwardedRef<{ refresh: () => void }>) => {
+const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, ref: ForwardedRef<{ refresh: () => Promise<void> }>) => {
   const {
     flatList,
     onRefresh,
@@ -596,13 +614,13 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
 const TypedDefaultFlatList =
   forwardRef(UntypedDefaultFlatList) as <ItemT>(
     props: DefaultFlatListProps<ItemT> &
-           React.RefAttributes<{ refresh: () => void }>
+           React.RefAttributes<{ refresh: () => Promise<void> }>
   ) => React.ReactElement | null;
 
 const TypedDefaultFlashList =
   forwardRef(UntypedDefaultFlashList) as <ItemT>(
     props: DefaultFlashListProps<ItemT> &
-           React.RefAttributes<{ refresh: () => void }>
+           React.RefAttributes<{ refresh: () => Promise<void> }>
   ) => React.ReactElement | null;
 
 const DefaultFlatList =
