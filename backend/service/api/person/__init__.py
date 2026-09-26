@@ -14,7 +14,6 @@ from service.api.person.bestage import best_age
 from service.api.person.bestdistance import (
     CANDIDATE_LIMIT,
     best_country_and_distance,
-    best_distance,
     distance_preference,
 )
 from service.api.person.urlslug import reserve_onboardee_url_slug
@@ -162,14 +161,9 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         ))
         return row_int(counted, 'candidates')
 
-    if person_id % 2 == 0:
-        same_country_only, candidates = await best_country_and_distance(
-            count_within
-        )
-    else:
-        same_country_only, candidates = False, await best_distance(
-            lambda distance_km: count_within(distance_km, False)
-        )
+    same_country_only, candidates = await best_country_and_distance(
+        count_within
+    )
 
     is_joining_club = row_bool(
         await tx.require_one(Q_IS_JOINING_CLUB, params=dict(person_id=person_id)),
