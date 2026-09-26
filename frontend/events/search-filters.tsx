@@ -108,8 +108,6 @@ const sendSearchFilterAnswers = _.debounce(() => {
         { question_id, answer, accept_unanswered },
       );
     }
-    markSearchResultsStale();
-    markInboxStale();
   });
 }, 1000);
 
@@ -128,6 +126,8 @@ const setSearchFilterAnswer = (next: SearchFilterAnswer) => {
     return;
   }
 
+  markSearchResultsStale();
+  markInboxStale();
   notify<SearchFilters>(EVENT_KEY, {
     ...prev,
     answer: next.answer === null ?

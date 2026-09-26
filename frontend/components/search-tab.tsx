@@ -208,6 +208,8 @@ const fetchPage = (
 ): Promise<PageItem[] | FetchPageError | null> => {
   const filters = getSearchFilters();
 
+  await flushSearchFilterWrites();
+
   const page = await searchQueue.addTask(
     async () => fetchPageWithoutQueue(club, pageNumber, isPublic));
 
@@ -636,20 +638,14 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   // we last fetched.
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      (async () => {
-        await flushSearchFilterWrites();
-        if (active && consumeStaleSearchResults()) {
-          whileSearching(onPressRefresh);
-        }
-      })();
-      return () => { active = false; };
+      if (consumeStaleSearchResults()) {
+        whileSearching(onPressRefresh);
+      }
     }, [onPressRefresh])
   );
 
   useEffect(() => {
     return listenSearchRequests(async () => {
-      await flushSearchFilterWrites();
       if (!consumeStaleSearchResults() && areSearchResultsRecent()) return;
       await onPressRefresh();
     });
