@@ -43,7 +43,7 @@ import {
 } from './looking-for';
 import { InDepthScreen } from '../in-depth-screen';
 import { ButtonWithCenteredText } from '../button/centered-text';
-import { api } from '../../api/api';
+import { cachedGet } from '../../api/api';
 import { cmToFeetInchesStr } from '../../units/units';
 import { useSignedInUser } from '../../events/signed-in-user';
 import { navigateToConversation } from '../../navigation/use-navigation-to-conversation';
@@ -116,7 +116,6 @@ import {
   useFitsSidePanels,
 } from '../navigation/side-panel';
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
-import { storeKv } from '../../kv-storage/kv-storage';
 import type { PageItem } from '../search-tab';
 
 // The person's photos in order, so tapping any one lets the gallery page
@@ -886,41 +885,6 @@ const useNavigationToInDepth = (personUuid: string | null | undefined) => {
   }, [navigation, personUuid]);
 };
 
-const PROSPECT_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
-
-type ProspectProfileCache = Record<string, FetchedUserData>;
-
-const isFresh = (profile: FetchedUserData) =>
-  Date.now() - profile.fetchedAt < PROSPECT_PROFILE_CACHE_TTL_MS;
-
-const readProspectProfileCache = async (): Promise<ProspectProfileCache> => {
-  try {
-    const cache: ProspectProfileCache =
-      JSON.parse((await storeKv('prospect_profiles')) || '{}');
-    return _.pickBy(cache, isFresh);
-  } catch {
-    return {};
-  }
-};
-
-const cachedProspectProfile = async (
-  handle: string,
-): Promise<FetchedUserData | undefined> =>
-  Object.values(await readProspectProfileCache()).find((profile) =>
-    (profile.person_uuid === handle || profile.url_slug === handle) &&
-    (isMobile() || profile.similar_profiles !== undefined));
-
-const cacheProspectProfile = async (profile: FetchedUserData) =>
-  storeKv(
-    'prospect_profiles',
-    JSON.stringify({
-      ...(await readProspectProfileCache()),
-      [profile.person_uuid]: profile,
-    }),
-  );
-
-const resetProspectProfileCache = () => storeKv('prospect_profiles', null);
-
 const prospectProfilePath = (
   handle: string,
   isAnonymousViewer: boolean,
@@ -948,56 +912,41 @@ const useProspectProfile = (
     if (!handle) return;
     let cancelled = false;
     (async () => {
-      const cached = await cachedProspectProfile(handle);
-      if (cancelled) return;
-      if (cached) {
-        setResult({ handle, data: cached, notFound: false });
-        onDataRef.current?.(cached);
-        setProspectHint(cached.person_uuid, {
-          personId: cached.person_id,
-          name: cached.name,
-          urlSlug: cached.url_slug,
-        });
-        return;
-      }
       // The skip cache is keyed by the canonical uuid. When the handle is a
       // uuid we can show the "fetching" state immediately; for a slug we settle
       // it once the profile (which carries `person_uuid`) lands.
       if (isUuid(handle)) {
         setSkipped(handle, { networkState: 'fetching' });
       }
-      const response = await api<UserData>(
-        'get', prospectProfilePath(handle, !signedInUser));
+      const { json, requestedAt, clientError } = await cachedGet<UserData>(
+        prospectProfilePath(handle, !signedInUser),
+        (profile) => profile.person_uuid !== signedInUser?.personUuid,
+      );
       if (cancelled) return;
-      const profile =
-        response?.json && { ...response.json, fetchedAt: Date.now() };
-      setResult({ handle, data: profile, notFound: response.clientError });
-      if (profile && profile.person_uuid !== signedInUser?.personUuid) {
-        cacheProspectProfile(profile);
-      }
-      if (profile) {
-        onDataRef.current?.(profile);
-      }
-      const canonicalUuid = response?.json?.person_uuid ?? (
+      const profile = json && { ...json, fetchedAt: requestedAt };
+      setResult({ handle, data: profile, notFound: clientError });
+      const canonicalUuid = profile?.person_uuid ?? (
         isUuid(handle) ? handle : undefined);
       if (canonicalUuid) {
         setSkipped(
           canonicalUuid,
           {
-            isSkipped: response?.json?.is_skipped ?? false,
+            isSkipped: profile?.is_skipped ?? false,
             networkState: 'settled',
           }
         );
-        // Make `personId` / `name` available to sibling screens (e.g. In-Depth,
-        // navigated to by the canonical uuid) so they don't have to refetch
-        // this endpoint just to resolve the numeric id required by `/compare-*`
-        // APIs.
-        setProspectHint(canonicalUuid, {
-          personId: response.json.person_id,
-          name: response.json.name,
-          urlSlug: response.json.url_slug,
-        });
       }
+      if (!profile) return;
+      onDataRef.current?.(profile);
+      // Make `personId` / `name` available to sibling screens (e.g. In-Depth,
+      // navigated to by the canonical uuid) so they don't have to refetch
+      // this endpoint just to resolve the numeric id required by `/compare-*`
+      // APIs.
+      setProspectHint(profile.person_uuid, {
+        personId: profile.person_id,
+        name: profile.name,
+        urlSlug: profile.url_slug,
+      });
     })();
     return () => { cancelled = true; };
   }, [handle, signedInUser?.personUuid]);
@@ -1864,7 +1813,6 @@ export {
   InDepthScreen,
   ProspectProfilePanel,
   ProspectProfileScreen,
-  resetProspectProfileCache,
   useProspectProfile,
 };
 export type { FetchedUserData, ProspectNavigationRef };

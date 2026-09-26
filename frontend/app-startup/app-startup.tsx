@@ -194,7 +194,7 @@ const useAppStartup = (
       'post',
       '/check-session-token',
       undefined,
-      { retryOnTransientError: true }
+      { retryOnTransientError: true, readOnly: true }
     );
 
     const json = response.json;

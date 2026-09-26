@@ -3,8 +3,8 @@ import { resetProspectHints } from './prospect-cache';
 import { resetProfileInfo } from '../events/profile-info';
 import { resetSearchFilters } from '../events/search-filters';
 import { resetViewerAnswers } from '../api/answer';
+import { resetCachedResponses } from '../api/api';
 import { resetInboxSettings } from '../chat/application-layer/hooks/conversations';
-import { resetProspectProfileCache } from '../components/prospect-profile-screen/prospect-profile-screen';
 import { resetClubs } from '../club/club';
 
 // Drop every piece of in-memory, user-scoped client state. Call this from
@@ -26,6 +26,6 @@ export const resetUserScopedClientState = () => {
   resetSearchFilters();
   resetViewerAnswers();
   resetInboxSettings();
-  resetProspectProfileCache();
+  resetCachedResponses();
   resetClubs();
 };
