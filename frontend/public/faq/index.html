@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta property="og:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta property="og:image" content="https://duolicious.app/favicon.png">
+  <meta property="og:url" content="https://duolicious.app/faq/">
+  <link rel="canonical" href="https://duolicious.app/faq/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Online dating, 100% free messaging, completely free matching">
+  <meta name="twitter:description" content="Online dating, but based and true love-pilled ❤️. Over 2000 match questions from anime to life goals.">
+  <meta name="twitter:image" content="https://duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <script src="/assets/faq.js"></script>
+
+  <title>Duolicious | Frequently asked questions</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="/clubs/">Clubs</a>
+        <a href="/safety/">Safety</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="/faq/">FAQ</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>Frequently Asked Questions</h1>
+
+      <div id="faq-stats">
+        <div id="stat-active-members">
+          <span class="faq-stat num-active-users">…</span>
+          <span>active members</span>
+        </div>
+        <div id="stat-gender-ratio">
+          <span class="faq-stat"><span class="gender-ratio">…</span> : 1</span>
+          <span>active men for every woman</span>
+        </div>
+        <div id="stat-non-binary">
+          <span class="faq-stat"><span class="non-binary-percentage">…</span>%</span>
+          <span>of active members are non-binary</span>
+        </div>
+      </div>
+
+      <nav id="faq-index">
+        <ul>
+          <li><a href="#is-duolicious-free">Is Duolicious free?</a></li>
+          <li><a href="#is-my-profile-private">Is my profile private?</a></li>
+          <li><a href="#are-pics-required">Are pics of myself required on my profile?</a></li>
+          <li><a href="#gender-ratio">What’s the gender ratio on Duolicious?</a></li>
+          <li><a href="#clubs">What are Duolicious clubs?</a></li>
+          <li><a href="#matching-algorithm">How does the Duolicious matching algorithm work?</a></li>
+          <li><a href="#intro-already-used">Why is Duolicious telling me someone already used my intro?</a></li>
+          <li><a href="#messages-instead-of-likes">Why does Duolicious use messages instead of likes to make matches?</a></li>
+          <li><a href="#similar-people">Why does Duolicious match me with similar people? I thought opposites attract!</a></li>
+          <li><a href="#how-many-questions">How many personality questions does Duolicious have?</a></li>
+          <li><a href="#how-old">How old do I need to be to use Duolicious?</a></li>
+          <li><a href="#verification">How do I get verified on Duolicious?</a></li>
+          <li><a href="#platforms">What platforms is Duolicious available on?</a></li>
+        </ul>
+      </nav>
+
+      <h2 id="is-duolicious-free">Is Duolicious free? <a class="anchor" href="#is-duolicious-free" aria-label="Link to this question">#</a></h2>
+      <p>Yes, everyone on Duolicious can match and message people completely for free – no payment required. Everyone gets the same access to matches and messages without a subscription. In fact, all our core features are 100% free.</p>
+      <p>For members who support us, we give convenience features like dark mode, extra profile customization and other perks.</p>
+
+      <h2 id="is-my-profile-private">Is my profile private? <a class="anchor" href="#is-my-profile-private" aria-label="Link to this question">#</a></h2>
+      <p>Yes, unless you say otherwise! Only people signed into Duolicious can see your profile. The profiles that signed-out visitors can browse belong to members who turned on the optional ‘Public Profile’ setting, which is off by default.</p>
+      <p>If you want even more privacy, you can use ‘Verification Level’ to set the minimum verification people need to find you in search results. You’ll find these options under “Privacy Settings” in the “Profile” tab.</p>
+
+      <h2 id="are-pics-required">Are pics of myself required on my profile? <a class="anchor" href="#are-pics-required" aria-label="Link to this question">#</a></h2>
+      <p>No, though the other information on your profile (e.g. age, gender) must still be accurate. Avatars are fine, but pics of another person that could be mistaken for you aren’t.</p>
+      <p>In locations where age verification is legally required, you’ll need to upload a selfie. But you upload that via our verification system, not to your profile.</p>
+
+      <h2 id="gender-ratio">What’s the gender ratio on Duolicious? <a class="anchor" href="#gender-ratio" aria-label="Link to this question">#</a></h2>
+      <p><span class="gender-ratio-sentence">Right now the ratio of active men to women is <b><span class="gender-ratio">…</span>:1</b>. </span>The ratio can change a lot, depending on which online communities have been talking about Duolicious lately; the ratio’s previously been as high as about 20:1 😱.</p>
+      <p><span class="non-binary-percentage-sentence">Currently <b><span class="non-binary-percentage">…</span>%</b> of active members identify as non-binary. </span>Duolicious has the following non-binary gender options:</p>
+      <ul>
+        <li>Agender</li>
+        <li>Femboy</li>
+        <li>Intersex</li>
+        <li>Non-binary</li>
+        <li>Transgender</li>
+        <li>Trans woman</li>
+        <li>Trans man</li>
+        <li>Other</li>
+      </ul>
+
+      <h2 id="clubs">What are Duolicious clubs? <a class="anchor" href="#clubs" aria-label="Link to this question">#</a></h2>
+      <p>If you want to date people who share your interests, or date people from your communities, Duolicious clubs are the way. Current clubs include:</p>
+      <ul>
+        <li><a href="https://duolicious.gg/anime">anime</a></li>
+        <li><a href="https://duolicious.gg/dark%20souls">dark souls</a></li>
+        <li><a href="https://duolicious.gg/persona">persona</a></li>
+        <li><a href="https://duolicious.gg/silly">silly</a></li>
+        <li><a href="https://duolicious.gg/valorant">valorant</a></li>
+        <li><a href="https://duolicious.gg/cosplay">cosplay</a></li>
+        <li><a href="https://duolicious.gg/brainrot">brainrot</a></li>
+        <li>and over 10,000 more!</li>
+      </ul>
+      <p>You can make your own clubs (e.g. for your Discord server, subreddit, college, or interest group) in the app, or <a href="/clubs/">here</a>. Though you’ll need to sign up to see who’s in them.</p>
+
+      <h2 id="matching-algorithm">How does the Duolicious matching algorithm work? <a class="anchor" href="#matching-algorithm" aria-label="Link to this question">#</a></h2>
+      <p>Duolicious gives you a new match for each answer you give to our fun (and ginormous) personality quiz. We ask a bunch of questions about your personality, political alignment, habits, and so on. Based on those answers, Duolicious simply matches you with people similar to you. If you’re curious to know more, we go in depth in our <a href="/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">blog article</a> (including a bunch of math).</p>
+      <p>As well as matching by personality, Duolicious has <b>Clubs</b> to help you find people who have the same interests, or who are in the same communities.</p>
+
+      <h2 id="intro-already-used">Why is Duolicious telling me someone already used my intro? <a class="anchor" href="#intro-already-used" aria-label="Link to this question">#</a></h2>
+      <p>Duolicious is a dating app where opening messages need to be one-of-a-kind! That means if anyone on Duolicious already started a conversation by using “hi”, then everyone on the app who opens a conversation after that will have to pick a different intro. We think having totally unique openers is a fun way to encourage thoughtful messages that the person you’re messaging will love—And they’ll be more likely to reply to you too!</p>
+      <p>Messages after the first one in a conversation can be whatever you want.</p>
+
+      <h2 id="messages-instead-of-likes">Why does Duolicious use messages instead of likes to make matches? <a class="anchor" href="#messages-instead-of-likes" aria-label="Link to this question">#</a></h2>
+      <p>We want you to date people genuinely interested in you. Because sending a message is a tiny bit harder than sending a “like”, that makes it <i>a lot</i> more likely that the person messaging you is sincerely interested in getting to know you!</p>
+      <p>Messaging on Duolicious is totally free. So to make sure you get thoughtful intros, we require senders to write an intro we’ve never seen before!</p>
+
+      <h2 id="similar-people">Why does Duolicious match me with similar people? I thought opposites attract! <a class="anchor" href="#similar-people" aria-label="Link to this question">#</a></h2>
+      <p>Opposites do attract in some sense—That’s called <a href="https://en.wikipedia.org/wiki/Sexual_dimorphism">sexual dimorphism</a>, and it refers to the observation that males and females tend to be different in height, weight, body proportions, and a bunch of other characteristics. But even among sexually dimorphic traits, people tend to date others who are similar to them—And that’s called <a href="https://en.wikipedia.org/wiki/Human_mating_strategies#Assortative_mating">assortative mating</a>.</p>
+      <p>Our <a href="/blog/psychoanalysing-chatgpt-using-statistics-to-make-a-decent-dating-app/">blog article</a> has a neat example of this. It has a chart from a study of couples’ heights showing how people can be attracted to “opposite” and “similar” traits at the same time. Even though men in the study tended to be taller than the women they married, their heights were still more similar than if they partnered up at random.</p>
+      <p>We’re often asked to include a way to search for people with specific personality traits because opposites attract, so hopefully this explanation has convinced you that you’ll get better matches just by letting the algorithm work its magic!</p>
+
+      <h2 id="how-many-questions">How many personality questions does Duolicious have? <a class="anchor" href="#how-many-questions" aria-label="Link to this question">#</a></h2>
+      <p>Duolicious has a personality test containing 2005 questions. Even though our dating quiz is pretty in-depth, we made sure not to sacrifice fun, so we’ve got some good ones like these:</p>
+      <ul>
+        <li>Would you date a robot if they had a great personality?</li>
+        <li>Is it important that your partner can appreciate a good meme?</li>
+        <li>Would you want a partner who can solve a Rubik’s Cube in under a minute, using only their feet?</li>
+      </ul>
+      <p>Surprisingly, even answers to silly questions like these correlate with answers to the serious ones, and give us an idea of your compatibility with other members. Check out our <a href="/blog/why-does-duolicious-ask-me-irrelevant-questions/">blog post</a> where we did some stats to figure out which pairs of questions were most correlated. 🤓</p>
+
+      <h2 id="how-old">How old do I need to be to use Duolicious? <a class="anchor" href="#how-old" aria-label="Link to this question">#</a></h2>
+      <p>Duolicious is strictly for people 18 years of age and older. Additionally, this means no photos of children who are either on their own or unclothed, even if they’re old photos of yourself.</p>
+      <p>Even though Duolicious is for adults, we still ask you to keep your profile safe-for-work. 🙏</p>
+
+      <h2 id="verification">How do I get verified on Duolicious? <a class="anchor" href="#verification" aria-label="Link to this question">#</a></h2>
+      <p>To verify your <i>photos</i> you need to upload pictures to your profile which include your face. Then you can run through the verification process in the app and your photos should be verified.</p>
+      <p>To verify your <i>basics</i> (e.g. age and gender), your profile doesn’t need to show your face. Though you still need to upload a picture of yourself which will be analyzed by our AI.</p>
+      <p>If that doesn’t work, you can email us your verification selfie so we can verify you manually. Our email address is available in the app, at the bottom of the “Profile” tab.</p>
+
+      <h2 id="platforms">What platforms is Duolicious available on? <a class="anchor" href="#platforms" aria-label="Link to this question">#</a></h2>
+      <p>Duolicious is available via our <a href="/">web app</a>. You can also download the app on <a href="https://play.google.com/store/apps/details?id=app.duolicious">Google Play</a> and the <a href="https://apps.apple.com/us/app/duolicious-dating-app/id6499066647">App Store</a>.</p>
+
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+            <li><a href="/faq/">FAQ</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Policies</span>
+          <ul>
+            <li><a href="/safety/">Safety</a></li>
+            <li><a href="/guidelines/">Guidelines</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>
