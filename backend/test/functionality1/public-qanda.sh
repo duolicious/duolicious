@@ -22,6 +22,10 @@ reset_db () {
   q "update question set count_yes = 0, count_no = 0"
 }
 
+public_names () {
+  SESSION_TOKEN="" c GET "/public-search?$1" | jq -r '[.[].name] | sort | join(" ")'
+}
+
 setup () {
   reset_db
 
@@ -93,6 +97,35 @@ public_search_ranks_by_answers () {
   local m2=$(echo "$response" | jq -r '.[] | select(.name == "user2") | .match_percentage')
 
   [[ "$m1" -gt "$m2" ]]
+}
+
+public_search_filters_by_gender_and_age () {
+  setup
+
+  q "
+    update person
+    set
+      gender_id = (select id from gender where name = 'Woman'),
+      date_of_birth = current_date - interval '25 years 1 day'
+    where email = 'user1@example.com'"
+  q "
+    update person
+    set
+      gender_id = (select id from gender where name = 'Man'),
+      date_of_birth = current_date - interval '40 years 1 day'
+    where email = 'user2@example.com'"
+
+  local empty=$(jq -rn --arg a '[]' '$a|@uri')
+  local woman=$(jq -rn --arg a '["Woman"]' '$a|@uri')
+
+  for answers in "" "&answers=$empty"; do
+    [[ "$(public_names "gender=$woman$answers")" = "user1" ]]
+    [[ "$(public_names "min_age=30$answers")" = "user2" ]]
+    [[ "$(public_names "max_age=30$answers")" = "user1" ]]
+    [[ "$(public_names "min_age=20&max_age=45$answers")" = "user1 user2" ]]
+  done
+
+  ! { SESSION_TOKEN="" c GET "/public-search?min_age=17"; } || exit 1
 }
 
 # Answers given before signing up are stashed at /request-otp and saved to the
@@ -176,5 +209,6 @@ answers_overwrite_on_existing_signin () {
 public_next_questions_works
 public_search_returns_matches
 public_search_ranks_by_answers
+public_search_filters_by_gender_and_age
 answers_saved_on_onboarding
 answers_overwrite_on_existing_signin

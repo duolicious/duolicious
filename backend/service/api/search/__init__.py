@@ -195,9 +195,9 @@ async def get_search(
 
 async def get_public_search(q: t.PublicSearchQuery) -> object:
     if q.answers is not None:
-        return await _get_public_search_with_answers(q.answers.root, q.n, q.o)
+        return await _get_public_search_with_answers(q, q.answers.root)
 
-    public_search = await _get_public_search()
+    public_search = await _get_public_search(q.gender, q.min_age, q.max_age)
     if not isinstance(public_search, list):
         raise RuntimeError('public search cache returned a non-list value')
     return public_search[q.o:q.o + q.n]
@@ -226,15 +226,17 @@ async def _searcher_personality(
 
 
 async def _get_public_search_with_answers(
+    q: t.PublicSearchQuery,
     answers: list[t.PublicAnswer],
-    n: int,
-    o: int,
 ) -> object:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
             searcher_personality=await _searcher_personality(tx, answers),
-            n=n,
-            o=o,
+            gender=q.gender,
+            min_age=q.min_age,
+            max_age=q.max_age,
+            n=q.n,
+            o=q.o,
         ))
         return await tx.fetchall()
 
@@ -276,9 +278,17 @@ async def _public_similar_profiles(prospect_person_id: int) -> object:
 
 
 @redis_cache(ttl=60)
-async def _get_public_search() -> Sequence[object]:
+async def _get_public_search(
+    gender: list[str] | None,
+    min_age: int | None,
+    max_age: int | None,
+) -> Sequence[object]:
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_PUBLIC_SEARCH)
+        await tx.execute(Q_PUBLIC_SEARCH, dict(
+            gender=gender,
+            min_age=min_age,
+            max_age=max_age,
+        ))
         return await tx.fetchall()
 
 
