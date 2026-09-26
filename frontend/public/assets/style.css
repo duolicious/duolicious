@@ -150,7 +150,7 @@ a:hover {
   height: 48px;
 }
 
-@media only screen and (max-width: 790px) {
+@media only screen and (max-width: 850px) {
   #header-inset .links {
     display: none;
   }
@@ -1016,4 +1016,68 @@ summary {
 
 #reviews-text-container img.avatar {
   border-radius: 999px;
+}
+
+#faq-stats {
+  margin-top: 24px;
+  padding: 20px 24px;
+  border-radius: 10px;
+  background-color: #eef2ff;
+  display: flex;
+  justify-content: space-around;
+  gap: 24px;
+}
+
+#faq-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#faq-stats .faq-stat {
+  font-size: 32px;
+  font-weight: 900;
+  color: #70f;
+}
+
+#faq-index ul {
+  margin-top: 32px;
+  padding-left: 0;
+  list-style-type: none;
+  column-count: 2;
+  column-gap: 40px;
+}
+
+#faq-index li {
+  margin-bottom: 10px;
+  break-inside: avoid;
+}
+
+#faq-index a {
+  font-weight: 600;
+}
+
+#content h2 {
+  scroll-margin-top: 20px;
+}
+
+#content h2 a.anchor {
+  color: #bbb;
+}
+
+@media only screen and (max-width: 790px) {
+  #faq-stats {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  #faq-stats > div {
+    align-items: flex-start;
+  }
+
+  #faq-index ul {
+    column-count: 1;
+  }
 }

@@ -955,6 +955,7 @@ const AboutDuolicious = () => {
         }}
       >
         {([
+          ['FAQ', 'https://duolicious.app/faq/'],
           ['Guidelines', 'https://duolicious.app/guidelines/'],
           ['Terms', 'https://duolicious.app/terms/'],
           ['Privacy', 'https://duolicious.app/privacy/'],

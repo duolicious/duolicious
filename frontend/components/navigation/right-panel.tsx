@@ -4,7 +4,7 @@ import { DefaultText } from '../default-text';
 import { getRandomElement } from '../../util/util';
 import { PARTNER_URL } from '../../env/env';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
-import { Faq } from './faq';
+import { SignedOutCard } from './signed-out-card';
 
 type Partner = {
   name: string
@@ -156,7 +156,7 @@ const RightPanel = ({ routeName }: { routeName?: string }) => {
       }}
     >
       {isWebLoggedOut ?
-        <Faq/> :
+        <SignedOutCard/> :
         <RightPanelContent key={routeName}/>
       }
     </View>

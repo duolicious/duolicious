@@ -59,6 +59,7 @@ const LegalLinks = () => {
       }}
     >
       {[
+        ['FAQ', '/faq/'],
         ['Guidelines', '/guidelines/'],
         ['Terms', '/terms/'],
         ['Privacy', '/privacy/'],
