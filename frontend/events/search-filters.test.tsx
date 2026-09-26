@@ -11,8 +11,10 @@ import {
   patchSearchFilters,
   recordSearchedFilters,
   resetSearchFilters,
+  setSearchFilter,
   setSearchFilterAnswer,
   setSearchFilters,
+  setTwoWayFilter,
   useHasUnsearchedChanges,
 } from './search-filters';
 
@@ -108,6 +110,54 @@ test('drops unsent changes on sign-out', async () => {
   await flushSearchFilterWrites();
 
   expect(japi).not.toHaveBeenCalled();
+});
+
+describe('saving filters', () => {
+  test('updates the store at once but saves only the last value', async () => {
+    setSearchFilter('gender', ['Man']);
+    setSearchFilter('gender', ['Man', 'Woman']);
+    setSearchFilter('gender', ['Woman']);
+
+    expect(getSearchFilters()?.gender).toEqual(['Woman']);
+    expect(japi).not.toHaveBeenCalled();
+
+    await flushSearchFilterWrites();
+
+    expect(sentBodies()).toEqual([{ gender: ['Woman'] }]);
+  });
+
+  test('saves each changed filter in its own request', async () => {
+    setSearchFilter('gender', ['Woman']);
+    setSearchFilter('age', { min_age: 25, max_age: null });
+
+    await flushSearchFilterWrites();
+
+    expect(sentBodies()).toEqual([
+      { gender: ['Woman'] },
+      { age: { min_age: 25, max_age: null } },
+    ]);
+  });
+
+  test('merges rapid two-way toggles into one save', async () => {
+    setTwoWayFilter('age', true);
+    setTwoWayFilter('height', true);
+    setTwoWayFilter('age', false);
+
+    await flushSearchFilterWrites();
+
+    expect(sentBodies()).toEqual([
+      { two_way_filters: { age: false, height: true } },
+    ]);
+  });
+
+  test('drops unsaved filters on sign-out', async () => {
+    setSearchFilter('gender', ['Woman']);
+    resetSearchFilters();
+
+    await flushSearchFilterWrites();
+
+    expect(japi).not.toHaveBeenCalled();
+  });
 });
 
 describe('unsearched changes', () => {

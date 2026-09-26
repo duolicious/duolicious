@@ -31,6 +31,7 @@ import {
 import { TopNavBarButton } from './top-nav-bar-button';
 import { listen } from '../events/events';
 import { consumeStaleInbox } from '../events/stale-inbox';
+import { flushSearchFilterWrites } from '../events/search-filters';
 import { seenInboxFilterHint } from '../kv-storage/seen-hints/seen-inbox-filter-hint';
 import { InboxFilterHint } from './hints/inbox-filter-hint';
 import { useFocusEffect } from '@react-navigation/native';
@@ -343,10 +344,15 @@ const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
 
   useFocusEffect(
     useCallback(() => {
-      if (consumeStaleInbox()) {
-        setIsRefreshingInbox(true);
-        refreshInbox().finally(() => setIsRefreshingInbox(false));
-      }
+      let active = true;
+      (async () => {
+        await flushSearchFilterWrites();
+        if (active && consumeStaleInbox()) {
+          setIsRefreshingInbox(true);
+          refreshInbox().finally(() => setIsRefreshingInbox(false));
+        }
+      })();
+      return () => { active = false; };
     }, [])
   );
 
