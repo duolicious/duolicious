@@ -253,6 +253,15 @@ gives_reply_percentage=$(
 
 
 
+assume_role user2
+jc PATCH /profile-info -d '{ "looking_for": ["Marriage", "Friends"] }'
+assume_role user1
+
+[[ "$(c GET /prospect-profile/$user2_uuid | jq -c .looking_for)" \
+  = '"Friends, Marriage"' ]]
+
+
+
 # When user2 hides their "Looking For" section, the dating-preference fields are
 # withheld from the profile and the `show_my_looking_for` flag flips to "No".
 q "update person set show_my_looking_for = false where name = 'user2'"
