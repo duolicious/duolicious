@@ -312,7 +312,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
       return _.merge({}, og, { input: { rangeSlider: {
         currentMin: heightValue.min_height_cm,
         currentMax: heightValue.max_height_cm,
-        unitsLabel: isImperial ? "ft'in\"" : 'cm',
+        unitsLabel: isImperial ? '' : 'cm',
         valueRewriter: isImperial ? cmToFeetInchesStr : undefined,
       } } });
     }

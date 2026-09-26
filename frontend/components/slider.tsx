@@ -1,172 +1,230 @@
-import {
-  useRef,
-  useEffect,
-  useMemo,
-  forwardRef,
-  useImperativeHandle,
-} from 'react';
-import {
-  View,
-  StyleSheet,
-  Animated,
-  LayoutChangeEvent,
-} from 'react-native';
-import {
-  Gesture,
-  GestureDetector,
-} from 'react-native-gesture-handler';
+import { useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useAppTheme } from '../app-theme/app-theme';
+import { DefaultText } from './default-text';
+import { LINEAR_SCALE, Scale } from '../scales/scales';
 
-const thumbRadius = 16;
+const THUMB_SIZE = 32;
+const PURPLE = '#70f';
 
-interface SliderProps {
-  initialValue: number;
-  minimumValue: number;
-  maximumValue: number;
-  onValueChange: (value: number) => void;
-}
+type SliderLabel = {
+  text: string
+  unit?: string
+  isAny?: boolean
+};
 
-export interface SliderHandle {
-  setValue: (value: number) => void;
-}
+type SliderUnits = {
+  unitsLabel: string
+  valueRewriter?: (value: number) => string
+};
 
-const Slider = forwardRef<SliderHandle, SliderProps>((props, ref) => {
+const formatSliderValue = (value: number, { valueRewriter }: SliderUnits) =>
+  valueRewriter ? valueRewriter(value) : value.toLocaleString('en');
+
+const sliderLabel = (
+  slider: SliderUnits & { sliderMax: number, unlimitedLabel?: string },
+  value: number,
+): SliderLabel =>
+  slider.unlimitedLabel && value === slider.sliderMax ?
+    { text: slider.unlimitedLabel, isAny: true } :
+    { text: formatSliderValue(value, slider), unit: slider.unitsLabel };
+
+const rangeSliderLabel = (
+  title: string,
+  slider: SliderUnits & { sliderMin: number, sliderMax: number },
+  [min, max]: number[],
+): SliderLabel => {
+  const format = (value: number) => formatSliderValue(value, slider);
+
+  if (min === slider.sliderMin && max === slider.sliderMax) {
+    return { text: `Any ${title.toLowerCase()}`, isAny: true };
+  } else if (min === slider.sliderMin) {
+    return { text: `Up to ${format(max)}` };
+  } else if (max === slider.sliderMax) {
+    return { text: `${format(min)} and over` };
+  } else {
+    return { text: `${format(min)}–${format(max)}`, unit: slider.unitsLabel };
+  }
+};
+
+const Slider = ({
+  minimumValue,
+  maximumValue,
+  values,
+  hollow = [],
+  onValuesChange,
+  scale = LINEAR_SCALE,
+}: {
+  minimumValue: number
+  maximumValue: number
+  values: number[]
+  hollow?: boolean[]
+  onValuesChange: (values: number[]) => void
+  scale?: Scale
+}) => {
   const { appTheme } = useAppTheme();
-  const { initialValue, minimumValue, maximumValue, onValueChange } = props;
+  const [trackWidth, setTrackWidth] = useState(0);
 
-  const panX = useRef(new Animated.Value(0)).current;
-  const panXValue = useRef(0); // Keep track of the current value
-  const sliderWidth = useRef(0);
-  const gestureStartX = useRef(0); // Store gesture start position
-  const valueRef = useRef(initialValue);
+  const range = maximumValue - minimumValue;
+  const toFraction = (value: number) =>
+    (scale.descaleValue(value, minimumValue, maximumValue) - minimumValue) /
+    range;
+  const toValue = (fraction: number) => Math.round(
+    scale.scaleValue(minimumValue + fraction * range, minimumValue, maximumValue));
 
-  const valueRange = maximumValue - minimumValue;
-
-  // Listen to panX changes
-  useEffect(() => {
-    const listenerId = panX.addListener(({ value }) => {
-      panXValue.current = value;
-      // Positions are meaningless until the slider has been laid out
-      if (sliderWidth.current === 0) {
-        return;
-      }
-      // Call onValueChange continuously as the value changes
-      const newValue = calculateValue(value);
-      valueRef.current = newValue;
-      onValueChange(newValue);
-    });
-    return () => {
-      panX.removeListener(listenerId);
-    };
-  }, [panX, onValueChange]);
-
-  const calculateValue = (position: number) => {
-    const ratio = position / sliderWidth.current || 0;
-    const value = ratio * valueRange + minimumValue;
-    return Math.max(minimumValue, Math.min(value, maximumValue));
+  const latest = useRef({
+    values, trackWidth, toFraction, toValue, onValuesChange,
+  });
+  latest.current = {
+    values, trackWidth, toFraction, toValue, onValuesChange,
   };
 
-  const calculatePosition = (value: number) => {
-    const clampedValue = Math.max(
-      minimumValue,
-      Math.min(value, maximumValue)
-    );
-    return ((clampedValue - minimumValue) / valueRange) * sliderWidth.current;
-  };
+  const drag = useRef<{ index: number | null, startFraction: number }>({
+    index: null,
+    startFraction: 0,
+  });
 
-  const pan = useMemo(
-    () => Gesture.Pan()
+  const gestures = useMemo(() => [0, 1].map((index) =>
+    Gesture.Pan()
       .runOnJS(true)
       .minDistance(0)
       .onStart(() => {
-        gestureStartX.current = panXValue.current;
+        const { values, toFraction } = latest.current;
+        drag.current = {
+          index: values[0] === values[1] ? null : index,
+          startFraction: toFraction(values[index]),
+        };
       })
       .onUpdate((e) => {
-        let newPanX = gestureStartX.current + e.translationX;
-        newPanX = Math.max(0, Math.min(newPanX, sliderWidth.current));
-        panX.setValue(newPanX);
+        const { values, trackWidth, toValue, onValuesChange } = latest.current;
+        if (drag.current.index === null && e.translationX !== 0) {
+          drag.current.index = e.translationX < 0 ? 0 : 1;
+        }
+        const i = drag.current.index ?? index;
+        const fraction = Math.min(1, Math.max(0,
+          drag.current.startFraction + e.translationX / trackWidth));
+        const value = Math.min(
+          values[i + 1] ?? maximumValue,
+          Math.max(values[i - 1] ?? minimumValue, toValue(fraction)));
+        if (value !== values[i]) {
+          onValuesChange(values.map((v, j) => j === i ? value : v));
+        }
       }),
-    [panX],
-  );
-
-  useImperativeHandle(ref, () => ({
-    setValue: (value: number) => {
-      const clampedValue = Math.max(
-        minimumValue,
-        Math.min(value, maximumValue)
-      );
-      const newPosition = calculatePosition(clampedValue);
-      valueRef.current = clampedValue;
-      panX.setValue(newPosition);
-      panXValue.current = newPosition;
-      // Update parent about the new value
-      onValueChange(clampedValue);
-    },
-  }));
-
-  useEffect(() => {
-    valueRef.current = Math.max(
-      minimumValue,
-      Math.min(initialValue, maximumValue)
-    );
-    const initialPosition = calculatePosition(initialValue);
-    panX.setValue(initialPosition);
-    panXValue.current = initialPosition;
-  }, [initialValue, minimumValue, maximumValue]);
+  ), [minimumValue, maximumValue]);
 
   const onLayout = (event: LayoutChangeEvent) => {
-    const width = Math.max(
-      0,
-      event.nativeEvent.layout.width - thumbRadius * 2
-    );
-    // Views hidden with `display: none` (e.g. in an inactive tab) report
-    // zero-width layouts; acting on them would reset the slider to its
-    // minimum
-    if (width === 0 || width === sliderWidth.current) {
-      return;
+    const width = event.nativeEvent.layout.width - THUMB_SIZE;
+    if (width > 0) {
+      setTrackWidth(width);
     }
-    sliderWidth.current = width;
-    const position = calculatePosition(valueRef.current);
-    panX.setValue(position);
-    panXValue.current = position;
   };
 
+  const fractions = values.map(toFraction);
+  const hasFill = values.length === 2 && !(hollow[0] && hollow[1]);
+
   return (
-    <View style={styles.container} onLayout={onLayout}>
+    <View
+      style={[styles.container, { opacity: trackWidth ? 1 : 0 }]}
+      onLayout={onLayout}
+    >
       <View
-        style={{
-          height: 4,
-          borderRadius: 2,
-          marginHorizontal: thumbRadius,
-          backgroundColor: appTheme.interactiveBorderColor,
-        }}
+        style={[
+          styles.track,
+          { backgroundColor: appTheme.interactiveBorderColor },
+        ]}
       />
-      <GestureDetector gesture={pan}>
-        <Animated.View
+      {hasFill &&
+        <View
           style={[
-            styles.thumb,
+            styles.fill,
             {
-              transform: [{ translateX: panX }],
+              left: THUMB_SIZE / 2 + fractions[0] * trackWidth,
+              width: (fractions[1] - fractions[0]) * trackWidth,
             },
           ]}
         />
-      </GestureDetector>
+      }
+      {fractions.map((fraction, i) =>
+        <GestureDetector key={i} gesture={gestures[i]}>
+          <View
+            style={[
+              styles.thumb,
+              {
+                left: fraction * trackWidth,
+                backgroundColor: hollow[i] ? appTheme.primaryColor : PURPLE,
+              },
+            ]}
+          />
+        </GestureDetector>
+      )}
     </View>
   );
-});
+};
+
+const SliderValue = ({ label }: { label: SliderLabel }) => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <View style={styles.largeValue}>
+      <DefaultText
+        style={
+          label.isAny ?
+            { color: appTheme.hintColor, fontStyle: 'italic', fontSize: 26 } :
+            { color: appTheme.brandColor, fontWeight: '800', fontSize: 32 }
+        }
+      >
+        {label.text}
+      </DefaultText>
+      {!!label.unit &&
+        <DefaultText style={[styles.largeUnit, { color: appTheme.hintColor }]}>
+          {label.unit}
+        </DefaultText>
+      }
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     height: 40,
     justifyContent: 'center',
   },
+  track: {
+    height: 4,
+    borderRadius: 2,
+    marginHorizontal: THUMB_SIZE / 2,
+  },
+  fill: {
+    position: 'absolute',
+    height: 4,
+    backgroundColor: PURPLE,
+  },
   thumb: {
     position: 'absolute',
-    width: thumbRadius * 2,
-    height: thumbRadius * 2,
-    backgroundColor: '#70f',
-    borderRadius: thumbRadius,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    borderWidth: 3,
+    borderColor: PURPLE,
+  },
+  largeValue: {
+    height: 44,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  largeUnit: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 
-export { Slider };
+export {
+  Slider,
+  SliderValue,
+  rangeSliderLabel,
+  sliderLabel,
+};

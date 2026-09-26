@@ -556,7 +556,7 @@ const Options = ({ navigation, data }: {
       const isImperial = signedInUser?.units === 'Imperial';
       return _.merge({}, og, { input: { slider: {
         currentValue: data?.height,
-        unitsLabel: isImperial ? "ft'in\"" : 'cm',
+        unitsLabel: isImperial ? '' : 'cm',
         valueRewriter: isImperial ? cmToFeetInchesStr : undefined,
       } } });
     }

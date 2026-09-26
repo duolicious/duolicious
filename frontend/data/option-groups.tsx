@@ -207,11 +207,10 @@ type OptionGroupSlider = {
   slider: {
     sliderMin: number,
     sliderMax: number,
-    step: number,
     unitsLabel: string,
     submit: (input: number | null) => Promise<boolean>,
     clear?: () => Promise<boolean>,
-    addPlusAtMax?: boolean,
+    unlimitedLabel?: string,
     defaultValue: number,
     valueRewriter?: (v: number) => string,
     currentValue?: number,
@@ -945,7 +944,6 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         sliderMin: 100,
         sliderMax: 220,
         defaultValue: 170,
-        step: 1,
         unitsLabel: 'cm',
         submit: async (height: number) => {
           const ok = (await japi('patch', '/profile-info', { height })).ok;
@@ -1498,9 +1496,8 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         sliderMin: 5,
         sliderMax: MAX_DISTANCE_KM,
         defaultValue: MAX_DISTANCE_KM,
-        step: 1,
         unitsLabel: 'km',
-        addPlusAtMax: true,
+        unlimitedLabel: 'Anywhere',
         scale: LOGARITHMIC_SCALE,
         submit: async (furthestDistance: number | null) => {
           const go = async () => {
