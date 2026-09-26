@@ -633,14 +633,6 @@ class PatchProfileInfo(BaseModel):
 
         return values
 
-    @field_validator('looking_for', mode='before')
-    def looking_for_as_list(cls, value: object) -> object:
-        if value is None:
-            return []
-        if isinstance(value, str):
-            return [value]
-        return value
-
     # The name/occupation/education rude checks need the async DB, so they run
     # in the handler (person.profileinfo.patch_profile_info), not here. The
     # `about` rude/spam checks below stay: they're pure and don't touch the DB.

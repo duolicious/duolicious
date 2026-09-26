@@ -771,7 +771,11 @@ WITH prospect_base AS (
     FROM body_type JOIN prospect ON body_type_id = body_type.id
     WHERE body_type.name != 'Unanswered'
 ), looking_for AS (
-    SELECT string_agg(looking_for.name, ', ' ORDER BY looking_for.id) AS j
+    SELECT
+        COALESCE(
+            array_agg(looking_for.name ORDER BY looking_for.id),
+            ARRAY[]::TEXT[]
+        ) AS j
     FROM looking_for JOIN prospect ON looking_for.id = ANY(looking_for_ids)
     WHERE looking_for.name != 'Unanswered'
     AND prospect.show_my_looking_for
@@ -1340,9 +1344,14 @@ WITH photo_ AS (
     FROM body_type JOIN person ON body_type_id = body_type.id
     WHERE person.id = %(person_id)s
 ), looking_for AS (
-    SELECT string_agg(looking_for.name, ', ' ORDER BY looking_for.id) AS j
+    SELECT
+        COALESCE(
+            array_agg(looking_for.name ORDER BY looking_for.id),
+            ARRAY[]::TEXT[]
+        ) AS j
     FROM looking_for JOIN person ON looking_for.id = ANY(looking_for_ids)
     WHERE person.id = %(person_id)s
+    AND looking_for.name != 'Unanswered'
 ), smoking AS (
     SELECT yes_no_optional.name AS j
     FROM yes_no_optional JOIN person ON smoking_id = yes_no_optional.id
