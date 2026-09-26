@@ -372,9 +372,13 @@ class PublicAnswers(RootModel[Annotated[
     pass
 
 
+class PublicGenders(RootModel[List[str]]):
+    pass
+
+
 class PublicSearchQuery(BaseModel):
     answers: Json[PublicAnswers] | None = None
-    gender: Json[List[str]] | None = None
+    gender: Json[PublicGenders] | None = None
     min_age: int | None = Field(default=None, ge=18, le=99)
     max_age: int | None = Field(default=None, ge=18, le=99)
     n: int = Field(default=10, ge=0, le=50)
