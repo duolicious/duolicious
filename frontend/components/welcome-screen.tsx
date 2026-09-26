@@ -29,7 +29,14 @@ import { DefaultText } from './default-text';
 import { DefaultTextInput } from './default-text-input';
 import { ButtonWithCenteredText } from './button/centered-text';
 import { Close } from './button/close';
-import { createAccountOptionGroups } from '../data/option-groups';
+import {
+  OptionGroup,
+  OptionGroupInputs,
+  createAccountOptionGroups,
+  isOptionGroupCheckChips,
+  socialAccountOptionGroups,
+} from '../data/option-groups';
+import { getPublicSearchFilters } from '../events/public-search-filters';
 import { OptionScreen } from './option-screen';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { japi } from '../api/api';
@@ -40,7 +47,6 @@ import {
   useGoogleSignIn,
 } from '../api/social-auth';
 import { applyAuthenticatedResponse } from '../api/auth';
-import { socialAccountOptionGroups } from '../data/option-groups';
 import { sessionToken } from '../kv-storage/session-token';
 import { Logo16 } from './logo';
 import { KeyboardDismissingView } from './keyboard-dismissing-view';
@@ -627,6 +633,31 @@ const Hero = ({
   </View>
 );
 
+const withPublicSearchGender = (
+  optionGroups: OptionGroup<OptionGroupInputs>[],
+): OptionGroup<OptionGroupInputs>[] => {
+  const { gender } = getPublicSearchFilters();
+
+  return optionGroups.map((og) => {
+    const { input } = og;
+
+    if (!gender || !isOptionGroupCheckChips(input)) {
+      return og;
+    }
+
+    return {
+      ...og,
+      input: {
+        checkChips: {
+          ...input.checkChips,
+          values: input.checkChips.values.map((v) =>
+            ({ ...v, checked: gender.includes(v.label) })),
+        },
+      },
+    };
+  });
+};
+
 // Shared by the welcome and email screens to keep `num_active_users`
 // fresh on mount when not already prefilled by an invite deep-link.
 const useNumActiveUsers = (initial: number | undefined) => {
@@ -701,7 +732,7 @@ const finishSocialSignIn = async ({
 
   if (outcome === 'needs-onboarding') {
     setOptionScreenPayload('Create Account Or Sign In Screen', {
-      optionGroups: socialAccountOptionGroups,
+      optionGroups: withPublicSearchGender(socialAccountOptionGroups),
       showSkipButton: false,
       showCloseButton: false,
       showBackButton: true,
@@ -982,7 +1013,7 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
       await sessionToken(response.json.session_token);
 
       setOptionScreenPayload('Create Account Or Sign In Screen', {
-        optionGroups: createAccountOptionGroups,
+        optionGroups: withPublicSearchGender(createAccountOptionGroups),
         showSkipButton: false,
         showCloseButton: false,
         showBackButton: true,

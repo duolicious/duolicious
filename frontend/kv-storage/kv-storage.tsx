@@ -15,6 +15,7 @@ const KEYS = [
   'draft_messages',
   'person_uuid',
   'prospect_profiles',
+  'public_search_filters',
   'seen_inbox_filter_hint',
   'seen_reply_hint',
   'seen_search_filters_hint',

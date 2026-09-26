@@ -13,7 +13,9 @@ import { ButtonWithCenteredText } from './button/centered-text';
 import { ButtonForOption } from './button/option';
 import { SidePanelCard, SidePanelHeading } from './navigation/side-panel';
 import { useAppTheme } from '../app-theme/app-theme';
-import { useSignedInUser } from '../events/signed-in-user';
+import { useIsWebLoggedOut, useSignedInUser } from '../events/signed-in-user';
+import { setPublicSearchFilters } from '../events/public-search-filters';
+import { showSignUp } from './modal/sign-up-modal';
 import {
   SearchFilters,
   useHasUnsearchedChanges,
@@ -222,7 +224,86 @@ const PanelInput = ({ og, isBasic = false }: {
   return null;
 };
 
-const BasicFilters = ({ data }: { data: SearchFilters }) => {
+const promptSignUp = () =>
+  showSignUp(true, 'Join or sign in to filter matches');
+
+const submitPublicGender = async (gender: string[]) => {
+  if (!gender.length) return false;
+  setPublicSearchFilters({ gender });
+  return true;
+};
+
+const submitPublicAge = async (min_age: number | null, max_age: number | null) => {
+  setPublicSearchFilters({ age: { min_age, max_age } });
+  return true;
+};
+
+const withPublicSubmit = (
+  og: OptionGroup<OptionGroupInputs>,
+): OptionGroup<OptionGroupInputs> => {
+  const { input } = og;
+
+  if (isOptionGroupCheckChips(input)) {
+    return {
+      ...og,
+      input: { checkChips: { ...input.checkChips, submit: submitPublicGender } },
+    };
+  }
+  if (isOptionGroupRangeSlider(input)) {
+    return {
+      ...og,
+      input: { rangeSlider: { ...input.rangeSlider, submit: submitPublicAge } },
+    };
+  }
+  return og;
+};
+
+const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <>
+      <PanelHeading og={og}>
+        <Ionicons
+          style={[styles.lock, { color: appTheme.hintColor }]}
+          name="lock-closed"
+        />
+      </PanelHeading>
+      <View style={[styles.slider, styles.lockedSlider]}>
+        <View
+          style={[
+            styles.lockedTrack,
+            { backgroundColor: appTheme.interactiveBorderColor },
+          ]}
+        />
+        <View
+          style={[styles.lockedThumb, { backgroundColor: appTheme.hintColor }]}
+        />
+      </View>
+      <Pressable onPress={promptSignUp} style={styles.nearbyPill}>
+        <DefaultText style={styles.nearbyText}>
+          Sign up to see who’s near you
+        </DefaultText>
+      </Pressable>
+    </>
+  );
+};
+
+const JoinBox = () =>
+  <View style={styles.joinBox}>
+    <DefaultText style={styles.joinText}>Join to use 20+ more filters</DefaultText>
+    <ButtonWithCenteredText
+      onPress={() => showSignUp(true)}
+      containerStyle={styles.joinButton}
+    >
+      Join or sign in
+    </ButtonWithCenteredText>
+  </View>;
+
+const BasicFilters = ({ data, isSignedOut }: {
+  data: SearchFilters
+  isSignedOut: boolean
+}) => {
   const { appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
 
@@ -237,10 +318,17 @@ const BasicFilters = ({ data }: { data: SearchFilters }) => {
             i === searchBasicsOptionGroups.length - 1 && styles.lastSection,
           ]}
         >
-          <PanelInput
-            og={withCurrentValue(og, data, signedInUser)}
-            isBasic={true}
-          />
+          {isSignedOut && isOptionGroupSlider(og.input) ?
+            <LockedSlider og={og} /> :
+            <PanelInput
+              og={withCurrentValue(
+                isSignedOut ? withPublicSubmit(og) : og,
+                data,
+                signedInUser,
+              )}
+              isBasic={true}
+            />
+          }
         </View>
       )}
     </>
@@ -314,11 +402,14 @@ const QAndAFilters = () => {
   );
 };
 
-const PanelBody = ({ title, data, open }: {
+const PanelBody = ({ title, data, isSignedOut, open }: {
   title: string | undefined
   data: SearchFilters
+  isSignedOut: boolean
   open: (title: string) => void
 }) => {
+  const openOrJoin = isSignedOut ? promptSignUp : open;
+
   const OptionButton = useCallback(
     ({ optionGroups, setting }: {
       optionGroups: OptionGroup<OptionGroupInputs>[]
@@ -328,21 +419,24 @@ const PanelBody = ({ title, data, open }: {
         optionGroups={optionGroups}
         setting={setting}
         noSettingText="Any"
-        onPress={() => open(optionGroups[0].title)}
+        onPress={() => openOrJoin(optionGroups[0].title)}
       />,
-    [open],
+    [openOrJoin],
   );
 
   if (title === undefined) {
-    return <BasicFilters data={data} />;
+    return <BasicFilters data={data} isSignedOut={isSignedOut} />;
   }
   if (title === ADVANCED_FILTERS) {
     return (
-      <SearchFilterList
-        OptionButton={OptionButton}
-        onPressTwoWayFilters={() => open(TWO_WAY_FILTERS)}
-        onPressQAndAAnswers={() => open(Q_AND_A_ANSWERS)}
-      />
+      <>
+        {isSignedOut && <JoinBox />}
+        <SearchFilterList
+          OptionButton={OptionButton}
+          onPressTwoWayFilters={() => openOrJoin(TWO_WAY_FILTERS)}
+          onPressQAndAAnswers={() => openOrJoin(Q_AND_A_ANSWERS)}
+        />
+      </>
     );
   }
   if (title === Q_AND_A_ANSWERS) {
@@ -357,6 +451,7 @@ const PanelBody = ({ title, data, open }: {
 const SearchFilterPanel = () => {
   const { appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
+  const isSignedOut = useIsWebLoggedOut();
   const data = useColdStartSearchFilters();
   const hasUnsearchedChanges = useHasUnsearchedChanges();
   const isSearching = useIsSearching();
@@ -371,8 +466,8 @@ const SearchFilterPanel = () => {
 
   const title = _.last(path);
   const isBasics = title === undefined;
-  const numAdvancedFilters =
-    data ? countChangedAdvancedFilters(data, signedInUser) : 0;
+  const numAdvancedFilters = data && !isSignedOut ?
+    countChangedAdvancedFilters(data, signedInUser) : 0;
 
   return (
     <SidePanelCard style={isBasics ? styles.fitCard : styles.fullCard}>
@@ -411,7 +506,14 @@ const SearchFilterPanel = () => {
             color={appTheme.brandColor}
           />
         }
-        {data && <PanelBody title={title} data={data} open={open} />}
+        {data &&
+          <PanelBody
+            title={title}
+            data={data}
+            isSignedOut={isSignedOut}
+            open={open}
+          />
+        }
       </ScrollView>
       <View
         style={[
@@ -447,6 +549,15 @@ const SearchFilterPanel = () => {
             containerStyle={styles.footerButton}
           >
             {ADVANCED_FILTERS}
+            {isSignedOut &&
+              <>
+                {'  '}
+                <Ionicons
+                  style={[styles.lock, { color: appTheme.hintColor }]}
+                  name="lock-closed"
+                />
+              </>
+            }
             {numAdvancedFilters > 0 &&
               <>
                 {'  '}
@@ -610,6 +721,62 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 1,
+  },
+  lock: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 16,
+  },
+  lockedSlider: {
+    height: 40,
+    justifyContent: 'center',
+    opacity: 0.5,
+  },
+  lockedTrack: {
+    height: 4,
+    borderRadius: 2,
+    marginHorizontal: 16,
+  },
+  lockedThumb: {
+    position: 'absolute',
+    left: '55%',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  nearbyPill: {
+    alignSelf: 'center',
+    marginTop: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#70f',
+    borderRadius: 999,
+    backgroundColor: 'rgb(228, 204, 255)',
+  },
+  nearbyText: {
+    color: '#70f',
+    fontWeight: '700',
+  },
+  joinBox: {
+    marginBottom: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: 'rgb(228, 204, 255)',
+    alignItems: 'center',
+    gap: 10,
+  },
+  joinText: {
+    color: 'black',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  joinButton: {
+    width: '100%',
+    height: 44,
+    marginTop: 0,
+    marginBottom: 0,
   },
   searchIcon: {
     fontSize: 18,

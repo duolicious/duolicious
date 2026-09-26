@@ -156,8 +156,8 @@ const RightPanel = ({ routeName }: { routeName?: string }) => {
         padding: 20,
       }}
     >
-      {isWebLoggedOut ? <SignedOutCard/> :
-        routeName === 'Search' ? <SearchFilterPanel/> :
+      {routeName === 'Search' ? <SearchFilterPanel/> :
+        isWebLoggedOut ? <SignedOutCard/> :
         <RightPanelContent key={routeName}/>
       }
     </View>

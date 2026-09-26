@@ -4,6 +4,7 @@ import { login } from '../chat/application-layer';
 import { setSignedInUser } from '../events/signed-in-user';
 import { sessionPersonUuid } from '../kv-storage/session-token';
 import { clearAnonymousAnswers } from '../events/anonymous-answers';
+import { clearPublicSearchFilters } from '../events/public-search-filters';
 import { notify } from '../events/events';
 import { ClubItem } from '../club/club';
 
@@ -48,6 +49,8 @@ export const applyAuthenticatedResponse = async (
   if (!onboarded) {
     return 'needs-onboarding';
   }
+
+  clearPublicSearchFilters();
 
   navigateAfterAuth(pendingClub, { preserveLocation });
 
