@@ -85,6 +85,16 @@ const maxOutDistanceFilter = () => {
   markInboxStale();
 };
 
+const submitSearchFilterList = (key: string) =>
+  async (values: string[]): Promise<boolean> => {
+    if (!values.length) return false;
+
+    searchQueue.addTask(async () =>
+      (await japi('post', '/search-filter', { [key]: values })).ok);
+    patchSearchFilters({ [key]: values });
+    return true;
+  };
+
 const getKnownOrFetchedSearchFilters = async (): Promise<SearchFilters | undefined> => {
   const cachedSearchFilters = getSearchFilters();
   if (cachedSearchFilters) return cachedSearchFilters;
@@ -1433,21 +1443,7 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         values: [
           ...yourPartnersGenderOptionGroup.input.checkChips.values,
         ],
-        submit: async (gender: string[]) => {
-          const go = async () => {
-            const ok = (await japi('post', '/search-filter', { gender })).ok;
-            if (ok) patchSearchFilters({ gender });
-            return ok;
-          };
-
-          if (gender.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ gender });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('gender')
       }
     },
   },
@@ -1564,20 +1560,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...orientations.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (orientation: string[]) => {
-          const go = async () => {
-            const ok = (await japi('post', '/search-filter', { orientation })).ok;
-            if (ok) patchSearchFilters({ orientation });
-            return ok;
-          };
-          if (orientation.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ orientation });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        },
+        submit: submitSearchFilterList('orientation'),
       }
     },
   },
@@ -1591,24 +1574,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...relationshipStatus.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (relationshipStatus: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { relationship_status: relationshipStatus }
-            )).ok;
-            if (ok) patchSearchFilters({ relationship_status: relationshipStatus });
-            return ok;
-          };
-          if (relationshipStatus.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ relationship_status: relationshipStatus });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('relationship_status')
       }
     },
   },
@@ -1622,24 +1588,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...lookingFor.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (lookingFor: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { looking_for: lookingFor }
-            )).ok;
-            if (ok) patchSearchFilters({ looking_for: lookingFor });
-            return ok;
-          };
-          if (lookingFor.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ looking_for: lookingFor });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('looking_for')
       }
     },
   },
@@ -1659,24 +1608,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...yesNoMaybe.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (wantsKids: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { wants_kids: wantsKids }
-            )).ok;
-            if (ok) patchSearchFilters({ wants_kids: wantsKids });
-            return ok;
-          };
-          if (wantsKids.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ wants_kids: wantsKids });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('wants_kids')
       }
     },
   },
@@ -1696,24 +1628,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...yesNo.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (hasKids: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { has_kids: hasKids }
-            )).ok;
-            if (ok) patchSearchFilters({ has_kids: hasKids });
-            return ok;
-          };
-          if (hasKids.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ has_kids: hasKids });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('has_kids')
       }
     },
   },
@@ -1732,24 +1647,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         values: [
           ...yesNo.map((x) => ({checked: true, label: x})),
         ],
-        submit: async (hasAProfilePicture: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { has_a_profile_picture: hasAProfilePicture }
-            )).ok;
-            if (ok) patchSearchFilters({ has_a_profile_picture: hasAProfilePicture });
-            return ok;
-          };
-          if (hasAProfilePicture.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ has_a_profile_picture: hasAProfilePicture });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('has_a_profile_picture')
       }
     },
   },
@@ -1769,24 +1667,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...yesNo.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (drugs: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { drugs }
-            )).ok;
-            if (ok) patchSearchFilters({ drugs });
-            return ok;
-          };
-          if (drugs.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ drugs });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('drugs')
       }
     },
   },
@@ -1800,24 +1681,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...yesNo.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (longDistance: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { long_distance: longDistance }
-            )).ok;
-            if (ok) patchSearchFilters({ long_distance: longDistance });
-            return ok;
-          };
-          if (longDistance.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ long_distance: longDistance });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('long_distance')
       }
     },
   },
@@ -1831,21 +1695,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...ethnicities.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (ethnicity: string[]) => {
-          const go = async () => {
-            const ok = (await japi('post', '/search-filter', { ethnicity })).ok;
-            if (ok) patchSearchFilters({ ethnicity });
-            return ok;
-          };
-
-          if (ethnicity.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ ethnicity });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('ethnicity')
       }
     },
   },
@@ -1865,24 +1715,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...yesNo.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (smoking: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { smoking }
-            )).ok;
-            if (ok) patchSearchFilters({ smoking });
-            return ok;
-          };
-          if (smoking.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ smoking });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('smoking')
       }
     },
   },
@@ -1902,24 +1735,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...religions.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (religion: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { religion }
-            )).ok;
-            if (ok) patchSearchFilters({ religion });
-            return ok;
-          };
-          if (religion.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ religion });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('religion')
       }
     },
   },
@@ -1933,24 +1749,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...frequency.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'}
         ],
-        submit: async (drinking: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { drinking }
-            )).ok;
-            if (ok) patchSearchFilters({ drinking });
-            return ok;
-          };
-          if (drinking.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ drinking });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('drinking')
       }
     },
   },
@@ -1994,24 +1793,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...bodyTypes.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (bodyType: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { body_type: bodyType }
-            )).ok;
-            if (ok) patchSearchFilters({ body_type: bodyType });
-            return ok;
-          };
-          if (bodyType.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ body_type: bodyType });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('body_type')
       }
     },
   },
@@ -2025,24 +1807,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...frequency.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (exercise: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { exercise }
-            )).ok;
-            if (ok) patchSearchFilters({ exercise });
-            return ok;
-          };
-          if (exercise.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ exercise });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('exercise')
       }
     },
   },
@@ -2056,24 +1821,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           ...starSigns.map((x) => ({checked: true, label: x})),
           {checked: true, label: 'Unanswered'},
         ],
-        submit: async (starSign: string[]) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { star_sign: starSign }
-            )).ok;
-            if (ok) patchSearchFilters({ star_sign: starSign });
-            return ok;
-          };
-          if (starSign.length) {
-            searchQueue.addTask(go);
-            patchSearchFilters({ star_sign: starSign });
-            return true;
-          } else {
-            return await searchQueue.addTask(go);
-          }
-        }
+        submit: submitSearchFilterList('star_sign')
       }
     },
   },
