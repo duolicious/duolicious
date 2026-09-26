@@ -4,7 +4,10 @@
 // refreshed. We flag the results as stale whenever they change and let the
 // search tab refetch the next time it's focused.
 
+const RECENT_RESULTS_MS = 2 * 1000;
+
 let isStale = false;
+let lastFetchedAt: number | null = null;
 
 const markSearchResultsStale = (): void => {
   isStale = true;
@@ -18,7 +21,16 @@ const consumeStaleSearchResults = (): boolean => {
   return wasStale;
 };
 
+const recordSearchResultsFetch = (succeeded: boolean): void => {
+  lastFetchedAt = succeeded ? Date.now() : null;
+};
+
+const areSearchResultsRecent = (): boolean =>
+  lastFetchedAt !== null && Date.now() - lastFetchedAt < RECENT_RESULTS_MS;
+
 export {
   markSearchResultsStale,
   consumeStaleSearchResults,
+  areSearchResultsRecent,
+  recordSearchResultsFetch,
 };
