@@ -40,8 +40,8 @@ import { patchProfileInfo } from '../events/profile-info';
 import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
-  patchSearchFilters,
   SearchFilters,
+  setSearchFilter,
   setSearchFilters,
 } from '../events/search-filters';
 import { markSearchResultsStale } from '../events/stale-search-results';
@@ -57,7 +57,6 @@ import { FC } from 'react';
 import { onboardingQueue } from '../api/queue';
 import { showVerificationCamera } from '../components/verification-camera';
 import { notifyUpdatedVerification } from '../verification/verification';
-import { searchQueue } from '../api/queue';
 import { setAppThemeName } from '../app-theme/app-theme';
 import { showPointOfSale } from '../components/modal/point-of-sale-modal';
 import { descriptionStyle, noneFontSize } from '../components/option-styles';
@@ -71,16 +70,7 @@ import {
 const maxDailySelfies = 'eight';
 
 const maxOutDistanceFilter = () => {
-  const go = async () => {
-    return (await japi(
-      'post',
-      '/search-filter',
-      { furthest_distance: null },
-    )).ok;
-  };
-
-  searchQueue.addTask(go);
-  patchSearchFilters({ furthest_distance: null });
+  setSearchFilter('furthest_distance', null);
   markSearchResultsStale();
   markInboxStale();
 };
@@ -89,9 +79,7 @@ const submitSearchFilterList = (key: string) =>
   async (values: string[]): Promise<boolean> => {
     if (!values.length) return false;
 
-    searchQueue.addTask(async () =>
-      (await japi('post', '/search-filter', { [key]: values })).ok);
-    patchSearchFilters({ [key]: values });
+    setSearchFilter(key, values);
     return true;
   };
 
@@ -1463,15 +1451,7 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         sliderMax: 99,
         unitsLabel: 'years',
         submit: async (sliderMin: number | null, sliderMax: number | null) => {
-          const age = { min_age: sliderMin, max_age: sliderMax };
-          const go = async () => {
-            const ok = (
-              await japi('post', '/search-filter', { age })
-            ).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ age });
+          setSearchFilter('age', { min_age: sliderMin, max_age: sliderMax });
           return true;
         },
       }
@@ -1496,30 +1476,13 @@ const searchBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         unlimitedLabel: 'Anywhere',
         scale: LOGARITHMIC_SCALE,
         submit: async (furthestDistance: number | null) => {
-          const go = async () => {
-            const ok = (
-              await japi(
-                'post',
-                '/search-filter',
-                { furthest_distance: furthestDistance }
-              )
-            ).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ furthest_distance: furthestDistance });
+          setSearchFilter('furthest_distance', furthestDistance);
           return true;
         },
         toggle: {
           label: 'Same country only',
-          submit: (sameCountryOnly: boolean) => {
-            searchQueue.addTask(async () => (await japi(
-              'post',
-              '/search-filter',
-              { same_country_only: sameCountryOnly },
-            )).ok);
-            patchSearchFilters({ same_country_only: sameCountryOnly });
-          },
+          submit: (sameCountryOnly: boolean) =>
+            setSearchFilter('same_country_only', sameCountryOnly),
         },
       },
     },
@@ -1535,16 +1498,7 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       buttons: {
         values: lastOnlineValues,
         submit: async (lastOnline: string) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { last_online: lastOnline }
-            )).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ last_online: lastOnline });
+          setSearchFilter('last_online', lastOnline);
           return true;
         }
       }
@@ -1769,15 +1723,8 @@ const searchOtherBasicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
         sliderMax: 220,
         unitsLabel: 'cm',
         submit: async (sliderMin: number | null, sliderMax: number | null) => {
-          const height = { min_height_cm: sliderMin, max_height_cm: sliderMax };
-          const go = async () => {
-            const ok = (
-              await japi('post', '/search-filter', { height })
-            ).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ height });
+          setSearchFilter(
+            'height', { min_height_cm: sliderMin, max_height_cm: sliderMax });
           return true;
         },
       },
@@ -1842,16 +1789,7 @@ const searchInteractionsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       buttons: {
         values: yesNo,
         submit: async (peopleMessaged: string) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { people_you_messaged: peopleMessaged }
-            )).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ people_you_messaged: peopleMessaged });
+          setSearchFilter('people_you_messaged', peopleMessaged);
           return true;
         }
       }
@@ -1872,16 +1810,7 @@ const searchInteractionsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       buttons: {
         values: yesNo,
         submit: async (peopleSkipped: string) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { people_you_skipped: peopleSkipped }
-            )).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ people_you_skipped: peopleSkipped });
+          setSearchFilter('people_you_skipped', peopleSkipped);
           return true;
         }
       }
@@ -1904,16 +1833,7 @@ const searchOrderOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       buttons: {
         values: sortByValues,
         submit: async (sortBy: string) => {
-          const go = async () => {
-            const ok = (await japi(
-              'post',
-              '/search-filter',
-              { sort_by: sortBy }
-            )).ok;
-            return ok;
-          };
-          searchQueue.addTask(go);
-          patchSearchFilters({ sort_by: sortBy });
+          setSearchFilter('sort_by', sortBy);
           return true;
         }
       }

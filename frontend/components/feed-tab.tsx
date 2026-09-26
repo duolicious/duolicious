@@ -34,6 +34,7 @@ import { DefaultFlatList, DefaultFlashList } from './default-flat-list';
 import { z } from 'zod';
 import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { consumeStaleFeed } from '../events/stale-feed';
+import { flushSearchFilterWrites } from '../events/search-filters';
 import { Club } from './club';
 import { ClubItem, joinClub, leaveClub } from '../club/club';
 import { ImageBackground } from 'expo-image';
@@ -1595,9 +1596,14 @@ const FeedTab = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (consumeStaleFeed()) {
-        onPressRefresh();
-      }
+      let active = true;
+      (async () => {
+        await flushSearchFilterWrites();
+        if (active && consumeStaleFeed()) {
+          onPressRefresh();
+        }
+      })();
+      return () => { active = false; };
     }, [onPressRefresh])
   );
 

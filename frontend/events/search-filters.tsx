@@ -67,30 +67,31 @@ const patchSearchFilters = (partial: SearchFilters) => {
 
 let lastSearchFilterWrite: Promise<unknown> | null = null;
 
-const sendTwoWayFilters = _.debounce((value: Record<string, boolean>) => {
+const pendingFilterWrites = new Map<string, unknown>();
+
+const sendSearchFilters = _.debounce(() => {
+  const writes = [...pendingFilterWrites];
+  pendingFilterWrites.clear();
+
   lastSearchFilterWrite = searchQueue.addTask(async () => {
-    const ok = (await japi(
-      'post',
-      '/search-filter',
-      { two_way_filters: value },
-    )).ok;
-    if (ok) {
-      markSearchResultsStale();
-      markInboxStale();
+    for (const [key, value] of writes) {
+      await japi('post', '/search-filter', { [key]: value });
     }
-    return ok;
   });
 }, 1000);
+
+const setSearchFilter = (key: string, value: unknown) => {
+  patchSearchFilters({ [key]: value });
+  pendingFilterWrites.set(key, value);
+  sendSearchFilters();
+};
 
 const setTwoWayFilter = (key: string, value: boolean) => {
   const prev = getSearchFilters();
   if (!prev) return;
 
   const prevTwoWay = (prev.two_way_filters ?? {}) as Record<string, boolean>;
-  const next = { ...prevTwoWay, [key]: value };
-
-  notify<SearchFilters>(EVENT_KEY, { ...prev, two_way_filters: next });
-  sendTwoWayFilters(next);
+  setSearchFilter('two_way_filters', { ...prevTwoWay, [key]: value });
 };
 
 const pendingAnswerWrites = new Map<number, SearchFilterAnswer>();
@@ -138,14 +139,15 @@ const setSearchFilterAnswer = (next: SearchFilterAnswer) => {
 };
 
 const flushSearchFilterWrites = async (): Promise<void> => {
-  sendTwoWayFilters.flush();
+  sendSearchFilters.flush();
   sendSearchFilterAnswers.flush();
   await lastSearchFilterWrite;
 };
 
 const resetSearchFilters = () => {
-  sendTwoWayFilters.cancel();
+  sendSearchFilters.cancel();
   sendSearchFilterAnswers.cancel();
+  pendingFilterWrites.clear();
   pendingAnswerWrites.clear();
   notify<SearchFilters | undefined>(EVENT_KEY, undefined);
   notify<SearchFilters | undefined>(SEARCHED_EVENT_KEY, undefined);
@@ -180,6 +182,7 @@ export {
   patchSearchFilters,
   recordSearchedFilters,
   resetSearchFilters,
+  setSearchFilter,
   setSearchFilterAnswer,
   setSearchFilters,
   setTwoWayFilter,
