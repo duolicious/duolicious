@@ -26,7 +26,7 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
     Members the searcher isn't allowed to see are filtered here, so `pool`
     doesn't have to get that right; `member_condition` may extend the filter
     with per-event-type conditions on `member`. Evaluated as a lateral join
-    within `Q_FEED_V2`, where `feed_page` and `searcher` are in scope.
+    within `feed_v2_query`, where `feed_page` and `searcher` are in scope.
     """
     return f"""
         SELECT
@@ -671,7 +671,30 @@ ORDER BY
     last_event_time DESC
 """
 
-Q_FEED_V2 = f"""
+Q_SAME_COUNTRY_ONLY = """
+SELECT
+    same_country_only
+FROM
+    search_preference
+WHERE
+    person_id = %(person_id)s
+"""
+
+
+def feed_v2_query(two_way_age: bool, same_country_only: bool) -> str:
+    reverse_age = """
+        AND
+            COALESCE(preference.min_age, 0) <= searcher.searcher_age
+        AND
+            COALESCE(preference.max_age, 999) >= searcher.searcher_age
+    """ if two_way_age else ''
+
+    same_country = """
+    AND
+        prospect.location_country = searcher.searcher_country
+    """ if same_country_only else ''
+
+    return f"""
 WITH searcher AS (
     SELECT
         id as searcher_id,
@@ -1026,17 +1049,9 @@ WITH searcher AS (
             preference.person_id = prospect.id
         AND
             searcher.gender_id = ANY(preference.gender_ids)
-        AND
-            (
-                NOT %(two_way_age)s
-            OR
-                COALESCE(preference.min_age, 0) <= searcher.searcher_age
-            AND
-                COALESCE(preference.max_age, 999) >= searcher.searcher_age
-            )
+        {reverse_age}
     )
-    -- The prospect meets the searcher's age preference and, in the
-    -- same-country trial, their "Same country only" preference
+    -- The prospect meets the searcher's age preference
     AND EXISTS (
         SELECT
             1
@@ -1056,15 +1071,8 @@ WITH searcher AS (
                 INTERVAL '1 year' *
                 (COALESCE(preference.max_age, 999) + 1)
             )
-        AND
-            (
-                NOT %(same_country_only)s
-            OR
-                NOT preference.same_country_only
-            OR
-                prospect.location_country = searcher.searcher_country
-            )
     )
+    {same_country}
     -- Exclude photos that might be NSFW
     AND NOT EXISTS (
         SELECT

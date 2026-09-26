@@ -4,7 +4,7 @@ from service.api import sessioncache
 from serviceshared.matching import personality
 from pgvector import Vector
 
-from serviceshared.database import Tx, api_tx, row_int
+from serviceshared.database import Tx, api_tx, row_bool, row_int
 from serviceshared.util.coerce import integer
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
@@ -23,8 +23,9 @@ from service.api.search.sql import (
     Q_QUIZ_SEARCH,
     Q_DELETE_SEARCH_CACHE,
     Q_FEED,
-    Q_FEED_V2,
+    Q_SAME_COUNTRY_ONLY,
     build_uncached_search,
+    feed_v2_query,
 )
 from dataclasses import dataclass
 from datetime import datetime
@@ -316,18 +317,25 @@ async def get_feed(s: t.SessionInfo, before: datetime) -> object:
 async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
     person_id = integer(s.person_id)
 
-    params = dict(
-        searcher_person_id=person_id,
-        before=before,
-        two_way_age=two_way_age_in_feed(person_id),
-        same_country_only=same_country_only_in_feed(person_id),
-    )
-
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL jit = off')
         await tx.execute("SET LOCAL work_mem = '32MB'")
 
-        await tx.execute(Q_FEED_V2, params)
+        same_country_only = same_country_only_in_feed(person_id) and row_bool(
+            await tx.require_one(
+                Q_SAME_COUNTRY_ONLY,
+                params=dict(person_id=person_id),
+            ),
+            'same_country_only',
+        )
+
+        await tx.execute(
+            feed_v2_query(
+                two_way_age=two_way_age_in_feed(person_id),
+                same_country_only=same_country_only,
+            ),
+            dict(searcher_person_id=person_id, before=before),
+        )
         rows = await tx.fetchall()
 
     return [row['j'] for row in rows]

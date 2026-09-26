@@ -5,7 +5,7 @@ feed events, and yes/no tallies.
 `ANSWER_VISIBLE_TO_OTHERS` is the one predicate that decides whether someone
 else may see an answer (public and actually answered). The live question-card
 path (`questioncard`), the MAM fetch (`Q_SELECT_MESSAGE`), and the feed's
-subject answer (`Q_FEED_V2`) all interpolate it, so the rule can't drift
+subject answer (`feed_v2_query`) all interpolate it, so the rule can't drift
 between them; it assumes the `answer` table is aliased `answer`.
 
 `_set_answer` writes the answer and feed event in one transaction; the
