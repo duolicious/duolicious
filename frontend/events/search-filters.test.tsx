@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { View } from 'react-native';
 
 import { japi } from '../api/api';
 import { notifyErrorToast } from '../components/toast';
@@ -7,10 +8,16 @@ import {
   SearchFilterAnswer,
   flushSearchFilterWrites,
   getSearchFilters,
+  patchSearchFilters,
+  recordSearchedFilters,
   resetSearchFilters,
   setSearchFilterAnswer,
   setSearchFilters,
+  useHasUnsearchedChanges,
 } from './search-filters';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { act, create } = require('react-test-renderer');
 
 jest.mock('../api/api', () => ({
   japi: jest.fn(async () => ({ ok: true })),
@@ -101,4 +108,69 @@ test('drops unsent changes on sign-out', async () => {
   await flushSearchFilterWrites();
 
   expect(japi).not.toHaveBeenCalled();
+});
+
+describe('unsearched changes', () => {
+  let unmount = () => {};
+
+  const renderHasUnsearchedChanges = () => {
+    const values: boolean[] = [];
+    const Probe = () => {
+      values.push(useHasUnsearchedChanges());
+      return <View />;
+    };
+    act(() => { unmount = create(<Probe />).unmount; });
+    return () => values[values.length - 1];
+  };
+
+  beforeEach(() => {
+    resetSearchFilters();
+    setSearchFilters({ gender: ['Man', 'Woman'] });
+  });
+
+  afterEach(() => act(() => unmount()));
+
+  test('treats the first loaded filters as searched', () => {
+    const hasUnsearchedChanges = renderHasUnsearchedChanges();
+
+    expect(hasUnsearchedChanges()).toBe(false);
+  });
+
+  test('reports an edit until a search records it', () => {
+    const hasUnsearchedChanges = renderHasUnsearchedChanges();
+
+    act(() => patchSearchFilters({ gender: ['Woman'] }));
+    expect(hasUnsearchedChanges()).toBe(true);
+
+    act(() => recordSearchedFilters(getSearchFilters()));
+    expect(hasUnsearchedChanges()).toBe(false);
+  });
+
+  test('clears when an edit is undone', () => {
+    const hasUnsearchedChanges = renderHasUnsearchedChanges();
+
+    act(() => patchSearchFilters({ gender: ['Woman'] }));
+    act(() => patchSearchFilters({ gender: ['Man', 'Woman'] }));
+
+    expect(hasUnsearchedChanges()).toBe(false);
+  });
+
+  test('ignores the order of multiple-choice values', () => {
+    const hasUnsearchedChanges = renderHasUnsearchedChanges();
+
+    act(() => patchSearchFilters({ gender: ['Woman'] }));
+    act(() => patchSearchFilters({ gender: ['Woman', 'Man'] }));
+
+    expect(hasUnsearchedChanges()).toBe(false);
+  });
+
+  test('keeps an edit made while a search was loading', () => {
+    const hasUnsearchedChanges = renderHasUnsearchedChanges();
+    const searchedFilters = getSearchFilters();
+
+    act(() => patchSearchFilters({ gender: ['Woman'] }));
+    act(() => recordSearchedFilters(searchedFilters));
+
+    expect(hasUnsearchedChanges()).toBe(true);
+  });
 });

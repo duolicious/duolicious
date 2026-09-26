@@ -56,7 +56,11 @@ import {
   useIsSearching,
   whileSearching,
 } from '../events/search-requests';
-import { flushSearchFilterWrites } from '../events/search-filters';
+import {
+  flushSearchFilterWrites,
+  getSearchFilters,
+  recordSearchedFilters,
+} from '../events/search-filters';
 import { SearchFiltersHint } from './hints/search-filters-hint';
 import { seenSearchFiltersHint } from '../kv-storage/seen-hints/seen-search-filters-hint';
 
@@ -203,8 +207,16 @@ const fetchPage = (
 ) => async (
   pageNumber: number
 ): Promise<PageItem[] | FetchPageError | null> => {
-  return searchQueue.addTask(
+  const filters = getSearchFilters();
+
+  const page = await searchQueue.addTask(
     async () => fetchPageWithoutQueue(club, pageNumber, isPublic));
+
+  if (pageNumber === 1 && Array.isArray(page)) {
+    recordSearchedFilters(filters);
+  }
+
+  return page;
 };
 
 type ClubSelectorProps = {
