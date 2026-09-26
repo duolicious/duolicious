@@ -32,6 +32,7 @@ from serviceshared.paypal import PaypalSubscription
 import io
 import base64
 import binascii
+import hashlib
 from service.api.duoaudio import transcode_and_trim_audio_from_base64
 import traceback
 from serviceshared.antiabuse.antirude import profile
@@ -440,6 +441,15 @@ class PostSignInWithApple(SignInRequest):
 class PostSignInWithDiscord(SignInRequest):
     code: str = Field(min_length=1, max_length=256)
     code_verifier: str = Field(pattern=r'^[a-zA-Z0-9._~-]{43,128}$')
+    state: str
+
+    @model_validator(mode='after')
+    def check_state(self) -> "PostSignInWithDiscord":
+        digest = hashlib.sha256(self.code_verifier.encode()).digest()
+        challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
+        if not self.state.startswith(f'{challenge}.'):
+            raise ValueError('state does not match code_verifier')
+        return self
 
 
 class GetDiscordAuthorize(BaseModel):
@@ -448,7 +458,7 @@ class GetDiscordAuthorize(BaseModel):
 
 
 class GetDiscordCallback(BaseModel):
-    state: RedirectTarget
+    state: str
     code: str | None = None
     error: str | None = None
 

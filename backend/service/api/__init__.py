@@ -95,12 +95,7 @@ async def post_sign_in_with_google(
         scope='social_sign_in',
     )),
 ) -> object:
-    return await person.post_sign_in_with_google(
-        token=req.id_token,
-        pending_club_name=req.pending_club_name,
-        ref=req.ref,
-        remote_addr=client_ip(request),
-    )
+    return await person.post_sign_in_with_google(req, client_ip(request))
 
 @app.post('/sign-in-with-apple')
 async def post_sign_in_with_apple(
@@ -111,13 +106,7 @@ async def post_sign_in_with_apple(
         scope='social_sign_in',
     )),
 ) -> object:
-    return await person.post_sign_in_with_apple(
-        token=req.identity_token,
-        nonce=req.nonce,
-        pending_club_name=req.pending_club_name,
-        ref=req.ref,
-        remote_addr=client_ip(request),
-    )
+    return await person.post_sign_in_with_apple(req, client_ip(request))
 
 # Apple Sign-In web/Android OAuth callback. This remains unauthenticated:
 # Apple POSTs a form body here, which we convert into a redirect response for
@@ -170,7 +159,7 @@ async def get_auth_discord_callback(
         auth_rate_limit,
         scope='discord_oauth_callback',
     )),
-) -> RedirectResponse:
+) -> object:
     return discord_oauth.handle_callback(q)
 
 @app.post('/sign-out')

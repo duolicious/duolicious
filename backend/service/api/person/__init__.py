@@ -324,6 +324,10 @@ async def post_check_otp(
         if row['person_id'] is not None:
             await _flush_session_answers(
                 tx, s.session_token_hash, row['person_id'])
+            await tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
+                session_token_hash=s.session_token_hash,
+                person_id=row['person_id'],
+            ))
 
     await sessioncache.delete_session(s.session_token_hash)
 
@@ -340,18 +344,14 @@ async def post_sign_out(s: t.SessionInfo) -> None:
 
 async def _sign_in_with_social(
     provider: str,
-    sub: str,
-    email: str,
-    email_verified: bool,
-    pending_club_name: str | None,
-    ref: str | None,
+    claims: t.SocialClaims,
+    req: t.SignInRequest,
     remote_addr: str | None,
 ) -> object:
-    """
-    Async counterpart to `_sign_in_with_social` for native FastAPI routes.
-    """
     session_token, session_token_hash = _new_session_token()
+    email = claims.email
     normalized = normalize_email(email)
+    trusted = provider in ('google', 'apple')
 
     async with api_tx() as tx:
         if banned := await _check_banned(tx, normalized, remote_addr):
@@ -359,31 +359,13 @@ async def _sign_in_with_social(
 
         row_tx = await tx.execute(Q_LOOKUP_SOCIAL_IDENTITY, dict(
             provider=provider,
-            provider_sub=sub,
+            provider_sub=claims.sub,
         ))
         row: Row | None = await row_tx.fetchone()
         person_id: int | None = row['person_id'] if row else None
 
-        needs_email_match = person_id is None and email
-
-        if needs_email_match and not email_verified:
-            existing_tx = await tx.execute(Q_LOOKUP_PERSON_BY_EMAIL, dict(
-                normalized_email=normalized,
-                email=email,
-            ))
-            existing: Row | None = await existing_tx.fetchone()
-            return (
-                'An account already exists for this email. Sign in '
-                'with the email link to confirm ownership, then try '
-                'social sign-in again.'
-                if existing else
-                'Your email address is not verified with the sign-in '
-                'provider. Verify it and try again.',
-                409,
-            )
-
         email_match: Row | None = None
-        if needs_email_match:
+        if person_id is None and email:
             email_match_tx = await tx.execute(Q_LOOKUP_PERSON_BY_EMAIL, dict(
                 normalized_email=normalized,
                 email=email,
@@ -393,8 +375,26 @@ async def _sign_in_with_social(
         if email_match:
             person_id = email_match['person_id']
 
-        if person_id is None and not email:
-            return 'Provider did not return an email', 400
+    needs_otp = email_match is not None and not (
+        trusted and claims.email_verified)
+
+    if person_id is None and not email:
+        return (
+            'Your account with the sign-in provider has no email address. '
+            'Add one and try again.',
+            409,
+        )
+
+    if person_id is None and not claims.email_verified:
+        return (
+            'Your email address is not verified with the sign-in provider. '
+            'Verify it and try again.',
+            409,
+        )
+
+    if person_id is None and not trusted and not (
+            await get_email_info(email, normalized)).domain_ok:
+        return 'We don’t support that email provider', 409
 
     # The gate does external HTTP; never hold a transaction open across it. The
     # first transaction above is read-only, so all writes stay atomic in the
@@ -404,32 +404,33 @@ async def _sign_in_with_social(
         return gate.error
 
     async with api_tx() as tx:
-        if email_match:
+        if email_match and not needs_otp:
             await tx.execute(Q_INSERT_SOCIAL_IDENTITY, dict(
                 provider=provider,
-                provider_sub=sub,
+                provider_sub=claims.sub,
                 person_id=person_id,
                 email=email,
             ))
 
-        pending_provider = None
-        pending_sub = None
         if person_id is None:
             await tx.execute(Q_UPSERT_ONBOARDEE_FOR_SOCIAL, dict(email=email))
-            pending_provider = provider
-            pending_sub = sub
 
+        pending = person_id is None or needs_otp
         await tx.execute(Q_INSERT_DUO_SESSION_SOCIAL, dict(
             session_token_hash=session_token_hash,
             person_id=person_id,
             email=email,
-            pending_club_name=pending_club_name,
-            ref=ref,
+            pending_club_name=req.pending_club_name,
+            ref=req.ref,
             ip_address=remote_addr,
-            pending_social_provider=pending_provider,
-            pending_social_sub=pending_sub,
+            signed_in=not needs_otp,
+            pending_social_provider=provider if pending else None,
+            pending_social_sub=claims.sub if pending else None,
             asns=gate.asns,
         ))
+
+        if needs_otp:
+            return dict(session_token=session_token, otp_email=email)
 
         if person_id is not None:
             profile = await tx.require_one(Q_AFTER_SOCIAL_SIGN_IN, dict(
@@ -446,7 +447,7 @@ async def _sign_in_with_social(
             )
 
         clubs = await _handle_pending_club(
-            tx, person_id, pending_club_name)
+            tx, person_id, req.pending_club_name)
 
         if profile.get('person_uuid'):
             await tx.execute(Q_UPDATE_LAST, dict(person_uuid=profile['person_uuid']))
@@ -461,49 +462,27 @@ async def _sign_in_with_social(
     )
 
 async def post_sign_in_with_google(
-    *,
-    token: str,
-    pending_club_name: str | None,
-    ref: str | None,
+    req: t.PostSignInWithGoogle,
     remote_addr: str | None,
 ) -> object:
     try:
-        claims = verify_google_id_token(token)
+        claims = verify_google_id_token(req.id_token)
     except SocialAuthError as e:
         return f'Invalid Google token: {e}', 401
 
-    return await _sign_in_with_social(
-        provider='google',
-        sub=claims.sub,
-        email=claims.email,
-        email_verified=claims.email_verified,
-        pending_club_name=pending_club_name,
-        ref=ref,
-        remote_addr=remote_addr,
-    )
+    return await _sign_in_with_social('google', claims, req, remote_addr)
 
 async def post_sign_in_with_apple(
-    *,
-    token: str,
-    nonce: str,
-    pending_club_name: str | None,
-    ref: str | None,
+    req: t.PostSignInWithApple,
     remote_addr: str | None,
 ) -> object:
     try:
-        claims = verify_apple_identity_token(token, expected_nonce=nonce)
+        claims = verify_apple_identity_token(
+            req.identity_token, expected_nonce=req.nonce)
     except SocialAuthError as e:
         return f'Invalid Apple token: {e}', 401
 
-    return await _sign_in_with_social(
-        provider='apple',
-        sub=claims.sub,
-        email=claims.email,
-        email_verified=claims.email_verified,
-        pending_club_name=pending_club_name,
-        ref=ref,
-        remote_addr=remote_addr,
-    )
+    return await _sign_in_with_social('apple', claims, req, remote_addr)
 
 async def post_sign_in_with_discord(
     req: t.PostSignInWithDiscord,
@@ -513,15 +492,7 @@ async def post_sign_in_with_discord(
     if claims is None:
         return 'Invalid Discord code', 401
 
-    return await _sign_in_with_social(
-        provider='discord',
-        sub=claims.sub,
-        email=claims.email,
-        email_verified=claims.email_verified,
-        pending_club_name=req.pending_club_name,
-        ref=req.ref,
-        remote_addr=remote_addr,
-    )
+    return await _sign_in_with_social('discord', claims, req, remote_addr)
 
 async def post_check_session_token(s: t.SessionInfo) -> object:
     params = dict(

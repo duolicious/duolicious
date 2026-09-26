@@ -72,31 +72,11 @@ const _takePending = (): _Pending | null => {
   }
 };
 
+export type SocialProvider = 'google' | 'apple' | 'discord';
+
 export type SocialSignInResult =
-  | {
-      ok: true;
-      endpoint:
-        | '/sign-in-with-google'
-        | '/sign-in-with-apple'
-        | '/sign-in-with-discord';
-      body: Record<string, string>;
-    }
+  | { ok: true; body: Record<string, string> }
   | { ok: false; cancelled: boolean; reason?: string };
-
-const _googleResult = (idToken: string): SocialSignInResult => ({
-  ok: true,
-  endpoint: '/sign-in-with-google',
-  body: { id_token: idToken },
-});
-
-const _appleResult = (
-  identityToken: string,
-  nonce: string,
-): SocialSignInResult => ({
-  ok: true,
-  endpoint: '/sign-in-with-apple',
-  body: { identity_token: identityToken, nonce },
-});
 
 /**
  * Wraps `expo-auth-session/providers/google` so callers get a single
@@ -164,7 +144,7 @@ export const useGoogleSignIn = (): {
 
     // Web: implicit flow lands the id_token directly on params.
     if (params.id_token) {
-      settle(id, _googleResult(params.id_token));
+      settle(id, { ok: true, body: { id_token: params.id_token } });
       return;
     }
 
@@ -197,7 +177,7 @@ export const useGoogleSignIn = (): {
         );
         const idToken = tokenResponse.idToken;
         if (idToken) {
-          settle(id, _googleResult(idToken));
+          settle(id, { ok: true, body: { id_token: idToken } });
         } else {
           settle(id, {
             ok: false,
@@ -337,7 +317,10 @@ const signInWithAppleNative = async (): Promise<SocialSignInResult> => {
       nonce,
     });
 
-    return _appleResult(credential.identityToken ?? '', nonce);
+    return {
+      ok: true,
+      body: { identity_token: credential.identityToken ?? '', nonce },
+    };
   } catch (e: unknown) {
     // ERR_REQUEST_CANCELED is the documented code for the user dismissing
     // the system sheet; don't surface that as an error.
@@ -376,40 +359,9 @@ const signInWithAppleAndroid = async (): Promise<SocialSignInResult> => {
     return { ok: false, cancelled: false, reason: 'Apple sign-in failed' };
   }
 
-  const params = parseQueryParams(result.url);
-  const error = params.get('apple_error');
-  if (error) {
-    return { ok: false, cancelled: false, reason: `Apple: ${error}` };
-  }
-  const idToken = params.get('apple_id_token');
-  const returnedState = params.get('apple_state') ?? '';
-  if (!idToken) {
-    return { ok: false, cancelled: false, reason: 'Apple sign-in: no id_token in callback' };
-  }
-  if (!returnedState.startsWith(`${nonce}.`)) {
-    return { ok: false, cancelled: false, reason: 'Apple sign-in: invalid state' };
-  }
-
-  return _appleResult(idToken, nonce);
+  return _appleReturnResult(parseQueryParams(result.url), nonce);
 };
 
-// Web sign-in is a full-page redirect to Apple. Popup-based flows
-// don't survive iOS Chrome: `window.opener` is severed across the
-// cross-origin hop to appleid.apple.com, and Apple's iOS bottom-sheet
-// UI authenticates on-device without firing the `form_post` redirect at
-// all. A top-level navigation sidesteps both problems — the SPA simply
-// tears down, Apple does its thing, and the backend 302s us back to the
-// SPA root with the credential in query params.
-//
-// State that needs to span the redirect (the CSRF/JWT nonce and any
-// caller-provided context like `clubName`) is stashed in sessionStorage
-// keyed under `_PENDING_KEY`; the symmetric reader is
-// `consumePendingWebSignIn()`.
-//
-// This function returns a Promise that never resolves: the navigation
-// is already underway by the time we return, and any callsite `await`
-// just blocks until the page is torn down. We don't resolve it locally
-// because the result lives in the *next* page load.
 const signInWithAppleWeb = async (
   context: Record<string, string>,
 ): Promise<SocialSignInResult> => {
@@ -441,8 +393,11 @@ const _discordResult = (
   if (code) {
     return {
       ok: true,
-      endpoint: '/sign-in-with-discord',
-      body: { code, code_verifier: codeVerifier },
+      body: {
+        code,
+        code_verifier: codeVerifier,
+        state: params.get('discord_state') ?? '',
+      },
     };
   }
   return {
@@ -452,43 +407,39 @@ const _discordResult = (
   };
 };
 
-const _discordAuthorizeUrl = async (
-  redirectTarget: 'web' | 'apex' | 'app',
-  codeVerifier: string,
-): Promise<string> => {
-  const digest = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    codeVerifier,
-    { encoding: Crypto.CryptoEncoding.BASE64 },
-  );
-  const codeChallenge = digest
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-  return (
-    `${API_URL}/auth/discord/authorize` +
-    `?redirect_target=${redirectTarget}&code_challenge=${codeChallenge}`
-  );
-};
-
 export const signInWithDiscord = async (
   context: Record<string, string>,
 ): Promise<SocialSignInResult> => {
-  const codeVerifier = await _generateNonce();
-
-  if (Platform.OS === 'web') {
-    return _navigateAwayToSignIn(
-      await _discordAuthorizeUrl(webReturnTarget(), codeVerifier),
-      { nonce: codeVerifier, context },
-    );
-  }
-
-  let result: WebBrowser.WebBrowserAuthSessionResult;
   try {
-    result = await WebBrowser.openAuthSessionAsync(
-      await _discordAuthorizeUrl('app', codeVerifier),
+    const codeVerifier = await _generateNonce();
+    const digest = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      codeVerifier,
+      { encoding: Crypto.CryptoEncoding.BASE64 },
+    );
+    const codeChallenge = digest
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    const redirectTarget = Platform.OS === 'web' ? webReturnTarget() : 'app';
+    const url =
+      `${API_URL}/auth/discord/authorize` +
+      `?redirect_target=${redirectTarget}&code_challenge=${codeChallenge}`;
+
+    if (Platform.OS === 'web') {
+      return _navigateAwayToSignIn(url, { nonce: codeVerifier, context });
+    }
+
+    const result = await WebBrowser.openAuthSessionAsync(
+      url,
       'app.duolicious://oauthredirect/discord',
     );
+
+    if (result.type !== 'success') {
+      return { ok: false, cancelled: true };
+    }
+
+    return _discordResult(parseQueryParams(result.url), codeVerifier);
   } catch (e: unknown) {
     return {
       ok: false,
@@ -496,15 +447,9 @@ export const signInWithDiscord = async (
       reason: errorMessage(e) ?? 'Discord sign-in failed',
     };
   }
-
-  if (result.type !== 'success') {
-    return { ok: false, cancelled: true };
-  }
-
-  return _discordResult(parseQueryParams(result.url), codeVerifier);
 };
 
-const _appleWebResult = (
+const _appleReturnResult = (
   params: URLSearchParams,
   nonce: string,
 ): SocialSignInResult => {
@@ -525,22 +470,22 @@ const _appleWebResult = (
       reason: 'Apple sign-in: no id_token in callback',
     };
   }
-  return _appleResult(idToken, nonce);
+  return { ok: true, body: { identity_token: idToken, nonce } };
 };
 
 const _webReturns: {
-  provider: 'apple' | 'discord';
+  provider: SocialProvider;
   params: string[];
   toResult: (params: URLSearchParams, nonce: string) => SocialSignInResult;
 }[] = [
   {
     provider: 'apple',
     params: ['apple_id_token', 'apple_error', 'apple_state'],
-    toResult: _appleWebResult,
+    toResult: _appleReturnResult,
   },
   {
     provider: 'discord',
-    params: ['discord_code', 'discord_error'],
+    params: ['discord_code', 'discord_error', 'discord_state'],
     toResult: _discordResult,
   },
 ];
@@ -562,7 +507,7 @@ const _webReturns: {
  * Safe to call on platforms other than web — it's a no-op there.
  */
 export const consumePendingWebSignIn = (): {
-  provider: 'apple' | 'discord';
+  provider: SocialProvider;
   result: SocialSignInResult;
   context: Record<string, string>;
 } | null => {

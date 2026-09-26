@@ -20,7 +20,6 @@ let accessTokens = {};
 let counter = 0;
 
 const app = express();
-app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.get('/oauth2/authorize', (req, res) => {
@@ -84,7 +83,7 @@ app.get('/users/@me', (req, res) => {
   res.status(200).json(tokenUser);
 });
 
-app.post('/control/user', (req, res) => {
+app.post('/control/user', express.json(), (req, res) => {
   user = req.body;
   res.status(200).send();
 });

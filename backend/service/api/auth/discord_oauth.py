@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from starlette.responses import RedirectResponse
 
 import service.api.duotypes as t
-from service.api.auth.oauth_redirect import redirect
+from service.api.auth.oauth_redirect import redirect, resolve_redirect_target
 from serviceshared.httpxclient import make_http_client
 
 from serviceshared.duoenv.api import (
@@ -21,7 +21,7 @@ from serviceshared.duoenv.api import (
 
 logger = logging.getLogger(__name__)
 
-_REDIRECT_TARGETS: dict[t.RedirectTarget, str] = {
+_REDIRECT_TARGETS = {
     'web': DISCORD_WEB_REDIRECT_URL,
     'apex': DISCORD_APEX_REDIRECT_URL,
     'app': DISCORD_APP_REDIRECT_URL,
@@ -45,17 +45,19 @@ def authorize_redirect(q: t.GetDiscordAuthorize) -> RedirectResponse:
         redirect_uri=DISCORD_REDIRECT_URI,
         response_type='code',
         scope='identify email',
-        state=q.redirect_target,
+        state=f'{q.code_challenge}.{q.redirect_target}',
         code_challenge=q.code_challenge,
         code_challenge_method='S256',
         prompt='none',
     )
 
 
-def handle_callback(q: t.GetDiscordCallback) -> RedirectResponse:
-    target_url = _REDIRECT_TARGETS[q.state]
+def handle_callback(q: t.GetDiscordCallback) -> object:
+    target_url = resolve_redirect_target(q.state, _REDIRECT_TARGETS)
+    if not target_url:
+        return 'Invalid Discord state', 400
     if q.code:
-        return redirect(target_url, discord_code=q.code)
+        return redirect(target_url, discord_code=q.code, discord_state=q.state)
     return redirect(target_url, discord_error=q.error or 'missing_code')
 
 
