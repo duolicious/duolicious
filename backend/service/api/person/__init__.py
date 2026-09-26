@@ -22,6 +22,7 @@ from service.api.location import SQL_POINT, snap_to_grid
 import json
 import secrets
 from service.api import sessioncache
+from service.api.auth.discord_oauth import verify_discord_code
 from service.api.auth.spotify_oauth import build_authorize_url
 from serviceshared.spotify.sql import (
     Q_DISCONNECT_SPOTIFY,
@@ -496,6 +497,24 @@ async def post_sign_in_with_apple(
         email_verified=claims.email_verified,
         pending_club_name=pending_club_name,
         ref=ref,
+        remote_addr=remote_addr,
+    )
+
+async def post_sign_in_with_discord(
+    req: t.PostSignInWithDiscord,
+    remote_addr: str | None,
+) -> object:
+    claims = await verify_discord_code(req.code, req.code_verifier)
+    if claims is None:
+        return 'Invalid Discord code', 401
+
+    return await _sign_in_with_social(
+        provider='discord',
+        sub=claims.sub,
+        email=claims.email,
+        email_verified=claims.email_verified,
+        pending_club_name=req.pending_club_name,
+        ref=req.ref,
         remote_addr=remote_addr,
     )
 

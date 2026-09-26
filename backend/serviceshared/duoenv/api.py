@@ -31,6 +31,30 @@ APPLE_WEB_REDIRECT_URL = stripped_str('DUO_APPLE_WEB_REDIRECT_URL')
 APPLE_APEX_REDIRECT_URL = stripped_str('DUO_APPLE_APEX_REDIRECT_URL')
 APPLE_ANDROID_REDIRECT_URL = stripped_str('DUO_APPLE_ANDROID_REDIRECT_URL')
 
+DISCORD_CLIENT_ID = required_str('DUO_DISCORD_CLIENT_ID')
+DISCORD_CLIENT_SECRET = required_str('DUO_DISCORD_CLIENT_SECRET')
+DISCORD_REDIRECT_URI = str_with(
+    'DUO_DISCORD_REDIRECT_URI',
+    'https://api.duolicious.app/auth/discord/callback',
+)
+DISCORD_AUTHORIZE_URL = str_with(
+    'DUO_DISCORD_AUTHORIZE_URL',
+    'https://discord.com/oauth2/authorize',
+)
+DISCORD_API_URL = str_with('DUO_DISCORD_API_URL', 'https://discord.com/api/v10')
+DISCORD_WEB_REDIRECT_URL = str_with(
+    'DUO_DISCORD_WEB_REDIRECT_URL',
+    'https://web.duolicious.app/',
+)
+DISCORD_APEX_REDIRECT_URL = str_with(
+    'DUO_DISCORD_APEX_REDIRECT_URL',
+    'https://duolicious.app/',
+)
+DISCORD_APP_REDIRECT_URL = str_with(
+    'DUO_DISCORD_APP_REDIRECT_URL',
+    'app.duolicious://oauthredirect/discord',
+)
+
 SPOTIFY_REDIRECT_URI = str_with(
     'DUO_SPOTIFY_REDIRECT_URI',
     'https://api.duolicious.app/spotify/callback',

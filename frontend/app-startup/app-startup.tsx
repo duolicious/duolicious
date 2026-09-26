@@ -30,7 +30,7 @@ import { setSignedInUser, getSignedInUser } from '../events/signed-in-user';
 import { computeStartupNavigationState } from '../navigation/startup';
 import { createLinking, focusedConversationHandle } from '../navigation/linking';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
-import { hasPendingAppleWebSignIn } from '../api/social-auth';
+import { hasPendingWebSignIn } from '../api/social-auth';
 import { adoptWebSessionOnApex } from '../kv-storage/session-bridge';
 import { showSignUp } from '../components/modal/sign-up-modal';
 import { loadAnonymousAnswers } from '../events/anonymous-answers';
@@ -263,7 +263,7 @@ const useAppStartup = (
   useEffect(() => {
     if (isLoading) return;
     if (getSignedInUser()) return;
-    if (hasPendingAppleWebSignIn()) {
+    if (hasPendingWebSignIn()) {
       showSignUp(true);
     }
   }, [isLoading]);
