@@ -44,6 +44,7 @@ import {
   setSearchFilter,
   setSearchFilters,
 } from '../events/search-filters';
+import { savePublicSearchAge } from '../events/public-search-filters';
 import { markSearchResultsStale } from '../events/stale-search-results';
 import { markInboxStale } from '../events/stale-inbox';
 import { markFeedStale } from '../events/stale-feed';
@@ -1401,6 +1402,10 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
             async () => await japi('post', '/finish-onboarding')
           );
 
+          if (response.ok) {
+            await savePublicSearchAge();
+          }
+
           await applyAuthenticatedResponse(
             response,
             existingSessionToken,
@@ -2271,6 +2276,7 @@ export {
   defaultSearchFilters,
   descriptionStyle,
   generalSettingsOptionGroups,
+  genders,
   getCurrentValue,
   isOptionGroupButtons,
   isOptionGroupCheckChips,

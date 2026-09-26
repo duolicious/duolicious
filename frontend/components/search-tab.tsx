@@ -44,6 +44,8 @@ import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
+import { getPublicSearchFilters } from '../events/public-search-filters';
+import { genders } from '../data/option-groups';
 import {
   areSearchResultsRecent,
   consumeStaleSearchResults,
@@ -163,6 +165,17 @@ type PageItem = {
   verification_required_to_view: string | null
 };
 
+const publicSearchFilterParams = (): string => {
+  const { gender, age } = getPublicSearchFilters();
+
+  return [
+    gender && gender.length < genders.length &&
+      `&gender=${encodeURIComponent(JSON.stringify(gender))}`,
+    typeof age?.min_age === 'number' && `&min_age=${age.min_age}`,
+    typeof age?.max_age === 'number' && `&max_age=${age.max_age}`,
+  ].filter(Boolean).join('');
+};
+
 const fetchPageWithoutQueue = async (
   club: string | null,
   pageNumber: number,
@@ -176,6 +189,7 @@ const fetchPageWithoutQueue = async (
   // any). Signed-in users are ranked server-side from their saved answers.
   const answers = isPublic ? encodedAnonymousAnswers() : null;
   const answersParam = answers ? `&answers=${answers}` : '';
+  const filterParams = isPublic ? publicSearchFilterParams() : '';
 
   const response = await japi<PageItem[]>(
     'get',
@@ -183,7 +197,8 @@ const fetchPageWithoutQueue = async (
     `?n=${resultsPerPage}` +
     `&o=${offset}` +
     `&club=${encodeURIComponent(club === null ? '\0' : club)}` +
-    answersParam
+    answersParam +
+    filterParams
   );
 
   if (pageNumber === 1) {
@@ -575,7 +590,7 @@ const ListHeaderComponent = ({
 
 const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   const isPublic = useIsWebLoggedOut();
-  const hasFilterPanel = useHasRightPane() && !isPublic;
+  const hasFilterPanel = useHasRightPane();
 
   const {
     hasClubs: initialHasClubs,

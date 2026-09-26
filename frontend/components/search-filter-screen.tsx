@@ -70,6 +70,7 @@ import {
   setTwoWayFilter,
   useSearchFilters,
 } from '../events/search-filters';
+import { getPublicSearchFilters } from '../events/public-search-filters';
 
 const getCurrentValueAsLabel = (
   og: OptionGroup<OptionGroupInputs> | undefined,
@@ -219,7 +220,7 @@ const useColdStartSearchFilters = () => {
   useEffect(() => {
     if (getSearchFilters()) return;
     if (isLocked) {
-      setSearchFilters(defaultSearchFilters());
+      setSearchFilters(signedOutSearchFilters());
       return;
     }
     let cancelled = false;
@@ -268,6 +269,11 @@ const SearchFilterScreen = () => {
     </Stack.Navigator>
   );
 };
+
+const signedOutSearchFilters = (): SearchFilters => ({
+  ...defaultSearchFilters(),
+  ...getPublicSearchFilters(),
+});
 
 const twoWayFilterSetting = (data: SearchFilters | undefined) => {
   const twoWay = (data?.two_way_filters ?? {}) as Record<string, boolean>;
@@ -435,7 +441,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
 
   useEffect(() => {
     if (isLocked) {
-      setSearchFilters(defaultSearchFilters());
+      setSearchFilters(signedOutSearchFilters());
       return;
     }
     (async () => {
@@ -861,6 +867,7 @@ export {
   TwoWayFilterToggles,
   advancedSearchFilterOptionGroups,
   countChangedAdvancedFilters,
+  signedOutSearchFilters,
   getCurrentValueAsLabel,
   useColdStartSearchFilters,
   useQAndAFilters,

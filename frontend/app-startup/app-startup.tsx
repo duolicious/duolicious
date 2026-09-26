@@ -34,6 +34,7 @@ import { hasPendingAppleWebSignIn } from '../api/social-auth';
 import { adoptWebSessionOnApex } from '../kv-storage/session-bridge';
 import { showSignUp } from '../components/modal/sign-up-modal';
 import { loadAnonymousAnswers } from '../events/anonymous-answers';
+import { loadPublicSearchFilters } from '../events/public-search-filters';
 
 ExpoSplashScreen.preventAutoHideAsync();
 
@@ -142,6 +143,7 @@ const useAppStartup = (
     const existingSessionToken = await sessionToken();
     const notification = await getLastNotificationResponseOnMobile();
     await loadAnonymousAnswers();
+    await loadPublicSearchFilters();
 
     // `computeStartupNavigationState` owns every routing decision at startup:
     // URL deep-links, public-vs-protected screens, push notifications, the
