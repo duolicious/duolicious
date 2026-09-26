@@ -108,31 +108,31 @@ describe('lookingForDescription', () => {
       expect(lookingForDescription({
         gender_preference: ['Woman'],
         age_preference: { min_age: 22, max_age: 30 },
-        looking_for: 'Short-term dating',
+        looking_for: ['Short-term dating'],
       })).toBe(`women aged 22${NDASH}30 for short-term dating`);
     });
 
     test('reads naturally when the age clause is omitted', () => {
       expect(lookingForDescription({
         gender_preference: ['Woman'],
-        looking_for: 'Short-term dating',
+        looking_for: ['Short-term dating'],
       })).toBe('women for short-term dating');
     });
 
     test('collapses "people for <goal>" to just the goal', () => {
-      expect(lookingForDescription({ looking_for: 'Friends' }))
+      expect(lookingForDescription({ looking_for: ['Friends'] }))
         .toBe('friends');
       expect(lookingForDescription({
         gender_preference: ALL_GENDERS,
-        looking_for: 'Short-term dating',
+        looking_for: ['Short-term dating'],
       })).toBe('short-term dating');
-      expect(lookingForDescription({ looking_for: 'Marriage' }))
+      expect(lookingForDescription({ looking_for: ['Marriage'] }))
         .toBe('marriage');
     });
 
     test('keeps "people" when an age clause is also present', () => {
       expect(lookingForDescription({
-        looking_for: 'Friends',
+        looking_for: ['Friends'],
         age_preference: { min_age: 25, max_age: 99 },
       })).toBe('people aged 25+ for friends');
     });
@@ -140,8 +140,18 @@ describe('lookingForDescription', () => {
     test('omits the goal clause when not set', () => {
       expect(lookingForDescription({
         gender_preference: ['Woman'],
-        looking_for: null,
+        looking_for: [],
       })).toBe('women');
+    });
+
+    test('offers every goal as an alternative', () => {
+      expect(lookingForDescription({
+        gender_preference: ['Woman'],
+        looking_for: ['Friends', 'Long-term dating'],
+      })).toBe('women for friends or long-term dating');
+      expect(lookingForDescription({
+        looking_for: ['Friends', 'Short-term dating', 'Long-term dating'],
+      })).toBe('friends, short-term dating or long-term dating');
     });
   });
 
@@ -149,7 +159,7 @@ describe('lookingForDescription', () => {
     test('appends the long-distance clause when answered', () => {
       expect(lookingForDescription({
         gender_preference: ['Woman'],
-        looking_for: 'Short-term dating',
+        looking_for: ['Short-term dating'],
         long_distance: 'Yes',
       })).toBe('women for short-term dating, open to long distance');
     });
@@ -157,7 +167,7 @@ describe('lookingForDescription', () => {
     test('omits the long-distance clause when unanswered', () => {
       expect(lookingForDescription({
         gender_preference: ['Woman'],
-        looking_for: 'Short-term dating',
+        looking_for: ['Short-term dating'],
         long_distance: null,
       })).toBe('women for short-term dating');
     });
@@ -167,7 +177,7 @@ describe('lookingForDescription', () => {
     expect(lookingForDescription({
       gender_preference: ['Woman'],
       age_preference: { min_age: 18, max_age: 99 },
-      looking_for: 'Short-term dating',
+      looking_for: ['Short-term dating'],
     })).toBe('women for short-term dating');
   });
 });
@@ -188,15 +198,20 @@ describe('describeLongDistance', () => {
 
 describe('lookingForEmoji', () => {
   test('picks an emoji per relationship goal', () => {
-    expect(lookingForEmoji({ looking_for: 'Friends' })).toBe('👋');
-    expect(lookingForEmoji({ looking_for: 'Short-term dating' })).toBe('🥂');
-    expect(lookingForEmoji({ looking_for: 'Long-term dating' })).toBe('💘');
-    expect(lookingForEmoji({ looking_for: 'Marriage' })).toBe('💍');
+    expect(lookingForEmoji({ looking_for: ['Friends'] })).toBe('👋');
+    expect(lookingForEmoji({ looking_for: ['Short-term dating'] })).toBe('🥂');
+    expect(lookingForEmoji({ looking_for: ['Long-term dating'] })).toBe('💘');
+    expect(lookingForEmoji({ looking_for: ['Marriage'] })).toBe('💍');
+  });
+
+  test('falls back to a default emoji for several goals', () => {
+    expect(lookingForEmoji({ looking_for: ['Friends', 'Marriage'] }))
+      .toBe('💞');
   });
 
   test('falls back to a default emoji when the goal is missing or unknown', () => {
-    expect(lookingForEmoji({ looking_for: null })).toBe('💞');
-    expect(lookingForEmoji({ looking_for: 'Situationship' })).toBe('💞');
+    expect(lookingForEmoji({ looking_for: [] })).toBe('💞');
+    expect(lookingForEmoji({ looking_for: ['Situationship'] })).toBe('💞');
     expect(lookingForEmoji({})).toBe('💞');
     expect(lookingForEmoji(null)).toBe('💞');
     expect(lookingForEmoji(undefined)).toBe('💞');
