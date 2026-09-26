@@ -220,6 +220,19 @@ Q_PATCH_COORDINATES = _q_patch_location(f"""
     LIMIT 1
 """)
 
+Q_PATCH_LOOKING_FOR = """
+UPDATE person
+SET looking_for_ids = COALESCE(
+    (
+        SELECT array_agg(id ORDER BY id)
+        FROM looking_for
+        WHERE name = ANY(%(field_value)s::TEXT[])
+    ),
+    '{1}'
+)
+WHERE id = %(person_id)s
+"""
+
 Q_PATCH_THEME = """
 UPDATE person
 SET
@@ -289,8 +302,7 @@ _PROFILE_FIELDS = {
     'education': _ProfileField(q1=_person_value_q('education')),
     'height': _ProfileField(q1=_person_value_q('height_cm')),
     'body_type': _ProfileField(q1=_person_lookup_q('body_type_id', 'body_type')),
-    'looking_for': _ProfileField(
-        q1=_person_lookup_q('looking_for_id', 'looking_for')),
+    'looking_for': _ProfileField(q1=Q_PATCH_LOOKING_FOR),
     'smoking': _ProfileField(
         q1=_person_lookup_q('smoking_id', 'yes_no_optional')),
     'drinking': _ProfileField(q1=_person_lookup_q('drinking_id', 'frequency')),
