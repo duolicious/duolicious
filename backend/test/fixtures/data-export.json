@@ -2152,7 +2152,6 @@
         "wants_kids_id": 1,
         "body_type_name": "Unanswered",
         "ethnicity_name": "Unanswered",
-        "looking_for_id": 1,
         "orientation_id": 1,
         "presence_score": [
           278,
@@ -2211,6 +2210,9 @@
         },
         "last_event_name": "added-photo",
         "last_event_time": "2026-09-22T04:23:47.645994",
+        "looking_for_ids": [
+          1
+        ],
         "verified_gender": false,
         "visitor_seconds": 0,
         "wants_kids_name": "Unanswered",
@@ -2220,10 +2222,12 @@
         "last_online_time": "2026-09-22T04:23:46.51833",
         "location_country": "United States",
         "long_distance_id": 1,
-        "looking_for_name": "Unanswered",
         "normalized_email": "user1@example.com",
         "orientation_name": null,
         "count_intros_sent": 0,
+        "looking_for_names": [
+          "Unanswered"
+        ],
         "chats_notification": 1,
         "long_distance_name": "Unanswered",
         "verified_ethnicity": false,

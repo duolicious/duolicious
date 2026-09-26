@@ -9,3 +9,24 @@
 -- init-api.sql is the source of truth for the current schema; migrations.sql
 -- carries the same change to already-created databases.
 
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'person'::regclass
+        AND attname = 'looking_for_id'
+        AND NOT attisdropped
+    ) THEN
+        RETURN;
+    END IF;
+
+    ALTER TABLE person
+        ADD COLUMN looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}';
+
+    UPDATE person
+    SET looking_for_ids = ARRAY[looking_for_id]
+    WHERE looking_for_id <> 1;
+
+    ALTER TABLE person DROP COLUMN looking_for_id;
+END $$;

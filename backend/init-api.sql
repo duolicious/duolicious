@@ -319,7 +319,7 @@ CREATE TABLE IF NOT EXISTS person (
     education TEXT,
     height_cm SMALLINT,
     body_type_id SMALLINT REFERENCES body_type(id) NOT NULL DEFAULT 1,
-    looking_for_id SMALLINT REFERENCES looking_for(id) NOT NULL DEFAULT 1,
+    looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}',
     smoking_id SMALLINT REFERENCES yes_no_optional(id) NOT NULL DEFAULT 1,
     drinking_id SMALLINT REFERENCES frequency(id) NOT NULL DEFAULT 1,
     drugs_id SMALLINT REFERENCES yes_no_optional(id) NOT NULL DEFAULT 1,

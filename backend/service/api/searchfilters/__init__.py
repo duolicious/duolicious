@@ -27,6 +27,7 @@ class EnumFilter(NamedTuple):
     param: str
     column: str
     lookup: str
+    multi: bool = False
 
 
 ENUM_FILTERS = [
@@ -35,7 +36,7 @@ ENUM_FILTERS = [
     EnumFilter('ethnicity_ids',           'ethnicity_id',           'ethnicity'),
     EnumFilter('body_type_ids',           'body_type_id',           'body_type'),
     EnumFilter('has_profile_picture_ids', 'has_profile_picture_id', 'yes_no'),
-    EnumFilter('looking_for_ids',         'looking_for_id',         'looking_for'),
+    EnumFilter('looking_for_ids',         'looking_for_ids',        'looking_for', multi=True),
     EnumFilter('smoking_ids',             'smoking_id',             'yes_no_optional'),
     EnumFilter('drinking_ids',            'drinking_id',            'frequency'),
     EnumFilter('drugs_ids',               'drugs_id',               'yes_no_optional'),
@@ -202,7 +203,7 @@ _TWO_WAY_ENUM_COLUMNS = {
     'ethnicity':             'ethnicity_id',
     'body_type':             'body_type_id',
     'has_a_profile_picture': 'has_profile_picture_id',
-    'looking_for':           'looking_for_id',
+    'looking_for':           'looking_for_ids',
     'smoking':               'smoking_id',
     'drinking':              'drinking_id',
     'drugs':                 'drugs_id',
@@ -358,7 +359,10 @@ def prospect_filters(prefs: Row) -> ProspectFilters:
         if ids is None:
             continue
         params[enum.param] = ids
-        clauses.append(f"prospect.{enum.column} = ANY(%({enum.param})s::SMALLINT[])")
+        clauses.append(
+            f"prospect.{enum.column} && %({enum.param})s::SMALLINT[]"
+            if enum.multi else
+            f"prospect.{enum.column} = ANY(%({enum.param})s::SMALLINT[])")
 
     if row_bool(prefs, 'has_answer_prefs'):
         params['searcher_person_id'] = row_int(prefs, 'searcher_person_id')
@@ -410,6 +414,19 @@ _REVERSE_HEIGHT = sql_fragment("""
 """)
 
 
+def _reverse_enum_check(enum: EnumFilter, prefs: Row) -> tuple[str, SearchParam]:
+    searcher = f'searcher_{enum.column}'
+    if enum.multi:
+        return (
+            f'%({searcher})s::SMALLINT[] && reverse_preference.{enum.param}',
+            row_int_list(prefs, searcher),
+        )
+    return (
+        f'%({searcher})s = ANY(reverse_preference.{enum.param})',
+        row_int(prefs, searcher),
+    )
+
+
 def two_way_filters(prefs: Row) -> ProspectFilters:
     checks: list[str] = []
     params: dict[str, SearchParam] = {}
@@ -420,10 +437,10 @@ def two_way_filters(prefs: Row) -> ProspectFilters:
 
         column = _TWO_WAY_ENUM_COLUMNS.get(key)
         if column is not None:
-            param = _ENUM_FILTER_BY_COLUMN[column].param
-            checks.append(
-                f'%(searcher_{column})s = ANY(reverse_preference.{param})')
-            params[f'searcher_{column}'] = row_int(prefs, f'searcher_{column}')
+            check, value = _reverse_enum_check(
+                _ENUM_FILTER_BY_COLUMN[column], prefs)
+            checks.append(check)
+            params[f'searcher_{column}'] = value
         elif key == 'age':
             checks.append(_REVERSE_AGE)
             params['searcher_age'] = row_int(prefs, 'searcher_age')

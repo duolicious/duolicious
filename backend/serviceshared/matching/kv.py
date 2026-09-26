@@ -25,7 +25,7 @@ class _LongerConversationsModel:
             update_columns=frozenset({
                 'date_of_birth', 'height_cm', 'coordinates',
                 'location_country', 'gender_id', 'orientation_id',
-                'ethnicity_id', 'looking_for_id', 'smoking_id',
+                'ethnicity_id', 'looking_for_ids', 'smoking_id',
                 'drinking_id', 'drugs_id', 'long_distance_id',
                 'relationship_status_id', 'has_kids_id', 'wants_kids_id',
                 'exercise_id', 'religion_id', 'star_sign_id',
