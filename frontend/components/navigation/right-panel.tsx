@@ -5,6 +5,7 @@ import { getRandomElement } from '../../util/util';
 import { PARTNER_URL } from '../../env/env';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
 import { SignedOutCard } from './signed-out-card';
+import { RIGHT_PANE_WIDTH } from './web-layout';
 import { SearchFilterPanel } from '../search-filter-panel';
 
 type Partner = {
@@ -151,7 +152,7 @@ const RightPanel = ({ routeName }: { routeName?: string }) => {
   return (
     <View
       style={{
-        maxWidth: 360,
+        maxWidth: RIGHT_PANE_WIDTH,
         height: '100%',
         padding: 20,
       }}
