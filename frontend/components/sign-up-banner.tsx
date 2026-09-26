@@ -9,6 +9,7 @@ import { showSignUp } from './modal/sign-up-modal';
 import { useNumActiveUsers } from './welcome-screen';
 import { useBannerProspectName } from '../events/banner-prospect-name';
 import { useSignUpBanner } from '../events/sign-up-banner';
+import { useIsSignedOutCardShown } from './navigation/signed-out-card';
 import { COLUMN_MAX_WIDTH } from '../constants/constants';
 import {
   CONTENT_COLUMN_STYLE,
@@ -24,6 +25,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   const { appTheme } = useAppTheme();
   const { width: windowWidth } = useWindowDimensions();
   const numActiveUsers = useNumActiveUsers(undefined);
+  const isNumActiveUsersInPane = useIsSignedOutCardShown();
   const prospectName = useBannerProspectName(prospectHandle);
   const [showNumActiveUsers, setShowNumActiveUsers] = useState(false);
   const [cardWidth, setCardWidth] = useState<number>();
@@ -101,7 +103,11 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
         >
           <CrossFade
             style={{ flex: 1 }}
-            showFront={showNumActiveUsers && numActiveUsers !== undefined}
+            showFront={
+              !isNumActiveUsersInPane &&
+              showNumActiveUsers &&
+              numActiveUsers !== undefined
+            }
             minBackMs={5000}
             front={
               <View

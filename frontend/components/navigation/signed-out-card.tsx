@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { DefaultText } from '../default-text';
 import { Logo16 } from '../logo';
@@ -6,11 +7,22 @@ import { showSignUp } from '../modal/sign-up-modal';
 import { useNumActiveUsers } from '../welcome-screen';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { SidePanelCard, SidePanelHeading } from './side-panel';
+import { notify, useDerivedEvent } from '../../events/events';
+
+const SHOWN_KEY = 'signed-out-card-shown';
+
+const useIsSignedOutCardShown = () =>
+  useDerivedEvent<boolean, boolean>(SHOWN_KEY, (x) => x ?? false, []);
 
 const SignedOutCard = () => {
   const { appTheme } = useAppTheme();
   const numActiveUsers = useNumActiveUsers(undefined);
   const dividerStyle = { borderTopColor: appTheme.interactiveBorderColor };
+
+  useEffect(() => {
+    notify(SHOWN_KEY, true);
+    return () => notify(SHOWN_KEY, false);
+  }, []);
 
   return (
     <SidePanelCard>
@@ -94,4 +106,5 @@ const styles = StyleSheet.create({
 
 export {
   SignedOutCard,
+  useIsSignedOutCardShown,
 };
