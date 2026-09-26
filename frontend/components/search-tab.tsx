@@ -52,7 +52,6 @@ import {
 import {
   listenSearchRequests,
   requestSearch,
-  useIsSearching,
   whileSearching,
 } from '../events/search-requests';
 import {
@@ -628,8 +627,6 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     seenSearchFiltersHint(true);
   }, []);
 
-  const isSearching = useIsSearching();
-
   const onPressRefresh = useCallback(async () => {
     await listRef.current?.refresh();
   }, []);
@@ -720,7 +717,6 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
               position="left"
               secondary={true}
               label="Refresh"
-              loading={isSearching}
             />
           }
           <View
