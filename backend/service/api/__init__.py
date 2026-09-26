@@ -13,7 +13,7 @@ import time
 from typing import Annotated
 from urllib.parse import parse_qsl
 
-from fastapi import Body, Depends, Path as FastApiPath, Query, WebSocket
+from fastapi import Body, Depends, Header, Path as FastApiPath, Query, WebSocket
 from starlette.requests import Request
 
 import service.api.duotypes as t
@@ -260,8 +260,11 @@ async def get_prospect_profile(
     prospect_handle: str,
     q: Annotated[t.ProspectProfileQuery, Query()],
     s: t.SessionInfo | None = Depends(session(optional=True)),
+    client_version: Annotated[int | None, Header(
+        alias='X-Duolicious-Client-Version')] = None,
 ) -> object:
-    return await person.get_prospect_profile(s, prospect_handle, q)
+    return await person.get_prospect_profile(
+        s, prospect_handle, q, client_version)
 
 @app.get('/conversation-prospect/{prospect_handle}')
 async def get_conversation_prospect(
@@ -334,8 +337,10 @@ async def post_deactivate(
 @app.get('/profile-info')
 async def get_profile_info(
     s: t.SessionInfo = Depends(session()),
+    client_version: Annotated[int | None, Header(
+        alias='X-Duolicious-Client-Version')] = None,
 ) -> object:
-    return await profileinfo.get_profile_info(s)
+    return await profileinfo.get_profile_info(s, client_version)
 
 @app.delete('/profile-info')
 async def delete_profile_info(

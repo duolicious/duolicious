@@ -762,8 +762,12 @@ WITH prospect_base AS (
     FROM body_type JOIN prospect ON body_type_id = body_type.id
     WHERE body_type.name != 'Unanswered'
 ), looking_for AS (
-    SELECT looking_for.name AS j
-    FROM looking_for JOIN prospect ON looking_for_id = looking_for.id
+    SELECT
+        COALESCE(
+            array_agg(looking_for.name ORDER BY looking_for.id),
+            ARRAY[]::TEXT[]
+        ) AS j
+    FROM looking_for JOIN prospect ON looking_for.id = ANY(looking_for_ids)
     WHERE looking_for.name != 'Unanswered'
     AND prospect.show_my_looking_for
 ), smoking AS (
@@ -1331,9 +1335,14 @@ WITH photo_ AS (
     FROM body_type JOIN person ON body_type_id = body_type.id
     WHERE person.id = %(person_id)s
 ), looking_for AS (
-    SELECT looking_for.name AS j
-    FROM looking_for JOIN person ON looking_for_id = looking_for.id
+    SELECT
+        COALESCE(
+            array_agg(looking_for.name ORDER BY looking_for.id),
+            ARRAY[]::TEXT[]
+        ) AS j
+    FROM looking_for JOIN person ON looking_for.id = ANY(looking_for_ids)
     WHERE person.id = %(person_id)s
+    AND looking_for.name != 'Unanswered'
 ), smoking AS (
     SELECT yes_no_optional.name AS j
     FROM yes_no_optional JOIN person ON smoking_id = yes_no_optional.id
@@ -2522,7 +2531,12 @@ SELECT json_build_object(
                 orientation.name AS orientation_name,
                 ethnicity.name AS ethnicity_name,
                 body_type.name AS body_type_name,
-                looking_for.name AS looking_for_name,
+                ARRAY(
+                    SELECT name
+                    FROM looking_for
+                    WHERE id = ANY(person.looking_for_ids)
+                    ORDER BY id
+                ) AS looking_for_names,
                 smoking.name AS smoking_name,
                 drinking.name AS drinking_name,
                 drugs.name AS drugs_name,
@@ -2560,9 +2574,6 @@ SELECT json_build_object(
             LEFT JOIN
                 body_type ON
                 body_type.id = body_type_id
-            LEFT JOIN
-                looking_for ON
-                looking_for.id = looking_for_id
             LEFT JOIN
                 yes_no_optional AS
                 smoking ON

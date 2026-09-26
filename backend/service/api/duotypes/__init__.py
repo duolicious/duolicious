@@ -50,13 +50,19 @@ SortBy: TypeAlias = Literal[
     'Distance',
 ]
 
+LookingFor: TypeAlias = Literal[
+    'Friends',
+    'Short-term dating',
+    'Long-term dating',
+    'Marriage',
+]
+
 CLUB_PATTERN = r"""^[a-zA-Z0-9/#'":_-]+( [a-zA-Z0-9/#'":_-]+)*$"""
 CLUB_MAX_LEN = 42
 PATCH_PROFILE_INFO_LOOKUP_BASICS = frozenset({
     'orientation',
     'ethnicity',
     'body_type',
-    'looking_for',
     'smoking',
     'drinking',
     'drugs',
@@ -575,7 +581,7 @@ class PatchProfileInfo(BaseModel):
     education: str | None = Field(default=None, min_length=1, max_length=64)
     height: int | None = None
     body_type: str | None = None
-    looking_for: str | None = None
+    looking_for: List[LookingFor] | None = None
     smoking: str | None = None
     drinking: str | None = None
     drugs: str | None = None
@@ -626,6 +632,14 @@ class PatchProfileInfo(BaseModel):
             values[key] = val.strip() if type(val) is str else val
 
         return values
+
+    @field_validator('looking_for', mode='before')
+    def looking_for_as_list(cls, value: object) -> object:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
 
     # The name/occupation/education rude checks need the async DB, so they run
     # in the handler (person.profileinfo.patch_profile_info), not here. The

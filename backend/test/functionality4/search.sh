@@ -905,6 +905,39 @@ test_two_way_age_filter () {
   assert_search_names 'user1 user2'
 }
 
+test_looking_for_overlap () {
+  setup
+
+  assume_role user1
+  jc PATCH /profile-info -d '{ "looking_for": ["Friends", "Long-term dating"] }'
+
+  assume_role searcher
+  jc POST /search-filter -d '{ "looking_for": ["Unanswered", "Long-term dating"] }'
+  assert_search_names 'user1 user2'
+
+  jc POST /search-filter -d '{ "looking_for": ["Unanswered", "Marriage"] }'
+  assert_search_names 'user2'
+}
+
+test_two_way_looking_for_filter () {
+  setup
+
+  jc PATCH /profile-info -d '{ "looking_for": ["Friends", "Marriage"] }'
+
+  assume_role user1
+  jc POST /search-filter -d '{ "looking_for": ["Marriage"] }'
+
+  assume_role searcher
+  jc POST /search-filter -d '{ "two_way_filters": { "looking_for": true } }'
+  assert_search_names 'user1 user2'
+
+  assume_role user1
+  jc POST /search-filter -d '{ "looking_for": ["Short-term dating"] }'
+
+  assume_role searcher
+  assert_search_names 'user2'
+}
+
 # `two_way_filters` applies inside clubs too, unlike the default gender filter.
 test_two_way_filters_in_club () {
   setup
@@ -1066,7 +1099,7 @@ test_basic_furthest_distance
 test_last_online_hides_online_status
 test_basic_height
 test_basic has_profile_picture 'No' yes_no
-test_basic looking_for 'Long-term dating'
+test_looking_for_overlap
 test_basic smoking 'Yes' yes_no_optional
 test_basic drinking 'Often' frequency
 test_basic drugs 'No' yes_no_optional
@@ -1086,6 +1119,7 @@ test_two_way_location_filter
 test_same_country_only
 test_two_way_same_country_only
 test_two_way_age_filter
+test_two_way_looking_for_filter
 test_two_way_filters_in_club
 test_two_way_filters_persist
 

@@ -480,6 +480,21 @@ test_clear () {
     && test_clear_rejected location "New York, New York, United States"
 }
 
+test_looking_for () {
+  local v11=( --header 'X-Duolicious-Client-Version: 11' )
+
+  jc PATCH /profile-info -d '{ "looking_for": ["Marriage", "Friends"] }'
+  [[ "$(c GET /profile-info "${v11[@]}" | jq -c '.["looking for"]')" \
+    == '["Friends","Marriage"]' ]]
+  [[ "$(get_field looking_for)" == 'Friends, Marriage' ]]
+
+  jc PATCH /profile-info -d '{ "looking_for": [] }'
+  [[ "$(c GET /profile-info "${v11[@]}" | jq -c '.["looking for"]')" == '[]' ]]
+  [[ "$(get_field looking_for)" == 'Unanswered' ]]
+
+  ! jc PATCH /profile-info -d '{ "looking_for": ["Aliens"] }' || exit 1
+}
+
 
 test_set name "Jeff" false && exit 1
 test_set name "Jeff" true
@@ -539,5 +554,7 @@ test_coordinates
 test_show_my_location
 
 test_clear
+
+test_looking_for
 
 test_flair

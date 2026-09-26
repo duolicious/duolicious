@@ -716,6 +716,7 @@ async def get_prospect_profile(
     s: t.SessionInfo | None,
     prospect_handle: object,
     q: t.ProspectProfileQuery,
+    client_version: int | None,
 ) -> object:
     params = dict(
         person_id=s.person_id if s is not None else None,
@@ -736,6 +737,9 @@ async def get_prospect_profile(
         # visit events below carry a valid one.
         prospect_uuid = api_row.get('prospect_uuid')
         prospect_id = row_int(api_row, 'prospect_id')
+
+    if client_version is None:
+        profile['looking_for'] = ', '.join(profile['looking_for']) or None
 
     if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(

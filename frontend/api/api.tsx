@@ -8,7 +8,7 @@ import { nextEvent } from '../events/events';
 import { EV_NETWORK_CAME_ONLINE } from '../network/network';
 import { SOMETHING_WENT_WRONG, notifyErrorToast } from '../components/toast';
 
-const CLIENT_VERSION = 10;
+const CLIENT_VERSION = 11;
 
 type ApiResponse<T = unknown> = {
   ok: boolean
@@ -76,6 +76,9 @@ const api = async <T = unknown>(
       {
         method: method.toUpperCase(),
         cache: 'no-store',
+        headers: {
+          'X-Duolicious-Client-Version': String(CLIENT_VERSION),
+        },
       },
       (
         existingSessionToken ? {

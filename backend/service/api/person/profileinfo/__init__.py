@@ -220,6 +220,19 @@ Q_PATCH_COORDINATES = _q_patch_location(f"""
     LIMIT 1
 """)
 
+Q_PATCH_LOOKING_FOR = """
+UPDATE person
+SET looking_for_ids = COALESCE(
+    (
+        SELECT array_agg(id ORDER BY id)
+        FROM looking_for
+        WHERE name = ANY(%(field_value)s::TEXT[])
+    ),
+    '{1}'
+)
+WHERE id = %(person_id)s
+"""
+
 Q_PATCH_THEME = """
 UPDATE person
 SET
@@ -289,8 +302,7 @@ _PROFILE_FIELDS = {
     'education': _ProfileField(q1=_person_value_q('education')),
     'height': _ProfileField(q1=_person_value_q('height_cm')),
     'body_type': _ProfileField(q1=_person_lookup_q('body_type_id', 'body_type')),
-    'looking_for': _ProfileField(
-        q1=_person_lookup_q('looking_for_id', 'looking_for')),
+    'looking_for': _ProfileField(q1=Q_PATCH_LOOKING_FOR),
     'smoking': _ProfileField(
         q1=_person_lookup_q('smoking_id', 'yes_no_optional')),
     'drinking': _ProfileField(q1=_person_lookup_q('drinking_id', 'frequency')),
@@ -346,11 +358,20 @@ def _str_value(value: object, field_name: str) -> str:
     return value
 
 
-async def get_profile_info(s: t.SessionInfo) -> object:
+async def get_profile_info(
+    s: t.SessionInfo,
+    client_version: int | None,
+) -> object:
     params = dict(person_id=s.person_id)
 
     async with api_tx('READ COMMITTED') as tx:
-        return (await tx.require_one(Q_GET_PROFILE_INFO, params))['j']
+        profile_info = (await tx.require_one(Q_GET_PROFILE_INFO, params))['j']
+
+    if client_version is None and isinstance(profile_info, dict):
+        profile_info['looking for'] = (
+            ', '.join(profile_info['looking for']) or 'Unanswered')
+
+    return profile_info
 
 async def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> None:
     files_params = [
