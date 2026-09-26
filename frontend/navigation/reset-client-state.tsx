@@ -1,6 +1,5 @@
 import { resetOptionScreenPayloads } from './option-screen-store';
 import { resetProspectHints } from './prospect-cache';
-import { resetSearchFilterAnswers } from './search-filter-state';
 import { resetProfileInfo } from '../events/profile-info';
 import { resetSearchFilters } from '../events/search-filters';
 import { resetViewerAnswers } from '../api/answer';
@@ -21,7 +20,6 @@ import { resetProspectProfileCache } from '../components/prospect-profile-screen
 // device-scoped.
 export const resetUserScopedClientState = () => {
   resetProspectHints();
-  resetSearchFilterAnswers();
   resetOptionScreenPayloads();
   resetProfileInfo();
   resetSearchFilters();

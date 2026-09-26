@@ -6,7 +6,17 @@ import { markInboxStale } from './stale-inbox';
 import { markFeedStale } from './stale-feed';
 import { japi } from '../api/api';
 import { searchQueue } from '../api/queue';
-import type { SearchFilterAnswer } from '../navigation/search-filter-state';
+import { notifyErrorToast } from '../components/toast';
+
+const MAX_SEARCH_FILTER_ANSWERS = 20;
+
+type SearchFilterAnswer = {
+  question_id: number;
+  question: string;
+  topic: string;
+  answer: boolean | null;
+  accept_unanswered: boolean;
+};
 
 type SearchFilters = {
   answer?: SearchFilterAnswer[];
@@ -46,14 +56,10 @@ const patchSearchFilters = (partial: SearchFilters) => {
   notify<SearchFilters>(EVENT_KEY, { ...prev, ...partial });
 };
 
-const resetSearchFilters = () => {
-  notify<SearchFilters | undefined>(EVENT_KEY, undefined);
-};
-
-let pendingTwoWayFilterWrite: Promise<unknown> | null = null;
+let lastSearchFilterWrite: Promise<unknown> | null = null;
 
 const sendTwoWayFilters = _.debounce((value: Record<string, boolean>) => {
-  pendingTwoWayFilterWrite = searchQueue.addTask(async () => {
+  lastSearchFilterWrite = searchQueue.addTask(async () => {
     const ok = (await japi(
       'post',
       '/search-filter',
@@ -78,9 +84,61 @@ const setTwoWayFilter = (key: string, value: boolean) => {
   sendTwoWayFilters(next);
 };
 
+const pendingAnswerWrites = new Map<number, SearchFilterAnswer>();
+
+const sendSearchFilterAnswers = _.debounce(() => {
+  const writes = [...pendingAnswerWrites.values()];
+  pendingAnswerWrites.clear();
+
+  lastSearchFilterWrite = searchQueue.addTask(async () => {
+    for (const { question_id, answer, accept_unanswered } of writes) {
+      await japi(
+        'post',
+        '/search-filter-answer',
+        { question_id, answer, accept_unanswered },
+      );
+    }
+    markSearchResultsStale();
+    markInboxStale();
+  });
+}, 1000);
+
+const setSearchFilterAnswer = (next: SearchFilterAnswer) => {
+  const prev = getSearchFilters();
+  if (!prev) return;
+
+  const prevAnswers = prev.answer ?? [];
+  const others = prevAnswers.filter((a) => a.question_id !== next.question_id);
+
+  if (next.answer === null && others.length === prevAnswers.length) return;
+
+  if (next.answer !== null && others.length >= MAX_SEARCH_FILTER_ANSWERS) {
+    notifyErrorToast(
+      `You can’t set more than ${MAX_SEARCH_FILTER_ANSWERS} Q&A filters`);
+    return;
+  }
+
+  notify<SearchFilters>(EVENT_KEY, {
+    ...prev,
+    answer: next.answer === null ?
+      others :
+      _.sortBy([...others, next], 'question_id'),
+  });
+  pendingAnswerWrites.set(next.question_id, next);
+  sendSearchFilterAnswers();
+};
+
 const flushSearchFilterWrites = async (): Promise<void> => {
   sendTwoWayFilters.flush();
-  await pendingTwoWayFilterWrite;
+  sendSearchFilterAnswers.flush();
+  await lastSearchFilterWrite;
+};
+
+const resetSearchFilters = () => {
+  sendTwoWayFilters.cancel();
+  sendSearchFilterAnswers.cancel();
+  pendingAnswerWrites.clear();
+  notify<SearchFilters | undefined>(EVENT_KEY, undefined);
 };
 
 const useSearchFilters = () => {
@@ -95,11 +153,13 @@ const useSearchFilters = () => {
 };
 
 export {
+  SearchFilterAnswer,
   SearchFilters,
   flushSearchFilterWrites,
   getSearchFilters,
   patchSearchFilters,
   resetSearchFilters,
+  setSearchFilterAnswer,
   setSearchFilters,
   setTwoWayFilter,
   useSearchFilters,
