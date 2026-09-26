@@ -27,9 +27,13 @@ import { VerticalButtonGroup } from './vertical-button-group';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ButtonWithCenteredText } from './button/centered-text';
 import { StatusBarSpacer } from './status-bar-spacer';
-import { LabelledSlider } from './labelled-slider';
+import {
+  Slider as Slider_,
+  SliderValue,
+  rangeSliderLabel,
+  sliderLabel,
+} from './slider';
 import { Toggle } from './toggle';
-import { RangeSlider as RangeSlider_ } from './range-slider';
 import { DefaultText } from './default-text';
 import { DefaultTextInput } from './default-text-input';
 import { OtpInput } from './otp-input';
@@ -199,16 +203,13 @@ const Buttons = forwardRef((props: InputProps<OptionGroupButtons>, ref) => {
 });
 
 const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
-  const inputValueRef = useRef<number | null>(
-    props.input.slider.currentValue ??
-    props.input.slider.defaultValue
-  );
+  const { slider } = props.input;
+  const [value, setValue] = useState(
+    slider.currentValue ?? slider.defaultValue);
 
-  const onChangeInputValue = useCallback((value: number) => {
-    inputValueRef.current = value;
-  }, []);
+  const isUnlimited = !!slider.unlimitedLabel && value === slider.sliderMax;
 
-  const toggle = props.input.slider.toggle;
+  const toggle = slider.toggle;
   const [toggleValue, setToggleValue] = useState(
     toggle?.currentValue ?? false);
 
@@ -220,21 +221,14 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
   const submit = useCallback(async () => {
     props.setIsLoading(true);
 
-    const value = (
-        inputValueRef?.current === props.input.slider.sliderMax &&
-        props.input.slider.addPlusAtMax
-      ) ?
-      null :
-      inputValueRef?.current;
-
-    const ok = await props.input.slider.submit(value);
+    const ok = await slider.submit(isUnlimited ? null : value);
     ok && props.onSubmitSuccess();
 
     props.setIsLoading(false);
-  }, []);
+  }, [value, isUnlimited]);
 
   const skip = useCallback(async () => {
-    const clear = props.input.slider.clear;
+    const clear = slider.clear;
     if (!clear) return;
 
     props.setIsLoading(true);
@@ -247,26 +241,20 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
 
   useImperativeHandle(
     ref,
-    () => ({ submit, ...(props.input.slider.clear ? { skip } : {}) }),
-    [],
+    () => ({ submit, ...(slider.clear ? { skip } : {}) }),
+    [submit],
   );
 
   return (
-    <>
-      <LabelledSlider
-        label={`${props.title} (${props.input.slider.unitsLabel})`}
-        minimumValue={props.input.slider.sliderMin}
-        maximumValue={props.input.slider.sliderMax}
-        initialValue={inputValueRef.current}
-        onValueChange={onChangeInputValue}
-        step={props.input.slider.step}
-        addPlusAtMax={props.input.slider.addPlusAtMax}
-        valueRewriter={props.input.slider.valueRewriter}
-        scale={props.input.slider.scale}
-        style={{
-          marginLeft: 20,
-          marginRight: 20,
-        }}
+    <View style={{ marginLeft: 20, marginRight: 20 }}>
+      <SliderValue label={sliderLabel(slider, value)} />
+      <Slider_
+        minimumValue={slider.sliderMin}
+        maximumValue={slider.sliderMax}
+        values={[value]}
+        hollow={[isUnlimited]}
+        onValuesChange={([v]) => setValue(v)}
+        scale={slider.scale}
       />
       {toggle &&
         <View
@@ -275,8 +263,6 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
             alignItems: 'center',
             justifyContent: 'space-between',
             marginTop: 30,
-            marginLeft: 20,
-            marginRight: 20,
           }}
         >
           <DefaultText>{toggle.label}</DefaultText>
@@ -289,14 +275,12 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
           loading={props.isLoading}
           containerStyle={{
             marginTop: 30,
-            marginLeft: 20,
-            marginRight: 20,
           }}
         >
           Continue
         </ButtonWithCenteredText>
       }
-    </>
+    </View>
   );
 });
 
@@ -904,90 +888,50 @@ const CheckChips = forwardRef((props: InputProps<OptionGroupCheckChips>, ref) =>
 });
 
 const RangeSlider = forwardRef((props: InputProps<OptionGroupRangeSlider>, ref) => {
-  const rangeSliderRef = useRef<{
-    setValues: (values: { lowerValue: number | null, upperValue: number | null }) => void
-  } | null>(null);
+  const { rangeSlider } = props.input;
+  const { sliderMin, sliderMax } = rangeSlider;
 
-  const lowerValueRef = useRef<number | null>(
-    props.input.rangeSlider.currentMin ??
-    props.input.rangeSlider.sliderMin ??
-    null
-  );
-  const upperValueRef = useRef<number | null>(
-    props.input.rangeSlider.currentMax ??
-    props.input.rangeSlider.sliderMax ??
-    null
-  );
-
-  const onLowerValueChange = useCallback((value: number) => {
-    lowerValueRef.current = value;
-  }, []);
-  const onUpperValueChange = useCallback((value: number) => {
-    upperValueRef.current = value;
-  }, []);
+  const [values, setValues] = useState([
+    rangeSlider.currentMin ?? sliderMin,
+    rangeSlider.currentMax ?? sliderMax,
+  ]);
 
   const submit = useCallback(async () => {
     props.setIsLoading(true);
 
-    const sliderMin = props.input.rangeSlider.sliderMin;
-    const sliderMax = props.input.rangeSlider.sliderMax;
-
-    const currentMin = lowerValueRef?.current;
-    const currentMax = upperValueRef?.current;
-
-    const minValue = sliderMin === currentMin ? null : currentMin;
-    const maxValue = sliderMax === currentMax ? null : currentMax;
-
-    const ok = await props.input.rangeSlider.submit(minValue, maxValue);
+    const [min, max] = values;
+    const ok = await rangeSlider.submit(
+      min === sliderMin ? null : min,
+      max === sliderMax ? null : max,
+    );
     ok && props.onSubmitSuccess();
 
     props.setIsLoading(false);
-  }, []);
+  }, [values]);
 
-  useImperativeHandle(ref, () => ({ submit }), []);
-
-  const onPressReset = useCallback(() => {
-    const setValues = rangeSliderRef?.current?.setValues;
-    if (setValues) {
-      setValues({
-        lowerValue: props.input.rangeSlider.sliderMin,
-        upperValue: props.input.rangeSlider.sliderMax,
-      });
-      onLowerValueChange(props.input.rangeSlider.sliderMin);
-      onUpperValueChange(props.input.rangeSlider.sliderMax);
-    }
-  }, []);
+  useImperativeHandle(ref, () => ({ submit }), [submit]);
 
   return (
-    <>
-      <RangeSlider_
-        ref={rangeSliderRef}
-        initialLowerValue={lowerValueRef.current}
-        initialUpperValue={upperValueRef.current}
-        unitsLabel={props.input.rangeSlider.unitsLabel}
-        minimumValue={props.input.rangeSlider.sliderMin}
-        maximumValue={props.input.rangeSlider.sliderMax}
-        onLowerValueChange={onLowerValueChange}
-        onUpperValueChange={onUpperValueChange}
-        valueRewriter={props.input.rangeSlider.valueRewriter}
-        scale={props.input.rangeSlider.scale}
-        containerStyle={{
-          marginLeft: 20,
-          marginRight: 20,
-        }}
+    <View style={{ marginLeft: 20, marginRight: 20 }}>
+      <SliderValue label={rangeSliderLabel(props.title, rangeSlider, values)} />
+      <Slider_
+        minimumValue={sliderMin}
+        maximumValue={sliderMax}
+        values={values}
+        hollow={[values[0] === sliderMin, values[1] === sliderMax]}
+        onValuesChange={setValues}
+        scale={rangeSlider.scale}
       />
       <ButtonWithCenteredText
-        onPress={onPressReset}
+        onPress={() => setValues([sliderMin, sliderMax])}
         containerStyle={{
           marginTop: 30,
-          marginLeft: 20,
-          marginRight: 20,
         }}
         secondary={true}
       >
         Reset
       </ButtonWithCenteredText>
-    </>
+    </View>
   );
 });
 
