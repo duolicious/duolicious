@@ -6,7 +6,7 @@
 type LookingForData = {
   gender_preference?: string[] | null,
   age_preference?: { min_age: number | null, max_age: number | null } | null,
-  looking_for?: string | string[] | null,
+  looking_for?: string[],
   long_distance?: string | null,
 };
 
@@ -39,14 +39,8 @@ const LOOKING_FOR_EMOJI: { [key: string]: string } = {
 
 const DEFAULT_LOOKING_FOR_EMOJI = '💞';
 
-const lookingForGoals = (value: unknown): string[] => {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== 'string' || value === 'Unanswered') return [];
-  return value.split(', ');
-};
-
 const lookingForEmoji = (data?: LookingForData | null): string => {
-  const goals = lookingForGoals(data?.looking_for);
+  const goals = data?.looking_for ?? [];
   return (goals.length === 1 && LOOKING_FOR_EMOJI[goals[0]]) ||
     DEFAULT_LOOKING_FOR_EMOJI;
 };
@@ -90,7 +84,7 @@ const lookingForSubject = (data: LookingForData): string => {
   }
 
   const goal = joinWith(
-    'or', lookingForGoals(data.looking_for).map((g) => g.toLowerCase()));
+    'or', (data.looking_for ?? []).map((g) => g.toLowerCase()));
 
   // "people for friends" reads awkwardly when no gender or age narrows the
   // search; collapse it to just the goal, e.g. "friends".
@@ -130,5 +124,4 @@ export {
   describeLongDistance,
   lookingForDescription,
   lookingForEmoji,
-  lookingForGoals,
 };
