@@ -262,12 +262,11 @@ const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
   const { appTheme } = useAppTheme();
 
   return (
-    <>
+    <Pressable onPress={promptSignUp}>
       <PanelHeading og={og}>
-        <Ionicons
-          style={[styles.lock, { color: appTheme.hintColor }]}
-          name="lock-closed"
-        />
+        <DefaultText style={[styles.membersOnly, { color: appTheme.hintColor }]}>
+          Members only
+        </DefaultText>
       </PanelHeading>
       <View style={[styles.slider, styles.lockedSlider]}>
         <View
@@ -280,12 +279,7 @@ const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
           style={[styles.lockedThumb, { backgroundColor: appTheme.hintColor }]}
         />
       </View>
-      <Pressable onPress={promptSignUp} style={styles.nearbyPill}>
-        <DefaultText style={styles.nearbyText}>
-          Sign up to see who’s near you
-        </DefaultText>
-      </Pressable>
-    </>
+    </Pressable>
   );
 };
 
@@ -723,9 +717,11 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   lock: {
+    fontSize: 16,
+  },
+  membersOnly: {
     flex: 1,
     textAlign: 'right',
-    fontSize: 16,
   },
   lockedSlider: {
     height: 40,
@@ -743,20 +739,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-  },
-  nearbyPill: {
-    alignSelf: 'center',
-    marginTop: 6,
-    paddingVertical: 9,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: '#70f',
-    borderRadius: 999,
-    backgroundColor: 'rgb(228, 204, 255)',
-  },
-  nearbyText: {
-    color: '#70f',
-    fontWeight: '700',
   },
   joinBox: {
     marginBottom: 16,
