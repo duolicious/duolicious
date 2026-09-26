@@ -358,20 +358,11 @@ def _str_value(value: object, field_name: str) -> str:
     return value
 
 
-async def get_profile_info(
-    s: t.SessionInfo,
-    client_version: int | None,
-) -> object:
+async def get_profile_info(s: t.SessionInfo) -> object:
     params = dict(person_id=s.person_id)
 
     async with api_tx('READ COMMITTED') as tx:
-        profile_info = (await tx.require_one(Q_GET_PROFILE_INFO, params))['j']
-
-    if client_version is None and isinstance(profile_info, dict):
-        profile_info['looking for'] = (
-            ', '.join(profile_info['looking for']) or 'Unanswered')
-
-    return profile_info
+        return (await tx.require_one(Q_GET_PROFILE_INFO, params))['j']
 
 async def delete_profile_info(req: t.DeleteProfileInfo, s: t.SessionInfo) -> None:
     files_params = [

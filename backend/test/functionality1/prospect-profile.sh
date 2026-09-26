@@ -257,10 +257,6 @@ assume_role user2
 jc PATCH /profile-info -d '{ "looking_for": ["Marriage", "Friends"] }'
 assume_role user1
 
-[[ "$(c GET /prospect-profile/$user2_uuid \
-  --header 'X-Duolicious-Client-Version: 11' \
-  | jq -c .looking_for)" = '["Friends","Marriage"]' ]]
-
 [[ "$(c GET /prospect-profile/$user2_uuid | jq -c .looking_for)" \
   = '"Friends, Marriage"' ]]
 
@@ -281,10 +277,6 @@ hidden_looking_for=$(
       }')
 
 [[ "$hidden_looking_for" = '{"show_my_looking_for":"No","gender_preference":[],"age_preference":null,"looking_for":null,"long_distance":null}' ]]
-
-[[ "$(c GET /prospect-profile/$user2_uuid \
-  --header 'X-Duolicious-Client-Version: 11' \
-  | jq -c .looking_for)" = '[]' ]]
 
 
 
