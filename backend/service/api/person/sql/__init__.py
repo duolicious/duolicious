@@ -360,6 +360,14 @@ FROM (
                 prospect_preference.person_id = prospect.id
             AND
                 subject.gender_id = ANY(prospect_preference.gender_ids)
+            AND
+                (
+                    NOT %(two_way_age)s
+                OR
+                    COALESCE(prospect_preference.min_age, 0) <= %(age)s
+                AND
+                    COALESCE(prospect_preference.max_age, 999) >= %(age)s
+                )
         )
     AND
         ST_DWithin(
@@ -397,7 +405,8 @@ SET
     min_age = %(min_age)s,
     max_age = %(max_age)s,
     distance = %(distance)s::NUMERIC::SMALLINT,
-    same_country_only = %(same_country_only)s
+    same_country_only = %(same_country_only)s,
+    two_way_age = %(two_way_age)s
 WHERE
     person_id = %(person_id)s
 """
