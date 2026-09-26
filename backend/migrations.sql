@@ -21,12 +21,7 @@ BEGIN
         RETURN;
     END IF;
 
-    ALTER TABLE person
-        ADD COLUMN looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}';
-
-    UPDATE person
-    SET looking_for_ids = ARRAY[looking_for_id]
-    WHERE looking_for_id <> 1;
-
-    ALTER TABLE person DROP COLUMN looking_for_id;
+    DROP TRIGGER IF EXISTS trigger_sync_looking_for ON person;
+    DROP FUNCTION IF EXISTS sync_looking_for();
+    ALTER TABLE person DROP COLUMN IF EXISTS looking_for_id;
 END $$;
