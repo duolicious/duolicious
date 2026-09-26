@@ -60,11 +60,13 @@ test('updates the store before anything is sent', () => {
   expect(japi).not.toHaveBeenCalled();
 });
 
-test('sends only the last change to each question, then marks results stale', async () => {
+test('marks results stale at once, then sends only the last change to each question', async () => {
   setSearchFilterAnswer(filter(7, true));
   setSearchFilterAnswer(filter(5, false));
   setSearchFilterAnswer(filter(7, false));
   setSearchFilterAnswer(filter(7, false, false));
+
+  expect(consumeStaleSearchResults()).toBe(true);
 
   await flushSearchFilterWrites();
 
@@ -72,7 +74,6 @@ test('sends only the last change to each question, then marks results stale', as
     { question_id: 7, answer: false, accept_unanswered: false },
     { question_id: 5, answer: false, accept_unanswered: true },
   ]);
-  expect(consumeStaleSearchResults()).toBe(true);
 });
 
 test('keeps filters in question order', () => {
