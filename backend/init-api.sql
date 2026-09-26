@@ -320,6 +320,7 @@ CREATE TABLE IF NOT EXISTS person (
     height_cm SMALLINT,
     body_type_id SMALLINT REFERENCES body_type(id) NOT NULL DEFAULT 1,
     looking_for_id SMALLINT REFERENCES looking_for(id) NOT NULL DEFAULT 1,
+    looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}',
     smoking_id SMALLINT REFERENCES yes_no_optional(id) NOT NULL DEFAULT 1,
     drinking_id SMALLINT REFERENCES frequency(id) NOT NULL DEFAULT 1,
     drugs_id SMALLINT REFERENCES yes_no_optional(id) NOT NULL DEFAULT 1,
@@ -1614,6 +1615,28 @@ AFTER UPDATE ON
 FOR EACH ROW
 EXECUTE FUNCTION
     copy_person_to_person_club();
+
+CREATE OR REPLACE FUNCTION
+    sync_looking_for()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.looking_for_ids IS DISTINCT FROM OLD.looking_for_ids THEN
+        NEW.looking_for_id := NEW.looking_for_ids[1];
+    ELSIF NEW.looking_for_id IS DISTINCT FROM OLD.looking_for_id THEN
+        NEW.looking_for_ids := ARRAY[NEW.looking_for_id];
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER
+    trigger_sync_looking_for
+BEFORE UPDATE OF looking_for_id, looking_for_ids ON
+    person
+FOR EACH ROW
+EXECUTE FUNCTION
+    sync_looking_for();
 
 CREATE OR REPLACE FUNCTION
     populate_person_club_defaults()
