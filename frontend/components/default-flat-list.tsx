@@ -73,10 +73,14 @@ const styles = StyleSheet.create({
 
 type Page<ItemT> = ItemT[] | 'fetching'
 
+type FetchPageError = {
+  errorText?: string
+};
+
 type Book<ItemT> = {
   pages: Page<ItemT>[]
   isRefreshing: boolean
-  isError: boolean
+  error: FetchPageError | null
 };
 
 type Books<ItemT> = {
@@ -87,7 +91,7 @@ const pageToItems = <ItemT,>(page: Page<ItemT>): ItemT[] =>
   page === 'fetching' ? [] : page;
 
 const bookToItems = <ItemT,>(book: Book<ItemT>): ItemT[] =>
-  book.isError ? [] : book.pages.flatMap(pageToItems);
+  book.error ? [] : book.pages.flatMap(pageToItems);
 
 const isPageFetching = <ItemT,>(page: Page<ItemT>) =>
   page === 'fetching';
@@ -99,7 +103,7 @@ const isPageLast = <ItemT,>(page: Page<ItemT>) =>
   page.length === 0;
 
 const isBookComplete = <ItemT,>(book: Book<ItemT>) =>
-  book.isError ||
+  book.error !== null ||
   book.pages.length > 0 && isPageLast(book.pages[book.pages.length - 1] ?? []);
 
 const isBookEmpty = <ItemT,>(book: Book<ItemT>) =>
@@ -111,7 +115,7 @@ const pageNumberToFetch = <ItemT,>(book: Book<ItemT>) =>
 const setBookFetching = <ItemT,>(book: Book<ItemT>): void => {
   book.pages.push('fetching');
   book.isRefreshing = false;
-  book.isError = false;
+  book.error = null;
 };
 
 const setBookFetched = <ItemT,>(
@@ -126,23 +130,26 @@ const setBookFetched = <ItemT,>(
   book.pages[index] = page;
 };
 
-const setBookError = <ItemT,>(book: Book<ItemT>): void => {
+const setBookError = <ItemT,>(
+  book: Book<ItemT>,
+  error: FetchPageError,
+): void => {
   book.pages = [];
   book.isRefreshing = false;
-  book.isError = true;
+  book.error = error;
 };
 
 const setBookRefreshing = <ItemT,>(book: Book<ItemT>): void => {
   book.pages = [];
   book.isRefreshing = true;
-  book.isError = false;
+  book.error = null;
 };
 
 const getBookOrDefault = <ItemT,>(
   books: Books<ItemT>,
   dataKey: string
 ): Book<ItemT> =>
-  books[dataKey] ?? { pages: [], isRefreshing: false, isError: false };
+  books[dataKey] ?? { pages: [], isRefreshing: false, error: null };
 
 const setBookFetchingInBooks = <ItemT,>(
   books: Books<ItemT>,
@@ -167,9 +174,10 @@ const setBookFetchedInBooks = <ItemT,>(
 const setBookErrorInBooks = <ItemT,>(
   books: Books<ItemT>,
   dataKey: string,
+  error: FetchPageError,
 ) => {
   books[dataKey] = getBookOrDefault(books, dataKey);
-  setBookError(books[dataKey]);
+  setBookError(books[dataKey], error);
 };
 
 const setBookRefreshingInBooks = <ItemT,>(
@@ -197,7 +205,7 @@ type DefaultFlatListProps<ItemT> =
     errorText?: string,
     endText?: string,
     endTextStyle?: StyleProp<ViewStyle>,
-    fetchPage: (pageNumber: number) => Promise<ItemT[] | null>,
+    fetchPage: (pageNumber: number) => Promise<ItemT[] | FetchPageError | null>,
     hideListHeaderComponentWhenEmpty?: boolean,
     hideListHeaderComponentWhenLoading?: boolean,
     dataKey?: string,
@@ -212,7 +220,7 @@ type DefaultFlashListProps<ItemT> =
       errorText?: string,
       endText?: string,
       endTextStyle?: StyleProp<ViewStyle>,
-      fetchPage: (pageNumber: number) => Promise<ItemT[] | null>,
+      fetchPage: (pageNumber: number) => Promise<ItemT[] | FetchPageError | null>,
       hideListHeaderComponentWhenEmpty?: boolean,
       hideListHeaderComponentWhenLoading?: boolean,
       dataKey?: string,
@@ -363,10 +371,10 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
 
     const page = await fetchPage(pageNumberToFetchVal);
 
-    if (page === null) {
-      setBookErrorInBooks(books, dataKey);
-    } else {
+    if (Array.isArray(page)) {
       setBookFetchedInBooks(books, page, dataKey, pageNumberToFetchVal - 1);
+    } else {
+      setBookErrorInBooks(books, dataKey, page ?? {});
     }
 
     setBooks(oldBooks => ({ ...oldBooks, ...books }));
@@ -414,7 +422,8 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
   const isComplete = isBookComplete(book);
   const isEmpty = isBookEmpty(book);
   const isLoading = isBookFetching(book);
-  const isError = book.isError;
+  const isError = book.error !== null;
+  const errorText = book.error?.errorText ?? props.errorText;
 
   const slots = useMemo(() => ({
     ListHeaderComponent:
@@ -433,7 +442,7 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
       <ListEmptyComponent
         isComplete={isComplete}
         isError={isError}
-        errorText={props.errorText}
+        errorText={errorText}
         emptyText={props.emptyText} />,
     ListFooterComponent:
       <ListFooterComponent
@@ -448,7 +457,7 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => void }>, props: Defa
     props.hideListHeaderComponentWhenEmpty,
     props.hideListHeaderComponentWhenLoading,
     props.ListHeaderComponent,
-    props.errorText,
+    errorText,
     props.emptyText,
     props.endText,
   ]);
@@ -605,4 +614,5 @@ const DefaultFlashList =
 export {
   DefaultFlatList,
   DefaultFlashList,
+  FetchPageError,
 };

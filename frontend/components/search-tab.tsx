@@ -30,7 +30,7 @@ import { ProfileCard }  from './profile-card';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { SearchFilterScreen } from './search-filter-screen';
 import { DefaultText } from './default-text';
-import { DefaultFlatList } from './default-flat-list';
+import { DefaultFlatList, FetchPageError } from './default-flat-list';
 import { japi } from '../api/api';
 import { TopNavBarButton } from './top-nav-bar-button';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -154,7 +154,7 @@ const fetchPageWithoutQueue = async (
   club: string | null,
   pageNumber: number,
   isPublic: boolean,
-): Promise<PageItem[] | null> => {
+): Promise<PageItem[] | FetchPageError | null> => {
   const resultsPerPage = 50;
   const offset = resultsPerPage * (pageNumber - 1);
 
@@ -173,6 +173,13 @@ const fetchPageWithoutQueue = async (
     answersParam
   );
 
+  if (response.status === 429) {
+    return {
+      errorText:
+        "You’re searching too quickly. Wait a minute or two, then try again.",
+    };
+  }
+
   return response.ok ? response.json : null;
 };
 
@@ -181,7 +188,7 @@ const fetchPage = (
   isPublic: boolean,
 ) => async (
   pageNumber: number
-): Promise<PageItem[] | null> => {
+): Promise<PageItem[] | FetchPageError | null> => {
   return searchQueue.addTask(
     async () => fetchPageWithoutQueue(club, pageNumber, isPublic));
 };
