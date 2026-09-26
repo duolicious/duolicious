@@ -67,9 +67,27 @@ AND
 """
 
 
+_SEARCH_FILTERS = """
+AND (
+        %(gender)s::TEXT[] IS NULL
+    OR
+        prospect.gender_id IN (
+            SELECT id FROM gender WHERE name = ANY(%(gender)s::TEXT[])
+        )
+)
+AND
+    prospect.date_of_birth <= (
+        CURRENT_DATE - INTERVAL '1 year' * COALESCE(%(min_age)s::INT, 0)
+    )
+AND
+    prospect.date_of_birth > (
+        CURRENT_DATE - INTERVAL '1 year' * (COALESCE(%(max_age)s::INT, 999) + 1)
+    )
+"""
+
 Q_PUBLIC_SEARCH = _public_search(
     match_percentage="50",
-    tail="""
+    tail=_SEARCH_FILTERS + """
 ORDER BY
     (
         SELECT
@@ -110,7 +128,7 @@ LIMIT
 
 Q_PUBLIC_SEARCH_WITH_ANSWERS = _public_search(
     match_percentage=_ANSWERS_MATCH_PERCENTAGE,
-    tail="""
+    tail=_SEARCH_FILTERS + """
 ORDER BY
     match_percentage DESC,
     prospect.id
