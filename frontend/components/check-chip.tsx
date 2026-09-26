@@ -17,6 +17,7 @@ const CheckChip = ({label, ...props}: {
   label?: ReactNode,
   initialCheckedState?: boolean,
   onChange?: (checked: boolean) => void,
+  compact?: boolean,
 }) => {
   const {
     onChange = () => {}
@@ -52,11 +53,11 @@ const CheckChip = ({label, ...props}: {
         borderRightWidth: 2,
         borderBottomWidth: 4,
         borderColor: 'black',
-        paddingLeft: 20,
-        paddingRight: 20,
-        paddingTop: 12,
-        paddingBottom: 12,
-        margin: 5,
+        paddingLeft: props.compact ? 12 : 20,
+        paddingRight: props.compact ? 12 : 20,
+        paddingTop: props.compact ? 5 : 12,
+        paddingBottom: props.compact ? 5 : 12,
+        margin: props.compact ? 3 : 5,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: appTheme.primaryColor,
@@ -67,6 +68,7 @@ const CheckChip = ({label, ...props}: {
       <DefaultText
         style={{
           color: '#666',
+          ...(props.compact ? { fontSize: 14 } : {}),
           ...(checked ? checkedTextStyle : uncheckedContainerStyle)
         }}
       >

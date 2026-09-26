@@ -41,7 +41,6 @@ import { ClubItem, sortClubs } from '../club/club';
 import { listen, lastEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
-import { onPressInvite } from '../components/invite';
 import { useAppTheme } from '../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
@@ -63,6 +62,7 @@ import {
 } from '../events/search-filters';
 import { SearchFiltersHint } from './hints/search-filters-hint';
 import { seenSearchFiltersHint } from '../kv-storage/seen-hints/seen-search-filters-hint';
+import { useHasRightPane } from './navigation/web-layout';
 
 type SearchScreenProps = CompositeScreenProps<
   NativeStackScreenProps<SearchParamList, 'Search Screen'>,
@@ -574,6 +574,7 @@ const ListHeaderComponent = ({
 
 const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   const isPublic = useIsWebLoggedOut();
+  const hasFilterPanel = useHasRightPane() && !isPublic;
 
   const {
     hasClubs: initialHasClubs,
@@ -710,52 +711,44 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
 
   return (
     <View style={styles.safeAreaView} onLayout={onLayoutScreen}>
-      <DuoliciousTopNavBar>
-        {Platform.OS === 'web' &&
-          <TopNavBarButton
-            onPress={requestSearch}
-            iconName="refresh"
-            position="left"
-            secondary={true}
-            label="Refresh"
-            loading={isSearching}
-          />
-        }
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            height: '100%',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            right: 10,
-            gap: 14,
-          }}
-        >
-          {selectedClub &&
+      {!hasFilterPanel &&
+        <DuoliciousTopNavBar>
+          {Platform.OS === 'web' &&
             <TopNavBarButton
-              onPress={onPressInvite(selectedClub)}
-              iconName="person-add-outline"
-              position={null}
+              onPress={requestSearch}
+              iconName="refresh"
+              position="left"
               secondary={true}
-              label="Invite"
+              label="Refresh"
+              loading={isSearching}
             />
           }
-          <View>
-            <TopNavBarButton
-              onPress={onPressOptions}
-              iconName="options-outline"
-              position={null}
-              secondary={false}
-              label="Filters"
-            />
-            {!isFiltersHintDismissed && !isPublic &&
-              <SearchFiltersHint onDismiss={dismissFiltersHint} />
-            }
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              height: '100%',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              right: 10,
+            }}
+          >
+            <View>
+              <TopNavBarButton
+                onPress={onPressOptions}
+                iconName="options-outline"
+                position={null}
+                secondary={false}
+                label="Filters"
+              />
+              {!isFiltersHintDismissed && !isPublic &&
+                <SearchFiltersHint onDismiss={dismissFiltersHint} />
+              }
+            </View>
           </View>
-        </View>
-      </DuoliciousTopNavBar>
+        </DuoliciousTopNavBar>
+      }
       {width !== null && <DefaultFlatList
         key={
           // This is needed to trigger a re-render when the sticky header

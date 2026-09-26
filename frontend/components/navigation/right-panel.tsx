@@ -5,6 +5,7 @@ import { getRandomElement } from '../../util/util';
 import { PARTNER_URL } from '../../env/env';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
 import { SignedOutCard } from './signed-out-card';
+import { SearchFilterPanel } from '../search-filter-panel';
 
 type Partner = {
   name: string
@@ -155,8 +156,8 @@ const RightPanel = ({ routeName }: { routeName?: string }) => {
         padding: 20,
       }}
     >
-      {isWebLoggedOut ?
-        <SignedOutCard/> :
+      {isWebLoggedOut ? <SignedOutCard/> :
+        routeName === 'Search' ? <SearchFilterPanel/> :
         <RightPanelContent key={routeName}/>
       }
     </View>
