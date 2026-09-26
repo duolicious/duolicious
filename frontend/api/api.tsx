@@ -76,9 +76,6 @@ const api = async <T = unknown>(
       {
         method: method.toUpperCase(),
         cache: 'no-store',
-        headers: {
-          'X-Duolicious-Client-Version': String(CLIENT_VERSION),
-        },
       },
       (
         existingSessionToken ? {
