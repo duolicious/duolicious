@@ -54,6 +54,7 @@ const Slider = ({
   values,
   hollow = [],
   onValuesChange,
+  onSlidingComplete,
   scale = LINEAR_SCALE,
 }: {
   minimumValue: number
@@ -61,6 +62,7 @@ const Slider = ({
   values: number[]
   hollow?: boolean[]
   onValuesChange: (values: number[]) => void
+  onSlidingComplete?: (values: number[]) => void
   scale?: Scale
 }) => {
   const { appTheme } = useAppTheme();
@@ -74,15 +76,20 @@ const Slider = ({
     scale.scaleValue(minimumValue + fraction * range, minimumValue, maximumValue));
 
   const latest = useRef({
-    values, trackWidth, toFraction, toValue, onValuesChange,
+    values, trackWidth, toFraction, toValue, onValuesChange, onSlidingComplete,
   });
   latest.current = {
-    values, trackWidth, toFraction, toValue, onValuesChange,
+    values, trackWidth, toFraction, toValue, onValuesChange, onSlidingComplete,
   };
 
-  const drag = useRef<{ index: number | null, startFraction: number }>({
+  const drag = useRef<{
+    index: number | null
+    startFraction: number
+    values: number[]
+  }>({
     index: null,
     startFraction: 0,
+    values,
   });
 
   const gestures = useMemo(() => [0, 1].map((index) =>
@@ -94,6 +101,7 @@ const Slider = ({
         drag.current = {
           index: values[0] === values[1] ? null : index,
           startFraction: toFraction(values[index]),
+          values,
         };
       })
       .onUpdate((e) => {
@@ -108,9 +116,11 @@ const Slider = ({
           values[i + 1] ?? maximumValue,
           Math.max(values[i - 1] ?? minimumValue, toValue(fraction)));
         if (value !== values[i]) {
-          onValuesChange(values.map((v, j) => j === i ? value : v));
+          drag.current.values = values.map((v, j) => j === i ? value : v);
+          onValuesChange(drag.current.values);
         }
-      }),
+      })
+      .onEnd(() => latest.current.onSlidingComplete?.(drag.current.values)),
   ), [minimumValue, maximumValue]);
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -162,8 +172,26 @@ const Slider = ({
   );
 };
 
-const SliderValue = ({ label }: { label: SliderLabel }) => {
+const SliderValue = ({ label, inHeading = false }: {
+  label: SliderLabel
+  inHeading?: boolean
+}) => {
   const { appTheme } = useAppTheme();
+
+  if (inHeading) {
+    return (
+      <DefaultText
+        style={[
+          styles.headingValue,
+          label.isAny ?
+            { color: appTheme.hintColor, fontStyle: 'italic' } :
+            { color: appTheme.brandColor, fontWeight: '600' },
+        ]}
+      >
+        {label.unit ? `${label.text} ${label.unit}` : label.text}
+      </DefaultText>
+    );
+  }
 
   return (
     <View style={styles.largeValue}>
@@ -207,6 +235,10 @@ const styles = StyleSheet.create({
     borderRadius: THUMB_SIZE / 2,
     borderWidth: 3,
     borderColor: PURPLE,
+  },
+  headingValue: {
+    flex: 1,
+    textAlign: 'right',
   },
   largeValue: {
     height: 44,
