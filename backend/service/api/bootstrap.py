@@ -15,7 +15,7 @@ from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
-from serviceshared.database import api_tx
+from serviceshared.database import api_tx, row_int, row_int_or_none
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,34 @@ async def migrate_unnormalized_emails() -> None:
         await tx.executemany(q, params_seq)
         logger.info('Done updating normalized emails in `banned_person` table')
 
+async def backfill_looking_for_ids() -> None:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        row = await tx.require_one("""
+        SELECT min(id) AS min_id, max(id) AS max_id
+        FROM person
+        WHERE looking_for_id <> 1
+        AND looking_for_ids = '{1}'
+        """)
+
+    if row_int_or_none(row, 'max_id') is None:
+        logger.info('`looking_for_ids` already backfilled')
+        return
+
+    batch_size = 1000
+    logger.info('Backfilling `looking_for_ids`')
+    for start in range(row_int(row, 'min_id'), row_int(row, 'max_id') + 1, batch_size):
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute("""
+            UPDATE person
+            SET looking_for_ids = ARRAY[looking_for_id]
+            WHERE id >= %(start)s
+            AND id < %(end)s
+            AND looking_for_id <> 1
+            AND looking_for_ids = '{1}'
+            """, dict(start=start, end=start + batch_size))
+    logger.info('Done backfilling `looking_for_ids`')
+
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
@@ -158,3 +186,5 @@ async def init_db() -> None:
         await tx.execute(banned_club_file)
 
     await migrate_unnormalized_emails()
+
+    await backfill_looking_for_ids()

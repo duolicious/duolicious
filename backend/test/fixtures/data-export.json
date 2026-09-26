@@ -2211,6 +2211,9 @@
         },
         "last_event_name": "added-photo",
         "last_event_time": "2026-09-22T04:23:47.645994",
+        "looking_for_ids": [
+          1
+        ],
         "verified_gender": false,
         "visitor_seconds": 0,
         "wants_kids_name": "Unanswered",
