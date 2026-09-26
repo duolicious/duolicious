@@ -22,19 +22,21 @@ import { DefaultText } from './default-text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Check, FastForward } from "react-native-feather";
 import { Skeleton } from './skeleton';
-import { japi } from '../api/api';
 import {
   nextAnswer,
   setAnswerPublicly,
   toggleAnswer,
   useViewerAnswer,
 } from '../api/answer';
-import { IndeterminateProgressBar } from './indeterminate-progress-bar';
 import { Logo14 } from './logo';
 import { useAppTheme } from '../app-theme/app-theme';
 import { ReplyButton } from './reply-button';
 import { formatCount } from '../util/util';
-import { SearchFilterAnswer } from '../navigation/search-filter-state';
+import {
+  SearchFilterAnswer,
+  setSearchFilterAnswer,
+  useSearchFilters,
+} from '../events/search-filters';
 
 const cardBorders = {
   borderRadius: 10,
@@ -53,11 +55,6 @@ const cardPadding = {
   paddingTop: 5,
   paddingBottom: 10,
 };
-
-type SearchFilterAnswerResponse = {
-  error?: string
-  answer?: SearchFilterAnswer[]
-}
 
 const LeftComponent = ({count}: {count: number}) => {
   return (
@@ -749,90 +746,30 @@ const AnsweredQuizCard = ({
   );
 };
 
-const SearchQuizCard = ({
-  children,
-  questionNumber,
-  topic,
-  answer,
-  initialCheckBoxValue,
-  onAnswerChange,
-}: {
-  children: string,
-  questionNumber: number,
-  topic: string,
-  answer: boolean | null,
-  initialCheckBoxValue: boolean,
-  onAnswerChange: (answers: SearchFilterAnswer[]) => void,
-}) => {
-  type State = {
-    answer: boolean | null
-    acceptUnanswered: boolean
-    errorMessage?: string
-    loading: boolean
+const SearchQuizCard = ({ item }: { item: SearchFilterAnswer }) => {
+  const stored = useSearchFilters()?.answer?.find(
+    (a) => a.question_id === item.question_id);
+
+  const [acceptUnanswered, setAcceptUnanswered] = useState(
+    item.accept_unanswered);
+
+  const current = stored ?? {
+    ...item,
+    answer: null,
+    accept_unanswered: acceptUnanswered,
   };
 
-  const [state, setState] = useState<State>({
-    answer,
-    acceptUnanswered: initialCheckBoxValue,
-    loading: false,
-  });
-
-  const updateAnswer = useCallback(async (acceptUnanswered?: boolean) => {
-    if (state.loading) {
-      return;
-    };
-
-    setState({
-      ...state,
-      errorMessage: undefined,
-      loading: true,
+  const onPressAnswer = (pressedButton: boolean) => {
+    setSearchFilterAnswer({
+      ...current,
+      answer: nextAnswer(current.answer, pressedButton),
     });
+  };
 
-    const updatedAnswer = (
-      acceptUnanswered === undefined ?
-      nextAnswer(state.answer) :
-      state.answer);
-
-    const updatedAcceptUnanswered = (
-      acceptUnanswered === undefined ?
-      state.acceptUnanswered :
-      acceptUnanswered);
-
-    const response = await japi<SearchFilterAnswerResponse>(
-      'post',
-      '/search-filter-answer',
-      {
-        question_id: questionNumber,
-        answer: updatedAnswer,
-        accept_unanswered: updatedAcceptUnanswered,
-      }
-    );
-
-    const error = response.json?.error;
-    const answers = response.json?.answer;
-
-    if (error) {
-      setState({
-        ...state,
-        errorMessage: error,
-        loading: false,
-      });
-    } else if (answers) {
-      setState({
-        ...state,
-        answer: updatedAnswer,
-        acceptUnanswered: updatedAcceptUnanswered,
-        loading: false,
-      });
-
-      onAnswerChange(answers);
-    } else {
-      throw Error('Unexpected response: ' + JSON.stringify(response));
-    }
-  }, [state]);
-
-  const onPressAnswer   = useCallback(() => updateAnswer(), [updateAnswer]);
-  const onPressCheckBox = useCallback(updateAnswer, [updateAnswer]);
+  const onPressCheckBox = (accept_unanswered: boolean) => {
+    setAcceptUnanswered(accept_unanswered);
+    setSearchFilterAnswer({ ...current, accept_unanswered });
+  };
 
   const extraChildren = (
     <View
@@ -865,12 +802,14 @@ const SearchQuizCard = ({
             }}
           >
             Answer: </DefaultText>
-          <Pressable onPress={onPressAnswer}>
-            <AnswerIconGroup answer={state.answer} enabled={true}/>
-          </Pressable>
+          <AnswerIconGroup
+            answer={current.answer}
+            enabled={true}
+            onPress={onPressAnswer}
+          />
         </View>
         <StatelessCheckBox
-          value={state.acceptUnanswered}
+          value={current.accept_unanswered}
           labelPosition="left"
           containerStyle={{
             marginTop: 0,
@@ -890,25 +829,13 @@ const SearchQuizCard = ({
           </DefaultText>
         </StatelessCheckBox>
       </View>
-      {state.errorMessage &&
-        <DefaultText
-          style={{
-            color: 'red',
-            alignSelf: 'center',
-            marginBottom: 20,
-          }}
-        >
-          {state.errorMessage}
-        </DefaultText>
-      }
-      <IndeterminateProgressBar show={state.loading} />
     </View>
   );
 
   return (
     <NonInteractiveQuizCard
-      questionNumber={questionNumber}
-      topic={topic}
+      questionNumber={item.question_id}
+      topic={item.topic}
       containerStyle={{
         height: undefined,
         width: undefined,
@@ -924,7 +851,7 @@ const SearchQuizCard = ({
       extraChildren={extraChildren}
       showAnswerPubliclyCheckBox={false}
     >
-      {children}
+      {item.question}
     </NonInteractiveQuizCard>
   );
 };

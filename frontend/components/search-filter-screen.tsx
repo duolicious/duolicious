@@ -60,17 +60,11 @@ import {
 import { TopNavBarButton } from './top-nav-bar-button';
 import { QAndADevice } from './q-and-a-device';
 import { useAppTheme } from '../app-theme/app-theme';
-import { listen } from '../events/events';
 import {
   SearchFilterAnswer,
-  setSearchFilterAnswers,
-  getSearchFilterAnswers,
-} from '../navigation/search-filter-state';
-import {
   SearchFilters,
   flushSearchFilterWrites,
   getSearchFilters,
-  patchSearchFilters,
   setSearchFilters,
   setTwoWayFilter,
   useSearchFilters,
@@ -143,9 +137,7 @@ const getCurrentValueAsLabel = (
 const optionGroupToDataKey = (og: OptionGroup<OptionGroupInputs>) =>
   og.title.toLowerCase().replaceAll(' ', '_');
 
-type AnswerItem = SearchFilterAnswer;
-
-const fetchQuestionSearch = async (q: string): Promise<AnswerItem[]> => {
+const fetchQuestionSearch = async (q: string): Promise<SearchFilterAnswer[]> => {
   const resultsPerPage = 25;
   const offset = 0;
 
@@ -156,6 +148,30 @@ const fetchQuestionSearch = async (q: string): Promise<AnswerItem[]> => {
   );
 
   return response.ok ? response.json : [];
+};
+
+// Cold-start cases (direct deep link / page refresh) bypass the parent
+// `Search Filter Tab`, which normally populates the search filter store.
+const useColdStartSearchFilters = () => {
+  const isLocked = useIsWebLoggedOut();
+
+  useEffect(() => {
+    if (getSearchFilters()) return;
+    if (isLocked) {
+      setSearchFilters(defaultSearchFilters());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const response = await api<SearchFilters>('get', '/search-filters');
+      if (!cancelled && response.json) {
+        setSearchFilters(response.json);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isLocked]);
+
+  return useSearchFilters();
 };
 
 const Stack = createNativeStackNavigator();
@@ -200,7 +216,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
 
   const data = useSearchFilters();
 
-  const answers: AnswerItem[] = data?.answer ?? [];
+  const answers = data?.answer ?? [];
 
   const promptSignUp = useCallback(() => {
     showSignUp(true, 'Join or sign in to filter matches');
@@ -211,9 +227,8 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
       promptSignUp();
       return;
     }
-    setSearchFilterAnswers(answers);
     navigation.navigate("Q&A Filter Screen");
-  }, [navigation, answers, isLocked, promptSignUp]);
+  }, [navigation, isLocked, promptSignUp]);
 
   const onPressTwoWayFilters = useCallback(() => {
     if (isLocked) {
@@ -229,13 +244,6 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
     twoWayOn.length === twoWayFilterList.length ? 'All' :
     twoWayOn.length ? twoWayOn.map((f) => f.label).join(', ') :
     undefined;
-
-  useEffect(() => {
-    return listen<AnswerItem[]>('search-filter-answers-updated', (next) => {
-      if (!next) return;
-      patchSearchFilters({ answer: next });
-    });
-  }, []);
 
   const Button_ = useCallback((props: ButtonForOptionProps) => {
     if (isLocked) {
@@ -464,33 +472,11 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
 const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterParamList, 'Q&A Filter Screen'>) => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
-
-  // Source of truth for the current filter answers lives in a module-level
-  // store so this screen doesn't need a mutable object handed through
-  // route.params.
-  const [answers, setLocalAnswers] = useState<AnswerItem[]>(
-    () => getSearchFilterAnswers());
-
-  // Cold-start cases (direct deep link / page refresh) bypass the parent
-  // `Search Filter Tab` and therefore the module-level store is empty.
-  // Fetch the saved answers once on mount when that's the case so the screen
-  // isn't permanently blank.
-  useEffect(() => {
-    if (getSearchFilterAnswers().length > 0) return;
-    let cancelled = false;
-    (async () => {
-      const response = await api<{ answer?: SearchFilterAnswer[] }>(
-        'get', '/search-filters');
-      const fetched: AnswerItem[] = response?.json?.answer ?? [];
-      if (cancelled || fetched.length === 0) return;
-      setSearchFilterAnswers(fetched);
-      setLocalAnswers(fetched);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const data = useColdStartSearchFilters();
+  const answers = data?.answer ?? [];
 
   const [searchText, setSearchText] = useState("");
-  const [searchResults, setSearchResults] = useState<AnswerItem[] | null>();
+  const [searchResults, setSearchResults] = useState<SearchFilterAnswer[] | null>();
   const [isLoading, setIsLoading] = useState(false);
 
   const clearSearchText = useCallback(() => setSearchText(""), []);
@@ -508,11 +494,6 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
     setIsLoading(true);
     await _fetchQuestionSearch(q);
   }, [_fetchQuestionSearch]);
-
-  const onAnswerChange = useCallback((newAnswers: AnswerItem[]) => {
-    setSearchFilterAnswers(newAnswers);
-    setLocalAnswers([...newAnswers]);
-  }, []);
 
   return (
     <View style={styles.safeAreaView}>
@@ -583,7 +564,7 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
           </Pressable>
         }
       </TopNavBar>
-      {isLoading &&
+      {(isLoading || !data) &&
         <View
           style={{
             alignItems: 'center',
@@ -594,7 +575,7 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
           <LogoActivityIndicator size="large" color={appTheme.brandColor} />
         </View>
       }
-      {!isLoading &&
+      {!isLoading && data &&
         <ScrollView
           contentContainerStyle={{
             paddingTop: 0,
@@ -630,18 +611,9 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
           }
           {searchText === "" && !_.isEmpty(answers) &&
             <>
-              <Title>Q&A Answers You’ll Accept ({(answers ?? []).length})</Title>
-              {(answers ?? []).map((a) =>
-                <SearchQuizCard
-                  key={JSON.stringify(a)}
-                  questionNumber={a.question_id}
-                  topic={a.topic}
-                  answer={a.answer}
-                  initialCheckBoxValue={a.accept_unanswered}
-                  onAnswerChange={onAnswerChange}
-                >
-                  {a.question}
-                </SearchQuizCard>
+              <Title>Q&A Answers You’ll Accept ({answers.length})</Title>
+              {answers.map((a) =>
+                <SearchQuizCard key={a.question_id} item={a} />
               )}
               <DefaultText style={{
                 fontFamily: 'TruenoBold',
@@ -662,16 +634,7 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
             <>
               <Title>Search Results</Title>
               {(searchResults ?? []).map((a) =>
-                <SearchQuizCard
-                  key={JSON.stringify(a)}
-                  questionNumber={a.question_id}
-                  topic={a.topic}
-                  answer={a.answer}
-                  initialCheckBoxValue={a.accept_unanswered}
-                  onAnswerChange={onAnswerChange}
-                >
-                  {a.question}
-                </SearchQuizCard>
+                <SearchQuizCard key={a.question_id} item={a} />
               )}
               <DefaultText style={{
                 fontFamily: 'TruenoBold',
@@ -698,27 +661,9 @@ const TwoWayFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPar
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const isLocked = useIsWebLoggedOut();
-  const data = useSearchFilters();
+  const data = useColdStartSearchFilters();
 
   const twoWay = (data?.two_way_filters ?? {}) as Record<string, boolean>;
-
-  // Cold-start cases (direct deep link / page refresh) bypass the parent
-  // `Search Filter Tab`, which normally populates the search filter store.
-  useEffect(() => {
-    if (getSearchFilters()) return;
-    if (isLocked) {
-      setSearchFilters(defaultSearchFilters());
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const response = await api<SearchFilters>('get', '/search-filters');
-      if (!cancelled && response.json) {
-        setSearchFilters(response.json);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isLocked]);
 
   useEffect(() => {
     return () => { flushSearchFilterWrites(); };
