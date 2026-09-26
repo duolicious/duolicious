@@ -678,6 +678,7 @@ WITH searcher AS (
         uuid AS searcher_uuid,
         url_slug AS searcher_url_slug,
         gender_id,
+        EXTRACT(YEAR FROM AGE(date_of_birth)) AS searcher_age,
         personality,
         verification_level_id
     FROM
@@ -1013,7 +1014,8 @@ WITH searcher AS (
         AND
             prospect.gender_id = ANY(preference.gender_ids)
     )
-    -- The searcher's gender is one the prospect prefers
+    -- The prospect prefers the searcher's gender and, in the two-way age
+    -- trial, their age
     AND EXISTS (
         SELECT
             1
@@ -1023,6 +1025,14 @@ WITH searcher AS (
             preference.person_id = prospect.id
         AND
             searcher.gender_id = ANY(preference.gender_ids)
+        AND
+            (
+                NOT %(two_way_age)s
+            OR
+                COALESCE(preference.min_age, 0) <= searcher.searcher_age
+            AND
+                COALESCE(preference.max_age, 999) >= searcher.searcher_age
+            )
     )
     -- The prospect meets the searcher's age preference
     AND EXISTS (

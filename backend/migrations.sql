@@ -12,21 +12,37 @@
 
 DO $$
 BEGIN
-    IF NOT EXISTS (
+    IF EXISTS (
         SELECT 1 FROM pg_attribute
         WHERE attrelid = 'person'::regclass
-        AND attname = 'looking_for_id'
+        AND attname = 'looking_for_ids'
         AND NOT attisdropped
     ) THEN
         RETURN;
     END IF;
 
     ALTER TABLE person
-        ADD COLUMN looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}';
+        ADD COLUMN IF NOT EXISTS looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}';
 
-    UPDATE person
-    SET looking_for_ids = ARRAY[looking_for_id]
-    WHERE looking_for_id <> 1;
+    CREATE OR REPLACE FUNCTION
+        sync_looking_for()
+    RETURNS TRIGGER AS $fn$
+    BEGIN
+        IF NEW.looking_for_ids IS DISTINCT FROM OLD.looking_for_ids THEN
+            NEW.looking_for_id := NEW.looking_for_ids[1];
+        ELSIF NEW.looking_for_id IS DISTINCT FROM OLD.looking_for_id THEN
+            NEW.looking_for_ids := ARRAY[NEW.looking_for_id];
+        END IF;
 
-    ALTER TABLE person DROP COLUMN looking_for_id;
+        RETURN NEW;
+    END;
+    $fn$ LANGUAGE plpgsql;
+
+    CREATE OR REPLACE TRIGGER
+        trigger_sync_looking_for
+    BEFORE UPDATE OF looking_for_id, looking_for_ids ON
+        person
+    FOR EACH ROW
+    EXECUTE FUNCTION
+        sync_looking_for();
 END $$;

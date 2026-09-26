@@ -5,8 +5,10 @@ from serviceshared.matching import personality
 from pgvector import Vector
 
 from serviceshared.database import Tx, api_tx, row_int
+from serviceshared.util.coerce import integer
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
+from service.api.trials import two_way_age_in_feed
 from collections.abc import Sequence
 from typing import Literal, Tuple
 from service.api.searchfilters import Q_SEARCH_PARAMETERS
@@ -315,6 +317,7 @@ async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
     params = dict(
         searcher_person_id=s.person_id,
         before=before,
+        two_way_age=two_way_age_in_feed(integer(s.person_id)),
     )
 
     async with api_tx('READ COMMITTED') as tx:
