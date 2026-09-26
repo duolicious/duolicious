@@ -1,9 +1,10 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, View, ViewStyle } from 'react-native';
+import { ReactNode, useCallback } from 'react';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 import { commonStyles } from '../../styles';
 import { Surface, useAppTheme } from '../../app-theme/app-theme';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { isMobile } from '../../util/util';
+import { useWindowWidthCheck } from './web-layout';
 
 const SIDE_PANEL_WIDTH = 320;
 const SIDE_PANEL_GAP = 32;
@@ -11,29 +12,16 @@ const SIDE_PANEL_TOP = 20;
 
 const SIDE_PANEL_SPACE = SIDE_PANEL_WIDTH + 2 * SIDE_PANEL_GAP;
 
-const fitsSidePanels = (
-  windowWidth: number,
-  numPanels: number,
-  minColumnWidth: number,
-): boolean =>
-  !isMobile() && windowWidth >= minColumnWidth + numPanels * SIDE_PANEL_SPACE;
-
 const useFitsSidePanels = (
   numPanels: number,
   minColumnWidth = COLUMN_MAX_WIDTH,
-): boolean => {
-  const fits =
-    fitsSidePanels(Dimensions.get('window').width, numPanels, minColumnWidth);
-  const [, setFits] = useState(fits);
-
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) =>
-      setFits(fitsSidePanels(window.width, numPanels, minColumnWidth)));
-    return () => subscription.remove();
-  }, [numPanels, minColumnWidth]);
-
-  return fits;
-};
+): boolean =>
+  useWindowWidthCheck(useCallback(
+    (windowWidth: number) =>
+      !isMobile() &&
+      windowWidth >= minColumnWidth + numPanels * SIDE_PANEL_SPACE,
+    [numPanels, minColumnWidth],
+  ));
 
 const SidePanelLayout = ({ left, right, style, children }: {
   left?: ReactNode

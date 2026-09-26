@@ -3,7 +3,6 @@ import {
   View,
   type StyleProp,
   type ViewStyle,
-  useWindowDimensions,
 } from 'react-native';
 import { useState } from 'react';
 import {
@@ -20,7 +19,7 @@ import {
   CONTENT_COLUMN_STYLE,
   LEFT_PANE_STYLE,
   RIGHT_PANE_STYLE,
-  hasRightPane,
+  useHasRightPane,
 } from './web-layout';
 import { WebBar } from './web-bar';
 import { Scrollbar } from './scroll-bar';
@@ -106,7 +105,7 @@ function WebNavigator<Navigation>({
       backBehavior,
     });
 
-  const { width: windowWidth } = useWindowDimensions();
+  const hasRightPane = useHasRightPane();
 
   const focusedRouteKey = state.routes[state.index].key;
 
@@ -163,7 +162,7 @@ function WebNavigator<Navigation>({
             );
           })}
         </View>
-        {hasRightPane(windowWidth) &&
+        {hasRightPane &&
           <View style={[RIGHT_PANE_STYLE, { height: '100%' }]}>
             <RightPanel routeName={state.routes[state.index]?.name}/>
           </View>
