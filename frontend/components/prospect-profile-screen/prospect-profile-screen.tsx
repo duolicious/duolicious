@@ -733,7 +733,7 @@ type UserData = {
   has_kids: string | null,
   height_cm: number | null,
   long_distance: string | null,
-  looking_for: string | null,
+  looking_for: string[],
   gender_preference: string[] | null,
   age_preference: { min_age: number | null, max_age: number | null } | null,
   show_my_looking_for: string | null,

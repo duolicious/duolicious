@@ -6,7 +6,7 @@
 type LookingForData = {
   gender_preference?: string[] | null,
   age_preference?: { min_age: number | null, max_age: number | null } | null,
-  looking_for?: string | null,
+  looking_for?: string[],
   long_distance?: string | null,
 };
 
@@ -40,15 +40,15 @@ const LOOKING_FOR_EMOJI: { [key: string]: string } = {
 const DEFAULT_LOOKING_FOR_EMOJI = '💞';
 
 const lookingForEmoji = (data?: LookingForData | null): string => {
-  const goal = data?.looking_for;
-  return (goal && LOOKING_FOR_EMOJI[goal]) || DEFAULT_LOOKING_FOR_EMOJI;
+  const goals = data?.looking_for ?? [];
+  return (goals.length === 1 && LOOKING_FOR_EMOJI[goals[0]]) ||
+    DEFAULT_LOOKING_FOR_EMOJI;
 };
 
-const joinWithAnd = (items: string[]): string => {
-  if (items.length === 0) return '';
-  if (items.length === 1) return items[0];
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+const joinWith = (conjunction: string, items: string[]): string => {
+  if (items.length <= 1) return items.join('');
+  const last = items[items.length - 1];
+  return `${items.slice(0, -1).join(', ')} ${conjunction} ${last}`;
 };
 
 // The subject of the "Looking For" sentence, without a leading verb, e.g.
@@ -63,7 +63,8 @@ const lookingForSubject = (data: LookingForData): string => {
 
   const peopleText = wantsEveryGender
     ? 'people'
-    : joinWithAnd(genderPref.map((g) => GENDER_PLURALS[g] ?? g.toLowerCase()));
+    : joinWith(
+      'and', genderPref.map((g) => GENDER_PLURALS[g] ?? g.toLowerCase()));
 
   // The age slider runs 18–99; a `null` bound (or one sitting at either
   // extreme) means that end is unbounded. A full 18–99 range says nothing, so
@@ -82,7 +83,8 @@ const lookingForSubject = (data: LookingForData): string => {
     ageText = `aged up to ${maxAge}`;
   }
 
-  const goal = data.looking_for ? data.looking_for.toLowerCase() : '';
+  const goal = joinWith(
+    'or', (data.looking_for ?? []).map((g) => g.toLowerCase()));
 
   // "people for friends" reads awkwardly when no gender or age narrows the
   // search; collapse it to just the goal, e.g. "friends".
