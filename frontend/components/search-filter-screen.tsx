@@ -209,7 +209,7 @@ const fetchQuestionSearch = async (q: string): Promise<SearchFilterAnswer[]> => 
     `?q=${encodeURIComponent(q)}&n=${resultsPerPage}&o=${offset}`,
   );
 
-  return response.ok ? response.json : [];
+  return response.ok && response.json ? response.json : [];
 };
 
 // Cold-start cases (direct deep link / page refresh) bypass the parent

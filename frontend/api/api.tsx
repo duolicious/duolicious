@@ -13,7 +13,7 @@ const CLIENT_VERSION = 11;
 type ApiResponse<T = unknown> = {
   ok: boolean
   clientError: boolean
-  json: T,
+  json: T | undefined,
   text: string | undefined,
   status: number
   validationErrors: string[] | null
@@ -131,7 +131,7 @@ const api = async <T = unknown>(
   return {
     ok: response?.ok ?? false,
     clientError: clientError ?? false,
-    json: json as T,
+    json,
     text,
     status: response?.status ?? 0,
     validationErrors: validationErrors,

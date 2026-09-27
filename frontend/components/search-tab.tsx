@@ -212,7 +212,7 @@ const fetchPageWithoutQueue = async (
     };
   }
 
-  return response.ok ? response.json : null;
+  return response.ok && response.json ? response.json : null;
 };
 
 const fetchPage = (

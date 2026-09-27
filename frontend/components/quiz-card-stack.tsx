@@ -103,7 +103,7 @@ const fetchNextQuestions = async (
   const endpoint = isPublic ? '/public-next-questions' : '/next-questions';
   const response = await api<NextQuestion[]>('GET', `${endpoint}?n=${n}&o=${o}`);
 
-  if (!response.ok) {
+  if (!response.ok || !response.json) {
     return [];
   }
 
@@ -205,7 +205,7 @@ const fetchNBestProspects = async (
     await japi<SearchResult[]>('get', `/search?n=${n}`) :
     await japi<SearchResult[]>('get', '/search');
 
-  if (!response.ok) {
+  if (!response.ok || !response.json) {
     return [];
   }
 

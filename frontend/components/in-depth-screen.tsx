@@ -218,7 +218,7 @@ const fetchAnswersPage = (
     `&o=${offset}`
   );
 
-  const responseList = response.ok ? response.json : [];
+  const responseList = response.ok && response.json ? response.json : [];
 
   // The store is the live source of truth for the viewer's own answers; the
   // fetched `person_answer`/`person_public_` only seed it
@@ -397,11 +397,11 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
     (async () => {
       const response = await api<ProspectProfileResponse>('get', `/prospect-profile/${personUuid}`);
       if (cancelled) return;
-      if (!response.ok) {
+      if (!response.ok || !response.json) {
         setFetchFailed(true);
         return;
       }
-      const j = response.json ?? {};
+      const j = response.json;
       setPersonId(j.person_id);
       setName(j.name ?? '');
       setFetchFailed(false);
