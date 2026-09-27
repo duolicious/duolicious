@@ -19,12 +19,12 @@ import {
   useState,
 } from 'react';
 import {
-  NativeStackNavigationProp,
   NativeStackScreenProps,
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
 import type { RootParamList, WelcomeParamList } from '../navigation/linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Svg, { Path } from 'react-native-svg';
 import { DefaultText } from './default-text';
 import { DefaultTextInput } from './default-text-input';
 import { ButtonWithCenteredText } from './button/centered-text';
@@ -42,10 +42,12 @@ import { StatusBarSpacer } from './status-bar-spacer';
 import { japi } from '../api/api';
 import { signUpRef } from '../api/sign-up-ref';
 import {
-  consumePendingAppleWebSignIn,
+  consumePendingWebSignIn,
   signInWithApple,
+  signInWithDiscord,
   useGoogleSignIn,
 } from '../api/social-auth';
+import type { SocialProvider, SocialSignInResult } from '../api/social-auth';
 import { applyAuthenticatedResponse } from '../api/auth';
 import { sessionToken } from '../kv-storage/session-token';
 import { Logo16 } from './logo';
@@ -65,6 +67,7 @@ type StatsResponse = {
 
 type SessionTokenResponse = {
   session_token: string,
+  otp_email?: string,
 };
 
 const useInModal = () =>
@@ -490,7 +493,7 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
   );
 };
 
-type SocialProvider = 'google' | 'apple';
+const discordIconPath = 'M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z';
 
 // Text size / weight mirrors the bottom "Sign Up or Sign In" CTA
 // (`fontSize: 16, fontWeight: '700'`) so all primary buttons in the
@@ -672,77 +675,6 @@ const useNumActiveUsers = (initial: number | undefined) => {
   return numUsers;
 };
 
-// Posts a social provider's id_token to the backend and routes the user
-// onward (Home for existing users, the onboarding wizard for new ones).
-// Lives at module scope so both `WelcomeScreen_` and the web-return
-// effect can share it without re-defining per render.
-const finishSocialSignIn = async ({
-  endpoint,
-  body,
-  clubName,
-  ref = signUpRef,
-  navigation,
-  setLoginStatus,
-}: {
-  endpoint: '/sign-in-with-google' | '/sign-in-with-apple',
-  body: Record<string, unknown>,
-  clubName: string | undefined,
-  ref?: string,
-  navigation: NativeStackNavigationProp<WelcomeParamList>,
-  setLoginStatus: (s: string) => void,
-}) => {
-  const response = await japi<SessionTokenResponse>(
-    'post',
-    endpoint,
-    {
-      ...body,
-      ...(clubName && { pending_club_name: clubName }),
-      ref,
-    },
-    { timeout: 9999 * 1000 },
-  );
-
-  if (!response.ok) {
-    // 409 is the "you need to take an action first" path (email
-    // unverified, or an existing OTP account has claimed this email):
-    // the server returns a human-readable message that tells the user
-    // exactly what to do. Surface it instead of a canned status string.
-    const serverMessage =
-      typeof response.text === 'string' ? response.text.trim() : '';
-    setLoginStatus(
-      response.status === 409 && serverMessage ? serverMessage :
-      response.status === 401 ? 'Sign-in token couldn’t be verified' :
-      response.status === 429 ? 'You’re doing that too much' :
-      response.status === 460 ? 'Network blocked. Are you using a VPN?' :
-      response.status === 461 ? 'Your account is banned' :
-      'We couldn’t connect to Duolicious'
-    );
-    return;
-  }
-
-  const newSessionToken: string | undefined = response.json?.session_token;
-  if (typeof newSessionToken !== 'string') {
-    setLoginStatus('Server didn’t return a session token');
-    return;
-  }
-  await sessionToken(newSessionToken);
-
-  const outcome = await applyAuthenticatedResponse(
-    response, newSessionToken);
-
-  if (outcome === 'needs-onboarding') {
-    setOptionScreenPayload('Create Account Or Sign In Screen', {
-      optionGroups: withPublicSearchGender(socialAccountOptionGroups),
-      showSkipButton: false,
-      showCloseButton: false,
-      showBackButton: true,
-      backgroundColor: '#7700ff',
-      color: '#ffffff',
-    });
-    navigation.navigate('Create Account Or Sign In Screen');
-  }
-};
-
 const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamList, 'Welcome Screen'>) => {
   const clubName_ = (route.params?.clubName) as string | undefined;
   const numUsers = useNumActiveUsers(route.params?.numUsers);
@@ -766,96 +698,91 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
     );
   };
 
-  const onPressGoogle = async () => {
-    // Silently ignore taps before the OAuth request has loaded — the user
-    // would otherwise get a confusing "Google sign-in not ready" toast for
-    // a state that resolves on its own within milliseconds.
-    if (socialLoading || !googleSignIn.ready) return;
-    setLoginStatus("");
-    setSocialLoading('google');
-    try {
-      const result = await googleSignIn.promptForIdToken();
-      if (!result.ok && !result.cancelled) {
-        setLoginStatus(result.reason ?? 'Google sign-in failed');
-        return;
-      }
-      if (!result.ok) return;
-      await finishSocialSignIn({
-        endpoint: '/sign-in-with-google',
-        body: { id_token: result.idToken },
-        clubName: clubName_,
-        navigation,
-        setLoginStatus,
-      });
-    } finally {
-      setSocialLoading(null);
-    }
+  const context: { clubName?: string, ref?: string } = {
+    clubName: clubName_,
+    ref: signUpRef,
   };
 
-  const onPressApple = async () => {
+  const signInWith = async (
+    provider: SocialProvider,
+    signIn: () => Promise<SocialSignInResult>,
+    { clubName, ref } = context,
+  ) => {
     if (socialLoading) return;
     setLoginStatus("");
-    setSocialLoading('apple');
+    setSocialLoading(provider);
     try {
-      // On web this only resolves when the user backs out of Apple's
-      // page; a completed sign-in is finished by the web-return effect
-      // below when the backend's callback redirects us back here. iOS
-      // and Android resolve normally.
-      const result = await signInWithApple({
-        clubName: clubName_ ?? '',
-        ref: signUpRef ?? '',
-      });
+      const result = await signIn();
       if (!result.ok && !result.cancelled) {
-        setLoginStatus(result.reason ?? 'Apple sign-in failed');
+        setLoginStatus(result.reason ?? 'Sign-in failed');
         return;
       }
       if (!result.ok) return;
-      await finishSocialSignIn({
-        endpoint: '/sign-in-with-apple',
-        body: { identity_token: result.identityToken, nonce: result.nonce },
-        clubName: clubName_,
-        navigation,
-        setLoginStatus,
-      });
+
+      const response = await japi<SessionTokenResponse>(
+        'post',
+        `/sign-in-with-${provider}`,
+        {
+          ...result.body,
+          ...(clubName && { pending_club_name: clubName }),
+          ref,
+        },
+        { timeout: 9999 * 1000, maxRetries: 0 },
+      );
+
+      if (!response.ok) {
+        const serverMessage =
+          typeof response.text === 'string' ? response.text.trim() : '';
+        setLoginStatus(
+          response.status === 409 && serverMessage ? serverMessage :
+          response.status === 401 ? 'Sign-in token couldn’t be verified' :
+          response.status === 429 ? 'You’re doing that too much' :
+          response.status === 460 ? 'Network blocked. Are you using a VPN?' :
+          response.status === 461 ? 'Your account is banned' :
+          'We couldn’t connect to Duolicious'
+        );
+        return;
+      }
+
+      const newSessionToken: string | undefined = response.json?.session_token;
+      if (typeof newSessionToken !== 'string') {
+        setLoginStatus('Server didn’t return a session token');
+        return;
+      }
+      await sessionToken(newSessionToken);
+
+      const otpEmail = response.json?.otp_email;
+      if (otpEmail) {
+        otpDestination.value = otpEmail;
+        await japi('post', '/resend-otp');
+      }
+
+      if (
+        otpEmail ||
+        await applyAuthenticatedResponse(response, newSessionToken)
+          === 'needs-onboarding'
+      ) {
+        setOptionScreenPayload('Create Account Or Sign In Screen', {
+          optionGroups: withPublicSearchGender(otpEmail
+            ? createAccountOptionGroups
+            : socialAccountOptionGroups),
+          showSkipButton: false,
+          showCloseButton: false,
+          showBackButton: true,
+          backgroundColor: '#7700ff',
+          color: '#ffffff',
+        });
+        navigation.navigate('Create Account Or Sign In Screen');
+      }
     } finally {
       setSocialLoading(null);
     }
   };
 
-  // Completes a web Apple sign-in started by a prior tap of "Continue
-  // with Apple": on web the full-page redirect to Apple tears down the
-  // app, and Apple's callback redirects users back to the SPA root
-  // (i.e. this screen) with the id_token in the query string. The
-  // shared `finishSocialSignIn` handles the actual API call. iOS and
-  // Android never enter this branch — their flows resolve in-place
-  // inside `onPressApple` above. Runs once on mount; the consume call
-  // strips the query params and clears the pending sessionStorage
-  // entry, so a refresh won't replay it.
   useEffect(() => {
-    const pending = consumePendingAppleWebSignIn();
+    const pending = consumePendingWebSignIn();
     if (!pending) return;
-    const { result, context } = pending;
-    (async () => {
-      setLoginStatus("");
-      setSocialLoading('apple');
-      try {
-        if (!result.ok && !result.cancelled) {
-          setLoginStatus(result.reason ?? 'Apple sign-in failed');
-          return;
-        }
-        if (!result.ok) return;
-        await finishSocialSignIn({
-          endpoint: '/sign-in-with-apple',
-          body: { identity_token: result.identityToken, nonce: result.nonce },
-          clubName: context.clubName || undefined,
-          ref: context.ref || undefined,
-          navigation,
-          setLoginStatus,
-        });
-      } finally {
-        setSocialLoading(null);
-      }
-    })();
+    signInWith(pending.provider, async () => pending.result, pending.context);
   }, []);
 
   return (
@@ -927,7 +854,8 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
             Use email
           </PrimaryAuthButton>
           <PrimaryAuthButton
-            onPress={onPressGoogle}
+            onPress={() => googleSignIn.ready &&
+              signInWith('google', googleSignIn.promptForIdToken)}
             loading={socialLoading === 'google'}
             icon={<Ionicons name="logo-google" size={22} color="#ffffff" />}
             backgroundColor="#000000"
@@ -936,13 +864,26 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
             Continue with Google
           </PrimaryAuthButton>
           <PrimaryAuthButton
-            onPress={onPressApple}
+            onPress={() => signInWith('apple', () => signInWithApple(context))}
             loading={socialLoading === 'apple'}
             icon={<Ionicons name="logo-apple" size={22} color="#ffffff" />}
             backgroundColor="#000000"
             textColor="#ffffff"
           >
             Continue with Apple
+          </PrimaryAuthButton>
+          <PrimaryAuthButton
+            onPress={() => signInWith('discord', () => signInWithDiscord(context))}
+            loading={socialLoading === 'discord'}
+            icon={
+              <Svg width={22} height={22} viewBox="0 0 24 24">
+                <Path fill="#ffffff" d={discordIconPath} />
+              </Svg>
+            }
+            backgroundColor="#000000"
+            textColor="#ffffff"
+          >
+            Continue with Discord
           </PrimaryAuthButton>
           <DefaultText
             style={{
