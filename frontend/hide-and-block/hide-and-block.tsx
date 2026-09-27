@@ -71,9 +71,9 @@ const useSkipped = (
       }
 
       setState((oldState) => {
-        // Fire `onPostSkip` on the transition from unskipped to skipped
+        // Fire `onPostSkip` when a posted skip lands
         if (
-          oldState.networkState !== 'fetching' &&
+          oldState.networkState === 'posting' &&
           oldState.isSkipped !== newState.isSkipped &&
           newState.isSkipped
         ) {

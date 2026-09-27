@@ -933,7 +933,7 @@ const prospectProfilePath = (
 
 const useProspectProfile = (
   handle: string | undefined,
-  onData?: (profile: FetchedUserData) => void,
+  { preferCache = false }: { preferCache?: boolean } = {},
 ) => {
   const [signedInUser] = useSignedInUser();
   const [result, setResult] = useState<{
@@ -941,8 +941,6 @@ const useProspectProfile = (
     data: FetchedUserData | undefined,
     notFound: boolean,
   }>();
-  const onDataRef = useRef(onData);
-  onDataRef.current = onData;
 
   useEffect(() => {
     if (!handle) return;
@@ -952,19 +950,21 @@ const useProspectProfile = (
       if (cancelled) return;
       if (cached) {
         setResult({ handle, data: cached, notFound: false });
-        onDataRef.current?.(cached);
         setProspectHint(cached.person_uuid, {
           personId: cached.person_id,
           name: cached.name,
           urlSlug: cached.url_slug,
         });
-        return;
       }
+      if (cached && preferCache) return;
       // The skip cache is keyed by the canonical uuid. When the handle is a
-      // uuid we can show the "fetching" state immediately; for a slug we settle
-      // it once the profile (which carries `person_uuid`) lands.
-      if (isUuid(handle)) {
-        setSkipped(handle, { networkState: 'fetching' });
+      // uuid, or the cache supplies one, we can show the "fetching" state
+      // immediately; for a slug we settle it once the profile (which carries
+      // `person_uuid`) lands.
+      const knownUuid = cached?.person_uuid ?? (
+        isUuid(handle) ? handle : undefined);
+      if (knownUuid) {
+        setSkipped(knownUuid, { networkState: 'fetching' });
       }
       const response = await api<UserData>(
         'get', prospectProfilePath(handle, !signedInUser));
@@ -974,9 +974,6 @@ const useProspectProfile = (
       setResult({ handle, data: profile, notFound: response.clientError });
       if (profile && profile.person_uuid !== signedInUser?.personUuid) {
         cacheProspectProfile(profile);
-      }
-      if (profile) {
-        onDataRef.current?.(profile);
       }
       const canonicalUuid = response?.json?.person_uuid ?? (
         isUuid(handle) ? handle : undefined);
@@ -1000,7 +997,7 @@ const useProspectProfile = (
       }
     })();
     return () => { cancelled = true; };
-  }, [handle, signedInUser?.personUuid]);
+  }, [handle, signedInUser?.personUuid, preferCache]);
 
   const current = result?.handle === handle ? result : undefined;
 

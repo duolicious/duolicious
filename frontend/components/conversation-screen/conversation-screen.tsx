@@ -74,7 +74,6 @@ import { dismissConversationNotificationsOnMobile } from '../../notifications/mo
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { INBOX_PANEL_HEADER_HEIGHT, InboxPanel } from '../inbox-tab';
 import {
-  FetchedUserData,
   ProspectProfilePanel,
   useProspectProfile,
 } from '../prospect-profile-screen/prospect-profile-screen';
@@ -552,24 +551,8 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     setProspectHint(handle, hint);
   }, [handle]);
 
-  const applyProfile = useCallback((data: FetchedUserData) => applyProspect({
-    name: data.name,
-    photo_uuid: data.photo_uuids[0] ?? null,
-    photo_blurhash: data.photo_blurhashes[0] ?? null,
-    is_available: true,
-    is_skipped: data.is_skipped,
-    url_slug: data.url_slug,
-    person_uuid: data.person_uuid,
-  }), [applyProspect]);
-
   const profile = useProspectProfile(
-    showProfilePanel ? handle : undefined, applyProfile);
-
-  useEffect(() => {
-    if (profile.notFound) {
-      markUnavailable();
-    }
-  }, [profile.notFound]);
+    showProfilePanel ? handle : undefined, { preferCache: true });
 
   useEffect(() => {
     // Re-seed from the (possibly newly populated) hint on every handle
@@ -584,8 +567,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     setIsAvailableUser(hint.isAvailableUser ?? true);
     setIsSkipped(undefined);
     setUrlSlug(null);
-
-    if (showProfilePanel) return;
 
     let cancelled = false;
     (async () => {
@@ -602,7 +583,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       applyProspect(response.json ?? {});
     })();
     return () => { cancelled = true; };
-  }, [handle, showProfilePanel]);
+  }, [handle]);
 
   // Surface the other person's name in the browser tab. App.tsx's
   // `documentTitle.formatter` reads `options.title` from the focused screen
