@@ -988,16 +988,17 @@ const useProspectProfile = (
             networkState: 'settled',
           }
         );
-        // Make `personId` / `name` available to sibling screens (e.g. In-Depth,
-        // navigated to by the canonical uuid) so they don't have to refetch
-        // this endpoint just to resolve the numeric id required by `/compare-*`
-        // APIs.
-        setProspectHint(canonicalUuid, {
-          personId: response.json.person_id,
-          name: response.json.name,
-          urlSlug: response.json.url_slug,
-        });
       }
+      if (!profile) return;
+      // Make `personId` / `name` available to sibling screens (e.g. In-Depth,
+      // navigated to by the canonical uuid) so they don't have to refetch
+      // this endpoint just to resolve the numeric id required by `/compare-*`
+      // APIs.
+      setProspectHint(profile.person_uuid, {
+        personId: profile.person_id,
+        name: profile.name,
+        urlSlug: profile.url_slug,
+      });
     })();
     return () => { cancelled = true; };
   }, [handle, signedInUser?.personUuid]);
