@@ -30,16 +30,6 @@ reset_db () {
   q "update funding set estimated_end_date = '$future'"
 }
 
-complete_onboarding_for_current_session () {
-  jc PATCH /onboardee-info -d '{ "name": "Pat" }'
-  jc PATCH /onboardee-info -d '{ "date_of_birth": "1997-05-30" }'
-  c GET /search-locations?q=Syd
-  jc PATCH /onboardee-info -d '{ "location": "Sydney, New South Wales, Australia" }'
-  jc PATCH /onboardee-info -d '{ "gender": "Man" }'
-  jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Woman"] }'
-  c POST /finish-onboarding
-}
-
 # ---------------------------------------------------------------------------
 # 1. Brand-new sign-up via Google → onboardee created, session signed-in,
 #    pending_social_* set, social_identity row appears after
@@ -136,19 +126,12 @@ SESSION_TOKEN=$(jq -r .session_token <<< "$response")
 [[ "$(q "select count(*) from social_identity where provider = 'google' and provider_sub = 'google-sub-2' and person_id = $linkme_id")" -eq 1 ]]
 
 # ---------------------------------------------------------------------------
-# 4a. email_verified:false collides with an existing person → 409. Without
-#     this short-circuit the user would proceed through onboarding and crash
-#     on `person.email`'s UNIQUE constraint at /finish-onboarding. The 409
-#     status (vs 401) is what tells the client to show the "use email to
-#     confirm ownership" hint rather than a generic auth-failure message.
+# 4a. email_verified:false collides with an existing person → the account's
+#     owner has to enter an emailed code before anything is linked.
 # ---------------------------------------------------------------------------
 g_token=$(mint_google_token --sub google-sub-3 --email linkme@example.com --verified false)
-status=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X POST http://localhost:5000/sign-in-with-google \
-  -H "Content-Type: application/json" \
-  -d "{ \"id_token\": \"${g_token}\" }")
-[[ "$status" = "409" ]]
-# No onboardee or social_identity row created for the unverified attempt.
+response=$(jc POST /sign-in-with-google -d "{ \"id_token\": \"${g_token}\" }")
+[[ "$(jq -r .otp_email <<< "$response")" = linkme@example.com ]]
 [[ "$(q "select count(*) from social_identity where provider_sub = 'google-sub-3'")" -eq 0 ]]
 
 # ---------------------------------------------------------------------------

@@ -101,6 +101,15 @@ services:
       DUO_SPOTIFY_APEX_REDIRECT_URL: http://test-apex.example/
       DUO_SPOTIFY_APP_REDIRECT_URL: http://test-app.example/
 
+      DUO_DISCORD_CLIENT_ID: test-discord-client-id
+      DUO_DISCORD_CLIENT_SECRET: test-discord-client-secret
+      DUO_DISCORD_REDIRECT_URI: http://localhost:5000/auth/discord/callback
+      DUO_DISCORD_AUTHORIZE_URL: http://localhost:3005/oauth2/authorize
+      DUO_DISCORD_API_URL: http://discordmock:3005
+      DUO_DISCORD_WEB_REDIRECT_URL: http://test-web.example/
+      DUO_DISCORD_APEX_REDIRECT_URL: http://test-apex.example/
+      DUO_DISCORD_APP_REDIRECT_URL: http://test-app.example/
+
       DUO_PAYPAL_API_URL: http://paypalmock:3004
       DUO_PAYPAL_CLIENT_ID: test-paypal-client-id
       DUO_PAYPAL_CLIENT_SECRET: test-paypal-client-secret
@@ -260,6 +269,20 @@ services:
 
     ports:
       - "3004:3004"
+
+  discordmock:
+    build:
+      context: .
+      dockerfile: nodemock.Dockerfile
+      args:
+        MOCK: discordmock
+
+    environment:
+      DISCORD_MOCK_CLIENT_ID: test-discord-client-id
+      DISCORD_MOCK_CLIENT_SECRET: test-discord-client-secret
+
+    ports:
+      - "3005:3005"
 
   firehol:
     build:

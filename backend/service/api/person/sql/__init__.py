@@ -2909,9 +2909,9 @@ VALUES (%(email)s)
 ON CONFLICT (email) DO NOTHING
 """
 
-# Insert an already-signed-in session. `pending_social_*` are non-null only
-# when this session belongs to a brand-new user who still has to complete
-# onboarding — `Q_FINISH_ONBOARDING` drains them into `social_identity`.
+# `pending_social_*` are non-null only when the identity still has to be
+# linked: after onboarding for a brand-new user, or after `/check-otp` for an
+# existing account the provider's email can't claim by itself.
 Q_INSERT_DUO_SESSION_SOCIAL = """
 INSERT INTO duo_session (
     session_token_hash,
@@ -2931,7 +2931,7 @@ INSERT INTO duo_session (
     %(pending_club_name)s,
     %(ref)s,
     %(ip_address)s,
-    TRUE,
+    %(signed_in)s,
     %(pending_social_provider)s,
     %(pending_social_sub)s,
     %(asns)s::bigint[]
@@ -2959,9 +2959,9 @@ FROM
     existing_person
 """
 
-# After a brand-new user finishes onboarding, drain the pending social
-# identity from `duo_session` into `social_identity`. Run inside the same
-# transaction as `Q_FINISH_ONBOARDING`, after the new `person` row exists.
+# Drain the pending social identity from `duo_session` into
+# `social_identity` once the session's `person` exists and owns the email:
+# after onboarding, or after `/check-otp`.
 Q_PROMOTE_PENDING_SOCIAL_IDENTITY = """
 INSERT INTO social_identity (provider, provider_sub, person_id, email)
 SELECT
