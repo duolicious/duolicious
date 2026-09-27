@@ -133,7 +133,7 @@ class Limiter:
 default_limits = "60 per minute; 12 per second"
 
 # Cap shared by every auth endpoint (/request-otp, /resend-otp, /check-otp,
-# /sign-in-with-*, /auth/apple/callback), enforced per-IP everywhere and
+# /sign-in-with-*, /auth/*/callback), enforced per-IP everywhere and
 # additionally per-email (OTP sends) or per-account (/check-otp), so rotating
 # IPs can't mint unlimited OTP emails for one address. Each endpoint scopes
 # its buckets separately so they don't double-bill against the same

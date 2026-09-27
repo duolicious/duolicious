@@ -1,0 +1,10 @@
+{
+  "name": "discordmock",
+  "version": "1.0.0",
+  "description": "Mocks Discord's OAuth2 authorize, token and current-user endpoints during tests.",
+  "main": "index.js",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
