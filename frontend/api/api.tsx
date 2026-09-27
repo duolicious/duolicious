@@ -3,7 +3,6 @@ import {
 } from '../env/env';
 import * as _ from "lodash";
 import { sessionToken } from '../kv-storage/session-token';
-import { storeKv } from '../kv-storage/kv-storage';
 import { makeBackoff } from '../util/util';
 import { nextEvent } from '../events/events';
 import { EV_NETWORK_CAME_ONLINE } from '../network/network';
@@ -25,10 +24,7 @@ type Config = {
   maxRetries?: number,
   showValidationToast?: boolean,
   retryOnTransientError?: boolean,
-  readOnly?: boolean,
 };
-
-type CachedResponses<T> = Record<string, { json: T, requestedAt: number }>;
 
 const parseErrors = (errors: unknown): string[] => {
   if (!Array.isArray(errors)) {
@@ -54,7 +50,6 @@ const api = async <T = unknown>(
     maxRetries,
     showValidationToast,
     retryOnTransientError,
-    readOnly,
   } = config;
 
   let response: Response | undefined;
@@ -120,10 +115,6 @@ const api = async <T = unknown>(
     }
   }
 
-  if (!readOnly && method.toUpperCase() !== 'GET') {
-    await storeKv('last_write_at', String(Date.now()));
-  }
-
   try { text = await response?.text(); } catch {}
   try { json = JSON.parse(text ?? ''); } catch {}
 
@@ -170,50 +161,6 @@ const japi = async <T = unknown>(
   );
 };
 
-const readCachedResponses = async <T,>(): Promise<CachedResponses<T>> => {
-  try {
-    const cache: CachedResponses<T> =
-      JSON.parse((await storeKv('cached_responses')) || '{}');
-    return _.pickBy(cache, (c) => Date.now() - c.requestedAt < 5 * 60 * 1000);
-  } catch {
-    return {};
-  }
-};
-
-const cachedGet = async <T,>(
-  endpoint: string,
-  isCacheable: (json: T) => boolean,
-) => {
-  const [cache, lastWriteAt] = await Promise.all([
-    readCachedResponses<T>(),
-    storeKv('last_write_at'),
-  ]);
-
-  const cached = cache[endpoint];
-
-  if (cached && cached.requestedAt > Number(lastWriteAt)) {
-    return { ...cached, clientError: false };
-  }
-
-  const requestedAt = Date.now();
-  const response = await api<T>('get', endpoint);
-  const json = response.ok ? response.json : undefined;
-
-  if (json !== undefined && isCacheable(json)) {
-    await storeKv(
-      'cached_responses',
-      JSON.stringify({
-        ...(await readCachedResponses<T>()),
-        [endpoint]: { json, requestedAt },
-      }),
-    );
-  }
-
-  return { json, requestedAt, clientError: response.clientError };
-};
-
-const resetCachedResponses = () => storeKv('cached_responses', null);
-
 const uriToBase64 = async (uri: string): Promise<string> => {
   const response = await fetch(uri);
   const blob = await response.blob();
@@ -244,8 +191,6 @@ export {
   CLIENT_VERSION,
   ApiResponse,
   api,
-  cachedGet,
   japi,
-  resetCachedResponses,
   uriToBase64,
 };

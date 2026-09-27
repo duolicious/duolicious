@@ -735,6 +735,7 @@ async def get_prospect_profile(
         # visit events below carry a valid one.
         prospect_uuid = api_row.get('prospect_uuid')
         prospect_id = row_int(api_row, 'prospect_id')
+        is_new_visit = row_bool(api_row, 'is_new_visit')
 
     if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(
@@ -747,7 +748,7 @@ async def get_prospect_profile(
             ),
         )
 
-    if s is None:
+    if s is None or not is_new_visit:
         return profile
 
     if s.person_id is not None and s.person_uuid is not None and \
