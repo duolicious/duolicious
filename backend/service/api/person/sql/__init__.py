@@ -718,10 +718,6 @@ WITH prospect_base AS (
     ON CONFLICT (subject_person_id, object_person_id) DO UPDATE SET
         updated_at = now(),
         invisible = EXCLUDED.invisible
-    WHERE
-        visited.updated_at < now() - interval '5 minutes'
-    RETURNING
-        1
 ), negative_dot_prod AS (
     -- Empty for anonymous viewers, so `match_percentage` is NULL and the
     -- frontend hides the donut. Without the guard, `CLAMP(0, 99, NULL)`
@@ -973,8 +969,7 @@ SELECT
         )
     ) AS j,
     (SELECT id   FROM prospect) AS prospect_id,
-    (SELECT uuid FROM prospect) AS prospect_uuid,
-    EXISTS (SELECT 1 FROM updated_visited) AS is_new_visit
+    (SELECT uuid FROM prospect) AS prospect_uuid
 WHERE
     EXISTS (SELECT 1 FROM prospect)
 """

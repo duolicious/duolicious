@@ -263,39 +263,11 @@ test_sad_self_visit () {
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
 }
 
-test_pushed_again_after_five_minutes () {
-  setup
-  give_prospect_a_phone
-  put_prospect_offline
-
-  visit_as_viewer
-  q "update visited set updated_at = updated_at - interval '5 minutes'"
-  visit_as_viewer
-
-  [[ "$(count_pushes_to 'visitor_push_token')" = 2 ]]
-}
-
-test_sad_repeat_visit_within_five_minutes () {
-  setup
-  give_prospect_a_phone
-  put_prospect_offline
-
-  visit_as_viewer
-  local first_visit_at
-  first_visit_at=$(q "select updated_at from visited")
-  visit_as_viewer
-
-  [[ "$(count_pushes_to 'visitor_push_token')" = 1 ]]
-  [[ "$(q "select updated_at from visited")" = "$first_visit_at" ]]
-}
-
 test_pushed_immediately
 test_no_badge_while_online
 test_pushed_to_each_phone
-test_pushed_again_after_five_minutes
 
 test_sad_not_set_to_immediately
-test_sad_repeat_visit_within_five_minutes
 test_sad_invisible_visit
 test_sad_shadow_banned_viewer
 test_sad_prospect_skipped_the_viewer
