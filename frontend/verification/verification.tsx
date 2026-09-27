@@ -82,7 +82,7 @@ const verificationWatcher = async () => {
 
     const response = await japi<GetVerificationResponse>('get', '/check-verification');
 
-    if (!response.ok) {
+    if (!response.ok || !response.json) {
       console.error('Verification response not ok:', response);
       continue;
     }

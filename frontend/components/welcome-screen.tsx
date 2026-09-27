@@ -317,7 +317,7 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
           'GET',
           '/stats?club-name=' + encodeURIComponent(clubName));
 
-      if (!response.ok)
+      if (!response.ok || !response.json)
         return;
 
       setNumUsers(response.json.num_active_users);
@@ -666,7 +666,7 @@ const useNumActiveUsers = (initial: number | undefined) => {
     if (numUsers !== undefined) return;
     (async () => {
       const response = await japi<StatsResponse>('GET', '/stats');
-      if (response.ok) setNumUsers(response.json.num_active_users);
+      if (response.ok && response.json) setNumUsers(response.json.num_active_users);
     })();
   }, [numUsers]);
   return numUsers;
@@ -1009,7 +1009,7 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
 
     setIsLoading(false);
 
-    if (response.ok) {
+    if (response.ok && response.json) {
       await sessionToken(response.json.session_token);
 
       setOptionScreenPayload('Create Account Or Sign In Screen', {

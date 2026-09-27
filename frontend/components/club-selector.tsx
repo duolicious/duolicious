@@ -162,7 +162,7 @@ const fetchClubItems = async (q: string): Promise<ClubItem[]> => {
     `/search-clubs?q=${encodeURIComponent(cleanQ)}`
   );
 
-  return response.ok ? response.json : [];
+  return response.ok && response.json ? response.json : [];
 };
 
 const ClubSelector = ({navigation}: NativeStackScreenProps<ProfileParamList, 'Club Selector'>) => {
