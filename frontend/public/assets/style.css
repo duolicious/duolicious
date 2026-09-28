@@ -1043,6 +1043,12 @@ summary {
   color: #70f;
 }
 
+#faq-stats-note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
 #faq-index ul {
   margin-top: 32px;
   padding-left: 0;

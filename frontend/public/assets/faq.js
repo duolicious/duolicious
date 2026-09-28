@@ -23,11 +23,7 @@ const showStat = (value, className, selectorsToRemoveIfMissing) => {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const [stats, genderStats, totalStats] = await Promise.all([
-    fetchJson('/stats').catch(() => null),
-    fetchJson('/gender-stats').catch(() => null),
-    fetchJson('/total-stats').catch(() => null),
-  ]);
+  const stats = await fetchJson('/stats').catch(() => null);
 
   showStat(
     stats?.num_active_users?.toLocaleString('en'),
@@ -35,27 +31,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     ['#stat-active-members'],
   );
   showStat(
-    genderStats?.gender_ratio?.toFixed(2),
+    stats?.gender_ratio?.toFixed(2),
     'gender-ratio',
     ['#stat-gender-ratio', '.gender-ratio-sentence'],
   );
   showStat(
-    genderStats?.non_binary_percentage?.toFixed(1),
+    stats?.non_binary_percentage?.toFixed(1),
     'non-binary-percentage',
     ['#stat-non-binary', '.non-binary-percentage-sentence'],
   );
   showStat(
-    totalStats?.num_sign_ups?.toLocaleString('en'),
+    stats?.num_sign_ups?.toLocaleString('en'),
     'num-sign-ups',
     ['#stat-sign-ups'],
   );
   showStat(
-    totalStats?.num_messages?.toLocaleString('en'),
+    stats?.num_messages?.toLocaleString('en'),
     'num-messages',
-    ['#stat-messages'],
+    ['#stat-messages', '#faq-stats-note'],
   );
   showStat(
-    totalStats?.num_answers?.toLocaleString('en'),
+    stats?.num_answers?.toLocaleString('en'),
     'num-answers',
     ['#stat-answers'],
   );

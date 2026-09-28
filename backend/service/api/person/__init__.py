@@ -9,6 +9,7 @@ from serviceshared.database._row import row_int_or_none
 from service.api.gold.paypal import live_subscription_ids
 from serviceshared import paypal
 from collections.abc import Mapping, Sequence
+from serviceshared.util import Json
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
 from service.api.person.bestdistance import (
@@ -1292,31 +1293,35 @@ async def get_club(name: str, ttl_hash: object = None) -> object:
         'related_clubs': row['related_clubs'],
     }
 
-@AsyncLruCache()
-async def get_stats(
-    ttl_hash: object = None,
-    club_name: str | None = None,
-) -> object:
-    if club_name:
-        q, params = Q_STATS_BY_CLUB_NAME, dict(club_name=club_name)
-    else:
-        q, params = Q_STATS, None
-
+@redis_cache(ttl=60)
+async def _club_stats(club_name: str) -> dict[str, Json]:
     async with api_tx('READ COMMITTED') as tx:
-        row_tx = await tx.execute(q, params)
-        return await row_tx.fetchone()
+        return await tx.require_one(
+            Q_STATS_BY_CLUB_NAME, dict(club_name=club_name))
 
-@AsyncLruCache()
-async def get_gender_stats(ttl_hash: object = None) -> object:
+@redis_cache(ttl=60)
+async def _active_stats() -> dict[str, Json]:
     async with api_tx('READ COMMITTED') as tx:
-        row_tx = await tx.execute(Q_GENDER_STATS)
-        return await row_tx.fetchone()
+        return await tx.require_one(Q_ACTIVE_STATS)
 
 @redis_cache(ttl=60 * 60)
-async def get_total_stats() -> object:
+async def _sign_up_and_answer_counts() -> dict[str, Json]:
     async with api_tx('READ COMMITTED') as tx:
-        row_tx = await tx.execute(Q_TOTAL_STATS)
-        return await row_tx.fetchone()
+        return await tx.require_one(Q_SIGN_UP_AND_ANSWER_COUNTS)
+
+@redis_cache(ttl=24 * 60 * 60)
+async def _message_count() -> dict[str, Json]:
+    async with api_tx('READ COMMITTED') as tx:
+        return await tx.require_one(Q_MESSAGE_COUNT)
+
+async def get_stats(club_name: str | None) -> dict[str, Json]:
+    if club_name:
+        return await _club_stats(club_name)
+
+    return (
+        await _active_stats() |
+        await _sign_up_and_answer_counts() |
+        await _message_count())
 
 async def get_admin_ban_link(token: str) -> object:
     params = dict(token=token)

@@ -17,7 +17,7 @@ set -xe
 
 flush_redis
 
-response=$(c GET /total-stats)
+response=$(c GET /stats)
 
 [[ $(jq -r '.num_sign_ups' <<< "$response") = $(q "select max(id) from person") ]]
 [[ $(jq -r '.num_messages' <<< "$response") = 11 ]]

@@ -528,16 +528,7 @@ async def get_check_verification(
 @app.get('/stats')
 async def get_stats(request: Request) -> object:
     return await person.get_stats(
-        ttl_hash=get_ttl_hash(seconds=60),
         club_name=request.query_params.get('club-name'))
-
-@app.get('/gender-stats')
-async def get_gender_stats(request: Request) -> object:
-    return await person.get_gender_stats(ttl_hash=get_ttl_hash(seconds=60))
-
-@app.get('/total-stats')
-async def get_total_stats() -> object:
-    return await person.get_total_stats()
 
 @app.get('/admin/ban-link/{token}')
 async def get_admin_ban_link(

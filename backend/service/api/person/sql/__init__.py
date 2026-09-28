@@ -2346,31 +2346,10 @@ ON
     inserted_undeleted_photo.uuid = deleted_photo.uuid
 """
 
-_ACTIVE_PERSON = f"""    activated
-AND
-    last_online_time >
-        now() - {LAST_ONLINE_DEFAULT_SECONDS} * interval '1 second'"""
-
-Q_STATS = f"""
+Q_ACTIVE_STATS = f"""
 SELECT
-    count(*) AS num_active_users
-FROM
-    person
-WHERE
-{_ACTIVE_PERSON}
-"""
+    count(*) AS num_active_users,
 
-Q_STATS_BY_CLUB_NAME = """
-SELECT
-    COALESCE(SUM(count_members), 0) AS num_active_users
-FROM
-    club
-WHERE
-    name = %(club_name)s
-"""
-
-Q_GENDER_STATS = f"""
-SELECT
     count(*) FILTER (WHERE gender_id = 1)::real /
     NULLIF(count(*) FILTER (WHERE gender_id = 2), 0)::real
     AS gender_ratio,
@@ -2382,14 +2361,32 @@ SELECT
 FROM
     person
 WHERE
-{_ACTIVE_PERSON}
+    activated
+AND
+    last_online_time >
+        now() - {LAST_ONLINE_DEFAULT_SECONDS} * interval '1 second'
 """
 
-Q_TOTAL_STATS = """
+Q_STATS_BY_CLUB_NAME = """
+SELECT
+    COALESCE(SUM(count_members), 0) AS num_active_users
+FROM
+    club
+WHERE
+    name = %(club_name)s
+"""
+
+Q_SIGN_UP_AND_ANSWER_COUNTS = """
 SELECT
     max(id) AS num_sign_ups,
-    sum(count_messages_received) AS num_messages,
     sum(count_answers) AS num_answers
+FROM
+    person
+"""
+
+Q_MESSAGE_COUNT = """
+SELECT
+    sum(count_messages_received) AS num_messages
 FROM
     person
 """
