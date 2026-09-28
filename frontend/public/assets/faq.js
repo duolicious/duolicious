@@ -23,9 +23,10 @@ const showStat = (value, className, selectorsToRemoveIfMissing) => {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const [stats, genderStats] = await Promise.all([
+  const [stats, genderStats, totalStats] = await Promise.all([
     fetchJson('/stats').catch(() => null),
     fetchJson('/gender-stats').catch(() => null),
+    fetchJson('/total-stats').catch(() => null),
   ]);
 
   showStat(
@@ -42,6 +43,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     genderStats?.non_binary_percentage?.toFixed(1),
     'non-binary-percentage',
     ['#stat-non-binary', '.non-binary-percentage-sentence'],
+  );
+  showStat(
+    totalStats?.num_sign_ups?.toLocaleString('en'),
+    'num-sign-ups',
+    ['#stat-sign-ups'],
+  );
+  showStat(
+    totalStats?.num_messages?.toLocaleString('en'),
+    'num-messages',
+    ['#stat-messages'],
+  );
+  showStat(
+    totalStats?.num_answers?.toLocaleString('en'),
+    'num-answers',
+    ['#stat-answers'],
   );
 
   if (!document.querySelector('#faq-stats > div')) {

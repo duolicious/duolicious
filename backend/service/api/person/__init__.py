@@ -55,6 +55,7 @@ from serviceshared.antiabuse.antispam.signupemail import (
 )
 from serviceshared.antiabuse import anonymizers
 from service.api.async_lru_cache import AsyncLruCache
+from service.api.search.rediscache import redis_cache
 from datetime import datetime, timezone
 from urllib.parse import quote
 from service.api.person.duophoto import CropSize
@@ -1309,6 +1310,12 @@ async def get_stats(
 async def get_gender_stats(ttl_hash: object = None) -> object:
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_GENDER_STATS)
+        return await row_tx.fetchone()
+
+@redis_cache(ttl=60 * 60)
+async def get_total_stats() -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_TOTAL_STATS)
         return await row_tx.fetchone()
 
 async def get_admin_ban_link(token: str) -> object:

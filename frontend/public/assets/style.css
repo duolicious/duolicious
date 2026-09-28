@@ -1023,7 +1023,8 @@ summary {
   padding: 20px 24px;
   border-radius: 10px;
   background-color: #eef2ff;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
   justify-content: space-around;
   gap: 24px;
 }
@@ -1069,7 +1070,7 @@ summary {
 
 @media only screen and (max-width: 790px) {
   #faq-stats {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     gap: 18px;
   }
 

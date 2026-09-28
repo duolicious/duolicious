@@ -2385,6 +2385,15 @@ WHERE
 {_ACTIVE_PERSON}
 """
 
+Q_TOTAL_STATS = """
+SELECT
+    max(id) AS num_sign_ups,
+    sum(count_messages_received) AS num_messages,
+    sum(count_answers) AS num_answers
+FROM
+    person
+"""
+
 Q_PERSON_ID_TO_UUID = """
 SELECT
     uuid::text
