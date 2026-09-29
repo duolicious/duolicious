@@ -25,6 +25,8 @@ pending_count_deltas () {
 }
 assert_eventually "0" pending_count_deltas
 
+flush_redis
+
 response=$(c GET '/stats')
 
 [[ $(jq -r '.num_active_users' <<< "$response") = 1 ]]

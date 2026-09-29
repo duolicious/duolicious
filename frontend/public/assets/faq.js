@@ -22,11 +22,35 @@ const showStat = (value, className, selectorsToRemoveIfMissing) => {
   }
 };
 
+const showAgeBuckets = (buckets) => {
+  const list = document.querySelector('#age-buckets');
+
+  if (!list) {
+    return;
+  }
+
+  const total = buckets.reduce((sum, { count }) => sum + count, 0);
+  const max = Math.max(...buckets.map(({ count }) => count));
+
+  list.replaceChildren(
+    ...buckets.map(({ label, count }) => {
+      const row = document.createElement('li');
+      row.className = 'stat-bar';
+      row.innerHTML =
+        '<span class="stat-bar-label"></span>' +
+        '<span class="stat-bar-track"><span class="stat-bar-fill"></span></span>' +
+        '<span class="stat-bar-pct"></span>';
+      row.querySelector('.stat-bar-label').textContent = label;
+      row.querySelector('.stat-bar-fill').style.width = `${count / max * 100}%`;
+      row.querySelector('.stat-bar-pct').textContent =
+        `${Math.round(count / total * 100)}%`;
+      return row;
+    }),
+  );
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const [stats, genderStats] = await Promise.all([
-    fetchJson('/stats').catch(() => null),
-    fetchJson('/gender-stats').catch(() => null),
-  ]);
+  const stats = await fetchJson('/stats').catch(() => null);
 
   showStat(
     stats?.num_active_users?.toLocaleString('en'),
@@ -34,15 +58,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     ['#stat-active-members'],
   );
   showStat(
-    genderStats?.gender_ratio?.toFixed(2),
+    stats?.gender_ratio?.toFixed(2),
     'gender-ratio',
     ['#stat-gender-ratio', '.gender-ratio-sentence'],
   );
   showStat(
-    genderStats?.non_binary_percentage?.toFixed(1),
+    stats?.non_binary_percentage?.toFixed(1),
     'non-binary-percentage',
     ['#stat-non-binary', '.non-binary-percentage-sentence'],
   );
+  showStat(
+    stats?.num_sign_ups?.toLocaleString('en'),
+    'num-sign-ups',
+    ['#stat-sign-ups', '#faq-stats-note'],
+  );
+  showStat(
+    stats?.median_age?.toString(),
+    'median-age',
+    ['#stat-median-age', '.age-sentence'],
+  );
+  showStat(
+    stats?.num_answers?.toLocaleString('en'),
+    'num-answers',
+    ['#stat-answers', '#faq-stats-note'],
+  );
+
+  showAgeBuckets(stats?.age_buckets);
 
   if (!document.querySelector('#faq-stats > div')) {
     removeAll(['#faq-stats']);

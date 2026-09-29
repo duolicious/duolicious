@@ -18,7 +18,9 @@ q "update person set gender_id = 2 where name = 'user3'"
 q "update person set gender_id = 3 where name = 'user4'"
 set -xe
 
-response=$(c GET /gender-stats)
+flush_redis
+
+response=$(c GET /stats)
 
 [[ $(jq -r '.gender_ratio' <<< "$response") = '0.5' ]]
 [[ $(jq -r '.non_binary_percentage' <<< "$response") = '25.0' ]]

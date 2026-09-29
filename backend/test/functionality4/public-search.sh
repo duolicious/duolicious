@@ -7,15 +7,6 @@ source ../util/setup.sh
 
 set -xe
 
-# Clear the result cache so each /public-search call reflects the current
-# database rather than a snapshot left by an earlier call or test run.
-flush_redis () {
-  exec 3<>"/dev/tcp/${DUO_REDIS_HOST:-localhost}/${DUO_REDIS_PORT:-6379}"
-  printf 'FLUSHALL\r\n' >&3
-  read -r -u 3 -t 5 _reply
-  exec 3>&- 3<&-
-}
-
 # Anonymous GET /public-search. The cache is flushed first so the result is
 # always derived from the current database.
 public_search () {

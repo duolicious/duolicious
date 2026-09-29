@@ -1023,7 +1023,8 @@ summary {
   padding: 20px 24px;
   border-radius: 10px;
   background-color: #eef2ff;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
   justify-content: space-around;
   gap: 24px;
 }
@@ -1040,6 +1041,61 @@ summary {
   font-size: 32px;
   font-weight: 900;
   color: #70f;
+}
+
+#faq-stats-note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.stat-bars {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stat-bar {
+  display: grid;
+  grid-template-columns: 120px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  line-height: 20px;
+}
+
+.stat-bar-label {
+  font-size: 13px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-bar-track {
+  position: relative;
+  height: 8px;
+  background-color: #eee;
+  border-radius: 4px;
+  overflow: hidden;
+  display: block;
+}
+
+.stat-bar-fill {
+  display: block;
+  height: 100%;
+  background-color: #70f;
+}
+
+.stat-bar-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  text-align: right;
+}
+
+#age-buckets {
+  max-width: 500px;
 }
 
 #faq-index ul {
@@ -1069,7 +1125,7 @@ summary {
 
 @media only screen and (max-width: 790px) {
   #faq-stats {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     gap: 18px;
   }
 
