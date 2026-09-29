@@ -2347,6 +2347,18 @@ ON
 """
 
 Q_ACTIVE_STATS = f"""
+WITH active AS (
+    SELECT
+        gender_id,
+        date_part('year', age(date_of_birth))::int AS age
+    FROM
+        person
+    WHERE
+        activated
+    AND
+        last_online_time >
+            now() - {LAST_ONLINE_DEFAULT_SECONDS} * interval '1 second'
+)
 SELECT
     count(*) AS num_active_users,
 
@@ -2357,14 +2369,21 @@ SELECT
     count(*) FILTER (WHERE gender_id NOT IN (1, 2))::real /
     NULLIF(count(*), 0)::real *
     100.0
-    AS non_binary_percentage
+    AS non_binary_percentage,
+
+    round(percentile_cont(0.5) WITHIN GROUP (ORDER BY age))::int
+    AS median_age,
+
+    json_build_array(
+        json_build_object('label', '18-24', 'count', count(*) FILTER (WHERE age < 25)),
+        json_build_object('label', '25-34', 'count', count(*) FILTER (WHERE age BETWEEN 25 AND 34)),
+        json_build_object('label', '35-44', 'count', count(*) FILTER (WHERE age BETWEEN 35 AND 44)),
+        json_build_object('label', '45-54', 'count', count(*) FILTER (WHERE age BETWEEN 45 AND 54)),
+        json_build_object('label', '55+', 'count', count(*) FILTER (WHERE age >= 55))
+    )
+    AS age_buckets
 FROM
-    person
-WHERE
-    activated
-AND
-    last_online_time >
-        now() - {LAST_ONLINE_DEFAULT_SECONDS} * interval '1 second'
+    active
 """
 
 Q_STATS_BY_CLUB_NAME = """
@@ -2380,13 +2399,6 @@ Q_SIGN_UP_AND_ANSWER_COUNTS = """
 SELECT
     max(id) AS num_sign_ups,
     sum(count_answers) AS num_answers
-FROM
-    person
-"""
-
-Q_MESSAGE_COUNT = """
-SELECT
-    sum(count_messages_received) AS num_messages
 FROM
     person
 """

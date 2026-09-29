@@ -22,6 +22,32 @@ const showStat = (value, className, selectorsToRemoveIfMissing) => {
   }
 };
 
+const showAgeBuckets = (buckets) => {
+  const list = document.querySelector('#age-buckets');
+
+  if (!list) {
+    return;
+  }
+
+  const total = buckets.reduce((sum, { count }) => sum + count, 0);
+
+  list.replaceChildren(
+    ...buckets.map(({ label, count }) => {
+      const pct = `${Math.round(count / total * 100)}%`;
+      const row = document.createElement('li');
+      row.className = 'stat-bar';
+      row.innerHTML =
+        '<span class="stat-bar-label"></span>' +
+        '<span class="stat-bar-track"><span class="stat-bar-fill"></span></span>' +
+        '<span class="stat-bar-pct"></span>';
+      row.querySelector('.stat-bar-label').textContent = label;
+      row.querySelector('.stat-bar-fill').style.width = pct;
+      row.querySelector('.stat-bar-pct').textContent = pct;
+      return row;
+    }),
+  );
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
   const stats = await fetchJson('/stats').catch(() => null);
 
@@ -46,15 +72,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     ['#stat-sign-ups'],
   );
   showStat(
-    stats?.num_messages?.toLocaleString('en'),
-    'num-messages',
-    ['#stat-messages', '#faq-stats-note'],
+    stats?.median_age?.toString(),
+    'median-age',
+    ['#stat-median-age', '.age-sentence'],
   );
   showStat(
     stats?.num_answers?.toLocaleString('en'),
     'num-answers',
     ['#stat-answers'],
   );
+
+  showAgeBuckets(stats?.age_buckets);
 
   if (!document.querySelector('#faq-stats > div')) {
     removeAll(['#faq-stats']);

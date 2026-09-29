@@ -1309,19 +1309,11 @@ async def _sign_up_and_answer_counts() -> dict[str, Json]:
     async with api_tx('READ COMMITTED') as tx:
         return await tx.require_one(Q_SIGN_UP_AND_ANSWER_COUNTS)
 
-@redis_cache(ttl=24 * 60 * 60)
-async def _message_count() -> dict[str, Json]:
-    async with api_tx('READ COMMITTED') as tx:
-        return await tx.require_one(Q_MESSAGE_COUNT)
-
 async def get_stats(club_name: str | None) -> dict[str, Json]:
     if club_name:
         return await _club_stats(club_name)
 
-    return (
-        await _active_stats() |
-        await _sign_up_and_answer_counts() |
-        await _message_count())
+    return await _active_stats() | await _sign_up_and_answer_counts()
 
 async def get_admin_ban_link(token: str) -> object:
     params = dict(token=token)
