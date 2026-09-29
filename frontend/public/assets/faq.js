@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   showStat(
     stats?.num_sign_ups?.toLocaleString('en'),
     'num-sign-ups',
-    ['#stat-sign-ups'],
+    ['#stat-sign-ups', '#faq-stats-note'],
   );
   showStat(
     stats?.median_age?.toString(),
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   showStat(
     stats?.num_answers?.toLocaleString('en'),
     'num-answers',
-    ['#stat-answers'],
+    ['#stat-answers', '#faq-stats-note'],
   );
 
   showAgeBuckets(stats?.age_buckets);
