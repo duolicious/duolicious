@@ -30,10 +30,10 @@ const showAgeBuckets = (buckets) => {
   }
 
   const total = buckets.reduce((sum, { count }) => sum + count, 0);
+  const max = Math.max(...buckets.map(({ count }) => count));
 
   list.replaceChildren(
     ...buckets.map(({ label, count }) => {
-      const pct = `${Math.round(count / total * 100)}%`;
       const row = document.createElement('li');
       row.className = 'stat-bar';
       row.innerHTML =
@@ -41,8 +41,9 @@ const showAgeBuckets = (buckets) => {
         '<span class="stat-bar-track"><span class="stat-bar-fill"></span></span>' +
         '<span class="stat-bar-pct"></span>';
       row.querySelector('.stat-bar-label').textContent = label;
-      row.querySelector('.stat-bar-fill').style.width = pct;
-      row.querySelector('.stat-bar-pct').textContent = pct;
+      row.querySelector('.stat-bar-fill').style.width = `${count / max * 100}%`;
+      row.querySelector('.stat-bar-pct').textContent =
+        `${Math.round(count / total * 100)}%`;
       return row;
     }),
   );

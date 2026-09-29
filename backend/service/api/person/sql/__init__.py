@@ -2375,11 +2375,15 @@ SELECT
     AS median_age,
 
     json_build_array(
-        json_build_object('label', '18-24', 'count', count(*) FILTER (WHERE age < 25)),
-        json_build_object('label', '25-34', 'count', count(*) FILTER (WHERE age BETWEEN 25 AND 34)),
-        json_build_object('label', '35-44', 'count', count(*) FILTER (WHERE age BETWEEN 35 AND 44)),
-        json_build_object('label', '45-54', 'count', count(*) FILTER (WHERE age BETWEEN 45 AND 54)),
-        json_build_object('label', '55+', 'count', count(*) FILTER (WHERE age >= 55))
+        json_build_object('label', '18-19', 'count', count(*) FILTER (WHERE age < 20)),
+        json_build_object('label', '20-21', 'count', count(*) FILTER (WHERE age BETWEEN 20 AND 21)),
+        json_build_object('label', '22-23', 'count', count(*) FILTER (WHERE age BETWEEN 22 AND 23)),
+        json_build_object('label', '24-25', 'count', count(*) FILTER (WHERE age BETWEEN 24 AND 25)),
+        json_build_object('label', '26-27', 'count', count(*) FILTER (WHERE age BETWEEN 26 AND 27)),
+        json_build_object('label', '28-29', 'count', count(*) FILTER (WHERE age BETWEEN 28 AND 29)),
+        json_build_object('label', '30-31', 'count', count(*) FILTER (WHERE age BETWEEN 30 AND 31)),
+        json_build_object('label', '32-33', 'count', count(*) FILTER (WHERE age BETWEEN 32 AND 33)),
+        json_build_object('label', '34+', 'count', count(*) FILTER (WHERE age >= 34))
     )
     AS age_buckets
 FROM
