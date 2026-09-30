@@ -210,6 +210,12 @@ test_audio () {
   local snd2_uuid=$(q "select uuid from audio limit 1")
 
   wait_for_audio_creation_by_uuid "${snd2_uuid}"
+
+  jc PATCH /profile-info \
+    -d '{ "base64_audio_file": { "base64": "bm90IGF1ZGlv" } }' \
+    | grep -q 'Error while processing audio'
+
+  [[ "$(q "select uuid from audio")" == "${snd2_uuid}" ]]
 }
 
 test_theme () {

@@ -85,7 +85,8 @@ def transcode_and_trim_audio(
         process = subprocess.run(
             ffmpeg_cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            timeout=20,
         )
 
         # Check if the transcoding was successful
@@ -109,10 +110,7 @@ def transcode_and_trim_audio(
     return output_audio
 
 
-def transcode_and_trim_audio_from_base64(
-    audio_base64: str,
-    max_duration: int | None = None
-) -> tuple[bytes, bytes] | ValueError:
+def decode_base64_audio(audio_base64: str) -> bytes | ValueError:
     try:
         base64_value = audio_base64.split(',')[-1]
     except:
@@ -128,13 +126,25 @@ def transcode_and_trim_audio_from_base64(
             f'Decoded file must be smaller than '
             f'{human_readable_size_metric(constants.MAX_AUDIO_BYTES)}')
 
+    return decoded_bytes
+
+
+def transcode_and_trim_audio_from_bytes(
+    audio_bytes: bytes
+) -> bytes | ValueError:
     try:
-        transcoded = transcode_and_trim_audio(
-            io.BytesIO(decoded_bytes),
-            max_duration,
-        ).getvalue()
+        return transcode_and_trim_audio(io.BytesIO(audio_bytes)).getvalue()
     except:
-        logger.exception(f'Processing audio failed; base64 input was: {audio_base64}')
+        logger.exception('Processing audio failed')
         return ValueError('Error while processing audio')
 
-    return decoded_bytes, transcoded
+
+def transcode_and_trim_audio_from_base64(
+    audio_base64: str
+) -> bytes | ValueError:
+    decoded_bytes = decode_base64_audio(audio_base64)
+
+    if isinstance(decoded_bytes, ValueError):
+        return decoded_bytes
+
+    return transcode_and_trim_audio_from_bytes(decoded_bytes)
