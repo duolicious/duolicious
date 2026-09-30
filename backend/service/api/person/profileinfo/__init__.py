@@ -106,7 +106,8 @@ WITH existing_uuid AS (
         width,
         height,
         crop_top,
-        crop_left
+        crop_left,
+        nsfw_score
     ) VALUES (
         %(person_id)s,
         %(position)s,
@@ -117,7 +118,8 @@ WITH existing_uuid AS (
         %(width)s,
         %(height)s,
         %(crop_top)s,
-        %(crop_left)s
+        %(crop_left)s,
+        -1
     ) ON CONFLICT (person_id, position) DO UPDATE SET
         uuid = EXCLUDED.uuid,
         blurhash = EXCLUDED.blurhash,
@@ -127,6 +129,7 @@ WITH existing_uuid AS (
         height = EXCLUDED.height,
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
+        nsfw_score = EXCLUDED.nsfw_score,
         verified = FALSE
 ), updated_person AS (
     UPDATE person
@@ -142,6 +145,27 @@ WITH existing_uuid AS (
         id = %(person_id)s
 )
 SELECT 1
+"""
+
+Q_FINISH_PHOTO_UPLOAD = """
+WITH stored_photo AS (
+    UPDATE
+        photo
+    SET
+        nsfw_score = NULL
+    WHERE
+        uuid = %(uuid)s
+    RETURNING
+        1
+)
+INSERT INTO undeleted_photo (
+    uuid
+)
+SELECT
+    %(uuid)s
+WHERE
+    NOT EXISTS (SELECT 1 FROM stored_photo)
+ON CONFLICT DO NOTHING
 """
 
 Q_PATCH_AUDIO = """
@@ -445,7 +469,12 @@ async def _patch_photo(person_id: int, field_value: object) -> object:
         await put_image_in_object_store(uuid, base64_file, crop_size)
     except:
         logger.exception('Storing image failed')
+        async with api_tx() as tx:
+            await tx.execute(Q_DELETE_PROFILE_INFO_PHOTO, params)
         return '', 500
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(Q_FINISH_PHOTO_UPLOAD, params)
 
     return None
 

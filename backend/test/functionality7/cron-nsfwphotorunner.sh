@@ -73,3 +73,17 @@ while ! check_conditions; do
 done
 
 echo "Conditions met within $count retries."
+
+echo 'A photo which replaces another in the same position is rescanned'
+jc PATCH /profile-info \
+  -d "{
+          \"base64_file\": {
+              \"position\": 2,
+              \"base64\": \"${nsfw_img}\",
+              \"top\": 0,
+              \"left\": 0
+          }
+      }"
+
+assert_eventually 1 q "
+  select count(*) from photo where position = 2 and abs(nsfw_score - 0.236) < 0.01"

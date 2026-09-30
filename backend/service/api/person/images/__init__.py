@@ -115,7 +115,14 @@ async def put_image_in_object_store(
     # Image processing is CPU-bound, so keep it off the event loop.
     key_img = await run_in_threadpool(process)
 
-    await asyncio.gather(*[
-        asyncboto.put_object(bucket, Key=key, Body=img)
-        for key, img in key_img
-    ])
+    results = await asyncio.gather(
+        *[
+            asyncboto.put_object(bucket, Key=key, Body=img)
+            for key, img in key_img
+        ],
+        return_exceptions=True,
+    )
+
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result

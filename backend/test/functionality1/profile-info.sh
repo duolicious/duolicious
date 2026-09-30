@@ -132,6 +132,47 @@ test_photo () {
   [[ "$(q "select COUNT(*) from photo")" -eq 0 ]]
 }
 
+start_large_photo_upload () {
+  {
+    printf '{"base64_file": {"position": 1, "top": 0, "left": 0, "base64": "'
+    ./rand-image.sh 1800 1800 | base64 -w 0
+    printf '"}}'
+  } | jc PATCH /profile-info -d @- &
+  large_photo_upload=$!
+
+  while kill -0 "$large_photo_upload" 2>/dev/null && [[ -z "$(q "select uuid from photo where position = 1")" ]]
+  do
+    :
+  done
+}
+
+test_photo_scanned_once_stored () {
+  start_large_photo_upload
+
+  local uuid=$(q "select uuid from photo where position = 1")
+
+  [[ "$(q "select nsfw_score from photo where uuid = '$uuid'")" = -1 ]] \
+    || assert_photos_downloadable_by_uuid "$uuid"
+
+  wait "$large_photo_upload"
+
+  [[ "$(q "select nsfw_score from photo where uuid = '$uuid'")" != -1 ]]
+
+  jc DELETE /profile-info -d '{ "files": [1] }'
+}
+
+test_photo_deleted_while_storing () {
+  start_large_photo_upload
+
+  local uuid=$(q "select uuid from photo where position = 1")
+
+  q "delete from photo where uuid = '$uuid'"
+
+  wait "$large_photo_upload"
+
+  wait_for_deletion_by_uuid "$uuid"
+}
+
 test_photo_assignments () {
   jc DELETE /profile-info -d '{ "files": [1, 2, 3, 4, 5, 6, 7] }'
 
@@ -538,6 +579,10 @@ test_set browse_invisibly Yes
 test_club
 
 test_photo
+
+test_photo_scanned_once_stored
+
+test_photo_deleted_while_storing
 
 test_photo_assignments
 
