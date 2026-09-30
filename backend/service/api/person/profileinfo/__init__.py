@@ -434,15 +434,15 @@ async def _patch_photo(person_id: int, field_value: object) -> object:
         **photo_geometry_params(geometry),
     )
 
-    async with api_tx() as tx:
-        await tx.execute(Q_PATCH_PHOTO, params)
-        await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
-
     try:
         await put_image_in_object_store(uuid, base64_file, crop_size)
     except:
         logger.exception('Storing image failed')
         return '', 500
+
+    async with api_tx() as tx:
+        await tx.execute(Q_PATCH_PHOTO, params)
+        await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
 
     return None
 

@@ -132,6 +132,31 @@ test_photo () {
   [[ "$(q "select COUNT(*) from photo")" -eq 0 ]]
 }
 
+test_photo_files_stored_before_row () {
+  local body_file=$(mktemp)
+
+  {
+    printf '{"base64_file": {"position": 1, "top": 0, "left": 0, "base64": "'
+    ./rand-image.sh 1800 1800 | base64 -w 0
+    printf '"}}'
+  } > "$body_file"
+
+  jc PATCH /profile-info -d @"$body_file" &
+  local upload=$!
+
+  while kill -0 "$upload" 2>/dev/null && [[ -z "$(q "select uuid from photo where position = 1")" ]]
+  do
+    :
+  done
+
+  assert_photos_downloadable_by_uuid "$(q "select uuid from photo where position = 1")"
+
+  wait "$upload"
+  rm "$body_file"
+
+  jc DELETE /profile-info -d '{ "files": [1] }'
+}
+
 test_photo_assignments () {
   jc DELETE /profile-info -d '{ "files": [1, 2, 3, 4, 5, 6, 7] }'
 
@@ -532,6 +557,8 @@ test_set browse_invisibly Yes
 test_club
 
 test_photo
+
+test_photo_files_stored_before_row
 
 test_photo_assignments
 
