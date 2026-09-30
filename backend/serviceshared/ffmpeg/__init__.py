@@ -62,7 +62,11 @@ async def _run(
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env={'PATH': os.environ.get('PATH', os.defpath)},
+        env={
+            'PATH': os.environ.get('PATH', os.defpath),
+            'OPENBLAS_NUM_THREADS': '1',
+            'OMP_NUM_THREADS': '1',
+        },
         user=None if _USER is None else _USER.pw_uid,
         group=None if _USER is None else _USER.pw_gid,
         extra_groups=None if _USER is None else [],
