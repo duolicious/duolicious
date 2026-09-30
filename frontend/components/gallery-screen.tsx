@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootParamList } from '../navigation/linking';
 import { DefaultText } from './default-text';
 import { useBackButtonClaim } from '../events/back-button';
+import { getSignedInUser } from '../events/signed-in-user';
 import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
 import { dragDismissRadius, dragDistance } from './pinchy-math';
@@ -545,7 +546,11 @@ const GalleryScreen = ({
       navigation.goBack();
       return;
     }
-    close(() => finishAndPop(() => navigation.reset({ routes: [{ name: 'Home' }] })));
+    close(() => finishAndPop(() => navigation.reset({
+      routes: [{
+        name: Platform.OS !== 'web' && !getSignedInUser() ? 'Welcome' : 'Home',
+      }],
+    })));
   }, [navigation, close, finishAndPop]);
 
   const onDismiss = useCallback(() => {

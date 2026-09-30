@@ -16,6 +16,7 @@ import {
 } from '../events/expanded-photo';
 import type { AlbumPhoto, BorderRadii } from '../events/expanded-photo';
 import { noSelect } from '../styles';
+import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation';
 
 // This component owns the preview's corner rounding (rather than reading it
 // back out of `style`) because the gallery animates the same radii while the
@@ -69,6 +70,12 @@ const EnlargeablePhoto = memo(({
 
   const internalOnPress = useCallback((event: GestureResponderEvent) => {
     event.stopPropagation();
+
+    if (isOpenInNewTabPress(event)) {
+      return;
+    }
+
+    event.preventDefault();
 
     if (!navigation) {
       return;
@@ -144,6 +151,7 @@ const EnlargeablePhoto = memo(({
       ref={ref}
       disabled={!photoUuid}
       onPress={internalOnPress}
+      {...(photoUuid ? makeLinkProps(`/gallery/${photoUuid}`) : {})}
       style={[
         {
           width: '100%',
