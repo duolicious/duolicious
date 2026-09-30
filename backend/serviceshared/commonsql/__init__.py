@@ -208,3 +208,73 @@ def computed_flair_sql(person: str) -> str:
     WHERE
         e IS NOT NULL
 """
+
+Q_PATCH_PHOTO = """
+WITH existing_uuid AS (
+    SELECT
+        uuid
+    FROM
+        photo
+    WHERE
+        person_id = %(person_id)s
+    AND
+        position = %(position)s
+), undeleted_photo_insertion AS (
+    INSERT INTO undeleted_photo (
+        uuid
+    )
+    SELECT
+        uuid
+    FROM
+        existing_uuid
+), photo_insertion AS (
+    INSERT INTO photo (
+        person_id,
+        position,
+        uuid,
+        blurhash,
+        extra_exts,
+        hash,
+        width,
+        height,
+        crop_top,
+        crop_left,
+        nsfw_score
+    ) VALUES (
+        %(person_id)s,
+        %(position)s,
+        %(uuid)s,
+        %(blurhash)s,
+        %(extra_exts)s,
+        %(hash)s,
+        %(width)s,
+        %(height)s,
+        %(crop_top)s,
+        %(crop_left)s,
+        %(nsfw_score)s
+    ) ON CONFLICT (person_id, position) DO UPDATE SET
+        uuid = EXCLUDED.uuid,
+        blurhash = EXCLUDED.blurhash,
+        extra_exts = EXCLUDED.extra_exts,
+        hash = EXCLUDED.hash,
+        width = EXCLUDED.width,
+        height = EXCLUDED.height,
+        crop_top = EXCLUDED.crop_top,
+        crop_left = EXCLUDED.crop_left,
+        nsfw_score = EXCLUDED.nsfw_score,
+        verified = FALSE
+), updated_person AS (
+    UPDATE person
+    SET
+        last_event_time = now(),
+        last_event_name = 'added-photo',
+        last_event_data = jsonb_build_object(
+            'added_photo_uuid', %(uuid)s,
+            'added_photo_blurhash', %(blurhash)s,
+            'added_photo_extra_exts', %(extra_exts)s::TEXT[]
+        )
+    WHERE
+        id = %(person_id)s
+)
+SELECT 1
+"""

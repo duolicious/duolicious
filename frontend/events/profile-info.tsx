@@ -4,6 +4,7 @@ import { listen, notify, lastEvent } from './events';
 import { notifyUpdatedVerification } from '../verification/verification';
 import type { ClubItem } from '../club/club';
 import type { SpotifyArtistItem } from '../api/spotify';
+import type { VideoJob } from '../api/video-upload';
 
 // The GET /profile-info response uses space-separated keys for some fields
 // (e.g. 'looking for') while the PATCH endpoint and DB columns use snake_case
@@ -66,6 +67,7 @@ type ProfileInfo = {
   verified_ethnicity?: boolean;
   audio_bio?: string | null;
   audio_bio_max_seconds?: number;
+  video_job?: VideoJob | null;
   [key: string]: unknown;
 };
 

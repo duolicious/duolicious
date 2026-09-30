@@ -60,3 +60,28 @@ BEGIN
     SET looking_for_ids = looking_for_ids || 6::SMALLINT
     WHERE looking_for_ids @> '{1,2,3,4,5}';
 END $$;
+
+CREATE TABLE IF NOT EXISTS video_job (
+    uuid TEXT PRIMARY KEY,
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    position SMALLINT NOT NULL,
+    byte_size INT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'uploading'
+        CHECK (status IN ('uploading', 'queued', 'running', 'success', 'failure')),
+    message TEXT NOT NULL DEFAULT '',
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    photo_uuid TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    claimed_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx__video_job__person_id__busy
+    ON video_job(person_id)
+    WHERE status IN ('queued', 'running');
+
+CREATE INDEX IF NOT EXISTS idx__video_job__person_id__created_at
+    ON video_job(person_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx__video_job__created_at__queued
+    ON video_job(created_at)
+    WHERE status = 'queued';

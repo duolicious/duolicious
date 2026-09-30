@@ -3,7 +3,6 @@ from service.api.duoaudio import (
     transcode_and_trim_audio_from_base64,
 )
 from service.api.chatprotocol.message import AudioMessage
-import asyncio
 import logging
 import secrets
 
@@ -13,10 +12,7 @@ async def transcode_and_put(
     uuid: str,
     audio_base64: str
 ) -> bool:
-    # ffmpeg transcode is CPU-bound and shells out to a subprocess; offload it
-    # so it doesn't block the chat event loop.
-    transcoded = await asyncio.to_thread(
-        transcode_and_trim_audio_from_base64, audio_base64=audio_base64)
+    transcoded = await transcode_and_trim_audio_from_base64(audio_base64)
 
     if isinstance(transcoded, ValueError):
         return False

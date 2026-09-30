@@ -20,6 +20,7 @@ const KEYS = [
   'seen_reply_hint',
   'seen_search_filters_hint',
   'session_token',
+  'shown_video_failure',
   'was_review_requested',
   'web_session_bridge_answered',
 ] as const;

@@ -594,6 +594,20 @@ CREATE TABLE IF NOT EXISTS verification_photo_hash (
     hash TEXT PRIMARY KEY
 );
 
+CREATE TABLE IF NOT EXISTS video_job (
+    uuid TEXT PRIMARY KEY,
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    position SMALLINT NOT NULL,
+    byte_size INT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'uploading'
+        CHECK (status IN ('uploading', 'queued', 'running', 'success', 'failure')),
+    message TEXT NOT NULL DEFAULT '',
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    photo_uuid TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    claimed_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS club (
     name TEXT NOT NULL,
     count_members INT NOT NULL DEFAULT 0,
@@ -951,6 +965,17 @@ CREATE INDEX IF NOT EXISTS idx__verification_job__person_id
 
 CREATE INDEX IF NOT EXISTS idx__verification_job__expires_at
     ON verification_job(expires_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx__video_job__person_id__busy
+    ON video_job(person_id)
+    WHERE status IN ('queued', 'running');
+
+CREATE INDEX IF NOT EXISTS idx__video_job__person_id__created_at
+    ON video_job(person_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx__video_job__created_at__queued
+    ON video_job(created_at)
+    WHERE status = 'queued';
 
 CREATE INDEX IF NOT EXISTS idx__skipped__object_person_id__created_at__reported
     ON skipped(object_person_id, created_at)

@@ -29,6 +29,7 @@ from service.cron.visitornotifications import (
 from service.cron.photocleaner import clean_photos_forever
 from service.cron.audiocleaner import clean_audio_forever
 from service.cron.verificationjobrunner import verify_forever
+from service.cron.videotranscoder import transcode_videos_forever
 from service.cron.profilereporter import report_profiles_forever
 import asyncio
 from http.server import SimpleHTTPRequestHandler
@@ -84,6 +85,8 @@ async def main() -> None:
             send_visitor_notifications_forever(),
 
             verify_forever(),
+
+            transcode_videos_forever(),
 
             report_profiles_forever(),
 

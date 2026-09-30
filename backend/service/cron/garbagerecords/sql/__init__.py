@@ -117,3 +117,15 @@ FROM (
     SELECT 1 AS n FROM q12
 ) AS t(n)
 """
+
+Q_DELETE_OLD_VIDEO_JOBS = """
+DELETE FROM
+    video_job
+WHERE (
+    status IN ('success', 'failure')
+    AND created_at < NOW() - INTERVAL '1 day'
+) OR (
+    status = 'uploading'
+    AND created_at < NOW() - INTERVAL '1 hour'
+)
+"""
