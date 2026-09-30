@@ -123,7 +123,8 @@ WITH existing_uuid AS (
         height = EXCLUDED.height,
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
-        verified = FALSE
+        verified = FALSE,
+        nsfw_score = NULL
 ), updated_person AS (
     UPDATE person
     SET
