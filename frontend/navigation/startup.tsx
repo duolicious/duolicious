@@ -28,6 +28,7 @@ const isRootPath = (p: string | null | undefined): boolean => {
 // everyone, and the backend gates visibility on `public_profile`. The
 // screen renders its own 404 state when access is denied.
 const PUBLIC_TOP_LEVEL_ROUTES = new Set([
+  'Gallery Screen',
   'Invite Screen',
   'Prospect Profile Screen',
   'Welcome',

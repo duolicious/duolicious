@@ -63,3 +63,27 @@ describe('computeStartupNavigationState push-notification routing', () => {
     expect(result.postLoginRedirectState).toBeNull();
   });
 });
+
+describe('computeStartupNavigationState deep links', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('a signed-out visitor opening a photo link sees the photo', async () => {
+    const photoUuid = 'a'.repeat(64);
+
+    jest.spyOn(RNLinking, 'getInitialURL')
+      .mockResolvedValue(`https://duolicious.app/gallery/${photoUuid}`);
+
+    const result = await computeStartupNavigationState({
+      linking: createLinking(),
+      isAuthenticated: false,
+      notification: null,
+      pendingClub: null,
+    });
+
+    expect(result.initialState.routes).toMatchObject([
+      { name: 'Gallery Screen', params: { photoUuid } },
+    ]);
+  });
+});
