@@ -53,6 +53,12 @@ async def _run(
     cpu: int | None,
 ) -> bytes:
     process = await asyncio.create_subprocess_exec(
+        *([] if _USER is None else [
+            'setpriv',
+            f'--reuid={_USER.pw_uid}',
+            f'--regid={_USER.pw_gid}',
+            '--clear-groups',
+        ]),
         'prlimit', f'--cpu={cpu_seconds}', '--',
         *([] if cpu is None else ['taskset', '-c', str(cpu)]),
         command[0],
@@ -67,9 +73,6 @@ async def _run(
             'OPENBLAS_NUM_THREADS': '1',
             'OMP_NUM_THREADS': '1',
         },
-        user=None if _USER is None else _USER.pw_uid,
-        group=None if _USER is None else _USER.pw_gid,
-        extra_groups=None if _USER is None else [],
     )
 
     try:
