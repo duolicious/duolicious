@@ -2,9 +2,12 @@ from serviceshared.duoenv.read import (
     flag_with,
     float_with,
     int_with,
+    required_int,
     str_or_none,
     str_with,
 )
+
+OMP_NUM_THREADS = required_int('OMP_NUM_THREADS')
 
 MAX_RANDOM_START_DELAY = int_with('DUO_CRON_MAX_RANDOM_START_DELAY', 15)
 
