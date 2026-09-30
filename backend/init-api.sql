@@ -1031,6 +1031,7 @@ INSERT INTO looking_for (name) VALUES ('Friends') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Short-term dating') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Long-term dating') ON CONFLICT (name) DO NOTHING;
 INSERT INTO looking_for (name) VALUES ('Marriage') ON CONFLICT (name) DO NOTHING;
+INSERT INTO looking_for (name) VALUES ('Something casual') ON CONFLICT (name) DO NOTHING;
 
 SELECT setval('last_online_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM last_online), FALSE);
 INSERT INTO last_online (name, seconds) VALUES ('Now', {{LAST_ONLINE_NOW_SECONDS}}) ON CONFLICT (name) DO NOTHING;
