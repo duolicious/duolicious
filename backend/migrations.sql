@@ -46,3 +46,17 @@ BEGIN
     EXECUTE FUNCTION
         sync_looking_for();
 END $$;
+
+DO $$
+BEGIN
+    INSERT INTO looking_for (id, name) VALUES (6, 'Something casual')
+    ON CONFLICT DO NOTHING;
+
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    UPDATE search_preference
+    SET looking_for_ids = looking_for_ids || 6::SMALLINT
+    WHERE looking_for_ids @> '{1,2,3,4,5}';
+END $$;

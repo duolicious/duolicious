@@ -174,7 +174,7 @@ test_set same_country_only false
 test_set height '{"min_height_cm": 142, "max_height_cm": 171}'
 test_set body_type '["Athletic", "Thin", "Unanswered"]' true
 test_set has_a_profile_picture '["No", "Yes"]' true
-test_set looking_for '["Friends", "Short-term dating", "Unanswered"]' true
+test_set looking_for '["Friends", "Short-term dating", "Something casual", "Unanswered"]' true
 test_set smoking '["No", "Unanswered"]' true
 test_set drinking '["Never", "Unanswered"]' true
 test_set drugs '["No", "Unanswered"]' true

@@ -56,6 +56,7 @@ LookingFor: TypeAlias = Literal[
     'Short-term dating',
     'Long-term dating',
     'Marriage',
+    'Something casual',
 ]
 
 CLUB_PATTERN = r"""^[a-zA-Z0-9/#'":_-]+( [a-zA-Z0-9/#'":_-]+)*$"""

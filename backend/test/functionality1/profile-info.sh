@@ -484,6 +484,9 @@ test_looking_for () {
   jc PATCH /profile-info -d '{ "looking_for": ["Marriage", "Friends"] }'
   [[ "$(get_field looking_for)" == 'Friends, Marriage' ]]
 
+  jc PATCH /profile-info -d '{ "looking_for": ["Something casual", "Friends"] }'
+  [[ "$(get_field looking_for)" == 'Friends, Something casual' ]]
+
   jc PATCH /profile-info -d '{ "looking_for": [] }'
   [[ "$(get_field looking_for)" == 'Unanswered' ]]
 
