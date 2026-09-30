@@ -3,10 +3,9 @@ from typing import List
 import numpy as np
 import numpy.typing as npt
 import onnxruntime as ort
-import argparse
 from pathlib import Path
 from io import BytesIO
-from pathlib import Path
+from serviceshared.duoenv.cron import OMP_NUM_THREADS
 
 _MODEL_PATH_BASE = Path(__file__).parent.parent / 'antiporn'
 
@@ -16,8 +15,15 @@ for file_path in sorted(_MODEL_PATH_BASE.glob('model.onnx.part*')):
         _MODEL_PARTS.extend(file.read())
 _MODEL = bytes(_MODEL_PARTS)
 
+_SESSION_OPTIONS = ort.SessionOptions()
+_SESSION_OPTIONS.intra_op_num_threads = OMP_NUM_THREADS
+_SESSION_OPTIONS.inter_op_num_threads = 1
+_SESSION_OPTIONS.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+_SESSION_OPTIONS.add_session_config_entry(
+    'session.intra_op.allow_spinning', '0')
+
 # Create a global ONNX runtime session
-_SESSION = ort.InferenceSession(_MODEL)
+_SESSION = ort.InferenceSession(_MODEL, _SESSION_OPTIONS)
 _INPUT_NAME = _SESSION.get_inputs()[0].name
 
 def avg(*n: float) -> float:
