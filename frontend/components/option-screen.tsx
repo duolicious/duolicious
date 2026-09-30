@@ -107,7 +107,10 @@ import {
 } from './verification-camera';
 import { notifyUpdatedVerification } from '../verification/verification';
 import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 import { useAppTheme } from '../app-theme/app-theme';
 import { getSignedInUser } from '../events/signed-in-user';
 import { showPointOfSale } from './modal/point-of-sale-modal';
@@ -1470,6 +1473,97 @@ const InputElement = forwardRef((props: InputProps<OptionGroupInputs>, ref: Forw
   }
 });
 
+const OptionScreenHeader = ({
+  title,
+  description: Description,
+  color,
+  showCloseButton = true,
+  showBackButton = false,
+}: {
+  title: string
+  description: OptionGroup<OptionGroupInputs>['description']
+  color: string
+  showCloseButton?: boolean
+  showBackButton?: boolean
+}) => {
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { appTheme } = useAppTheme();
+
+  return (
+    <>
+      <StatusBarSpacer/>
+      <View
+        style={{
+          width: '100%',
+          maxWidth: 600,
+          alignSelf: 'center',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 1,
+          paddingTop: 10,
+          paddingBottom: 20,
+        }}
+      >
+        {showCloseButton &&
+          <Pressable
+            onPress={() => navigation.popToTop()}
+            style={{position: 'absolute', top: 0, left: 0, zIndex: 99}}
+          >
+            <Ionicons
+              style={{
+                marginTop: 10,
+                marginLeft: 10,
+                fontSize: 30,
+                color: appTheme.secondaryColor,
+              }}
+              name="close"
+            />
+          </Pressable>
+        }
+        {showBackButton &&
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={{position: 'absolute', top: 0, left: 0, zIndex: 99}}
+          >
+            <FontAwesomeIcon
+              style={{
+                margin: 15,
+                color: 'white',
+              }}
+              icon={faArrowLeft}
+              size={24}
+              color="white"
+            />
+          </Pressable>
+        }
+        <DefaultText
+          disableTheme
+          style={{
+            textAlign: 'center',
+            fontWeight: '700',
+            fontSize: 28,
+            color: color,
+            paddingLeft: 40,
+            paddingRight: 40,
+          }}
+        >
+          {title}
+        </DefaultText>
+        {typeof Description === 'string' && <DefaultText
+          disableTheme
+          style={{
+            ...descriptionStyle.style,
+            ...(color ? { color } : { }),
+          }}
+        >
+          {Description}
+        </DefaultText>}
+        {typeof Description !== 'string' && <Description/>}
+      </View>
+    </>
+  );
+};
+
 const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>) => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -1510,8 +1604,6 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
   }, [optionGroups.length]);
 
   const showSkipButton: boolean = payload?.showSkipButton ?? true;
-  const showCloseButton: boolean = payload?.showCloseButton ?? true;
-  const showBackButton: boolean = payload?.showBackButton ?? false;
   const onSubmitSuccess: (() => void) | undefined = payload?.onSubmitSuccess;
 
   const backgroundColor = payload?.backgroundColor ?? appTheme.primaryColor;
@@ -1666,72 +1758,13 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
           alignSelf: 'center',
         }}
       >
-        <StatusBarSpacer/>
-        <View
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 1,
-            paddingTop: 10,
-            paddingBottom: 20,
-          }}
-        >
-          {showCloseButton &&
-            <Pressable
-              onPress={() => navigation.popToTop()}
-              style={{position: 'absolute', top: 0, left: 0, zIndex: 99}}
-            >
-              <Ionicons
-                style={{
-                  marginTop: 10,
-                  marginLeft: 10,
-                  fontSize: 30,
-                  color: appTheme.secondaryColor,
-                }}
-                name="close"
-              />
-            </Pressable>
-          }
-          {showBackButton &&
-            <Pressable
-              onPress={() => navigation.goBack()}
-              style={{position: 'absolute', top: 0, left: 0, zIndex: 99}}
-            >
-              <FontAwesomeIcon
-                style={{
-                  margin: 15,
-                  color: 'white',
-                }}
-                icon={faArrowLeft}
-                size={24}
-                color="white"
-              />
-            </Pressable>
-          }
-          <DefaultText
-            disableTheme
-            style={{
-              textAlign: 'center',
-              fontWeight: '700',
-              fontSize: 28,
-              color: color,
-              paddingLeft: 40,
-              paddingRight: 40,
-            }}
-          >
-            {title}
-          </DefaultText>
-          {typeof Description === 'string' && <DefaultText
-            disableTheme
-            style={{
-              ...descriptionStyle.style,
-              ...(color ? { color } : { }),
-            }}
-          >
-            {Description}
-          </DefaultText>}
-          {typeof Description !== 'string' && <Description/>}
-        </View>
+        <OptionScreenHeader
+          title={title}
+          description={Description}
+          color={color}
+          showCloseButton={payload?.showCloseButton}
+          showBackButton={payload?.showBackButton}
+        />
         <View
           style={{
             flex: 1,
@@ -1832,6 +1865,7 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
 
 export {
   OptionScreen,
+  OptionScreenHeader,
   noneFontSize,
   descriptionStyle,
 };

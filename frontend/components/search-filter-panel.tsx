@@ -39,6 +39,7 @@ import {
   TwoWayFilterToggles,
   advancedSearchFilterOptionGroups,
   countChangedAdvancedFilters,
+  twoWayFiltersDescription,
   useColdStartSearchFilters,
   useQAndAFilters,
   withCurrentValue,
@@ -333,6 +334,18 @@ const BasicFilters = ({ data, isSignedOut }: {
   );
 };
 
+const PanelEditor = ({ description: Description, children }: {
+  description: OptionGroup<OptionGroupInputs>['description']
+  children: ReactNode
+}) =>
+  <View style={styles.editor}>
+    {typeof Description === 'string' &&
+      <DefaultText style={styles.editorDescription}>{Description}</DefaultText>
+    }
+    {typeof Description !== 'string' && <Description />}
+    {children}
+  </View>;
+
 const FilterEditor = ({ title, data }: { title: string, data: SearchFilters }) => {
   const [signedInUser] = useSignedInUser();
   const og = advancedSearchFilterOptionGroups.find((og) => og.title === title);
@@ -342,16 +355,11 @@ const FilterEditor = ({ title, data }: { title: string, data: SearchFilters }) =
   }
 
   const current = withCurrentValue(og, data, signedInUser);
-  const Description = current.description;
 
   return (
-    <View style={styles.editor}>
-      {typeof Description === 'string' &&
-        <DefaultText style={styles.editorDescription}>{Description}</DefaultText>
-      }
-      {typeof Description !== 'string' && <Description />}
+    <PanelEditor description={current.description}>
       <PanelInput og={current} />
-    </View>
+    </PanelEditor>
   );
 };
 
@@ -441,7 +449,11 @@ const PanelBody = ({ title, data, isSignedOut, open }: {
     return <QAndAFilters />;
   }
   if (title === TWO_WAY_FILTERS) {
-    return <TwoWayFilterToggles />;
+    return (
+      <PanelEditor description={twoWayFiltersDescription}>
+        <TwoWayFilterToggles />
+      </PanelEditor>
+    );
   }
   return <FilterEditor title={title} data={data} />;
 };

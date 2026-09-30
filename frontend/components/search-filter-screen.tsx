@@ -35,9 +35,8 @@ import {
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
 import type { SearchFilterParamList } from '../navigation/linking';
-import { OptionScreen } from './option-screen';
+import { OptionScreen, OptionScreenHeader } from './option-screen';
 import { Toggle } from './toggle';
-import { descriptionStyle } from './option-styles';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DefaultTextInput } from './default-text-input';
 import { SearchQuizCard } from './quiz-card';
@@ -737,6 +736,12 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
   );
 };
 
+const twoWayFiltersDescription =
+  'Making a filter two-way means you’ll only see people whose search ' +
+  'preferences you match. So if you make age two-way, you’ll only see ' +
+  'people whose preferred age range includes you. Two-way filters don’t ' +
+  'hide you from other members.';
+
 const TwoWayFilterToggles = () => {
   const { appTheme } = useAppTheme();
   const isLocked = useIsWebLoggedOut();
@@ -757,13 +762,7 @@ const TwoWayFilterToggles = () => {
   }, [isLocked]);
 
   return (
-    <>
-      <DefaultText style={{ ...descriptionStyle.style, marginBottom: 10 }}>
-        Making a filter two-way means you’ll only see people whose search
-        preferences you match. So if you make age two-way, you’ll only see
-        people whose preferred age range includes you. Two-way filters don’t
-        hide you from other members.
-      </DefaultText>
+    <View>
       {twoWayFilterList.map((f) => {
         const Icon = f.Icon;
         return (
@@ -777,51 +776,32 @@ const TwoWayFilterToggles = () => {
           </View>
         );
       })}
-    </>
+    </View>
   );
 };
 
-const TwoWayFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterParamList, 'Two-way Filters Screen'>) => {
+const TwoWayFilterScreen = () => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const data = useColdStartSearchFilters();
 
-  const goBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
   return (
     <View style={styles.safeAreaView}>
-      <TopNavBar
-        style={{
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <TopNavBarButton
-          onPress={goBack}
-          iconName="arrow-back"
-          position="left"
-          secondary={true}
-        />
-        <DefaultText
-          style={{
-            fontWeight: '700',
-            fontSize: 20,
-          }}
-        >
-          Two-way Filters
-        </DefaultText>
-      </TopNavBar>
+      <OptionScreenHeader
+        title="Two-way Filters"
+        description={twoWayFiltersDescription}
+        color={appTheme.secondaryColor}
+      />
 
       {data &&
         <ScrollView
+          style={{ flex: 1 }}
           contentContainerStyle={{
             maxWidth: 600,
             width: '100%',
             alignSelf: 'center',
             alignItems: 'stretch',
-            padding: 10,
+            paddingHorizontal: 10,
             paddingBottom: 50 + insets.bottom,
           }}
         >
@@ -866,6 +846,7 @@ export {
   SearchFilterScreen,
   TwoWayFilterToggles,
   advancedSearchFilterOptionGroups,
+  twoWayFiltersDescription,
   countChangedAdvancedFilters,
   signedOutSearchFilters,
   getCurrentValueAsLabel,
