@@ -35,6 +35,7 @@ const LOOKING_FOR_EMOJI: { [key: string]: string } = {
   'Short-term dating': '🥂',
   'Long-term dating': '💘',
   'Marriage': '💍',
+  'Something casual': '🎉',
 };
 
 const DEFAULT_LOOKING_FOR_EMOJI = '💞';

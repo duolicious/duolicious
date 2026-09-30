@@ -430,6 +430,7 @@ const lookingFor = [
   'Short-term dating',
   'Long-term dating',
   'Marriage',
+  'Something casual',
 ];
 
 const relationshipStatus = [

@@ -203,6 +203,7 @@ describe('lookingForEmoji', () => {
     expect(lookingForEmoji({ looking_for: ['Short-term dating'] })).toBe('🥂');
     expect(lookingForEmoji({ looking_for: ['Long-term dating'] })).toBe('💘');
     expect(lookingForEmoji({ looking_for: ['Marriage'] })).toBe('💍');
+    expect(lookingForEmoji({ looking_for: ['Something casual'] })).toBe('🎉');
   });
 
   test('falls back to a default emoji for several goals', () => {
