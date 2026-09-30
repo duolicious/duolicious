@@ -258,11 +258,6 @@ class Base64File(BaseModel):
         except:
             raise ValueError(f'Base64 string is valid but is not an image')
 
-        try:
-            image.load()
-        except:
-            raise ValueError(f'Image invalid')
-
         md5_hash = md5(base64_value)
 
         # The banned-photo check needs the async DB, which pydantic validators

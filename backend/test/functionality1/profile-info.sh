@@ -101,6 +101,19 @@ test_photo () {
     -d "{
             \"base64_file\": {
                 \"position\": 1,
+                \"base64\": \"${img1:0:200}\",
+                \"top\": 0,
+                \"left\": 0
+            }
+        }" \
+    | grep -q 'Image invalid'
+
+  [[ "$(q "select COUNT(*) from photo")" -eq 0 ]]
+
+  jc PATCH /profile-info \
+    -d "{
+            \"base64_file\": {
+                \"position\": 1,
                 \"base64\": \"${img1}\",
                 \"top\": 0,
                 \"left\": 0

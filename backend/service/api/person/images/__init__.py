@@ -84,6 +84,12 @@ def compute_blurhash(image: Image.Image, crop_size: CropSize | None = None) -> o
 
     return blurhash.encode(numpy.array(image.convert("RGB")))
 
+async def load_image(base64_file: t.Base64File) -> None:
+    try:
+        await run_in_threadpool(base64_file.image.load)
+    except Exception:
+        raise t.FieldValidationError('base64_file', 'Image invalid')
+
 async def put_image_in_object_store(
     uuid: str,
     base64_file: t.Base64File,
