@@ -10,26 +10,24 @@ from service.api.chat.chatutil import REDIS_WORKER_CLIENT
 from service.api.chat.online import redis_publish_online
 from service.api.duoaudio import (
     put_audio_in_object_store,
-    transcode_and_trim_audio_from_bytes,
+    transcode_and_trim_audio,
 )
 from service.api.person.aboutdiff import diff_addition_with_context
-from service.api.person.duophoto import (
-    CropSize,
-    orient_image,
-    photo_geometry,
-    photo_geometry_params,
-)
-from service.api.person.images import (
-    compute_blurhash,
-    load_image,
-    put_image_in_object_store,
-)
+from service.api.person.images import load_image
 from service.api.person.rudecheck import reject_rude_or_banned
 from service.api.person.sql import *
 from serviceshared.gold.sql import Q_HAS_GOLD
 from service.api.person.urlslug import assign_url_slug
 from serviceshared.commonsql import *
 from serviceshared.database import api_tx
+from serviceshared.duophoto import (
+    CropSize,
+    compute_blurhash,
+    orient_image,
+    photo_geometry,
+    photo_geometry_params,
+    put_image_in_object_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,76 +72,6 @@ WITH updated_person AS (
     VALUES
         (%(person_id)s, 'about')
     ON CONFLICT DO NOTHING
-)
-SELECT 1
-"""
-
-Q_PATCH_PHOTO = """
-WITH existing_uuid AS (
-    SELECT
-        uuid
-    FROM
-        photo
-    WHERE
-        person_id = %(person_id)s
-    AND
-        position = %(position)s
-), undeleted_photo_insertion AS (
-    INSERT INTO undeleted_photo (
-        uuid
-    )
-    SELECT
-        uuid
-    FROM
-        existing_uuid
-), photo_insertion AS (
-    INSERT INTO photo (
-        person_id,
-        position,
-        uuid,
-        blurhash,
-        extra_exts,
-        hash,
-        width,
-        height,
-        crop_top,
-        crop_left,
-        nsfw_score
-    ) VALUES (
-        %(person_id)s,
-        %(position)s,
-        %(uuid)s,
-        %(blurhash)s,
-        %(extra_exts)s,
-        %(hash)s,
-        %(width)s,
-        %(height)s,
-        %(crop_top)s,
-        %(crop_left)s,
-        -1
-    ) ON CONFLICT (person_id, position) DO UPDATE SET
-        uuid = EXCLUDED.uuid,
-        blurhash = EXCLUDED.blurhash,
-        extra_exts = EXCLUDED.extra_exts,
-        hash = EXCLUDED.hash,
-        width = EXCLUDED.width,
-        height = EXCLUDED.height,
-        crop_top = EXCLUDED.crop_top,
-        crop_left = EXCLUDED.crop_left,
-        nsfw_score = EXCLUDED.nsfw_score,
-        verified = FALSE
-), updated_person AS (
-    UPDATE person
-    SET
-        last_event_time = now(),
-        last_event_name = 'added-photo',
-        last_event_data = jsonb_build_object(
-            'added_photo_uuid', %(uuid)s,
-            'added_photo_blurhash', %(blurhash)s,
-            'added_photo_extra_exts', %(extra_exts)s::TEXT[]
-        )
-    WHERE
-        id = %(person_id)s
 )
 SELECT 1
 """
@@ -447,7 +375,7 @@ async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
     uuid = secrets.token_hex(32)
     blurhash_ = await asyncio.to_thread(
         compute_blurhash, base64_file.image, crop_size=crop_size)
-    extra_exts = ['gif'] if base64_file.image.format == 'GIF' else []
+    is_gif = base64_file.image.format == 'GIF'
     geometry = photo_geometry(
         *(await asyncio.to_thread(orient_image, base64_file.image)).size,
         crop_size,
@@ -458,8 +386,9 @@ async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
         position=base64_file.position,
         uuid=uuid,
         blurhash=blurhash_,
-        extra_exts=extra_exts,
+        extra_exts=['gif'] if is_gif else [],
         hash=base64_file.md5_hash,
+        nsfw_score=-1,
         **photo_geometry_params(geometry),
     )
 
@@ -468,7 +397,12 @@ async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
         await tx.execute(Q_UPDATE_VERIFICATION_LEVEL, params)
 
     try:
-        await put_image_in_object_store(uuid, base64_file, crop_size)
+        await put_image_in_object_store(
+            uuid,
+            base64_file.image,
+            crop_size,
+            raw_gif=base64_file.bytes if is_gif else None,
+        )
     except:
         logger.exception('Storing image failed')
         async with api_tx() as tx:
@@ -483,8 +417,7 @@ async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
 
 async def _patch_audio(
         person_id: int, base64_audio_file: t.Base64AudioFile) -> object:
-    transcoded = await asyncio.to_thread(
-        transcode_and_trim_audio_from_bytes, base64_audio_file.bytes)
+    transcoded = await transcode_and_trim_audio(base64_audio_file.bytes)
 
     if isinstance(transcoded, ValueError):
         raise t.FieldValidationError('base64_audio_file', str(transcoded))

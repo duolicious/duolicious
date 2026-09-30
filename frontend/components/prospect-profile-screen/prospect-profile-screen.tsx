@@ -1089,6 +1089,7 @@ const ProspectProfile = ({
                 album={album}
                 isPrimary={true}
                 isVerified={data?.photo_verifications[0]}
+                autoplay={true}
                 borderRadius={
                   roundPrimaryPhoto ? primaryPhotoBigScreenRadii : undefined}
                 style={
@@ -1560,6 +1561,7 @@ const Body = ({
       innerStyle={commonStyles.secondaryEnlargeablePhotoInner}
       isPrimary={false}
       isVerified={data?.photo_verifications?.[position] ?? false}
+      autoplay={true}
     />
   );
 

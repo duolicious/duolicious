@@ -17,6 +17,7 @@ import { getShortElapsedTime, isMobile, assertNever, capLuminance, formatCount }
 import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation';
 import { GestureResponderEvent, LayoutChangeEvent, Pressable, ViewStyle } from 'react-native';
 import { EnlargeablePhoto } from './enlargeable-image';
+import { videoUri } from '../util/photos';
 import { commonStyles } from '../styles';
 import { VerificationBadge } from './verification-badge';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -76,6 +77,7 @@ const DefaultList = Platform.OS === 'web' ? DefaultFlatList : DefaultFlashList;
 
 type Action =
   | "Added a photo"
+  | "Added a video"
   | "Added a voice bio"
   | "Erased their bio"
   | "Joined"
@@ -1308,7 +1310,9 @@ const FeedItemWasRecentlyOnline = ({
 
 const FeedItemAddedPhoto = ({
   fields,
-  action = "Added a photo",
+  action = videoUri(fields.added_photo_uuid, fields.added_photo_extra_exts)
+    ? "Added a video"
+    : "Added a photo",
 }: {
   fields: AddedPhotoFields,
   action?: Action,

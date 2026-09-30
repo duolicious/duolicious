@@ -47,8 +47,8 @@ async def delete_images_from_object_store(
     dry_run: bool = True,
     dry_run_env_var_name: str = 'dry run',
 ) -> None:
-    # Split the uuids list into chunks of 300 since the limit is 1000 and
-    # there's three objects to delete per uuid
+    # Split the uuids list into chunks of 200 since the limit is 1000 and
+    # there's five objects to delete per uuid
     chunks = [uuids[i:i+200] for i in range(0, len(uuids), 200)]
 
     s3_client = boto3.client(
@@ -67,6 +67,7 @@ async def delete_images_from_object_store(
                 f'900-{uuid}.jpg',
                 f'450-{uuid}.jpg',
                 f'{uuid}.gif',
+                f'{uuid}.mp4',
             ]
             if uuid is not None
         ]

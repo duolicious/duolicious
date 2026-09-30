@@ -6,8 +6,15 @@ from serviceshared.duoenv.read import (
     str_with,
     stripped_str,
 )
+from serviceshared.duoenv.shared import BOTO_ENDPOINT_URL
 
 ENV = required_str('DUO_ENV')
+
+R2_PRESIGN_ENDPOINT_URL = str_with(
+    'DUO_R2_PRESIGN_ENDPOINT_URL',
+    BOTO_ENDPOINT_URL,
+)
+VIDEO_MAX_QUEUED_JOBS = int_with('DUO_VIDEO_MAX_QUEUED_JOBS', 100)
 
 CORS_ORIGINS = str_with('DUO_CORS_ORIGINS', '*')
 COMMIT_HASH = str_with('DUO_COMMIT_HASH', 'unknown')

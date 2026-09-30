@@ -23,6 +23,7 @@ from service.api import person
 from service.api.person import profileinfo
 from service.api import qanda
 from service.api import search
+from service.api import videoupload
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
 from service.api.auth import apple_oauth, discord_oauth, spotify_oauth
 from service.api.gold import paypal, revenuecat
@@ -529,6 +530,28 @@ async def get_check_verification(
     s: t.SessionInfo = Depends(session()),
 ) -> object:
     return await person.get_check_verification(s)
+
+@app.post('/video-upload')
+async def post_video_upload(
+    request: Request,
+    req: t.PostVideoUpload,
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    return await videoupload.post_video_upload(request, req, s)
+
+@app.post('/video-upload/{uuid}/done')
+async def post_video_upload_done(
+    uuid: str,
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    return await videoupload.post_video_upload_done(uuid, s)
+
+@app.get('/video-upload/{uuid}')
+async def get_video_upload(
+    uuid: str,
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    return await videoupload.get_video_upload(uuid, s)
 
 @app.get('/stats')
 async def get_stats(request: Request) -> object:

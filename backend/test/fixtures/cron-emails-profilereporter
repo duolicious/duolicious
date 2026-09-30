@@ -36,6 +36,7 @@ Body: <!DOCTYPE html>
   times_reported_in_the_past_24_hours: 0
   url_slug: reporterbot
   verification_level: No verification
+  video_links: []
 - about: 17. just looking for friends
   account_age_in_days: 0
   age: 26
@@ -58,6 +59,7 @@ Body: <!DOCTYPE html>
   times_reported_in_the_past_24_hours: 1
   url_slug: user2
   verification_level: No verification
+  video_links: []
 </pre>
 <p><b>Accused person's images:</b></p>
 <p><b>Last messages between reporter and accused:</b></p>

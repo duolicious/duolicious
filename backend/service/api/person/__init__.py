@@ -50,7 +50,7 @@ from service.api.qanda import _flush_session_answers
 from serviceshared.constants import VISITOR_ONLINE_TIMEOUT_SECONDS
 from service.api.person.visitornotification import notify_of_visit
 from service.api.person.visitorspush import publish_visit
-from service.api.person.images import load_image, put_image_in_object_store
+from service.api.person.images import load_image
 from service.api.person.rudecheck import reject_rude_or_banned
 from service.api.person.template import otp_template
 import logging
@@ -69,7 +69,7 @@ from service.api.async_lru_cache import AsyncLruCache
 from service.api.search.rediscache import redis_cache
 from datetime import datetime, timezone
 from urllib.parse import quote
-from service.api.person.duophoto import CropSize
+from serviceshared.duophoto import CropSize, put_image_in_object_store
 from service.api.auth.session import sign_out, enforce_session_limit
 from service.api.auth.social import (
     SocialAuthError,
@@ -1248,7 +1248,7 @@ async def post_verification_selfie(
 
     try:
         await put_image_in_object_store(
-            photo_uuid, req.base64_file, crop_size, sizes=[450])
+            photo_uuid, req.base64_file.image, crop_size, sizes=[450])
     except Exception:
         logger.exception('Upload failed')
         return '', 500
