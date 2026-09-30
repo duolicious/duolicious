@@ -1,4 +1,5 @@
 from service.api.location import SQL_POINT, snap_to_grid
+import asyncio
 import logging
 import secrets
 from collections.abc import Mapping
@@ -7,7 +8,10 @@ from dataclasses import dataclass
 import service.api.duotypes as t
 from service.api.chat.chatutil import REDIS_WORKER_CLIENT
 from service.api.chat.online import redis_publish_online
-from service.api.duoaudio import put_audio_in_object_store
+from service.api.duoaudio import (
+    put_audio_in_object_store,
+    transcode_and_trim_audio_from_bytes,
+)
 from service.api.person.aboutdiff import diff_addition_with_context
 from service.api.person.duophoto import (
     CropSize,
@@ -446,8 +450,13 @@ async def _patch_photo(person_id: int, field_value: object) -> object:
     return None
 
 
-async def _patch_audio(person_id: int, field_value: object) -> object:
-    base64_audio_file = t.Base64AudioFile.model_validate(field_value)
+async def _patch_audio(
+        person_id: int, base64_audio_file: t.Base64AudioFile) -> object:
+    transcoded = await asyncio.to_thread(
+        transcode_and_trim_audio_from_bytes, base64_audio_file.bytes)
+
+    if isinstance(transcoded, ValueError):
+        raise t.FieldValidationError('base64_audio_file', str(transcoded))
 
     uuid = secrets.token_hex(32)
 
@@ -462,7 +471,7 @@ async def _patch_audio(person_id: int, field_value: object) -> object:
     try:
         await put_audio_in_object_store(
             uuid=uuid,
-            audio_file_bytes=base64_audio_file.transcoded,
+            audio_file_bytes=transcoded,
         )
     except:
         logger.exception('Storing audio failed')
@@ -540,8 +549,8 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
 
     if field_name == 'base64_file':
         return await _patch_photo(s.person_id, field_value)
-    if field_name == 'base64_audio_file':
-        return await _patch_audio(s.person_id, field_value)
+    if req.base64_audio_file is not None:
+        return await _patch_audio(s.person_id, req.base64_audio_file)
     if field_name == 'name':
         return await _patch_name(s.person_id, field_value)
     if field_name == 'about':

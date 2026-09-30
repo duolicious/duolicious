@@ -33,7 +33,7 @@ import io
 import base64
 import binascii
 import hashlib
-from service.api.duoaudio import transcode_and_trim_audio_from_base64
+from service.api.duoaudio import decode_base64_audio
 import traceback
 from serviceshared.antiabuse.antirude import profile
 from serviceshared.antiabuse.antispam.urldetector import has_url
@@ -204,7 +204,6 @@ class ClubItem(BaseModel):
 
 class Base64AudioFile(BaseModel):
     base64: str
-    transcoded: bytes
     bytes: bytes
 
     @model_validator(mode='before')
@@ -212,20 +211,12 @@ class Base64AudioFile(BaseModel):
         if not isinstance(values, dict):
             return values
 
-        # Avoid performing transcoding a second time
-        if 'base64' in values and 'bytes' in values and 'transcoded' in values:
-            return values
+        decoded_bytes = decode_base64_audio(_string_field(values, 'base64'))
 
-        response = transcode_and_trim_audio_from_base64(
-            _string_field(values, 'base64'))
-
-        if isinstance(response, ValueError):
-            raise response
-
-        decoded_bytes, transcoded = response
+        if isinstance(decoded_bytes, ValueError):
+            raise decoded_bytes
 
         values['bytes'] = decoded_bytes
-        values['transcoded'] = transcoded
 
         return values
     class Config:
