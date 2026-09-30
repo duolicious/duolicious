@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { DefaultText } from '../default-text';
-import { DefaultModal } from './default-modal';
-import { backgroundColors } from './background-colors';
-import { ButtonWithCenteredText } from '../button/centered-text';
+import { ChoiceModal } from './choice-modal';
 import { listen, notify } from '../../events/events';
 import { pluralize } from '../../util/util';
 
@@ -44,67 +40,15 @@ const DateOfBirthConfirmationModal = () => {
   const age = data?.age;
 
   return (
-    <DefaultModal
-      transparent={true}
+    <ChoiceModal
       visible={visible}
-      onRequestClose={close}
-    >
-      <View
-        style={{
-          width: '100%',
-          height: '100%',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20,
-          ...backgroundColors.dark,
-        }}
-      >
-        <View
-          style={{
-            width: '100%',
-            maxWidth: 400,
-            backgroundColor: 'white',
-            borderRadius: 10,
-            padding: 20,
-            gap: 15,
-          }}
-        >
-          <DefaultText
-            style={{
-              fontSize: 22,
-              fontWeight: 900,
-              textAlign: 'center',
-            }}
-          >
-            You’re {age} {pluralize('year', age ?? 0)} old
-          </DefaultText>
-          <DefaultText
-            style={{
-              fontSize: 15,
-              textAlign: 'center',
-              color: '#333',
-            }}
-          >
-            Your matches are based on this. It can’t be easily changed after
-            signup. Is this right?
-          </DefaultText>
-          <ButtonWithCenteredText
-            onPress={onConfirm}
-            backgroundColor="#7700ff"
-            textStyle={{ color: 'white', fontWeight: '700' }}
-          >
-            Yes, I’m {age}
-          </ButtonWithCenteredText>
-          <ButtonWithCenteredText
-            onPress={close}
-            secondary={true}
-            textStyle={{ fontWeight: '700' }}
-          >
-            No, let me fix it
-          </ButtonWithCenteredText>
-        </View>
-      </View>
-    </DefaultModal>
+      title={`You’re ${age} ${pluralize('year', age ?? 0)} old`}
+      message="Your matches are based on this. It can’t be easily changed after signup. Is this right?"
+      primaryLabel={`Yes, I’m ${age}`}
+      onPressPrimary={onConfirm}
+      secondaryLabel="No, let me fix it"
+      onPressSecondary={close}
+    />
   );
 };
 
