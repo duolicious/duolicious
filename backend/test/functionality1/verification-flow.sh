@@ -85,6 +85,19 @@ EOF
     -d "{
             \"base64_file\": {
                 \"position\": 1,
+                \"base64\": \"${img1:0:200}\",
+                \"top\": 0,
+                \"left\": 0
+            }
+        }" \
+    | grep -q 'Image invalid'
+
+  [[ "$(q "select COUNT(*) from verification_job")" -eq 0 ]]
+
+  jc POST /verification-selfie \
+    -d "{
+            \"base64_file\": {
+                \"position\": 1,
                 \"base64\": \"${img1}\",
                 \"top\": 0,
                 \"left\": 0

@@ -21,6 +21,7 @@ from service.api.person.duophoto import (
 )
 from service.api.person.images import (
     compute_blurhash,
+    load_image,
     put_image_in_object_store,
 )
 from service.api.person.rudecheck import reject_rude_or_banned
@@ -437,17 +438,18 @@ async def _patch_profile_info_about(
         await tx.execute(Q_PATCH_ABOUT, update_params)
 
 
-async def _patch_photo(person_id: int, field_value: object) -> object:
-    base64_file = t.Base64File.model_validate(field_value)
+async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
+    await load_image(base64_file)
 
     crop_size = CropSize(
             top=base64_file.top,
             left=base64_file.left)
     uuid = secrets.token_hex(32)
-    blurhash_ = compute_blurhash(base64_file.image, crop_size=crop_size)
+    blurhash_ = await asyncio.to_thread(
+        compute_blurhash, base64_file.image, crop_size=crop_size)
     extra_exts = ['gif'] if base64_file.image.format == 'GIF' else []
     geometry = photo_geometry(
-        *orient_image(base64_file.image).size,
+        *(await asyncio.to_thread(orient_image, base64_file.image)).size,
         crop_size,
     )
 
@@ -576,8 +578,8 @@ async def patch_profile_info(req: t.PatchProfileInfo, s: t.SessionInfo) -> objec
     if field_value is None and field_name in t.PATCH_PROFILE_INFO_LOOKUP_BASICS:
         field_value = 'Unanswered'
 
-    if field_name == 'base64_file':
-        return await _patch_photo(s.person_id, field_value)
+    if req.base64_file is not None:
+        return await _patch_photo(s.person_id, req.base64_file)
     if req.base64_audio_file is not None:
         return await _patch_audio(s.person_id, req.base64_audio_file)
     if field_name == 'name':

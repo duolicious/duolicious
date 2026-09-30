@@ -40,7 +40,7 @@ from service.api.qanda import _flush_session_answers
 from serviceshared.constants import VISITOR_ONLINE_TIMEOUT_SECONDS
 from service.api.person.visitornotification import notify_of_visit
 from service.api.person.visitorspush import publish_visit
-from service.api.person.images import put_image_in_object_store
+from service.api.person.images import load_image, put_image_in_object_store
 from service.api.person.rudecheck import reject_rude_or_banned
 from service.api.person.template import otp_template
 import logging
@@ -1212,6 +1212,7 @@ async def post_verification_selfie(
     s: t.SessionInfo,
 ) -> object:
     await reject_rude_or_banned('base64_file', req)
+    await load_image(req.base64_file)
 
     base64 = req.base64_file.base64
     image = req.base64_file.image
