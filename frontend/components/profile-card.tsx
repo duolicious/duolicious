@@ -25,6 +25,7 @@ import {
   NavigationProp,
   useNavigation,
 } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { HomeParamList, RootParamList } from '../navigation/linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { listen } from '../events/events';
@@ -243,7 +244,7 @@ const ProfileCard = ({
 
   const navigation = useNavigation<CompositeNavigationProp<
     NavigationProp<HomeParamList>,
-    NavigationProp<RootParamList>
+    NativeStackNavigationProp<RootParamList>
   >>();
 
   const itemOnPress = useCallback((e: GestureResponderEvent) => {
@@ -261,7 +262,7 @@ const ProfileCard = ({
       return navigation.navigate('Profile');
     } else if (personUuid) {
       setProspectHint(handle, { photoBlurhash });
-      return navigation.navigate(
+      return navigation.push(
         'Prospect Profile Screen',
         {
           screen: 'Prospect Profile',
