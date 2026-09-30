@@ -132,29 +132,45 @@ test_photo () {
   [[ "$(q "select COUNT(*) from photo")" -eq 0 ]]
 }
 
-test_photo_files_stored_before_row () {
-  local body_file=$(mktemp)
-
+start_large_photo_upload () {
   {
     printf '{"base64_file": {"position": 1, "top": 0, "left": 0, "base64": "'
     ./rand-image.sh 1800 1800 | base64 -w 0
     printf '"}}'
-  } > "$body_file"
+  } | jc PATCH /profile-info -d @- &
+  large_photo_upload=$!
 
-  jc PATCH /profile-info -d @"$body_file" &
-  local upload=$!
-
-  while kill -0 "$upload" 2>/dev/null && [[ -z "$(q "select uuid from photo where position = 1")" ]]
+  while kill -0 "$large_photo_upload" 2>/dev/null && [[ -z "$(q "select uuid from photo where position = 1")" ]]
   do
     :
   done
+}
 
-  assert_photos_downloadable_by_uuid "$(q "select uuid from photo where position = 1")"
+test_photo_scanned_once_stored () {
+  start_large_photo_upload
 
-  wait "$upload"
-  rm "$body_file"
+  local uuid=$(q "select uuid from photo where position = 1")
+
+  [[ "$(q "select nsfw_score from photo where uuid = '$uuid'")" = -1 ]] \
+    || assert_photos_downloadable_by_uuid "$uuid"
+
+  wait "$large_photo_upload"
+
+  [[ "$(q "select nsfw_score from photo where uuid = '$uuid'")" != -1 ]]
 
   jc DELETE /profile-info -d '{ "files": [1] }'
+}
+
+test_photo_deleted_while_storing () {
+  start_large_photo_upload
+
+  local uuid=$(q "select uuid from photo where position = 1")
+
+  q "delete from photo where uuid = '$uuid'"
+
+  wait "$large_photo_upload"
+
+  wait_for_deletion_by_uuid "$uuid"
 }
 
 test_photo_assignments () {
@@ -558,7 +574,9 @@ test_club
 
 test_photo
 
-test_photo_files_stored_before_row
+test_photo_scanned_once_stored
+
+test_photo_deleted_while_storing
 
 test_photo_assignments
 
