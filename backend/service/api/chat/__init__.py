@@ -705,7 +705,7 @@ async def process_text(
                 has_subscribers=to_has_subscribers,
             )
 
-        if sent_messages_in_chats(from_id):
+        if is_intro and sent_messages_in_chats(from_id):
             await _publish_inbox_entry(
                 viewer_username=from_username,
                 prospect_username=to_username)

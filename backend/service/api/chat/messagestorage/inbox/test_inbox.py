@@ -46,6 +46,21 @@ class TestBuildInboxSnapshotQuery(unittest.TestCase):
             '22222222-2222-2222-2222-222222222222@duolicious.app',
         )
 
+    def test_sent_messages_in_chats_follows_the_viewers_arm(self) -> None:
+        for person_id, expected in [(389200, True), (389204, False)]:
+            with self.subTest(person_id=person_id):
+                prefs = maximal_prefs()
+                prefs['searcher_person_id'] = person_id
+
+                query, params = build_inbox_snapshot_query(
+                    username='11111111-1111-1111-1111-111111111111',
+                    prefs=prefs,
+                    prospect_username=None,
+                )
+
+                self.assertIs(params['sent_messages_in_chats'], expected)
+                self.assertIn('%(sent_messages_in_chats)s', query)
+
 
 if __name__ == '__main__':
     unittest.main()

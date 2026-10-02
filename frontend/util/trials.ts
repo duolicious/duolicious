@@ -13,4 +13,7 @@ const landingTab = (personId: number | undefined): 'Search' | 'Q&A' =>
 const introMessagePreviews = (personId: number | undefined): boolean =>
   treated(personId, 389200, 1);
 
-export { landingTab, introMessagePreviews };
+const sentMessagesInChats = (personId: number | undefined): boolean =>
+  treated(personId, 389200, 2);
+
+export { landingTab, introMessagePreviews, sentMessagesInChats };

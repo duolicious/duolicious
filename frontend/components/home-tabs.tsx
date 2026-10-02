@@ -21,11 +21,10 @@ const Tab = isMobile() ? createBottomTabNavigator() : createWebNavigator();
 const HomeTabs = () => {
   const gated = useIsWebLoggedOut();
   const [signedInUser] = useSignedInUser();
-  const searchFirst = landingTab(signedInUser?.personId) === 'Search';
-  const searchScreen = <Tab.Screen name="Search" component={SearchTab} options={{ title: 'Search' }} />;
 
   return (
     <Tab.Navigator
+      initialRouteName={landingTab(signedInUser?.personId)}
       backBehavior="history"
       screenOptions={{
         headerShown: false,
@@ -38,9 +37,8 @@ const HomeTabs = () => {
       // bottom-tabs animation packages are racing to detach the screens.
       detachInactiveScreens={Platform.OS !== 'ios'}
     >
-      {searchFirst && searchScreen}
       <Tab.Screen name="Q&A" component={QuizTab} options={{ title: 'Q&A' }} />
-      {!searchFirst && searchScreen}
+      <Tab.Screen name="Search" component={SearchTab} options={{ title: 'Search' }} />
       <Tab.Screen name="Feed" component={gated ? LockedTab : FeedTab} options={{ title: 'Feed' }} />
       <Tab.Screen name="Inbox" component={gated ? LockedTab : InboxTab} options={{ title: 'Inbox' }} />
       <Tab.Screen name="Visitors" component={gated ? LockedTab : VisitorsTab} options={{ title: 'Visitors' }} />

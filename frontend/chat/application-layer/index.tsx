@@ -363,7 +363,8 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
     lastMessageTimestamp: new Date(),
   };
 
-  // It's a new conversation. It will remain hidden until someone replies
+  // It's a new conversation. It stays hidden until someone replies, unless the
+  // server pushes it to a sender who sees unreplied conversations in Chats
   if (!chatsConversation && !introsConversation) {
     updatedConversation.location = 'nowhere';
   }
