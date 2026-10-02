@@ -681,14 +681,7 @@ WHERE
 """
 
 
-def feed_v2_query(two_way_age: bool, same_country_only: bool) -> str:
-    reverse_age = """
-        AND
-            COALESCE(preference.min_age, 0) <= searcher.searcher_age
-        AND
-            COALESCE(preference.max_age, 999) >= searcher.searcher_age
-    """ if two_way_age else ''
-
+def feed_v2_query(same_country_only: bool) -> str:
     same_country = """
     AND
         prospect.location_country = searcher.searcher_country
@@ -701,7 +694,6 @@ WITH searcher AS (
         uuid AS searcher_uuid,
         url_slug AS searcher_url_slug,
         gender_id,
-        EXTRACT(YEAR FROM AGE(date_of_birth)) AS searcher_age,
         location_country AS searcher_country,
         personality,
         verification_level_id
@@ -1038,8 +1030,7 @@ WITH searcher AS (
         AND
             prospect.gender_id = ANY(preference.gender_ids)
     )
-    -- The prospect prefers the searcher's gender and, in the two-way age
-    -- trial, their age
+    -- The searcher's gender is one the prospect prefers
     AND EXISTS (
         SELECT
             1
@@ -1049,7 +1040,6 @@ WITH searcher AS (
             preference.person_id = prospect.id
         AND
             searcher.gender_id = ANY(preference.gender_ids)
-        {reverse_age}
     )
     -- The prospect meets the searcher's age preference
     AND EXISTS (
