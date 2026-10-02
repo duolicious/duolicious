@@ -8,7 +8,6 @@ from serviceshared.database import Tx, api_tx, row_bool, row_int
 from serviceshared.util.coerce import integer
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
-from service.api.trials import same_country_only_in_feed, two_way_age_in_feed
 from collections.abc import Sequence
 from typing import Literal, Tuple
 from service.api.searchfilters import Q_SEARCH_PARAMETERS
@@ -321,7 +320,7 @@ async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
         await tx.execute('SET LOCAL jit = off')
         await tx.execute("SET LOCAL work_mem = '32MB'")
 
-        same_country_only = same_country_only_in_feed(person_id) and row_bool(
+        same_country_only = row_bool(
             await tx.require_one(
                 Q_SAME_COUNTRY_ONLY,
                 params=dict(person_id=person_id),
@@ -330,10 +329,7 @@ async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
         )
 
         await tx.execute(
-            feed_v2_query(
-                two_way_age=two_way_age_in_feed(person_id),
-                same_country_only=same_country_only,
-            ),
+            feed_v2_query(same_country_only=same_country_only),
             dict(searcher_person_id=person_id, before=before),
         )
         rows = await tx.fetchall()
