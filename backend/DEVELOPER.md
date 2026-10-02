@@ -113,6 +113,14 @@ These environment variables specify where user-uploaded content is stored:
 
 These env vars get passed to the `boto3` library, so they're compatible with AWS S3 despite containing `R2` in their names. The `api` container needs to have permissions to upload files to these buckets. Deletion is handled by the `cron` container.
 
+These environment variables configure profile videos:
+
+* `DUO_R2_VIDEO_UPLOAD_BUCKET_NAME` - A private bucket, with no public access and no custom domain, that the apps upload videos to through presigned URLs. The `cron` container transcodes them from there. Video uploads are off while this is unset. Set it on both the `api` and `cron` containers.
+* `DUO_R2_PRESIGN_ENDPOINT_URL` - The endpoint that presigned upload URLs point at. This defaults to `DUO_BOTO_ENDPOINT_URL`. Set it only when the apps reach the object store at a different address than the API does, as they do with the local S3 mock.
+* `DUO_VIDEO_MAX_QUEUED_JOBS` - New uploads are refused while this many videos are waiting to be transcoded. This defaults to 100. Setting it to 0 turns uploads off.
+
+Before setting `DUO_R2_VIDEO_UPLOAD_BUCKET_NAME`, give the upload bucket a lifecycle rule that deletes objects after one day, and a CORS rule that allows `PUT` with a `content-type` header from `https://web.duolicious.app` and `https://duolicious.app`.
+
 These environment variables let web users buy Gold through PayPal:
 
 * `DUO_PAYPAL_CLIENT_ID` and `DUO_PAYPAL_CLIENT_SECRET` - Your PayPal REST app's credentials.
@@ -154,6 +162,9 @@ These environment variables specify where user-uploaded content is stored:
 * `DUO_BOTO_ENDPOINT_URL` - Your endpoint URL. This defaults to `https://{R2_ACCT_ID}.r2.cloudflarestorage.com` if unset.
 
 These env vars get passed to the `boto3` library, so they're compatible with AWS S3 despite containing `R2` in their names. The `api` container needs to have permissions to upload files to these buckets. Deletion is handled by the `cron` container.
+
+* `DUO_R2_VIDEO_UPLOAD_BUCKET_NAME` - The bucket profile videos are uploaded to. The `cron` container transcodes videos only while this is set.
+* `DUO_CRON_VIDEO_CONCURRENCY` - How many videos are transcoded at once. Each `ffmpeg` process is pinned to its own core. This defaults to 1.
 
 * `OPENAI_API_KEY` - The OpenAI API key used to query ChatGPT while verifying accounts and generating club SEO descriptions. Required by the `cron` container, which fails fast at startup if it's unset (unless `DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION` is set, as it is in the dev and test stacks).
 

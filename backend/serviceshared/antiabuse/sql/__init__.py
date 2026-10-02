@@ -115,6 +115,14 @@ SELECT
     ) AS photo_links,
     ARRAY(
         SELECT
+            'https://user-images.duolicious.app/' || uuid || '.mp4'
+        FROM photo
+        WHERE photo.person_id = p.id
+        AND 'mp4' = ANY(extra_exts)
+        ORDER BY position
+    ) AS video_links,
+    ARRAY(
+        SELECT
             uuid || ': https://api.duolicious.app/admin/delete-photo-link/' || photo_ban_with_id.token
         FROM photo_ban_with_id
         WHERE photo_ban_with_id.person_id = p.id

@@ -637,6 +637,7 @@ const GalleryScreen = ({
                   }
                   viewport={container}
                   backgroundColor={i === index ? 'transparent' : 'black'}
+                  isActive={i === index}
                 />
               </View>
             ))}

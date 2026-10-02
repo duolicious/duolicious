@@ -21,6 +21,9 @@ async def delete_garbage_records_once() -> None:
         await sync_gold(
             tx, row_int_list_or_none(rows[0], 'expired_gold_person_ids') or [])
 
+    async with api_tx() as tx:
+        await tx.execute(Q_DELETE_OLD_VIDEO_JOBS)
+
     try:
         count = rows[0]['count']
     except:

@@ -51,7 +51,7 @@ import {
   themePickerOptionGroups,
   verificationOptionGroups,
 } from '../data/option-groups';
-import { Images } from './images/images';
+import { Images, resumeVideoJob } from './images/images';
 import { DefaultText } from './default-text';
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
@@ -59,7 +59,7 @@ import { resetUserScopedClientState } from '../navigation/reset-client-state';
 import { api, japi, ApiResponse } from '../api/api';
 import { useSignedInUser, setSignedInUser, getSignedInUser } from '../events/signed-in-user';
 import { cmToFeetInchesStr } from '../units/units';
-import { photoUri } from '../util/photos';
+import { photoUri, videoUri } from '../util/photos';
 import * as _ from "lodash";
 import { aboutQueue, nameQueue } from '../api/queue';
 import { ClubSelector } from './club-selector';
@@ -216,9 +216,17 @@ const Images_ = ({data}: {data: ProfileInfo}) => {
             return null;
           }
         },
+        getIsVideo: (position: string) => videoUri(
+          data?.photo?.[position],
+          data?.photo_extra_exts?.[position],
+        ) !== null,
       }
     };
   }, [data]);
+
+  useEffect(() => {
+    resumeVideoJob(data.video_job);
+  }, [data.video_job]);
 
   return (
     <>
