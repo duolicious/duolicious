@@ -9,7 +9,7 @@ const { jest } = require('@jest/globals');
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const { View, Text, ScrollView, Image } = require('react-native');
+  const { View, Text, ScrollView, Image, FlatList } = require('react-native');
 
   const identity = (v) => v;
   const noop = () => {};
@@ -24,6 +24,7 @@ jest.mock('react-native-reanimated', () => {
     Text,
     ScrollView,
     Image,
+    FlatList,
     createAnimatedComponent,
   };
 

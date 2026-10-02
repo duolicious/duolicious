@@ -394,3 +394,127 @@ snapshot_timestamp=$(query_inbox_snapshot user1 \
   || { echo "Entry timestamp '$entry_timestamp' != stamp '$delivered_stamp'"; exit 1; }
 [[ "$snapshot_timestamp" == "$delivered_stamp" ]] \
   || { echo "Snapshot timestamp '$snapshot_timestamp' != stamp '$delivered_stamp'"; exit 1; }
+
+
+echo "Sent messages in Chats trial: arms are assigned by person ID"
+
+next_person_id=$(q "select last_value + 1 from person_id_seq")
+
+q "select setval('person_id_seq', 389200, false)"
+../util/create-user.sh treated 0 0
+q "select setval('person_id_seq', 389204, false)"
+../util/create-user.sh control 0 0
+q "select setval('person_id_seq', ${next_person_id}, false)"
+
+assume_role treated ; treatedtoken=$SESSION_TOKEN
+assume_role control ; controltoken=$SESSION_TOKEN
+
+treateduuid=$(get_uuid 'treated@example.com')
+controluuid=$(get_uuid 'control@example.com')
+
+[[ "$(get_id 'treated@example.com')" == 389200 ]]
+[[ "$(get_id 'control@example.com')" == 389204 ]]
+
+chat_auth_as treated "$treateduuid" "$treatedtoken"
+chat_auth_as control "$controluuid" "$controltoken"
+
+curl -sX GET "http://localhost:3001/pop?id=user1" > /dev/null
+
+
+echo "Sent messages in Chats trial: the treated arm's first message is pushed to it as a chat"
+
+send_message treated "$treateduuid" "$user1uuid" "unreplied from treated"
+
+received=$(curl -sX GET "http://localhost:3001/pop?id=treated")
+
+actual_stanza_order=$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")
+[[ "$actual_stanza_order" == "duo_inbox_entry,duo_message_delivered" ]] \
+  || { echo "Expected an inbox entry then a receipt, got '$actual_stanza_order'"; exit 1; }
+
+actual_entry=$(jq -sS -r '
+  [.[] | .duo_inbox_entry | select(. != null)][0]
+  | del(.url_slug)
+  | .last_message_timestamp = "redacted"
+' <<< "$received")
+
+expected_entry=$(cat << EOF2
+{
+  "image_blurhash": null,
+  "image_uuid": null,
+  "is_available": true,
+  "is_verified": false,
+  "last_message": "unreplied from treated",
+  "last_message_read": true,
+  "last_message_timestamp": "redacted",
+  "location": "chats",
+  "match_percentage": 50,
+  "matches_search_filters": true,
+  "name": "user1",
+  "person_uuid": "${user1uuid}"
+}
+EOF2
+)
+
+diff -u --color <(echo "$actual_entry") <(jq -S . <<< "$expected_entry")
+
+actual_snapshot=$(query_inbox_snapshot treated | snapshot_conversations)
+diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
+
+
+echo "Sent messages in Chats trial: the control arm's unreplied conversation stays hidden"
+
+send_message control "$controluuid" "$user1uuid" "unreplied from control"
+
+received=$(curl -sX GET "http://localhost:3001/pop?id=control")
+
+actual_stanza_order=$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")
+[[ "$actual_stanza_order" == "duo_message_delivered" ]] \
+  || { echo "Expected only a receipt, got '$actual_stanza_order'"; exit 1; }
+
+actual_snapshot=$(query_inbox_snapshot control | snapshot_conversations)
+diff -u --color <(echo "$actual_snapshot") <(jq -S . <<< '[]')
+
+
+echo "Sent messages in Chats trial: the recipient sees both as intros, whatever its own arm"
+
+actual_locations=$(query_inbox_snapshot user1 | jq -s -r '
+  [.[] | .duo_inbox | select(. != null)][0]
+  | .conversations
+  | map(select(.name == "treated" or .name == "control") | "\(.name):\(.location)")
+  | sort
+  | join(",")
+')
+[[ "$actual_locations" == "control:intros,treated:intros" ]] \
+  || { echo "Unexpected recipient locations '$actual_locations'"; exit 1; }
+
+
+echo "Sent messages in Chats trial: an unreplied conversation with an inactive person is archived"
+
+q "update person set last_online_time = now() - interval '2 months' where id = ${user1id}"
+
+actual_snapshot=$(query_inbox_snapshot treated | snapshot_conversations)
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S '[. | .location = "archive"]' <<< "$expected_entry")
+
+q "update person set last_online_time = now() where id = ${user1id}"
+
+
+echo "Sent messages in Chats trial: after a reply, the treated arm gets no extra inbox entry"
+
+send_message user1 "$user1uuid" "$treateduuid" "reply to treated"
+
+curl -sX GET "http://localhost:3001/pop?id=treated" > /dev/null
+
+send_message treated "$treateduuid" "$user1uuid" "second from treated"
+
+received=$(curl -sX GET "http://localhost:3001/pop?id=treated")
+
+actual_stanza_order=$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")
+[[ "$actual_stanza_order" == "duo_message_delivered" ]] \
+  || { echo "Expected only a receipt, got '$actual_stanza_order'"; exit 1; }
+
+actual_snapshot=$(query_inbox_snapshot treated | snapshot_conversations)
+diff -u --color \
+  <(echo "$actual_snapshot") \
+  <(jq -S '[. | .last_message = "second from treated"]' <<< "$expected_entry")

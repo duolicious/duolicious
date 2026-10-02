@@ -37,6 +37,8 @@ import { InboxFilterHint } from './hints/inbox-filter-hint';
 import { useFocusEffect } from '@react-navigation/native';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
+import { useSignedInUser } from '../events/signed-in-user';
+import { sentMessagesInChats } from '../util/trials';
 
 const INBOX_PANEL_HEADER_HEIGHT = 48;
 
@@ -110,6 +112,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
   scrollbar?: ReturnType<typeof useScrollbar>
 }) => {
   const { appTheme } = useAppTheme();
+  const [signedInUser] = useSignedInUser();
 
   const {
     conversations,
@@ -173,6 +176,11 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
       return (
         'This is where you’ll see messages from people who’ve reached out ' +
         'to you first – Once you reply, they’ll move to your Chats\xa0💬'
+      );
+    if (!showArchive && sectionIndex === 1 && sentMessagesInChats(signedInUser?.personId))
+      return (
+        'This is where you’ll see your conversations – Messages you send ' +
+        'appear here straight away, even before anyone replies\xa0💬'
       );
     if (!showArchive && sectionIndex === 1)
       return (
@@ -488,4 +496,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export { INBOX_PANEL_HEADER_HEIGHT, InboxPanel, InboxTab };
+export { INBOX_PANEL_HEADER_HEIGHT, InboxList, InboxPanel, InboxTab };

@@ -11,17 +11,20 @@ import { ProfileTab } from './profile-tab';
 import { InboxTab } from './inbox-tab';
 import { FeedTab } from './feed-tab';
 import { VisitorsTab } from './visitors-tab';
-import { useIsWebLoggedOut } from '../events/signed-in-user';
+import { useIsWebLoggedOut, useSignedInUser } from '../events/signed-in-user';
 import { isMobile } from '../util/util';
 import { LockedTab } from './locked-tab';
+import { landingTab } from '../util/trials';
 
 const Tab = isMobile() ? createBottomTabNavigator() : createWebNavigator();
 
 const HomeTabs = () => {
   const gated = useIsWebLoggedOut();
+  const [signedInUser] = useSignedInUser();
 
   return (
     <Tab.Navigator
+      initialRouteName={landingTab(signedInUser?.personId)}
       backBehavior="history"
       screenOptions={{
         headerShown: false,

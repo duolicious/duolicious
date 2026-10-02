@@ -21,6 +21,7 @@ import {
   bannerRouteTarget,
 } from './linking';
 import { setActiveConversation } from '../chat/conversation-priority';
+import { landingTab } from '../util/trials';
 import { setSignUpBanner } from '../events/sign-up-banner';
 import {
   getSignedInUser,
@@ -77,7 +78,10 @@ const useAppNavigation = (
     if (getTopRouteName(navigationContainer.getRootState?.()) === 'Welcome') {
       navigationContainer.reset({
         routes: [
-          { name: 'Home', state: { routes: [{ name: 'Q&A' }] } },
+          {
+            name: 'Home',
+            state: { routes: [{ name: landingTab(getSignedInUser()?.personId) }] },
+          },
         ],
       });
     }

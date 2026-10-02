@@ -12,6 +12,7 @@ import { UUID_REGEX_SOURCE, isUuid } from '../util/util';
 import { getSignedInUser, isWebLoggedOut } from '../events/signed-in-user';
 import { BannerTarget } from '../events/sign-up-banner';
 import { DEEP_LINK_HOSTNAME } from '../env/env';
+import { landingTab } from '../util/trials';
 
 type WelcomeParamList = {
   'Welcome Screen': { clubName?: string; numUsers?: number } | undefined;
@@ -88,6 +89,9 @@ const GATED_LOGGED_OUT_PATHS = new Set([
 ]);
 
 type RouteState = NavigationState | PartialState<NavigationState>;
+
+const signedInLandingPath = (): string =>
+  landingTab(getSignedInUser()?.personId) === 'Search' ? '/search' : '/qa';
 
 const readPersonUuid = (params: object | undefined): string | undefined =>
   params && 'personUuid' in params && typeof params.personUuid === 'string'
@@ -245,7 +249,7 @@ const createLinking = () => {
 
     const pathname = normalized.split('?')[0].replace(/\/$/, '') || '/';
     if (pathname === '/' && getSignedInUser()) {
-      return rnGetStateFromPath('/qa', options);
+      return rnGetStateFromPath(signedInLandingPath(), options);
     }
     if (pathname === '/' && isWebLoggedOut()) {
       return rnGetStateFromPath('/search', options);
@@ -256,7 +260,7 @@ const createLinking = () => {
 
     const state = rnGetStateFromPath(normalized, options);
     if (state) return state;
-    if (getSignedInUser()) return rnGetStateFromPath('/qa', options);
+    if (getSignedInUser()) return rnGetStateFromPath(signedInLandingPath(), options);
     if (isWebLoggedOut()) return rnGetStateFromPath('/search', options);
     return { routes: [{ name: 'Welcome' }] };
   };

@@ -1,8 +1,10 @@
 import { navigationContainerRef } from '../App';
 import { getTopRouteName } from './linking';
+import { landingTab } from '../util/trials';
 
 export const navigateAfterAuth = (
   pendingClub: unknown,
+  personId: number,
   { preserveLocation }: { preserveLocation: boolean },
 ) => {
   if (!navigationContainerRef.current) return;
@@ -20,5 +22,7 @@ export const navigateAfterAuth = (
     return;
   }
 
-  navigationContainerRef.reset({ routes: [ { name: 'Home' } ] });
+  navigationContainerRef.reset({
+    routes: [ { name: 'Home', state: { routes: [ { name: landingTab(personId) } ] } } ]
+  });
 };

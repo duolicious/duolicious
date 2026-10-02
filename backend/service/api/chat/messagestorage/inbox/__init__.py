@@ -3,6 +3,7 @@ import logging
 from serviceshared.batcher import Batcher
 from serviceshared.constants import LAST_ONLINE_DEFAULT_SECONDS
 from serviceshared.database import Row, Tx, api_tx, row_int, row_str
+from service.api.trials import sent_messages_in_chats
 from service.api.searchfilters import (
     Q_SEARCH_PARAMETERS_BY_UUID,
     SearchParam,
@@ -191,6 +192,8 @@ WITH viewer AS (
                     NOT is_prospect_deleted
                 AND
                     NOT prospect_messaged_person
+                AND
+                    NOT %(sent_messages_in_chats)s
             THEN 'nowhere'
             WHEN
                     is_prospect_activated
@@ -201,7 +204,7 @@ WITH viewer AS (
                 AND
                     NOT person_skipped_prospect
                 AND
-                    prospect_messaged_person
+                    (prospect_messaged_person OR %(sent_messages_in_chats)s)
                 AND
                     person_messaged_prospect
             THEN 'chats'
@@ -555,6 +558,8 @@ def build_inbox_snapshot_query(
     params: dict[str, SearchParam] = dict(
         username=username,
         recently_online_seconds=LAST_ONLINE_DEFAULT_SECONDS,
+        sent_messages_in_chats=sent_messages_in_chats(
+            row_int(prefs, 'searcher_person_id')),
     )
     params.update(filters.params)
     params.update(reverse.params)
