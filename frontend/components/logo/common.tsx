@@ -29,6 +29,7 @@ type Logo16Props = {
   fadeInDelay?: number;
   doAnimate?: boolean;
   doLoop?: boolean;
+  startVisible?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 

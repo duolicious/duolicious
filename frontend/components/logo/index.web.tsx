@@ -85,10 +85,10 @@ const Logo16 = ({
   fadeInDelay = 500,
   doAnimate = false,
   doLoop = true,
+  startVisible = false,
   style,
 }: Logo16Props) => {
   const sizePx = resolveLogoSize(size);
-  const progress = useSharedValue(0);
 
   const timeline = useMemo(() => {
     const COUNT = LOGO_16_RECT_COORDINATES.length;
@@ -102,6 +102,9 @@ const Logo16 = ({
     return { COUNT, STAGGER, FADE, T1, T2, T3, T4 };
   }, [fadeOutDelay, fadeInDelay]);
 
+  const start = startVisible ? timeline.T1 : 0;
+  const progress = useSharedValue(start);
+
   useEffect(() => {
     if (!doAnimate) {
       cancelAnimation(progress);
@@ -109,13 +112,13 @@ const Logo16 = ({
       return;
     }
     cancelAnimation(progress);
-    progress.value = 0;
+    progress.value = start;
     progress.value = doLoop
-      ? withRepeat(withTiming(timeline.T4, { duration: timeline.T4, easing: Easing.linear }), -1, false)
-      : withTiming(timeline.T1, { duration: timeline.T1, easing: Easing.linear });
+      ? withRepeat(withTiming(start + timeline.T4, { duration: timeline.T4, easing: Easing.linear }), -1, false)
+      : withTiming(timeline.T1, { duration: timeline.T1 - start, easing: Easing.linear });
 
     return () => cancelAnimation(progress);
-  }, [doAnimate, doLoop, timeline.T1, timeline.T4]);
+  }, [doAnimate, doLoop, start, timeline.T1, timeline.T4]);
 
   return (
     <Svg width={sizePx} height={sizePx} viewBox="0 0 4.2333331 4.2333332" style={style}>

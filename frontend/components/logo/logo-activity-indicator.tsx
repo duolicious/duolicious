@@ -16,6 +16,7 @@ const LogoActivityIndicator = ({
     color={color}
     style={style}
     doAnimate={true}
+    startVisible={true}
     fadeInDelay={0}
     fadeOutDelay={0}
   />
