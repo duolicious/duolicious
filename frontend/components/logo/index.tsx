@@ -80,10 +80,10 @@ const Logo16 = ({
   fadeInDelay = 500,
   doAnimate = false,
   doLoop = true,
+  startVisible = false,
   style,
 }: Logo16Props) => {
   const sizePx = resolveLogoSize(size);
-  const progress = useSharedValue(0);
 
   const timeline = useMemo(() => {
     const COUNT = LOGO_16_RECT_COORDINATES.length;
@@ -97,27 +97,32 @@ const Logo16 = ({
     return { COUNT, STAGGER, FADE, T1, T2, T3, T4 };
   }, [fadeOutDelay, fadeInDelay]);
 
+  const start = startVisible ? timeline.T1 : 0;
+  const progress = useSharedValue(start);
+
   useEffect(() => {
     // mirror original behavior with reanimated timing
     cancelAnimation(progress);
-    progress.value = 0;
 
     if (!doAnimate) {
+      progress.value = 0;
       return;
     }
 
+    progress.value = start;
+
     if (doLoop) {
       progress.value = withRepeat(
-        withTiming(timeline.T4, { duration: timeline.T4, easing: Easing.linear }),
+        withTiming(start + timeline.T4, { duration: timeline.T4, easing: Easing.linear }),
         -1,
         false
       );
     } else {
-      progress.value = withTiming(timeline.T1, { duration: timeline.T1, easing: Easing.linear });
+      progress.value = withTiming(timeline.T1, { duration: timeline.T1 - start, easing: Easing.linear });
     }
 
     return () => cancelAnimation(progress);
-  }, [doAnimate, doLoop, timeline.T1, timeline.T4]);
+  }, [doAnimate, doLoop, start, timeline.T1, timeline.T4]);
 
   const scale = sizePx / VIEWBOX_16;
 
