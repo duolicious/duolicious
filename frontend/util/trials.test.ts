@@ -5,12 +5,12 @@ describe('trial arms', () => {
   test.each([
     [undefined, false],
     [389200, false],
-    [390698, false],
-    [390699, false],
-    [390700, true],
-    [390701, false],
-    [390702, true],
-    [390703, false],
+    [390248, false],
+    [390249, false],
+    [390250, true],
+    [390251, false],
+    [390252, true],
+    [390253, false],
   ])('person %p', (personId, sentInChats) => {
     expect(sentMessagesInChats(personId)).toBe(sentInChats);
   });

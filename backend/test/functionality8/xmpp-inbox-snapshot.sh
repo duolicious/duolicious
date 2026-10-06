@@ -405,9 +405,9 @@ echo "Sent messages in Chats trial: arms are assigned by person ID"
 
 next_person_id=$(q "select last_value + 1 from person_id_seq")
 
-q "select setval('person_id_seq', 390700, false)"
+q "select setval('person_id_seq', 390250, false)"
 ../util/create-user.sh treated 0 0
-q "select setval('person_id_seq', 390701, false)"
+q "select setval('person_id_seq', 390251, false)"
 ../util/create-user.sh control 0 0
 q "select setval('person_id_seq', ${next_person_id}, false)"
 
@@ -417,8 +417,8 @@ assume_role control ; controltoken=$SESSION_TOKEN
 treateduuid=$(get_uuid 'treated@example.com')
 controluuid=$(get_uuid 'control@example.com')
 
-[[ "$(get_id 'treated@example.com')" == 390700 ]]
-[[ "$(get_id 'control@example.com')" == 390701 ]]
+[[ "$(get_id 'treated@example.com')" == 390250 ]]
+[[ "$(get_id 'control@example.com')" == 390251 ]]
 
 chat_auth_as treated "$treateduuid" "$treatedtoken"
 chat_auth_as control "$controluuid" "$controltoken"

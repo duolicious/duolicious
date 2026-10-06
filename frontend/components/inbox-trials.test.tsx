@@ -121,7 +121,7 @@ describe('the empty Chats text', () => {
     mockSectionIndex = 0;
   });
 
-  test.each([390700, 390702])('says sent messages appear for person %p', (personId) => {
+  test.each([390250, 390252])('says sent messages appear for person %p', (personId) => {
     mockPersonId = personId;
     mockSectionIndex = 1;
 
@@ -131,7 +131,7 @@ describe('the empty Chats text', () => {
     expect(text).not.toContain('Chats start once both people have exchanged messages');
   });
 
-  test.each([390701, 389200, undefined])('says chats need both people for person %p', (personId) => {
+  test.each([390251, 389200, undefined])('says chats need both people for person %p', (personId) => {
     mockPersonId = personId;
     mockSectionIndex = 1;
 
@@ -142,7 +142,7 @@ describe('the empty Chats text', () => {
   });
 
   test('the Intros text is the same for both groups', () => {
-    for (const personId of [390700, 390701]) {
+    for (const personId of [390250, 390251]) {
       mockPersonId = personId;
 
       expect(renderedText(<InboxList />)).toContain('Once you reply, they’ll move to your Chats');
