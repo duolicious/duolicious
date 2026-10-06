@@ -576,6 +576,7 @@ class InboxConversation(TypedDict):
     is_verified: bool
     is_available: bool
     location: str
+    awaiting_reply: bool
     matches_search_filters: bool
     last_message: str
     last_message_read: bool

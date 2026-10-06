@@ -52,7 +52,7 @@ export const applyAuthenticatedResponse = async (
 
   clearPublicSearchFilters();
 
-  navigateAfterAuth(pendingClub, json.person_id, { preserveLocation });
+  navigateAfterAuth(pendingClub, { preserveLocation });
 
   login(personUuid, existingSessionToken);
 

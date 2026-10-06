@@ -1,19 +1,17 @@
 import { describe, expect, test } from '@jest/globals';
-import { introMessagePreviews, landingTab, sentMessagesInChats } from './trials';
+import { sentMessagesInChats } from './trials';
 
 describe('trial arms', () => {
   test.each([
-    [undefined, 'Q&A', false, false],
-    [389192, 'Q&A', false, false],
-    [389199, 'Q&A', false, false],
-    [389200, 'Search', true, true],
-    [389201, 'Q&A', true, true],
-    [389202, 'Search', false, true],
-    [389204, 'Search', true, false],
-    [389207, 'Q&A', false, false],
-  ])('person %p', (personId, tab, previews, sentInChats) => {
-    expect(landingTab(personId)).toBe(tab);
-    expect(introMessagePreviews(personId)).toBe(previews);
+    [undefined, false],
+    [389200, false],
+    [390698, false],
+    [390699, false],
+    [390700, true],
+    [390701, false],
+    [390702, true],
+    [390703, false],
+  ])('person %p', (personId, sentInChats) => {
     expect(sentMessagesInChats(personId)).toBe(sentInChats);
   });
 });

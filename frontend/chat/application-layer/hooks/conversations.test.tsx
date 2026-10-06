@@ -28,6 +28,7 @@ const conversation = (
   matchPercentage: number,
   lastMessageTimestamp: Date,
   matchesSearchFilters: boolean,
+  awaitingReply = false,
 ): Conversation => ({
   personUuid,
   urlSlug: null,
@@ -41,6 +42,7 @@ const conversation = (
   isAvailableUser: true,
   isVerified: false,
   location: 'intros',
+  awaitingReply,
   matchesSearchFilters,
 });
 
@@ -55,12 +57,21 @@ const intros = [match90old, match50new, match99filtered, match10filtered];
 
 const ids = (cs: Conversation[]) => cs.map((c) => c.personUuid);
 
-const inboxOf = (intros: Conversation[]): Inbox => ({
-  chats: { conversations: [], conversationsMap: {} },
-  intros: {
-    conversations: intros,
-    conversationsMap: Object.fromEntries(intros.map((c) => [c.personUuid, c])),
-  },
+const repliedOld    = conversation('repliedOld',    90, new Date(1000), true);
+const unrepliedNew  = conversation('unrepliedNew',  50, new Date(4000), true, true);
+const repliedNew    = conversation('repliedNew',    10, new Date(3000), true);
+const unrepliedOld  = conversation('unrepliedOld',  99, new Date(2000), true, true);
+
+const chats = [repliedOld, unrepliedNew, repliedNew, unrepliedOld];
+
+const conversationsOf = (cs: Conversation[]) => ({
+  conversations: cs,
+  conversationsMap: Object.fromEntries(cs.map((c) => [c.personUuid, c])),
+});
+
+const inboxOf = (intros: Conversation[], chats: Conversation[] = []): Inbox => ({
+  chats: conversationsOf(chats),
+  intros: conversationsOf(intros),
   archive: { conversations: [], conversationsMap: {} },
   endTimestamp: null,
 });
@@ -82,12 +93,17 @@ describe('sortConversations', () => {
       ['match50new', 'match90old', 'match10filtered', 'match99filtered']);
   });
 
-  it('never sinks chats or archived conversations', () => {
+  it('never sinks chats or archived conversations by search filters', () => {
     expect(ids(sortConversations(intros, 'chats', 'latest', true))).toEqual(
       ids(sortConversations(intros, 'chats', 'latest', false)));
 
     expect(ids(sortConversations(intros, 'archive', 'latest', true))).toEqual(
       ids(sortConversations(intros, 'archive', 'latest', false)));
+  });
+
+  it('sinks chats waiting for a reply, latest first within each group', () => {
+    expect(ids(sortConversations(chats, 'chats', 'match', false))).toEqual(
+      ['repliedNew', 'repliedOld', 'unrepliedNew', 'unrepliedOld']);
   });
 });
 
@@ -96,7 +112,7 @@ describe('computeConversationIds', () => {
     const computed = computeConversationIds(
       inboxOf(intros), 'intros', 'match', true);
 
-    expect(computed?.numIntrosWithinFilters).toBe(2);
+    expect(computed?.numAboveDivider).toBe(2);
     expect(computed?.ids.slice(2)).toEqual(
       ['match99filtered', 'match10filtered']);
   });
@@ -105,7 +121,7 @@ describe('computeConversationIds', () => {
     const computed = computeConversationIds(
       inboxOf([match99filtered]), 'intros', 'match', true);
 
-    expect(computed?.numIntrosWithinFilters).toBe(0);
+    expect(computed?.numAboveDivider).toBe(0);
   });
 
   it('reports no split when the intros aren\'t sunk', () => {
@@ -119,6 +135,19 @@ describe('computeConversationIds', () => {
     ];
 
     noSplit.forEach((computed) =>
-      expect(computed?.numIntrosWithinFilters).toBeNull());
+      expect(computed?.numAboveDivider).toBeNull());
+  });
+
+  it('splits chats only when some have replies and some are waiting', () => {
+    expect(computeConversationIds(
+      inboxOf([], chats), 'chats', 'latest', false)?.numAboveDivider).toBe(2);
+
+    expect(computeConversationIds(
+      inboxOf([], [repliedOld, repliedNew]), 'chats', 'latest', false,
+    )?.numAboveDivider).toBeNull();
+
+    expect(computeConversationIds(
+      inboxOf([], [unrepliedOld, unrepliedNew]), 'chats', 'latest', false,
+    )?.numAboveDivider).toBeNull();
   });
 });

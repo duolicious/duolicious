@@ -16,8 +16,6 @@ import { VerificationBadge } from './verification-badge';
 import { usePressableAnimation } from '../animation/animation';
 import { setProspectHint } from '../navigation/prospect-cache';
 import { navigateToConversation } from '../navigation/use-navigation-to-conversation';
-import { useSignedInUser } from '../events/signed-in-user';
-import { introMessagePreviews } from '../util/trials';
 
 const IntrosItem = ({
   wasRead,
@@ -47,7 +45,6 @@ const IntrosItem = ({
   isOpen?: boolean
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
-  const [signedInUser] = useSignedInUser();
 
   const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
 
@@ -155,7 +152,7 @@ const IntrosItem = ({
               fontWeight: '600',
             }}
           >
-            {introMessagePreviews(signedInUser?.personId) ? lastMessage : 'Wants to chat'}
+            {lastMessage}
           </DefaultText>
         </View>
       </Animated.View>

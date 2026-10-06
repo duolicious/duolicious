@@ -7,12 +7,13 @@ class TestSentMessagesInChats(unittest.TestCase):
     def test_arms(self) -> None:
         for person_id, expected in [
             (4, False),
-            (389192, False),
-            (389199, False),
-            (389200, True),
-            (389202, True),
-            (389204, False),
-            (389208, True),
+            (389200, False),
+            (390698, False),
+            (390699, False),
+            (390700, True),
+            (390701, False),
+            (390702, True),
+            (390703, False),
         ]:
             with self.subTest(person_id=person_id):
                 self.assertEqual(sent_messages_in_chats(person_id), expected)

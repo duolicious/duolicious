@@ -116,7 +116,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
 
   const {
     conversations,
-    numIntrosWithinFilters,
+    numAboveDivider,
     sectionIndex,
     sortByIndex,
     showArchive,
@@ -141,35 +141,37 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
       return null;
     }
 
-    // Non-null exactly when the visible section is intros with search filters
-    // applied, and marks where the sorted list's "outside" region begins.
-    if (numIntrosWithinFilters === null) {
+    if (numAboveDivider === null) {
       return conversations;
     }
 
-    const numWithin = numIntrosWithinFilters;
-    const numOutside = conversations.length - numWithin;
+    const numAbove = numAboveDivider;
+    const numBelow = conversations.length - numAbove;
+
+    const [aboveLabel, belowLabel] = sectionIndex === 0
+      ? ['Within your search filters', 'Outside your search filters']
+      : ['Replied', 'Waiting for a reply'];
 
     const items: InboxListItem[] = [];
 
-    if (numWithin > 0) {
+    if (numAbove > 0) {
       items.push({
-        dividerKey: 'divider-matching',
-        label: `Within your search filters (${numWithin})`,
+        dividerKey: 'divider-above',
+        label: `${aboveLabel} (${numAbove})`,
       });
-      items.push(...conversations.slice(0, numWithin));
+      items.push(...conversations.slice(0, numAbove));
     }
 
-    if (numOutside > 0) {
+    if (numBelow > 0) {
       items.push({
-        dividerKey: 'divider-outside',
-        label: `Outside your search filters (${numOutside})`,
+        dividerKey: 'divider-below',
+        label: `${belowLabel} (${numBelow})`,
       });
-      items.push(...conversations.slice(numWithin));
+      items.push(...conversations.slice(numAbove));
     }
 
     return items;
-  }, [conversations, numIntrosWithinFilters]);
+  }, [conversations, numAboveDivider, sectionIndex]);
 
   const emptyText = (() => {
     if (!showArchive && sectionIndex === 0)
