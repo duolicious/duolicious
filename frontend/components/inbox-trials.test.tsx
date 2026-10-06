@@ -86,32 +86,29 @@ test('an intro shows the start of its message', () => {
   expect(text).not.toContain('Wants to chat');
 });
 
-describe('the Chats dividers', () => {
+describe('the Chats divider', () => {
   afterEach(() => {
     mockSectionIndex = 0;
     mockConversations = [];
     mockNumAboveDivider = null;
   });
 
-  test('split replied conversations from those waiting for a reply', () => {
+  test('one uncounted divider marks the intros you sent', () => {
     mockSectionIndex = 1;
     mockConversations = ['replied', 'unreplied1', 'unreplied2'];
     mockNumAboveDivider = 1;
 
     const text = renderedText(<InboxList />);
 
-    expect(text).toContain('Replied (1)');
-    expect(text).toContain('Waiting for a reply (2)');
+    expect(text.match(/Intros you sent/g)).toHaveLength(1);
+    expect(text).not.toMatch(/\(\d+\)/);
   });
 
-  test('are absent without a split', () => {
+  test('is absent without a split', () => {
     mockSectionIndex = 1;
     mockConversations = ['unreplied1', 'unreplied2'];
 
-    const text = renderedText(<InboxList />);
-
-    expect(text).not.toContain('Replied');
-    expect(text).not.toContain('Waiting for a reply');
+    expect(renderedText(<InboxList />)).not.toContain('Intros you sent');
   });
 });
 

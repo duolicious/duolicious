@@ -145,29 +145,33 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
       return conversations;
     }
 
-    const numAbove = numAboveDivider;
-    const numBelow = conversations.length - numAbove;
+    if (sectionIndex === 1) {
+      return [
+        ...conversations.slice(0, numAboveDivider),
+        { dividerKey: 'divider-sent', label: 'Intros you sent' },
+        ...conversations.slice(numAboveDivider),
+      ];
+    }
 
-    const [aboveLabel, belowLabel] = sectionIndex === 0
-      ? ['Within your search filters', 'Outside your search filters']
-      : ['Replied', 'Waiting for a reply'];
+    const numWithin = numAboveDivider;
+    const numOutside = conversations.length - numWithin;
 
     const items: InboxListItem[] = [];
 
-    if (numAbove > 0) {
+    if (numWithin > 0) {
       items.push({
-        dividerKey: 'divider-above',
-        label: `${aboveLabel} (${numAbove})`,
+        dividerKey: 'divider-matching',
+        label: `Within your search filters (${numWithin})`,
       });
-      items.push(...conversations.slice(0, numAbove));
+      items.push(...conversations.slice(0, numWithin));
     }
 
-    if (numBelow > 0) {
+    if (numOutside > 0) {
       items.push({
-        dividerKey: 'divider-below',
-        label: `${belowLabel} (${numBelow})`,
+        dividerKey: 'divider-outside',
+        label: `Outside your search filters (${numOutside})`,
       });
-      items.push(...conversations.slice(numAbove));
+      items.push(...conversations.slice(numWithin));
     }
 
     return items;
