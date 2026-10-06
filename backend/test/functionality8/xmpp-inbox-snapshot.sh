@@ -149,6 +149,7 @@ expected_entry=$(cat << EOF
   "last_message": "intro from user 2",
   "last_message_read": false,
   "last_message_timestamp": "redacted",
+  "awaiting_reply": false,
   "location": "intros",
   "match_percentage": 50,
   "matches_search_filters": true,
@@ -257,6 +258,7 @@ expected_entry=$(cat << EOF
   "last_message": "reply from user 1",
   "last_message_read": false,
   "last_message_timestamp": "redacted",
+  "awaiting_reply": false,
   "location": "chats",
   "match_percentage": 50,
   "matches_search_filters": true,
@@ -280,6 +282,7 @@ expected_snapshot=$(cat << EOF
     "last_message": "reply from user 1",
     "last_message_read": true,
     "last_message_timestamp": "redacted",
+    "awaiting_reply": false,
     "location": "chats",
     "match_percentage": 50,
     "matches_search_filters": true,
@@ -309,6 +312,7 @@ expected_snapshot=$(cat << EOF
     "last_message": "reply from user 1",
     "last_message_read": true,
     "last_message_timestamp": "redacted",
+    "awaiting_reply": false,
     "location": "archive",
     "match_percentage": null,
     "matches_search_filters": true,
@@ -349,6 +353,7 @@ expected_snapshot=$(cat << EOF
     "last_message": "reply from user 1",
     "last_message_read": true,
     "last_message_timestamp": "redacted",
+    "awaiting_reply": false,
     "location": "archive",
     "match_percentage": 50,
     "matches_search_filters": true,
@@ -400,9 +405,9 @@ echo "Sent messages in Chats trial: arms are assigned by person ID"
 
 next_person_id=$(q "select last_value + 1 from person_id_seq")
 
-q "select setval('person_id_seq', 389200, false)"
+q "select setval('person_id_seq', 390250, false)"
 ../util/create-user.sh treated 0 0
-q "select setval('person_id_seq', 389204, false)"
+q "select setval('person_id_seq', 390251, false)"
 ../util/create-user.sh control 0 0
 q "select setval('person_id_seq', ${next_person_id}, false)"
 
@@ -412,8 +417,8 @@ assume_role control ; controltoken=$SESSION_TOKEN
 treateduuid=$(get_uuid 'treated@example.com')
 controluuid=$(get_uuid 'control@example.com')
 
-[[ "$(get_id 'treated@example.com')" == 389200 ]]
-[[ "$(get_id 'control@example.com')" == 389204 ]]
+[[ "$(get_id 'treated@example.com')" == 390250 ]]
+[[ "$(get_id 'control@example.com')" == 390251 ]]
 
 chat_auth_as treated "$treateduuid" "$treatedtoken"
 chat_auth_as control "$controluuid" "$controltoken"
@@ -446,6 +451,7 @@ expected_entry=$(cat << EOF2
   "last_message": "unreplied from treated",
   "last_message_read": true,
   "last_message_timestamp": "redacted",
+  "awaiting_reply": true,
   "location": "chats",
   "match_percentage": 50,
   "matches_search_filters": true,
@@ -500,11 +506,25 @@ diff -u --color \
 q "update person set last_online_time = now() where id = ${user1id}"
 
 
-echo "Sent messages in Chats trial: after a reply, the treated arm gets no extra inbox entry"
+echo "Sent messages in Chats trial: a reply stops the treated arm's conversation awaiting one"
 
 send_message user1 "$user1uuid" "$treateduuid" "reply to treated"
 
-curl -sX GET "http://localhost:3001/pop?id=treated" > /dev/null
+actual_entry=$(curl -sX GET "http://localhost:3001/pop?id=treated" | jq -sS -r '
+  [.[] | .duo_inbox_entry | select(. != null)][0]
+  | {awaiting_reply, location, last_message}
+')
+
+expected_fields='{
+  "awaiting_reply": false,
+  "last_message": "reply to treated",
+  "location": "chats"
+}'
+
+diff -u --color <(echo "$actual_entry") <(jq -S . <<< "$expected_fields")
+
+
+echo "Sent messages in Chats trial: after a reply, the treated arm gets no extra inbox entry"
 
 send_message treated "$treateduuid" "$user1uuid" "second from treated"
 
@@ -517,4 +537,4 @@ actual_stanza_order=$(jq -s -r '[.[] | keys[0]] | join(",")' <<< "$received")
 actual_snapshot=$(query_inbox_snapshot treated | snapshot_conversations)
 diff -u --color \
   <(echo "$actual_snapshot") \
-  <(jq -S '[. | .last_message = "second from treated"]' <<< "$expected_entry")
+  <(jq -S '[. | .last_message = "second from treated" | .awaiting_reply = false]' <<< "$expected_entry")

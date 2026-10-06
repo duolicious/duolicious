@@ -116,7 +116,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
 
   const {
     conversations,
-    numIntrosWithinFilters,
+    numAboveDivider,
     sectionIndex,
     sortByIndex,
     showArchive,
@@ -141,13 +141,19 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
       return null;
     }
 
-    // Non-null exactly when the visible section is intros with search filters
-    // applied, and marks where the sorted list's "outside" region begins.
-    if (numIntrosWithinFilters === null) {
+    if (numAboveDivider === null) {
       return conversations;
     }
 
-    const numWithin = numIntrosWithinFilters;
+    if (sectionIndex === 1) {
+      return [
+        ...conversations.slice(0, numAboveDivider),
+        { dividerKey: 'divider-sent', label: 'Intros you sent' },
+        ...conversations.slice(numAboveDivider),
+      ];
+    }
+
+    const numWithin = numAboveDivider;
     const numOutside = conversations.length - numWithin;
 
     const items: InboxListItem[] = [];
@@ -169,7 +175,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
     }
 
     return items;
-  }, [conversations, numIntrosWithinFilters]);
+  }, [conversations, numAboveDivider, sectionIndex]);
 
   const emptyText = (() => {
     if (!showArchive && sectionIndex === 0)

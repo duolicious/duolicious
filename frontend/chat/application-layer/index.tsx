@@ -163,6 +163,7 @@ type Conversation = {
   isAvailableUser: boolean
   isVerified: boolean
   location: 'chats' | 'intros' | 'archive' | 'nowhere'
+  awaitingReply: boolean
   matchesSearchFilters: boolean
 };
 
@@ -324,6 +325,7 @@ const conversationFromWire = (
     isAvailableUser: !!c.is_available,
     isVerified: !!c.is_verified,
     location: locations.includes(c.location) ? c.location : 'archive',
+    awaitingReply: !!c.awaiting_reply,
     matchesSearchFilters: !!(c.matches_search_filters ?? true),
   };
 
@@ -355,6 +357,7 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
     location: 'archive',
     photoBlurhash: '',
     isVerified: false,
+    awaitingReply: false,
     matchesSearchFilters: true,
     ...chatsConversation,
     ...introsConversation,

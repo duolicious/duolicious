@@ -26,6 +26,15 @@ const shouldApplySearchFilters = (
   applySearchFilters &&
   conversations.length >= MIN_INTROS_TO_APPLY_SEARCH_FILTERS;
 
+const sinks = (
+  conversation: Conversation,
+  section: 'intros' | 'chats' | 'archive',
+  applySearchFilters: boolean,
+): boolean =>
+  section === 'chats'
+    ? conversation.awaitingReply
+    : applySearchFilters && !conversation.matchesSearchFilters;
+
 const getSection = (sectionIndex: number, showArchive: boolean) => {
   if (showArchive) {
     return 'archive';
@@ -81,12 +90,8 @@ const sortConversations = (
   const applySearchFilters_ =
     shouldApplySearchFilters(conversations, section, applySearchFilters);
 
-  // When the user applies their search filters to intros, intros from outside
-  // the filters sink below the rest, keeping their relative order otherwise.
-  const filterRank = (c: Conversation) =>
-    applySearchFilters_ && !c.matchesSearchFilters
-      ? 0
-      : 1;
+  const rank = (c: Conversation) =>
+    sinks(c, section, applySearchFilters_) ? 0 : 1;
 
   return [...conversations].sort((a, b) => {
     if (section === 'archive') {
@@ -97,13 +102,13 @@ const sortConversations = (
       ]);
     } else if (section === 'intros' && sortBy === 'match') {
       return compareArrays(
-        [filterRank(b), b.matchPercentage, +b.lastMessageTimestamp],
-        [filterRank(a), a.matchPercentage, +a.lastMessageTimestamp],
+        [rank(b), b.matchPercentage, +b.lastMessageTimestamp],
+        [rank(a), a.matchPercentage, +a.lastMessageTimestamp],
       );
     } else {
       return compareArrays(
-        [filterRank(b), +b.lastMessageTimestamp, b.matchPercentage],
-        [filterRank(a), +a.lastMessageTimestamp, a.matchPercentage],
+        [rank(b), +b.lastMessageTimestamp, b.matchPercentage],
+        [rank(a), +a.lastMessageTimestamp, a.matchPercentage],
       );
     }
   });
@@ -111,7 +116,7 @@ const sortConversations = (
 
 type ConversationIds = {
   ids: string[]
-  numIntrosWithinFilters: number | null
+  numAboveDivider: number | null
 };
 
 const computeConversationIds = (
@@ -128,16 +133,21 @@ const computeConversationIds = (
   const sorted = sortConversations(
     conversations, section, sortBy, applySearchFilters);
 
-  // The sort sank every intro from outside the filters below those within
-  // them, so the count of intros within is also the boundary's index.
-  const numIntrosWithinFilters =
-    shouldApplySearchFilters(sorted, section, applySearchFilters)
-      ? sorted.filter((c) => c.matchesSearchFilters).length
-      : null;
+  const applySearchFilters_ =
+    shouldApplySearchFilters(sorted, section, applySearchFilters);
+
+  // The sort sank the sinking conversations below the rest, so the count of
+  // the rest is also the boundary's index.
+  const numAbove = sorted.filter(
+    (c) => !sinks(c, section, applySearchFilters_)).length;
+
+  const hasDivider =
+    applySearchFilters_ ||
+    (section === 'chats' && numAbove > 0 && numAbove < sorted.length);
 
   return {
     ids: sorted.map((c) => c.personUuid),
-    numIntrosWithinFilters,
+    numAboveDivider: hasDivider ? numAbove : null,
   };
 };
 
@@ -204,7 +214,7 @@ const useInboxSettings = (): InboxSettings => {
 
 type ConversationsState = InboxSettings & {
   conversations: string[] | null
-  numIntrosWithinFilters: number | null
+  numAboveDivider: number | null
 };
 
 const withComputedConversations = (
@@ -220,7 +230,7 @@ const withComputedConversations = (
   return {
     ...settings,
     conversations: computed?.ids ?? null,
-    numIntrosWithinFilters: computed?.numIntrosWithinFilters ?? null,
+    numAboveDivider: computed?.numAboveDivider ?? null,
   };
 };
 

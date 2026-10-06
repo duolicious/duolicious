@@ -237,6 +237,7 @@ SELECT
     is_available AND verified AS is_verified,
     is_available,
     location,
+    NOT prospect_messaged_person AS awaiting_reply,
     body AS last_message,
     reaction,
     reaction_body,
@@ -537,6 +538,7 @@ def _conversation_from_row(row: Row) -> InboxConversation:
         is_verified=row['is_verified'],
         is_available=row['is_available'],
         location=row['location'],
+        awaiting_reply=row['awaiting_reply'],
         matches_search_filters=row['matches_search_filters'],
         last_message=_composed_body(
             row['last_message'], row['reaction'], row['reaction_body']),

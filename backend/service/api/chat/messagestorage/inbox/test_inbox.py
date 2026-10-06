@@ -47,7 +47,7 @@ class TestBuildInboxSnapshotQuery(unittest.TestCase):
         )
 
     def test_sent_messages_in_chats_follows_the_viewers_arm(self) -> None:
-        for person_id, expected in [(389200, True), (389204, False)]:
+        for person_id, expected in [(390250, True), (390251, False)]:
             with self.subTest(person_id=person_id):
                 prefs = maximal_prefs()
                 prefs['searcher_person_id'] = person_id

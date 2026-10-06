@@ -8,6 +8,8 @@ const { act, create } = require('react-test-renderer');
 
 let mockPersonId: number | undefined;
 let mockSectionIndex = 0;
+let mockConversations: string[] = [];
+let mockNumAboveDivider: number | null = null;
 
 jest.mock('../events/signed-in-user', () => ({
   getSignedInUser: () =>
@@ -40,8 +42,8 @@ jest.mock('./logo/logo-activity-indicator', () => ({ LogoActivityIndicator: () =
 jest.mock('../chat/application-layer/hooks/conversations', () => ({
   ...jest.requireActual<object>('../chat/application-layer/hooks/conversations'),
   useConversations: () => ({
-    conversations: [],
-    numIntrosWithinFilters: null,
+    conversations: mockConversations,
+    numAboveDivider: mockNumAboveDivider,
     sectionIndex: mockSectionIndex,
     sortByIndex: 0,
     showArchive: false,
@@ -77,25 +79,36 @@ const intro = (
   />
 );
 
-describe('intro message previews', () => {
-  afterEach(() => { mockPersonId = undefined; });
+test('an intro shows the start of its message', () => {
+  const text = renderedText(intro);
 
-  test.each([389200, 389201])('person %p sees the message', (personId) => {
-    mockPersonId = personId;
+  expect(text).toContain('Hey, I loved your answer about cats!');
+  expect(text).not.toContain('Wants to chat');
+});
 
-    const text = renderedText(intro);
-
-    expect(text).toContain('Hey, I loved your answer about cats!');
-    expect(text).not.toContain('Wants to chat');
+describe('the Chats divider', () => {
+  afterEach(() => {
+    mockSectionIndex = 0;
+    mockConversations = [];
+    mockNumAboveDivider = null;
   });
 
-  test.each([389202, 389196, undefined])('person %p sees "Wants to chat"', (personId) => {
-    mockPersonId = personId;
+  test('one uncounted divider marks the intros you sent', () => {
+    mockSectionIndex = 1;
+    mockConversations = ['replied', 'unreplied1', 'unreplied2'];
+    mockNumAboveDivider = 1;
 
-    const text = renderedText(intro);
+    const text = renderedText(<InboxList />);
 
-    expect(text).toContain('Wants to chat');
-    expect(text).not.toContain('Hey, I loved your answer about cats!');
+    expect(text.match(/Intros you sent/g)).toHaveLength(1);
+    expect(text).not.toMatch(/\(\d+\)/);
+  });
+
+  test('is absent without a split', () => {
+    mockSectionIndex = 1;
+    mockConversations = ['unreplied1', 'unreplied2'];
+
+    expect(renderedText(<InboxList />)).not.toContain('Intros you sent');
   });
 });
 
@@ -105,7 +118,7 @@ describe('the empty Chats text', () => {
     mockSectionIndex = 0;
   });
 
-  test.each([389200, 389202])('says sent messages appear for person %p', (personId) => {
+  test.each([390250, 390252])('says sent messages appear for person %p', (personId) => {
     mockPersonId = personId;
     mockSectionIndex = 1;
 
@@ -115,7 +128,7 @@ describe('the empty Chats text', () => {
     expect(text).not.toContain('Chats start once both people have exchanged messages');
   });
 
-  test.each([389204, 389192, undefined])('says chats need both people for person %p', (personId) => {
+  test.each([390251, 389200, undefined])('says chats need both people for person %p', (personId) => {
     mockPersonId = personId;
     mockSectionIndex = 1;
 
@@ -126,7 +139,7 @@ describe('the empty Chats text', () => {
   });
 
   test('the Intros text is the same for both groups', () => {
-    for (const personId of [389200, 389204]) {
+    for (const personId of [390250, 390251]) {
       mockPersonId = personId;
 
       expect(renderedText(<InboxList />)).toContain('Once you reply, they’ll move to your Chats');
