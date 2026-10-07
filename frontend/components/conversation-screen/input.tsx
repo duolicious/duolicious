@@ -403,6 +403,7 @@ const IconBar = ({
 }) => {
   const { appTheme } = useAppTheme();
   const { hovered, hoverProps } = useHover();
+  const { hovered: isMicHovered, hoverProps: micHoverProps } = useHover();
 
   return (
     <View style={styles.iconContainer}>
@@ -413,7 +414,11 @@ const IconBar = ({
       )}
 
       <GestureDetector gesture={finalGesture}>
-        <Animated.View style={[styles.microphoneIcon, animatedRecordingStyle]}>
+        <Animated.View
+          style={[styles.microphoneIcon, animatedRecordingStyle]}
+          {...micHoverProps}
+        >
+          <HoverCircle visible={isMicHovered} inset={0} />
           <Ionicons name="mic" style={{ fontSize: 28, color: appTheme.secondaryColor }} />
         </Animated.View>
       </GestureDetector>
@@ -498,6 +503,7 @@ const Input = ({
   onFocus: () => void,
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered: isGifHovered, hoverProps: gifHoverProps } = useHover();
 
   const quote = useQuote();
 
@@ -834,7 +840,7 @@ const Input = ({
               onKeyPress={handleKeyPress}
               onFocus={onFocus}
             />
-            <Pressable onPress={onPressGif} hitSlop={10}>
+            <Pressable onPress={onPressGif} hitSlop={10} {...gifHoverProps}>
               <Animated.View
                 style={[
                   {
@@ -845,7 +851,11 @@ const Input = ({
                     borderRadius: 5,
                     borderWidth: 3,
                     borderColor: appTheme.secondaryColor,
+                    backgroundColor: isGifHovered
+                      ? appTheme.hoverOverlayColor
+                      : 'transparent',
                   },
+                  hoverTransition(['backgroundColor']),
                   animatedGifStyle,
                 ]}
               >
@@ -955,6 +965,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   microphoneIcon: {
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
     position: 'absolute',
     left: 0,
     right: 0,
