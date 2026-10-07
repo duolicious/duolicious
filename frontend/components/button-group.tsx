@@ -12,8 +12,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { DefaultText } from './default-text';
-import { useAppTheme } from '../app-theme/app-theme';
-import { hoverTransition, useHover } from './hover';
 
 
 const DURATION = 250;
@@ -26,57 +24,6 @@ type ButtonGroupProps = {
   textStyle?: TextStyle;
   secondary?: boolean;
   disabled?: boolean;
-};
-
-const SegmentButton = ({
-  label,
-  isSelected,
-  secondary,
-  textStyle,
-  onPress,
-  onLayout,
-}: {
-  label: string
-  isSelected: boolean
-  secondary: boolean
-  textStyle?: TextStyle
-  onPress: () => void
-  onLayout: (e: LayoutChangeEvent) => void
-}) => {
-  const { appTheme } = useAppTheme();
-  const { hovered, hoverProps } = useHover();
-  const isHovered = hovered && !isSelected;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onLayout={onLayout}
-      style={styles.button}
-      {...hoverProps}
-    >
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          styles.baseIndicator,
-          secondary ? styles.secondaryIndicator : styles.primaryIndicator,
-          { opacity: isHovered ? 0.35 : 0 },
-          hoverTransition(['opacity']),
-        ]}
-      />
-      <DefaultText
-        style={{
-          ...(secondary ? styles.secondaryLabel : styles.primaryLabel),
-          ...textStyle,
-          color: isSelected
-            ? '#70f'
-            : isHovered ? appTheme.secondaryColor : 'rgb(94, 105, 119)',
-        }}
-      >
-        {label}
-      </DefaultText>
-    </Pressable>
-  );
 };
 
 const ButtonGroup: React.FC<ButtonGroupProps> = ({
@@ -157,17 +104,27 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
         ]}
       />
 
-      {buttons.map((label, i) =>
-        <SegmentButton
-          key={i}
-          label={label}
-          isSelected={i === selectedIndex}
-          secondary={secondary}
-          textStyle={textStyle}
-          onPress={() => onPress(i)}
-          onLayout={onButtonLayout(i)}
-        />
-      )}
+      {buttons.map((label, i) => {
+        const isSelected = i === selectedIndex;
+        return (
+          <Pressable
+            key={i}
+            onPress={() => onPress(i)}
+            onLayout={onButtonLayout(i)}
+            style={styles.button}
+          >
+            <DefaultText
+              style={{
+                ...(secondary ? styles.secondaryLabel : styles.primaryLabel),
+                ...textStyle,
+                color: isSelected ? '#70f' : 'rgb(94, 105, 119)',
+              }}
+            >
+              {label}
+            </DefaultText>
+          </Pressable>
+        );
+      })}
     </Animated.View>
   );
 };
