@@ -122,6 +122,8 @@ import {
   AnimatedPressable,
   hoverColorFor,
   hoverTransition,
+  riseStyle,
+  riseTransition,
   useHover,
   usePressed,
 } from '../hover';
@@ -187,7 +189,6 @@ const profilePillButtonStyle = (
   pressed: boolean,
   hovered: boolean,
 ): ViewStyle => ({
-  marginTop: 100,
   alignSelf: 'center',
   flexDirection: 'row',
   alignItems: 'center',
@@ -195,12 +196,11 @@ const profilePillButtonStyle = (
   paddingVertical: 8,
   paddingHorizontal: 14,
   borderWidth: 1,
-  borderBottomWidth: 3,
   borderRadius: 999,
   backgroundColor: surface.backgroundColor,
   borderColor: surface.borderColor,
   opacity: pressed ? 0.6 : 1,
-  transform: [{ scale: hovered && !pressed ? 1.06 : 1 }],
+  ...riseStyle(hovered && !pressed, 3, 100),
 });
 
 const profilePillButtonTextStyle = (
@@ -229,7 +229,7 @@ const ShareButton = ({personUuid, backgroundColor}: {
       accessibilityLabel="Copy profile link"
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
-        hoverTransition(pressed ? 'none' : 'transform'),
+        riseTransition(pressed),
         { marginBottom: 0 },
       ]}
       {...hoverProps}
@@ -564,7 +564,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
       onPress={onPress}
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
-        hoverTransition(pressed ? 'none' : 'transform'),
+        riseTransition(pressed),
         { marginBottom: 100 },
       ]}
       {...hoverProps}

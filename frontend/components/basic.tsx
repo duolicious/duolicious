@@ -17,7 +17,7 @@ import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
-import { hoverTransition, useHover } from './hover';
+import { riseStyle, riseTransition, useHover } from './hover';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 type BasicIcon = IconDefinition | IoniconsName;
@@ -81,6 +81,7 @@ const Basic = ({children, ...rest}: {
   const { hovered, hoverProps } = useHover();
   const [pressed, setPressed] = useState(false);
   const isRaised = !!onPress && hovered && !pressed;
+  const flatStyle = StyleSheet.flatten(style);
 
   return (
     <Animated.View
@@ -93,10 +94,14 @@ const Basic = ({children, ...rest}: {
           backgroundColor: chrome.backgroundColor,
           flexShrink: 1,
         },
-        { transform: [{ scale: isRaised ? 1.06 : 1 }] },
-        hoverTransition(pressed ? 'none' : 'transform'),
+        riseTransition(pressed),
         shakeStyle,
-        style
+        style,
+        riseStyle(
+          isRaised,
+          flatStyle?.borderBottomWidth ?? 1,
+          typeof flatStyle?.marginTop === 'number' ? flatStyle.marginTop : 0,
+        ),
       ]}
     >
       <Pressable

@@ -13,7 +13,8 @@ import { DefaultText } from './default-text';
 import { useAppTheme } from '../app-theme/app-theme';
 import {
   AnimatedPressable,
-  hoverTransition,
+  riseStyle,
+  riseTransition,
   useHover,
   usePressed,
 } from './hover';
@@ -58,7 +59,6 @@ const CheckChip = ({label, ...props}: {
         borderRadius: 999,
         borderWidth: 1,
         borderRightWidth: 2,
-        borderBottomWidth: 4,
         borderColor: 'black',
         paddingLeft: props.compact ? 12 : 20,
         paddingRight: props.compact ? 12 : 20,
@@ -70,8 +70,8 @@ const CheckChip = ({label, ...props}: {
         backgroundColor: appTheme.primaryColor,
         ...(checked ? checkedContainerStyle : {}),
       },
-        { transform: [{ scale: hovered && !pressed ? 1.06 : 1 }] },
-        hoverTransition(pressed ? 'none' : 'transform'),
+        riseStyle(hovered && !pressed, 4, props.compact ? 3 : 5),
+        riseTransition(pressed),
       ]}
       onPress={onPress_}
       {...hoverProps}
