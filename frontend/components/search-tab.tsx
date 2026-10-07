@@ -110,6 +110,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     overflow: 'hidden',
   },
+  clubArrow: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   clubText: {
     fontSize: 16,
     fontFamily: 'Trueno',
@@ -302,8 +308,8 @@ const LeftContinuation = ({scrollLeft}: {scrollLeft: () => void}) => {
             alignItems: 'flex-start',
           }}
         >
-          <View>
-            <HoverCircle visible={hovered} inset={-4} />
+          <View style={styles.clubArrow}>
+            <HoverCircle visible={hovered} inset={0} />
             <Ionicons
               style={{
                 fontSize: 26,
@@ -372,8 +378,8 @@ const RightContinuation = ({scrollRight}: {scrollRight: () => void}) => {
             alignItems: 'flex-end',
           }}
         >
-          <View>
-            <HoverCircle visible={hovered} inset={-4} />
+          <View style={styles.clubArrow}>
+            <HoverCircle visible={hovered} inset={0} />
             <Ionicons
               style={{
                 fontSize: 26,

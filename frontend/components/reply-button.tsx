@@ -12,6 +12,7 @@ import { DefaultText } from './default-text';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faReply } from '@fortawesome/free-solid-svg-icons/faReply';
 import { useAppTheme } from '../app-theme/app-theme';
+import { HoverCircle, useHover } from './hover';
 
 const ReplyButton = ({
   onPress,
@@ -19,6 +20,7 @@ const ReplyButton = ({
   onPress: (e: GestureResponderEvent) => void,
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
   return (
     <View style={{ alignItems: 'flex-end' }} >
@@ -30,7 +32,9 @@ const ReplyButton = ({
         }}
         hitSlop={20}
         onPress={onPress}
+        {...hoverProps}
       >
+        <HoverCircle visible={hovered} />
         <DefaultText style={{ fontWeight: 700 }}>
           Reply
         </DefaultText>

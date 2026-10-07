@@ -3,7 +3,6 @@ import {
   Dimensions,
   GestureResponderEvent,
   ImageBackground,
-  Pressable,
   View,
   StyleProp,
   TextStyle,
@@ -11,7 +10,6 @@ import {
 } from 'react-native';
 import {
   Ref,
-  createElement,
   memo,
   useCallback,
   useState,
@@ -31,6 +29,8 @@ import {
 import { Logo14 } from './logo';
 import { useAppTheme } from '../app-theme/app-theme';
 import { ReplyButton } from './reply-button';
+import Reanimated from 'react-native-reanimated';
+import { AnimatedPressable, hoverColorFor, hoverTransition, useHover } from './hover';
 import { formatCount } from '../util/util';
 import {
   SearchFilterAnswer,
@@ -547,10 +547,12 @@ const AnswerIcon = ({
   enabled: boolean,
   onPress?: () => void
 }) => {
-  const { appThemeName } = useAppTheme();
+  const { appThemeName, appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
+  const isHovered = hovered && enabled && !!onPress;
 
   const backgroundColor = (() => {
-    if (selected === false) return appThemeName === 'dark' ? 'black' : 'white';
+    if (selected === false) return appThemeName === 'dark' ? 'black' : appTheme.primaryColor;
     if (enabled) return '#70f';
     return '#cabcff';
   })();
@@ -561,37 +563,35 @@ const AnswerIcon = ({
     return '#bcbcbc';
   })();
 
-  return createElement(
-    onPress ? Pressable : View,
-    {
-      style: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 2,
-        backgroundColor: backgroundColor,
-        borderColor: selected === false || !enabled ? '#bbb' : 'black',
-        borderWidth: 1,
-        borderRadius: 999,
-        overflow: 'visible',
-        width: ANSWER_ICON_SIZE,
-        height: ANSWER_ICON_SIZE,
-      },
-      onPress,
-    },
-    <>
-      {answer === 'yes' ?
-        <Check
-          stroke={checkColor}
-          width={18}
-          height={18}
-          /> :
-        <X
-          stroke={checkColor}
-          width={18}
-          height={18}
-          />
-      }
-    </>
+  const style: ViewStyle = {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
+    backgroundColor: isHovered
+      ? hoverColorFor(backgroundColor, appTheme)
+      : backgroundColor,
+    borderColor: selected === false || !enabled ? '#bbb' : 'black',
+    borderWidth: 1,
+    borderRadius: 999,
+    overflow: 'visible',
+    width: ANSWER_ICON_SIZE,
+    height: ANSWER_ICON_SIZE,
+    transform: [{ scale: isHovered ? 1.06 : 1 }],
+  };
+  const transition = hoverTransition(['backgroundColor', 'transform']);
+
+  const icon = answer === 'yes'
+    ? <Check stroke={checkColor} width={18} height={18} />
+    : <X stroke={checkColor} width={18} height={18} />;
+
+  if (!onPress) {
+    return <Reanimated.View style={[style, transition]}>{icon}</Reanimated.View>;
+  }
+
+  return (
+    <AnimatedPressable style={[style, transition]} onPress={onPress} {...hoverProps}>
+      {icon}
+    </AnimatedPressable>
   );
 };
 
