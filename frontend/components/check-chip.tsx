@@ -14,6 +14,7 @@ import { useAppTheme } from '../app-theme/app-theme';
 import {
   AnimatedPressable,
   hoverTransition,
+  RiseHoverArea,
   riseStyle,
   useHover,
   usePressed,
@@ -78,6 +79,7 @@ const CheckChip = ({label, ...props}: {
       {...hoverProps}
       {...pressProps}
     >
+      <RiseHoverArea raised={hovered && !pressed} borderBottomWidth={4} />
       <DefaultText
         style={{
           color: '#666',

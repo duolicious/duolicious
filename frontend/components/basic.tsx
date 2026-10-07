@@ -17,7 +17,7 @@ import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
-import { hoverTransition, riseStyle, useHover } from './hover';
+import { RiseHoverArea, hoverTransition, riseStyle, useHover } from './hover';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 type BasicIcon = IconDefinition | IoniconsName;
@@ -131,6 +131,7 @@ const Basic = ({children, ...rest}: {
           flexShrink: 1,
         }}
       >
+        <RiseHoverArea raised={isRaised} borderBottomWidth={1} />
         {icon && <Icon icon={icon} textStyle={textStyle} />}
         <DefaultText style={textStyle}>{children}</DefaultText>
       </Pressable>

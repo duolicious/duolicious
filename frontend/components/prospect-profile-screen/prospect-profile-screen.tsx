@@ -122,6 +122,7 @@ import {
   AnimatedPressable,
   hoverColorFor,
   hoverTransition,
+  RiseHoverArea,
   riseStyle,
   useHover,
   usePressed,
@@ -236,6 +237,7 @@ const ShareButton = ({personUuid, backgroundColor}: {
       {...hoverProps}
       {...pressProps}
     >
+      <RiseHoverArea raised={hovered && !pressed} borderBottomWidth={3} />
       <Share2
         stroke={surface.color}
         strokeWidth={2}
@@ -571,6 +573,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
       {...hoverProps}
       {...pressProps}
     >
+      <RiseHoverArea raised={hovered && !pressed} borderBottomWidth={3} />
       {isPosting &&
         <LogoActivityIndicator size="small" color="#70f"/>
       }
