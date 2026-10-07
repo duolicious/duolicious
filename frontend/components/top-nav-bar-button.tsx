@@ -84,7 +84,11 @@ const TopNavBarButton = ({
         flexDirection: 'row',
         gap: 5,
       }, hoverTransition(['backgroundColor']), opacityStyle]}>
-        <HoverCircle visible={hovered && secondary} />
+        <HoverCircle
+          visible={hovered && secondary}
+          inset={-4}
+          insetX={label ? -8 : -4}
+        />
         {loading ?
           <ActivityIndicator
             size="small"
