@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
   View,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { VerificationBadge } from './verification-badge';
 import { usePressableAnimation } from '../animation/animation';
 import { setProspectHint } from '../navigation/prospect-cache';
 import { navigateToConversation } from '../navigation/use-navigation-to-conversation';
+import Animated from 'react-native-reanimated';
 
 const IntrosItem = ({
   wasRead,
@@ -47,7 +47,7 @@ const IntrosItem = ({
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
   const {
-    backgroundColor,
+    backgroundStyle,
     onPressIn,
     onPressOut,
     hoverProps,
@@ -82,8 +82,7 @@ const IntrosItem = ({
       {...hoverProps}
     >
       <Animated.View
-        style={{
-          backgroundColor: backgroundColor,
+        style={[{
           borderRadius: 15,
           flexDirection: 'row',
           alignItems: 'center',
@@ -92,7 +91,7 @@ const IntrosItem = ({
           paddingLeft: 10,
           marginLeft: 5,
           marginRight: 5,
-        }}
+        }, backgroundStyle]}
       >
         <Avatar
           percentage={matchPercentage}
@@ -196,7 +195,7 @@ const ChatsItem = ({
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
   const {
-    backgroundColor,
+    backgroundStyle,
     onPressIn,
     onPressOut,
     hoverProps,
@@ -217,8 +216,7 @@ const ChatsItem = ({
       {...hoverProps}
     >
       <Animated.View
-        style={{
-          backgroundColor: backgroundColor,
+        style={[{
           borderRadius: 15,
           flexDirection: 'row',
           alignItems: 'center',
@@ -227,7 +225,7 @@ const ChatsItem = ({
           paddingLeft: 10,
           marginLeft: 5,
           marginRight: 5,
-        }}
+        }, backgroundStyle]}
       >
         <Avatar
           percentage={matchPercentage}

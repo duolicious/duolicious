@@ -43,7 +43,7 @@ import { listen, lastEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
-import { HoverCircle, useHover } from './hover';
+import { AnimatedPressable, HoverCircle, hoverTransition, useHover } from './hover';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { getPublicSearchFilters } from '../events/public-search-filters';
@@ -399,10 +399,15 @@ const ClubRowItem = ({ name, isSelected, style, onPress, onLayout }: {
   const { hovered, hoverProps } = useHover();
 
   return (
-    <Pressable
+    <AnimatedPressable
       style={[
         style,
-        hovered && !isSelected && { backgroundColor: appTheme.hoverOverlayColor },
+        {
+          backgroundColor: hovered && !isSelected
+            ? appTheme.hoverOverlayColor
+            : 'transparent',
+        },
+        hoverTransition(['backgroundColor']),
       ]}
       onPress={onPress}
       onLayout={onLayout}
@@ -421,7 +426,7 @@ const ClubRowItem = ({ name, isSelected, style, onPress, onLayout }: {
       >
         {name}
       </DefaultText>
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 

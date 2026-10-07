@@ -66,7 +66,7 @@ import {
 } from './quote';
 import { Tooltip } from '../tooltip';
 import { useAppTheme } from '../../app-theme/app-theme';
-import { HoverCircle, useHover } from '../hover';
+import { HoverCircle, hoverTransition, useHover } from '../hover';
 
 type KeyPressEvent = {
   key?: string;
@@ -423,7 +423,11 @@ const IconBar = ({
           <Animated.View
             entering={FadeIn}
             exiting={FadeOut}
-            style={[styles.sendAnimated, hovered && styles.sendAnimatedHovered]}
+            style={[
+              styles.sendAnimated,
+              hovered && styles.sendAnimatedHovered,
+              hoverTransition(['backgroundColor']),
+            ]}
           >
             <FontAwesomeIcon
               icon={faPaperPlane}

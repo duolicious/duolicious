@@ -15,7 +15,7 @@ import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { Avatar } from './avatar';
 import { getShortElapsedTime, isMobile, assertNever, capLuminance, formatCount } from '../util/util';
 import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation';
-import { GestureResponderEvent, LayoutChangeEvent, Pressable, Animated, ViewStyle } from 'react-native';
+import { GestureResponderEvent, LayoutChangeEvent, Pressable, ViewStyle } from 'react-native';
 import { EnlargeablePhoto } from './enlargeable-image';
 import { commonStyles } from '../styles';
 import { VerificationBadge } from './verification-badge';
@@ -518,7 +518,7 @@ const FeedItemJoined = ({ fields }: { fields: JoinedFields }) => {
     fields.photo_blurhash,
   );
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const props = isMobile() ? {
     onPress,
@@ -530,7 +530,7 @@ const FeedItemJoined = ({ fields }: { fields: JoinedFields }) => {
 
   return (
     <Pressable style={styles.pressableStyle} {...props}>
-      <Animated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Reanimated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         {fields.photo_uuid &&
           <Avatar
             percentage={fields.match_percentage}
@@ -555,7 +555,7 @@ const FeedItemJoined = ({ fields }: { fields: JoinedFields }) => {
           />
           <ActionTime action="Joined" time={new Date(fields.time)} />
         </View>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 };
@@ -954,7 +954,7 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
     fields.photo_blurhash,
   );
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const isMember = useIsClubMember(fields.joined_club_name);
 
@@ -989,7 +989,7 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
 
   return (
     <Pressable style={styles.pressableStyle} {...props}>
-      <Animated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Reanimated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         {fields.photo_uuid &&
           <Avatar
             percentage={fields.match_percentage}
@@ -1034,7 +1034,7 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
             viewerIsMember={isMember}
           />
         </View>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 };
@@ -1186,7 +1186,7 @@ const FeedItemAnsweredQuestion = ({
     fields.photo_blurhash,
   );
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const viewerAnswer = useViewerAnswer(fields.answered_question_id);
 
@@ -1246,11 +1246,11 @@ const FeedItemAnsweredQuestion = ({
 
   return (
     <View style={styles.pressableStyle}>
-      <Animated.View
+      <Reanimated.View
         style={[
           styles.answeredQuestionCardBorders,
           appTheme.card,
-          { backgroundColor },
+          backgroundStyle,
         ]}
       >
         {/* Only this row navigates to the profile: a card-wide Pressable
@@ -1304,7 +1304,7 @@ const FeedItemAnsweredQuestion = ({
         >
           {fields.question_text}
         </NonInteractiveQuizCard>
-      </Animated.View>
+      </Reanimated.View>
     </View>
   );
 };
@@ -1343,7 +1343,7 @@ const FeedItemAddedPhoto = ({
     fields.photo_blurhash,
   );
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const props = isMobile() ? {
     onPress,
@@ -1355,7 +1355,7 @@ const FeedItemAddedPhoto = ({
 
   return (
     <Pressable style={styles.pressableStyle} {...props}>
-      <Animated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Reanimated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         {fields.photo_uuid &&
           <Avatar
             percentage={fields.match_percentage}
@@ -1389,7 +1389,7 @@ const FeedItemAddedPhoto = ({
             style={styles.addedPhoto}
           />
         </View>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 };
@@ -1408,7 +1408,7 @@ const FeedItemAddedVoiceBio = ({
     fields.photo_blurhash,
   );
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const props = isMobile() ? {
     onPress,
@@ -1420,7 +1420,7 @@ const FeedItemAddedVoiceBio = ({
 
   return (
     <Pressable style={styles.pressableStyle} {...props}>
-      <Animated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Reanimated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         {fields.photo_uuid &&
           <Avatar
             percentage={fields.match_percentage}
@@ -1450,7 +1450,7 @@ const FeedItemAddedVoiceBio = ({
             style={{ marginTop: 0 }}
           />
         </View>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 };
@@ -1478,7 +1478,7 @@ const FeedItemUpdatedBio = ({
     fields.added_text,
   );
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const props = isMobile() ? {
     onPress,
@@ -1490,7 +1490,7 @@ const FeedItemUpdatedBio = ({
 
   return (
     <Pressable style={styles.pressableStyle} {...props}>
-      <Animated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Reanimated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         {fields.photo_uuid &&
           <Avatar
             percentage={fields.match_percentage}
@@ -1538,7 +1538,7 @@ const FeedItemUpdatedBio = ({
           </View>
           <ReplyButton onPress={onPressReply} />
         </View>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 };

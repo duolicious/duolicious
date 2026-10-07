@@ -12,7 +12,7 @@ import { faCheck } from '@fortawesome/free-solid-svg-icons/faCheck';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DefaultText } from './default-text';
 import { useAppTheme } from '../app-theme/app-theme';
-import { PURPLE_HOVER_COLOR, useHover } from './hover';
+import { HOVER_DURATION_MS, PURPLE_HOVER_COLOR, useHover } from './hover';
 
 const COLOR = '#70f';
 const SIZE = 22;
@@ -25,21 +25,33 @@ const Box = ({ value, hovered, style }: {
 }) => {
   const { appTheme } = useAppTheme();
   const progress = useSharedValue(value ? 1 : 0);
-
-  const uncheckedColor = hovered ? appTheme.purpleHoverTint : 'rgba(119, 0, 255, 0)';
-  const checkedColor = hovered ? PURPLE_HOVER_COLOR : COLOR;
+  const hoverProgress = useSharedValue(0);
+  const hoverTint = appTheme.purpleHoverTint;
 
   useEffect(() => {
     progress.value = withTiming(value ? 1 : 0, { duration: DURATION });
   }, [value]);
 
-  const boxStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      progress.value,
-      [0, 1],
-      [uncheckedColor, checkedColor],
-    ),
-  }), [uncheckedColor, checkedColor]);
+  useEffect(() => {
+    hoverProgress.value = withTiming(hovered ? 1 : 0, { duration: HOVER_DURATION_MS });
+  }, [hovered]);
+
+  const boxStyle = useAnimatedStyle(() => {
+    const checkedColor = interpolateColor(
+      hoverProgress.value, [0, 1], [COLOR, PURPLE_HOVER_COLOR]);
+
+    return {
+      borderColor: interpolateColor(progress.value, [0, 1], [COLOR, checkedColor]),
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [
+          interpolateColor(hoverProgress.value, [0, 1], ['rgba(119, 0, 255, 0)', hoverTint]),
+          checkedColor,
+        ],
+      ),
+    };
+  }, [hoverTint]);
 
   const checkStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -50,7 +62,6 @@ const Box = ({ value, hovered, style }: {
     <Animated.View
       style={[
         styles.box,
-        { borderColor: hovered && value ? PURPLE_HOVER_COLOR : COLOR },
         boxStyle,
         style,
       ]}

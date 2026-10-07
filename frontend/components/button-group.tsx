@@ -3,7 +3,6 @@ import {
   Pressable,
   StyleSheet,
   LayoutChangeEvent,
-  View,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -14,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { DefaultText } from './default-text';
 import { useAppTheme } from '../app-theme/app-theme';
-import { useHover } from './hover';
+import { hoverTransition, useHover } from './hover';
 
 
 const DURATION = 250;
@@ -55,17 +54,16 @@ const SegmentButton = ({
       style={styles.button}
       {...hoverProps}
     >
-      {isHovered &&
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.baseIndicator,
-            secondary ? styles.secondaryIndicator : styles.primaryIndicator,
-            styles.ghostIndicator,
-          ]}
-        />
-      }
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          styles.baseIndicator,
+          secondary ? styles.secondaryIndicator : styles.primaryIndicator,
+          { opacity: isHovered ? 0.35 : 0 },
+          hoverTransition(['opacity']),
+        ]}
+      />
       <DefaultText
         style={{
           ...(secondary ? styles.secondaryLabel : styles.primaryLabel),
@@ -200,9 +198,6 @@ const styles = StyleSheet.create({
   },
   secondaryIndicator: {
     borderRadius: 12,
-  },
-  ghostIndicator: {
-    opacity: 0.35,
   },
   button: {
     flex: 1,

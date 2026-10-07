@@ -1,6 +1,5 @@
 import {
   ActivityIndicator,
-  Animated,
   Pressable,
   View,
   ViewStyle,
@@ -8,13 +7,17 @@ import {
 import {
   ComponentProps,
   useCallback,
-  useRef,
 } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { isMobile } from '../util/util';
 import { DefaultText } from '../components/default-text';
 import { useAppTheme } from '../app-theme/app-theme';
-import { HoverCircle, useHover } from './hover';
+import { HoverCircle, hoverTransition, useHover } from './hover';
 
 const TopNavBarButton = ({
   onPress,
@@ -35,21 +38,18 @@ const TopNavBarButton = ({
   loading?: boolean,
   overlayIconName?: ComponentProps<typeof Ionicons>['name'],
 }) => {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useSharedValue(1);
+  const opacityStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   const { appTheme } = useAppTheme();
   const { hovered, hoverProps } = useHover();
 
   const onPressIn = useCallback(() => {
-    opacity.setValue(0.2);
+    opacity.value = 0.2;
   }, []);
 
   const onPressOut = useCallback(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: false,
-    }).start();
+    opacity.value = withTiming(1, { duration: 500 });
   }, []);
 
   return (
@@ -71,9 +71,8 @@ const TopNavBarButton = ({
       }}
       {...hoverProps}
     >
-      <Animated.View style={{
-        opacity: opacity,
-        backgroundColor: hovered && !secondary ? appTheme.hoverColor : undefined,
+      <Animated.View style={[{
+        backgroundColor: hovered && !secondary ? appTheme.hoverColor : 'transparent',
         borderColor: secondary || isMobile() ? undefined : appTheme.interactiveBorderColor,
         borderWidth: secondary || isMobile() ? undefined : 1,
         borderRadius: 7,
@@ -84,7 +83,7 @@ const TopNavBarButton = ({
         justifyContent: 'center',
         flexDirection: 'row',
         gap: 5,
-      }}>
+      }, hoverTransition(['backgroundColor']), opacityStyle]}>
         <HoverCircle visible={hovered && secondary} />
         {loading ?
           <ActivityIndicator

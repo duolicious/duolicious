@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
 } from 'react-native';
 import { FC } from 'react';
@@ -9,8 +8,10 @@ import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { DefaultText } from '../default-text';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { usePressableAnimation } from '../../animation/animation';
+import { hoverTransition } from '../hover';
 import { setOptionScreenPayload } from '../../navigation/option-screen-store';
 import { OptionGroup, OptionGroupInputs } from '../../data/option-groups';
+import Animated from 'react-native-reanimated';
 
 type ButtonForOptionProps = {
   onPress?: () => void;
@@ -58,7 +59,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
 
   const { appTheme } = useAppTheme();
   const {
-    backgroundColor,
+    backgroundStyle,
     onPressIn,
     onPressOut,
     hovered,
@@ -96,10 +97,9 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
       {...hoverProps}
     >
       <Animated.View
-        style={{
+        style={[{
           width: '100%',
           height: '100%',
-          backgroundColor,
           borderColor: appTheme.interactiveBorderColor,
           borderWidth: 1,
           borderBottomWidth: 2,
@@ -109,7 +109,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'space-between',
-        }}
+        }, backgroundStyle]}
       >
         {Icon_ &&
           <Icon_ color={appTheme.secondaryColor} />
@@ -149,15 +149,20 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           />
         }
         {!loading &&
-          <Ionicons
-            style={{
-              position: 'absolute',
-              right: hovered ? 2 : 5,
-              fontSize: 20,
-              color: appTheme.secondaryColor,
-            }}
-            name="chevron-forward"
-          />
+          <Animated.View
+            style={[
+              { position: 'absolute', right: hovered ? 2 : 5 },
+              hoverTransition(['right']),
+            ]}
+          >
+            <Ionicons
+              style={{
+                fontSize: 20,
+                color: appTheme.secondaryColor,
+              }}
+              name="chevron-forward"
+            />
+          </Animated.View>
         }
       </Animated.View>
     </Pressable>

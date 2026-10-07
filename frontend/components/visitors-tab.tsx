@@ -1,5 +1,4 @@
 import {
-  Animated as RNAnimated,
   Platform,
   Pressable,
   StyleSheet,
@@ -153,7 +152,7 @@ const VisitorsItemContent = ({
 
   const { isSkipped } = useSkipped(dataItem.person_uuid);
   const {
-    backgroundColor,
+    backgroundStyle,
     onPressIn,
     onPressOut,
     hoverProps,
@@ -191,7 +190,7 @@ const VisitorsItemContent = ({
       {...navigationProps}
       {...hoverProps}
     >
-      <RNAnimated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Animated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         <Avatar
           percentage={dataItem.match_percentage}
           personUuid={dataItem.person_uuid}
@@ -279,7 +278,7 @@ const VisitorsItemContent = ({
             right: 10,
           }}
         />
-      </RNAnimated.View>
+      </Animated.View>
     </Pressable>
   );
 };

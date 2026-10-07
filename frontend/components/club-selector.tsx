@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,9 +11,9 @@ import type { ProfileParamList } from '../navigation/linking';
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from 'react';
+import Animated from 'react-native-reanimated';
 import { DefaultText } from './default-text';
 import { TopNavBar } from './top-nav-bar';
 import { Title } from './title';
@@ -83,23 +82,8 @@ const UnselectedClub = ({
   onPress: (clubItem: ClubItem) => void
   isAtQuota: boolean
 }) => {
-  const [shakeAnimation, startShake] = useShake();
+  const { shakeStyle, startShake } = useShake();
   const [signedInUser] = useSignedInUser();
-
-  const opacityAnimation = useRef(new Animated.Value(1)).current;
-
-  const animateOpacity = useCallback(() => {
-    // Animate opacity to 0.3 if at quota, otherwise animate back to 1
-    Animated.timing(opacityAnimation, {
-      toValue: isAtQuota && signedInUser?.hasGold ? 0.3 : 1,
-      duration: 300, // Duration can be adjusted as needed
-      useNativeDriver: true
-    }).start();
-  }, [isAtQuota, signedInUser?.hasGold]);
-
-  useEffect(() => {
-    animateOpacity();
-  }, [animateOpacity]);
 
   const _onPress = useCallback(() => {
     if (isAtQuota) {
@@ -114,10 +98,14 @@ const UnselectedClub = ({
 
   return (
     <Animated.View
-      style={{
-        opacity: opacityAnimation,
-        transform: [{ translateX: shakeAnimation }]
-      }}
+      style={[
+        {
+          opacity: isAtQuota && signedInUser?.hasGold ? 0.3 : 1,
+          transitionProperty: 'opacity',
+          transitionDuration: 300,
+        },
+        shakeStyle,
+      ]}
     >
       <Pressable
         style={{

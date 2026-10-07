@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
   TextStyle,
   View,
@@ -10,10 +9,16 @@ import {
   RefObject,
   useRef,
 } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { DefaultText } from '../default-text';
 import { useAppTheme } from '../../app-theme/app-theme';
-import { hoverColorFor, useHover } from '../hover';
+import { hoverColorFor, hoverTransition, useHover } from '../hover';
 
 type ButtonWithCenteredTextApi = {
   isEnabled: (value: boolean) => void
@@ -67,22 +72,16 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
   const opacityLo = 0.2;
   const opacityHi = 1.0;
 
-  const animatedOpacity = useRef(new Animated.Value(1)).current;
+  const opacity = useSharedValue(opacityHi);
 
-  const fade = (callback?: () => void) => {
-    Animated.timing(animatedOpacity, {
-      toValue: opacityLo,
-      duration: 0,
-      useNativeDriver: true,
-    }).start((result) => result.finished && callback?.())
+  const opacityStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  const fade = () => {
+    opacity.value = opacityLo;
   };
 
-  const unfade = (callback?: () => void) => {
-    Animated.timing(animatedOpacity, {
-      toValue: opacityHi,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start((result) => result.finished && callback?.())
+  const unfade = () => {
+    opacity.value = withTiming(opacityHi, { duration: 1000 });
   };
 
   class Api {
@@ -99,7 +98,10 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
     }
 
     doPressAnimation() {
-      fade(() => unfade());
+      opacity.value = withSequence(
+        withTiming(opacityLo, { duration: 0 }),
+        withTiming(opacityHi, { duration: 1000 }),
+      );
     }
   };
 
@@ -123,7 +125,7 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
       {...hoverProps}
     >
       <Animated.View
-        style={{
+        style={[{
           width: '100%',
           height: (
             'height' in (containerStyle ?? {}) &&
@@ -135,11 +137,13 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
           backgroundColor: hovered
             ? hoverColorFor(restingBackgroundColor, appTheme)
             : restingBackgroundColor,
-          opacity: animatedOpacity,
           transform: [{ scale: growOnHover && hovered ? 1.06 : 1 }],
           alignItems: 'center',
           justifyContent: 'center',
-        }}
+        },
+        hoverTransition(['backgroundColor', 'transform']),
+        opacityStyle,
+        ]}
       >
         {loading &&
           <LogoActivityIndicator

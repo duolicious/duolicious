@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useEffect, useMemo } from 'react';
 import { useAppTheme } from '../app-theme/app-theme';
-import { PURPLE_HOVER_COLOR, useHover } from './hover';
+import { HOVER_DURATION_MS, PURPLE_HOVER_COLOR, useHover } from './hover';
 
 const TRACK_WIDTH = 48;
 const TRACK_HEIGHT = 28;
@@ -32,22 +32,29 @@ const Toggle = ({
 }) => {
   const { appThemeName } = useAppTheme();
   const { hovered, hoverProps } = useHover();
-  const offColor = OFF_COLORS[appThemeName][hovered ? 'hover' : 'rest'];
-  const onColor = hovered ? PURPLE_HOVER_COLOR : ON_COLOR;
+  const offColors = OFF_COLORS[appThemeName];
 
   const progress = useSharedValue(value ? 1 : 0);
+  const hoverProgress = useSharedValue(0);
 
   useEffect(() => {
     progress.value = withTiming(value ? 1 : 0, { duration: DURATION });
   }, [value]);
 
+  useEffect(() => {
+    hoverProgress.value = withTiming(hovered ? 1 : 0, { duration: HOVER_DURATION_MS });
+  }, [hovered]);
+
   const trackStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],
-      [offColor, onColor],
+      [
+        interpolateColor(hoverProgress.value, [0, 1], [offColors.rest, offColors.hover]),
+        interpolateColor(hoverProgress.value, [0, 1], [ON_COLOR, PURPLE_HOVER_COLOR]),
+      ],
     ),
-  }), [offColor, onColor]);
+  }), [offColors]);
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: progress.value * TRAVEL }],

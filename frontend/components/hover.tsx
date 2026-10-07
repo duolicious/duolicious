@@ -1,11 +1,12 @@
 import {
   Platform,
   PointerEvent,
+  Pressable,
   StyleSheet,
-  View,
   ViewStyle,
 } from 'react-native';
 import { useMemo, useState } from 'react';
+import Animated, { CSSTransitionProperties } from 'react-native-reanimated';
 import { AppTheme, useAppTheme } from '../app-theme/app-theme';
 
 const PURPLE_HOVER_COLOR = '#6400d6';
@@ -32,15 +33,38 @@ const useHover = () => {
   return { hovered, hoverProps };
 };
 
+const usePressed = () => {
+  const [pressed, setPressed] = useState(false);
+
+  const pressProps = useMemo(() => ({
+    onPressIn: () => setPressed(true),
+    onPressOut: () => setPressed(false),
+  }), []);
+
+  return { pressed, pressProps };
+};
+
 const hoverColorFor = (color: string, appTheme: AppTheme): string => {
   if (color === appTheme.primaryColor) return appTheme.hoverColor;
   if (color === appTheme.brandColor) return appTheme.brandHoverColor;
   return FIXED_HOVER_COLORS[color] ?? color;
 };
 
-const riseStyle = (edgeColor: string): ViewStyle => ({
-  transform: [{ translateY: -2 }],
-  boxShadow: `0 2px 0 ${edgeColor}`,
+const HOVER_DURATION_MS = 150;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const hoverTransition = (
+  properties: CSSTransitionProperties['transitionProperty'],
+): CSSTransitionProperties => ({
+  transitionProperty: properties,
+  transitionDuration: HOVER_DURATION_MS,
+  transitionTimingFunction: 'ease-out',
+});
+
+const riseStyle = (edgeColor: string, raised: boolean): ViewStyle => ({
+  top: raised ? -2 : 0,
+  boxShadow: `0 ${raised ? 2 : 0}px 0 ${edgeColor}`,
 });
 
 const grabCursor = (grabbing: boolean): ViewStyle => {
@@ -55,12 +79,8 @@ const HoverCircle = ({ visible, inset = -8 }: {
 }) => {
   const { appTheme } = useAppTheme();
 
-  if (!visible) {
-    return null;
-  }
-
   return (
-    <View
+    <Animated.View
       pointerEvents="none"
       style={[
         StyleSheet.absoluteFill,
@@ -71,17 +91,24 @@ const HoverCircle = ({ visible, inset = -8 }: {
           bottom: inset,
           borderRadius: 999,
           backgroundColor: appTheme.hoverOverlayColor,
+          opacity: visible ? 1 : 0,
+          transform: [{ scale: visible ? 1 : 0.8 }],
         },
+        hoverTransition(['opacity', 'transform']),
       ]}
     />
   );
 };
 
 export {
+  AnimatedPressable,
+  HOVER_DURATION_MS,
   HoverCircle,
   PURPLE_HOVER_COLOR,
   grabCursor,
   hoverColorFor,
+  hoverTransition,
   riseStyle,
   useHover,
+  usePressed,
 };

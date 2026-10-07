@@ -1,5 +1,4 @@
 import {
-  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -78,6 +77,7 @@ import Reanimated, {
   FadeOut,
   LinearTransition,
   useAnimatedStyle,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { ClubItem, joinClub, leaveClub } from '../../club/club';
@@ -118,7 +118,14 @@ import {
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
 import { storeKv } from '../../kv-storage/kv-storage';
 import type { PageItem } from '../search-tab';
-import { hoverColorFor, riseStyle, useHover } from '../hover';
+import {
+  AnimatedPressable,
+  hoverColorFor,
+  hoverTransition,
+  riseStyle,
+  useHover,
+  usePressed,
+} from '../hover';
 
 // The person's photos in order, so tapping any one lets the gallery page
 // through the rest.
@@ -194,7 +201,7 @@ const profilePillButtonStyle = (
   backgroundColor: surface.backgroundColor,
   borderColor: surface.borderColor,
   opacity: pressed ? 0.6 : 1,
-  ...(hovered && !pressed ? riseStyle(surface.borderColor) : {}),
+  ...riseStyle(surface.borderColor, hovered && !pressed),
 });
 
 const profilePillButtonTextStyle = (
@@ -215,16 +222,19 @@ const ShareButton = ({personUuid, backgroundColor}: {
 
   const surface = legibleSurface(backgroundColor);
   const { hovered, hoverProps } = useHover();
+  const { pressed, pressProps } = usePressed();
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       accessibilityLabel="Copy profile link"
-      style={({ pressed }) => ({
-        ...profilePillButtonStyle(surface, pressed, hovered),
-        marginBottom: 0,
-      })}
+      style={[
+        profilePillButtonStyle(surface, pressed, hovered),
+        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+        { marginBottom: 0 },
+      ]}
       {...hoverProps}
+      {...pressProps}
     >
       <Share2
         stroke={surface.color}
@@ -235,7 +245,7 @@ const ShareButton = ({personUuid, backgroundColor}: {
       <DefaultText style={profilePillButtonTextStyle(surface)}>
         Share profile
       </DefaultText>
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 
@@ -265,23 +275,16 @@ const FloatingProfileInteractionButton = ({
     return () => node.removeEventListener('mousedown', onMouseDown);
   }, []);
 
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useSharedValue(1);
+  const opacityStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const { hovered, hoverProps } = useHover();
 
   const fadeOut = useCallback(() => {
-    Animated.timing(opacity, {
-      toValue: 0.4,
-      duration: 0,
-      useNativeDriver: false,
-    }).start();
+    opacity.value = 0.4;
   }, []);
 
   const fadeIn = useCallback(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 50,
-      useNativeDriver: false,
-    }).start();
+    opacity.value = withTiming(1, { duration: 50 });
   }, []);
 
   return (
@@ -300,8 +303,8 @@ const FloatingProfileInteractionButton = ({
       onPress={onPress}
       {...hoverProps}
     >
-      <Animated.View
-        style={{
+      <Reanimated.View
+        style={[{
           borderRadius: 999,
           alignItems: 'center',
           justifyContent: 'center',
@@ -309,16 +312,15 @@ const FloatingProfileInteractionButton = ({
             ? hoverColorFor(backgroundColor, appTheme)
             : backgroundColor,
           transform: [{ scale: hovered ? 1.06 : 1 }],
-          opacity: opacity,
           flexDirection: 'row',
           borderWidth: 1,
           borderColor: appTheme.secondaryColor,
           height: 60,
           width: 60,
-        }}
+        }, hoverTransition(['backgroundColor', 'transform']), opacityStyle]}
       >
         {children}
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 };
@@ -533,6 +535,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
   const { isSkipped, isLoading, isPosting } = useSkipped(personUuid);
   const surface = legibleSurface(backgroundColor);
   const { hovered, hoverProps } = useHover();
+  const { pressed, pressProps } = usePressed();
 
   const onPress = useCallback(async () => {
     if (personUuid == null) return;
@@ -558,13 +561,15 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
   const iconStroke = isLoading ? "transparent" : surface.color;
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        ...profilePillButtonStyle(surface, pressed, hovered),
-        marginBottom: 100,
-      })}
+      style={[
+        profilePillButtonStyle(surface, pressed, hovered),
+        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+        { marginBottom: 100 },
+      ]}
       {...hoverProps}
+      {...pressProps}
     >
       {isPosting &&
         <LogoActivityIndicator size="small" color="#70f"/>
@@ -590,7 +595,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
           {name === undefined ? '...' : text}
         </DefaultText>
       }
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 

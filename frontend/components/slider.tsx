@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Gesture, GestureDetector, PanGesture } from 'react-native-gesture-handler';
 import { useAppTheme } from '../app-theme/app-theme';
-import { grabCursor, useHover } from './hover';
+import { grabCursor, hoverTransition, useHover } from './hover';
 import { DefaultText } from './default-text';
 import { LINEAR_SCALE, Scale } from '../scales/scales';
 
@@ -183,18 +184,17 @@ const SliderThumb = ({ gesture, left, hollow, isDragging }: {
 
   return (
     <GestureDetector gesture={gesture}>
-      <View
+      <Animated.View
         {...hoverProps}
         style={[
           styles.thumb,
           {
             left,
             backgroundColor: hollow ? appTheme.primaryColor : PURPLE,
-            boxShadow: hovered || isDragging
-              ? `0 0 0 8px ${appTheme.purpleHoverTint}`
-              : undefined,
+            boxShadow: `0 0 0 ${hovered || isDragging ? 8 : 0}px ${appTheme.purpleHoverTint}`,
           },
           grabCursor(isDragging),
+          hoverTransition(['boxShadow']),
         ]}
       />
     </GestureDetector>
