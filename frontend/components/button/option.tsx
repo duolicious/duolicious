@@ -8,7 +8,6 @@ import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { DefaultText } from '../default-text';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { usePressableAnimation } from '../../animation/animation';
-import { hoverTransition } from '../hover';
 import { setOptionScreenPayload } from '../../navigation/option-screen-store';
 import { OptionGroup, OptionGroupInputs } from '../../data/option-groups';
 import Animated from 'react-native-reanimated';
@@ -62,7 +61,6 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
     backgroundStyle,
     onPressIn,
     onPressOut,
-    hovered,
     hoverProps,
   } = usePressableAnimation();
 
@@ -149,20 +147,15 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           />
         }
         {!loading &&
-          <Animated.View
-            style={[
-              { position: 'absolute', right: hovered ? 2 : 5 },
-              hoverTransition(['right']),
-            ]}
-          >
-            <Ionicons
-              style={{
-                fontSize: 20,
-                color: appTheme.secondaryColor,
-              }}
-              name="chevron-forward"
-            />
-          </Animated.View>
+          <Ionicons
+            style={{
+              position: 'absolute',
+              right: 5,
+              fontSize: 20,
+              color: appTheme.secondaryColor,
+            }}
+            name="chevron-forward"
+          />
         }
       </Animated.View>
     </Pressable>

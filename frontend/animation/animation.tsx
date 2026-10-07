@@ -61,7 +61,7 @@ const usePressableAnimation = (isPressed = false) => {
     progress.value = withTiming(restingValue, { duration: HOVER_DURATION_MS });
   }, [restingValue]);
 
-  return { backgroundStyle, onPressIn, onPressOut, hovered, hoverProps };
+  return { backgroundStyle, onPressIn, onPressOut, hoverProps };
 };
 
 export {
