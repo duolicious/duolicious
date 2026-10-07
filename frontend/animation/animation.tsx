@@ -8,6 +8,7 @@ import {
   useRef,
 } from 'react';
 import { useAppTheme } from '../app-theme/app-theme';
+import { useHover } from '../components/hover';
 
 
 const useShake = (): [Animated.Value, () => void] => {
@@ -47,8 +48,9 @@ const useShake = (): [Animated.Value, () => void] => {
 
 const usePressableAnimation = (isPressed = false) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
-  const restingValue = isPressed ? 1 : 0;
+  const restingValue = isPressed ? 1 : hovered ? 0.5 : 0;
 
   const animatedBackgroundColor = useRef(new Animated.Value(restingValue)).current;
 
@@ -57,8 +59,12 @@ const usePressableAnimation = (isPressed = false) => {
   }, [restingValue]);
 
   const backgroundColor = animatedBackgroundColor.interpolate({
-    inputRange: [0, 1],
-    outputRange: [`${appTheme.primaryColor}ff`, `${appTheme.interactiveBorderColor}80`],
+    inputRange: [0, 0.5, 1],
+    outputRange: [
+      `${appTheme.primaryColor}ff`,
+      `${appTheme.hoverColor}ff`,
+      `${appTheme.interactiveBorderColor}80`,
+    ],
     extrapolate: 'clamp',
   });
 
@@ -78,7 +84,7 @@ const usePressableAnimation = (isPressed = false) => {
     }).start();
   }, [restingValue]);
 
-  return { backgroundColor, onPressIn, onPressOut };
+  return { backgroundColor, onPressIn, onPressOut, hovered, hoverProps };
 };
 
 export {

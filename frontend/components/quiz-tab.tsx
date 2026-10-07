@@ -163,6 +163,7 @@ const UndoNoYesSkip = (props: {
         backgroundColor="black"
         borderColor="white"
         borderWidth={2}
+        growOnHover={true}
         extraChildren={
           <Rewind
             stroke="white"
@@ -183,6 +184,7 @@ const UndoNoYesSkip = (props: {
         backgroundColor="#70f"
         borderColor="white"
         borderWidth={2}
+        growOnHover={true}
         extraChildren={
           <X
             stroke="white"
@@ -202,6 +204,7 @@ const UndoNoYesSkip = (props: {
         backgroundColor="#70f"
         borderColor="white"
         borderWidth={2}
+        growOnHover={true}
         extraChildren={
         <Check
           stroke="white"
@@ -222,6 +225,7 @@ const UndoNoYesSkip = (props: {
         backgroundColor="black"
         borderColor="white"
         borderWidth={2}
+        growOnHover={true}
         extraChildren={
           <FastForward
             stroke="white"

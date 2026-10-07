@@ -1,4 +1,4 @@
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolateColor,
@@ -11,13 +11,23 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCheck } from '@fortawesome/free-solid-svg-icons/faCheck';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DefaultText } from './default-text';
+import { useAppTheme } from '../app-theme/app-theme';
+import { PURPLE_HOVER_COLOR, useHover } from './hover';
 
 const COLOR = '#70f';
 const SIZE = 22;
 const DURATION = 150;
 
-const Box = ({ value, style }: { value: boolean, style?: ViewStyle }) => {
+const Box = ({ value, hovered, style }: {
+  value: boolean,
+  hovered: boolean,
+  style?: ViewStyle,
+}) => {
+  const { appTheme } = useAppTheme();
   const progress = useSharedValue(value ? 1 : 0);
+
+  const uncheckedColor = hovered ? appTheme.purpleHoverTint : 'rgba(119, 0, 255, 0)';
+  const checkedColor = hovered ? PURPLE_HOVER_COLOR : COLOR;
 
   useEffect(() => {
     progress.value = withTiming(value ? 1 : 0, { duration: DURATION });
@@ -27,9 +37,9 @@ const Box = ({ value, style }: { value: boolean, style?: ViewStyle }) => {
     backgroundColor: interpolateColor(
       progress.value,
       [0, 1],
-      ['rgba(119, 0, 255, 0)', 'rgba(119, 0, 255, 1)'],
+      [uncheckedColor, checkedColor],
     ),
-  }));
+  }), [uncheckedColor, checkedColor]);
 
   const checkStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -37,7 +47,14 @@ const Box = ({ value, style }: { value: boolean, style?: ViewStyle }) => {
   }));
 
   return (
-    <Animated.View style={[styles.box, boxStyle, style]}>
+    <Animated.View
+      style={[
+        styles.box,
+        { borderColor: hovered && value ? PURPLE_HOVER_COLOR : COLOR },
+        boxStyle,
+        style,
+      ]}
+    >
       <Animated.View style={checkStyle}>
         <FontAwesomeIcon
           icon={faCheck}
@@ -71,14 +88,24 @@ const CheckBoxLayout = ({
     [onPress]
   );
 
+  const { hovered, hoverProps } = useHover();
+
   const label = <DefaultText>{children}</DefaultText>;
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={{ ...styles.container, ...containerStyle }}>
+      <View
+        style={{
+          ...styles.container,
+          ...containerStyle,
+          ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+        }}
+        {...hoverProps}
+      >
         {labelPosition !== 'right' && label}
         <Box
           value={value}
+          hovered={hovered}
           style={labelPosition === 'right' ? styles.boxLeft : styles.boxRight}
         />
         {labelPosition === 'right' && label}

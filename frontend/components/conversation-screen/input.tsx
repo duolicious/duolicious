@@ -66,6 +66,7 @@ import {
 } from './quote';
 import { Tooltip } from '../tooltip';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { HoverCircle, useHover } from '../hover';
 
 type KeyPressEvent = {
   key?: string;
@@ -289,6 +290,7 @@ const AutoResizingTextInput = (props: TextInputProps) => {
 
 const QuotePreview = ({ quote }: { quote: QuoteType | null }) => {
   const { appTheme } = useAppTheme();
+  const { hovered: isCloseHovered, hoverProps: closeHoverProps } = useHover();
 
   if (!quote) {
     return null;
@@ -315,7 +317,8 @@ const QuotePreview = ({ quote }: { quote: QuoteType | null }) => {
           backgroundColor="#eee"
         />
       </View>
-      <Pressable onPress={() => setQuote(null)} style={{ cursor: 'pointer' }}>
+      <Pressable onPress={() => setQuote(null)} {...closeHoverProps}>
+        <HoverCircle visible={isCloseHovered} />
         <X
           strokeWidth={3}
           stroke={appTheme.secondaryColor}
@@ -399,6 +402,7 @@ const IconBar = ({
   handleSendPress: () => void;
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
   return (
     <View style={styles.iconContainer}>
@@ -415,8 +419,12 @@ const IconBar = ({
       </GestureDetector>
 
       {textHasContent && (
-        <Pressable onPress={handleSendPress} style={styles.sendPressable}>
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.sendAnimated}>
+        <Pressable onPress={handleSendPress} style={styles.sendPressable} {...hoverProps}>
+          <Animated.View
+            entering={FadeIn}
+            exiting={FadeOut}
+            style={[styles.sendAnimated, hovered && styles.sendAnimatedHovered]}
+          >
             <FontAwesomeIcon
               icon={faPaperPlane}
               size={20}
@@ -970,6 +978,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#70f',
+  },
+  sendAnimatedHovered: {
+    backgroundColor: 'rgb(214, 179, 255)',
   },
   hintContainer: {
     position: 'absolute',

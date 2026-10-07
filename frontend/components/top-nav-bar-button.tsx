@@ -14,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { isMobile } from '../util/util';
 import { DefaultText } from '../components/default-text';
 import { useAppTheme } from '../app-theme/app-theme';
+import { HoverCircle, useHover } from './hover';
 
 const TopNavBarButton = ({
   onPress,
@@ -37,6 +38,7 @@ const TopNavBarButton = ({
   const opacity = useRef(new Animated.Value(1)).current;
 
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
   const onPressIn = useCallback(() => {
     opacity.setValue(0.2);
@@ -67,9 +69,11 @@ const TopNavBarButton = ({
         } : { }),
         ...style,
       }}
+      {...hoverProps}
     >
       <Animated.View style={{
         opacity: opacity,
+        backgroundColor: hovered && !secondary ? appTheme.hoverColor : undefined,
         borderColor: secondary || isMobile() ? undefined : appTheme.interactiveBorderColor,
         borderWidth: secondary || isMobile() ? undefined : 1,
         borderRadius: 7,
@@ -81,6 +85,7 @@ const TopNavBarButton = ({
         flexDirection: 'row',
         gap: 5,
       }}>
+        <HoverCircle visible={hovered && secondary} />
         {loading ?
           <ActivityIndicator
             size="small"

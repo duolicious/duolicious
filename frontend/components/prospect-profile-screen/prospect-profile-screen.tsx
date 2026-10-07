@@ -118,6 +118,7 @@ import {
 import { encodedAnonymousAnswers } from '../../events/anonymous-answers';
 import { storeKv } from '../../kv-storage/kv-storage';
 import type { PageItem } from '../search-tab';
+import { hoverColorFor, riseStyle, useHover } from '../hover';
 
 // The person's photos in order, so tapping any one lets the gallery page
 // through the rest.
@@ -178,6 +179,7 @@ const ProspectProfileScreen = () => {
 const profilePillButtonStyle = (
   surface: ReturnType<typeof legibleSurface>,
   pressed: boolean,
+  hovered: boolean,
 ): ViewStyle => ({
   marginTop: 100,
   alignSelf: 'center',
@@ -192,6 +194,7 @@ const profilePillButtonStyle = (
   backgroundColor: surface.backgroundColor,
   borderColor: surface.borderColor,
   opacity: pressed ? 0.6 : 1,
+  ...(hovered && !pressed ? riseStyle(surface.borderColor) : {}),
 });
 
 const profilePillButtonTextStyle = (
@@ -211,15 +214,17 @@ const ShareButton = ({personUuid, backgroundColor}: {
   }, [personUuid]);
 
   const surface = legibleSurface(backgroundColor);
+  const { hovered, hoverProps } = useHover();
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityLabel="Copy profile link"
       style={({ pressed }) => ({
-        ...profilePillButtonStyle(surface, pressed),
+        ...profilePillButtonStyle(surface, pressed, hovered),
         marginBottom: 0,
       })}
+      {...hoverProps}
     >
       <Share2
         stroke={surface.color}
@@ -261,6 +266,7 @@ const FloatingProfileInteractionButton = ({
   }, []);
 
   const opacity = useRef(new Animated.Value(1)).current;
+  const { hovered, hoverProps } = useHover();
 
   const fadeOut = useCallback(() => {
     Animated.timing(opacity, {
@@ -292,13 +298,17 @@ const FloatingProfileInteractionButton = ({
       onPressIn={fadeOut}
       onPressOut={fadeIn}
       onPress={onPress}
+      {...hoverProps}
     >
       <Animated.View
         style={{
           borderRadius: 999,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: backgroundColor,
+          backgroundColor: hovered
+            ? hoverColorFor(backgroundColor, appTheme)
+            : backgroundColor,
+          transform: [{ scale: hovered ? 1.06 : 1 }],
           opacity: opacity,
           flexDirection: 'row',
           borderWidth: 1,
@@ -522,6 +532,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
 }) => {
   const { isSkipped, isLoading, isPosting } = useSkipped(personUuid);
   const surface = legibleSurface(backgroundColor);
+  const { hovered, hoverProps } = useHover();
 
   const onPress = useCallback(async () => {
     if (personUuid == null) return;
@@ -550,9 +561,10 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        ...profilePillButtonStyle(surface, pressed),
+        ...profilePillButtonStyle(surface, pressed, hovered),
         marginBottom: 100,
       })}
+      {...hoverProps}
     >
       {isPosting &&
         <LogoActivityIndicator size="small" color="#70f"/>
@@ -1439,17 +1451,20 @@ const ProspectUserDetails = ({
             color: titleColor,
           }}
         >
-          <DefaultText
-            style={{
-              paddingBottom: 5,
-              fontWeight: '500',
-              fontSize: 10,
-              opacity: matchPercentage === undefined ? 0 : 1,
-              color: titleColor,
-            }}
-          >
-            See Why ›
-          </DefaultText>
+          {(hovered) =>
+            <DefaultText
+              style={{
+                paddingBottom: 5,
+                fontWeight: '500',
+                fontSize: 10,
+                opacity: matchPercentage === undefined ? 0 : 1,
+                color: titleColor,
+                textDecorationLine: hovered ? 'underline' : 'none',
+              }}
+            >
+              See Why ›
+            </DefaultText>
+          }
         </DonutChart>
       }
     </View>

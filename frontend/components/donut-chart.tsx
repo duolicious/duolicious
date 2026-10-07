@@ -12,10 +12,11 @@ import {
 } from 'react';
 import { DefaultText } from './default-text';
 import Svg, { Circle } from "react-native-svg";
+import { useHover } from './hover';
 
 const DonutChart = ({percentage, children, style, onPress, textStyle}: {
   percentage?: number,
-  children?: React.ReactNode,
+  children?: React.ReactNode | ((hovered: boolean) => React.ReactNode),
   style?: ViewStyle,
   onPress?: () => void,
   textStyle?: TextStyle,
@@ -28,6 +29,7 @@ const DonutChart = ({percentage, children, style, onPress, textStyle}: {
   const ratio = (percentage || 0) / 100.0;
 
   const opacity = useRef(new Animated.Value(1)).current;
+  const { hovered, hoverProps } = useHover();
 
   const fadeOut = useCallback(() => {
     if (!onPress) return;
@@ -55,6 +57,7 @@ const DonutChart = ({percentage, children, style, onPress, textStyle}: {
         onPressIn: fadeOut,
         onPressOut: fadeIn,
         onPress: onPress,
+        ...hoverProps,
         children: (
           <Animated.View style={{opacity: opacity}}>
             <Svg
@@ -111,7 +114,9 @@ const DonutChart = ({percentage, children, style, onPress, textStyle}: {
                 {percentage === undefined && ""}
                 {percentage !== undefined && `${percentage}%`}
               </DefaultText>
-              {children}
+              {typeof children === 'function'
+                ? children(hovered && !!onPress)
+                : children}
             </View>
           </Animated.View>
         )

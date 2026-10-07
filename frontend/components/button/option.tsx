@@ -57,7 +57,13 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
   const label_ = label ?? optionGroups?.[0]?.title
 
   const { appTheme } = useAppTheme();
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const {
+    backgroundColor,
+    onPressIn,
+    onPressOut,
+    hovered,
+    hoverProps,
+  } = usePressableAnimation();
 
   // Built fresh each render so the captured `optionGroups` reflect the latest
   // store-derived values; memoizing would freeze them at first-render values
@@ -87,6 +93,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress_}
+      {...hoverProps}
     >
       <Animated.View
         style={{
@@ -145,7 +152,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           <Ionicons
             style={{
               position: 'absolute',
-              right: 5,
+              right: hovered ? 2 : 5,
               fontSize: 20,
               color: appTheme.secondaryColor,
             }}

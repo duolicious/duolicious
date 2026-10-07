@@ -7,7 +7,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { ComponentProps, ReactNode } from 'react';
+import { ComponentProps, ReactNode, useState } from 'react';
 import { DefaultText } from './default-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
@@ -17,6 +17,7 @@ import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
+import { useHover } from './hover';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 type BasicIcon = IconDefinition | IoniconsName;
@@ -77,6 +78,14 @@ const Basic = ({children, ...rest}: {
     StyleSheet.flatten(textStyle)?.color,
   );
 
+  const { hovered, hoverProps } = useHover();
+  const [pressed, setPressed] = useState(false);
+  const isRaised = !!onPress && hovered && !pressed;
+  const borderOverride = StyleSheet.flatten(style)?.borderColor;
+  const edgeColor = typeof borderOverride === 'string'
+    ? borderOverride
+    : chrome.borderColor;
+
   return (
     <Animated.View
       style={[
@@ -86,7 +95,11 @@ const Basic = ({children, ...rest}: {
           borderRadius: 999,
           justifyContent: 'center',
           backgroundColor: chrome.backgroundColor,
-          transform: [{ translateX: shakeAnimation }],
+          transform: [
+            { translateX: shakeAnimation },
+            { translateY: isRaised ? -2 : 0 },
+          ],
+          boxShadow: isRaised ? `0 2px 0 ${edgeColor}` : undefined,
           flexShrink: 1,
         },
         style
@@ -94,6 +107,9 @@ const Basic = ({children, ...rest}: {
     >
       <Pressable
         disabled={!onPress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        {...hoverProps}
         onPress={
           () => {
             if (!onPress) {

@@ -13,6 +13,7 @@ import {
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { DefaultText } from '../default-text';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { hoverColorFor, useHover } from '../hover';
 
 type ButtonWithCenteredTextApi = {
   isEnabled: (value: boolean) => void
@@ -34,6 +35,7 @@ type ButtonWithCenteredTextProps = {
   textColor?: string
   fontSize?: number
   loading?: boolean
+  growOnHover?: boolean
 };
 
 const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
@@ -52,9 +54,14 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
     textColor,
     fontSize,
     loading = false,
+    growOnHover = false,
   } = props;
 
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
+
+  const restingBackgroundColor =
+    backgroundColor || (secondary ? appTheme.primaryColor : '#70f');
   const isEnabledRef = useRef(true);
 
   const opacityLo = 0.2;
@@ -113,6 +120,7 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
       onPressIn={() => isEnabledRef.current && fade()}
       onPressOut={() => isEnabledRef.current && unfade()}
       onPress={() => isEnabledRef.current && !loading && onPress?.()}
+      {...hoverProps}
     >
       <Animated.View
         style={{
@@ -124,8 +132,11 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
           borderRadius: 999,
           borderColor: borderColor === undefined ? 'black' : borderColor,
           borderWidth: borderWidth === undefined ? (secondary ? 1 : 0) : borderWidth,
-          backgroundColor: backgroundColor || (secondary ? appTheme.primaryColor : '#70f'),
+          backgroundColor: hovered
+            ? hoverColorFor(restingBackgroundColor, appTheme)
+            : restingBackgroundColor,
           opacity: animatedOpacity,
+          transform: [{ scale: growOnHover && hovered ? 1.06 : 1 }],
           alignItems: 'center',
           justifyContent: 'center',
         }}

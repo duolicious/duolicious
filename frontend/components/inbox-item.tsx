@@ -46,7 +46,12 @@ const IntrosItem = ({
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
+  const {
+    backgroundColor,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation(isOpen);
 
   // Profile links prefer the username (url_slug), falling back to the uuid.
   const handle = urlSlug || personUuid;
@@ -74,6 +79,7 @@ const IntrosItem = ({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
+      {...hoverProps}
     >
       <Animated.View
         style={{
@@ -189,7 +195,12 @@ const ChatsItem = ({
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
+  const {
+    backgroundColor,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation(isOpen);
 
   const onPress = useCallback(() => {
     navigateToConversation(
@@ -203,6 +214,7 @@ const ChatsItem = ({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
+      {...hoverProps}
     >
       <Animated.View
         style={{

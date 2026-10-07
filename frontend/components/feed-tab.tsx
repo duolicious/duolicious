@@ -48,7 +48,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { setProspectHint } from '../navigation/prospect-cache';
 import { ReportModalInitialData } from './modal/report-modal';
-import { Flag } from "react-native-feather";
+import { ReportFlag } from './report-flag';
 import { AudioPlayer } from './audio-player';
 import { useSkipped } from '../hide-and-block/hide-and-block';
 import { TopNavBarButton } from './top-nav-bar-button';
@@ -57,6 +57,7 @@ import { useNavigationToConversation } from '../navigation/use-navigation-to-con
 import { ReplyButton } from './reply-button';
 import { OnlineIndicator } from './online-indicator';
 import { useAppTheme } from '../app-theme/app-theme';
+import { useHover } from './hover';
 import { usePressableAnimation } from '../animation/animation';
 import {
   ANSWER_ICON_SIZE,
@@ -368,6 +369,7 @@ const AgeGenderLocation = ({
   style?: ViewStyle
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered: isNameHovered, hoverProps: nameHoverProps } = useHover();
 
   // Profile links prefer the username (url_slug), falling back to the uuid.
   const handle = urlSlug || personUuid;
@@ -425,11 +427,13 @@ const AgeGenderLocation = ({
             style={{ flexShrink: 1 }}
             onPress={onPress}
             {...link}
+            {...nameHoverProps}
           >
             <DefaultText
               style={{
                 fontWeight: '700',
                 flexShrink: 1,
+                textDecorationLine: isNameHovered ? 'underline' : 'none',
               }}
             >
               {name}
@@ -455,16 +459,11 @@ const AgeGenderLocation = ({
           </DefaultText>
         }
       </View>
-      <Flag
-        hitSlop={20}
+      <ReportFlag
         onPress={onPressReport}
-        stroke={`${appTheme.secondaryColor}80`}
-        strokeWidth={2}
-        height={18}
-        width={18}
         style={{
           marginLeft: 10,
-          cursor: 'pointer',
+          alignSelf: 'flex-start',
         }}
       />
     </View>
