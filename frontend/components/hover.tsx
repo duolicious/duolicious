@@ -62,14 +62,40 @@ const hoverTransition = (
   transitionTimingFunction: 'ease-out',
 });
 
-const riseStyle = (
-  raised: boolean,
-  borderBottomWidth: number,
-  marginTop = 0,
-): ViewStyle => ({
-  marginTop: marginTop - (raised ? 2 : 0),
-  borderBottomWidth: borderBottomWidth + (raised ? 2 : 0),
+const RISE_PX = 2;
+
+const riseStyle = (raised: boolean): ViewStyle => ({
+  top: raised ? -RISE_PX : 0,
 });
+
+const RiseEdge = ({ raised, pressed, color, border }: {
+  raised: boolean
+  pressed: boolean
+  color: string
+  border: { top: number, right: number, bottom: number, left: number }
+}) => {
+  const lift = raised ? RISE_PX : 0;
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          top: lift - border.top,
+          right: -border.right,
+          bottom: -border.bottom - lift,
+          left: -border.left,
+          borderRadius: 999,
+          borderBottomWidth: border.bottom + lift,
+          borderColor: color,
+          opacity: raised ? 1 : 0,
+        },
+        hoverTransition(
+          pressed ? 'none' : ['top', 'bottom', 'borderBottomWidth', 'opacity']),
+      ]}
+    />
+  );
+};
 
 const grabCursor = (grabbing: boolean): ViewStyle => {
   if (Platform.OS !== 'web') return {};
@@ -110,6 +136,7 @@ export {
   HOVER_DURATION_MS,
   HoverCircle,
   PURPLE_HOVER_COLOR,
+  RiseEdge,
   grabCursor,
   hoverColorFor,
   hoverTransition,

@@ -122,6 +122,7 @@ import {
   AnimatedPressable,
   hoverColorFor,
   hoverTransition,
+  RiseEdge,
   riseStyle,
   useHover,
   usePressed,
@@ -188,6 +189,7 @@ const profilePillButtonStyle = (
   pressed: boolean,
   hovered: boolean,
 ): ViewStyle => ({
+  marginTop: 100,
   alignSelf: 'center',
   flexDirection: 'row',
   alignItems: 'center',
@@ -195,12 +197,26 @@ const profilePillButtonStyle = (
   paddingVertical: 8,
   paddingHorizontal: 14,
   borderWidth: 1,
+  borderBottomWidth: 3,
   borderRadius: 999,
   backgroundColor: surface.backgroundColor,
   borderColor: surface.borderColor,
   opacity: pressed ? 0.6 : 1,
-  ...riseStyle(hovered && !pressed, 3, 100),
+  ...riseStyle(hovered && !pressed),
 });
+
+const PillRiseEdge = ({ surface, hovered, pressed }: {
+  surface: ReturnType<typeof legibleSurface>
+  hovered: boolean
+  pressed: boolean
+}) => (
+  <RiseEdge
+    raised={hovered && !pressed}
+    pressed={pressed}
+    color={surface.borderColor}
+    border={{ top: 1, right: 1, bottom: 3, left: 1 }}
+  />
+);
 
 const profilePillButtonTextStyle = (
   surface: ReturnType<typeof legibleSurface>,
@@ -228,11 +244,13 @@ const ShareButton = ({personUuid, backgroundColor}: {
       accessibilityLabel="Copy profile link"
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
+        hoverTransition(pressed ? 'none' : 'top'),
         { marginBottom: 0 },
       ]}
       {...hoverProps}
       {...pressProps}
     >
+      <PillRiseEdge surface={surface} hovered={hovered} pressed={pressed} />
       <Share2
         stroke={surface.color}
         strokeWidth={2}
@@ -562,11 +580,13 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
       onPress={onPress}
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
+        hoverTransition(pressed ? 'none' : 'top'),
         { marginBottom: 100 },
       ]}
       {...hoverProps}
       {...pressProps}
     >
+      <PillRiseEdge surface={surface} hovered={hovered} pressed={pressed} />
       {isPosting &&
         <LogoActivityIndicator size="small" color="#70f"/>
       }
