@@ -17,7 +17,6 @@ import { DefaultText } from './default-text';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLink } from '@fortawesome/free-solid-svg-icons/faLink';
 import { useAppTheme } from '../app-theme/app-theme';
-import { BodyPortal } from './body-portal';
 
 const SOMETHING_WENT_WRONG = "Something went wrong";
 
@@ -129,29 +128,26 @@ const Toast: React.FC = () => {
 
   if (currentToast) {
     return (
-      <BodyPortal>
-        <Animated.View
-          pointerEvents="box-none"
-          style={[
-            {
-              position: 'absolute',
-              zIndex: 10000,
-              top: insets.top,
-              left: 0,
-              right: 0,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            animatedStyle,
-          ]}
-        >
-          <GestureDetector gesture={swipeUp}>
-            <View>
-              <RenderedHoc Hoc={currentToast.Content}/>
-            </View>
-          </GestureDetector>
-        </Animated.View>
-      </BodyPortal>
+      <Animated.View
+        pointerEvents="box-none"
+        style={[
+          {
+            position: 'absolute',
+            top: insets.top,
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          animatedStyle,
+        ]}
+      >
+        <GestureDetector gesture={swipeUp}>
+          <View>
+            <RenderedHoc Hoc={currentToast.Content}/>
+          </View>
+        </GestureDetector>
+      </Animated.View>
     );
   } else {
     return null;
