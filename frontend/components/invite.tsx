@@ -14,9 +14,7 @@ import type { NavigationProp } from '@react-navigation/native';
 import type { ProfileParamList } from '../navigation/linking';
 import {
   useCallback,
-  useEffect,
   useRef,
-  useState,
 } from 'react';
 import {
   DefaultText,
@@ -25,9 +23,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faUserPlus } from '@fortawesome/free-solid-svg-icons/faUserPlus'
 import { TopNavBar } from './top-nav-bar';
 import { TopNavBarButton } from './top-nav-bar-button';
-import { listen, lastEvent } from '../events/events';
 import { SelectedClub } from './club-selector';
-import { ClubItem } from '../club/club';
+import { sortClubs, useJoinedClubs } from '../club/club';
 import { ButtonWithCenteredText } from './button/centered-text';
 import * as Clipboard from 'expo-clipboard';
 import { notifyLinkCopiedToast } from './toast';
@@ -43,11 +40,8 @@ const onPressInvite = (clubName: string) => async () => {
 };
 
 const InvitePicker = ({navigation}: NativeStackScreenProps<ProfileParamList, 'Invite Picker'>) => {
-  const [clubs, setClubs] = useState(lastEvent<ClubItem[]>('updated-clubs'));
-
-  useEffect(() => {
-    return listen<ClubItem[]>('updated-clubs', setClubs);
-  }, []);
+  const joined = useJoinedClubs();
+  const clubs = joined && sortClubs(joined);
 
   const goBack = useCallback(() => {
     navigation.goBack();
@@ -121,7 +115,7 @@ const InvitePicker = ({navigation}: NativeStackScreenProps<ProfileParamList, 'In
               overflow: 'hidden',
             }}
           >
-            <SelectedClub clubItem={club} />
+            <SelectedClub name={club} />
             <ButtonWithCenteredText
               containerStyle={{
                 height: 34,
@@ -131,7 +125,7 @@ const InvitePicker = ({navigation}: NativeStackScreenProps<ProfileParamList, 'In
                 marginBottom: 0,
               }}
               secondary={true}
-              onPress={onPressInvite(club.name)}
+              onPress={onPressInvite(club)}
             >
               Invite
             </ButtonWithCenteredText>

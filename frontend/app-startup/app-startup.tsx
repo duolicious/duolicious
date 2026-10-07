@@ -21,9 +21,9 @@ import { login, logout } from '../chat/application-layer';
 import { STATUS_URL } from '../env/env';
 import { delay } from '../util/util';
 import { getLastNotificationResponseOnMobile } from '../notifications/mobile';
-import { ClubItem } from '../club/club';
+import { ClubItem, setClubs } from '../club/club';
 import { ServerStatus } from '../components/utility-screen';
-import { notify, useDerivedEvent } from '../events/events';
+import { useDerivedEvent } from '../events/events';
 import { EV_NETWORK_IS_ONLINE } from '../network/network';
 import { setActiveConversation } from '../chat/conversation-priority';
 import { setSignedInUser, getSignedInUser } from '../events/signed-in-user';
@@ -230,7 +230,7 @@ const useAppStartup = (
       hasGold: json.has_gold ?? false,
     });
 
-    notify<ClubItem[] | undefined>('updated-clubs', clubs);
+    setClubs(clubs);
 
     await applyStartupNav(true, pendingClub);
   }, [linking]);

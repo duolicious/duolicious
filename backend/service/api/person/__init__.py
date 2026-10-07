@@ -3,7 +3,9 @@ from serviceshared.database import (
     Tx,
     api_tx,
     row_bool,
+    row_halfvec,
     row_int,
+    row_vector,
 )
 from serviceshared.database._row import row_int_or_none
 from service.api.gold.paypal import live_subscription_ids
@@ -32,6 +34,11 @@ from serviceshared.spotify.sql import (
 from service.api.duohash import sha512
 from service.api.person.sql import *
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
+from service.api.search.sql.search import (
+    Q_CLUB_MEMBERS,
+    Q_SEARCHER,
+    kv_query_vector,
+)
 from service.api.search import similar_profiles
 from service.api.searchfilters import TWO_WAY_FILTER_KEYS
 from serviceshared.commonsql import *
@@ -1085,28 +1092,22 @@ async def post_search_filter_answer(
             return dict(answer=answer)
 
 
-async def get_search_clubs(
-        s: t.SessionInfo | None,
-        search_str: str,
-        allow_empty: bool = False) -> object:
+async def get_search_clubs(s: t.SessionInfo | None, search_str: str) -> list[Row]:
+    search_string = t.parse_club_name(search_str)
 
-    if (search_str or '').strip():
-        # A non-empty search string must be a valid club name.
-        search_string = t.parse_club_name(search_str)
-        if search_string is None:
-            return []
-    elif allow_empty:
-        # Empty string is allowed and yields the most popular clubs.
-        search_string = ''
-    else:
+    if search_string is not None:
+        q = Q_SEARCH_CLUBS
+    elif search_str.strip():
         return []
+    elif s is not None:
+        q = Q_SUGGESTED_CLUBS
+    else:
+        q = Q_TOP_CLUBS
 
     params = dict(
         person_id=s.person_id if s else None,
         search_string=search_string,
     )
-
-    q = Q_SEARCH_CLUBS if search_string else Q_TOP_CLUBS
 
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(q, params)
@@ -1268,6 +1269,23 @@ async def get_check_verification(s: t.SessionInfo) -> object:
     if row:
         return row
     return '', 400
+
+async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
+    async with api_tx('READ COMMITTED') as tx:
+        card = await tx.require_one(Q_CLUB_CARD, dict(club_name=q.name))
+        searcher = await tx.require_one(
+            Q_SEARCHER, dict(searcher_person_id=s.person_id))
+
+        await tx.execute(Q_CLUB_MEMBERS, dict(
+            searcher_person_id=s.person_id,
+            searcher_kv_vector=kv_query_vector(row_halfvec(searcher, 'kv_vector')),
+            searcher_personality=row_vector(searcher, 'personality'),
+            searcher_verification_level_id=row_int(
+                searcher, 'verification_level_id'),
+            club_name=q.name,
+        ))
+
+        return {**card, 'members': await tx.fetchall()}
 
 @AsyncLruCache(maxsize=2048)
 async def get_club(name: str, ttl_hash: object = None) -> object:

@@ -32,11 +32,16 @@ import {
 } from '../api/answer';
 import { DefaultFlatList, DefaultFlashList } from './default-flat-list';
 import { z } from 'zod';
-import { notify, lastEvent, useDerivedEvent } from '../events/events';
+import { notify } from '../events/events';
 import { consumeStaleFeed } from '../events/stale-feed';
 import { flushSearchFilterWrites } from '../events/search-filters';
 import { Club } from './club';
-import { ClubItem, joinClub, leaveClub } from '../club/club';
+import {
+  isClubMember,
+  memberCountNow,
+  openClubCard,
+  useIsClubMember,
+} from '../club/club';
 import { ImageBackground } from 'expo-image';
 import { IMAGES_URL } from '../env/env';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -560,18 +565,6 @@ const FeedItemJoined = ({ fields }: { fields: JoinedFields }) => {
   );
 };
 
-const isClubMember = (clubName: string) =>
-  (lastEvent<ClubItem[]>('updated-clubs') ?? [])
-    .some((c) => c.name === clubName);
-
-const useIsClubMember = (clubName: string) =>
-  useDerivedEvent(
-    'updated-clubs',
-    (clubs: ClubItem[] | undefined) =>
-      (clubs ?? []).some((c) => c.name === clubName),
-    [clubName],
-  );
-
 // Facepile geometry. Named because the width math in QuestionFacepiles
 // depends on these, so it can't silently disagree with the styles.
 const FACEPILE_AVATAR_SIZE = 28;
@@ -958,26 +951,18 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
 
   const isMember = useIsClubMember(fields.joined_club_name);
 
-  // Optimistic: joinClub/leaveClub update the 'updated-clubs' event before
+  // Optimistic: joinClub/leaveClub update the 'joined-clubs' event before
   // their network requests are sent, so the count and facepile change
   // immediately. The server counted the viewer iff they were a member at
   // fetch time (viewer_was_member) and never puts them among the sample
   // members; the viewer's avatar (club_viewer) is only visible while they're
   // a member.
-  const viewerWasMember = fields.viewer_was_member ?? false;
-  const countMembers = fields.club_count_members
-    + (isMember ? 1 : 0)
-    - (viewerWasMember ? 1 : 0);
+  const countMembers = memberCountNow(
+    fields.club_count_members, fields.viewer_was_member ?? false, isMember);
 
-  // Returning `false` makes the chip shake and show the point of sale, the
-  // same way the profile screen's club chips do when the quota's been hit
-  const onPressClub = useCallback(() => {
-    if (isMember) {
-      leaveClub(fields.joined_club_name);
-    } else {
-      return joinClub(fields.joined_club_name, fields.club_count_members, false);
-    }
-  }, [isMember, fields.joined_club_name, fields.club_count_members]);
+  const onPressClub = useCallback((e: GestureResponderEvent) => {
+    openClubCard({ name: fields.joined_club_name, anchor: e.nativeEvent });
+  }, [fields.joined_club_name]);
 
   const props = isMobile() ? {
     onPress,
@@ -1018,10 +1003,6 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
               name={fields.joined_club_name}
               isMutual={isMember}
               onPress={onPressClub}
-              // Like the prospect profile's mutual clubs, whose border takes
-              // the chip's text color
-              style={
-                isMember ? { borderColor: appTheme.secondaryColor } : undefined}
             />
           </View>
           <ClubFacepile

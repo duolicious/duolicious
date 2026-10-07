@@ -1,4 +1,5 @@
 import {
+  GestureResponderEvent,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -12,9 +13,6 @@ import { DefaultText } from './default-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import { useShake } from '../animation/animation';
-import { showPointOfSale } from './modal/point-of-sale-modal';
-import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
 import { RiseEdge, hoverTransition, riseStyle, useHover } from './hover';
@@ -59,7 +57,7 @@ const Basic = ({children, ...rest}: {
   icon?: BasicIcon,
   style?: StyleProp<ViewStyle>,
   textStyle?: StyleProp<TextStyle>,
-  onPress?: () => boolean | void,
+  onPress?: (e: GestureResponderEvent) => void,
 }) => {
   const {
     icon,
@@ -68,8 +66,6 @@ const Basic = ({children, ...rest}: {
     onPress,
   } = rest;
 
-  const { shakeStyle, startShake } = useShake();
-  const [signedInUser] = useSignedInUser();
   const { appThemeName, appTheme } = useAppTheme();
 
   const chrome = themedSurface(
@@ -100,7 +96,6 @@ const Basic = ({children, ...rest}: {
         },
         riseStyle(isRaised),
         hoverTransition(pressed ? 'none' : 'top'),
-        shakeStyle,
         style
       ]}
     >
@@ -109,21 +104,7 @@ const Basic = ({children, ...rest}: {
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
         {...hoverProps}
-        onPress={
-          () => {
-            if (!onPress) {
-              return;
-            }
-
-            const success = onPress();
-            if (success === false && signedInUser?.hasGold) {
-              startShake();
-            } else if (success === false && !signedInUser?.hasGold) {
-              startShake();
-              showPointOfSale('clubs');
-            }
-          }
-        }
+        onPress={onPress}
         style={{
           paddingHorizontal: 12,
           paddingVertical: 6,

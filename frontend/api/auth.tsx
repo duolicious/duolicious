@@ -5,8 +5,7 @@ import { setSignedInUser } from '../events/signed-in-user';
 import { sessionPersonUuid } from '../kv-storage/session-token';
 import { clearAnonymousAnswers } from '../events/anonymous-answers';
 import { clearPublicSearchFilters } from '../events/public-search-filters';
-import { notify } from '../events/events';
-import { ClubItem } from '../club/club';
+import { ClubItem, setClubs } from '../club/club';
 
 export type AuthResult =
   | 'rejected'         // the request failed; nothing was applied
@@ -73,7 +72,7 @@ export const applyAuthenticatedResponse = async (
   // copy now that the user is signed in.
   clearAnonymousAnswers();
 
-  notify<ClubItem[]>('updated-clubs', clubs);
+  setClubs(clubs);
 
   return 'signed-in';
 };

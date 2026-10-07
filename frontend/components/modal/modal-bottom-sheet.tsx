@@ -33,6 +33,7 @@ const ModalBottomSheet = ({
   footer,
   children,
   heightFraction = 0.75,
+  top = 0,
 }: {
   visible: boolean
   onRequestClose: () => void
@@ -41,12 +42,13 @@ const ModalBottomSheet = ({
   footer?: ReactNode
   children: ReactNode
   heightFraction?: number
+  top?: number
 }) => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboard = useReanimatedKeyboardAnimation();
-  const sheetHeight = Math.round(heightFraction * windowHeight);
+  const sheetHeight = Math.round(heightFraction * (windowHeight - top));
 
   const [isMounted, setIsMounted] = useState(visible);
   const translateY = useSharedValue(sheetHeight);
@@ -144,7 +146,7 @@ const ModalBottomSheet = ({
 
   return (
     <View
-      style={styles.wrapper}
+      style={[styles.wrapper, { top }]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
       <Animated.View

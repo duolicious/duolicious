@@ -1,5 +1,5 @@
-import { japi } from '../api/api';
-import { notify, lastEvent } from '../events/events';
+import { api, japi } from '../api/api';
+import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { getSignedInUser } from '../events/signed-in-user';
 
@@ -17,52 +17,91 @@ type ClubItem = {
   search_preference?: boolean,
 };
 
-const sortClubs = (cs: ClubItem[] | undefined) => {
-  const unsortedCs = cs ?? [];
-  const sortedCs = unsortedCs.sort((a, b) => {
-    if (a.name.toLowerCase() > b.name.toLowerCase()) return +1;
-    if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
+type RowPosition = 'front' | 'end';
 
-    if (a.name > b.name) return +1;
-    if (a.name < b.name) return -1;
+type Anchor = {
+  pageX: number,
+  pageY: number,
+};
 
-    return 0;
-  });
+type OpenClubCard = {
+  name: string,
+  anchor: Anchor,
+  rowPosition?: RowPosition,
+};
 
-  return sortedCs;
-}
+const sortClubs = (names: string[]) => [...names].sort((a, b) => {
+  if (a.toLowerCase() > b.toLowerCase()) return +1;
+  if (a.toLowerCase() < b.toLowerCase()) return -1;
+
+  if (a > b) return +1;
+  if (a < b) return -1;
+
+  return 0;
+});
+
+const joinedClubs = () => lastEvent<string[]>('joined-clubs');
+
+const useJoinedClubs = () => useDerivedEvent<string[] | undefined, string[] | undefined>(
+  'joined-clubs', (cs) => cs, []);
+
+const isClubMember = (name: string) => (joinedClubs() ?? []).includes(name);
+
+const useIsClubMember = (name: string) => useDerivedEvent(
+  'joined-clubs',
+  (cs: string[] | undefined) => (cs ?? []).includes(name),
+  [name],
+);
+
+const memberCountNow = (
+  fetchedCount: number,
+  wasMember: boolean,
+  isMember: boolean,
+) => fetchedCount + Number(isMember) - Number(wasMember);
+
+const selectSearchClub = (name: string | null) => {
+  notify<string | null>('search-club', name);
+};
+
+const useSearchClub = () => useDerivedEvent<string | null, string | null>(
+  'search-club', (c) => c ?? null, []);
+
+const moveClubToFront = (name: string) => {
+  notify<string[]>('joined-clubs', [
+    name,
+    ...(joinedClubs() ?? []).filter((c) => c !== name),
+  ]);
+};
+
+let suggestionsRequest = 0;
+
+const setClubs = (clubs: ClubItem[] | undefined) => {
+  const searchClub = clubs?.find((c) => c.search_preference)?.name ?? null;
+
+  suggestionsRequest++;
+  notify<ClubItem[] | undefined>('suggested-clubs', undefined);
+  notify<string[] | undefined>('joined-clubs', clubs && [
+    ...(searchClub === null ? [] : [searchClub]),
+    ...sortClubs(clubs.map((c) => c.name)).filter((c) => c !== searchClub),
+  ]);
+  selectSearchClub(searchClub);
+};
 
 const joinClub = (
   name: string,
-  countMembers: number,
-  searchPreference?: boolean,
+  rowPosition: RowPosition = 'front',
 ): boolean => {
-  const existingClubs = lastEvent<ClubItem[]>('updated-clubs') ?? [];
+  const otherClubs = (joinedClubs() ?? []).filter((c) => c !== name);
 
-  if (existingClubs.length >= clubQuota()) {
+  if (otherClubs.length >= clubQuota()) {
     return false;
   }
 
   searchQueue.addTask(async () => await japi('post', '/join-club', { name }));
 
-  const updatedClubs = [
-    ...existingClubs
-      .filter((c) => c.name !== name)
-      .map((c) => ({
-        ...c,
-        search_preference:
-          searchPreference === true ? false : c.search_preference
-      })),
-    {
-      name,
-      count_members: countMembers,
-      search_preference: searchPreference
-    },
-  ];
-
-  sortClubs(updatedClubs)
-
-  notify<ClubItem[]>('updated-clubs', updatedClubs);
+  notify<string[]>(
+    'joined-clubs',
+    rowPosition === 'front' ? [name, ...otherClubs] : [...otherClubs, name]);
 
   return true;
 };
@@ -70,17 +109,58 @@ const joinClub = (
 const leaveClub = (name: string): void => {
   searchQueue.addTask(async () => await japi('post', '/leave-club', { name }));
 
-  const existingClubs = lastEvent<ClubItem[]>('updated-clubs') ?? [];
+  notify<string[]>(
+    'joined-clubs', (joinedClubs() ?? []).filter((c) => c !== name));
 
-  const updatedClubs = existingClubs.filter((c) => c.name !== name);
-
-  sortClubs(updatedClubs)
-
-  notify<ClubItem[]>('updated-clubs', updatedClubs);
+  if (lastEvent<string | null>('search-club') === name) {
+    selectSearchClub(null);
+  }
 };
 
 const resetClubs = () => {
-  notify<ClubItem[] | undefined>('updated-clubs', undefined);
+  setClubs(undefined);
+};
+
+const fetchClubItems = async (q: string): Promise<ClubItem[]> => {
+  const response = await api<ClubItem[]>(
+    'get',
+    `/search-clubs?q=${encodeURIComponent(q)}`
+  );
+
+  return response.ok && response.json ? response.json : [];
+};
+
+const refreshSuggestedClubs = async () => {
+  const request = ++suggestionsRequest;
+  const clubs = await fetchClubItems('');
+
+  if (request === suggestionsRequest) {
+    notify<ClubItem[]>('suggested-clubs', clubs);
+  }
+};
+
+const openClubs = ({ pageX, pageY }: Anchor) => {
+  notify<Anchor | null>('clubs-sheet', { pageX, pageY });
+};
+
+const useClubsSheet = () => useDerivedEvent<Anchor | null | undefined, Anchor | null>(
+  'clubs-sheet', (s) => s ?? null, []);
+
+const openClubCard = ({ name, anchor: { pageX, pageY }, rowPosition }: OpenClubCard) => {
+  notify<OpenClubCard | null>(
+    'club-card', { name, anchor: { pageX, pageY }, rowPosition });
+};
+
+const useOpenClubCard = () => useDerivedEvent<OpenClubCard | null | undefined, OpenClubCard | null>(
+  'club-card', (c) => c ?? null, []);
+
+const closeClubCard = () => {
+  notify<OpenClubCard | null>('club-card', null);
+};
+
+const closeClubs = () => {
+  closeClubCard();
+  notify<Anchor | null>('clubs-sheet', null);
 };
 
 export {
@@ -89,5 +169,24 @@ export {
   joinClub,
   leaveClub,
   resetClubs,
+  Anchor,
+  OpenClubCard,
+  RowPosition,
+  closeClubCard,
+  closeClubs,
+  fetchClubItems,
+  isClubMember,
+  memberCountNow,
+  moveClubToFront,
+  openClubCard,
+  openClubs,
+  refreshSuggestedClubs,
+  selectSearchClub,
+  setClubs,
   sortClubs,
+  useClubsSheet,
+  useIsClubMember,
+  useJoinedClubs,
+  useOpenClubCard,
+  useSearchClub,
 };
