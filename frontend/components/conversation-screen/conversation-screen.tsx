@@ -69,6 +69,7 @@ import { GifPickedEvent } from '../../components/modal/gif-picker-modal';
 import { useSkipped } from '../../hide-and-block/hide-and-block';
 import { OnlineIndicator } from '../online-indicator';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { useHover } from '../hover';
 import { getProspectHint, setProspectHint } from '../../navigation/prospect-cache';
 import { dismissConversationNotificationsOnMobile } from '../../notifications/mobile';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
@@ -336,6 +337,7 @@ const ConversationScreenNavBar = ({
 }) => {
   const { appTheme } = useAppTheme();
   const [showMenu, setShowMenu] = useState(false);
+  const { hovered: isNameHovered, hoverProps: nameHoverProps } = useHover();
 
   // Profile links prefer the username (url_slug), falling back to the handle.
   const profileHandle = urlSlug || handle;
@@ -380,6 +382,7 @@ const ConversationScreenNavBar = ({
       <Pressable
         onPress={onPressName}
         {...(isAvailableUser ? makeLinkProps(`/${profileHandle}`) : {})}
+        {...nameHoverProps}
         style={{
           justifyContent: 'center',
           alignItems: 'center',
@@ -438,6 +441,7 @@ const ConversationScreenNavBar = ({
           style={{
             fontWeight: '700',
             fontSize: 20,
+            textDecorationLine: isNameHovered && isAvailableUser ? 'underline' : 'none',
           }}
           numberOfLines={1}
         >

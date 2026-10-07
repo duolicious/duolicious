@@ -1,4 +1,4 @@
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolateColor,
@@ -11,25 +11,47 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCheck } from '@fortawesome/free-solid-svg-icons/faCheck';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DefaultText } from './default-text';
+import { useAppTheme } from '../app-theme/app-theme';
+import { HOVER_DURATION_MS, PURPLE_HOVER_COLOR, useHover } from './hover';
 
 const COLOR = '#70f';
 const SIZE = 22;
 const DURATION = 150;
 
-const Box = ({ value, style }: { value: boolean, style?: ViewStyle }) => {
+const Box = ({ value, hovered, style }: {
+  value: boolean,
+  hovered: boolean,
+  style?: ViewStyle,
+}) => {
+  const { appTheme } = useAppTheme();
   const progress = useSharedValue(value ? 1 : 0);
+  const hoverProgress = useSharedValue(0);
+  const hoverTint = appTheme.purpleHoverTint;
 
   useEffect(() => {
     progress.value = withTiming(value ? 1 : 0, { duration: DURATION });
   }, [value]);
 
-  const boxStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      progress.value,
-      [0, 1],
-      ['rgba(119, 0, 255, 0)', 'rgba(119, 0, 255, 1)'],
-    ),
-  }));
+  useEffect(() => {
+    hoverProgress.value = withTiming(hovered ? 1 : 0, { duration: HOVER_DURATION_MS });
+  }, [hovered]);
+
+  const boxStyle = useAnimatedStyle(() => {
+    const checkedColor = interpolateColor(
+      hoverProgress.value, [0, 1], [COLOR, PURPLE_HOVER_COLOR]);
+
+    return {
+      borderColor: interpolateColor(progress.value, [0, 1], [COLOR, checkedColor]),
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        [
+          interpolateColor(hoverProgress.value, [0, 1], ['rgba(119, 0, 255, 0)', hoverTint]),
+          checkedColor,
+        ],
+      ),
+    };
+  }, [hoverTint]);
 
   const checkStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -37,7 +59,13 @@ const Box = ({ value, style }: { value: boolean, style?: ViewStyle }) => {
   }));
 
   return (
-    <Animated.View style={[styles.box, boxStyle, style]}>
+    <Animated.View
+      style={[
+        styles.box,
+        boxStyle,
+        style,
+      ]}
+    >
       <Animated.View style={checkStyle}>
         <FontAwesomeIcon
           icon={faCheck}
@@ -71,14 +99,24 @@ const CheckBoxLayout = ({
     [onPress]
   );
 
+  const { hovered, hoverProps } = useHover();
+
   const label = <DefaultText>{children}</DefaultText>;
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={{ ...styles.container, ...containerStyle }}>
+      <View
+        style={{
+          ...styles.container,
+          ...containerStyle,
+          ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+        }}
+        {...hoverProps}
+      >
         {labelPosition !== 'right' && label}
         <Box
           value={value}
+          hovered={hovered}
           style={labelPosition === 'right' ? styles.boxLeft : styles.boxRight}
         />
         {labelPosition === 'right' && label}

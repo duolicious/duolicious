@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -7,7 +6,8 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { ComponentProps, ReactNode } from 'react';
+import { ComponentProps, ReactNode, useState } from 'react';
+import Animated from 'react-native-reanimated';
 import { DefaultText } from './default-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
@@ -17,6 +17,7 @@ import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
+import { hoverTransition, riseStyle, useHover } from './hover';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 type BasicIcon = IconDefinition | IoniconsName;
@@ -67,7 +68,7 @@ const Basic = ({children, ...rest}: {
     onPress,
   } = rest;
 
-  const [shakeAnimation, startShake] = useShake();
+  const { shakeStyle, startShake } = useShake();
   const [signedInUser] = useSignedInUser();
   const { appThemeName, appTheme } = useAppTheme();
 
@@ -76,6 +77,14 @@ const Basic = ({children, ...rest}: {
     appTheme.surface,
     StyleSheet.flatten(textStyle)?.color,
   );
+
+  const { hovered, hoverProps } = useHover();
+  const [pressed, setPressed] = useState(false);
+  const isRaised = !!onPress && hovered && !pressed;
+  const borderOverride = StyleSheet.flatten(style)?.borderColor;
+  const edgeColor = typeof borderOverride === 'string'
+    ? borderOverride
+    : chrome.borderColor;
 
   return (
     <Animated.View
@@ -86,14 +95,19 @@ const Basic = ({children, ...rest}: {
           borderRadius: 999,
           justifyContent: 'center',
           backgroundColor: chrome.backgroundColor,
-          transform: [{ translateX: shakeAnimation }],
           flexShrink: 1,
         },
+        riseStyle(edgeColor, isRaised),
+        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+        shakeStyle,
         style
       ]}
     >
       <Pressable
         disabled={!onPress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        {...hoverProps}
         onPress={
           () => {
             if (!onPress) {

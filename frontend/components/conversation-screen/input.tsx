@@ -66,6 +66,7 @@ import {
 } from './quote';
 import { Tooltip } from '../tooltip';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { HoverCircle, hoverTransition, useHover } from '../hover';
 
 type KeyPressEvent = {
   key?: string;
@@ -289,6 +290,7 @@ const AutoResizingTextInput = (props: TextInputProps) => {
 
 const QuotePreview = ({ quote }: { quote: QuoteType | null }) => {
   const { appTheme } = useAppTheme();
+  const { hovered: isCloseHovered, hoverProps: closeHoverProps } = useHover();
 
   if (!quote) {
     return null;
@@ -315,7 +317,8 @@ const QuotePreview = ({ quote }: { quote: QuoteType | null }) => {
           backgroundColor="#eee"
         />
       </View>
-      <Pressable onPress={() => setQuote(null)} style={{ cursor: 'pointer' }}>
+      <Pressable onPress={() => setQuote(null)} {...closeHoverProps}>
+        <HoverCircle visible={isCloseHovered} />
         <X
           strokeWidth={3}
           stroke={appTheme.secondaryColor}
@@ -399,6 +402,8 @@ const IconBar = ({
   handleSendPress: () => void;
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
+  const { hovered: isMicHovered, hoverProps: micHoverProps } = useHover();
 
   return (
     <View style={styles.iconContainer}>
@@ -409,14 +414,26 @@ const IconBar = ({
       )}
 
       <GestureDetector gesture={finalGesture}>
-        <Animated.View style={[styles.microphoneIcon, animatedRecordingStyle]}>
+        <Animated.View
+          style={[styles.microphoneIcon, animatedRecordingStyle]}
+          {...micHoverProps}
+        >
+          <HoverCircle visible={isMicHovered} inset={0} />
           <Ionicons name="mic" style={{ fontSize: 28, color: appTheme.secondaryColor }} />
         </Animated.View>
       </GestureDetector>
 
       {textHasContent && (
-        <Pressable onPress={handleSendPress} style={styles.sendPressable}>
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.sendAnimated}>
+        <Pressable onPress={handleSendPress} style={styles.sendPressable} {...hoverProps}>
+          <Animated.View
+            entering={FadeIn}
+            exiting={FadeOut}
+            style={[
+              styles.sendAnimated,
+              hovered && styles.sendAnimatedHovered,
+              hoverTransition(['backgroundColor']),
+            ]}
+          >
             <FontAwesomeIcon
               icon={faPaperPlane}
               size={20}
@@ -486,6 +503,7 @@ const Input = ({
   onFocus: () => void,
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered: isGifHovered, hoverProps: gifHoverProps } = useHover();
 
   const quote = useQuote();
 
@@ -822,7 +840,7 @@ const Input = ({
               onKeyPress={handleKeyPress}
               onFocus={onFocus}
             />
-            <Pressable onPress={onPressGif} hitSlop={10}>
+            <Pressable onPress={onPressGif} hitSlop={10} {...gifHoverProps}>
               <Animated.View
                 style={[
                   {
@@ -833,7 +851,11 @@ const Input = ({
                     borderRadius: 5,
                     borderWidth: 3,
                     borderColor: appTheme.secondaryColor,
+                    backgroundColor: isGifHovered
+                      ? appTheme.hoverOverlayColor
+                      : 'transparent',
                   },
+                  hoverTransition(['backgroundColor']),
                   animatedGifStyle,
                 ]}
               >
@@ -943,6 +965,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   microphoneIcon: {
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
     position: 'absolute',
     left: 0,
     right: 0,
@@ -970,6 +993,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#70f',
+  },
+  sendAnimatedHovered: {
+    backgroundColor: 'rgb(214, 179, 255)',
   },
   hintContainer: {
     position: 'absolute',

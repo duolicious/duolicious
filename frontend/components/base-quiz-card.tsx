@@ -11,6 +11,7 @@ import {
   useCallback,
   useImperativeHandle,
   useRef,
+  useState,
 } from 'react';
 import {
   Dimensions,
@@ -28,6 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { noSelect } from '../styles';
+import { grabCursor } from './hover';
 
 type Direction = 'left' | 'right' | 'up' | 'down' | 'none'
 type SwipeHandler = (direction: Direction) => void
@@ -392,6 +394,8 @@ const BaseQuizCard = forwardRef(
       [onSwipe, onCardLeftScreen, onSwipePrevented]
     );
 
+    const [isDragging, setIsDragging] = useState(false);
+
     const panResponder = useRef(
       PanResponder.create({
         // Ask to be the responder:
@@ -407,6 +411,7 @@ const BaseQuizCard = forwardRef(
           if (Platform.OS === 'web') {
             evt.preventDefault?.();
           }
+          setIsDragging(true);
         },
         onPanResponderMove: (evt, gestureState) => {
           if (Platform.OS === 'web') {
@@ -425,7 +430,9 @@ const BaseQuizCard = forwardRef(
         onPanResponderTerminationRequest: () => {
           return true;
         },
+        onPanResponderTerminate: () => setIsDragging(false),
         onPanResponderRelease: (evt, gestureState) => {
+          setIsDragging(false);
           // The user has released all touches while this view is the
           // responder. This typically means a gesture has succeeded
           // enable
@@ -495,6 +502,7 @@ const BaseQuizCard = forwardRef(
         {...panResponder.panHandlers}
         style={[
           noSelect,
+          grabCursor(isDragging),
           cardStyle,
           containerStyle
         ]}

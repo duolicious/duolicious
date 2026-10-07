@@ -1,5 +1,4 @@
 import {
-  Animated as RNAnimated,
   Platform,
   Pressable,
   StyleSheet,
@@ -32,7 +31,7 @@ import {
   isYesterday,
 } from 'date-fns'
 import { ReportModalInitialData } from './modal/report-modal';
-import { Flag } from "react-native-feather";
+import { ReportFlag } from './report-flag';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faGhost } from '@fortawesome/free-solid-svg-icons/faGhost';
 import { useTooltip } from './tooltip';
@@ -152,7 +151,12 @@ const VisitorsItemContent = ({
   const { appTheme } = useAppTheme();
 
   const { isSkipped } = useSkipped(dataItem.person_uuid);
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const {
+    backgroundStyle,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation();
   const navigationProps = useNavigationToProfile(
     dataItem.person_uuid,
     dataItem.url_slug,
@@ -184,8 +188,9 @@ const VisitorsItemContent = ({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       {...navigationProps}
+      {...hoverProps}
     >
-      <RNAnimated.View style={[styles.cardBorders, appTheme.card, { backgroundColor }]}>
+      <Animated.View style={[styles.cardBorders, appTheme.card, backgroundStyle]}>
         <Avatar
           percentage={dataItem.match_percentage}
           personUuid={dataItem.person_uuid}
@@ -265,20 +270,15 @@ const VisitorsItemContent = ({
             </View>
           }
         </View>
-        <Flag
-          hitSlop={20}
+        <ReportFlag
           onPress={onPressReport}
-          stroke={`${appTheme.secondaryColor}80`}
-          strokeWidth={2}
-          height={18}
-          width={18}
           style={{
             position: 'absolute',
             top: 10,
             right: 10,
           }}
         />
-      </RNAnimated.View>
+      </Animated.View>
     </Pressable>
   );
 };

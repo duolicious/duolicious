@@ -1,6 +1,7 @@
 import { Pressable, ViewStyle } from 'react-native';
 import { X } from "react-native-feather";
 import { useAppTheme } from '../../app-theme/app-theme';
+import { HoverCircle, useHover } from '../hover';
 
 const Close = ({
   onPress,
@@ -12,6 +13,7 @@ const Close = ({
   color?: string,
 }) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
   return (
     <Pressable
@@ -21,7 +23,9 @@ const Close = ({
         zIndex: 1,
         ...style,
       }}
+      {...hoverProps}
     >
+      <HoverCircle visible={hovered} />
       <X
         stroke={color ?? appTheme.secondaryColor}
         strokeWidth={3}

@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
+import { Gesture, GestureDetector, PanGesture } from 'react-native-gesture-handler';
 import { useAppTheme } from '../app-theme/app-theme';
+import { grabCursor, hoverTransition, useHover } from './hover';
 import { DefaultText } from './default-text';
 import { LINEAR_SCALE, Scale } from '../scales/scales';
 
@@ -67,6 +69,7 @@ const Slider = ({
 }) => {
   const { appTheme } = useAppTheme();
   const [trackWidth, setTrackWidth] = useState(0);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   const range = maximumValue - minimumValue;
   const toFraction = (value: number) =>
@@ -96,6 +99,8 @@ const Slider = ({
     Gesture.Pan()
       .runOnJS(true)
       .minDistance(0)
+      .onBegin(() => setDraggingIndex(index))
+      .onFinalize(() => setDraggingIndex(null))
       .onStart(() => {
         const { values, toFraction } = latest.current;
         drag.current = {
@@ -156,19 +161,43 @@ const Slider = ({
         />
       }
       {fractions.map((fraction, i) =>
-        <GestureDetector key={i} gesture={gestures[i]}>
-          <View
-            style={[
-              styles.thumb,
-              {
-                left: fraction * trackWidth,
-                backgroundColor: hollow[i] ? appTheme.primaryColor : PURPLE,
-              },
-            ]}
-          />
-        </GestureDetector>
+        <SliderThumb
+          key={i}
+          gesture={gestures[i]}
+          left={fraction * trackWidth}
+          hollow={hollow[i]}
+          isDragging={draggingIndex === i}
+        />
       )}
     </View>
+  );
+};
+
+const SliderThumb = ({ gesture, left, hollow, isDragging }: {
+  gesture: PanGesture
+  left: number
+  hollow: boolean
+  isDragging: boolean
+}) => {
+  const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View
+        {...hoverProps}
+        style={[
+          styles.thumb,
+          {
+            left,
+            backgroundColor: hollow ? appTheme.primaryColor : PURPLE,
+            boxShadow: `0 0 0 ${hovered || isDragging ? 8 : 0}px ${appTheme.purpleHoverTint}`,
+          },
+          grabCursor(isDragging),
+          hoverTransition(['boxShadow']),
+        ]}
+      />
+    </GestureDetector>
   );
 };
 

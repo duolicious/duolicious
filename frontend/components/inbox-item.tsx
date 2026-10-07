@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
   View,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { VerificationBadge } from './verification-badge';
 import { usePressableAnimation } from '../animation/animation';
 import { setProspectHint } from '../navigation/prospect-cache';
 import { navigateToConversation } from '../navigation/use-navigation-to-conversation';
+import Animated from 'react-native-reanimated';
 
 const IntrosItem = ({
   wasRead,
@@ -46,7 +46,12 @@ const IntrosItem = ({
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
+  const {
+    backgroundStyle,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation(isOpen);
 
   // Profile links prefer the username (url_slug), falling back to the uuid.
   const handle = urlSlug || personUuid;
@@ -74,10 +79,10 @@ const IntrosItem = ({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
+      {...hoverProps}
     >
       <Animated.View
-        style={{
-          backgroundColor: backgroundColor,
+        style={[{
           borderRadius: 15,
           flexDirection: 'row',
           alignItems: 'center',
@@ -86,7 +91,7 @@ const IntrosItem = ({
           paddingLeft: 10,
           marginLeft: 5,
           marginRight: 5,
-        }}
+        }, backgroundStyle]}
       >
         <Avatar
           percentage={matchPercentage}
@@ -189,7 +194,12 @@ const ChatsItem = ({
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation(isOpen);
+  const {
+    backgroundStyle,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation(isOpen);
 
   const onPress = useCallback(() => {
     navigateToConversation(
@@ -203,10 +213,10 @@ const ChatsItem = ({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
+      {...hoverProps}
     >
       <Animated.View
-        style={{
-          backgroundColor: backgroundColor,
+        style={[{
           borderRadius: 15,
           flexDirection: 'row',
           alignItems: 'center',
@@ -215,7 +225,7 @@ const ChatsItem = ({
           paddingLeft: 10,
           marginLeft: 5,
           marginRight: 5,
-        }}
+        }, backgroundStyle]}
       >
         <Avatar
           percentage={matchPercentage}

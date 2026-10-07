@@ -1,5 +1,4 @@
 import {
-  Pressable,
   View,
   StyleProp,
   TextStyle,
@@ -12,6 +11,13 @@ import {
 } from 'react';
 import { DefaultText } from './default-text';
 import { useAppTheme } from '../app-theme/app-theme';
+import {
+  AnimatedPressable,
+  hoverTransition,
+  riseStyle,
+  useHover,
+  usePressed,
+} from './hover';
 
 const CheckChip = ({label, ...props}: {
   label?: ReactNode,
@@ -25,6 +31,8 @@ const CheckChip = ({label, ...props}: {
 
   const { appTheme } = useAppTheme();
   const [checked, setChecked] = useState(props.initialCheckedState ?? false);
+  const { hovered, hoverProps } = useHover();
+  const { pressed, pressProps } = usePressed();
 
   const checkedContainerStyle = {
     backgroundColor: 'rgb(228, 204, 255)', // = #70f, 0.2 opacity
@@ -46,8 +54,8 @@ const CheckChip = ({label, ...props}: {
   }, []);
 
   return (
-    <Pressable
-      style={{
+    <AnimatedPressable
+      style={[{
         borderRadius: 999,
         borderWidth: 1,
         borderRightWidth: 2,
@@ -61,9 +69,14 @@ const CheckChip = ({label, ...props}: {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: appTheme.primaryColor,
-          ...(checked ? checkedContainerStyle : {})
-      }}
+        ...(checked ? checkedContainerStyle : {}),
+      },
+        riseStyle('black', hovered && !pressed),
+        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+      ]}
       onPress={onPress_}
+      {...hoverProps}
+      {...pressProps}
     >
       <DefaultText
         style={{
@@ -74,7 +87,7 @@ const CheckChip = ({label, ...props}: {
       >
         {label}
       </DefaultText>
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 

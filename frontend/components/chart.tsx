@@ -1,5 +1,4 @@
 import {
-  Animated,
   DimensionValue,
   LayoutAnimation,
   Pressable,
@@ -14,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { commonStyles } from '../styles';
 import { useAppTheme } from '../app-theme/app-theme';
 import { usePressableAnimation } from '../animation/animation';
+import Animated from 'react-native-reanimated';
 
 const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
   name1?: string | null,
@@ -36,7 +36,7 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
 
   const { appTheme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const { backgroundStyle, onPressIn, onPressOut } = usePressableAnimation();
 
   const { scaleXY } = LayoutAnimation.Properties;
   const { easeInEaseOut } = LayoutAnimation.Types;
@@ -181,14 +181,13 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
 
   return (
     <Animated.View
-      style={{
-        backgroundColor: backgroundColor,
+      style={[{
         marginTop: 10,
         marginBottom: 10,
         overflow: 'visible',
         ...commonStyles.cardBorders,
         ...appTheme.card,
-      }}
+      }, backgroundStyle]}
     >
       <Pressable
         style={{

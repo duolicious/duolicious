@@ -27,6 +27,10 @@ type AppTheme = {
   },
   surface: Surface
   interactiveBorderColor: string
+  hoverColor: string
+  hoverOverlayColor: string
+  brandHoverColor: string
+  purpleHoverTint: string
   quizCardColor: string
   quizCardBackgroundColor: string
   speechBubbleOtherUserBackgroundColor: string
@@ -59,6 +63,10 @@ const APP_THEME: AppThemes = {
       borderColor: 'rgba(0, 0, 0, 0.12)',
     },
     interactiveBorderColor: '#dddddd',
+    hoverColor: '#f6f6f6',
+    hoverOverlayColor: 'rgba(0, 0, 0, 0.06)',
+    brandHoverColor: '#6400d6',
+    purpleHoverTint: 'rgba(119, 0, 255, 0.15)',
     quizCardBackgroundColor: '#ffffff',
     quizCardColor: '#7700ff',
     speechBubbleOtherUserBackgroundColor: '#eeeeee',
@@ -87,6 +95,10 @@ const APP_THEME: AppThemes = {
       borderColor: 'rgba(255, 255, 255, 0.16)',
     },
     interactiveBorderColor: '#000000',
+    hoverColor: '#25252a',
+    hoverOverlayColor: 'rgba(255, 255, 255, 0.1)',
+    brandHoverColor: '#e6e6e6',
+    purpleHoverTint: 'rgba(119, 0, 255, 0.3)',
     quizCardBackgroundColor: '#2c2c33',
     quizCardColor: '#000000',
     speechBubbleOtherUserBackgroundColor: '#2a2b35',

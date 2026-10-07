@@ -1,5 +1,4 @@
 import {
-  Animated,
   Pressable,
 } from 'react-native';
 import { FC } from 'react';
@@ -11,6 +10,7 @@ import { useAppTheme } from '../../app-theme/app-theme';
 import { usePressableAnimation } from '../../animation/animation';
 import { setOptionScreenPayload } from '../../navigation/option-screen-store';
 import { OptionGroup, OptionGroupInputs } from '../../data/option-groups';
+import Animated from 'react-native-reanimated';
 
 type ButtonForOptionProps = {
   onPress?: () => void;
@@ -57,7 +57,12 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
   const label_ = label ?? optionGroups?.[0]?.title
 
   const { appTheme } = useAppTheme();
-  const { backgroundColor, onPressIn, onPressOut } = usePressableAnimation();
+  const {
+    backgroundStyle,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation();
 
   // Built fresh each render so the captured `optionGroups` reflect the latest
   // store-derived values; memoizing would freeze them at first-render values
@@ -87,12 +92,12 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress_}
+      {...hoverProps}
     >
       <Animated.View
-        style={{
+        style={[{
           width: '100%',
           height: '100%',
-          backgroundColor,
           borderColor: appTheme.interactiveBorderColor,
           borderWidth: 1,
           borderBottomWidth: 2,
@@ -102,7 +107,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'space-between',
-        }}
+        }, backgroundStyle]}
       >
         {Icon_ &&
           <Icon_ color={appTheme.secondaryColor} />

@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  ViewStyle,
 } from 'react-native';
 import {
   Dispatch,
@@ -42,6 +43,7 @@ import { listen, lastEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
+import { AnimatedPressable, HoverCircle, hoverTransition, useHover } from './hover';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { getPublicSearchFilters } from '../events/public-search-filters';
@@ -107,6 +109,18 @@ const styles = StyleSheet.create({
   clubContainer: {
     borderRadius: 5,
     overflow: 'hidden',
+  },
+  clubArrow: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clubText: {
+    fontSize: 16,
+    fontFamily: 'Trueno',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
 });
 
@@ -242,6 +256,7 @@ type ClubSelectorProps = {
 
 const LeftContinuation = ({scrollLeft}: {scrollLeft: () => void}) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
   if (isMobile()) {
     return (
@@ -265,6 +280,7 @@ const LeftContinuation = ({scrollLeft}: {scrollLeft: () => void}) => {
     return (
       <Pressable
         onPress={scrollLeft}
+        {...hoverProps}
         style={{
           position: 'absolute',
           top: 0,
@@ -292,13 +308,16 @@ const LeftContinuation = ({scrollLeft}: {scrollLeft: () => void}) => {
             alignItems: 'flex-start',
           }}
         >
-          <Ionicons
-            style={{
-              fontSize: 26,
-              color: appTheme.secondaryColor,
-            }}
-            name="chevron-back"
-          />
+          <View style={styles.clubArrow}>
+            <HoverCircle visible={hovered} inset={0} />
+            <Ionicons
+              style={{
+                fontSize: 26,
+                color: appTheme.secondaryColor,
+              }}
+              name="chevron-back"
+            />
+          </View>
         </LinearGradient>
       </Pressable>
     );
@@ -307,6 +326,7 @@ const LeftContinuation = ({scrollLeft}: {scrollLeft: () => void}) => {
 
 const RightContinuation = ({scrollRight}: {scrollRight: () => void}) => {
   const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
 
   if (isMobile()) {
     return (
@@ -330,6 +350,7 @@ const RightContinuation = ({scrollRight}: {scrollRight: () => void}) => {
     return (
       <Pressable
         onPress={scrollRight}
+        {...hoverProps}
         style={{
           position: 'absolute',
           top: 0,
@@ -357,17 +378,62 @@ const RightContinuation = ({scrollRight}: {scrollRight: () => void}) => {
             alignItems: 'flex-end',
           }}
         >
-          <Ionicons
-            style={{
-              fontSize: 26,
-              color: appTheme.secondaryColor,
-            }}
-            name="chevron-forward"
-          />
+          <View style={styles.clubArrow}>
+            <HoverCircle visible={hovered} inset={0} />
+            <Ionicons
+              style={{
+                fontSize: 26,
+                color: appTheme.secondaryColor,
+              }}
+              name="chevron-forward"
+            />
+          </View>
         </LinearGradient>
       </Pressable>
     );
   }
+};
+
+const ClubRowItem = ({ name, isSelected, style, onPress, onLayout }: {
+  name: string
+  isSelected: boolean
+  style: ViewStyle
+  onPress: () => void
+  onLayout?: (e: LayoutChangeEvent) => void
+}) => {
+  const { appTheme } = useAppTheme();
+  const { hovered, hoverProps } = useHover();
+
+  return (
+    <AnimatedPressable
+      style={[
+        style,
+        {
+          backgroundColor: hovered && !isSelected
+            ? appTheme.hoverOverlayColor
+            : 'transparent',
+        },
+        hoverTransition(['backgroundColor']),
+      ]}
+      onPress={onPress}
+      onLayout={onLayout}
+      {...hoverProps}
+    >
+      <DefaultText
+        style={[
+          styles.clubText,
+          isSelected ? {
+            color: appTheme.primaryColor,
+            backgroundColor: appTheme.secondaryColor,
+          } : {
+            color: appTheme.secondaryColor,
+          },
+        ]}
+      >
+        {name}
+      </DefaultText>
+    </AnimatedPressable>
+  );
 };
 
 const ClubSelector = (props: ClubSelectorProps) => {
@@ -472,24 +538,6 @@ const ClubSelector = (props: ClubSelectorProps) => {
     );
   }, []);
 
-  const dynamicStyles = StyleSheet.create({
-    selectedClubText: {
-      fontSize: 16,
-      fontFamily: 'Trueno',
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      color: appTheme.primaryColor,
-      backgroundColor: appTheme.secondaryColor,
-    },
-    unselectedClubText: {
-      fontSize: 16,
-      fontFamily: 'Trueno',
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      color: appTheme.secondaryColor,
-    },
-  });
-
   if (!clubs || !clubs.length) {
     return null;
   }
@@ -523,42 +571,26 @@ const ClubSelector = (props: ClubSelectorProps) => {
             CLUBS
           </DefaultText>
 
-          <Pressable
+          <ClubRowItem
+            name="Everyone"
+            isSelected={props.selectedClub === null}
             style={styles.clubContainerEveryone}
             onPress={() => props.onChangeSelectedClub(null)}
-          >
-            <DefaultText
-              style={
-                props.selectedClub === null ?
-                  dynamicStyles.selectedClubText :
-                  dynamicStyles.unselectedClubText
-              }
-            >
-              Everyone
-            </DefaultText>
-          </Pressable>
+          />
 
           {clubs.map((club) =>
-            <Pressable
-              style={styles.clubContainer}
+            <ClubRowItem
               key={club.name}
+              name={club.name}
+              isSelected={props.selectedClub === club.name}
+              style={styles.clubContainer}
               onPress={() => props.onChangeSelectedClub(club.name)}
               onLayout={
                 props.selectedClub === club.name && !hasJumpedToClubRef.current ?
                   onSelectedClubLayout :
                   undefined
               }
-            >
-              <DefaultText
-                style={
-                  props.selectedClub === club.name ?
-                    dynamicStyles.selectedClubText :
-                    dynamicStyles.unselectedClubText
-                }
-              >
-                {club.name}
-              </DefaultText>
-            </Pressable>
+            />
           )}
         </ScrollView>
 

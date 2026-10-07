@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 import {
   Platform,
-  Pressable,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { getBackButtonState, useBackButtonState } from '../events/back-button';
 import type { BackButtonPlacement } from '../events/back-button';
 import { TIMING } from '../util/animation';
 import { COLUMN_MAX_WIDTH } from '../constants/constants';
+import { AnimatedPressable, hoverTransition, useHover } from './hover';
 
 const onPress = () => {
   const state = getBackButtonState();
@@ -31,6 +31,7 @@ const GlobalBackButton = () => {
   const { width } = useWindowDimensions();
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const { hovered, hoverProps } = useHover();
 
   const top = (Platform.OS === 'ios' ? 0 : 10)
     + (Platform.OS === 'web' ? 0 : insets.top);
@@ -87,15 +88,18 @@ const GlobalBackButton = () => {
 
   return (
     <Reanimated.View style={[styles.container, { top }, animatedStyle]}>
-      <Pressable
+      <AnimatedPressable
         style={[
           styles.button,
           {
-            backgroundColor: appTheme.primaryColor,
+            backgroundColor: hovered ? appTheme.hoverColor : appTheme.primaryColor,
             borderColor: appTheme.secondaryColor,
+            transform: [{ scale: hovered ? 1.06 : 1 }],
           },
+          hoverTransition(['backgroundColor', 'transform']),
         ]}
         onPress={onPress}
+        {...hoverProps}
       >
         <FontAwesomeIcon
           icon={faArrowLeft}
@@ -106,7 +110,7 @@ const GlobalBackButton = () => {
             outline: 'none',
           }}
         />
-      </Pressable>
+      </AnimatedPressable>
     </Reanimated.View>
   );
 };
