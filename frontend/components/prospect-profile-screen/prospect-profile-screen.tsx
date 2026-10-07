@@ -123,7 +123,6 @@ import {
   hoverColorFor,
   hoverTransition,
   riseStyle,
-  riseTransition,
   useHover,
   usePressed,
 } from '../hover';
@@ -229,7 +228,6 @@ const ShareButton = ({personUuid, backgroundColor}: {
       accessibilityLabel="Copy profile link"
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
-        riseTransition(pressed),
         { marginBottom: 0 },
       ]}
       {...hoverProps}
@@ -564,7 +562,6 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
       onPress={onPress}
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
-        riseTransition(pressed),
         { marginBottom: 100 },
       ]}
       {...hoverProps}

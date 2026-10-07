@@ -71,9 +71,6 @@ const riseStyle = (
   borderBottomWidth: borderBottomWidth + (raised ? 2 : 0),
 });
 
-const riseTransition = (pressed: boolean) =>
-  hoverTransition(pressed ? 'none' : ['marginTop', 'borderBottomWidth']);
-
 const grabCursor = (grabbing: boolean): ViewStyle => {
   if (Platform.OS !== 'web') return {};
   // @ts-expect-error – React Native's types only allow the 'auto' and 'pointer' cursors
@@ -117,7 +114,6 @@ export {
   hoverColorFor,
   hoverTransition,
   riseStyle,
-  riseTransition,
   useHover,
   usePressed,
 };

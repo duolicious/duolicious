@@ -14,7 +14,6 @@ import { useAppTheme } from '../app-theme/app-theme';
 import {
   AnimatedPressable,
   riseStyle,
-  riseTransition,
   useHover,
   usePressed,
 } from './hover';
@@ -71,7 +70,6 @@ const CheckChip = ({label, ...props}: {
         ...(checked ? checkedContainerStyle : {}),
       },
         riseStyle(hovered && !pressed, 4, props.compact ? 3 : 5),
-        riseTransition(pressed),
       ]}
       onPress={onPress_}
       {...hoverProps}

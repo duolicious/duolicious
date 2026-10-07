@@ -17,7 +17,7 @@ import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
-import { riseStyle, riseTransition, useHover } from './hover';
+import { riseStyle, useHover } from './hover';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 type BasicIcon = IconDefinition | IoniconsName;
@@ -94,7 +94,6 @@ const Basic = ({children, ...rest}: {
           backgroundColor: chrome.backgroundColor,
           flexShrink: 1,
         },
-        riseTransition(pressed),
         shakeStyle,
         style,
         riseStyle(
