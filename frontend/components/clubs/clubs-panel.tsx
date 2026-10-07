@@ -17,7 +17,6 @@ import {
   fetchClubItems,
   moveClubToFront,
   openClubCard,
-  refreshSuggestedClubs,
   selectSearchClub,
   sortClubs,
   useJoinedClubs,
@@ -45,10 +44,6 @@ const ClubsPanel = () => {
   const { isScrolled, onScroll } = useIsScrolled();
 
   const q = query.trim().toLowerCase();
-
-  useEffect(() => {
-    refreshSuggestedClubs();
-  }, []);
 
   useEffect(() => {
     if (!q) {

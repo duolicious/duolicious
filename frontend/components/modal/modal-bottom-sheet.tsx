@@ -146,7 +146,7 @@ const ModalBottomSheet = ({
 
   return (
     <View
-      style={[styles.wrapper, { top }]}
+      style={styles.wrapper}
       pointerEvents={visible ? 'auto' : 'none'}
     >
       <Animated.View
