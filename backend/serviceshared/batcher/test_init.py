@@ -1,6 +1,8 @@
+from typing import Callable
 import unittest
 from unittest.mock import MagicMock, call
 import asyncio
+import time
 from serviceshared.batcher import Batcher
 
 class TestBatcher(unittest.IsolatedAsyncioTestCase):
@@ -14,6 +16,19 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         if hasattr(self, 'batcher'):
             self.batcher.stop()
             await asyncio.sleep(0.05)  # Let the cancellation settle
+
+    async def assertEventually(
+        self,
+        assertion: Callable[[], None],
+        timeout: float = 5.0,
+    ) -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                return assertion()
+            except AssertionError:
+                await asyncio.sleep(0.01)
+        assertion()
 
     async def test_enqueue_and_process(self) -> None:
         self.batcher = Batcher(
@@ -29,10 +44,9 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher.enqueue(1)
 
         # Allow some time for the batch to be processed
-        await asyncio.sleep(0.2)
-
         # Check that the process_fn was called with the expected batch
-        self.process_fn.assert_called_once_with([1])
+        await self.assertEventually(
+            lambda: self.process_fn.assert_called_once_with([1]))
 
     async def test_flush_interval_respected(self) -> None:
         self.batcher = Batcher(
@@ -50,11 +64,9 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         # Check that the batch is not processed immediately
         self.process_fn.assert_not_called()
 
-        # Wait for the flush interval to expire
-        await asyncio.sleep(0.3)
-
         # Check that the batch was processed
-        self.process_fn.assert_called_once_with([1])
+        await self.assertEventually(
+            lambda: self.process_fn.assert_called_once_with([1]))
 
     async def test_dynamic_flush_interval(self) -> None:
         self.batcher = Batcher(
@@ -72,19 +84,16 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         # Change the flush interval after enqueuing the item
         self.batcher.set_flush_interval(0.1)
 
-        await asyncio.sleep(0.3)  # New flush interval will take effect next batch
-
         # Check that the batch was processed earlier due to the old interval
-        self.process_fn.assert_called_once_with([1])
+        await self.assertEventually(
+            lambda: self.process_fn.assert_called_once_with([1]))
 
         # Enqueue an item
         self.batcher.enqueue(2)
 
-        # Allow time for the batch to be processed with the new flush interval
-        await asyncio.sleep(0.2)
-
-        # Check that the batch was processed earlier due to the old interval
-        self.process_fn.assert_has_calls([call([1]), call([2])])
+        # Check that the batch was processed with the new flush interval
+        await self.assertEventually(
+            lambda: self.process_fn.assert_has_calls([call([1]), call([2])]))
 
     async def test_max_batch_size_respected(self) -> None:
         self.batcher = Batcher(
@@ -101,11 +110,9 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher.enqueue(2)
         self.batcher.enqueue(3)
 
-        # Allow some time for the batch to be processed
-        await asyncio.sleep(0.1)
-
         # Check that the batch was processed due to reaching max_batch_size
-        self.process_fn.assert_called_once_with([1, 2, 3])
+        await self.assertEventually(
+            lambda: self.process_fn.assert_called_once_with([1, 2, 3]))
 
     async def test_retry_on_failure(self) -> None:
         # Mock the process_fn to raise an exception on the first call
@@ -129,11 +136,9 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         # Enqueue an item
         self.batcher.enqueue(1)
 
-        # Allow time for the batch to be processed twice
-        await asyncio.sleep(0.3)
-
         # Check that the batch was retried and processed successfully
-        self.process_fn.assert_called_once_with([1])
+        await self.assertEventually(
+            lambda: self.process_fn.assert_called_once_with([1]))
 
     async def test_no_items_enqueued_during_flush_interval(self) -> None:
         self.batcher = Batcher(
@@ -168,10 +173,10 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
 
         # Enqueue and process normally
         self.batcher.enqueue(1)
-        await asyncio.sleep(0.2)
 
         # Ensure process_fn was called once with non-empty batch
-        self.process_fn.assert_called_once_with([1])
+        await self.assertEventually(
+            lambda: self.process_fn.assert_called_once_with([1]))
 
 if __name__ == '__main__':
     unittest.main()

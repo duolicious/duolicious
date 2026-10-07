@@ -104,7 +104,9 @@ def _normalize_club_name(value: object) -> object:
     # instead of this raising AttributeError.
     if not isinstance(value, str):
         return value
-    return ' '.join(value.split()).lower()
+    straightened = value.translate(
+        str.maketrans('\u2018\u2019\u201c\u201d', "''\"\""))
+    return ' '.join(straightened.split()).lower()
 
 
 ClubName = Annotated[
