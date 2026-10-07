@@ -191,10 +191,10 @@ const SliderThumb = ({ gesture, left, hollow, isDragging }: {
           {
             left,
             backgroundColor: hollow ? appTheme.primaryColor : PURPLE,
-            boxShadow: `0 0 0 ${hovered || isDragging ? 8 : 0}px ${appTheme.purpleHoverTint}`,
+            transform: [{ scale: hovered || isDragging ? 1.2 : 1 }],
           },
           grabCursor(isDragging),
-          hoverTransition(['boxShadow']),
+          hoverTransition('transform'),
         ]}
       />
     </GestureDetector>
