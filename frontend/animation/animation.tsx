@@ -16,7 +16,7 @@ const useShake = () => {
   const offset = useSharedValue(0);
 
   const shakeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: offset.value }],
+    left: offset.value,
   }));
 
   const startShake = useCallback(() => {

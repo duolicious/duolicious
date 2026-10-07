@@ -122,8 +122,6 @@ import {
   AnimatedPressable,
   hoverColorFor,
   hoverTransition,
-  RiseHoverArea,
-  riseStyle,
   useHover,
   usePressed,
 } from '../hover';
@@ -202,7 +200,7 @@ const profilePillButtonStyle = (
   backgroundColor: surface.backgroundColor,
   borderColor: surface.borderColor,
   opacity: pressed ? 0.6 : 1,
-  ...riseStyle(surface.borderColor, hovered && !pressed),
+  transform: [{ scale: hovered && !pressed ? 1.06 : 1 }],
 });
 
 const profilePillButtonTextStyle = (
@@ -231,13 +229,12 @@ const ShareButton = ({personUuid, backgroundColor}: {
       accessibilityLabel="Copy profile link"
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
-        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+        hoverTransition(pressed ? 'none' : 'transform'),
         { marginBottom: 0 },
       ]}
       {...hoverProps}
       {...pressProps}
     >
-      <RiseHoverArea raised={hovered && !pressed} borderBottomWidth={3} />
       <Share2
         stroke={surface.color}
         strokeWidth={2}
@@ -567,13 +564,12 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
       onPress={onPress}
       style={[
         profilePillButtonStyle(surface, pressed, hovered),
-        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+        hoverTransition(pressed ? 'none' : 'transform'),
         { marginBottom: 100 },
       ]}
       {...hoverProps}
       {...pressProps}
     >
-      <RiseHoverArea raised={hovered && !pressed} borderBottomWidth={3} />
       {isPosting &&
         <LogoActivityIndicator size="small" color="#70f"/>
       }

@@ -17,7 +17,7 @@ import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useSignedInUser } from '../events/signed-in-user';
 import { useAppTheme } from '../app-theme/app-theme';
 import { themedSurface } from '../app-theme/surface';
-import { RiseHoverArea, hoverTransition, riseStyle, useHover } from './hover';
+import { hoverTransition, useHover } from './hover';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 type BasicIcon = IconDefinition | IoniconsName;
@@ -81,10 +81,6 @@ const Basic = ({children, ...rest}: {
   const { hovered, hoverProps } = useHover();
   const [pressed, setPressed] = useState(false);
   const isRaised = !!onPress && hovered && !pressed;
-  const borderOverride = StyleSheet.flatten(style)?.borderColor;
-  const edgeColor = typeof borderOverride === 'string'
-    ? borderOverride
-    : chrome.borderColor;
 
   return (
     <Animated.View
@@ -97,8 +93,8 @@ const Basic = ({children, ...rest}: {
           backgroundColor: chrome.backgroundColor,
           flexShrink: 1,
         },
-        riseStyle(edgeColor, isRaised),
-        hoverTransition(pressed ? 'none' : ['top', 'boxShadow']),
+        { transform: [{ scale: isRaised ? 1.06 : 1 }] },
+        hoverTransition(pressed ? 'none' : 'transform'),
         shakeStyle,
         style
       ]}
@@ -131,7 +127,6 @@ const Basic = ({children, ...rest}: {
           flexShrink: 1,
         }}
       >
-        <RiseHoverArea raised={isRaised} borderBottomWidth={1} />
         {icon && <Icon icon={icon} textStyle={textStyle} />}
         <DefaultText style={textStyle}>{children}</DefaultText>
       </Pressable>

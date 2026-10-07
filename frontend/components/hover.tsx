@@ -3,7 +3,6 @@ import {
   PointerEvent,
   Pressable,
   StyleSheet,
-  View,
   ViewStyle,
 } from 'react-native';
 import { useMemo, useState } from 'react';
@@ -63,28 +62,6 @@ const hoverTransition = (
   transitionTimingFunction: 'ease-out',
 });
 
-const RISE_PX = 2;
-
-const riseStyle = (edgeColor: string, raised: boolean): ViewStyle => ({
-  top: raised ? -RISE_PX : 0,
-  boxShadow: `0 ${raised ? RISE_PX : 0}px 0 ${edgeColor}`,
-});
-
-const RiseHoverArea = ({ raised, borderBottomWidth }: {
-  raised: boolean
-  borderBottomWidth: number
-}) => raised && (
-  <View
-    style={{
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: -(borderBottomWidth + RISE_PX),
-      height: RISE_PX,
-    }}
-  />
-);
-
 const grabCursor = (grabbing: boolean): ViewStyle => {
   if (Platform.OS !== 'web') return {};
   // @ts-expect-error – React Native's types only allow the 'auto' and 'pointer' cursors
@@ -124,11 +101,9 @@ export {
   HOVER_DURATION_MS,
   HoverCircle,
   PURPLE_HOVER_COLOR,
-  RiseHoverArea,
   grabCursor,
   hoverColorFor,
   hoverTransition,
-  riseStyle,
   useHover,
   usePressed,
 };
