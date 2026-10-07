@@ -99,12 +99,15 @@ def _string_field(values: MutableMapping[str, object], key: str) -> str:
     return value
 
 
+_STRAIGHT_QUOTES = str.maketrans('\u2018\u2019\u201c\u201d', "''\"\"")
+
+
 def _normalize_club_name(value: object) -> object:
     # Non-str values pass through so pydantic's type layer reports them
     # instead of this raising AttributeError.
     if not isinstance(value, str):
         return value
-    return ' '.join(value.split()).lower()
+    return ' '.join(value.translate(_STRAIGHT_QUOTES).split()).lower()
 
 
 ClubName = Annotated[

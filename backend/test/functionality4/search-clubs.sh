@@ -40,3 +40,6 @@ assert_eventually "$expected" c GET '/search-clubs?q=my-club'
 results=$(c GET '/search-clubs?q=really-long-club-name-that-exceeds-the-limit')
 expected='[]'
 [[ "$results" == "$expected" ]]
+
+jc POST /join-club -d '{ "name": "Don’t Panic" }'
+[[ "$(q "select count(*) from person_club where club_name = 'don''t panic'")" == 1 ]]
