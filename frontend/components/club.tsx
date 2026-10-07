@@ -1,5 +1,6 @@
 import { TextStyle, ViewStyle } from 'react-native';
 import { Basic, Basics } from './basic';
+import { useAppTheme } from '../app-theme/app-theme';
 
 const Club = ({
   name,
@@ -14,11 +15,16 @@ const Club = ({
   textStyle?: TextStyle,
   onPress?: () => void,
 }) => {
+  const { appTheme } = useAppTheme();
+
   return (
     <Basic
       onPress={onPress}
       style={{
         borderBottomWidth: 3,
+        ...(isMutual && {
+          borderColor: textStyle?.color ?? appTheme.secondaryColor,
+        }),
         ...style
       }}
       textStyle={{

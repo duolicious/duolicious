@@ -645,13 +645,11 @@ const AllClubsItem = ({child}: {child: AllClubsChild}) => {
 const AllClubs = ({
   mutualClubs,
   otherClubs,
-  mutualClubsTheme,
   clubsTheme,
   titleColor,
 }: {
   mutualClubs: string[],
   otherClubs: string[],
-  mutualClubsTheme: { style?: ViewStyle, textStyle?: TextStyle },
   clubsTheme: { style?: ViewStyle, textStyle?: TextStyle },
   titleColor: string | undefined,
 }) => {
@@ -690,7 +688,7 @@ const AllClubs = ({
           key: clubName,
           name: clubName,
           isMutual: true,
-          ...mutualClubsTheme,
+          ...clubsTheme,
         },
         kids: null,
       })),
@@ -1604,13 +1602,6 @@ const Body = ({
     },
   };
 
-  const mutualClubsTheme = {
-    ...basicsTheme,
-    style: {
-      borderColor: clubsTheme.textStyle.color,
-    },
-  };
-
   const statsTheme = {
     textStyle: {
       color: data?.theme?.body_color,
@@ -1787,7 +1778,6 @@ const Body = ({
         <AllClubs
           mutualClubs={data?.mutual_clubs ?? []}
           otherClubs={data?.other_clubs ?? []}
-          mutualClubsTheme={mutualClubsTheme}
           clubsTheme={clubsTheme}
           titleColor={data?.theme?.title_color}
         />

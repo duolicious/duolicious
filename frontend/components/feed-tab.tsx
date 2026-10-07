@@ -1018,10 +1018,6 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
               name={fields.joined_club_name}
               isMutual={isMember}
               onPress={onPressClub}
-              // Like the prospect profile's mutual clubs, whose border takes
-              // the chip's text color
-              style={
-                isMember ? { borderColor: appTheme.secondaryColor } : undefined}
             />
           </View>
           <ClubFacepile
