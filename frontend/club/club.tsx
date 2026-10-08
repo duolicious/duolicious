@@ -103,6 +103,10 @@ const joinClub = (
     'joined-clubs',
     rowPosition === 'front' ? [name, ...otherClubs] : [...otherClubs, name]);
 
+  if (otherClubs.length === 0) {
+    selectSearchClub(name);
+  }
+
   return true;
 };
 

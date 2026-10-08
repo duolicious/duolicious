@@ -408,6 +408,7 @@ const ClubRow = () => {
         onLayout={ifShown((viewport) => updateEdges({ viewport }))}
         onContentSizeChange={(width) => width > 0 && updateEdges({ content: width })}
         contentContainerStyle={{
+          minHeight: 50,
           alignItems: 'center',
           gap: 6,
           paddingRight: 10,
