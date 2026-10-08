@@ -26,6 +26,8 @@ const DISMISS_VELOCITY = 800;
 // edge, where a downward swipe would reach the system pull-down instead
 const TOP_GAP = 50;
 
+const SHEET_Z_INDEX = 9999;
+
 const ModalBottomSheet = ({
   visible,
   onRequestClose,
@@ -200,7 +202,7 @@ const ModalBottomSheet = ({
 const styles = StyleSheet.create({
   wrapper: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
+    zIndex: SHEET_Z_INDEX,
   },
   avoidingView: {
     flex: 1,
@@ -213,4 +215,5 @@ const styles = StyleSheet.create({
 
 export {
   ModalBottomSheet,
+  SHEET_Z_INDEX,
 };

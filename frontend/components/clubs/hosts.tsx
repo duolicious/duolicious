@@ -16,7 +16,7 @@ import {
   useClubsSheet,
   useOpenClubCard,
 } from '../../club/club';
-import { AnchoredOverlay } from '../anchored-overlay';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ModalBottomSheet } from '../modal/modal-bottom-sheet';
 import { ClubsPanel } from './clubs-panel';
 import { ClubCardBody, ClubCardTitle } from './club-card';
@@ -24,6 +24,7 @@ import { useIsScrolled } from './use-is-scrolled';
 
 const POPOVER_WIDTH = 360;
 const EDGE = 8;
+const FADE_DURATION = 150;
 
 const useLatest = <T,>(value: T | null): T | null => {
   const ref = useRef(value);
@@ -56,7 +57,12 @@ const Popover = ({
   const { width, height: windowHeight } = useWindowDimensions();
 
   return (
-    <AnchoredOverlay visible={visible}>
+    visible &&
+    <Animated.View
+      entering={FadeIn.duration(FADE_DURATION)}
+      exiting={FadeOut.duration(FADE_DURATION)}
+      style={StyleSheet.absoluteFillObject}
+    >
       <Pressable onPress={onRequestClose} style={StyleSheet.absoluteFillObject} />
       <View
         style={{
@@ -76,7 +82,7 @@ const Popover = ({
       >
         {children}
       </View>
-    </AnchoredOverlay>
+    </Animated.View>
   );
 };
 

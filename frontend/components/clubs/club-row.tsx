@@ -1,5 +1,7 @@
-import { RefObject, useEffect, useRef, useState } from 'react';
+import { RefObject, memo, useEffect, useRef, useState } from 'react';
 import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   View,
@@ -9,10 +11,6 @@ import Animated, {
   LayoutAnimationConfig,
   LinearTransition,
   ZoomIn,
-  runOnJS,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -177,6 +175,85 @@ const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
   );
 };
 
+const RibbonChips = memo(({
+  yours,
+  suggestions,
+  searchClub,
+}: {
+  yours: string[],
+  suggestions: string[],
+  searchClub: string | null,
+}) => {
+  const { appTheme } = useAppTheme();
+
+  const renderFilter = (name: string | null) =>
+    <ClubFilter
+      name={name}
+      isSelected={name === searchClub}
+      onPress={(e) => name !== null && name === searchClub
+        ? openClubCard({ name, anchor: e.nativeEvent })
+        : selectSearchClub(name)
+      }
+    />;
+
+  return (
+    <LayoutAnimationConfig skipEntering={true}>
+      <View style={{ flexDirection: 'row' }}>
+        {[
+          { key: '', node: renderFilter(null) },
+          {
+            key: 'divider',
+            node: <View
+              style={{
+                width: 1,
+                height: 24,
+                backgroundColor: appTheme.reactionBarBorderColor,
+              }}
+            />,
+          },
+          ...yours.map((name) => ({ key: name, node: renderFilter(name) })),
+        ].map(({ key, node }, i, cells) =>
+          <Animated.View
+            key={key}
+            layout={moveTransition}
+            entering={popIn}
+            style={{
+              justifyContent: 'center',
+              height: 50,
+              paddingLeft: i === 0 ? 8 : 3,
+              paddingRight: i === cells.length - 1 ? 8 : 3,
+              backgroundColor: appTheme.inputColor,
+              borderTopLeftRadius: i === 0 ? 25 : 0,
+              borderBottomLeftRadius: i === 0 ? 25 : 0,
+              borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
+              borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
+            }}
+          >
+            {node}
+          </Animated.View>
+        )}
+      </View>
+      {suggestions.map((name) =>
+        <Animated.View
+          key={name}
+          layout={moveTransition}
+          entering={popIn}
+        >
+          <Club
+            name={name}
+            isMutual={false}
+            onPress={(e) => openClubCard({
+              name,
+              anchor: e.nativeEvent,
+              rowPosition: 'end',
+            })}
+          />
+        </Animated.View>
+      )}
+    </LayoutAnimationConfig>
+  );
+});
+
 const ClubRow = () => {
   const { appTheme } = useAppTheme();
   const searchClub = useSearchClub();
@@ -188,11 +265,8 @@ const ClubRow = () => {
 
   const [isAtStart, setIsAtStart] = useState(true);
   const [isAtEnd, setIsAtEnd] = useState(true);
+  const [pinned, setPinned] = useState<'none' | 'in' | 'out'>('none');
   const [buttonWidth, setButtonWidth] = useState(0);
-
-  const buttonWidthValue = useSharedValue(0);
-  const buttonHidden = useSharedValue(0);
-  const lastX = useSharedValue(0);
 
   useEffect(() => {
     refreshSuggestedClubs();
@@ -208,39 +282,25 @@ const ClubRow = () => {
     setIsAtEnd(x + viewport >= content - 10);
   };
 
-  const onScroll = useAnimatedScrollHandler((e) => {
-    const x = e.contentOffset.x;
-    buttonHidden.value = Math.min(
-      Math.max(buttonHidden.value + x - lastX.value, 0),
-      buttonWidthValue.value,
-      Math.max(x, 0),
-    );
-    lastX.value = x;
-    runOnJS(updateEdges)({ x });
-  });
+  const onScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = nativeEvent.contentOffset.x;
+    const dx = x - edgesRef.current.x;
 
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -buttonHidden.value }],
-  }));
+    if (x <= 0) {
+      setPinned('none');
+    } else if (dx < 0) {
+      setPinned('in');
+    } else if (dx > 0) {
+      setPinned('out');
+    }
 
-  const leftArrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: buttonWidthValue.value - buttonHidden.value }],
-  }));
+    updateEdges({ x });
+  };
 
   const scrollBy = (dx: number) => () => scrollViewRef.current?.scrollTo({
     x: edgesRef.current.x + dx,
     animated: true,
   });
-
-  const renderFilter = (name: string | null) =>
-    <ClubFilter
-      name={name}
-      isSelected={name === searchClub}
-      onPress={(e) => name !== null && name === searchClub
-        ? openClubCard({ name, anchor: e.nativeEvent })
-        : selectSearchClub(name)
-      }
-    />;
 
   return (
     <View
@@ -251,7 +311,7 @@ const ClubRow = () => {
         backgroundColor: appTheme.primaryColor,
       }}
     >
-      <Animated.ScrollView
+      <ScrollView
         ref={scrollViewRef}
         horizontal={true}
         showsHorizontalScrollIndicator={false}
@@ -266,88 +326,46 @@ const ClubRow = () => {
           paddingRight: 10,
         }}
       >
-        <View style={{ width: buttonWidth }} />
-        <LayoutAnimationConfig skipEntering={true}>
-          <View style={{ flexDirection: 'row' }}>
-            {[
-              { key: '', node: renderFilter(null) },
-              {
-                key: 'divider',
-                node: <View
-                  style={{
-                    width: 1,
-                    height: 24,
-                    backgroundColor: appTheme.reactionBarBorderColor,
-                  }}
-                />,
-              },
-              ...yours.map((name) => ({ key: name, node: renderFilter(name) })),
-            ].map(({ key, node }, i, cells) =>
-              <Animated.View
-                key={key}
-                layout={moveTransition}
-                entering={popIn}
-                style={{
-                  justifyContent: 'center',
-                  height: 50,
-                  paddingLeft: i === 0 ? 8 : 3,
-                  paddingRight: i === cells.length - 1 ? 8 : 3,
-                  backgroundColor: appTheme.inputColor,
-                  borderTopLeftRadius: i === 0 ? 25 : 0,
-                  borderBottomLeftRadius: i === 0 ? 25 : 0,
-                  borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
-                  borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
-                }}
-              >
-                {node}
-              </Animated.View>
-            )}
-          </View>
-          {suggestions.map((name) =>
-            <Animated.View
-              key={name}
-              layout={moveTransition}
-              entering={popIn}
-            >
-              <Club
-                name={name}
-                isMutual={false}
-                onPress={(e) => openClubCard({
-                  name,
-                  anchor: e.nativeEvent,
-                  rowPosition: 'end',
-                })}
-              />
-            </Animated.View>
-          )}
-        </LayoutAnimationConfig>
-      </Animated.ScrollView>
+        <View
+          onLayout={({ nativeEvent }) => setButtonWidth(nativeEvent.layout.width)}
+          style={{ paddingLeft: 10 }}
+        >
+          <ClubsButton rowRef={rowRef} />
+        </View>
+        <RibbonChips
+          yours={yours}
+          suggestions={suggestions}
+          searchClub={searchClub}
+        />
+      </ScrollView>
       <Animated.View
-        onLayout={({ nativeEvent }) => {
-          buttonWidthValue.value = nativeEvent.layout.width;
-          setButtonWidth(nativeEvent.layout.width);
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          justifyContent: 'center',
+          paddingLeft: 10,
+          backgroundColor: appTheme.primaryColor,
+          transform: [{ translateX: pinned === 'in' ? 0 : -buttonWidth }],
+          transitionProperty: 'transform',
+          transitionDuration: pinned === 'none' ? 0 : 200,
         }}
-        style={[
-          {
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            justifyContent: 'center',
-            paddingLeft: 10,
-            backgroundColor: appTheme.primaryColor,
-          },
-          buttonStyle,
-        ]}
       >
         <ClubsButton rowRef={rowRef} />
       </Animated.View>
       {!isMobile() && !isAtStart &&
         <Animated.View
-          style={[
-            { position: 'absolute', top: 0, bottom: 0, left: 0, width: 40 },
-            leftArrowStyle,
-          ]}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: 40,
+            transform: [{ translateX: pinned === 'in' ? buttonWidth : 0 }],
+            transitionProperty: 'transform',
+            transitionDuration: pinned === 'none' ? 0 : 200,
+          }}
         >
           <Continuation side="left" onPress={scrollBy(-SCROLL_JUMP_SIZE)} />
         </Animated.View>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import {
   GestureResponderEvent,
   Pressable,
@@ -42,6 +42,7 @@ const ClubsPanel = () => {
   const [isManaging, setIsManaging] = useState(false);
   const [isAllOpen, setIsAllOpen] = useState(false);
   const { isScrolled, onScroll } = useIsScrolled();
+  const isReady = useDeferredValue(true, false);
 
   const q = query.trim().toLowerCase();
 
@@ -123,7 +124,7 @@ const ClubsPanel = () => {
           />
         </View>
       </View>
-      <ScrollView
+      {isReady && <ScrollView
         keyboardShouldPersistTaps="handled"
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -225,7 +226,7 @@ const ClubsPanel = () => {
               <LogoActivityIndicator size="large" color={appTheme.brandColor} />
             </View>
         }
-      </ScrollView>
+      </ScrollView>}
     </View>
   );
 };

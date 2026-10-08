@@ -17,6 +17,7 @@ import { DefaultText } from './default-text';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLink } from '@fortawesome/free-solid-svg-icons/faLink';
 import { useAppTheme } from '../app-theme/app-theme';
+import { SHEET_Z_INDEX } from './modal/modal-bottom-sheet';
 
 const SOMETHING_WENT_WRONG = "Something went wrong";
 
@@ -133,6 +134,7 @@ const Toast: React.FC = () => {
         style={[
           {
             position: 'absolute',
+            zIndex: SHEET_Z_INDEX + 1,
             top: insets.top,
             left: 0,
             right: 0,
