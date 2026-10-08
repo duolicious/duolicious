@@ -1,0 +1,119 @@
+diff --git a/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js b/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js
+index 0245012..c454308 100644
+--- a/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js
++++ b/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js
+@@ -292,7 +292,7 @@ export default class AnimatedComponent extends ReanimatedAnimatedComponent {
+   // It is called before the component gets rerendered. This way we can access components' position before it changed
+   // and later on, in componentDidUpdate, calculate translation for layout transition.
+   getSnapshotBeforeUpdate() {
+-    if (IS_WEB && this.props.layout && this._componentDOMRef?.getBoundingClientRect) {
++    if (IS_WEB && this.props.layout && this._componentDOMRef?.getBoundingClientRect && this._componentDOMRef.getClientRects().length > 0) {
+       return this._componentDOMRef.getBoundingClientRect();
+     }
+ 
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
+index ba896aa..920ad98 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
+@@ -93,7 +93,7 @@ export function startWebLayoutAnimation(props, element, animationType, transitio
+   }
+ }
+ export function tryActivateLayoutTransition(props, element, snapshot) {
+-  if (!props.layout) {
++  if (!props.layout || element.getClientRects().length === 0) {
+     return;
+   }
+   const rect = element.getBoundingClientRect();
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
+index 4e842a9..bffe3b4 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
+@@ -154,15 +154,22 @@ export function setElementAnimation(element, animationConfig, shouldSavePosition
+       wasCallbackCalled = true;
+     }
+   };
+-  element.onanimationend = () => {
++  const clearEnteringAnimation = event => {
++    if (event.target === element && animationConfig.animationType === LayoutAnimationType.ENTERING) {
++      element.style.animationName = '';
++    }
++  };
++  element.onanimationend = event => {
+     if (shouldSavePosition) {
+       saveSnapshot(element);
+     }
++    clearEnteringAnimation(event);
+     maybeRemoveElement();
+     maybeCallCallback(true);
+     element.removeEventListener('animationcancel', animationCancelHandler);
+   };
+-  const animationCancelHandler = () => {
++  const animationCancelHandler = event => {
++    clearEnteringAnimation(event);
+     maybeRemoveElement();
+     maybeCallCallback(false);
+     element.removeEventListener('animationcancel', animationCancelHandler);
+diff --git a/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx b/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
+index 4264242..6dbf5f4 100644
+--- a/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
++++ b/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
+@@ -470,7 +470,8 @@ export default class AnimatedComponent
+     if (
+       IS_WEB &&
+       this.props.layout &&
+-      this._componentDOMRef?.getBoundingClientRect
++      this._componentDOMRef?.getBoundingClientRect &&
++      this._componentDOMRef.getClientRects().length > 0
+     ) {
+       return this._componentDOMRef.getBoundingClientRect();
+     }
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
+index c202a25..8be04ff 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
+@@ -220,7 +220,7 @@ export function tryActivateLayoutTransition<
+   element: ReanimatedHTMLElement,
+   snapshot: DOMRect
+ ) {
+-  if (!props.layout) {
++  if (!props.layout || element.getClientRects().length === 0) {
+     return;
+   }
+ 
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
+index b487dc5..1c4925a 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
+@@ -234,18 +234,30 @@ export function setElementAnimation(
+     }
+   };
+ 
+-  element.onanimationend = () => {
++  const clearEnteringAnimation = (event: AnimationEvent) => {
++    if (
++      event.target === element &&
++      animationConfig.animationType === LayoutAnimationType.ENTERING
++    ) {
++      element.style.animationName = '';
++    }
++  };
++
++  element.onanimationend = (event) => {
+     if (shouldSavePosition) {
+       saveSnapshot(element);
+     }
+ 
++    clearEnteringAnimation(event);
++
+     maybeRemoveElement();
+     maybeCallCallback(true);
+ 
+     element.removeEventListener('animationcancel', animationCancelHandler);
+   };
+ 
+-  const animationCancelHandler = () => {
++  const animationCancelHandler = (event: AnimationEvent) => {
++    clearEnteringAnimation(event);
+     maybeRemoveElement();
+     maybeCallCallback(false);
+ 
