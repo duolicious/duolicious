@@ -730,7 +730,7 @@ const AllClubs = ({
             })
           }
           style={d.kind === 'Title' ? styles.wFull : null}
-          layout={LinearTransition.easing(Easing.out(Easing.poly(4)))}
+          layout={LinearTransition.easing(Easing.bezier(0.25, 1, 0.5, 1))}
           exiting={FadeOut}
         >
           <AllClubsItem child={d} />
