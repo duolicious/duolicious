@@ -18,9 +18,8 @@ import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { backgroundColors } from './background-colors';
 import { useAppTheme } from '../../app-theme/app-theme';
-import { SHEET_Z_INDEX } from '../../constants/constants';
+import { SHEET_SLIDE_DURATION, SHEET_Z_INDEX } from '../../constants/constants';
 
-const SLIDE_DURATION = 250;
 const DISMISS_VELOCITY = 800;
 
 // Gap kept below the status bar so the sheet's top never crowds the screen
@@ -67,11 +66,11 @@ const ModalBottomSheet = ({
 
     if (visible) {
       translateY.value = sheetHeight;
-      translateY.value = withTiming(0, { duration: SLIDE_DURATION });
+      translateY.value = withTiming(0, { duration: SHEET_SLIDE_DURATION });
     } else {
       translateY.value = withTiming(
         sheetHeight,
-        { duration: SLIDE_DURATION },
+        { duration: SHEET_SLIDE_DURATION },
         (finished) => {
           if (finished) {
             runOnJS(setIsMounted)(false);
@@ -111,7 +110,7 @@ const ModalBottomSheet = ({
         ) {
           runOnJS(onRequestClose)();
         } else {
-          translateY.value = withTiming(0, { duration: SLIDE_DURATION });
+          translateY.value = withTiming(0, { duration: SHEET_SLIDE_DURATION });
         }
       }),
     [translateY, sheetHeight, onRequestClose],
