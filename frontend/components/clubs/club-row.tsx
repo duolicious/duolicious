@@ -1,4 +1,11 @@
-import { RefObject, memo, useEffect, useRef, useState } from 'react';
+import {
+  RefObject,
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -124,19 +131,19 @@ const Continuation = ({
   );
 };
 
+const NO_CLUBS: string[] = [];
+
 const useRowClubs = () => {
-  const yours = useJoinedClubs() ?? [];
+  const yours = useJoinedClubs() ?? NO_CLUBS;
   const suggested = useDerivedEvent<ClubItem[] | undefined, ClubItem[]>(
     'suggested-clubs', (cs) => cs ?? [], []);
 
-  const joined = new Set(yours);
+  const suggestions = useMemo(() => {
+    const joined = new Set(yours);
+    return suggested.map((c) => c.name).filter((c) => !joined.has(c));
+  }, [yours, suggested]);
 
-  return {
-    yours,
-    suggestions: suggested
-      .map((c) => c.name)
-      .filter((c) => !joined.has(c)),
-  };
+  return { yours, suggestions };
 };
 
 const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
@@ -374,7 +381,7 @@ const ClubRow = () => {
         onScroll={onScroll}
         scrollEventThrottle={16}
         onLayout={ifShown((viewport) => updateEdges({ viewport }))}
-        onContentSizeChange={(width) => updateEdges({ content: width })}
+        onContentSizeChange={(width) => width > 0 && updateEdges({ content: width })}
         contentContainerStyle={{
           alignItems: 'center',
           gap: 6,
