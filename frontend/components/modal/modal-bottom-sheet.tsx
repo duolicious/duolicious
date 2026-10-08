@@ -35,6 +35,7 @@ const ModalBottomSheet = ({
   children,
   heightFraction = 0.75,
   top = 0,
+  onOpened,
 }: {
   visible: boolean
   onRequestClose: () => void
@@ -44,6 +45,7 @@ const ModalBottomSheet = ({
   children: ReactNode
   heightFraction?: number
   top?: number
+  onOpened?: () => void
 }) => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -67,7 +69,15 @@ const ModalBottomSheet = ({
 
     if (visible) {
       translateY.value = sheetHeight;
-      translateY.value = withTiming(0, { duration: SLIDE_DURATION });
+      translateY.value = withTiming(
+        0,
+        { duration: SLIDE_DURATION },
+        (finished) => {
+          if (finished && onOpened) {
+            runOnJS(onOpened)();
+          }
+        },
+      );
     } else {
       translateY.value = withTiming(
         sheetHeight,

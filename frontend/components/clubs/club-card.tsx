@@ -295,11 +295,13 @@ const ClubCardTitle = ({
 
 const ClubCardBody = ({
   name,
+  isOpened,
   rowPosition,
   onPressClub,
   onScroll,
 }: {
   name: string,
+  isOpened: boolean,
   rowPosition: RowPosition,
   onPressClub: (name: string) => void,
   onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void,
@@ -307,7 +309,8 @@ const ClubCardBody = ({
   const { appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
   const isMember = useIsClubMember(name);
-  const fetched = useClubCard(name, isMember);
+  const response = useClubCard(name, isMember);
+  const fetched = isOpened ? response : null;
   const card = fetched === 'error' ? null : fetched;
 
   const members = card?.members ?? [];
