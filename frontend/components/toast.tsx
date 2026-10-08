@@ -17,7 +17,7 @@ import { DefaultText } from './default-text';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLink } from '@fortawesome/free-solid-svg-icons/faLink';
 import { useAppTheme } from '../app-theme/app-theme';
-import { SHEET_Z_INDEX } from './modal/modal-bottom-sheet';
+import { SHEET_Z_INDEX } from '../constants/constants';
 
 const SOMETHING_WENT_WRONG = "Something went wrong";
 

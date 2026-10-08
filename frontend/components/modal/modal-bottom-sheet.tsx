@@ -18,6 +18,7 @@ import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { backgroundColors } from './background-colors';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { SHEET_Z_INDEX } from '../../constants/constants';
 
 const SLIDE_DURATION = 250;
 const DISMISS_VELOCITY = 800;
@@ -25,8 +26,6 @@ const DISMISS_VELOCITY = 800;
 // Gap kept below the status bar so the sheet's top never crowds the screen
 // edge, where a downward swipe would reach the system pull-down instead
 const TOP_GAP = 50;
-
-const SHEET_Z_INDEX = 9999;
 
 const ModalBottomSheet = ({
   visible,
@@ -215,5 +214,4 @@ const styles = StyleSheet.create({
 
 export {
   ModalBottomSheet,
-  SHEET_Z_INDEX,
 };
