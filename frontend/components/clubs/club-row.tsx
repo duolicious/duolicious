@@ -1,5 +1,6 @@
 import { RefObject, memo, useEffect, useRef, useState } from 'react';
 import {
+  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -51,10 +52,12 @@ const moveTransition = LinearTransition
   .duration(MOVE_DURATION)
   .easing(MOVE_EASING);
 
-const collapse = new Keyframe({
-  0: { transform: [{ scaleX: 1 }] },
-  100: { transform: [{ scaleX: 0 }], easing: MOVE_EASING },
+const collapseFrom = (width: number) => new Keyframe({
+  0: { width },
+  100: { width: 0, easing: MOVE_EASING },
 }).duration(MOVE_DURATION);
+
+const UNDERLAY_OVERLAP = 25;
 
 const Continuation = ({
   side,
@@ -219,6 +222,15 @@ const RibbonChips = memo(({
     ...yours.map((name) => ({ key: name, node: renderFilter(name) })),
   ];
 
+  const [underlayWidths, setUnderlayWidths] =
+    useState<Record<string, number>>({});
+
+  const onLayoutUnderlay = (key: string) => ({ nativeEvent }: LayoutChangeEvent) => {
+    const { width } = nativeEvent.layout;
+    setUnderlayWidths((widths) =>
+      widths[key] === width ? widths : { ...widths, [key]: width });
+  };
+
   const renderTray = (isUnderlay: boolean) =>
     <View
       aria-hidden={isUnderlay}
@@ -233,7 +245,10 @@ const RibbonChips = memo(({
           key={key}
           layout={moveTransition}
           entering={isUnderlay ? undefined : popIn}
-          exiting={isUnderlay ? collapse : undefined}
+          exiting={isUnderlay && underlayWidths[key] !== undefined
+            ? collapseFrom(underlayWidths[key])
+            : undefined}
+          onLayout={isUnderlay ? onLayoutUnderlay(key) : undefined}
           style={{
             justifyContent: 'center',
             height: 50,
@@ -244,9 +259,20 @@ const RibbonChips = memo(({
             borderBottomLeftRadius: i === 0 ? 25 : 0,
             borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
             borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
-            ...(isUnderlay && { transformOrigin: 'left' }),
           }}
         >
+          {isUnderlay && i > 0 &&
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: -UNDERLAY_OVERLAP,
+                width: UNDERLAY_OVERLAP,
+                backgroundColor: appTheme.inputColor,
+              }}
+            />
+          }
           {isUnderlay ? <View style={{ opacity: 0 }}>{node}</View> : node}
         </Animated.View>
       )}
