@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
+  Keyframe,
   LayoutAnimationConfig,
   LinearTransition,
   ZoomIn,
@@ -44,9 +45,16 @@ const popIn = ZoomIn
   .duration(MOVE_DURATION)
   .easing(Easing.bezier(0.34, 1.56, 0.64, 1));
 
+const MOVE_EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
+
 const moveTransition = LinearTransition
   .duration(MOVE_DURATION)
-  .easing(Easing.bezier(0.2, 0.8, 0.2, 1));
+  .easing(MOVE_EASING);
+
+const collapse = new Keyframe({
+  0: { transform: [{ scaleX: 1 }] },
+  100: { transform: [{ scaleX: 0 }], easing: MOVE_EASING },
+}).duration(MOVE_DURATION);
 
 const Continuation = ({
   side,
@@ -216,9 +224,10 @@ const RibbonChips = memo(({
           <Animated.View
             key={key}
             layout={moveTransition}
-            entering={popIn}
+            exiting={collapse}
             style={{
               justifyContent: 'center',
+              transformOrigin: 'left',
               height: 50,
               paddingLeft: i === 0 ? 8 : 3,
               paddingRight: i === cells.length - 1 ? 8 : 3,
@@ -229,7 +238,9 @@ const RibbonChips = memo(({
               borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
             }}
           >
-            {node}
+            <Animated.View entering={popIn}>
+              {node}
+            </Animated.View>
           </Animated.View>
         )}
       </View>
