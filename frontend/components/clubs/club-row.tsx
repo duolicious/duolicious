@@ -59,6 +59,13 @@ const collapseFrom = (width: number) => new Keyframe({
 
 const UNDERLAY_OVERLAP = 25;
 
+const ifShown = (onWidth: (width: number) => void) =>
+  ({ nativeEvent }: LayoutChangeEvent) => {
+    if (nativeEvent.layout.width > 0) {
+      onWidth(nativeEvent.layout.width);
+    }
+  };
+
 const Continuation = ({
   side,
   onPress,
@@ -225,11 +232,9 @@ const RibbonChips = memo(({
   const [underlayWidths, setUnderlayWidths] =
     useState<Record<string, number>>({});
 
-  const onLayoutUnderlay = (key: string) => ({ nativeEvent }: LayoutChangeEvent) => {
-    const { width } = nativeEvent.layout;
+  const onLayoutUnderlay = (key: string) => ifShown((width) =>
     setUnderlayWidths((widths) =>
-      widths[key] === width ? widths : { ...widths, [key]: width });
-  };
+      widths[key] === width ? widths : { ...widths, [key]: width }));
 
   const renderTray = (isUnderlay: boolean) =>
     <View
@@ -368,8 +373,7 @@ const ClubRow = () => {
         showsHorizontalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        onLayout={({ nativeEvent }) =>
-          updateEdges({ viewport: nativeEvent.layout.width })}
+        onLayout={ifShown((viewport) => updateEdges({ viewport }))}
         onContentSizeChange={(width) => updateEdges({ content: width })}
         contentContainerStyle={{
           alignItems: 'center',
@@ -378,7 +382,7 @@ const ClubRow = () => {
         }}
       >
         <View
-          onLayout={({ nativeEvent }) => setButtonWidth(nativeEvent.layout.width)}
+          onLayout={ifShown(setButtonWidth)}
           style={{ paddingLeft: 10 }}
         >
           <ClubsButton rowRef={rowRef} />
