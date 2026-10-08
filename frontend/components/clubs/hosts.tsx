@@ -40,6 +40,7 @@ const Popover = ({
   visible,
   onRequestClose,
   onOpened,
+  onClosed,
   left,
   top,
   height,
@@ -49,6 +50,7 @@ const Popover = ({
   visible: boolean,
   onRequestClose: () => void,
   onOpened?: () => void,
+  onClosed?: () => void,
   left: number,
   top: number,
   height?: number,
@@ -67,7 +69,12 @@ const Popover = ({
           runOnJS(onOpened)();
         }
       })}
-      exiting={FadeOut.duration(FADE_DURATION)}
+      exiting={FadeOut.duration(FADE_DURATION).withCallback((finished) => {
+        'worklet';
+        if (finished && onClosed) {
+          runOnJS(onClosed)();
+        }
+      })}
       style={StyleSheet.absoluteFillObject}
     >
       <Pressable onPress={onRequestClose} style={StyleSheet.absoluteFillObject} />
@@ -137,15 +144,12 @@ const ClubCardHost = () => {
   const { isScrolled, onScroll } = useIsScrolled(shown?.name);
   const [isOpened, setIsOpened] = useState(false);
 
-  if (card === null && isOpened) {
-    setIsOpened(false);
-  }
-
   if (shown === null) {
     return null;
   }
 
   const onOpened = () => setIsOpened(true);
+  const onClosed = () => setIsOpened(false);
 
   const body =
     <ClubCardBody
@@ -165,6 +169,7 @@ const ClubCardHost = () => {
         heightFraction={0.8}
         header={<ClubCardTitle name={shown.name} isScrolled={isScrolled} />}
         onOpened={onOpened}
+        onClosed={onClosed}
       >
         {body}
       </ModalBottomSheet>
@@ -179,6 +184,7 @@ const ClubCardHost = () => {
       visible={card !== null}
       onRequestClose={closeClubCard}
       onOpened={onOpened}
+      onClosed={onClosed}
       left={pageX}
       top={pageY > height / 2 ? pageY - cardHeight - 10 : pageY + 10}
       height={cardHeight}

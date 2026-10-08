@@ -36,6 +36,7 @@ const ModalBottomSheet = ({
   heightFraction = 0.75,
   top = 0,
   onOpened,
+  onClosed,
 }: {
   visible: boolean
   onRequestClose: () => void
@@ -46,6 +47,7 @@ const ModalBottomSheet = ({
   heightFraction?: number
   top?: number
   onOpened?: () => void
+  onClosed?: () => void
 }) => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -85,6 +87,9 @@ const ModalBottomSheet = ({
         (finished) => {
           if (finished) {
             runOnJS(setIsMounted)(false);
+          }
+          if (finished && onClosed) {
+            runOnJS(onClosed)();
           }
         },
       );
