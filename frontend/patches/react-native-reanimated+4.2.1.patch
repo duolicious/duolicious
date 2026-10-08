@@ -11,6 +11,30 @@ index 0245012..c454308 100644
        return this._componentDOMRef.getBoundingClientRect();
      }
  
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js
+index 5cb2ed1..d74c0b6 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js
+@@ -1,6 +1,6 @@
+ 'use strict';
+ 
+-import { WebEasings } from './Easing.web';
++import { WebEasings, maybeGetBezierEasing } from './Easing.web';
+ export function convertAnimationObjectToKeyframes(animationObject) {
+   let keyframe = `@keyframes ${animationObject.name} { `;
+   for (const [timestamp, style] of Object.entries(animationObject.style)) {
+@@ -8,6 +8,11 @@ export function convertAnimationObjectToKeyframes(animationObject) {
+     keyframe += `${step}% { `;
+     for (const [property, values] of Object.entries(style)) {
+       if (property === 'easing') {
++        const bezierEasing = maybeGetBezierEasing(values);
++        if (bezierEasing) {
++          keyframe += `animation-timing-function: ${bezierEasing};`;
++          continue;
++        }
+         let easingName = 'linear';
+         if (values in WebEasings) {
+           easingName = values;
 diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
 index ba896aa..920ad98 100644
 --- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
@@ -53,6 +77,22 @@ index 4e842a9..bffe3b4 100644
      maybeRemoveElement();
      maybeCallCallback(false);
      element.removeEventListener('animationcancel', animationCancelHandler);
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js
+index 101e8e0..a3b4379 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js
+@@ -50,6 +50,11 @@ export function createCustomKeyFrameAnimation(keyframeDefinitions, animationType
+     if (value.transform) {
+       value.transform = addPxToTransform(value.transform);
+     }
++    for (const size of ['width', 'height']) {
++      if (typeof value[size] === 'number') {
++        value[size] = `${value[size]}px`;
++      }
++    }
+   }
+   const animationData = {
+     name: '',
 diff --git a/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx b/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
 index 4264242..6dbf5f4 100644
 --- a/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
@@ -67,6 +107,33 @@ index 4264242..6dbf5f4 100644
      ) {
        return this._componentDOMRef.getBoundingClientRect();
      }
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts
+index b8eb578..1fb496d 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts
+@@ -3,7 +3,7 @@
+ import type { EasingFunction } from '../../commonTypes';
+ import type { EasingFunctionFactory } from '../../Easing';
+ import type { WebEasingsNames } from './Easing.web';
+-import { WebEasings } from './Easing.web';
++import { WebEasings, maybeGetBezierEasing } from './Easing.web';
+ 
+ export interface ReanimatedWebTransformProperties {
+   translateX?: string;
+@@ -56,6 +56,13 @@ export function convertAnimationObjectToKeyframes(
+ 
+     for (const [property, values] of Object.entries(style)) {
+       if (property === 'easing') {
++        const bezierEasing = maybeGetBezierEasing(values);
++
++        if (bezierEasing) {
++          keyframe += `animation-timing-function: ${bezierEasing};`;
++          continue;
++        }
++
+         let easingName: WebEasingsNames = 'linear';
+ 
+         if (values in WebEasings) {
 diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
 index c202a25..8be04ff 100644
 --- a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
@@ -117,3 +184,20 @@ index b487dc5..1c4925a 100644
      maybeRemoveElement();
      maybeCallCallback(false);
  
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts
+index 95b733b..01ef5c2 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts
+@@ -76,6 +76,12 @@ export function createCustomKeyFrameAnimation(
+     if (value.transform) {
+       value.transform = addPxToTransform(value.transform as TransformType);
+     }
++
++    for (const size of ['width', 'height'] as const) {
++      if (typeof value[size] === 'number') {
++        value[size] = `${value[size]}px`;
++      }
++    }
+   }
+ 
+   const animationData: AnimationData = {

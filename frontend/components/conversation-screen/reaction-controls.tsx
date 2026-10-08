@@ -29,6 +29,7 @@ import {
 
 const QUICK_REACTIONS = ['❤️', '😂', '👍', '😮', '😢', '👎'];
 const REACTION_BAR_ANIMATION_DURATION = 100;
+const REACTION_BAR_ANIMATION_EASING = Easing.bezier(0.45, 0, 0.55, 1);
 const REACTION_BAR_ESTIMATED_WIDTH = 252;
 const REACTION_BAR_ESTIMATED_HEIGHT = 44;
 const SCREEN_EDGE_PADDING = 8;
@@ -179,10 +180,10 @@ const ReactionMenu = ({
           <Animated.View
             entering={FadeInDown
               .duration(REACTION_BAR_ANIMATION_DURATION)
-              .easing(Easing.inOut(Easing.quad))}
+              .easing(REACTION_BAR_ANIMATION_EASING)}
             exiting={FadeOutDown
               .duration(REACTION_BAR_ANIMATION_DURATION)
-              .easing(Easing.inOut(Easing.quad))}
+              .easing(REACTION_BAR_ANIMATION_EASING)}
             style={aboveAnchorStyle(anchor, windowDimensions, {
               estimatedWidth: REACTION_BAR_ESTIMATED_WIDTH,
               estimatedHeight: REACTION_BAR_ESTIMATED_HEIGHT,
@@ -216,12 +217,12 @@ const ReactionMenu = ({
       entering={
         (fitsAbove ? FadeInDown : FadeInUp)
           .duration(REACTION_BAR_ANIMATION_DURATION)
-          .easing(Easing.inOut(Easing.quad))
+          .easing(REACTION_BAR_ANIMATION_EASING)
       }
       exiting={
         (fitsAbove ? FadeOutDown : FadeOutUp)
           .duration(REACTION_BAR_ANIMATION_DURATION)
-          .easing(Easing.inOut(Easing.quad))
+          .easing(REACTION_BAR_ANIMATION_EASING)
       }
       style={{
         position: 'absolute',
