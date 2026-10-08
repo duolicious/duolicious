@@ -20,6 +20,7 @@ import Animated, {
   LayoutAnimationConfig,
   LinearTransition,
   ZoomIn,
+  ZoomOut,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -59,12 +60,18 @@ const moveTransition = LinearTransition
   .duration(MOVE_DURATION)
   .easing(MOVE_EASING);
 
-const collapseFrom = (width: number) => new Keyframe({
-  0: { width },
-  100: { width: 0, easing: MOVE_EASING },
-}).duration(MOVE_DURATION);
+const trayOut = ZoomOut
+  .duration(MOVE_DURATION)
+  .easing(MOVE_EASING);
 
 const UNDERLAY_OVERLAP = 25;
+
+const TRAY_END_PADDING = 5;
+
+const collapseFrom = (width: number) => new Keyframe({
+  0: { width },
+  100: { width: UNDERLAY_OVERLAP, easing: MOVE_EASING },
+}).duration(MOVE_DURATION);
 
 const ifShown = (onWidth: (width: number) => void) =>
   ({ nativeEvent }: LayoutChangeEvent) => {
@@ -257,50 +264,64 @@ const RibbonChips = memo(({
           key={key}
           layout={moveTransition}
           entering={isUnderlay ? undefined : popIn}
-          exiting={isUnderlay && underlayWidths[key] !== undefined
+          exiting={isUnderlay && yours.length > 1 && underlayWidths[key] !== undefined
             ? collapseFrom(underlayWidths[key])
             : undefined}
           onLayout={isUnderlay ? onLayoutUnderlay(key) : undefined}
           style={{
-            justifyContent: 'center',
             height: 50,
-            paddingLeft: i === 0 ? 8 : 3,
-            paddingRight: i === cells.length - 1 ? 8 : 3,
-            backgroundColor: appTheme.inputColor,
-            borderTopLeftRadius: i === 0 ? 25 : 0,
-            borderBottomLeftRadius: i === 0 ? 25 : 0,
-            borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
-            borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
+            marginLeft: isUnderlay && i > 0 ? -UNDERLAY_OVERLAP : 0,
           }}
         >
-          {isUnderlay && i > 0 &&
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: -UNDERLAY_OVERLAP,
-                width: UNDERLAY_OVERLAP,
-                backgroundColor: appTheme.inputColor,
-              }}
-            />
-          }
-          {isUnderlay ? <View style={{ opacity: 0 }}>{node}</View> : node}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: i === cells.length - 1 ? -TRAY_END_PADDING : 0,
+              backgroundColor: appTheme.inputColor,
+              borderTopLeftRadius: i === 0 ? 25 : 0,
+              borderBottomLeftRadius: i === 0 ? 25 : 0,
+              borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
+              borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
+            }}
+          />
+          <View
+            style={{
+              flexGrow: 1,
+              justifyContent: 'center',
+              paddingLeft: i === 0 ? 8 : 3 + (isUnderlay ? UNDERLAY_OVERLAP : 0),
+              paddingRight: 3,
+              opacity: isUnderlay ? 0 : 1,
+            }}
+          >
+            {node}
+          </View>
         </Animated.View>
       )}
     </View>;
 
   return (
     <LayoutAnimationConfig skipEntering={true}>
-      <View>
-        {renderTray(true)}
-        {renderTray(false)}
-      </View>
+      {yours.length > 0 &&
+        <Animated.View
+          entering={popIn}
+          exiting={trayOut}
+          style={{ marginRight: TRAY_END_PADDING }}
+        >
+          <LayoutAnimationConfig skipEntering={true}>
+            {renderTray(true)}
+            {renderTray(false)}
+          </LayoutAnimationConfig>
+        </Animated.View>
+      }
       {suggestions.map((name) =>
         <Animated.View
           key={name}
           layout={moveTransition}
           entering={popIn}
+          style={{ zIndex: 1 }}
         >
           <View
             style={{ borderRadius: 999, backgroundColor: appTheme.primaryColor }}
