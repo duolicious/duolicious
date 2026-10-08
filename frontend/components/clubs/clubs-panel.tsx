@@ -26,7 +26,6 @@ import { Club, ClubFilter } from '../club';
 import { DefaultText } from '../default-text';
 import { DefaultTextInput } from '../default-text-input';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
-import { SHEET_SLIDE_DURATION } from '../../constants/constants';
 import { useIsScrolled } from './use-is-scrolled';
 
 const MAX_COLLAPSED_CLUBS = 6;
@@ -224,11 +223,7 @@ const ClubsPanel = () => {
               )}
             </View>
           : <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-              <LogoActivityIndicator
-                size="large"
-                color={appTheme.brandColor}
-                delay={SHEET_SLIDE_DURATION}
-              />
+              <LogoActivityIndicator size="large" color={appTheme.brandColor} />
             </View>
         }
       </ScrollView>}

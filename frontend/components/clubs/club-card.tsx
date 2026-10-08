@@ -1,10 +1,4 @@
-import {
-  ComponentProps,
-  useDeferredValue,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -41,7 +35,6 @@ import { Skeleton } from '../skeleton';
 import { VerificationBadge } from '../verification-badge';
 import { ButtonWithCenteredText } from '../button/centered-text';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
-import { SHEET_SLIDE_DURATION } from '../../constants/constants';
 import { showPointOfSale } from '../modal/point-of-sale-modal';
 import { notifyErrorToast, notifyLinkCopiedToast } from '../toast';
 
@@ -72,8 +65,6 @@ type ClubCard = {
   related_clubs: ClubItem[],
   members: ClubMember[],
 };
-
-const NO_MEMBERS: ClubMember[] = [];
 
 const useClubCard = (
   name: string,
@@ -319,8 +310,7 @@ const ClubCardBody = ({
   const fetched = useClubCard(name, isMember);
   const card = fetched === 'error' ? null : fetched;
 
-  const members = card?.members ?? NO_MEMBERS;
-  const shownMembers = useDeferredValue(members);
+  const members = card?.members ?? [];
   const faces = members.filter((m) => m.photo_uuid).slice(0, 5);
   const countMembers = card?.count_members ?? 0;
   const countHidden = isMember || members.length < MAX_MEMBERS
@@ -390,11 +380,7 @@ const ClubCardBody = ({
     <View style={{ paddingVertical: 20 }}>
       {fetched === null &&
         <View style={{ alignItems: 'center' }}>
-          <LogoActivityIndicator
-            size="large"
-            color={appTheme.brandColor}
-            delay={SHEET_SLIDE_DURATION}
-          />
+          <LogoActivityIndicator size="large" color={appTheme.brandColor} />
         </View>
       }
       {countHidden > 0 &&
@@ -425,7 +411,7 @@ const ClubCardBody = ({
       scrollEventThrottle={16}
     >
       {header}
-      {shownMembers.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
+      {members.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
       {footer}
     </ScrollView>
   );
