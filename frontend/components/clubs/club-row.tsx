@@ -302,15 +302,19 @@ const RibbonChips = memo(({
           layout={moveTransition}
           entering={popIn}
         >
-          <Club
-            name={name}
-            isMutual={false}
-            onPress={(e) => openClubCard({
-              name,
-              anchor: e.nativeEvent,
-              rowPosition: 'end',
-            })}
-          />
+          <View
+            style={{ borderRadius: 999, backgroundColor: appTheme.primaryColor }}
+          >
+            <Club
+              name={name}
+              isMutual={false}
+              onPress={(e) => openClubCard({
+                name,
+                anchor: e.nativeEvent,
+                rowPosition: 'end',
+              })}
+            />
+          </View>
         </Animated.View>
       )}
     </LayoutAnimationConfig>
