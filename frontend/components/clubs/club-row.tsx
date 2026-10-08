@@ -204,45 +204,59 @@ const RibbonChips = memo(({
       }
     />;
 
+  const cells = [
+    { key: '', node: renderFilter(null) },
+    {
+      key: 'divider',
+      node: <View
+        style={{
+          width: 1,
+          height: 24,
+          backgroundColor: appTheme.reactionBarBorderColor,
+        }}
+      />,
+    },
+    ...yours.map((name) => ({ key: name, node: renderFilter(name) })),
+  ];
+
+  const renderTray = (isUnderlay: boolean) =>
+    <View
+      aria-hidden={isUnderlay}
+      pointerEvents={isUnderlay ? 'none' : 'auto'}
+      style={{
+        flexDirection: 'row',
+        ...(isUnderlay && { position: 'absolute', top: 0, left: 0 }),
+      }}
+    >
+      {cells.map(({ key, node }, i) =>
+        <Animated.View
+          key={key}
+          layout={moveTransition}
+          entering={isUnderlay ? undefined : popIn}
+          exiting={isUnderlay ? collapse : undefined}
+          style={{
+            justifyContent: 'center',
+            height: 50,
+            paddingLeft: i === 0 ? 8 : 3,
+            paddingRight: i === cells.length - 1 ? 8 : 3,
+            backgroundColor: appTheme.inputColor,
+            borderTopLeftRadius: i === 0 ? 25 : 0,
+            borderBottomLeftRadius: i === 0 ? 25 : 0,
+            borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
+            borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
+            ...(isUnderlay && { transformOrigin: 'left' }),
+          }}
+        >
+          {isUnderlay ? <View style={{ opacity: 0 }}>{node}</View> : node}
+        </Animated.View>
+      )}
+    </View>;
+
   return (
     <LayoutAnimationConfig skipEntering={true}>
-      <View style={{ flexDirection: 'row' }}>
-        {[
-          { key: '', node: renderFilter(null) },
-          {
-            key: 'divider',
-            node: <View
-              style={{
-                width: 1,
-                height: 24,
-                backgroundColor: appTheme.reactionBarBorderColor,
-              }}
-            />,
-          },
-          ...yours.map((name) => ({ key: name, node: renderFilter(name) })),
-        ].map(({ key, node }, i, cells) =>
-          <Animated.View
-            key={key}
-            layout={moveTransition}
-            exiting={collapse}
-            style={{
-              justifyContent: 'center',
-              transformOrigin: 'left',
-              height: 50,
-              paddingLeft: i === 0 ? 8 : 3,
-              paddingRight: i === cells.length - 1 ? 8 : 3,
-              backgroundColor: appTheme.inputColor,
-              borderTopLeftRadius: i === 0 ? 25 : 0,
-              borderBottomLeftRadius: i === 0 ? 25 : 0,
-              borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
-              borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
-            }}
-          >
-            <Animated.View entering={popIn}>
-              {node}
-            </Animated.View>
-          </Animated.View>
-        )}
+      <View>
+        {renderTray(true)}
+        {renderTray(false)}
       </View>
       {suggestions.map((name) =>
         <Animated.View
