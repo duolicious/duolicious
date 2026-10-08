@@ -1,17 +1,4 @@
-import {
-  memo,
-  useEffect,
-  useMemo,
-} from 'react';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  SharedValue,
-  useAnimatedProps,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import { useMemo } from 'react';
 import Svg, { G, Rect } from 'react-native-svg';
 import {
   LOGO_16_RECT_COORDINATES,
@@ -20,62 +7,35 @@ import {
   resolveLogoSize,
 } from './common';
 
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const EASE_IN_QUINT = 'cubic-bezier(0.64, 0, 0.78, 0)';
 
-const easingPoly5 = Easing.poly(5);
+const fadeAnimation = (
+  doLoop: boolean,
+  { FADE, T2, T4 }: { FADE: number, T2: number, T4: number },
+) => {
+  const percent = (time: number) => `${100 * time / T4}%`;
+  const name = doLoop ? `logo16-loop-${T2}-${T4}` : 'logo16-once';
 
-const AnimatedLogoRect = memo(({
-  index,
-  coord,
-  rectSize,
-  color,
-  doAnimate,
-  progress,                 // <— pass this
-  timeline,                 // <— pass the scalar timings (numbers)
-}: {
-  index: number;
-  coord: { x: number; y: number };
-  rectSize: number;
-  color: string;
-  doAnimate: boolean;
-  progress: SharedValue<number>;
-  timeline: { STAGGER: number; FADE: number; T2: number; T4: number };
-}) => {
-  const { STAGGER, FADE, T2, T4 } = timeline;
-
-  const animatedProps = useAnimatedProps(() => {
-    'worklet';
-    if (!doAnimate) return { opacity: 1 };
-
-    const time = progress.value % T4;
-    const inStart = index * STAGGER;
-    const inEnd = inStart + FADE;
-    const outStart = T2 + index * STAGGER;
-    const outEnd = outStart + FADE;
-    const invFade = 1 / FADE;
-
-    let o = 0;
-    if (time >= inStart && time <= inEnd) {
-      o = easingPoly5((time - inStart) * invFade);
-    } else if (time > inEnd && time < outStart) {
-      o = 1;
-    } else if (time >= outStart && time <= outEnd) {
-      o = 1 - easingPoly5((time - outStart) * invFade);
-    }
-    return { opacity: o };    // use element opacity (cheaper composite) instead of fillOpacity
-  });
-
-  return (
-    <AnimatedRect
-      width={rectSize}
-      height={rectSize}
-      x={coord.x}
-      y={coord.y}
-      fill={color}
-      animatedProps={animatedProps}
-    />
-  );
-});
+  return {
+    name,
+    keyframes: doLoop
+      ? `@keyframes ${name} {
+          0% { opacity: 0; animation-timing-function: ${EASE_IN_QUINT} }
+          ${percent(FADE)} { opacity: 1 }
+          ${percent(T2)} { opacity: 1; animation-timing-function: ${EASE_IN_QUINT} }
+          ${percent(T2 + FADE)} { opacity: 0 }
+          100% { opacity: 0 }
+        }`
+      : `@keyframes ${name} { from { opacity: 0 } to { opacity: 1 } }`,
+    style: {
+      animationName: name,
+      animationDuration: `${doLoop ? T4 : FADE}ms`,
+      animationTimingFunction: doLoop ? 'linear' : EASE_IN_QUINT,
+      animationIterationCount: doLoop ? 'infinite' : 1,
+      animationFillMode: 'both',
+    },
+  };
+};
 
 const Logo16 = ({
   size = 48,
@@ -99,40 +59,33 @@ const Logo16 = ({
     const T2 = T1 + fadeOutDelay;
     const T3 = T2 + IN_WINDOW;
     const T4 = T3 + fadeInDelay;
-    return { COUNT, STAGGER, FADE, T1, T2, T3, T4 };
+    return { STAGGER, FADE, T1, T2, T4 };
   }, [fadeOutDelay, fadeInDelay]);
 
+  const fade = useMemo(
+    () => doAnimate ? fadeAnimation(doLoop, timeline) : undefined,
+    [doAnimate, doLoop, timeline]);
+
   const start = startVisible ? timeline.T1 : 0;
-  const progress = useSharedValue(start);
-
-  useEffect(() => {
-    if (!doAnimate) {
-      cancelAnimation(progress);
-      progress.value = 0;
-      return;
-    }
-    cancelAnimation(progress);
-    progress.value = start;
-    progress.value = doLoop
-      ? withRepeat(withTiming(start + timeline.T4, { duration: timeline.T4, easing: Easing.linear }), -1, false)
-      : withTiming(timeline.T1, { duration: timeline.T1 - start, easing: Easing.linear });
-
-    return () => cancelAnimation(progress);
-  }, [doAnimate, doLoop, start, timeline.T1, timeline.T4]);
 
   return (
     <Svg width={sizePx} height={sizePx} viewBox="0 0 4.2333331 4.2333332" style={style}>
+      {fade &&
+        <style href={fade.name} precedence="default">{fade.keyframes}</style>
+      }
       <G pointerEvents="none">
         {LOGO_16_RECT_COORDINATES.map((coord, index) => (
-          <AnimatedLogoRect
+          <rect
             key={index}
-            index={index}
-            coord={coord}
-            rectSize={rectSize}
-            color={color}
-            doAnimate={doAnimate}
-            progress={progress}                     // <—
-            timeline={{ STAGGER: timeline.STAGGER, FADE: timeline.FADE, T2: timeline.T2, T4: timeline.T4 }} // <—
+            width={rectSize}
+            height={rectSize}
+            x={coord.x}
+            y={coord.y}
+            fill={color}
+            style={fade && {
+              ...fade.style,
+              animationDelay: `${index * timeline.STAGGER - start}ms`,
+            }}
           />
         ))}
       </G>
