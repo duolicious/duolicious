@@ -161,8 +161,29 @@ const ClubsPanel = () => {
               marginRight: 0,
               height: 44,
               paddingLeft: 42,
+              paddingRight: 40,
             }}
           />
+          {query !== '' &&
+            <Pressable
+              aria-label="Clear search"
+              onPress={() => setQuery('')}
+              style={{
+                position: 'absolute',
+                right: 4,
+                top: 4,
+                width: 36,
+                height: 36,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons
+                name="close"
+                style={{ fontSize: 20, color: appTheme.secondaryColor }}
+              />
+            </Pressable>
+          }
         </View>
       </View>
       {isReady && <ScrollView
