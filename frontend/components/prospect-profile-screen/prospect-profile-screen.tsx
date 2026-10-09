@@ -81,7 +81,7 @@ import Reanimated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { openClubCard, useJoinedClubs } from '../../club/club';
+import { pressClub, useJoinedClubs } from '../../club/club';
 import type { SpotifyArtistItem } from '../../api/spotify';
 import { SpotifyArtists, SpotifyTitle } from '../spotify-artists';
 import * as _ from 'lodash';
@@ -617,7 +617,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
 type AllClubsChild =
   | { kind: 'Title', kids: ReactNode, props: { style?: TextStyle } }
   | { kind: 'Club', kids: ReactNode, props: {
-      onPress?: (e: GestureResponderEvent) => void,
+      onPress?: (e: GestureResponderEvent) => boolean | void,
       key: string,
       name: string,
       isMutual: boolean,
@@ -664,10 +664,7 @@ const AllClubs = ({
 
   // Club cards hit authenticated endpoints, so anon viewers see clubs but
   // can't interact with them.
-  const onPressClub = signedInUser
-    ? (clubName: string) => (e: GestureResponderEvent) =>
-        openClubCard({ name: clubName, anchor: e })
-    : undefined;
+  const onPressClub = signedInUser ? pressClub : undefined;
 
   const childData: (AllClubsChild | null)[] = [
     mutual.length > 0 ? {

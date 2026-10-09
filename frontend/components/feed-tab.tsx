@@ -39,7 +39,7 @@ import { Club } from './club';
 import {
   isClubMember,
   memberCountNow,
-  openClubCard,
+  pressClub,
   useIsClubMember,
 } from '../club/club';
 import { ImageBackground } from 'expo-image';
@@ -960,10 +960,6 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
   const countMembers = memberCountNow(
     fields.club_count_members, fields.viewer_was_member ?? false, isMember);
 
-  const onPressClub = useCallback((e: GestureResponderEvent) => {
-    openClubCard({ name: fields.joined_club_name, anchor: e });
-  }, [fields.joined_club_name]);
-
   const props = isMobile() ? {
     onPress,
     onPressIn,
@@ -1002,7 +998,7 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
             <Club
               name={fields.joined_club_name}
               isMutual={isMember}
-              onPress={onPressClub}
+              onPress={pressClub(fields.joined_club_name)}
             />
           </View>
           <ClubFacepile
