@@ -19,35 +19,22 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faLock } from '@fortawesome/free-solid-svg-icons/faLock'
 import { OnlineIndicator } from './online-indicator';
 import { useAppTheme } from '../app-theme/app-theme';
-import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
+import {
+  CompositeNavigationProp,
+  StackActions,
+  useNavigation,
+} from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { HomeParamList, RootParamList } from '../navigation/linking';
 import { setProspectHint } from '../navigation/prospect-cache';
 
-const Avatar = ({
-  percentage,
-  personUuid,
-  urlSlug = null,
-  photoUuid,
-  photoBlurhash,
-  isSkipped = false,
-  verificationRequired = null,
-  doUseOnline = true,
-  disableProfileNavigation = false,
-}: {
-  percentage: number
-  personUuid: string
-  urlSlug?: string | null
-  photoUuid: string | null
-  photoBlurhash: string | null
-  isSkipped?: boolean
-  verificationRequired?: 'basics' | 'photos' | null
-  doUseOnline?: boolean
-  disableProfileNavigation?: boolean
-}) => {
-  const { appTheme } = useAppTheme();
-
+const useProfileLink = (
+  personUuid: string,
+  urlSlug: string | null,
+  photoBlurhash: string | null,
+  verificationRequired: 'basics' | 'photos' | null,
+) => {
   const navigation = useNavigation<CompositeNavigationProp<
     BottomTabNavigationProp<HomeParamList>,
     NativeStackNavigationProp<RootParamList>
@@ -64,42 +51,68 @@ const Avatar = ({
 
     e.preventDefault();
 
-    if (!navigation) {
-      return;
-    }
-
     if (verificationRequired) {
       return navigation.navigate('Profile');
     } else if (personUuid) {
       setProspectHint(handle, { photoBlurhash });
-      return navigation.navigate(
+      return navigation.dispatch(StackActions.push(
         'Prospect Profile Screen',
         {
           screen: 'Prospect Profile',
           params: { personUuid: handle },
         }
-      );
+      ));
     }
   }, [navigation, personUuid, handle, photoBlurhash, verificationRequired]);
 
-  const isLinkToProfile = navigation && !verificationRequired && personUuid && !disableProfileNavigation;
+  return verificationRequired
+    ? { onPress }
+    : { onPress, ...makeLinkProps(`/${handle}`) };
+};
 
-  const link =
-    isLinkToProfile
-      ? makeLinkProps(`/${handle}`)
-      : {};
+const Avatar = ({
+  percentage,
+  personUuid,
+  urlSlug = null,
+  photoUuid,
+  photoBlurhash,
+  isSkipped = false,
+  verificationRequired = null,
+  doUseOnline = true,
+  disableProfileNavigation = false,
+  size = 90,
+}: {
+  percentage: number
+  personUuid: string
+  urlSlug?: string | null
+  photoUuid: string | null
+  photoBlurhash: string | null
+  isSkipped?: boolean
+  verificationRequired?: 'basics' | 'photos' | null
+  doUseOnline?: boolean
+  disableProfileNavigation?: boolean
+  size?: number
+}) => {
+  const { appTheme } = useAppTheme();
+
+  const profileLink = useProfileLink(
+    personUuid, urlSlug, photoBlurhash, verificationRequired);
+
+  const isLinkToProfile = !verificationRequired && personUuid && !disableProfileNavigation;
+
+  const imageStyle = [styles.imageStyle, { margin: Math.round(size / 22) }];
+  const badgeSize = Math.max(22, size / 3);
 
   return (
     <Pressable
-      onPress={onPress}
-      style={styles.elementStyle}
+      style={{ width: size, height: size }}
       disabled={!isLinkToProfile}
-      {...link}
+      {...(isLinkToProfile ? profileLink : {})}
     >
       {!Boolean(photoUuid || photoBlurhash) &&
         <View
           style={[
-            styles.imageStyle,
+            imageStyle,
             {
               backgroundColor: appTheme.avatarBackgroundColor,
             },
@@ -107,7 +120,7 @@ const Avatar = ({
         >
           <Ionicons
             style={{
-              fontSize: 40,
+              fontSize: size * 4 / 9,
               color: appTheme.avatarColor,
             }}
             name={'person'}
@@ -123,7 +136,7 @@ const Avatar = ({
           } : undefined}
           placeholder={photoBlurhash && { blurhash: photoBlurhash }}
           transition={!photoUuid ? { duration: 0, effect: null } : 150}
-          style={styles.imageStyle}
+          style={imageStyle}
           contentFit="contain"
           placeholderContentFit="contain"
           recyclingKey={photoUuid}
@@ -142,12 +155,12 @@ const Avatar = ({
       {doUseOnline &&
         <OnlineIndicator
           personUuid={personUuid}
-          size={20}
+          size={Math.round(size * 2 / 9)}
           borderWidth={2}
           style={{
             position: 'absolute',
-            bottom: 6,
-            right: 6,
+            bottom: Math.round(size / 15),
+            right: Math.round(size / 15),
           }}
         />
       }
@@ -157,8 +170,8 @@ const Avatar = ({
             position: 'absolute',
             left: 0,
             bottom: 0,
-            height: 30,
-            width: 30,
+            height: badgeSize,
+            width: badgeSize,
             borderRadius: 999,
             borderColor: appTheme.primaryColor,
             borderWidth: 2,
@@ -173,7 +186,7 @@ const Avatar = ({
               color: 'white',
               textAlign: 'center',
               fontWeight: '700',
-              fontSize: 10,
+              fontSize: Math.max(8, size / 9),
             }}
           >
             {percentage}%
@@ -206,8 +219,8 @@ const Avatar = ({
           <X
             stroke="#70f"
             strokeWidth={3}
-            height={48}
-            width={48}
+            height={size * 8 / 15}
+            width={size * 8 / 15}
           />
         </View>
       }
@@ -226,15 +239,17 @@ const Avatar = ({
             size={18}
             style={{color: appTheme.secondaryColor }}
           />
-          <DefaultText
-            style={{
-              fontSize: 12,
-              fontWeight: '900',
-              textAlign: 'center',
-            }}
-          >
-            Verify your {verificationRequired} to unlock
-          </DefaultText>
+          {size >= 90 &&
+            <DefaultText
+              style={{
+                fontSize: 12,
+                fontWeight: '900',
+                textAlign: 'center',
+              }}
+            >
+              Verify your {verificationRequired} to unlock
+            </DefaultText>
+          }
         </View>
       }
     </Pressable>
@@ -242,10 +257,6 @@ const Avatar = ({
 };
 
 const styles = StyleSheet.create({
-  elementStyle: {
-    height: 90,
-    width: 90,
-  },
   imageStyle: {
     flex: 1,
     aspectRatio: 1,
@@ -259,4 +270,5 @@ const styles = StyleSheet.create({
 
 export {
   Avatar,
+  useProfileLink,
 };

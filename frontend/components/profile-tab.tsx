@@ -63,13 +63,13 @@ import { photoUri } from '../util/photos';
 import * as _ from "lodash";
 import { aboutQueue, nameQueue } from '../api/queue';
 import { ClubSelector } from './club-selector';
-import { ClubItem } from '../club/club';
+import { sortClubs, useJoinedClubs } from '../club/club';
 import {
   connectSpotify,
   disconnectSpotify,
 } from '../api/spotify';
 import { SpotifyArtists, SpotifyIcon } from './spotify-artists';
-import { listen, notify } from '../events/events';
+import { notify } from '../events/events';
 import { ButtonWithCenteredText } from './button/centered-text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { logout } from '../chat/application-layer';
@@ -594,15 +594,6 @@ const Options = ({ navigation, data }: {
       : _privacySettingsOptionGroups;
 
   useEffect(() => {
-    return listen<ClubItem[]>(
-      'updated-clubs',
-      (newClubs) => {
-        if (newClubs && getProfileInfo()) patchProfileInfo({ clubs: newClubs });
-      },
-    );
-  }, []);
-
-  useEffect(() => {
     return listenUpdatedVerification((v) => {
       if (!v) return;
 
@@ -668,16 +659,15 @@ const Options = ({ navigation, data }: {
   }, []);
 
   const goToClubSelector = useCallback(() => {
-    // `Club Selector` reads the current clubs from the `updated-clubs` event,
+    // `Club Selector` reads the current clubs from the `joined-clubs` event,
     // so there's no reason to pass them as (non-serializable) route params.
     navigation.navigate("Club Selector");
   }, [navigation]);
 
-  const clubsSetting = (() => {
-    if (data?.clubs?.length === undefined) return undefined;
-    if (data.clubs.length === 0) return undefined;
-    return data.clubs.map((clubItem: ClubItem) => clubItem.name).join(', ')
-  })();
+  const joinedClubs = useJoinedClubs();
+  const clubsSetting = joinedClubs?.length
+    ? sortClubs(joinedClubs).join(', ')
+    : undefined;
 
   const isCompletelyVerified = (
     Object.values(data?.photo_verification ?? {}).every(Boolean) &&

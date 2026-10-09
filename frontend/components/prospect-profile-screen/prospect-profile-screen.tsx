@@ -1,4 +1,5 @@
 import {
+  GestureResponderEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -51,7 +52,7 @@ import { Basic, Basics } from '../basic';
 import { themedSurface, legibleSurface } from '../../app-theme/surface';
 import { Club, Clubs } from '../club';
 import { Stat, Stats } from '../stat';
-import { notify, useDerivedEvent } from '../../events/events';
+import { notify } from '../../events/events';
 import { useBackButtonClaim } from '../../events/back-button';
 import { COLUMN_MAX_WIDTH } from '../../constants/constants';
 import { ReportModalInitialData } from '../modal/report-modal';
@@ -80,7 +81,7 @@ import Reanimated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { ClubItem, joinClub, leaveClub } from '../../club/club';
+import { openClubCard, useJoinedClubs } from '../../club/club';
 import type { SpotifyArtistItem } from '../../api/spotify';
 import { SpotifyArtists, SpotifyTitle } from '../spotify-artists';
 import * as _ from 'lodash';
@@ -616,7 +617,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
 type AllClubsChild =
   | { kind: 'Title', kids: ReactNode, props: { style?: TextStyle } }
   | { kind: 'Club', kids: ReactNode, props: {
-      onPress?: () => void,
+      onPress?: (e: GestureResponderEvent) => void,
       key: string,
       name: string,
       isMutual: boolean,
@@ -643,22 +644,17 @@ const AllClubsItem = ({child}: {child: AllClubsChild}) => {
 const AllClubs = ({
   mutualClubs,
   otherClubs,
-  mutualClubsTheme,
   clubsTheme,
   titleColor,
 }: {
   mutualClubs: string[],
   otherClubs: string[],
-  mutualClubsTheme: { style?: ViewStyle, textStyle?: TextStyle },
   clubsTheme: { style?: ViewStyle, textStyle?: TextStyle },
   titleColor: string | undefined,
 }) => {
   const [signedInUser] = useSignedInUser();
-  const viewerClubs = useDerivedEvent<ClubItem[], ClubItem[] | undefined>(
-    'updated-clubs', (cs) => cs, []);
-
   const prospectClubs = [...mutualClubs, ...otherClubs];
-  const viewerClubNames = viewerClubs?.map((c) => c.name) ?? mutualClubs;
+  const viewerClubNames = useJoinedClubs() ?? mutualClubs;
   const mutual = _.intersection(viewerClubNames, prospectClubs);
   const other = _.difference(prospectClubs, viewerClubNames);
 
@@ -666,13 +662,11 @@ const AllClubs = ({
     return null;
   }
 
-  // join/leave hit authenticated endpoints, so anon viewers see clubs but
+  // Club cards hit authenticated endpoints, so anon viewers see clubs but
   // can't interact with them.
-  const onPressLeave = signedInUser
-    ? (clubName: string) => leaveClub(clubName)
-    : undefined;
-  const onPressJoin = signedInUser
-    ? (clubName: string) => joinClub(clubName, -1, false)
+  const onPressClub = signedInUser
+    ? (clubName: string) => (e: GestureResponderEvent) =>
+        openClubCard({ name: clubName, anchor: e })
     : undefined;
 
   const childData: (AllClubsChild | null)[] = [
@@ -684,11 +678,11 @@ const AllClubs = ({
     ...mutual.map((clubName): AllClubsChild => ({
         kind: 'Club',
         props: {
-          onPress: onPressLeave && (() => onPressLeave(clubName)),
+          onPress: onPressClub?.(clubName),
           key: clubName,
           name: clubName,
           isMutual: true,
-          ...mutualClubsTheme,
+          ...clubsTheme,
         },
         kids: null,
       })),
@@ -706,7 +700,7 @@ const AllClubs = ({
       ...other.map((clubName): AllClubsChild => ({
         kind: 'Club',
         props: {
-          onPress: onPressJoin && (() => onPressJoin(clubName)),
+          onPress: onPressClub?.(clubName),
           key: clubName,
           name: clubName,
           isMutual: false,
@@ -1597,13 +1591,6 @@ const Body = ({
     },
   };
 
-  const mutualClubsTheme = {
-    ...basicsTheme,
-    style: {
-      borderColor: clubsTheme.textStyle.color,
-    },
-  };
-
   const statsTheme = {
     textStyle: {
       color: data?.theme?.body_color,
@@ -1780,7 +1767,6 @@ const Body = ({
         <AllClubs
           mutualClubs={data?.mutual_clubs ?? []}
           otherClubs={data?.other_clubs ?? []}
-          mutualClubsTheme={mutualClubsTheme}
           clubsTheme={clubsTheme}
           titleColor={data?.theme?.title_color}
         />

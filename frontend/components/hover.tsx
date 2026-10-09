@@ -1,11 +1,12 @@
 import {
+  GestureResponderEvent,
   Platform,
   PointerEvent,
   Pressable,
   StyleSheet,
   ViewStyle,
 } from 'react-native';
-import { useMemo, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import Animated, { CSSTransitionProperties } from 'react-native-reanimated';
 import { AppTheme, useAppTheme } from '../app-theme/app-theme';
 
@@ -131,11 +132,51 @@ const HoverCircle = ({ visible, inset = -8, insetX = inset }: {
   );
 };
 
+const RaisedChip = ({ borderColor, style, onPress, children }: {
+  borderColor: string
+  style: ViewStyle
+  onPress: (e: GestureResponderEvent) => void
+  children: ReactNode
+}) => {
+  const { hovered, hoverProps } = useHover();
+  const { pressed, pressProps } = usePressed();
+  const raised = hovered && !pressed;
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      {...hoverProps}
+      {...pressProps}
+      style={[
+        {
+          borderRadius: 999,
+          borderWidth: 1,
+          borderRightWidth: 2,
+          borderBottomWidth: 4,
+          borderColor,
+        },
+        style,
+        riseStyle(raised),
+        hoverTransition(pressed ? 'none' : 'top'),
+      ]}
+    >
+      <RiseEdge
+        raised={raised}
+        pressed={pressed}
+        color={borderColor}
+        border={{ top: 1, right: 2, bottom: 4, left: 1 }}
+      />
+      {children}
+    </AnimatedPressable>
+  );
+};
+
 export {
   AnimatedPressable,
   HOVER_DURATION_MS,
   HoverCircle,
   PURPLE_HOVER_COLOR,
+  RaisedChip,
   RiseEdge,
   grabCursor,
   hoverColorFor,

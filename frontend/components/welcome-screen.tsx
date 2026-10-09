@@ -54,7 +54,7 @@ import { Logo16 } from './logo';
 import { KeyboardDismissingView } from './keyboard-dismissing-view';
 import { otpDestination } from '../App';
 import { useSignedInUser } from '../events/signed-in-user';
-import { joinClub } from '../club/club';
+import { joinClub, selectSearchClub } from '../club/club';
 import { isMobile } from '../util/util';
 import { setOptionScreenPayload } from '../navigation/option-screen-store';
 import { showSignUp } from './modal/sign-up-modal';
@@ -277,7 +277,8 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
     if (signedInUser) {
       setLoading(true);
 
-      await joinClub(clubName, numUsers ?? 0, true);
+      joinClub(clubName);
+      selectSearchClub(clubName);
 
       setLoading(false);
 

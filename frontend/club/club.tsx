@@ -1,5 +1,7 @@
-import { japi } from '../api/api';
-import { notify, lastEvent } from '../events/events';
+import { useEffect, useMemo, useState } from 'react';
+import { GestureResponderEvent } from 'react-native';
+import { api, japi } from '../api/api';
+import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { getSignedInUser } from '../events/signed-in-user';
 
@@ -17,70 +19,199 @@ type ClubItem = {
   search_preference?: boolean,
 };
 
-const sortClubs = (cs: ClubItem[] | undefined) => {
-  const unsortedCs = cs ?? [];
-  const sortedCs = unsortedCs.sort((a, b) => {
-    if (a.name.toLowerCase() > b.name.toLowerCase()) return +1;
-    if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
+type RowPosition = 'front' | 'end';
 
-    if (a.name > b.name) return +1;
-    if (a.name < b.name) return -1;
+type Anchor = {
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+};
 
-    return 0;
+type OpenClubCard = {
+  name: string,
+  anchor: Anchor,
+  rowPosition?: RowPosition,
+};
+
+const sortClubs = (names: string[]) => [...names].sort((a, b) => {
+  if (a.toLowerCase() > b.toLowerCase()) return +1;
+  if (a.toLowerCase() < b.toLowerCase()) return -1;
+
+  if (a > b) return +1;
+  if (a < b) return -1;
+
+  return 0;
+});
+
+const joinedClubs = () => lastEvent<string[]>('joined-clubs');
+
+const useJoinedClubs = () => useDerivedEvent<string[] | undefined, string[] | undefined>(
+  'joined-clubs', (cs) => cs, []);
+
+const isClubMember = (name: string) => (joinedClubs() ?? []).includes(name);
+
+const useIsClubMember = (name: string) => useDerivedEvent(
+  'joined-clubs',
+  (cs: string[] | undefined) => (cs ?? []).includes(name),
+  [name],
+);
+
+const memberCountNow = (
+  fetchedCount: number,
+  wasMember: boolean,
+  isMember: boolean,
+) => fetchedCount + Number(isMember) - Number(wasMember);
+
+const selectSearchClub = (name: string | null) => {
+  notify<string | null>('search-club', name);
+};
+
+const useClubMoves = () => useDerivedEvent<Record<string, number> | undefined, Record<string, number>>(
+  'club-moves', (m) => m ?? NO_MOVES, []);
+
+const useSearchClub = () => useDerivedEvent<string | null, string | null>(
+  'search-club', (c) => c ?? null, []);
+
+const NO_MOVES: Record<string, number> = {};
+
+const moveClubToFront = (name: string) => {
+  const moves = lastEvent<Record<string, number>>('club-moves') ?? NO_MOVES;
+  notify<Record<string, number>>(
+    'club-moves', { ...moves, [name]: (moves[name] ?? 0) + 1 });
+  notify<string[]>('joined-clubs', [
+    name,
+    ...(joinedClubs() ?? []).filter((c) => c !== name),
+  ]);
+};
+
+let suggestionsRequest = 0;
+
+const setClubs = (clubs: ClubItem[] | undefined) => {
+  const searchClub = clubs?.find((c) => c.search_preference)?.name ?? null;
+
+  const request = ++suggestionsRequest;
+  notify<ClubItem[] | undefined>('suggested-clubs', undefined);
+  notify<string[] | undefined>('joined-clubs', clubs && [
+    ...(searchClub === null ? [] : [searchClub]),
+    ...sortClubs(clubs.map((c) => c.name)).filter((c) => c !== searchClub),
+  ]);
+  selectSearchClub(searchClub);
+
+  if (clubs) {
+    fetchClubItems('').then((suggested) => request === suggestionsRequest &&
+      notify<ClubItem[]>('suggested-clubs', suggested));
+  }
+};
+
+const postClubChange = (endpoint: string, name: string) => {
+  const request = suggestionsRequest;
+
+  searchQueue.addTask(async () => {
+    const response = await japi<{ suggested_clubs?: ClubItem[] | null }>(
+      'post', endpoint, { name });
+    const clubs = response.json?.suggested_clubs;
+
+    if (clubs && request === suggestionsRequest) {
+      notify<ClubItem[]>('suggested-clubs', clubs);
+    }
   });
-
-  return sortedCs;
-}
+};
 
 const joinClub = (
   name: string,
-  countMembers: number,
-  searchPreference?: boolean,
+  rowPosition: RowPosition = 'front',
 ): boolean => {
-  const existingClubs = lastEvent<ClubItem[]>('updated-clubs') ?? [];
+  const otherClubs = (joinedClubs() ?? []).filter((c) => c !== name);
 
-  if (existingClubs.length >= clubQuota()) {
+  if (otherClubs.length >= clubQuota()) {
     return false;
   }
 
-  searchQueue.addTask(async () => await japi('post', '/join-club', { name }));
+  postClubChange('/join-club', name);
 
-  const updatedClubs = [
-    ...existingClubs
-      .filter((c) => c.name !== name)
-      .map((c) => ({
-        ...c,
-        search_preference:
-          searchPreference === true ? false : c.search_preference
-      })),
-    {
-      name,
-      count_members: countMembers,
-      search_preference: searchPreference
-    },
-  ];
+  notify<string[]>(
+    'joined-clubs',
+    rowPosition === 'front' ? [name, ...otherClubs] : [...otherClubs, name]);
 
-  sortClubs(updatedClubs)
-
-  notify<ClubItem[]>('updated-clubs', updatedClubs);
+  if (otherClubs.length === 0) {
+    selectSearchClub(name);
+  }
 
   return true;
 };
 
 const leaveClub = (name: string): void => {
-  searchQueue.addTask(async () => await japi('post', '/leave-club', { name }));
+  postClubChange('/leave-club', name);
 
-  const existingClubs = lastEvent<ClubItem[]>('updated-clubs') ?? [];
+  notify<string[]>(
+    'joined-clubs', (joinedClubs() ?? []).filter((c) => c !== name));
 
-  const updatedClubs = existingClubs.filter((c) => c.name !== name);
-
-  sortClubs(updatedClubs)
-
-  notify<ClubItem[]>('updated-clubs', updatedClubs);
+  if (lastEvent<string | null>('search-club') === name) {
+    selectSearchClub(null);
+  }
 };
 
-const resetClubs = () => {
-  notify<ClubItem[] | undefined>('updated-clubs', undefined);
+const fetchClubItems = async (q: string): Promise<ClubItem[]> => {
+  const response = await api<ClubItem[]>(
+    'get',
+    `/search-clubs?q=${encodeURIComponent(q)}`
+  );
+
+  return response.ok && response.json ? response.json : [];
+};
+
+const NOT_LEAVING = new Set<string>();
+
+const useSuggestedClubs = () => {
+  const suggested = useDerivedEvent<ClubItem[] | undefined, ClubItem[] | null>(
+    'suggested-clubs', (cs) => cs ?? null, []);
+
+  const [shown, setShown] = useState(suggested);
+
+  useEffect(() => setShown(suggested), [suggested]);
+
+  const leaving = useMemo(() => {
+    if (shown === suggested) {
+      return NOT_LEAVING;
+    }
+    const kept = new Set((suggested ?? []).map((c) => c.name));
+    return new Set((shown ?? []).map((c) => c.name).filter((n) => !kept.has(n)));
+  }, [shown, suggested]);
+
+  return { suggested: shown, leaving };
+};
+
+const openClubs = (anchor: Anchor) => {
+  notify<Anchor | null>('clubs-sheet', anchor);
+};
+
+const useClubsSheet = () => useDerivedEvent<Anchor | null | undefined, Anchor | null>(
+  'clubs-sheet', (s) => s ?? null, []);
+
+const openClubCard = ({
+  name,
+  anchor,
+  rowPosition,
+}: Omit<OpenClubCard, 'anchor'> & { anchor: Anchor | GestureResponderEvent }) => {
+  if ('nativeEvent' in anchor) {
+    return anchor.currentTarget.measureInWindow((x, y, width, height) =>
+      openClubCard({ name, anchor: { x, y, width, height }, rowPosition }));
+  }
+
+  notify<OpenClubCard | null>('club-card', { name, anchor, rowPosition });
+};
+
+const useOpenClubCard = () => useDerivedEvent<OpenClubCard | null | undefined, OpenClubCard | null>(
+  'club-card', (c) => c ?? null, []);
+
+const closeClubCard = () => {
+  notify<OpenClubCard | null>('club-card', null);
+};
+
+const closeClubs = () => {
+  closeClubCard();
+  notify<Anchor | null>('clubs-sheet', null);
 };
 
 export {
@@ -88,6 +219,24 @@ export {
   ClubItem,
   joinClub,
   leaveClub,
-  resetClubs,
+  Anchor,
+  RowPosition,
+  closeClubCard,
+  closeClubs,
+  fetchClubItems,
+  isClubMember,
+  memberCountNow,
+  moveClubToFront,
+  openClubCard,
+  openClubs,
+  selectSearchClub,
+  setClubs,
   sortClubs,
+  useClubMoves,
+  useClubsSheet,
+  useIsClubMember,
+  useJoinedClubs,
+  useOpenClubCard,
+  useSearchClub,
+  useSuggestedClubs,
 };
