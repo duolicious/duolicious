@@ -2,7 +2,13 @@ import unittest
 
 import numpy as np
 
-from service.api.person.clubsuggestions import club_groups, slot_quotas, take_turns
+from service.api.person.clubsuggestions import (
+    club_groups,
+    pick_suggestions,
+    slot_quotas,
+    suggestion_sources,
+    take_turns,
+)
 
 
 class TestClubGroups(unittest.TestCase):
@@ -55,6 +61,47 @@ class TestTakeTurns(unittest.TestCase):
 
     def test_stops_when_every_list_runs_out(self) -> None:
         self.assertEqual(take_turns([['a'], ['a']], 5, set()), ['a'])
+
+
+class TestSuggestionSources(unittest.TestCase):
+    def test_groups_share_slots_and_their_central_clubs_contribute(self) -> None:
+        embeddings = {
+            'gym': np.array([1.0, 0.0, 0.0], dtype=np.float32),
+            'lifting': np.array([0.95, 0.1, 0.0], dtype=np.float32),
+            'running': np.array([0.95, -0.1, 0.0], dtype=np.float32),
+            'radiohead': np.array([0.0, 1.0, 0.0], dtype=np.float32),
+            'tarot': np.array([0.0, 0.0, 1.0], dtype=np.float32),
+        }
+
+        sources = suggestion_sources(1, embeddings, 10)
+
+        self.assertEqual(sources[0], (['gym', 'lifting', 'running'], 6))
+        self.assertCountEqual(sources[1:], [(['radiohead'], 2), (['tarot'], 2)])
+
+    def test_no_clubs_have_no_sources(self) -> None:
+        self.assertEqual(suggestion_sources(1, {}, 10), [])
+
+
+class TestPickSuggestions(unittest.TestCase):
+    def test_groups_interleave_and_popular_clubs_fill_the_rest(self) -> None:
+        picks = pick_suggestions(
+            sources=[(['metal'], 2), (['chess', 'go'], 2)],
+            nearest={
+                'metal': ['slipknot', 'doom', 'sludge'],
+                'chess': ['doom', 'checkers'],
+                'go': ['shogi'],
+            },
+            popular=['anime', 'slipknot', 'gaming'],
+            slots=6,
+        )
+
+        self.assertEqual(
+            picks, ['slipknot', 'checkers', 'doom', 'shogi', 'anime', 'gaming'])
+
+    def test_popular_clubs_alone_without_sources(self) -> None:
+        self.assertEqual(
+            pick_suggestions([], {}, ['anime', 'gaming', 'manga'], 2),
+            ['anime', 'gaming'])
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import zip_longest
 
 import numpy as np
@@ -66,41 +66,66 @@ def take_turns(nearest: Sequence[Sequence[str]], quota: int, taken: set[str]) ->
     return picks
 
 
-async def suggested_clubs(tx: Tx, person_id: int) -> list[Row]:
-    joined = await (await tx.execute(
-        Q_JOINED_CLUB_EMBEDDINGS, dict(person_id=person_id))).fetchall()
-    names = [row_str(r, 'name') for r in joined]
+Source = tuple[list[str], int]
 
-    groups = club_groups(np.array(
-        [row_vector(r, 'embedding').to_numpy() for r in joined])) if joined else []
+
+def suggestion_sources(
+    person_id: int,
+    embeddings: Mapping[str, npt.NDArray[np.float32]],
+    slots: int,
+) -> list[Source]:
+    names = list(embeddings)
+    groups = club_groups(np.array(list(embeddings.values()))) if names else []
     groups.sort(key=lambda g: (
         -len(g),
         hashlib.md5(f'{person_id}:{names[g[0]]}'.encode()).digest(),
     ))
-    quotas = slot_quotas([len(g) for g in groups], MAX_SUGGESTED_CLUBS)
-    sources = [([names[m] for m in g[:q]], q) for g, q in zip(groups, quotas) if q]
+    quotas = slot_quotas([len(g) for g in groups], slots)
+    return [([names[m] for m in g[:q]], q) for g, q in zip(groups, quotas) if q]
 
-    rows: list[Row] = await (await tx.execute(
+
+def pick_suggestions(
+    sources: Sequence[Source],
+    nearest: Mapping[str, Sequence[str]],
+    popular: Sequence[str],
+    slots: int,
+) -> list[str]:
+    taken: set[str] = set()
+    per_group = [
+        take_turns([nearest.get(s, []) for s in group], quota, taken)
+        for group, quota in sources
+    ]
+    picks = [p for turn in zip_longest(*per_group) for p in turn if p is not None]
+    return picks + take_turns([popular], slots - len(picks), taken)
+
+
+async def suggested_clubs(tx: Tx, person_id: int) -> list[Row]:
+    joined = await (await tx.execute(
+        Q_JOINED_CLUB_EMBEDDINGS, dict(person_id=person_id))).fetchall()
+    sources = suggestion_sources(
+        person_id,
+        {row_str(r, 'name'): row_vector(r, 'embedding').to_numpy() for r in joined},
+        MAX_SUGGESTED_CLUBS,
+    )
+
+    rows = await (await tx.execute(
         Q_SUGGESTED_CLUB_CANDIDATES,
         dict(person_id=person_id, sources=[s for g, _ in sources for s in g]),
     )).fetchall()
 
-    nearest: dict[str | None, list[str]] = {}
+    nearest: dict[str, list[str]] = {}
+    popular: list[str] = []
     count_members: dict[str, int] = {}
     for row in rows:
-        nearest.setdefault(row_str_or_none(row, 'source'), []).append(row_str(row, 'name'))
-        count_members[row_str(row, 'name')] = row_int(row, 'count_members')
+        source = row_str_or_none(row, 'source')
+        name = row_str(row, 'name')
+        count_members[name] = row_int(row, 'count_members')
+        (popular if source is None else nearest.setdefault(source, [])).append(name)
 
-    taken: set[str] = set()
-    per_group = [
-        take_turns([nearest.get(s, []) for s in group], q, taken)
-        for group, q in sources
+    return [
+        dict(name=n, count_members=count_members[n])
+        for n in pick_suggestions(sources, nearest, popular, MAX_SUGGESTED_CLUBS)
     ]
-    picks = [p for turn in zip_longest(*per_group) for p in turn if p is not None]
-    picks += take_turns(
-        [nearest.get(None, [])], MAX_SUGGESTED_CLUBS - len(picks), taken)
-
-    return [dict(name=n, count_members=count_members[n]) for n in picks]
 
 
 async def refreshed_suggested_clubs(tx: Tx, person_id: int) -> list[Row] | None:
