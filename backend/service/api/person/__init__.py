@@ -14,7 +14,10 @@ from collections.abc import Mapping, Sequence
 from serviceshared.util import Json
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
-from service.api.person.clubsuggestions import suggested_clubs
+from service.api.person.clubsuggestions import (
+    refreshed_suggested_clubs,
+    suggested_clubs,
+)
 from service.api.person.bestdistance import (
     CANDIDATE_LIMIT,
     best_country_and_distance,
@@ -1124,14 +1127,12 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
 
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_JOIN_CLUB, params)
-        rows = await row_tx.fetchall()
+        if not await row_tx.fetchall() or s.person_id is None:
+            return f"Couldn't join {req.name}", 400
+        return dict(
+            suggested_clubs=await refreshed_suggested_clubs(tx, s.person_id))
 
-    if rows:
-        return f"Joined {req.name}", 200
-    else:
-        return f"Couldn't join {req.name}", 400
-
-async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
+async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> object:
     params = dict(
         person_id=s.person_id,
         club_name=req.name,
@@ -1139,6 +1140,10 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> None:
 
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
+        if s.person_id is None:
+            return None
+        return dict(
+            suggested_clubs=await refreshed_suggested_clubs(tx, s.person_id))
 
 async def post_spotify_authorize(
     req: t.PostSpotifyAuthorize,

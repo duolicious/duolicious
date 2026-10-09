@@ -446,8 +446,7 @@ async def post_leave_club(
     req: t.PostLeaveClub,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    await person.post_leave_club(req, s)
-    return None
+    return await person.post_leave_club(req, s)
 
 @app.post('/spotify/authorize')
 async def post_spotify_authorize(

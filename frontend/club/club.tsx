@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { api, japi } from '../api/api';
 import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
@@ -87,6 +88,20 @@ const setClubs = (clubs: ClubItem[] | undefined) => {
   selectSearchClub(searchClub);
 };
 
+const postClubChange = (endpoint: string, name: string) => {
+  const request = suggestionsRequest;
+
+  searchQueue.addTask(async () => {
+    const response = await japi<{ suggested_clubs?: ClubItem[] | null }>(
+      'post', endpoint, { name });
+    const clubs = response.json?.suggested_clubs;
+
+    if (clubs && request === suggestionsRequest) {
+      notify<ClubItem[]>('suggested-clubs', clubs);
+    }
+  });
+};
+
 const joinClub = (
   name: string,
   rowPosition: RowPosition = 'front',
@@ -97,7 +112,7 @@ const joinClub = (
     return false;
   }
 
-  searchQueue.addTask(async () => await japi('post', '/join-club', { name }));
+  postClubChange('/join-club', name);
 
   notify<string[]>(
     'joined-clubs',
@@ -111,7 +126,7 @@ const joinClub = (
 };
 
 const leaveClub = (name: string): void => {
-  searchQueue.addTask(async () => await japi('post', '/leave-club', { name }));
+  postClubChange('/leave-club', name);
 
   notify<string[]>(
     'joined-clubs', (joinedClubs() ?? []).filter((c) => c !== name));
@@ -141,6 +156,17 @@ const refreshSuggestedClubs = async () => {
   if (request === suggestionsRequest) {
     notify<ClubItem[]>('suggested-clubs', clubs);
   }
+};
+
+const useSuggestedClubs = () => {
+  const suggested = useDerivedEvent<ClubItem[] | undefined, ClubItem[] | null>(
+    'suggested-clubs', (cs) => cs ?? null, []);
+
+  const [shown, setShown] = useState(suggested);
+
+  useEffect(() => setShown(suggested), [suggested]);
+
+  return { suggested: shown, isReplacing: shown !== suggested };
 };
 
 const openClubs = ({ pageX, pageY }: Anchor) => {
@@ -193,4 +219,5 @@ export {
   useJoinedClubs,
   useOpenClubCard,
   useSearchClub,
+  useSuggestedClubs,
 };

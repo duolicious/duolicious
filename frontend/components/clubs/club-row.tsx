@@ -24,11 +24,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useDerivedEvent } from '../../events/events';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { isMobile } from '../../util/util';
 import {
-  ClubItem,
   closeClubs,
   openClubCard,
   openClubs,
@@ -37,6 +35,7 @@ import {
   useClubsSheet,
   useJoinedClubs,
   useSearchClub,
+  useSuggestedClubs,
 } from '../../club/club';
 import { Club, ClubFilter } from '../club';
 import { DefaultText } from '../default-text';
@@ -60,7 +59,7 @@ const moveTransition = LinearTransition
   .duration(MOVE_DURATION)
   .easing(MOVE_EASING);
 
-const trayOut = ZoomOut
+const popOut = ZoomOut
   .duration(MOVE_DURATION)
   .easing(MOVE_EASING);
 
@@ -142,15 +141,14 @@ const NO_CLUBS: string[] = [];
 
 const useRowClubs = () => {
   const yours = useJoinedClubs() ?? NO_CLUBS;
-  const suggested = useDerivedEvent<ClubItem[] | undefined, ClubItem[]>(
-    'suggested-clubs', (cs) => cs ?? [], []);
+  const { suggested, isReplacing } = useSuggestedClubs();
 
   const suggestions = useMemo(() => {
     const joined = new Set(yours);
-    return suggested.map((c) => c.name).filter((c) => !joined.has(c));
+    return (suggested ?? []).map((c) => c.name).filter((c) => !joined.has(c));
   }, [yours, suggested]);
 
-  return { yours, suggestions };
+  return { yours, suggestions, isReplacing };
 };
 
 const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
@@ -210,10 +208,12 @@ const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
 const RibbonChips = memo(({
   yours,
   suggestions,
+  isReplacing,
   searchClub,
 }: {
   yours: string[],
   suggestions: string[],
+  isReplacing: boolean,
   searchClub: string | null,
 }) => {
   const { appTheme } = useAppTheme();
@@ -307,7 +307,7 @@ const RibbonChips = memo(({
       {yours.length > 0 &&
         <Animated.View
           entering={popIn}
-          exiting={trayOut}
+          exiting={popOut}
           style={{ marginRight: TRAY_END_PADDING }}
         >
           <LayoutAnimationConfig skipEntering={true}>
@@ -321,6 +321,7 @@ const RibbonChips = memo(({
           key={name}
           layout={moveTransition}
           entering={popIn}
+          exiting={isReplacing ? popOut : undefined}
           style={{ zIndex: 1 }}
         >
           <View
@@ -345,7 +346,7 @@ const RibbonChips = memo(({
 const ClubRow = () => {
   const { appTheme } = useAppTheme();
   const searchClub = useSearchClub();
-  const { yours, suggestions } = useRowClubs();
+  const { yours, suggestions, isReplacing } = useRowClubs();
 
   const rowRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -423,6 +424,7 @@ const ClubRow = () => {
         <RibbonChips
           yours={yours}
           suggestions={suggestions}
+          isReplacing={isReplacing}
           searchClub={searchClub}
         />
       </ScrollView>
@@ -467,4 +469,7 @@ const ClubRow = () => {
 
 export {
   ClubRow,
+  moveTransition,
+  popIn,
+  popOut,
 };

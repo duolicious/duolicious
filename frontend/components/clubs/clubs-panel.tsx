@@ -7,9 +7,12 @@ import {
   TextStyle,
   View,
 } from 'react-native';
-import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, {
+  LayoutAnimationConfig,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useDerivedEvent } from '../../events/events';
 import { useAppTheme } from '../../app-theme/app-theme';
 import {
   ClubItem,
@@ -21,12 +24,14 @@ import {
   sortClubs,
   useJoinedClubs,
   useSearchClub,
+  useSuggestedClubs,
 } from '../../club/club';
 import { Club, ClubFilter } from '../club';
 import { DefaultText } from '../default-text';
 import { DefaultTextInput } from '../default-text-input';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { useIsScrolled } from './use-is-scrolled';
+import { moveTransition, popIn, popOut } from './club-row';
 
 const MAX_COLLAPSED_CLUBS = 6;
 
@@ -34,8 +39,7 @@ const ClubsPanel = () => {
   const { appTheme } = useAppTheme();
   const searchClub = useSearchClub();
   const clubs = sortClubs(useJoinedClubs() ?? []);
-  const suggested = useDerivedEvent<ClubItem[] | undefined, ClubItem[] | null>(
-    'suggested-clubs', (cs) => cs ?? null, []);
+  const { suggested, isReplacing } = useSuggestedClubs();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ q: string, clubs: ClubItem[] }>();
@@ -212,16 +216,24 @@ const ClubsPanel = () => {
           Explore other clubs
         </DefaultText>
         {others
-          ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {others.map((c) =>
-                <Club
-                  key={c.name}
-                  name={c.name}
-                  isMutual={false}
-                  onPress={(e) => openClubCard({ name: c.name, anchor: e.nativeEvent })}
-                />
-              )}
-            </View>
+          ? <LayoutAnimationConfig skipEntering={true}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {others.map((c) =>
+                  <Animated.View
+                    key={c.name}
+                    layout={q ? undefined : moveTransition}
+                    entering={q ? undefined : popIn}
+                    exiting={!q && isReplacing ? popOut : undefined}
+                  >
+                    <Club
+                      name={c.name}
+                      isMutual={false}
+                      onPress={(e) => openClubCard({ name: c.name, anchor: e.nativeEvent })}
+                    />
+                  </Animated.View>
+                )}
+              </View>
+            </LayoutAnimationConfig>
           : <View style={{ paddingVertical: 30, alignItems: 'center' }}>
               <LogoActivityIndicator size="large" color={appTheme.brandColor} />
             </View>

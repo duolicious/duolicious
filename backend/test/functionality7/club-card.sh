@@ -94,6 +94,31 @@ suggested_clubs_are_popular_clubs_you_have_not_joined () {
   [[ "$(c GET '/search-clubs?q=' | jq -c '[.[].name]')" == '["weaving","quilting"]' ]]
 }
 
+joining_or_leaving_returns_suggestions_from_ten_clubs () {
+  echo 'Joining or leaving a club returns suggestions once you are in 10 clubs'
+
+  reset_db
+
+  ../util/create-user.sh user1 0 0
+
+  q "insert into club (name, count_members) values ('weaving', 900)"
+
+  assume_role user1
+
+  for i in $(seq 1 9)
+  do
+    [[ "$(jc POST /join-club -d "{ \"name\": \"club$i\" }" | jq -c .)" == \
+      '{"suggested_clubs":null}' ]]
+  done
+
+  [[ "$(jc POST /join-club -d '{ "name": "club10" }' | jq -c .)" == \
+    '{"suggested_clubs":[{"count_members":900,"name":"weaving"}]}' ]]
+
+  [[ "$(jc POST /leave-club -d '{ "name": "club10" }' | jq -c .)" == \
+    '{"suggested_clubs":null}' ]]
+}
+
 everyone_sees_the_best_25_members
 club_card_shows_count_and_related_clubs
 suggested_clubs_are_popular_clubs_you_have_not_joined
+joining_or_leaving_returns_suggestions_from_ten_clubs

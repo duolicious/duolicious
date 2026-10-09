@@ -9,11 +9,14 @@ from serviceshared.database import Row, row_int, row_str, row_str_or_none, row_v
 from serviceshared.database.tx import Tx
 from service.api.person.sql import (
     MAX_SUGGESTED_CLUBS,
+    Q_COUNT_JOINED_CLUBS,
     Q_JOINED_CLUB_EMBEDDINGS,
     Q_SUGGESTED_CLUB_CANDIDATES,
 )
 
 GROUP_CUTOFF = 0.3
+
+MIN_CLUBS_TO_REFRESH = 10
 
 
 def club_groups(embeddings: npt.NDArray[np.float64]) -> list[list[int]]:
@@ -98,3 +101,10 @@ async def suggested_clubs(tx: Tx, person_id: int) -> list[Row]:
         [nearest.get(None, [])], MAX_SUGGESTED_CLUBS - len(picks), taken)
 
     return [dict(name=n, count_members=count_members[n]) for n in picks]
+
+
+async def refreshed_suggested_clubs(tx: Tx, person_id: int) -> list[Row] | None:
+    row = await tx.require_one(Q_COUNT_JOINED_CLUBS, dict(person_id=person_id))
+    if row_int(row, 'count') < MIN_CLUBS_TO_REFRESH:
+        return None
+    return await suggested_clubs(tx, person_id)

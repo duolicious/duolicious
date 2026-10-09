@@ -2171,6 +2171,15 @@ AND
     {_has_embedding('club')}
 """
 
+Q_COUNT_JOINED_CLUBS = """
+SELECT
+    COUNT(*) AS count
+FROM
+    person_club
+WHERE
+    person_id = %(person_id)s
+"""
+
 Q_SUGGESTED_CLUB_CANDIDATES = f"""
 WITH candidate AS MATERIALIZED (
     SELECT
