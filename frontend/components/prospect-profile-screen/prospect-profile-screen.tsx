@@ -666,7 +666,7 @@ const AllClubs = ({
   // can't interact with them.
   const onPressClub = signedInUser
     ? (clubName: string) => (e: GestureResponderEvent) =>
-        openClubCard({ name: clubName, anchor: e.nativeEvent })
+        openClubCard({ name: clubName, anchor: e })
     : undefined;
 
   const childData: (AllClubsChild | null)[] = [

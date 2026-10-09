@@ -21,6 +21,7 @@ import { ModalBottomSheet } from '../modal/modal-bottom-sheet';
 import { ClubsPanel } from './clubs-panel';
 import { ClubCardBody, ClubCardTitle } from './club-card';
 import { useIsScrolled } from './use-is-scrolled';
+import { placePopover } from './place-popover';
 
 const POPOVER_WIDTH = 360;
 const EDGE = 8;
@@ -115,20 +116,20 @@ const ClubsSheetHost = () => {
         visible={sheet !== null}
         onRequestClose={closeClubs}
         heightFraction={1}
-        top={shown.pageY}
+        top={shown.y + shown.height}
       >
         <ClubsPanel />
       </ModalBottomSheet>
     );
   }
 
-  const top = shown.pageY + 6;
+  const top = shown.y + shown.height + 6;
 
   return (
     <Popover
       visible={sheet !== null}
       onRequestClose={closeClubs}
-      left={shown.pageX}
+      left={shown.x + 10}
       top={top}
       maxHeight={height - top - 2 * EDGE}
     >
@@ -138,7 +139,7 @@ const ClubsSheetHost = () => {
 };
 
 const ClubCardHost = () => {
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const card = useOpenClubCard();
   const shown = useLatest(card);
   const { isScrolled, onScroll } = useIsScrolled(shown?.name);
@@ -176,8 +177,15 @@ const ClubCardHost = () => {
     );
   }
 
-  const cardHeight = Math.min(620, height - 2 * EDGE);
-  const { pageX, pageY } = shown.anchor;
+  const placement = placePopover({
+    anchor: shown.anchor,
+    window: { width, height },
+    width: POPOVER_WIDTH,
+    maxHeight: 620,
+    minHeight: 360,
+    edge: EDGE,
+    gap: 8,
+  });
 
   return (
     <Popover
@@ -185,9 +193,9 @@ const ClubCardHost = () => {
       onRequestClose={closeClubCard}
       onOpened={onOpened}
       onClosed={onClosed}
-      left={pageX}
-      top={pageY > height / 2 ? pageY - cardHeight - 10 : pageY + 10}
-      height={cardHeight}
+      left={placement.left}
+      top={placement.top}
+      height={placement.height}
     >
       <ClubCardTitle
         name={shown.name}

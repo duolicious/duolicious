@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { GestureResponderEvent } from 'react-native';
 import { api, japi } from '../api/api';
 import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
@@ -21,8 +22,10 @@ type ClubItem = {
 type RowPosition = 'front' | 'end';
 
 type Anchor = {
-  pageX: number,
-  pageY: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
 };
 
 type OpenClubCard = {
@@ -179,16 +182,24 @@ const useSuggestedClubs = () => {
   return { suggested: shown, leaving };
 };
 
-const openClubs = ({ pageX, pageY }: Anchor) => {
-  notify<Anchor | null>('clubs-sheet', { pageX, pageY });
+const openClubs = (anchor: Anchor) => {
+  notify<Anchor | null>('clubs-sheet', anchor);
 };
 
 const useClubsSheet = () => useDerivedEvent<Anchor | null | undefined, Anchor | null>(
   'clubs-sheet', (s) => s ?? null, []);
 
-const openClubCard = ({ name, anchor: { pageX, pageY }, rowPosition }: OpenClubCard) => {
-  notify<OpenClubCard | null>(
-    'club-card', { name, anchor: { pageX, pageY }, rowPosition });
+const openClubCard = ({
+  name,
+  anchor,
+  rowPosition,
+}: Omit<OpenClubCard, 'anchor'> & { anchor: Anchor | GestureResponderEvent }) => {
+  if ('nativeEvent' in anchor) {
+    return anchor.currentTarget.measureInWindow((x, y, width, height) =>
+      openClubCard({ name, anchor: { x, y, width, height }, rowPosition }));
+  }
+
+  notify<OpenClubCard | null>('club-card', { name, anchor, rowPosition });
 };
 
 const useOpenClubCard = () => useDerivedEvent<OpenClubCard | null | undefined, OpenClubCard | null>(

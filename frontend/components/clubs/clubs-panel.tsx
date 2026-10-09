@@ -1,5 +1,6 @@
 import { memo, useDeferredValue, useEffect, useState } from 'react';
 import {
+  LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  FadeIn,
   LayoutAnimationConfig,
   useAnimatedStyle,
   withTiming,
@@ -34,6 +36,8 @@ import { moveTransition, popIn, popOut } from './club-row';
 
 const MAX_COLLAPSED_CLUBS = 6;
 
+const TRAY_RESIZE_MS = 250;
+
 const MineFilter = memo(({
   name,
   isSelected,
@@ -48,7 +52,7 @@ const MineFilter = memo(({
     isSelected={isSelected}
     onPress={(e) => {
       if (isManaging || isSelected) {
-        return openClubCard({ name, anchor: e.nativeEvent });
+        return openClubCard({ name, anchor: e });
       }
 
       selectSearchClub(name);
@@ -76,7 +80,7 @@ const OtherClub = memo(({
     <Club
       name={name}
       isMutual={false}
-      onPress={(e) => openClubCard({ name, anchor: e.nativeEvent })}
+      onPress={(e) => openClubCard({ name, anchor: e })}
     />
   </Animated.View>
 );
@@ -91,6 +95,27 @@ const ClubsPanel = () => {
   const [results, setResults] = useState<{ q: string, clubs: ClubItem[] }>();
   const [isManaging, setIsManaging] = useState(false);
   const [isAllOpen, setIsAllOpen] = useState(false);
+  const [trayHeight, setTrayHeight] = useState<number>();
+  const [collapsedHeight, setCollapsedHeight] = useState<number>();
+  const [isCollapsing, setIsCollapsing] = useState(false);
+
+  const onTrayLayout = ({ nativeEvent }: LayoutChangeEvent) => {
+    if (nativeEvent.layout.height > 0) {
+      setTrayHeight(nativeEvent.layout.height);
+    }
+  };
+
+  const toggleAll = () => {
+    if (!isAllOpen) {
+      setCollapsedHeight(trayHeight);
+      return setIsAllOpen(true);
+    }
+    setIsCollapsing(true);
+    setTimeout(() => {
+      setIsAllOpen(false);
+      setIsCollapsing(false);
+    }, TRAY_RESIZE_MS);
+  };
   const { isScrolled, onScroll } = useIsScrolled();
   const isReady = useDeferredValue(true, false);
 
@@ -214,34 +239,52 @@ const ClubsPanel = () => {
                 </DefaultText>
               </Pressable>
             </View>
-            <View
+            <Animated.View
               style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 6,
-                padding: 8,
+                height: isCollapsing ? collapsedHeight : trayHeight,
                 marginHorizontal: -8,
+                borderRadius: 25,
+                overflow: 'hidden',
+                transitionProperty: 'height',
+                transitionDuration: TRAY_RESIZE_MS,
+                transitionTimingFunction: 'ease-out',
               }}
             >
               <Animated.View
                 style={[
                   StyleSheet.absoluteFill,
-                  { borderRadius: 25, backgroundColor: appTheme.inputColor },
+                  { backgroundColor: appTheme.inputColor },
                   trayStyle,
                 ]}
               />
-              {mine.map((c) =>
-                <MineFilter
-                  key={c}
-                  name={c}
-                  isSelected={!isManaging && c === searchClub}
-                  isManaging={isManaging}
-                />
-              )}
-            </View>
+              <LayoutAnimationConfig skipEntering={true}>
+                <View
+                  onLayout={onTrayLayout}
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 6,
+                    padding: 8,
+                  }}
+                >
+                  {mine.map((c) =>
+                    <Animated.View
+                      key={c}
+                      entering={FadeIn.duration(TRAY_RESIZE_MS)}
+                    >
+                      <MineFilter
+                        name={c}
+                        isSelected={!isManaging && c === searchClub}
+                        isManaging={isManaging}
+                      />
+                    </Animated.View>
+                  )}
+                </View>
+              </LayoutAnimationConfig>
+            </Animated.View>
             {!q && clubs.length > MAX_COLLAPSED_CLUBS &&
               <Pressable
-                onPress={() => setIsAllOpen(!isAllOpen)}
+                onPress={toggleAll}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',

@@ -961,7 +961,7 @@ const FeedItemJoinedClub = ({ fields }: { fields: JoinedClubFields }) => {
     fields.club_count_members, fields.viewer_was_member ?? false, isMember);
 
   const onPressClub = useCallback((e: GestureResponderEvent) => {
-    openClubCard({ name: fields.joined_club_name, anchor: e.nativeEvent });
+    openClubCard({ name: fields.joined_club_name, anchor: e });
   }, [fields.joined_club_name]);
 
   const props = isMobile() ? {

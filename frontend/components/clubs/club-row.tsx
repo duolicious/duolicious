@@ -168,8 +168,8 @@ const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
       return closeClubs();
     }
 
-    rowRef.current?.measureInWindow((x, y, _width, height) =>
-      openClubs({ pageX: x + 10, pageY: y + height }));
+    rowRef.current?.measureInWindow((x, y, width, height) =>
+      openClubs({ x, y, width, height }));
   };
 
   return (
@@ -246,7 +246,7 @@ const CellContent = memo(({
       name={kind === 'club' ? name : null}
       isSelected={isSelected}
       onPress={(e) => kind === 'club' && isSelected
-        ? openClubCard({ name, anchor: e.nativeEvent })
+        ? openClubCard({ name, anchor: e })
         : selectSearchClub(kind === 'club' ? name : null)
       }
     />
@@ -345,7 +345,7 @@ const SuggestionCell = memo(({
           isMutual={false}
           onPress={(e) => openClubCard({
             name,
-            anchor: e.nativeEvent,
+            anchor: e,
             rowPosition: 'end',
           })}
         />
