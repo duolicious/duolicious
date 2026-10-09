@@ -15,14 +15,7 @@ from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
-from serviceshared.database import (
-    api_autocommit,
-    api_tx,
-    require_row,
-    row_bool,
-    row_int,
-    row_int_or_none,
-)
+from serviceshared.database import api_tx, row_int, row_int_or_none
 
 logger = logging.getLogger(__name__)
 
@@ -151,28 +144,6 @@ async def backfill_looking_for_ids() -> None:
             """, dict(start=start, end=start + batch_size))
     logger.info('Done backfilling `looking_for_ids`')
 
-async def replace_index(old: str, new: str, definition: str) -> None:
-    async with api_autocommit() as conn:
-        await conn.execute('SET statement_timeout = 300000')
-
-        locked = await conn.execute(
-            'SELECT pg_try_advisory_lock(hashtext(%(new)s)) AS x', dict(new=new))
-        if not row_bool(require_row(await locked.fetchone()), 'x'):
-            logger.info(f'Another instance is building `{new}`')
-            return
-
-        invalid = await conn.execute("""
-        SELECT 1 FROM pg_index
-        WHERE indexrelid = to_regclass(%(new)s)
-        AND NOT indisvalid
-        """, dict(new=new))
-        if await invalid.fetchone():
-            await conn.execute(f'DROP INDEX CONCURRENTLY {new}')
-
-        await conn.execute(
-            f'CREATE INDEX CONCURRENTLY IF NOT EXISTS {new} {definition}')
-        await conn.execute(f'DROP INDEX CONCURRENTLY IF EXISTS {old}')
-
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
@@ -203,16 +174,6 @@ async def init_db() -> None:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(migrations_sql_file)
-
-    await replace_index(
-        'idx__club__name',
-        'idx__club__lower_name',
-        'ON club USING GIST(lower(name) gist_trgm_ops) WHERE count_members > 0')
-
-    await replace_index(
-        'idx__location__long_friendly',
-        'idx__location__lower_long_friendly',
-        'ON location USING GIST(lower(long_friendly) gist_trgm_ops)')
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)
