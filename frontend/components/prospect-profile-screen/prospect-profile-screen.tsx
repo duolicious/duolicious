@@ -1089,12 +1089,7 @@ const ProspectProfile = ({
         setRoundPrimaryPhoto(e.nativeEvent.layout.width > COLUMN_MAX_WIDTH)}
     >
       <Reanimated.View style={animatedStyle}>
-        <HeartBackground
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-        >
+        <HeartBackground>
           <SidePanelLayout right={besideSidePanel}>
             <View style={{ paddingBottom }}>
               <EnlargeablePhoto
