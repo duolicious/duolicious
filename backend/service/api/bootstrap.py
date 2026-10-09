@@ -15,7 +15,14 @@ from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
-from serviceshared.database import api_tx, row_int, row_int_or_none
+from serviceshared.database import (
+    api_autocommit,
+    api_tx,
+    require_row,
+    row_bool,
+    row_int,
+    row_int_or_none,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +151,31 @@ async def backfill_looking_for_ids() -> None:
             """, dict(start=start, end=start + batch_size))
     logger.info('Done backfilling `looking_for_ids`')
 
+async def replace_club_name_trigram_index() -> None:
+    async with api_autocommit() as conn:
+        await conn.execute('SET statement_timeout = 300000')
+
+        locked = await conn.execute(
+            "SELECT pg_try_advisory_lock(hashtext('idx__club__name__trgm')) AS x")
+        if not row_bool(require_row(await locked.fetchone()), 'x'):
+            logger.info('Another instance is replacing `idx__club__name`')
+            return
+
+        invalid = await conn.execute("""
+        SELECT 1 FROM pg_index
+        WHERE indexrelid = to_regclass('idx__club__name__trgm')
+        AND NOT indisvalid
+        """)
+        if await invalid.fetchone():
+            await conn.execute('DROP INDEX CONCURRENTLY idx__club__name__trgm')
+
+        await conn.execute("""
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx__club__name__trgm
+            ON club USING GIST((name COLLATE "C") gist_trgm_ops)
+            WHERE count_members > 0
+        """)
+        await conn.execute('DROP INDEX CONCURRENTLY IF EXISTS idx__club__name')
+
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
@@ -174,6 +206,8 @@ async def init_db() -> None:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(migrations_sql_file)
+
+    await replace_club_name_trigram_index()
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)

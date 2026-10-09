@@ -904,7 +904,8 @@ CREATE INDEX IF NOT EXISTS idx__location__long_friendly ON location USING GIST(l
 
 CREATE INDEX IF NOT EXISTS idx__question__question ON question USING GIST(question gist_trgm_ops);
 
-CREATE INDEX IF NOT EXISTS idx__club__name ON club USING GIST(name gist_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx__club__name__trgm ON club USING GIST((name COLLATE "C") gist_trgm_ops)
+    WHERE count_members > 0;
 CREATE INDEX IF NOT EXISTS idx__club__count_members__name ON club(count_members, name);
 
 CREATE INDEX IF NOT EXISTS idx__person_spotify__attempted_at
