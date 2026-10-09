@@ -94,7 +94,7 @@ def pick_suggestions(
     return picks + take_turns([popular], slots - len(picks), taken)
 
 
-async def suggested_clubs(tx: Tx, person_id: int) -> list[Row]:
+async def suggested_clubs(tx: Tx, person_id: int | None) -> list[Row]:
     joined = await (await tx.execute(
         Q_JOINED_CLUB_EMBEDDINGS, dict(person_id=person_id))).fetchall()
     sources = suggestion_sources(
@@ -122,7 +122,10 @@ async def suggested_clubs(tx: Tx, person_id: int) -> list[Row]:
     ]
 
 
-async def refreshed_suggested_clubs(tx: Tx, person_id: int) -> list[Row] | None:
+async def refreshed_suggested_clubs(
+    tx: Tx,
+    person_id: int | None,
+) -> list[Row] | None:
     row = await tx.require_one(Q_COUNT_JOINED_CLUBS, dict(person_id=person_id))
     if row_int(row, 'count') < MIN_CLUBS_TO_REFRESH:
         return None

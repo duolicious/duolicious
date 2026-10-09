@@ -1103,7 +1103,7 @@ async def get_search_clubs(s: t.SessionInfo | None, search_str: str) -> list[Row
         q = Q_SEARCH_CLUBS
     elif search_str.strip():
         return []
-    elif s is not None and s.person_id is not None:
+    elif s is not None:
         async with api_tx('READ COMMITTED') as tx:
             return await suggested_clubs(tx, s.person_id)
     else:
@@ -1127,7 +1127,7 @@ async def post_join_club(req: t.PostJoinClub, s: t.SessionInfo) -> object:
 
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_JOIN_CLUB, params)
-        if not await row_tx.fetchall() or s.person_id is None:
+        if not await row_tx.fetchall():
             return f"Couldn't join {req.name}", 400
         return dict(
             suggested_clubs=await refreshed_suggested_clubs(tx, s.person_id))
@@ -1140,8 +1140,6 @@ async def post_leave_club(req: t.PostLeaveClub, s: t.SessionInfo) -> object:
 
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_LEAVE_CLUB, params)
-        if s.person_id is None:
-            return None
         return dict(
             suggested_clubs=await refreshed_suggested_clubs(tx, s.person_id))
 
