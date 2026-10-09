@@ -205,7 +205,7 @@ const ClubsPanel = () => {
               <Animated.View
                 style={[
                   StyleSheet.absoluteFill,
-                  { borderRadius: 16, backgroundColor: appTheme.inputColor },
+                  { borderRadius: 25, backgroundColor: appTheme.inputColor },
                   trayStyle,
                 ]}
               />
