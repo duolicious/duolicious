@@ -1,4 +1,3 @@
-import hashlib
 from collections.abc import Mapping, Sequence
 from itertools import zip_longest
 
@@ -70,16 +69,12 @@ Source = tuple[list[str], int]
 
 
 def suggestion_sources(
-    person_id: int,
     embeddings: Mapping[str, npt.NDArray[np.float32]],
     slots: int,
 ) -> list[Source]:
     names = list(embeddings)
     groups = club_groups(np.array(list(embeddings.values()))) if names else []
-    groups.sort(key=lambda g: (
-        -len(g),
-        hashlib.md5(f'{person_id}:{names[g[0]]}'.encode()).digest(),
-    ))
+    groups.sort(key=len, reverse=True)
     quotas = slot_quotas([len(g) for g in groups], slots)
     return [([names[m] for m in g[:q]], q) for g, q in zip(groups, quotas) if q]
 
@@ -103,7 +98,6 @@ async def suggested_clubs(tx: Tx, person_id: int) -> list[Row]:
     joined = await (await tx.execute(
         Q_JOINED_CLUB_EMBEDDINGS, dict(person_id=person_id))).fetchall()
     sources = suggestion_sources(
-        person_id,
         {row_str(r, 'name'): row_vector(r, 'embedding').to_numpy() for r in joined},
         MAX_SUGGESTED_CLUBS,
     )

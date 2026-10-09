@@ -73,13 +73,13 @@ class TestSuggestionSources(unittest.TestCase):
             'tarot': np.array([0.0, 0.0, 1.0], dtype=np.float32),
         }
 
-        sources = suggestion_sources(1, embeddings, 10)
+        sources = suggestion_sources(embeddings, 10)
 
         self.assertEqual(sources[0], (['gym', 'lifting', 'running'], 6))
         self.assertCountEqual(sources[1:], [(['radiohead'], 2), (['tarot'], 2)])
 
     def test_no_clubs_have_no_sources(self) -> None:
-        self.assertEqual(suggestion_sources(1, {}, 10), [])
+        self.assertEqual(suggestion_sources({}, 10), [])
 
 
 class TestPickSuggestions(unittest.TestCase):
