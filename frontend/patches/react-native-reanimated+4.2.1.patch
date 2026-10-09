@@ -36,10 +36,10 @@ index 5cb2ed1..d74c0b6 100644
          if (values in WebEasings) {
            easingName = values;
 diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
-index ba896aa..920ad98 100644
+index ba896aa..3464eba 100644
 --- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
 +++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
-@@ -93,7 +93,7 @@ export function startWebLayoutAnimation(props, element, animationType, transitio
+@@ -93,9 +93,10 @@ export function startWebLayoutAnimation(props, element, animationType, transitio
    }
  }
  export function tryActivateLayoutTransition(props, element, snapshot) {
@@ -47,7 +47,10 @@ index ba896aa..920ad98 100644
 +  if (!props.layout || element.getClientRects().length === 0) {
      return;
    }
++  element.style.animationName = '';
    const rect = element.getBoundingClientRect();
+   if (areDOMRectsEqual(rect, snapshot)) {
+     return;
 diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
 index 4e842a9..bffe3b4 100644
 --- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
@@ -135,10 +138,10 @@ index b8eb578..1fb496d 100644
  
          if (values in WebEasings) {
 diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
-index c202a25..8be04ff 100644
+index c202a25..c8ea246 100644
 --- a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
 +++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
-@@ -220,7 +220,7 @@ export function tryActivateLayoutTransition<
+@@ -220,10 +220,12 @@ export function tryActivateLayoutTransition<
    element: ReanimatedHTMLElement,
    snapshot: DOMRect
  ) {
@@ -147,6 +150,11 @@ index c202a25..8be04ff 100644
      return;
    }
  
++  element.style.animationName = '';
++
+   const rect = element.getBoundingClientRect();
+ 
+   if (areDOMRectsEqual(rect, snapshot)) {
 diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
 index b487dc5..1c4925a 100644
 --- a/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
