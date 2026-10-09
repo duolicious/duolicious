@@ -16,8 +16,8 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  cubicBezier,
   Easing,
-  Keyframe,
   LayoutAnimationConfig,
   LinearTransition,
   ZoomIn,
@@ -54,7 +54,9 @@ const popIn = ZoomIn
   .duration(MOVE_DURATION)
   .easing(Easing.bezier(0.34, 1.56, 0.64, 1));
 
-const MOVE_EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
+const MOVE_CURVE = [0.2, 0.8, 0.2, 1] as const;
+
+const MOVE_EASING = Easing.bezier(...MOVE_CURVE);
 
 const moveTransition = LinearTransition
   .duration(MOVE_DURATION)
@@ -63,8 +65,6 @@ const moveTransition = LinearTransition
 const popOut = ZoomOut
   .duration(MOVE_DURATION)
   .easing(MOVE_EASING);
-
-const UNDERLAY_OVERLAP = 25;
 
 const NEAR_VIEWPORT = 300;
 
@@ -75,11 +75,6 @@ type Span = { x: number, width: number };
 const TRAY_END_PADDING = 5;
 
 const MAX_CELLS = 1000;
-
-const collapseFrom = (width: number) => new Keyframe({
-  0: { width },
-  100: { width: UNDERLAY_OVERLAP, easing: MOVE_EASING },
-}).duration(MOVE_DURATION);
 
 const ifShown = (onWidth: (width: number) => void) =>
   ({ nativeEvent }: LayoutChangeEvent) => {
@@ -260,68 +255,54 @@ const TrayCell = memo(({
   name,
   position,
   isFirst,
-  isLast,
-  isUnderlay,
   isSelected,
   isNearView,
-  collapseWidth,
   onLayout,
 }: {
   kind: CellKind,
   name: string,
   position: number,
   isFirst: boolean,
-  isLast: boolean,
-  isUnderlay: boolean,
   isSelected: boolean,
   isNearView: IsNearView,
-  collapseWidth: number | undefined,
   onLayout: OnCellLayout,
-}) => {
+}) =>
+  <Animated.View
+    layout={isNearView(`cell:${name}`) ? moveTransition : undefined}
+    entering={popIn}
+    onLayout={(e) => onLayout(name, e)}
+    style={{
+      height: 50,
+      justifyContent: 'center',
+      paddingLeft: isFirst ? 8 : 3,
+      paddingRight: 3,
+      zIndex: MAX_CELLS - position,
+    }}
+  >
+    <CellContent kind={kind} name={name} isSelected={isSelected} />
+  </Animated.View>
+);
+
+const TrayBar = ({ width }: { width: number }) => {
   const { appTheme } = useAppTheme();
 
   return (
     <Animated.View
-      layout={isNearView(`cell:${name}`) ? moveTransition : undefined}
-      entering={isUnderlay ? undefined : popIn}
-      exiting={collapseWidth === undefined ? undefined : collapseFrom(collapseWidth)}
-      onLayout={isUnderlay ? (e) => onLayout(name, e) : undefined}
       style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
         height: 50,
-        marginLeft: isUnderlay && !isFirst ? -UNDERLAY_OVERLAP : 0,
-        zIndex: isUnderlay ? undefined : MAX_CELLS - position,
+        width,
+        borderRadius: 25,
+        backgroundColor: appTheme.inputColor,
+        transitionProperty: 'width',
+        transitionDuration: MOVE_DURATION,
+        transitionTimingFunction: cubicBezier(...MOVE_CURVE),
       }}
-    >
-      {isUnderlay &&
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: isLast ? -TRAY_END_PADDING : 0,
-            backgroundColor: appTheme.inputColor,
-            borderTopLeftRadius: isFirst ? 25 : 0,
-            borderBottomLeftRadius: isFirst ? 25 : 0,
-            borderTopRightRadius: isLast ? 25 : 0,
-            borderBottomRightRadius: isLast ? 25 : 0,
-          }}
-        />
-      }
-      <View
-        style={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          paddingLeft: isFirst ? 8 : 3 + (isUnderlay ? UNDERLAY_OVERLAP : 0),
-          paddingRight: 3,
-          opacity: isUnderlay ? 0 : 1,
-        }}
-      >
-        <CellContent kind={kind} name={name} isSelected={isSelected} />
-      </View>
-    </Animated.View>
+    />
   );
-});
+};
 
 const SuggestionCell = memo(({
   name,
@@ -374,21 +355,16 @@ const RibbonChips = memo(({
   edgesRef: RefObject<Edges>,
 }) => {
   const spansRef = useRef(new Map<string, Span>());
-  const [underlayWidths, setUnderlayWidths] =
-    useState<Record<string, number>>({});
+  const [trayWidth, setTrayWidth] = useState<number>();
 
   const onTrayLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     spansRef.current.set('tray', nativeEvent.layout);
   }, []);
 
   const onCellLayout = useCallback((key: string, { nativeEvent }: LayoutChangeEvent) => {
-    const { width } = nativeEvent.layout;
-    if (width === 0) {
-      return;
+    if (nativeEvent.layout.width > 0) {
+      spansRef.current.set(`cell:${key}`, nativeEvent.layout);
     }
-    spansRef.current.set(`cell:${key}`, nativeEvent.layout);
-    setUnderlayWidths((widths) =>
-      widths[key] === width ? widths : { ...widths, [key]: width });
   }, []);
 
   const onSuggestionLayout = useCallback((key: string, { nativeEvent }: LayoutChangeEvent) => {
@@ -432,36 +408,6 @@ const RibbonChips = memo(({
     ...yours.map((name) => ({ kind: 'club' as const, name })),
   ];
 
-  const renderTray = (isUnderlay: boolean) =>
-    <View
-      aria-hidden={isUnderlay}
-      pointerEvents={isUnderlay ? 'none' : 'auto'}
-      style={{
-        flexDirection: 'row',
-        ...(isUnderlay && { position: 'absolute', top: 0, left: 0 }),
-      }}
-    >
-      {cells.map(({ kind, name }, i) =>
-        <TrayCell
-          key={`${kind}:${name}:${versionsRef.current.get(name) ?? 0}`}
-          kind={kind}
-          name={name}
-          position={positionIfNear(`cell:${name}`, i)}
-          isFirst={i === 0}
-          isLast={i === cells.length - 1}
-          isUnderlay={isUnderlay}
-          isSelected={kind === 'everyone'
-            ? searchClub === null
-            : kind === 'club' && name === searchClub}
-          isNearView={isNearView}
-          collapseWidth={isUnderlay && yours.length > 1
-            ? underlayWidths[name]
-            : undefined}
-          onLayout={onCellLayout}
-        />
-      )}
-    </View>;
-
   return (
     <LayoutAnimationConfig skipEntering={true}>
       {yours.length > 0 &&
@@ -471,9 +417,29 @@ const RibbonChips = memo(({
           onLayout={onTrayLayout}
           style={{ marginRight: TRAY_END_PADDING, zIndex: 0 }}
         >
+          {trayWidth !== undefined &&
+            <TrayBar width={trayWidth + TRAY_END_PADDING} />
+          }
           <LayoutAnimationConfig skipEntering={true}>
-            {renderTray(true)}
-            {renderTray(false)}
+            <View
+              onLayout={ifShown(setTrayWidth)}
+              style={{ flexDirection: 'row' }}
+            >
+              {cells.map(({ kind, name }, i) =>
+                <TrayCell
+                  key={`${kind}:${name}:${versionsRef.current.get(name) ?? 0}`}
+                  kind={kind}
+                  name={name}
+                  position={positionIfNear(`cell:${name}`, i)}
+                  isFirst={i === 0}
+                  isSelected={kind === 'everyone'
+                    ? searchClub === null
+                    : kind === 'club' && name === searchClub}
+                  isNearView={isNearView}
+                  onLayout={onCellLayout}
+                />
+              )}
+            </View>
           </LayoutAnimationConfig>
         </Animated.View>
       }
