@@ -49,6 +49,7 @@ import { useAppStartup } from './app-startup/app-startup';
 import { useAppNavigation } from './navigation/app-navigation';
 import { showPendingSpotifyConnectToast } from './api/spotify';
 import { showPendingPayPalResultToast } from './api/paypal';
+import './global.css';
 
 verificationWatcher();
 
@@ -82,16 +83,6 @@ const App = () => {
   usePushTokenListenerOnMobile();
   useClearAppIconBadgeOnMobile();
   useScrollbarStyle();
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      return;
-    }
-
-    const styleEl = document.createElement('style');
-    styleEl.textContent = '*:focus { outline: none !important; }';
-    document.head.appendChild(styleEl);
-  }, []);
 
   // Only need live updates on web (for browser tab title)
   const stats = useInboxStats(Platform.OS === 'web');
