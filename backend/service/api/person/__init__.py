@@ -1275,15 +1275,9 @@ async def get_check_verification(s: t.SessionInfo) -> object:
         return row
     return '', 400
 
-@redis_cache(ttl=60)
-async def _club_card(club_name: str) -> dict[str, Json]:
-    async with api_tx('READ COMMITTED') as tx:
-        return await tx.require_one(Q_CLUB_CARD, dict(club_name=club_name))
-
 async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
-    card = await _club_card(q.name)
-
     async with api_tx('READ COMMITTED') as tx:
+        card = await tx.require_one(Q_CLUB_CARD, dict(club_name=q.name))
         searcher = await tx.require_one(
             Q_SEARCHER, dict(searcher_person_id=s.person_id))
 
