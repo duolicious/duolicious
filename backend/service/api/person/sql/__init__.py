@@ -18,8 +18,6 @@ MAX_CLUB_SEARCH_RESULTS = 20
 
 MAX_SUGGESTED_CLUBS = 10
 
-MAX_SUGGESTED_RELATED_CLUBS = 6
-
 MAX_SEARCH_FILTER_ANSWERS = 20
 
 # How often the user should be nagged to donate, in days. The frequency
@@ -2157,52 +2155,76 @@ LEFT JOIN
 {_RELATED_CLUBS}
 """
 
-Q_SUGGESTED_CLUBS = f"""
-WITH joined AS (
-    SELECT
-        club.name,
-        club.embedding
-    FROM
-        person_club
-    JOIN
-        club
-    ON
-        club.name = person_club.club_name
-    WHERE
-        person_club.person_id = %(person_id)s
-)
+Q_JOINED_CLUB_EMBEDDINGS = f"""
 SELECT
-    name,
-    count_members
-FROM (
+    club.name,
+    club.embedding
+FROM
+    person_club
+JOIN
+    club
+ON
+    club.name = person_club.club_name
+WHERE
+    person_club.person_id = %(person_id)s
+AND
+    {_has_embedding('club')}
+"""
+
+Q_SUGGESTED_CLUB_CANDIDATES = f"""
+WITH candidate AS MATERIALIZED (
     SELECT
         name,
         count_members,
-        (
-            SELECT
-                MIN(club.embedding <=> joined.embedding)
-            FROM
-                joined
-            WHERE
-                {_has_embedding('joined')}
-            AND
-                {_has_embedding('club')}
-        ) AS distance
+        embedding
     FROM
         club
     WHERE
         count_members >= {MIN_CLUB_PAGE_MEMBERS}
     AND
-        name NOT IN (SELECT name FROM joined)
-) AS candidate
-ORDER BY
-    CASE
-        WHEN ROW_NUMBER() OVER (ORDER BY distance) <= {MAX_SUGGESTED_RELATED_CLUBS}
-        THEN distance
-    END,
-    count_members DESC
-LIMIT
-    {MAX_SUGGESTED_CLUBS}
+        name NOT IN (
+            SELECT club_name FROM person_club WHERE person_id = %(person_id)s
+        )
+)
+SELECT
+    source.name AS source,
+    nearest.name,
+    nearest.count_members
+FROM
+    club AS source
+CROSS JOIN LATERAL (
+    SELECT
+        name,
+        count_members
+    FROM
+        candidate
+    WHERE
+        {_has_embedding('candidate')}
+    ORDER BY
+        embedding <=> source.embedding
+    LIMIT
+        {MAX_SUGGESTED_CLUBS}
+) AS nearest
+WHERE
+    source.name = ANY(%(sources)s::TEXT[])
+
+UNION ALL
+
+SELECT
+    *
+FROM (
+    SELECT
+        NULL AS source,
+        name,
+        count_members
+    FROM
+        candidate
+    ORDER BY
+        count_members DESC,
+        name
+    LIMIT
+        {MAX_SUGGESTED_CLUBS}
+) AS popular
 """
 
 Q_UPDATE_CHATS_NOTIFICATIONS = """

@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from serviceshared.util import Json
 from serviceshared.util.coerce import string
 from service.api.person.bestage import best_age
+from service.api.person.clubsuggestions import suggested_clubs
 from service.api.person.bestdistance import (
     CANDIDATE_LIMIT,
     best_country_and_distance,
@@ -1099,8 +1100,9 @@ async def get_search_clubs(s: t.SessionInfo | None, search_str: str) -> list[Row
         q = Q_SEARCH_CLUBS
     elif search_str.strip():
         return []
-    elif s is not None:
-        q = Q_SUGGESTED_CLUBS
+    elif s is not None and s.person_id is not None:
+        async with api_tx('READ COMMITTED') as tx:
+            return await suggested_clubs(tx, s.person_id)
     else:
         q = Q_TOP_CLUBS
 
