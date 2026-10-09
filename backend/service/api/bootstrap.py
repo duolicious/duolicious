@@ -151,30 +151,27 @@ async def backfill_looking_for_ids() -> None:
             """, dict(start=start, end=start + batch_size))
     logger.info('Done backfilling `looking_for_ids`')
 
-async def replace_club_name_trigram_index() -> None:
+async def replace_index(old: str, new: str, definition: str) -> None:
     async with api_autocommit() as conn:
         await conn.execute('SET statement_timeout = 300000')
 
         locked = await conn.execute(
-            "SELECT pg_try_advisory_lock(hashtext('idx__club__name__trgm')) AS x")
+            'SELECT pg_try_advisory_lock(hashtext(%(new)s)) AS x', dict(new=new))
         if not row_bool(require_row(await locked.fetchone()), 'x'):
-            logger.info('Another instance is replacing `idx__club__name`')
+            logger.info(f'Another instance is building `{new}`')
             return
 
         invalid = await conn.execute("""
         SELECT 1 FROM pg_index
-        WHERE indexrelid = to_regclass('idx__club__name__trgm')
+        WHERE indexrelid = to_regclass(%(new)s)
         AND NOT indisvalid
-        """)
+        """, dict(new=new))
         if await invalid.fetchone():
-            await conn.execute('DROP INDEX CONCURRENTLY idx__club__name__trgm')
+            await conn.execute(f'DROP INDEX CONCURRENTLY {new}')
 
-        await conn.execute("""
-        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx__club__name__trgm
-            ON club USING GIST((name COLLATE "C") gist_trgm_ops)
-            WHERE count_members > 0
-        """)
-        await conn.execute('DROP INDEX CONCURRENTLY IF EXISTS idx__club__name')
+        await conn.execute(
+            f'CREATE INDEX CONCURRENTLY IF NOT EXISTS {new} {definition}')
+        await conn.execute(f'DROP INDEX CONCURRENTLY IF EXISTS {old}')
 
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
@@ -207,7 +204,15 @@ async def init_db() -> None:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(migrations_sql_file)
 
-    await replace_club_name_trigram_index()
+    await replace_index(
+        'idx__club__name',
+        'idx__club__lower_name',
+        'ON club USING GIST(lower(name) gist_trgm_ops) WHERE count_members > 0')
+
+    await replace_index(
+        'idx__location__long_friendly',
+        'idx__location__lower_long_friendly',
+        'ON location USING GIST(lower(long_friendly) gist_trgm_ops)')
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)

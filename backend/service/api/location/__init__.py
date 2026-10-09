@@ -14,9 +14,9 @@ SELECT
 FROM
     location
 WHERE
-    long_friendly ILIKE %(first_character)s || '%%'
+    lower(long_friendly) LIKE lower(%(first_character)s) || '%%'
 ORDER BY
-    long_friendly <-> %(search_string)s
+    lower(long_friendly) <-> %(search_string)s
 LIMIT 10
 """
 
