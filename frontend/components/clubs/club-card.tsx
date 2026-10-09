@@ -1,4 +1,4 @@
-import { ComponentProps, useEffect, useRef, useState } from 'react';
+import { ComponentProps, memo, useEffect, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -210,7 +210,7 @@ const IconLabel = ({
   );
 };
 
-const MemberRow = ({ member }: { member: ClubMember }) => {
+const MemberRow = memo(({ member }: { member: ClubMember }) => {
   const { appTheme } = useAppTheme();
   const profileLink = useProfileLink(
     member.person_uuid,
@@ -258,7 +258,7 @@ const MemberRow = ({ member }: { member: ClubMember }) => {
       </Animated.View>
     </Pressable>
   );
-};
+});
 
 const ClubCardTitle = ({
   name,

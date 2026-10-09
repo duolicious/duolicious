@@ -205,6 +205,41 @@ const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
   );
 };
 
+const RibbonFilter = memo(({
+  name,
+  isSelected,
+}: {
+  name: string | null,
+  isSelected: boolean,
+}) =>
+  <ClubFilter
+    name={name}
+    isSelected={isSelected}
+    onPress={(e) => name !== null && isSelected
+      ? openClubCard({ name, anchor: e.nativeEvent })
+      : selectSearchClub(name)
+    }
+  />
+);
+
+const Suggestion = memo(({ name }: { name: string }) => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <View style={{ borderRadius: 999, backgroundColor: appTheme.primaryColor }}>
+      <Club
+        name={name}
+        isMutual={false}
+        onPress={(e) => openClubCard({
+          name,
+          anchor: e.nativeEvent,
+          rowPosition: 'end',
+        })}
+      />
+    </View>
+  );
+});
+
 const RibbonChips = memo(({
   yours,
   suggestions,
@@ -219,14 +254,7 @@ const RibbonChips = memo(({
   const { appTheme } = useAppTheme();
 
   const renderFilter = (name: string | null) =>
-    <ClubFilter
-      name={name}
-      isSelected={name === searchClub}
-      onPress={(e) => name !== null && name === searchClub
-        ? openClubCard({ name, anchor: e.nativeEvent })
-        : selectSearchClub(name)
-      }
-    />;
+    <RibbonFilter name={name} isSelected={name === searchClub} />;
 
   const cells = [
     { key: '', node: renderFilter(null) },
@@ -324,19 +352,7 @@ const RibbonChips = memo(({
           exiting={isReplacing ? popOut : undefined}
           style={{ zIndex: 1 }}
         >
-          <View
-            style={{ borderRadius: 999, backgroundColor: appTheme.primaryColor }}
-          >
-            <Club
-              name={name}
-              isMutual={false}
-              onPress={(e) => openClubCard({
-                name,
-                anchor: e.nativeEvent,
-                rowPosition: 'end',
-              })}
-            />
-          </View>
+          <Suggestion name={name} />
         </Animated.View>
       )}
     </LayoutAnimationConfig>
