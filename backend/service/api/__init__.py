@@ -416,7 +416,6 @@ async def get_search_public_clubs(request: Request) -> object:
     return await person.get_search_clubs(
         s=None,
         search_str=request.query_params.get('q', ''),
-        allow_empty=True,
     )
 
 @app.get('/club/{name:path}')
@@ -427,6 +426,13 @@ async def get_club(name: str) -> object:
     if result is None:
         return '', 404
     return result
+
+@app.get('/club-card')
+async def get_club_card(
+    q: Annotated[t.ClubCardQuery, Query()],
+    s: t.SessionInfo = Depends(session()),
+) -> object:
+    return await person.get_club_card(s, q)
 
 @app.post('/join-club')
 async def post_join_club(
@@ -440,8 +446,7 @@ async def post_leave_club(
     req: t.PostLeaveClub,
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    await person.post_leave_club(req, s)
-    return None
+    return await person.post_leave_club(req, s)
 
 @app.post('/spotify/authorize')
 async def post_spotify_authorize(

@@ -28,6 +28,7 @@ reset_db () {
   q "delete from club_stats_dirty"
   q "delete from club_seo"
   q "delete from club"
+  flush_redis
 }
 
 club_page_is_precomputed_and_served () {
@@ -164,6 +165,10 @@ related_clubs_are_ranked_by_embedding_similarity () {
   [[ "$(jq -r '.related_clubs[0].name'          <<< "$result")" == "crochet" ]]
   [[ "$(jq -r '.related_clubs[0].count_members' <<< "$result")" == "51" ]]
   [[ "$(jq -r '.related_clubs[0] | has("overlap")' <<< "$result")" == "false" ]]
+
+  q "insert into club (name, count_members) values ('weaving', 900)"
+  assume_role knitter52
+  [[ "$(c GET '/search-clubs?q=' | jq -c '[.[].name]')" == '["crochet","weaving"]' ]]
 }
 
 club_page_is_precomputed_and_served
