@@ -15,6 +15,7 @@ import {
 import { DefaultText } from './default-text';
 import { TopNavBar } from './top-nav-bar';
 import { ButtonForOption } from './button/option';
+import { ButtonWithCenteredText } from './button/centered-text';
 import { Title } from './title';
 import {
   OptionGroup,
@@ -69,7 +70,46 @@ import {
   setTwoWayFilter,
   useSearchFilters,
 } from '../events/search-filters';
-import { getPublicSearchFilters } from '../events/public-search-filters';
+import {
+  getPublicSearchFilters,
+  setPublicSearchFilters,
+} from '../events/public-search-filters';
+
+const MEMBERS_ONLY = 'Members only';
+
+const promptSignUpToFilter = () =>
+  showSignUp(true, 'Join or sign in to filter matches');
+
+const submitPublicGender = async (gender: string[]) => {
+  if (!gender.length) return false;
+  setPublicSearchFilters({ gender });
+  return true;
+};
+
+const submitPublicAge = async (min_age: number | null, max_age: number | null) => {
+  setPublicSearchFilters({ age: { min_age, max_age } });
+  return true;
+};
+
+const withPublicSubmit = (
+  og: OptionGroup<OptionGroupInputs>,
+): OptionGroup<OptionGroupInputs> | null => {
+  const { input } = og;
+
+  if (og.title === 'Gender' && isOptionGroupCheckChips(input)) {
+    return {
+      ...og,
+      input: { checkChips: { ...input.checkChips, submit: submitPublicGender } },
+    };
+  }
+  if (og.title === 'Age' && isOptionGroupRangeSlider(input)) {
+    return {
+      ...og,
+      input: { rangeSlider: { ...input.rangeSlider, submit: submitPublicAge } },
+    };
+  }
+  return null;
+};
 
 const getCurrentValueAsLabel = (
   og: OptionGroup<OptionGroupInputs> | undefined,
@@ -324,18 +364,26 @@ const SearchFilterList = ({
 }) => {
   const { appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
+  const isSignedOut = useIsWebLoggedOut();
   const data = useSearchFilters();
 
   const answers = data?.answer ?? [];
 
-  const optionButtons = (optionGroups: OptionGroup<OptionGroupInputs>[]) => {
+  const optionButtons = (
+    optionGroups: OptionGroup<OptionGroupInputs>[],
+    labelMembersOnly = false,
+  ) => {
     const current = optionGroups.map((og) =>
       withCurrentValue(og, data, signedInUser));
 
     return current.map((og, i) =>
       <OptionButton
         key={i}
-        setting={getCurrentValueAsLabel(og, signedInUser)}
+        setting={
+          labelMembersOnly && !withPublicSubmit(og) ?
+          MEMBERS_ONLY :
+          getCurrentValueAsLabel(og, signedInUser)
+        }
         optionGroups={current.slice(i)}
       />
     );
@@ -346,11 +394,27 @@ const SearchFilterList = ({
       {includeBasics &&
         <>
           <Title style={{marginTop: 0}}>Basics</Title>
-          {optionButtons(searchBasicsOptionGroups)}
+          {optionButtons(searchBasicsOptionGroups, isSignedOut)}
         </>
       }
 
-      <Title style={{marginTop: includeBasics ? 40 : 0}}>Other Basics</Title>
+      {isSignedOut &&
+        <View style={[styles.joinBox, { marginTop: includeBasics ? 40 : 0 }]}>
+          <DefaultText style={styles.joinText}>
+            Join to use 20+ more filters
+          </DefaultText>
+          <ButtonWithCenteredText
+            onPress={promptSignUpToFilter}
+            containerStyle={styles.joinButton}
+          >
+            Join or sign in
+          </ButtonWithCenteredText>
+        </View>
+      }
+
+      <Title style={{marginTop: includeBasics && !isSignedOut ? 40 : 0}}>
+        Other Basics
+      </Title>
       {optionButtons(searchOtherBasicsOptionGroups)}
 
       <Title style={{marginTop: 40}}>Two-way Filters</Title>
@@ -400,30 +464,28 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
 
   const data = useSearchFilters();
 
-  const promptSignUp = useCallback(() => {
-    showSignUp(true, 'Join or sign in to filter matches');
-  }, []);
-
   const onPressQAndAAnswers = useCallback(() => {
     if (isLocked) {
-      promptSignUp();
+      promptSignUpToFilter();
       return;
     }
     navigation.navigate("Q&A Filter Screen");
-  }, [navigation, isLocked, promptSignUp]);
+  }, [navigation, isLocked]);
 
   const onPressTwoWayFilters = useCallback(() => {
     if (isLocked) {
-      promptSignUp();
+      promptSignUpToFilter();
       return;
     }
     navigation.navigate("Two-way Filters Screen");
-  }, [navigation, isLocked, promptSignUp]);
+  }, [navigation, isLocked]);
 
   const Button_ = useCallback((props: OptionButtonProps) => {
-    if (isLocked) {
+    const publicOg = isLocked ? withPublicSubmit(props.optionGroups[0]) : null;
+
+    if (isLocked && !publicOg) {
       return <ButtonForOption
-        onPress={promptSignUp}
+        onPress={promptSignUpToFilter}
         showSkipButton={false}
         noSettingText="Any"
         {...props}
@@ -435,8 +497,9 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
       showSkipButton={false}
       noSettingText="Any"
       {...props}
+      optionGroups={publicOg ? [publicOg] : props.optionGroups}
     />;
-  }, [navigation, isLocked, promptSignUp]);
+  }, [navigation, isLocked]);
 
   useEffect(() => {
     if (isLocked) {
@@ -755,7 +818,7 @@ const TwoWayFilterToggles = () => {
 
   const onToggle = useCallback((key: string, value: boolean) => {
     if (isLocked) {
-      showSignUp(true, 'Join or sign in to filter matches');
+      promptSignUpToFilter();
       return;
     }
     setTwoWayFilter(key, value);
@@ -838,9 +901,30 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
+  joinBox: {
+    marginBottom: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: 'rgb(228, 204, 255)',
+    alignItems: 'center',
+    gap: 10,
+  },
+  joinText: {
+    color: 'black',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  joinButton: {
+    width: '100%',
+    height: 44,
+    marginTop: 0,
+    marginBottom: 0,
+  },
 });
 
 export {
+  MEMBERS_ONLY,
   QAndAFilterResults,
   SearchFilterList,
   SearchFilterScreen,
@@ -850,7 +934,9 @@ export {
   countChangedAdvancedFilters,
   signedOutSearchFilters,
   getCurrentValueAsLabel,
+  promptSignUpToFilter,
   useColdStartSearchFilters,
   useQAndAFilters,
   withCurrentValue,
+  withPublicSubmit,
 }
