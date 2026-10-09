@@ -74,6 +74,8 @@ type Span = { x: number, width: number };
 
 const TRAY_END_PADDING = 5;
 
+const MAX_CELLS = 1000;
+
 const collapseFrom = (width: number) => new Keyframe({
   0: { width },
   100: { width: UNDERLAY_OVERLAP, easing: MOVE_EASING },
@@ -256,6 +258,7 @@ const CellContent = memo(({
 const TrayCell = memo(({
   kind,
   name,
+  position,
   isFirst,
   isLast,
   isUnderlay,
@@ -286,22 +289,25 @@ const TrayCell = memo(({
       style={{
         height: 50,
         marginLeft: isUnderlay && !isFirst ? -UNDERLAY_OVERLAP : 0,
+        zIndex: isUnderlay ? undefined : MAX_CELLS - position,
       }}
     >
-      <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          left: 0,
-          right: isLast ? -TRAY_END_PADDING : 0,
-          backgroundColor: appTheme.inputColor,
-          borderTopLeftRadius: isFirst ? 25 : 0,
-          borderBottomLeftRadius: isFirst ? 25 : 0,
-          borderTopRightRadius: isLast ? 25 : 0,
-          borderBottomRightRadius: isLast ? 25 : 0,
-        }}
-      />
+      {isUnderlay &&
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: isLast ? -TRAY_END_PADDING : 0,
+            backgroundColor: appTheme.inputColor,
+            borderTopLeftRadius: isFirst ? 25 : 0,
+            borderBottomLeftRadius: isFirst ? 25 : 0,
+            borderTopRightRadius: isLast ? 25 : 0,
+            borderBottomRightRadius: isLast ? 25 : 0,
+          }}
+        />
+      }
       <View
         style={{
           flexGrow: 1,
@@ -392,6 +398,16 @@ const RibbonChips = memo(({
   }, []);
 
   const positionsRef = useRef(new Map<string, number>());
+  const versionsRef = useRef(new Map<string, number>());
+  const previousYoursRef = useRef(yours);
+
+  if (previousYoursRef.current !== yours) {
+    const [front] = yours;
+    if (previousYoursRef.current.indexOf(front) > 0) {
+      versionsRef.current.set(front, (versionsRef.current.get(front) ?? 0) + 1);
+    }
+    previousYoursRef.current = yours;
+  }
 
   const isNearView = useCallback((key: string) => {
     const span = spansRef.current.get(key);
@@ -427,7 +443,7 @@ const RibbonChips = memo(({
     >
       {cells.map(({ kind, name }, i) =>
         <TrayCell
-          key={`${kind}:${name}`}
+          key={`${kind}:${name}:${versionsRef.current.get(name) ?? 0}`}
           kind={kind}
           name={name}
           position={positionIfNear(`cell:${name}`, i)}
@@ -453,7 +469,7 @@ const RibbonChips = memo(({
           entering={popIn}
           exiting={popOut}
           onLayout={onTrayLayout}
-          style={{ marginRight: TRAY_END_PADDING }}
+          style={{ marginRight: TRAY_END_PADDING, zIndex: 0 }}
         >
           <LayoutAnimationConfig skipEntering={true}>
             {renderTray(true)}
