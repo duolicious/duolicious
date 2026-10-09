@@ -43,6 +43,7 @@ import { PointOfSaleModal } from './components/modal/point-of-sale-modal';
 import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-confirmation-modal';
 import { WebAppMovingModal } from './components/modal/web-app-moving-modal';
 import { SignUpModal } from './components/modal/sign-up-modal';
+import { ClubHosts } from './components/clubs/hosts';
 import { SignUpBanner } from './components/sign-up-banner';
 import { useAppThemeLoader, useAppTheme } from './app-theme/app-theme';
 import { useAppStartup } from './app-startup/app-startup';
@@ -173,6 +174,7 @@ const App = () => {
                   component={InviteScreen}
                   options={{ title: 'Invitation' }} />
               </Stack.Navigator>
+              <ClubHosts/>
             </NavigationContainer>
             <GlobalBackButton/>
             <SignUpBanner/>

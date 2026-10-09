@@ -1,17 +1,10 @@
 import {
   LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Platform,
-  Pressable,
-  ScrollView,
   StyleSheet,
   View,
-  ViewStyle,
 } from 'react-native';
 import {
-  Dispatch,
-  SetStateAction,
   memo,
   useCallback,
   useEffect,
@@ -30,21 +23,18 @@ import type { HomeParamList, SearchParamList } from '../navigation/linking';
 import { ProfileCard }  from './profile-card';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { SearchFilterScreen } from './search-filter-screen';
-import { DefaultText } from './default-text';
 import { DefaultFlatList, FetchPageError } from './default-flat-list';
 import { japi } from '../api/api';
 import { TopNavBarButton } from './top-nav-bar-button';
-import { LinearGradient } from 'expo-linear-gradient';
 import { isMobile } from '../util/util';
 import * as _ from 'lodash';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { ClubItem, sortClubs } from '../club/club';
-import { listen, lastEvent } from '../events/events';
+import { useJoinedClubs, useSearchClub } from '../club/club';
+import { ClubRow } from './clubs/club-row';
+import { OldClubRow } from './clubs/old-club-row';
+import { clubsRedesign } from '../util/trials';
 import { searchQueue } from '../api/queue';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
-import { useAppTheme } from '../app-theme/app-theme';
-import { AnimatedPressable, HoverCircle, hoverTransition, useHover } from './hover';
-import { useIsWebLoggedOut } from '../events/signed-in-user';
+import { useIsWebLoggedOut, useSignedInUser } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { getPublicSearchFilters } from '../events/public-search-filters';
 import { genders } from '../data/option-groups';
@@ -84,62 +74,12 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 5,
   },
-  clubsScrollViewContainer: {
-    alignItems: 'center',
-  },
-  clubsContentContainerContainer: {
-    borderRadius: 5,
-    overflow: 'hidden',
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: 600,
-  },
-  clubTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    paddingLeft: 5,
-    paddingRight: 10,
-    paddingVertical: 5,
-  },
-  clubContainerEveryone: {
-    marginHorizontal: 30,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  clubContainer: {
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  clubArrow: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clubText: {
-    fontSize: 16,
-    fontFamily: 'Trueno',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
 });
 
 const minCardWidth = 125;
 
 const scrollIndicatorInsets = {
   top: 50,
-};
-
-const getStateFromClubItems = (cs: ClubItem[] | undefined) => {
-  const clubs = cs ?? [];
-
-  const hasClubs = clubs
-    .length > 0;
-  const selectedClub = clubs
-    .find((c) => c.search_preference === true)
-    ?.name;
-
-  return { hasClubs, selectedClub };
 };
 
 const Stack = createNativeStackNavigator();
@@ -249,385 +189,9 @@ const fetchPage = (
   return page;
 };
 
-type ClubSelectorProps = {
-  selectedClub: string | null;
-  onChangeSelectedClub: (s: string | null) => void;
-};
-
-const LeftContinuation = ({scrollLeft}: {scrollLeft: () => void}) => {
-  const { appTheme } = useAppTheme();
-  const { hovered, hoverProps } = useHover();
-
-  if (isMobile()) {
-    return (
-      <LinearGradient
-        start={{x: 0, y: 0 }}
-        end={{x: 1, y: 0 }}
-        colors={['#00000044', '#00000000']}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-
-          height: '100%',
-          width: 10,
-
-          zIndex: 999,
-        }}
-      />
-    );
-  } else {
-    return (
-      <Pressable
-        onPress={scrollLeft}
-        {...hoverProps}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-
-          height: '100%',
-          width: 40,
-
-          zIndex: 999,
-        }}
-      >
-        <LinearGradient
-          start={{x: 0, y: 0 }}
-          end={{x: 1, y: 0 }}
-          locations={[0.0, 0.8, 1.0]}
-          colors={[
-            `${appTheme.primaryColor}ff`,
-            `${appTheme.primaryColor}e5`,
-            `${appTheme.primaryColor}00`,
-          ]}
-          style={{
-            height: '100%',
-            width: '100%',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-          }}
-        >
-          <View style={styles.clubArrow}>
-            <HoverCircle visible={hovered} inset={0} />
-            <Ionicons
-              style={{
-                fontSize: 26,
-                color: appTheme.secondaryColor,
-              }}
-              name="chevron-back"
-            />
-          </View>
-        </LinearGradient>
-      </Pressable>
-    );
-  }
-};
-
-const RightContinuation = ({scrollRight}: {scrollRight: () => void}) => {
-  const { appTheme } = useAppTheme();
-  const { hovered, hoverProps } = useHover();
-
-  if (isMobile()) {
-    return (
-      <LinearGradient
-        start={{x: 0, y: 0 }}
-        end={{x: 1, y: 0 }}
-        colors={['#00000000', '#00000044']}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-
-          height: '100%',
-          width: 10,
-
-          zIndex: 999,
-        }}
-      />
-    );
-  } else {
-    return (
-      <Pressable
-        onPress={scrollRight}
-        {...hoverProps}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-
-          height: '100%',
-          width: 40,
-
-          zIndex: 999,
-        }}
-      >
-        <LinearGradient
-          start={{x: 0, y: 0 }}
-          end={{x: 1, y: 0 }}
-          locations={[0.0, 0.2, 1.0]}
-          colors={[
-            `${appTheme.primaryColor}00`,
-            `${appTheme.primaryColor}e5`,
-            `${appTheme.primaryColor}ff`,
-          ]}
-          style={{
-            height: '100%',
-            width: '100%',
-            justifyContent: 'center',
-            alignItems: 'flex-end',
-          }}
-        >
-          <View style={styles.clubArrow}>
-            <HoverCircle visible={hovered} inset={0} />
-            <Ionicons
-              style={{
-                fontSize: 26,
-                color: appTheme.secondaryColor,
-              }}
-              name="chevron-forward"
-            />
-          </View>
-        </LinearGradient>
-      </Pressable>
-    );
-  }
-};
-
-const ClubRowItem = ({ name, isSelected, style, onPress, onLayout }: {
-  name: string
-  isSelected: boolean
-  style: ViewStyle
-  onPress: () => void
-  onLayout?: (e: LayoutChangeEvent) => void
-}) => {
-  const { appTheme } = useAppTheme();
-  const { hovered, hoverProps } = useHover();
-
-  return (
-    <AnimatedPressable
-      style={[
-        style,
-        {
-          backgroundColor: hovered && !isSelected
-            ? appTheme.hoverOverlayColor
-            : 'transparent',
-        },
-        hoverTransition(['backgroundColor']),
-      ]}
-      onPress={onPress}
-      onLayout={onLayout}
-      {...hoverProps}
-    >
-      <DefaultText
-        style={[
-          styles.clubText,
-          isSelected ? {
-            color: appTheme.primaryColor,
-            backgroundColor: appTheme.secondaryColor,
-          } : {
-            color: appTheme.secondaryColor,
-          },
-        ]}
-      >
-        {name}
-      </DefaultText>
-    </AnimatedPressable>
-  );
-};
-
-const ClubSelector = (props: ClubSelectorProps) => {
-  const { appTheme } = useAppTheme();
-
-  const scrollJumpSize = 150;
-
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollXRef = useRef(0);
-
-  const hasJumpedToClubRef = useRef(false);
-
-  const [isTop, setIsTop] = useState(true);
-  const [isBottom, setIsBottom] = useState(true);
-  const [contentWidth, setContentWidth] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [clubs, setClubs] = useState<ClubItem[]>(
-    sortClubs(lastEvent('updated-clubs')));
-
-
-  const checkIsTop = useCallback((nativeEvent: NativeScrollEvent) => {
-    const isCloseToTop = nativeEvent.contentOffset.x <= 10;
-
-    setIsTop(isCloseToTop);
-  }, [setIsTop]);
-
-  const checkIsBottom = useCallback((nativeEvent: NativeScrollEvent) => {
-    const isCloseToBottom = (
-      nativeEvent.layoutMeasurement.width +
-      nativeEvent.contentOffset.x) >= nativeEvent.contentSize.width - 10;
-
-    setIsBottom(isCloseToBottom);
-  }, [setIsBottom]);
-
-  const onScroll = useCallback(({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollXRef.current = nativeEvent.contentOffset.x;
-
-    checkIsTop(nativeEvent);
-    checkIsBottom(nativeEvent);
-  }, [checkIsTop, checkIsBottom]);
-
-  const onContentSizeChange = useCallback((width: number) =>
-    setContentWidth(width), []);
-
-  const onScrollViewLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) =>
-    setContainerWidth(nativeEvent.layout.width), []);
-
-  const onSelectedClubLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    (async () => {
-      if (!scrollViewRef.current) {
-        return;
-      }
-
-      if (hasJumpedToClubRef.current) {
-        return;
-      }
-
-      scrollViewRef.current.scrollTo({
-        x: nativeEvent.layout.x - scrollJumpSize,
-        animated: false,
-      });
-
-      hasJumpedToClubRef.current = true;
-    })();
-  }, []);
-
-  const scrollLeft = useCallback(() => {
-    if (!scrollViewRef.current) {
-      return;
-    }
-    scrollViewRef.current.scrollTo({
-      x: scrollXRef.current - scrollJumpSize,
-      animated: true,
-    });
-  }, []);
-
-  const scrollRight = useCallback(() => {
-    if (!scrollViewRef.current) {
-      return;
-    }
-    scrollViewRef.current.scrollTo({
-      x: scrollXRef.current + scrollJumpSize,
-      animated: true,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (containerWidth > 0 && contentWidth > 0) {
-      setIsBottom(containerWidth >= contentWidth);
-    }
-  }, [containerWidth, contentWidth]);
-
-  useEffect(() => {
-    return listen(
-      'updated-clubs',
-      (maybeCs: ClubItem[] | undefined) => {
-        hasJumpedToClubRef.current = false;
-
-        const sortedCs = sortClubs(maybeCs);
-        setClubs(sortedCs);
-      }
-    );
-  }, []);
-
-  if (!clubs || !clubs.length) {
-    return null;
-  }
-
-  return (
-    <View
-      style={{
-        width: '100%',
-        alignItems: 'stretch',
-        alignSelf: 'center',
-        paddingTop: 10,
-        paddingBottom: 5,
-        paddingHorizontal: 5,
-        overflow: 'hidden',
-        zIndex: 9999,
-        opacity: 0.9,
-        backgroundColor: appTheme.primaryColor,
-      }}
-    >
-      <View style={styles.clubsContentContainerContainer}>
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.clubsScrollViewContainer}
-          onScroll={onScroll}
-          onContentSizeChange={onContentSizeChange}
-          onLayout={onScrollViewLayout}
-        >
-          <DefaultText style={styles.clubTitle}>
-            CLUBS
-          </DefaultText>
-
-          <ClubRowItem
-            name="Everyone"
-            isSelected={props.selectedClub === null}
-            style={styles.clubContainerEveryone}
-            onPress={() => props.onChangeSelectedClub(null)}
-          />
-
-          {clubs.map((club) =>
-            <ClubRowItem
-              key={club.name}
-              name={club.name}
-              isSelected={props.selectedClub === club.name}
-              style={styles.clubContainer}
-              onPress={() => props.onChangeSelectedClub(club.name)}
-              onLayout={
-                props.selectedClub === club.name && !hasJumpedToClubRef.current ?
-                  onSelectedClubLayout :
-                  undefined
-              }
-            />
-          )}
-        </ScrollView>
-
-        {!isTop && <LeftContinuation scrollLeft={scrollLeft} />}
-        {!isBottom && <RightContinuation scrollRight={scrollRight} />}
-      </View>
-    </View>
-  );
-};
-
-const ListHeaderComponent = ({
-  hasClubs,
-  selectedClub,
-  setSelectedClub,
-}: {
-  hasClubs: boolean,
-  selectedClub: string | null,
-  setSelectedClub: Dispatch<SetStateAction<string | null>>,
-}) => {
-  if (hasClubs) {
-    return <ClubSelector
-      selectedClub={selectedClub}
-      onChangeSelectedClub={setSelectedClub}
-    />;
-  }
-
-  return null;
-};
-
 const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   const isPublic = useIsWebLoggedOut();
   const hasFilterPanel = useHasRightPane();
-
-  const {
-    hasClubs: initialHasClubs,
-    selectedClub: initialSelectedClub,
-  } = getStateFromClubItems(lastEvent<ClubItem[]>('updated-clubs'));
 
   const listRef = useRef<{ refresh: () => Promise<void> } | null>(null);
 
@@ -639,15 +203,11 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     observeListRef,
   } = useScrollbar('search');
 
-  const [
-    hasClubs,
-    setHasClubs,
-  ] = useState<boolean>(initialHasClubs);
-
-  const [
-    selectedClub,
-    setSelectedClub,
-  ] = useState<string | null>(initialSelectedClub ?? null);
+  const selectedClub = useSearchClub();
+  const [signedInUser] = useSignedInUser();
+  const isRedesign = clubsRedesign(signedInUser?.personId);
+  const hasJoinedClubs = (useJoinedClubs()?.length ?? 0) > 0;
+  const hasClubRow = isRedesign ? !isPublic : hasJoinedClubs;
 
   const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
 
@@ -709,32 +269,13 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     whileSearching(onPressRefresh);
   }, [selectedClub]);
 
-  useEffect(() => {
-    return listen(
-      'updated-clubs',
-      (cs: ClubItem[] | undefined) => {
-        const { hasClubs, selectedClub } = getStateFromClubItems(cs);
-
-        setHasClubs(hasClubs);
-
-        setSelectedClub((current) =>
-          selectedClub ??
-          ((cs ?? []).some((c) => c.name === current) ? current : null));
-      }
-    );
-  }, []);
-
   const fetchSearchPage = useMemo(
     () => fetchPage(selectedClub, isPublic),
     [selectedClub, isPublic]);
 
-  const listHeaderComponent = useMemo(() =>
-    <ListHeaderComponent
-      hasClubs={hasClubs}
-      selectedClub={selectedClub}
-      setSelectedClub={setSelectedClub}
-    />,
-    [hasClubs, selectedClub]);
+  const listHeaderComponent = useMemo(
+    () => !hasClubRow ? null : isRedesign ? <ClubRow /> : <OldClubRow />,
+    [hasClubRow, isRedesign]);
 
   const cardWidth = (width ?? 0) / numColumns;
 
@@ -747,7 +288,8 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
       />,
     [numColumns, cardWidth]);
 
-  const stickyHeaderIndices = useMemo(() => hasClubs ? [0] : [], [hasClubs]);
+  const stickyHeaderIndices = useMemo(
+    () => hasClubRow ? [0] : [], [hasClubRow]);
 
   return (
     <View style={styles.safeAreaView} onLayout={onLayoutScreen}>
@@ -792,7 +334,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         key={
           // This is needed to trigger a re-render when the sticky header
           // indicies change. Without this, the header is blank on Android.
-          String(hasClubs)
+          String(hasClubRow)
         }
         ref={listRef}
         innerRef={observeListRef}
@@ -808,8 +350,8 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         }
         fetchPage={fetchSearchPage}
         dataKey={JSON.stringify([selectedClub, isPublic])}
-        hideListHeaderComponentWhenEmpty={!hasClubs}
-        hideListHeaderComponentWhenLoading={!hasClubs}
+        hideListHeaderComponentWhenEmpty={!hasClubRow}
+        hideListHeaderComponentWhenLoading={!hasClubRow}
         numColumns={numColumns}
         contentContainerStyle={styles.listContainerStyle}
         ListHeaderComponent={listHeaderComponent}
@@ -819,7 +361,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         onContentSizeChange={onContentSizeChange}
         onScroll={onScroll}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
-        stickyHeaderHiddenOnScroll={hasClubs}
+        stickyHeaderHiddenOnScroll={hasClubRow}
         stickyHeaderIndices={stickyHeaderIndices}
         columnWrapperStyle={styles.listColumnWraperStyle}
       />}

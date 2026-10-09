@@ -10,7 +10,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProfileParamList } from '../navigation/linking';
 import {
   useCallback,
-  useEffect,
   useState,
 } from 'react';
 import Animated from 'react-native-reanimated';
@@ -19,22 +18,28 @@ import { TopNavBar } from './top-nav-bar';
 import { Title } from './title';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DefaultTextInput } from './default-text-input';
-import { api } from '../api/api';
 import * as _ from "lodash";
 import { Basic } from './basic';
-import { listen, lastEvent  } from '../events/events';
-import { ClubItem, joinClub, leaveClub, clubQuota } from '../club/club';
+import {
+  ClubItem,
+  clubQuota,
+  fetchClubItems,
+  joinClub,
+  leaveClub,
+  sortClubs,
+  useJoinedClubs,
+} from '../club/club';
 import { useShake } from '../animation/animation';
 import { useSignedInUser } from '../events/signed-in-user';
 import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useAppTheme } from '../app-theme/app-theme';
 
 const SelectedClub = ({
-  clubItem,
+  name,
   onPress,
 }: {
-  clubItem: ClubItem
-  onPress?: (clubItem: ClubItem) => void
+  name: string
+  onPress?: (name: string) => void
 }) => {
   const { appThemeName } = useAppTheme();
 
@@ -48,7 +53,7 @@ const SelectedClub = ({
         flexShrink: 1,
       }}
       disabled={!onPress}
-      onPress={onPress && (() => onPress(clubItem))}
+      onPress={onPress && (() => onPress(name))}
     >
       <Basic
         // Styled like the prospect profile's mutual clubs: bold, with the
@@ -67,7 +72,7 @@ const SelectedClub = ({
           fontWeight: '900',
         }}
       >
-        {clubItem.name}
+        {name}
       </Basic>
     </Pressable>
   );
@@ -136,29 +141,10 @@ const UnselectedClub = ({
   );
 };
 
-const fetchClubItems = async (q: string): Promise<ClubItem[]> => {
-  const cleanQ = q
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/\u2018/g, `'`)
-    .replace(/\u2019/g, `'`)
-    .replace(/\u201C/g, `"`)
-    .replace(/\u201D/g, `"`);
-
-  const response = await api<ClubItem[]>(
-    'get',
-    `/search-clubs?q=${encodeURIComponent(cleanQ)}`
-  );
-
-  return response.ok && response.json ? response.json : [];
-};
-
 const ClubSelector = ({navigation}: NativeStackScreenProps<ProfileParamList, 'Club Selector'>) => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [selectedClubs, setSelectedClubs] = useState(
-    lastEvent<ClubItem[]>('updated-clubs') ?? []
-  );
+  const selectedClubs = sortClubs(useJoinedClubs() ?? []);
 
   const [searchResults, setSearchResults] = useState<ClubItem[]>([]);
 
@@ -183,22 +169,10 @@ const ClubSelector = ({navigation}: NativeStackScreenProps<ProfileParamList, 'Cl
   }, [_fetchClubItems]);
 
   const onSelectClub = useCallback((club: ClubItem) => {
-    joinClub(club.name, club.count_members, club.search_preference);
+    joinClub(club.name);
   }, []);
 
-  const onUnselectClub = useCallback((club: ClubItem) => {
-    leaveClub(club.name);
-  }, []);
-
-  useEffect(
-    () => listen<ClubItem[]>(
-      'updated-clubs',
-      (cs) => setSelectedClubs(cs ?? [])
-    ),
-    [],
-  );
-
-  const clubsToFilter = new Set(selectedClubs.map(club => club.name));
+  const clubsToFilter = new Set(selectedClubs);
 
   const filteredSearchResults = searchResults
     .filter(club => !clubsToFilter.has(club.name));
@@ -296,8 +270,8 @@ const ClubSelector = ({navigation}: NativeStackScreenProps<ProfileParamList, 'Cl
               {selectedClubs.map((a, i) =>
                 <SelectedClub
                   key={String(i)}
-                  clubItem={a}
-                  onPress={onUnselectClub}
+                  name={a}
+                  onPress={leaveClub}
                 />
               )}
             </View>

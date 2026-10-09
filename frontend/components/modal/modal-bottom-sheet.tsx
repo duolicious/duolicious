@@ -18,6 +18,7 @@ import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { backgroundColors } from './background-colors';
 import { useAppTheme } from '../../app-theme/app-theme';
+import { SHEET_Z_INDEX } from '../../constants/constants';
 
 const SLIDE_DURATION = 250;
 const DISMISS_VELOCITY = 800;
@@ -33,6 +34,9 @@ const ModalBottomSheet = ({
   footer,
   children,
   heightFraction = 0.75,
+  top = 0,
+  onOpened,
+  onClosed,
 }: {
   visible: boolean
   onRequestClose: () => void
@@ -41,12 +45,15 @@ const ModalBottomSheet = ({
   footer?: ReactNode
   children: ReactNode
   heightFraction?: number
+  top?: number
+  onOpened?: () => void
+  onClosed?: () => void
 }) => {
   const { appTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboard = useReanimatedKeyboardAnimation();
-  const sheetHeight = Math.round(heightFraction * windowHeight);
+  const sheetHeight = Math.round(heightFraction * (windowHeight - top));
 
   const [isMounted, setIsMounted] = useState(visible);
   const translateY = useSharedValue(sheetHeight);
@@ -64,7 +71,15 @@ const ModalBottomSheet = ({
 
     if (visible) {
       translateY.value = sheetHeight;
-      translateY.value = withTiming(0, { duration: SLIDE_DURATION });
+      translateY.value = withTiming(
+        0,
+        { duration: SLIDE_DURATION },
+        (finished) => {
+          if (finished && onOpened) {
+            runOnJS(onOpened)();
+          }
+        },
+      );
     } else {
       translateY.value = withTiming(
         sheetHeight,
@@ -72,6 +87,9 @@ const ModalBottomSheet = ({
         (finished) => {
           if (finished) {
             runOnJS(setIsMounted)(false);
+          }
+          if (finished && onClosed) {
+            runOnJS(onClosed)();
           }
         },
       );
@@ -198,7 +216,7 @@ const ModalBottomSheet = ({
 const styles = StyleSheet.create({
   wrapper: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
+    zIndex: SHEET_Z_INDEX,
   },
   avoidingView: {
     flex: 1,

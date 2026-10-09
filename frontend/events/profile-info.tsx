@@ -2,7 +2,6 @@ import { useLayoutEffect, useState } from 'react';
 import { api } from '../api/api';
 import { listen, notify, lastEvent } from './events';
 import { notifyUpdatedVerification } from '../verification/verification';
-import type { ClubItem } from '../club/club';
 import type { SpotifyArtistItem } from '../api/spotify';
 
 // The GET /profile-info response uses space-separated keys for some fields
@@ -50,7 +49,6 @@ type ProfileInfo = {
   url_slug?: string | null;
   height?: number;
   theme?: ProfileInfoTheme;
-  clubs?: ClubItem[];
   spotify_artists?: SpotifyArtistItem[];
   spotify_connected?: boolean;
   spotify_artists_synced?: boolean;

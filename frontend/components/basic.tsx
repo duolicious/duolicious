@@ -1,4 +1,5 @@
 import {
+  GestureResponderEvent,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -59,7 +60,7 @@ const Basic = ({children, ...rest}: {
   icon?: BasicIcon,
   style?: StyleProp<ViewStyle>,
   textStyle?: StyleProp<TextStyle>,
-  onPress?: () => boolean | void,
+  onPress?: (e: GestureResponderEvent) => boolean | void,
 }) => {
   const {
     icon,
@@ -110,12 +111,12 @@ const Basic = ({children, ...rest}: {
         onPressOut={() => setPressed(false)}
         {...hoverProps}
         onPress={
-          () => {
+          (e) => {
             if (!onPress) {
               return;
             }
 
-            const success = onPress();
+            const success = onPress(e);
             if (success === false && signedInUser?.hasGold) {
               startShake();
             } else if (success === false && !signedInUser?.hasGold) {
