@@ -49,6 +49,7 @@ import { useAppStartup } from './app-startup/app-startup';
 import { useAppNavigation } from './navigation/app-navigation';
 import { showPendingSpotifyConnectToast } from './api/spotify';
 import { showPendingPayPalResultToast } from './api/paypal';
+import './global.css';
 
 verificationWatcher();
 

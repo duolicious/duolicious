@@ -20,9 +20,6 @@ const DefaultTextInput = (props: ComponentProps<typeof TextInput> & { innerRef?:
       returnKeyType="done"
       onSubmitEditing={() => Keyboard.dismiss()}
       style={{
-        // @ts-ignore
-        outline: 'none',
-
         color: appTheme.secondaryColor,
         backgroundColor: appTheme.inputColor,
         ...styles.textInput,

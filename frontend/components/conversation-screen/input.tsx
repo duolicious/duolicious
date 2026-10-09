@@ -251,12 +251,7 @@ const useRecorder = () => {
 const AutoResizingTextInput = (props: TextInputProps) => {
   const { height } = useWindowDimensions();
 
-  type WebTextInputStyle = TextStyle & {
-    outline?: string;
-  };
-
-  const inputOverlayStyle: StyleProp<WebTextInputStyle> = {
-    outline: 'none',
+  const inputOverlayStyle: StyleProp<TextStyle> = {
     position: 'absolute',
     top: Platform.OS === 'web' ? 5 : 4,
     bottom: 0,
@@ -438,8 +433,7 @@ const IconBar = ({
               icon={faPaperPlane}
               size={20}
               color="#70f"
-              // @ts-ignore – 'outline' is a web-only style prop
-              style={{ marginRight: 5, marginBottom: 5, outline: 'none' }}
+              style={{ marginRight: 5, marginBottom: 5 }}
             />
           </Animated.View>
         </Pressable>

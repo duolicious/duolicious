@@ -42,10 +42,6 @@ const ReplyButton = ({
           icon={faReply}
           size={16}
           color={appTheme.secondaryColor}
-          style={{
-            /* @ts-ignore */
-            outline: 'none',
-          }}
         />
       </Pressable>
     </View>

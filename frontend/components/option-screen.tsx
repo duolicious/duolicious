@@ -1294,11 +1294,7 @@ const ColorPickerButton = ({
         }}
       />
       <FontAwesomeIcon
-        style={{
-          width: 20,
-          // @ts-ignore
-          outline: 'none',
-        }}
+        style={{ width: 20 }}
         icon={faCaretDown}
         size={20}
         color="black"

@@ -726,10 +726,6 @@ const ChatMessage = ({
                       icon={faReply}
                       size={20}
                       color={textColor}
-                      style={{
-                        /* @ts-ignore */
-                        outline: 'none',
-                      }}
                     />
                   </View>
                 }
