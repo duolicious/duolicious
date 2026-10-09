@@ -1,6 +1,7 @@
 import {
   RefObject,
   memo,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -64,6 +65,12 @@ const popOut = ZoomOut
   .easing(MOVE_EASING);
 
 const UNDERLAY_OVERLAP = 25;
+
+const NEAR_VIEWPORT = 300;
+
+type Edges = { x: number, viewport: number, content: number };
+
+type Span = { x: number, width: number };
 
 const TRAY_END_PADDING = 5;
 
@@ -141,14 +148,14 @@ const NO_CLUBS: string[] = [];
 
 const useRowClubs = () => {
   const yours = useJoinedClubs() ?? NO_CLUBS;
-  const { suggested, isReplacing } = useSuggestedClubs();
+  const { suggested, leaving } = useSuggestedClubs();
 
   const suggestions = useMemo(() => {
     const joined = new Set(yours);
     return (suggested ?? []).map((c) => c.name).filter((c) => !joined.has(c));
   }, [yours, suggested]);
 
-  return { yours, suggestions, isReplacing };
+  return { yours, suggestions, leaving };
 };
 
 const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
@@ -205,78 +212,209 @@ const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
   );
 };
 
-const RibbonFilter = memo(({
+type CellKind = 'everyone' | 'divider' | 'club';
+
+type OnCellLayout = (key: string, e: LayoutChangeEvent) => void;
+
+type IsNearView = (key: string) => boolean;
+
+const CellContent = memo(({
+  kind,
   name,
   isSelected,
 }: {
-  name: string | null,
+  kind: CellKind,
+  name: string,
   isSelected: boolean,
-}) =>
-  <ClubFilter
-    name={name}
-    isSelected={isSelected}
-    onPress={(e) => name !== null && isSelected
-      ? openClubCard({ name, anchor: e.nativeEvent })
-      : selectSearchClub(name)
-    }
-  />
-);
+}) => {
+  const { appTheme } = useAppTheme();
 
-const Suggestion = memo(({ name }: { name: string }) => {
+  if (kind === 'divider') {
+    return (
+      <View
+        style={{
+          width: 1,
+          height: 24,
+          backgroundColor: appTheme.reactionBarBorderColor,
+        }}
+      />
+    );
+  }
+
+  return (
+    <ClubFilter
+      name={kind === 'club' ? name : null}
+      isSelected={isSelected}
+      onPress={(e) => kind === 'club' && isSelected
+        ? openClubCard({ name, anchor: e.nativeEvent })
+        : selectSearchClub(kind === 'club' ? name : null)
+      }
+    />
+  );
+});
+
+const TrayCell = memo(({
+  kind,
+  name,
+  isFirst,
+  isLast,
+  isUnderlay,
+  isSelected,
+  isNearView,
+  collapseWidth,
+  onLayout,
+}: {
+  kind: CellKind,
+  name: string,
+  position: number,
+  isFirst: boolean,
+  isLast: boolean,
+  isUnderlay: boolean,
+  isSelected: boolean,
+  isNearView: IsNearView,
+  collapseWidth: number | undefined,
+  onLayout: OnCellLayout,
+}) => {
   const { appTheme } = useAppTheme();
 
   return (
-    <View style={{ borderRadius: 999, backgroundColor: appTheme.primaryColor }}>
-      <Club
-        name={name}
-        isMutual={false}
-        onPress={(e) => openClubCard({
-          name,
-          anchor: e.nativeEvent,
-          rowPosition: 'end',
-        })}
+    <Animated.View
+      layout={isNearView(`cell:${name}`) ? moveTransition : undefined}
+      entering={isUnderlay ? undefined : popIn}
+      exiting={collapseWidth === undefined ? undefined : collapseFrom(collapseWidth)}
+      onLayout={isUnderlay ? (e) => onLayout(name, e) : undefined}
+      style={{
+        height: 50,
+        marginLeft: isUnderlay && !isFirst ? -UNDERLAY_OVERLAP : 0,
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: isLast ? -TRAY_END_PADDING : 0,
+          backgroundColor: appTheme.inputColor,
+          borderTopLeftRadius: isFirst ? 25 : 0,
+          borderBottomLeftRadius: isFirst ? 25 : 0,
+          borderTopRightRadius: isLast ? 25 : 0,
+          borderBottomRightRadius: isLast ? 25 : 0,
+        }}
       />
-    </View>
+      <View
+        style={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingLeft: isFirst ? 8 : 3 + (isUnderlay ? UNDERLAY_OVERLAP : 0),
+          paddingRight: 3,
+          opacity: isUnderlay ? 0 : 1,
+        }}
+      >
+        <CellContent kind={kind} name={name} isSelected={isSelected} />
+      </View>
+    </Animated.View>
+  );
+});
+
+const SuggestionCell = memo(({
+  name,
+  isNearView,
+  isLeaving,
+  onLayout,
+}: {
+  name: string,
+  position: number,
+  isNearView: IsNearView,
+  isLeaving: boolean,
+  onLayout: OnCellLayout,
+}) => {
+  const { appTheme } = useAppTheme();
+
+  return (
+    <Animated.View
+      layout={isNearView(`suggestion:${name}`) ? moveTransition : undefined}
+      entering={popIn}
+      exiting={isLeaving ? popOut : undefined}
+      onLayout={(e) => onLayout(name, e)}
+      style={{ zIndex: 1 }}
+    >
+      <View style={{ borderRadius: 999, backgroundColor: appTheme.primaryColor }}>
+        <Club
+          name={name}
+          isMutual={false}
+          onPress={(e) => openClubCard({
+            name,
+            anchor: e.nativeEvent,
+            rowPosition: 'end',
+          })}
+        />
+      </View>
+    </Animated.View>
   );
 });
 
 const RibbonChips = memo(({
   yours,
   suggestions,
-  isReplacing,
+  leaving,
   searchClub,
+  edgesRef,
 }: {
   yours: string[],
   suggestions: string[],
-  isReplacing: boolean,
+  leaving: Set<string>,
   searchClub: string | null,
+  edgesRef: RefObject<Edges>,
 }) => {
-  const { appTheme } = useAppTheme();
-
-  const renderFilter = (name: string | null) =>
-    <RibbonFilter name={name} isSelected={name === searchClub} />;
-
-  const cells = [
-    { key: '', node: renderFilter(null) },
-    {
-      key: 'divider',
-      node: <View
-        style={{
-          width: 1,
-          height: 24,
-          backgroundColor: appTheme.reactionBarBorderColor,
-        }}
-      />,
-    },
-    ...yours.map((name) => ({ key: name, node: renderFilter(name) })),
-  ];
-
+  const spansRef = useRef(new Map<string, Span>());
   const [underlayWidths, setUnderlayWidths] =
     useState<Record<string, number>>({});
 
-  const onLayoutUnderlay = (key: string) => ifShown((width) =>
+  const onTrayLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    spansRef.current.set('tray', nativeEvent.layout);
+  }, []);
+
+  const onCellLayout = useCallback((key: string, { nativeEvent }: LayoutChangeEvent) => {
+    const { width } = nativeEvent.layout;
+    if (width === 0) {
+      return;
+    }
+    spansRef.current.set(`cell:${key}`, nativeEvent.layout);
     setUnderlayWidths((widths) =>
-      widths[key] === width ? widths : { ...widths, [key]: width }));
+      widths[key] === width ? widths : { ...widths, [key]: width });
+  }, []);
+
+  const onSuggestionLayout = useCallback((key: string, { nativeEvent }: LayoutChangeEvent) => {
+    if (nativeEvent.layout.width > 0) {
+      spansRef.current.set(`suggestion:${key}`, nativeEvent.layout);
+    }
+  }, []);
+
+  const positionsRef = useRef(new Map<string, number>());
+
+  const isNearView = useCallback((key: string) => {
+    const span = spansRef.current.get(key);
+    const tray = spansRef.current.get('tray');
+    const offset = key.startsWith('cell:') ? tray?.x : 0;
+    const { x, viewport } = edgesRef.current;
+    return !span || offset === undefined || viewport === 0 || (
+      offset + span.x + span.width > x - NEAR_VIEWPORT &&
+      offset + span.x < x + viewport + NEAR_VIEWPORT);
+  }, [edgesRef]);
+
+  const positionIfNear = (key: string, position: number) => {
+    const last = positionsRef.current.get(key);
+    const next = last === undefined || isNearView(key) ? position : last;
+    positionsRef.current.set(key, next);
+    return next;
+  };
+
+  const cells: { kind: CellKind, name: string }[] = [
+    { kind: 'everyone', name: '' },
+    { kind: 'divider', name: 'divider' },
+    ...yours.map((name) => ({ kind: 'club' as const, name })),
+  ];
 
   const renderTray = (isUnderlay: boolean) =>
     <View
@@ -287,46 +425,24 @@ const RibbonChips = memo(({
         ...(isUnderlay && { position: 'absolute', top: 0, left: 0 }),
       }}
     >
-      {cells.map(({ key, node }, i) =>
-        <Animated.View
-          key={key}
-          layout={moveTransition}
-          entering={isUnderlay ? undefined : popIn}
-          exiting={isUnderlay && yours.length > 1 && underlayWidths[key] !== undefined
-            ? collapseFrom(underlayWidths[key])
+      {cells.map(({ kind, name }, i) =>
+        <TrayCell
+          key={`${kind}:${name}`}
+          kind={kind}
+          name={name}
+          position={positionIfNear(`cell:${name}`, i)}
+          isFirst={i === 0}
+          isLast={i === cells.length - 1}
+          isUnderlay={isUnderlay}
+          isSelected={kind === 'everyone'
+            ? searchClub === null
+            : kind === 'club' && name === searchClub}
+          isNearView={isNearView}
+          collapseWidth={isUnderlay && yours.length > 1
+            ? underlayWidths[name]
             : undefined}
-          onLayout={isUnderlay ? onLayoutUnderlay(key) : undefined}
-          style={{
-            height: 50,
-            marginLeft: isUnderlay && i > 0 ? -UNDERLAY_OVERLAP : 0,
-          }}
-        >
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: 0,
-              right: i === cells.length - 1 ? -TRAY_END_PADDING : 0,
-              backgroundColor: appTheme.inputColor,
-              borderTopLeftRadius: i === 0 ? 25 : 0,
-              borderBottomLeftRadius: i === 0 ? 25 : 0,
-              borderTopRightRadius: i === cells.length - 1 ? 25 : 0,
-              borderBottomRightRadius: i === cells.length - 1 ? 25 : 0,
-            }}
-          />
-          <View
-            style={{
-              flexGrow: 1,
-              justifyContent: 'center',
-              paddingLeft: i === 0 ? 8 : 3 + (isUnderlay ? UNDERLAY_OVERLAP : 0),
-              paddingRight: 3,
-              opacity: isUnderlay ? 0 : 1,
-            }}
-          >
-            {node}
-          </View>
-        </Animated.View>
+          onLayout={onCellLayout}
+        />
       )}
     </View>;
 
@@ -336,6 +452,7 @@ const RibbonChips = memo(({
         <Animated.View
           entering={popIn}
           exiting={popOut}
+          onLayout={onTrayLayout}
           style={{ marginRight: TRAY_END_PADDING }}
         >
           <LayoutAnimationConfig skipEntering={true}>
@@ -344,16 +461,15 @@ const RibbonChips = memo(({
           </LayoutAnimationConfig>
         </Animated.View>
       }
-      {suggestions.map((name) =>
-        <Animated.View
+      {suggestions.map((name, i) =>
+        <SuggestionCell
           key={name}
-          layout={moveTransition}
-          entering={popIn}
-          exiting={isReplacing ? popOut : undefined}
-          style={{ zIndex: 1 }}
-        >
-          <Suggestion name={name} />
-        </Animated.View>
+          name={name}
+          position={positionIfNear(`suggestion:${name}`, cells.length + i)}
+          isNearView={isNearView}
+          isLeaving={leaving.has(name)}
+          onLayout={onSuggestionLayout}
+        />
       )}
     </LayoutAnimationConfig>
   );
@@ -362,11 +478,11 @@ const RibbonChips = memo(({
 const ClubRow = () => {
   const { appTheme } = useAppTheme();
   const searchClub = useSearchClub();
-  const { yours, suggestions, isReplacing } = useRowClubs();
+  const { yours, suggestions, leaving } = useRowClubs();
 
   const rowRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const edgesRef = useRef({ x: 0, viewport: 0, content: 0 });
+  const edgesRef = useRef<Edges>({ x: 0, viewport: 0, content: 0 });
 
   const [isAtStart, setIsAtStart] = useState(true);
   const [isAtEnd, setIsAtEnd] = useState(true);
@@ -440,8 +556,9 @@ const ClubRow = () => {
         <RibbonChips
           yours={yours}
           suggestions={suggestions}
-          isReplacing={isReplacing}
+          leaving={leaving}
           searchClub={searchClub}
+          edgesRef={edgesRef}
         />
       </ScrollView>
       <Animated.View

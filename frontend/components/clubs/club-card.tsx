@@ -1,4 +1,4 @@
-import { ComponentProps, memo, useEffect, useRef, useState } from 'react';
+import { ComponentProps, memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -107,7 +107,7 @@ const memberCountText = (n: number) => {
   return n === 1 ? '1 member' : `${n.toLocaleString()} members`;
 };
 
-const Facepile = ({ members }: { members: ClubMember[] }) => {
+const Facepile = memo(({ members }: { members: ClubMember[] }) => {
   const { appTheme } = useAppTheme();
 
   return (
@@ -135,9 +135,26 @@ const Facepile = ({ members }: { members: ClubMember[] }) => {
       )}
     </View>
   );
-};
+});
 
-const RelatedClubs = ({
+const RelatedClub = memo(({
+  name,
+  isMutual,
+  onPressClub,
+}: {
+  name: string,
+  isMutual: boolean,
+  onPressClub: (name: string) => void,
+}) =>
+  <Club
+    name={name}
+    isMutual={isMutual}
+    textStyle={{ fontSize: 13 }}
+    onPress={() => onPressClub(name)}
+  />
+);
+
+const RelatedClubs = memo(({
   clubs,
   onPressClub,
 }: {
@@ -147,12 +164,11 @@ const RelatedClubs = ({
   const joined = new Set(useJoinedClubs());
 
   const chips = (isMobile() ? clubs : clubs.slice(0, 6)).map((c) =>
-    <Club
+    <RelatedClub
       key={c.name}
       name={c.name}
       isMutual={joined.has(c.name)}
-      textStyle={{ fontSize: 13 }}
-      onPress={() => onPressClub(c.name)}
+      onPressClub={onPressClub}
     />
   );
 
@@ -174,7 +190,7 @@ const RelatedClubs = ({
       }
     </>
   );
-};
+});
 
 const SummarySkeleton = () =>
   <>
@@ -314,7 +330,8 @@ const ClubCardBody = ({
   const card = fetched === 'error' ? null : fetched;
 
   const members = card?.members ?? [];
-  const faces = members.filter((m) => m.photo_uuid).slice(0, 5);
+  const faces = useMemo(
+    () => members.filter((m) => m.photo_uuid).slice(0, 5), [members]);
   const countMembers = card?.count_members ?? 0;
   const countHidden = isMember || members.length < MAX_MEMBERS
     ? 0

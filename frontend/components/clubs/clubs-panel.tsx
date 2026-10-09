@@ -1,6 +1,5 @@
-import { useDeferredValue, useEffect, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useState } from 'react';
 import {
-  GestureResponderEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,11 +34,58 @@ import { moveTransition, popIn, popOut } from './club-row';
 
 const MAX_COLLAPSED_CLUBS = 6;
 
+const MineFilter = memo(({
+  name,
+  isSelected,
+  isManaging,
+}: {
+  name: string,
+  isSelected: boolean,
+  isManaging: boolean,
+}) =>
+  <ClubFilter
+    name={name}
+    isSelected={isSelected}
+    onPress={(e) => {
+      if (isManaging || isSelected) {
+        return openClubCard({ name, anchor: e.nativeEvent });
+      }
+
+      selectSearchClub(name);
+      moveClubToFront(name);
+      closeClubs();
+    }}
+  />
+);
+
+const OtherClub = memo(({
+  name,
+  isAnimated,
+  isLeaving,
+}: {
+  name: string,
+  position: number,
+  isAnimated: boolean,
+  isLeaving: boolean,
+}) =>
+  <Animated.View
+    layout={isAnimated ? moveTransition : undefined}
+    entering={isAnimated ? popIn : undefined}
+    exiting={isAnimated && isLeaving ? popOut : undefined}
+  >
+    <Club
+      name={name}
+      isMutual={false}
+      onPress={(e) => openClubCard({ name, anchor: e.nativeEvent })}
+    />
+  </Animated.View>
+);
+
 const ClubsPanel = () => {
   const { appTheme } = useAppTheme();
   const searchClub = useSearchClub();
   const clubs = sortClubs(useJoinedClubs() ?? []);
-  const { suggested, isReplacing } = useSuggestedClubs();
+  const { suggested, leaving } = useSuggestedClubs();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ q: string, clubs: ClubItem[] }>();
@@ -74,15 +120,6 @@ const ClubsPanel = () => {
   const others = (q ? (results?.q === q ? results.clubs : null) : suggested)
     ?.filter((c) => !joined.has(c.name));
 
-  const onPressMine = (name: string) => (e: GestureResponderEvent) => {
-    if (isManaging || name === searchClub) {
-      return openClubCard({ name, anchor: e.nativeEvent });
-    }
-
-    selectSearchClub(name);
-    moveClubToFront(name);
-    closeClubs();
-  };
 
   const linkTextStyle: TextStyle = {
     fontSize: 13,
@@ -173,11 +210,11 @@ const ClubsPanel = () => {
                 ]}
               />
               {mine.map((c) =>
-                <ClubFilter
+                <MineFilter
                   key={c}
                   name={c}
                   isSelected={!isManaging && c === searchClub}
-                  onPress={onPressMine(c)}
+                  isManaging={isManaging}
                 />
               )}
             </View>
@@ -218,19 +255,14 @@ const ClubsPanel = () => {
         {others
           ? <LayoutAnimationConfig skipEntering={true}>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {others.map((c) =>
-                  <Animated.View
+                {others.map((c, i) =>
+                  <OtherClub
                     key={c.name}
-                    layout={q ? undefined : moveTransition}
-                    entering={q ? undefined : popIn}
-                    exiting={!q && isReplacing ? popOut : undefined}
-                  >
-                    <Club
-                      name={c.name}
-                      isMutual={false}
-                      onPress={(e) => openClubCard({ name: c.name, anchor: e.nativeEvent })}
-                    />
-                  </Animated.View>
+                    name={c.name}
+                    position={i}
+                    isAnimated={!q}
+                    isLeaving={leaving.has(c.name)}
+                  />
                 )}
               </View>
             </LayoutAnimationConfig>

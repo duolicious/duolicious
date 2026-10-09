@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, japi } from '../api/api';
 import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
@@ -158,6 +158,8 @@ const refreshSuggestedClubs = async () => {
   }
 };
 
+const NOT_LEAVING = new Set<string>();
+
 const useSuggestedClubs = () => {
   const suggested = useDerivedEvent<ClubItem[] | undefined, ClubItem[] | null>(
     'suggested-clubs', (cs) => cs ?? null, []);
@@ -166,7 +168,15 @@ const useSuggestedClubs = () => {
 
   useEffect(() => setShown(suggested), [suggested]);
 
-  return { suggested: shown, isReplacing: shown !== suggested };
+  const leaving = useMemo(() => {
+    if (shown === suggested) {
+      return NOT_LEAVING;
+    }
+    const kept = new Set((suggested ?? []).map((c) => c.name));
+    return new Set((shown ?? []).map((c) => c.name).filter((n) => !kept.has(n)));
+  }, [shown, suggested]);
+
+  return { suggested: shown, leaving };
 };
 
 const openClubs = ({ pageX, pageY }: Anchor) => {
