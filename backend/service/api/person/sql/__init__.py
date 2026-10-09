@@ -1952,7 +1952,7 @@ WITH currently_joined_club AS (
     AND
         count_members > 0
     ORDER BY
-        name <-> %(search_string)s
+        lower(name) <-> %(search_string)s
     LIMIT
         {MAX_CLUB_SEARCH_RESULTS} - (SELECT COUNT(*) FROM maybe_stuff_the_user_typed)
 )

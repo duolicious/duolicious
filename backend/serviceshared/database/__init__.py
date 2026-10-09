@@ -186,6 +186,16 @@ async def api_tx(
         await cur.flush_triggers()
 
 
+@asynccontextmanager
+async def api_autocommit() -> AsyncIterator[psycopg.AsyncConnection[Row]]:
+    async with await psycopg.AsyncConnection.connect(
+        _api_conninfo,
+        autocommit=True,
+        row_factory=psycopg.rows.dict_row,
+    ) as conn:
+        yield conn
+
+
 async def check_connections_forever() -> None:
     # Connections aren't validated at checkout, so on a low-traffic instance one
     # can sit idle long enough to be dropped by the network or server and then be

@@ -1246,15 +1246,7 @@ LEFT JOIN LATERAL (
     WHERE
         feed_page.type = 'joined-club'
     AND
-        -- A range condition rather than `=` so the planner probes the club's
-        -- btree primary key. Plain equality also matches the trigram gist
-        -- index on `name`, which the planner has been observed to pick
-        -- despite it being ~100x slower to probe.
-        club.name >= (feed_page.mapped_last_event_data
-            ->> 'joined_club_name')
-    AND
-        club.name <= (feed_page.mapped_last_event_data
-            ->> 'joined_club_name')
+        club.name = feed_page.mapped_last_event_data ->> 'joined_club_name'
 ) AS joined_club_data
 ON TRUE
 LEFT JOIN LATERAL (
