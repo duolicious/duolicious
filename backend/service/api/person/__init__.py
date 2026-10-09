@@ -1275,9 +1275,18 @@ async def get_check_verification(s: t.SessionInfo) -> object:
         return row
     return '', 400
 
-async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
+@redis_cache(ttl=60 * 60)
+async def _related_clubs(club_name: str) -> Json:
     async with api_tx('READ COMMITTED') as tx:
-        card = await tx.require_one(Q_CLUB_CARD, dict(club_name=q.name))
+        row = await tx.require_one(Q_RELATED_CLUBS, dict(club_name=club_name))
+        return row['related_clubs']
+
+async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
+    related_clubs = await _related_clubs(q.name)
+
+    async with api_tx('READ COMMITTED') as tx:
+        card = await tx.require_one(
+            Q_CLUB_COUNT_MEMBERS, dict(club_name=q.name))
         searcher = await tx.require_one(
             Q_SEARCHER, dict(searcher_person_id=s.person_id))
 
@@ -1290,7 +1299,11 @@ async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
             club_name=q.name,
         ))
 
-        return {**card, 'members': await tx.fetchall()}
+        return {
+            **card,
+            'related_clubs': related_clubs,
+            'members': await tx.fetchall(),
+        }
 
 @AsyncLruCache(maxsize=2048)
 async def get_club(name: str, ttl_hash: object = None) -> object:
@@ -1309,7 +1322,7 @@ async def get_club(name: str, ttl_hash: object = None) -> object:
         **row['stats_json'],
         'description':   row['description'],
         'top_answers':   row['top_answers'],
-        'related_clubs': row['related_clubs'],
+        'related_clubs': await _related_clubs(club_name),
     }
 
 @redis_cache(ttl=60)

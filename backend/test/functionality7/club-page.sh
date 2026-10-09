@@ -28,6 +28,7 @@ reset_db () {
   q "delete from club_stats_dirty"
   q "delete from club_seo"
   q "delete from club"
+  flush_redis
 }
 
 club_page_is_precomputed_and_served () {

@@ -336,7 +336,7 @@ SELECT COUNT(*) AS upserted_count FROM upserted
 # would be wasted spend. The join stays as that gate.
 #
 # related_clubs_json mirrors the nearest-neighbour ranking the club page
-# renders (person/sql's Q_CLUB_PAGE_READ), so the copy describes the same
+# renders (person/sql's Q_RELATED_CLUBS), so the copy describes the same
 # neighbourhood a visitor sees. The neighbour search is a brute-force scan
 # per club, so it runs on the already-limited batch rather than on every
 # candidate row.

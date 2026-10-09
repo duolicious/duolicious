@@ -11,6 +11,7 @@ reset_db () {
   q "delete from person"
   q "delete from person_club"
   q "delete from club"
+  flush_redis
 }
 
 members () {

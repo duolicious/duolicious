@@ -2083,42 +2083,9 @@ AND
 # Club SEO page queries. The heavy aggregation lives in the cron package
 # (service/cron/clubseo/sql); these are the single-row reads.
 
-# Related clubs are the nearest neighbours of the club's embedding, ranked
-# live so the list follows each embedding refresh.
 def _has_embedding(club: str) -> str:
     return f'{club}.embedding != array_full(64, 0)::VECTOR(64)'
 
-
-_RELATED_CLUBS = f"""
-LEFT JOIN LATERAL (
-    SELECT json_agg(
-        json_build_object(
-            'name',          nearest.name,
-            'count_members', nearest.count_members
-        )
-        ORDER BY nearest.distance
-    ) AS j
-    FROM (
-        SELECT
-            other.name,
-            other.count_members,
-            other.embedding <=> c.embedding AS distance
-        FROM
-            club other
-        WHERE
-            other.name != c.name
-        AND
-            other.count_members >= {MIN_CLUB_PAGE_MEMBERS}
-        AND
-            {_has_embedding('other')}
-        AND
-            {_has_embedding('c')}
-        ORDER BY
-            distance
-        LIMIT {MAX_RELATED_CLUBS}
-    ) nearest
-) rel ON TRUE
-"""
 
 # Gated on the live member threshold (not the cached club_stats row) so a
 # club that's dropped below it 404s immediately rather than waiting for
@@ -2127,8 +2094,7 @@ Q_CLUB_PAGE_READ = f"""
 SELECT
     cs.stats_json,
     seo.description,
-    COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers,
-    COALESCE(rel.j, '[]'::json) AS related_clubs
+    COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers
 FROM
     club c
 JOIN
@@ -2137,22 +2103,56 @@ LEFT JOIN
     club_seo seo ON seo.club_name = c.name
 LEFT JOIN
     club_top_answers cta ON cta.club_name = c.name
-{_RELATED_CLUBS}
 WHERE
     c.name = %(club_name)s
 AND
     c.count_members >= {MIN_CLUB_PAGE_MEMBERS}
 """
 
-Q_CLUB_CARD = f"""
+# Related clubs are the nearest neighbours of the club's embedding.
+Q_RELATED_CLUBS = f"""
 SELECT
-    COALESCE(c.count_members, 0) AS count_members,
-    COALESCE(rel.j, '[]'::json) AS related_clubs
-FROM
-    (SELECT %(club_name)s::TEXT AS name) AS requested
-LEFT JOIN
-    club c ON c.name = requested.name
-{_RELATED_CLUBS}
+    COALESCE(
+        json_agg(
+            json_build_object(
+                'name',          nearest.name,
+                'count_members', nearest.count_members
+            )
+            ORDER BY nearest.distance
+        ),
+        '[]'::json
+    ) AS related_clubs
+FROM (
+    SELECT
+        other.name,
+        other.count_members,
+        other.embedding <=> c.embedding AS distance
+    FROM
+        club c
+    JOIN
+        club other
+    ON
+        other.name != c.name
+    WHERE
+        c.name = %(club_name)s
+    AND
+        other.count_members >= {MIN_CLUB_PAGE_MEMBERS}
+    AND
+        {_has_embedding('other')}
+    AND
+        {_has_embedding('c')}
+    ORDER BY
+        distance
+    LIMIT {MAX_RELATED_CLUBS}
+) nearest
+"""
+
+Q_CLUB_COUNT_MEMBERS = """
+SELECT
+    COALESCE(
+        (SELECT count_members FROM club WHERE name = %(club_name)s),
+        0
+    ) AS count_members
 """
 
 Q_JOINED_CLUB_EMBEDDINGS = f"""
