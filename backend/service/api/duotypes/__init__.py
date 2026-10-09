@@ -366,6 +366,10 @@ class SearchQuery(BaseModel):
     club: str | None = None
 
 
+class ClubCardQuery(BaseModel):
+    name: ClubName
+
+
 class PublicAnswers(RootModel[Annotated[
     List[PublicAnswer], Field(max_length=PUBLIC_ANSWER_LIMIT)]]):
     pass

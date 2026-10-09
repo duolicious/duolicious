@@ -16,6 +16,8 @@ from serviceshared.commonsql import (
 
 MAX_CLUB_SEARCH_RESULTS = 20
 
+MAX_SUGGESTED_CLUBS = 12
+
 MAX_SEARCH_FILTER_ANSWERS = 20
 
 # How often the user should be nagged to donate, in days. The frequency
@@ -2081,26 +2083,13 @@ AND
 # Club SEO page queries. The heavy aggregation lives in the cron package
 # (service/cron/clubseo/sql); these are the single-row reads.
 
-# Gated on the live member threshold (not the cached club_stats row) so a
-# club that's dropped below it 404s immediately rather than waiting for
-# the cron to clean up.
-#
 # Related clubs are the nearest neighbours of the club's embedding, ranked
 # live so the list follows each embedding refresh.
-Q_CLUB_PAGE_READ = f"""
-SELECT
-    cs.stats_json,
-    seo.description,
-    COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers,
-    COALESCE(rel.j, '[]'::json) AS related_clubs
-FROM
-    club c
-JOIN
-    club_stats cs ON cs.club_name = c.name
-LEFT JOIN
-    club_seo seo ON seo.club_name = c.name
-LEFT JOIN
-    club_top_answers cta ON cta.club_name = c.name
+def _has_embedding(club: str) -> str:
+    return f'{club}.embedding != array_full(64, 0)::VECTOR(64)'
+
+
+_RELATED_CLUBS = f"""
 LEFT JOIN LATERAL (
     SELECT json_agg(
         json_build_object(
@@ -2121,18 +2110,130 @@ LEFT JOIN LATERAL (
         AND
             other.count_members >= {MIN_CLUB_PAGE_MEMBERS}
         AND
-            other.embedding != array_full(64, 0)::VECTOR(64)
+            {_has_embedding('other')}
         AND
-            c.embedding != array_full(64, 0)::VECTOR(64)
+            {_has_embedding('c')}
         ORDER BY
             distance
         LIMIT {MAX_RELATED_CLUBS}
     ) nearest
 ) rel ON TRUE
+"""
+
+# Gated on the live member threshold (not the cached club_stats row) so a
+# club that's dropped below it 404s immediately rather than waiting for
+# the cron to clean up.
+Q_CLUB_PAGE_READ = f"""
+SELECT
+    cs.stats_json,
+    seo.description,
+    COALESCE(cta.answers_json, '[]'::jsonb) AS top_answers,
+    COALESCE(rel.j, '[]'::json) AS related_clubs
+FROM
+    club c
+JOIN
+    club_stats cs ON cs.club_name = c.name
+LEFT JOIN
+    club_seo seo ON seo.club_name = c.name
+LEFT JOIN
+    club_top_answers cta ON cta.club_name = c.name
+{_RELATED_CLUBS}
 WHERE
     c.name = %(club_name)s
 AND
     c.count_members >= {MIN_CLUB_PAGE_MEMBERS}
+"""
+
+Q_CLUB_CARD = f"""
+SELECT
+    COALESCE(c.count_members, 0) AS count_members,
+    COALESCE(rel.j, '[]'::json) AS related_clubs
+FROM
+    (SELECT %(club_name)s::TEXT AS name) AS requested
+LEFT JOIN
+    club c ON c.name = requested.name
+{_RELATED_CLUBS}
+"""
+
+Q_JOINED_CLUB_EMBEDDINGS = f"""
+SELECT
+    club.name,
+    club.embedding
+FROM
+    person_club
+JOIN
+    club
+ON
+    club.name = person_club.club_name
+WHERE
+    person_club.person_id = %(person_id)s
+AND
+    {_has_embedding('club')}
+"""
+
+Q_COUNT_JOINED_CLUBS = """
+SELECT
+    COUNT(*) AS count
+FROM
+    person_club
+WHERE
+    person_id = %(person_id)s
+"""
+
+Q_SUGGESTED_CLUB_CANDIDATES = f"""
+WITH candidate AS MATERIALIZED (
+    SELECT
+        name,
+        count_members,
+        embedding
+    FROM
+        club
+    WHERE
+        count_members >= {MIN_CLUB_PAGE_MEMBERS}
+    AND
+        name NOT IN (
+            SELECT club_name FROM person_club WHERE person_id = %(person_id)s
+        )
+)
+SELECT
+    source.name AS source,
+    nearest.name,
+    nearest.count_members
+FROM
+    club AS source
+CROSS JOIN LATERAL (
+    SELECT
+        name,
+        count_members
+    FROM
+        candidate
+    WHERE
+        {_has_embedding('candidate')}
+    ORDER BY
+        embedding <=> source.embedding
+    LIMIT
+        {MAX_SUGGESTED_CLUBS}
+) AS nearest
+WHERE
+    source.name = ANY(%(sources)s::TEXT[])
+
+UNION ALL
+
+SELECT
+    *
+FROM (
+    SELECT
+        NULL AS source,
+        name,
+        count_members
+    FROM
+        candidate
+    ORDER BY
+        count_members DESC,
+        name
+    LIMIT
+        {MAX_SUGGESTED_CLUBS}
+) AS popular
 """
 
 Q_UPDATE_CHATS_NOTIFICATIONS = """

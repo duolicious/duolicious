@@ -121,6 +121,102 @@ _VERIFICATION_SATISFIED = sql_fragment("""
     )
 """)
 
+_VISIBLE_TO_SEARCHER = [
+    'prospect.id != %(searcher_person_id)s',
+    "'bot' <> ALL(prospect.roles)",
+    'prospect.activated',
+    'prospect.shadow_banned_at IS NULL',
+    _HIDE_ME,
+    _PROSPECT_DIDNT_SKIP_SEARCHER,
+    _VERIFICATION_SATISFIED,
+]
+
+
+def _verification_required_to_view(
+    searcher_level: str,
+    privacy_level: str,
+) -> str:
+    return f"""CASE
+                WHEN {searcher_level} >= {privacy_level} THEN NULL
+                WHEN {privacy_level} = 2 THEN 'basics'
+                WHEN {privacy_level} = 3 THEN 'photos'
+            END"""
+
+
+Q_SEARCHER = """
+SELECT
+    kv_vector,
+    personality,
+    verification_level_id
+FROM
+    person
+WHERE
+    id = %(searcher_person_id)s
+"""
+
+_CLUB_MEMBER_CLAUSES = and_clauses([
+    'person_club.club_name = %(club_name)s',
+    'person_club.activated',
+    *_VISIBLE_TO_SEARCHER,
+    _SEARCHER_DIDNT_SKIP_PROSPECT,
+])
+
+Q_CLUB_MEMBERS = f"""
+SELECT
+    prospect.uuid AS person_uuid,
+    prospect.url_slug,
+    prospect.name,
+    (
+        SELECT EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
+        WHERE prospect.show_my_age
+    ) AS age,
+    gender.name AS gender,
+    CASE show_my_location.name
+        WHEN 'Yes' THEN prospect.location_short_friendly
+        WHEN 'Country only' THEN prospect.location_country
+    END AS location,
+    prospect.verification_level_id > 1 AS is_verified,
+    CLAMP(
+        0,
+        99,
+        100 * (1 - (prospect.personality <#> %(searcher_personality)s)) / 2
+    )::SMALLINT AS match_percentage,
+    {_verification_required_to_view(
+        '%(searcher_verification_level_id)s',
+        'prospect.privacy_verification_level_id')} AS verification_required_to_view,
+    (
+        SELECT uuid FROM photo
+        WHERE person_id = prospect.id
+        AND %(searcher_verification_level_id)s >= prospect.privacy_verification_level_id
+        ORDER BY position LIMIT 1
+    ) AS photo_uuid,
+    (
+        SELECT blurhash FROM photo
+        WHERE person_id = prospect.id
+        ORDER BY position LIMIT 1
+    ) AS photo_blurhash
+FROM
+    person_club
+JOIN
+    person AS prospect
+ON
+    prospect.id = person_club.person_id
+JOIN
+    yes_country_only_no AS show_my_location
+ON
+    show_my_location.id = prospect.show_my_location_id
+LEFT JOIN
+    gender
+ON
+    gender.id = prospect.gender_id
+WHERE
+{_CLUB_MEMBER_CLAUSES}
+ORDER BY
+    prospect.kv_vector <#> %(searcher_kv_vector)s
+LIMIT
+    25
+"""
+
 _SORT_BYS: tuple[SortBy, ...] = get_args(SortBy)
 SORT_MATCH_PERCENTAGE, SORT_CLUBS, SORT_KV, SORT_DISTANCE = _SORT_BYS
 
@@ -137,6 +233,10 @@ def _saved_sort_by(prefs: Row) -> SortBy:
     raise ValueError('invalid sort_by value')
 
 
+def kv_query_vector(stored: HalfVector) -> HalfVector:
+    return HalfVector(searcher_vector(stored.to_numpy()))
+
+
 def _vector_sort(column: _SortColumn, vector: SearchParam) -> _Sort:
     return f'prospect.{column} <#> %(sort_vector)s', dict(sort_vector=vector)
 
@@ -149,8 +249,8 @@ def _sort(sort_by: SortBy, prefs: Row) -> _Sort:
         return _vector_sort(
             'club_vector', row_vector(prefs, 'searcher_club_vector'))
     if sort_by == SORT_KV:
-        return _vector_sort('kv_vector', HalfVector(searcher_vector(
-            row_halfvec(prefs, 'searcher_kv_vector').to_numpy())))
+        return _vector_sort(
+            'kv_vector', kv_query_vector(row_halfvec(prefs, 'searcher_kv_vector')))
     if sort_by == SORT_DISTANCE:
         return (
             'prospect.coordinates <-> %(searcher_coordinates)s::GEOGRAPHY',
@@ -279,22 +379,12 @@ def _from_clause(club_preference: str | None) -> str:
 
 
 def search_only_clauses(prefs: Row) -> list[str]:
-    clauses = [
-        'prospect.id != %(searcher_person_id)s',
-        "'bot' <> ALL(prospect.roles)",
-        'prospect.activated',
-        'prospect.shadow_banned_at IS NULL',
-    ]
-
-    clauses.append(_HIDE_ME)
-    clauses.append(_PROSPECT_DIDNT_SKIP_SEARCHER)
+    clauses = list(_VISIBLE_TO_SEARCHER)
 
     if not row_bool(prefs, 'show_skipped'):
         clauses.append(_SEARCHER_DIDNT_SKIP_PROSPECT)
     if not row_bool(prefs, 'show_messaged'):
         clauses.append(_SEARCHER_DIDNT_MESSAGE_PROSPECT)
-
-    clauses.append(_VERIFICATION_SATISFIED)
 
     return clauses
 
@@ -429,18 +519,9 @@ FROM
         SELECT
             *,
 
-            CASE
-                WHEN
-                    searcher_verification_level_id >=
-                    privacy_verification_level_id
-                THEN NULL
-                WHEN
-                    privacy_verification_level_id = 2
-                THEN 'basics'
-                WHEN
-                    privacy_verification_level_id = 3
-                THEN 'photos'
-            END AS verification_required_to_view
+            {_verification_required_to_view(
+                'searcher_verification_level_id',
+                'privacy_verification_level_id')} AS verification_required_to_view
         FROM
             page
     ) AS public_page
@@ -478,7 +559,7 @@ Q_CACHED_SIMILAR_PROFILES = _cached_search("""
         %(n)s
 """)
 
-Q_QUIZ_SEARCH = """
+Q_QUIZ_SEARCH = f"""
 WITH searcher AS (
     SELECT
         personality,
@@ -569,18 +650,9 @@ FROM
         SELECT
             *,
 
-            CASE
-                WHEN
-                    searcher_verification_level_id >=
-                    privacy_verification_level_id
-                THEN NULL
-                WHEN
-                    privacy_verification_level_id = 2
-                THEN 'basics'
-                WHEN
-                    privacy_verification_level_id = 3
-                THEN 'photos'
-            END AS verification_required_to_view
+            {_verification_required_to_view(
+                'searcher_verification_level_id',
+                'privacy_verification_level_id')} AS verification_required_to_view
         FROM
             page
     ) AS public_page
