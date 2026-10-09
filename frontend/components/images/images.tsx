@@ -838,10 +838,6 @@ const MoveableImage = ({
                 icon={faCircleXmark}
                 size={26}
                 color="#000"
-                style={{
-                  // @ts-ignore
-                  outline: 'none'
-                }}
               />
             </View>
           </GestureDetector>

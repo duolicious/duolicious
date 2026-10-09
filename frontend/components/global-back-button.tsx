@@ -106,8 +106,6 @@ const GlobalBackButton = () => {
           size={24}
           style={{
             color: appTheme.secondaryColor,
-            // @ts-ignore
-            outline: 'none',
           }}
         />
       </AnimatedPressable>

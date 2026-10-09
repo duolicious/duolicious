@@ -71,10 +71,6 @@ const Box = ({ value, hovered, style }: {
           icon={faCheck}
           size={SIZE - 4}
           color="white"
-          style={{
-            // @ts-ignore – 'outline' is a web-only style prop
-            outline: 'none'
-          }}
         />
       </Animated.View>
     </Animated.View>

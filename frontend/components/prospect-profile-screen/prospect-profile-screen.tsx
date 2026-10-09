@@ -420,8 +420,6 @@ const FloatingSendIntroButton = ({
           size={24}
           style={{
             color: appTheme.primaryColor,
-            // @ts-ignore
-            outline: 'none',
           }}
         />
       }

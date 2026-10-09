@@ -112,8 +112,6 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
   return (
     <Pressable
       style={{
-        // @ts-ignore – 'outline' is a web-only style prop
-        outline: 'none',
         marginTop: 10,
         marginBottom: 10,
         height: 50,
