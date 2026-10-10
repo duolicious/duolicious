@@ -3,3 +3,8 @@ input:focus,
 textarea:focus {
   outline: none;
 }
+
+html,
+body {
+  height: 100dvh;
+}
