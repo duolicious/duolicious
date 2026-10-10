@@ -7,7 +7,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../navigation/linking';
 import { Image as ExpoImage } from 'expo-image';
-import { photoUri } from '../util/photos';
+import { photoUri, videoUri } from '../util/photos';
+import { AutoplayVideo } from './looping-video';
 import type { PhotoGeometry } from '../util/photos';
 import {
   ZERO_BORDER_RADII,
@@ -47,6 +48,7 @@ const EnlargeablePhoto = memo(({
   innerStyle,
   isPrimary,
   isVerified = false,
+  withSound = false,
 }: {
   photoUuid: string | undefined | null
   photoExtraExts?: string[] | undefined | null
@@ -60,6 +62,7 @@ const EnlargeablePhoto = memo(({
   innerStyle?: StyleProp<ViewStyle>
   isPrimary: boolean
   isVerified?: boolean
+  withSound?: boolean
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const ref = useRef<View>(null);
@@ -146,6 +149,8 @@ const EnlargeablePhoto = memo(({
 
   const radii = toBorderRadii(borderRadius);
 
+  const video = videoUri(photoUuid, photoExtraExts);
+
   return (
     <Pressable
       ref={ref}
@@ -176,6 +181,9 @@ const EnlargeablePhoto = memo(({
         forceExpoImage={true}
         onLoad={prefetchEnlargedImage}
       />
+      {video &&
+        <AutoplayVideo uri={video} withSound={withSound} />
+      }
       {isVerified &&
         <VerificationBadge
           style={{

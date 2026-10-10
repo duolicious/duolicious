@@ -10,7 +10,13 @@ from typing import Protocol, TypedDict
 
 
 class SupportsPutObject(Protocol):
-    def put_object(self, *, Key: str, Body: bytes | io.BytesIO) -> object: ...
+    def put_object(
+        self,
+        *,
+        Key: str,
+        Body: bytes | io.BytesIO,
+        **headers: str,
+    ) -> object: ...
 
 
 class DeleteError(TypedDict):
@@ -36,9 +42,11 @@ async def put_object(
     *,
     Key: str,
     Body: bytes | io.BytesIO,
+    **headers: str,
 ) -> object:
     """Async counterpart of boto3's `Bucket.put_object`."""
-    return await asyncio.to_thread(bucket.put_object, Key=Key, Body=Body)
+    return await asyncio.to_thread(
+        bucket.put_object, Key=Key, Body=Body, **headers)
 
 
 async def delete_objects(
