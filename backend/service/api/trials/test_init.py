@@ -14,6 +14,11 @@ class TestSentMessagesInChats(unittest.TestCase):
             (390251, False),
             (390252, True),
             (390253, False),
+            (391398, True),
+            (391399, False),
+            (391400, False),
+            (391401, False),
+            (391402, False),
         ]:
             with self.subTest(person_id=person_id):
                 self.assertEqual(sent_messages_in_chats(person_id), expected)
