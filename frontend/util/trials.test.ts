@@ -13,11 +13,16 @@ describe('trial arms', () => {
     [390253, false, false],
     [391398, true, false],
     [391399, false, false],
-    [391400, false, true],
+    [391400, true, true],
     [391401, false, true],
-    [391402, false, false],
+    [391402, true, false],
     [391403, false, false],
-    [391404, false, true],
+    [391404, true, true],
+    [391548, true, true],
+    [391549, false, true],
+    [391550, false, false],
+    [391551, false, false],
+    [391552, false, true],
   ])('person %p', (personId, sentInChats, redesign) => {
     expect(sentMessagesInChats(personId)).toBe(sentInChats);
     expect(clubsRedesign(personId)).toBe(redesign);
