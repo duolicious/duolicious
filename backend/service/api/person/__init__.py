@@ -97,7 +97,7 @@ async def _send_otp(email: str, otp: str) -> None:
     # smtp.send is blocking; keep it off the event loop.
     await run_in_threadpool(
         aws_smtp.send,
-        subject="Sign in to Duolicious",
+        subject=f"{otp} is your Duolicious sign-in code",
         body=otp_template(otp),
         to_addr=email,
         from_addr='noreply-otp@duolicious.app',
