@@ -4,6 +4,9 @@ import {
   LayoutChangeEvent,
   ListRenderItem,
   ListRenderItemInfo,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
   StyleProp,
   StyleSheet,
   View,
@@ -30,6 +33,10 @@ import {
 import { DefaultText } from './default-text';
 import { RenderedHoc } from './rendered-hoc';
 import { FlashList, FlashListProps, FlashListRef } from '@shopify/flash-list';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useAppTheme } from '../app-theme/app-theme';
 import { COLUMN_MAX_WIDTH } from '../constants/constants';
 import * as _ from 'lodash';
@@ -492,6 +499,57 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => Promise<void> }>, pr
   }
 };
 
+const useWebHiddenOnScrollHeader = <ItemT,>(
+  props: DefaultFlatListProps<ItemT>,
+  ListHeaderComponent: ReactElement,
+) => {
+  const headerHeight = useSharedValue(0);
+  const headerOffset = useSharedValue(0);
+  const lastScrollY = useRef(0);
+
+  const { onScroll: onScrollProp } = props;
+
+  const onScroll = useCallback((
+    e: NativeSyntheticEvent<NativeScrollEvent>
+  ) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const scrollY = _.clamp(
+      contentOffset.y, 0, contentSize.height - layoutMeasurement.height);
+
+    headerOffset.value = _.clamp(
+      headerOffset.value + scrollY - lastScrollY.current,
+      0,
+      headerHeight.value);
+    lastScrollY.current = scrollY;
+
+    onScrollProp?.(e);
+  }, [onScrollProp]);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -headerOffset.value }],
+  }));
+
+  const hiddenOnScrollHeader = useMemo(() => (
+    <Animated.View
+      style={headerStyle}
+      onLayout={(e) => headerHeight.value = e.nativeEvent.layout.height}
+    >
+      {ListHeaderComponent}
+    </Animated.View>
+  ), [headerStyle, ListHeaderComponent]);
+
+  if (Platform.OS !== 'web' || !props.stickyHeaderHiddenOnScroll) {
+    return {};
+  }
+
+  return {
+    onScroll,
+    scrollEventThrottle: 16,
+    ListHeaderComponent: hiddenOnScrollHeader,
+    ListHeaderComponentStyle: { pointerEvents: 'box-none' as const },
+  };
+};
+
 const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref: ForwardedRef<{ refresh: () => Promise<void> }>) => {
   const {
     flatList,
@@ -503,6 +561,9 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     keyExtractor,
     onLayout,
   } = useList<ItemT, FlatList<ItemT[]>>(ref, props);
+
+  const hiddenOnScrollHeader = useWebHiddenOnScrollHeader(
+    props, slots.ListHeaderComponent);
 
   const {
     numColumns = 1,
@@ -554,6 +615,7 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
       onEndReached={fetchNextPage}
       {...listProps}
       {...slots}
+      {...hiddenOnScrollHeader}
       data={data}
       renderItem={renderRow}
       contentContainerStyle={contentContainerStyle}
