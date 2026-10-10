@@ -48,16 +48,13 @@ db_now () {
   q "select (extract(epoch from now() + interval '${interval}') * ${conversion_factor})::bigint"
 }
 
-# Record a visit of one user's profile by another, as though it happened
-# `age` ago.
-# Example: insert_visit "$user2id" "$user1id" '11 minutes' true
-insert_visit () {
+visit_sql () {
   local visitor_uuid=$1
   local visited_uuid=$2
   local age=$3
   local invisible=${4:-false}
 
-  q "
+  echo "
   insert into visited (subject_person_id, object_person_id, updated_at, invisible)
   select
     (select id from person where uuid::text = '$visitor_uuid'),
@@ -65,6 +62,13 @@ insert_visit () {
     now() - interval '${age}',
     ${invisible}
   "
+}
+
+# Record a visit of one user's profile by another, as though it happened
+# `age` ago.
+# Example: insert_visit "$user2id" "$user1id" '11 minutes' true
+insert_visit () {
+  q "$(visit_sql "$@")"
 }
 
 # The pushes sent to a token, as a compact JSON array of the fields a test
@@ -817,8 +821,8 @@ test_happy_path_multiple_visitors () {
 
   give_user1_a_phone 'token_multi'
 
-  insert_visit "$user2id" "$user1id" '11 minutes'
-  insert_visit "$user3id" "$user1id" '12 minutes'
+  q "$(visit_sql "$user2id" "$user1id" '11 minutes');
+     $(visit_sql "$user3id" "$user1id" '12 minutes')"
 
   sleep 4
 
