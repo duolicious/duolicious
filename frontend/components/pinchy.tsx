@@ -9,11 +9,9 @@ import {
   ActivityIndicator,
   Image,
   ImageStyle,
-  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
   Gesture,
@@ -30,7 +28,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { FillImage } from './fill-image';
-import { LoopingVideo } from './looping-video';
+import type { VideoPlayer } from 'expo-video';
+import {
+  PlayBadge,
+  SoundButton,
+  VideoProgress,
+  VideoSurface,
+  useLoopingPlayer,
+  useVideoMuted,
+} from './looping-video';
 import { hasGifExtraExt, photoUri, videoUri } from '../util/photos';
 import type { PhotoGeometry } from '../util/photos';
 import {
@@ -101,8 +107,8 @@ const FitWithinScreenImage = ({
   cropUri,
   blurhash,
   isGif,
-  video,
-  muted,
+  player,
+  playing,
   animatedStyle,
   onUpdateImageSize,
   geometry,
@@ -112,8 +118,8 @@ const FitWithinScreenImage = ({
   cropUri: string | null;
   blurhash: string | null;
   isGif: boolean;
-  video: string | null;
-  muted: boolean;
+  player: VideoPlayer | null;
+  playing: boolean;
   animatedStyle: AnimatedStyle<ImageStyle>;
   onUpdateImageSize: (size: { imageWidth: number, imageHeight: number }) => void;
   geometry?: PhotoGeometry;
@@ -230,13 +236,8 @@ const FitWithinScreenImage = ({
           </View>
         }
         <FillImage uri={source.uri} onLoad={onOriginalLoad} />
-        {video &&
-          <LoopingVideo
-            uri={video}
-            muted={muted}
-            playing={true}
-            contentFit="contain"
-          />
+        {player &&
+          <VideoSurface player={player} playing={playing} contentFit="contain" />
         }
         {spinner}
       </Animated.View>
@@ -307,7 +308,17 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
   } = viewport;
 
   const video = videoUri(uuid, extraExts);
-  const [muted, setMuted] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const player = useLoopingPlayer(isActive ? video : null, useVideoMuted());
+
+  const togglePaused = useCallback(
+    () => setPaused((paused) => !paused),
+    [],
+  );
+
+  useEffect(() => {
+    setPaused(false);
+  }, [isActive]);
 
   const {
     scale,
@@ -371,7 +382,6 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
 
   const pinch = useMemo(
     () => Gesture.Pinch()
-      .enabled(!video)
       .onStart((e) => {
         'worklet';
         pinchBaseScale.value = scale.value;
@@ -407,7 +417,7 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
         positionX.value = newPos.x;
         positionY.value = newPos.y;
       }),
-    [scale, positionX, positionY, video],
+    [scale, positionX, positionY],
   );
 
   const pan = useMemo(
@@ -537,7 +547,6 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
 
   const doubleTap = useMemo(
     () => Gesture.Tap()
-      .enabled(!video)
       .numberOfTaps(2)
       .maxDuration(300)
       .maxDistance(10)
@@ -566,7 +575,7 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
           positionY.value = withTiming(newPos.y, ZOOM_TIMING);
         }
       }),
-    [scale, positionX, positionY, video],
+    [scale, positionX, positionY],
   );
 
   const edgeTap = useMemo(
@@ -575,19 +584,22 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
       .maxDistance(10)
       .onEnd((e, success) => {
         'worklet';
-        if (!success || !onTapEdge) return;
+        if (!success) return;
         const width = viewportWidthSv.value;
-        if (e.x < width / 3) runOnJS(onTapEdge)(-1);
-        else if (e.x > width * 2 / 3) runOnJS(onTapEdge)(1);
+        const dir = e.x < width / 3 ? -1 : e.x > width * 2 / 3 ? 1 : 0;
+        if (dir !== 0 && onTapEdge) runOnJS(onTapEdge)(dir);
+        else if (video) runOnJS(togglePaused)();
       }),
-    [onTapEdge],
+    [onTapEdge, video],
   );
 
   const composed = useMemo(
     // Exclusive so a double-tap zooms without also paging: the edge tap only
     // activates once the double-tap window has passed.
-    () => Gesture.Simultaneous(pinch, pan, Gesture.Exclusive(doubleTap, edgeTap)),
-    [pinch, pan, doubleTap, edgeTap],
+    () => video
+      ? Gesture.Simultaneous(pan, edgeTap)
+      : Gesture.Simultaneous(pinch, pan, Gesture.Exclusive(doubleTap, edgeTap)),
+    [pinch, pan, doubleTap, edgeTap, video],
   );
 
   const animatedStyle = useAnimatedStyle<ImageStyle>(() => {
@@ -617,8 +629,8 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
             cropUri={hasGifExtraExt(extraExts) ? null : photoUri(uuid, 900)}
             blurhash={blurhash ?? null}
             isGif={hasGifExtraExt(extraExts)}
-            video={isActive ? video : null}
-            muted={muted}
+            player={isActive && video ? player : null}
+            playing={!paused}
             animatedStyle={animatedStyle}
             onUpdateImageSize={onUpdateImageSize}
             geometry={geometry}
@@ -626,18 +638,14 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
           />
         </View>
       </GestureDetector>
+      {video && isActive && paused &&
+        <PlayBadge size={72} style={styles.pausedBadge} />
+      }
       {video && isActive &&
-        <Pressable
-          style={styles.muteButton}
-          onPress={() => setMuted((muted) => !muted)}
-          aria-label={muted ? 'Unmute' : 'Mute'}
-        >
-          <Ionicons
-            name={muted ? 'volume-mute' : 'volume-high'}
-            size={22}
-            color="white"
-          />
-        </Pressable>
+        <SoundButton size={44} style={styles.soundButton} />
+      }
+      {video && isActive &&
+        <VideoProgress player={player} />
       }
     </>
   );
@@ -662,16 +670,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  muteButton: {
-    position: 'absolute',
+  soundButton: {
     right: 14,
-    bottom: 34,
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    bottom: 44,
+    zIndex: 1000,
+  },
+  pausedBadge: {
+    top: '50%',
+    left: '50%',
+    marginTop: -36,
+    marginLeft: -36,
     zIndex: 1000,
   },
 });

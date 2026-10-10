@@ -1368,6 +1368,7 @@ const FeedItemAddedPhoto = ({
             isPrimary={true}
             borderRadius={12}
             style={styles.addedPhoto}
+            withSound={true}
           />
         </View>
       </Reanimated.View>
