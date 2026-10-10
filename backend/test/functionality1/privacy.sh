@@ -187,6 +187,34 @@ public_profile_overrides_other_settings () {
   ! SESSION_TOKEN="" c GET "/prospect-profile/${user2uuid}" || exit 1
 }
 
+public_profile_overrides_hide_me_from_strangers_when_signed_in () {
+  setup
+
+  echo "User 2 hides from strangers and makes their profile public"
+  assume_role user2
+  jc PATCH /profile-info -d '{ "hide_me_from_strangers": "Yes" }'
+  jc PATCH /profile-info -d '{ "public_profile": "Yes" }'
+
+  echo "Signed-in strangers can view user 2's profile and chat header"
+  assume_role user1
+  c GET "/prospect-profile/${user2uuid}" > /dev/null
+  c GET "/conversation-prospect/${user2uuid}" > /dev/null
+
+  echo "User 2's visits stay visible to the people they view"
+  assume_role user2
+  c GET "/prospect-profile/${user1uuid}" > /dev/null
+  [[ "$(q "select invisible from visited where subject_person_id = ${user2id}")" == 'f' ]]
+
+  echo "Making the profile private hides user 2 from strangers again"
+  jc PATCH /profile-info -d '{ "public_profile": "No" }'
+  c GET "/prospect-profile/${user1uuid}" > /dev/null
+  [[ "$(q "select invisible from visited where subject_person_id = ${user2id}")" == 't' ]]
+
+  assume_role user1
+  ! c GET "/prospect-profile/${user2uuid}" || exit 1
+  ! c GET "/conversation-prospect/${user2uuid}" || exit 1
+}
+
 public_profile_appears_in_profile_info () {
   setup
 
@@ -212,4 +240,5 @@ verified_privacy
 public_profile_anonymous_access
 public_profile_anonymous_nonexistent_uuid
 public_profile_overrides_other_settings
+public_profile_overrides_hide_me_from_strangers_when_signed_in
 public_profile_appears_in_profile_info

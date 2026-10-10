@@ -83,6 +83,8 @@ _HIDE_ME = sql_fragment("""
         )
     OR
         NOT prospect.hide_me_from_strangers
+    OR
+        prospect.public_profile
     )
 """)
 

@@ -415,6 +415,12 @@ EOF
   )
 
   [[ "$page2_names" == '["user4","user5","user6","user13"]' ]]
+
+  q "update person set hide_me_from_strangers = true where name = 'user1'"
+  ! c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")' || exit 1
+
+  q "update person set public_profile = true where name = 'user1'"
+  c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")'
 }
 
 joined_club_feed_items () {
@@ -869,6 +875,22 @@ test_answered_question () {
   # Restore the pre-scenario state so the assertions below are unaffected
   q "update person set hide_me_from_strangers = false where name = 'user1'"
   q "delete from messaged"
+
+  user2_uuid=$(q "select uuid from person where name = 'user2'")
+  q "update person set hide_me_from_strangers = true where name = 'user2'"
+  ! c GET "/feed-v2?before=${before}" | jq -e \
+    --arg u1 "$user1_uuid" --arg u2 "$user2_uuid" \
+    '.[] | select(.type == "answered-question" and .person_uuid == $u1)
+     | any(.question_yes_members[]; .person_uuid == $u2)' || exit 1
+
+  q "update person set public_profile = true where name = 'user2'"
+  c GET "/feed-v2?before=${before}" | jq -e \
+    --arg u1 "$user1_uuid" --arg u2 "$user2_uuid" \
+    '.[] | select(.type == "answered-question" and .person_uuid == $u1)
+     | any(.question_yes_members[]; .person_uuid == $u2)'
+
+  q "update person set hide_me_from_strangers = false, public_profile = false
+     where name = 'user2'"
 
   # The searcher answers publicly. Their answer appears in question_viewer,
   # but they never appear among the sample members. Answering shifts the
