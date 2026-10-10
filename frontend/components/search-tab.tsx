@@ -361,7 +361,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
         onContentSizeChange={onContentSizeChange}
         onScroll={onScroll}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
-        stickyHeaderHiddenOnScroll={hasClubRow}
+        stickyHeaderHiddenOnScroll={hasClubRow && isMobile()}
         stickyHeaderIndices={stickyHeaderIndices}
         columnWrapperStyle={styles.listColumnWraperStyle}
       />}
