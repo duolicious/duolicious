@@ -341,6 +341,40 @@ browse_invisibly_respected_by_push () {
   jc PATCH /profile-info -d '{ "browse_invisibly": "No" }' > /dev/null
 }
 
+public_profile_overrides_hide_me_from_strangers () {
+  q "delete from visited"
+
+  SESSION_TOKEN=$viewer_token
+  jc PATCH /profile-info -d '{ "hide_me_from_strangers": "Yes" }' > /dev/null
+
+  visit_as "$viewer_token" "$prospect_uuid"
+
+  chat_auth "$prospect_uuid" "$prospect_token"
+  sleep 1
+  drain
+
+  send_json '{ "duo_query_visitors": {} }'
+  local snapshot
+  snapshot=$(echo "$(pop_until 'duo_visitors')" | snapshot_payload)
+  [[ "$(echo "$snapshot" | jq '.visited_you | length')" -eq 0 ]] \
+    || { echo "A viewer hidden from strangers should not appear"; exit 1; }
+
+  SESSION_TOKEN=$viewer_token
+  jc PATCH /profile-info -d '{ "public_profile": "Yes" }' > /dev/null
+
+  visit_as "$viewer_token" "$prospect_uuid"
+
+  drain
+  send_json '{ "duo_query_visitors": {} }'
+  snapshot=$(echo "$(pop_until 'duo_visitors')" | snapshot_payload)
+  [[ "$(echo "$snapshot" | jq '.visited_you | length')" -eq 1 ]] \
+    || { echo "A public viewer should appear despite hiding from strangers"; exit 1; }
+
+  SESSION_TOKEN=$viewer_token
+  jc PATCH /profile-info -d '{ "hide_me_from_strangers": "No" }' > /dev/null
+  jc PATCH /profile-info -d '{ "public_profile": "No" }' > /dev/null
+}
+
 # ---------------------------------------------------------------------------
 # 7) `duo_mark_visitors_checked` acknowledges visitors over the websocket
 # ---------------------------------------------------------------------------
@@ -392,4 +426,5 @@ self_visit_pushes_nothing
 visited_you_pushed_to_online_prospect
 no_visited_you_push_when_prospect_offline
 browse_invisibly_respected_by_push
+public_profile_overrides_hide_me_from_strangers
 mark_visitors_checked_over_websocket

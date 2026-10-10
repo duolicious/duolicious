@@ -106,8 +106,11 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                 member.id = feed_page.id
             OR (
                     member.shadow_banned_at IS NULL
-                AND
-                    NOT member.hide_me_from_strangers
+                AND (
+                        NOT member.hide_me_from_strangers
+                    OR
+                        member.public_profile
+                )
                 AND
                     -- The member did not skip the searcher; their profile
                     -- would be inaccessible if they did
@@ -435,6 +438,8 @@ WITH searcher AS (
             )
         OR
             NOT prospect.hide_me_from_strangers
+        OR
+            prospect.public_profile
         )
     AND
         -- The prospect did not skip the searcher
@@ -948,6 +953,8 @@ WITH searcher AS (
             )
         OR
             NOT prospect.hide_me_from_strangers
+        OR
+            prospect.public_profile
         )
     AND
         -- The prospect did not skip the searcher

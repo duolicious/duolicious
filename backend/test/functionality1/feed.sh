@@ -258,6 +258,12 @@ EOF
 
   diff -u --color <(echo actual) <(echo expected) || true
   diff -u --color <(echo "$response") <(echo "$expected")
+
+  q "update person set hide_me_from_strangers = true where name = 'user8'"
+  ! c GET "/feed?before=${before}" | jq -e 'any(.[]; .name == "user8")' || exit 1
+
+  q "update person set public_profile = true where name = 'user8'"
+  c GET "/feed?before=${before}" | jq -e 'any(.[]; .name == "user8")'
 }
 
 test_hide_online_status () {

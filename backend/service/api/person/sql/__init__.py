@@ -652,6 +652,8 @@ WITH prospect_base AS (
         AND (
                 NOT prospect.hide_me_from_strangers
             OR
+                prospect.public_profile
+            OR
                 viewer_rel.prospect_has_messaged_person
         )
         AND (
@@ -696,6 +698,7 @@ WITH prospect_base AS (
             SELECT
                 person.browse_invisibly OR
                 person.hide_me_from_strangers AND
+                NOT person.public_profile AND
                 NOT prospect_has_messaged_person
             FROM
                 person
@@ -1007,6 +1010,8 @@ WITH prospect AS (
             person.shadow_banned_at IS NULL
         AND (
                 NOT person.hide_me_from_strangers
+            OR
+                person.public_profile
             OR
                 m.prospect_has_messaged_person
             )

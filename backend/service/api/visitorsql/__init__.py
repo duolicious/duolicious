@@ -189,6 +189,8 @@ visited_pass_3 AS (
             )
         OR
             NOT prospect.hide_me_from_strangers
+        OR
+            prospect.public_profile
         )
     AND
         (

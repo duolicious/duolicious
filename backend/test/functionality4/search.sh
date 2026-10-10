@@ -547,6 +547,21 @@ test_hide_me_from_strangers () {
   # searcher (a stranger to user1) can only see user2 in quiz searches
   assert_search_names 'user2' ''
 
+  q "
+  update person
+  set public_profile = true
+  where id = (select id from person where email = 'user1@example.com')
+  "
+  assert_search_names 'user1 user2'
+  assert_search_names 'user1 user2' ''
+
+  q "
+  update person
+  set public_profile = false
+  where id = (select id from person where email = 'user1@example.com')
+  "
+  assert_search_names 'user2'
+
   # searcher (a stranger to user1) can only see user2 in standard searches
   # user1 messaged the searcher
   q "
