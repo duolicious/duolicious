@@ -1,6 +1,7 @@
 import { memo, useDeferredValue, useEffect, useState } from 'react';
 import {
   LayoutChangeEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,7 @@ import { DefaultText } from '../default-text';
 import { DefaultTextInput } from '../default-text-input';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { useIsScrolled } from './use-is-scrolled';
+import { isMobile } from '../../util/util';
 import { moveTransition, popIn, popOut } from './club-row';
 
 const MAX_COLLAPSED_CLUBS = 6;
@@ -151,14 +153,63 @@ const ClubsPanel = () => {
     ?.filter((c) => !joined.has(c.name));
 
 
+  const isSearchAtBottom = Platform.OS === 'web' && isMobile();
+
   const linkTextStyle: TextStyle = {
     fontSize: 13,
     fontWeight: '700',
     color: appTheme.brandColor,
   };
 
+  const searchBox = (
+    <View style={{ justifyContent: 'center' }}>
+      <Ionicons
+        name="search"
+        style={{
+          position: 'absolute',
+          left: 14,
+          fontSize: 18,
+          color: appTheme.hintColor,
+          zIndex: 1,
+        }}
+      />
+      <DefaultTextInput
+        placeholder="Find clubs"
+        value={query}
+        onChangeText={setQuery}
+        style={{
+          marginLeft: 0,
+          marginRight: 0,
+          height: 44,
+          paddingLeft: 42,
+          paddingRight: 40,
+        }}
+      />
+      {query !== '' &&
+        <Pressable
+          aria-label="Clear search"
+          onPress={() => setQuery('')}
+          style={{
+            position: 'absolute',
+            right: 4,
+            top: 4,
+            width: 36,
+            height: 36,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons
+            name="close"
+            style={{ fontSize: 20, color: appTheme.secondaryColor }}
+          />
+        </Pressable>
+      }
+    </View>
+  );
+
   return (
-    <View style={{ flexShrink: 1 }}>
+    <View style={{ flexGrow: isSearchAtBottom ? 1 : 0, flexShrink: 1 }}>
       <View
         style={{
           paddingHorizontal: 20,
@@ -171,50 +222,7 @@ const ClubsPanel = () => {
         <DefaultText style={{ fontSize: 20, fontWeight: '700' }}>
           Clubs
         </DefaultText>
-        <View style={{ justifyContent: 'center' }}>
-          <Ionicons
-            name="search"
-            style={{
-              position: 'absolute',
-              left: 14,
-              fontSize: 18,
-              color: appTheme.hintColor,
-              zIndex: 1,
-            }}
-          />
-          <DefaultTextInput
-            placeholder="Find clubs"
-            value={query}
-            onChangeText={setQuery}
-            style={{
-              marginLeft: 0,
-              marginRight: 0,
-              height: 44,
-              paddingLeft: 42,
-              paddingRight: 40,
-            }}
-          />
-          {query !== '' &&
-            <Pressable
-              aria-label="Clear search"
-              onPress={() => setQuery('')}
-              style={{
-                position: 'absolute',
-                right: 4,
-                top: 4,
-                width: 36,
-                height: 36,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons
-                name="close"
-                style={{ fontSize: 20, color: appTheme.secondaryColor }}
-              />
-            </Pressable>
-          }
-        </View>
+        {!isSearchAtBottom && searchBox}
       </View>
       {isReady && <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -355,6 +363,19 @@ const ClubsPanel = () => {
             </View>
         }
       </ScrollView>}
+      {isSearchAtBottom &&
+        <View
+          style={{
+            marginTop: 'auto',
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderTopWidth: 1,
+            borderTopColor: appTheme.inputColor,
+          }}
+        >
+          {searchBox}
+        </View>
+      }
     </View>
   );
 };
