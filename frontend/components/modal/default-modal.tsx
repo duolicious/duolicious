@@ -9,6 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { viewportPosition } from '../../util/util';
 
 /*
  * React Native has a `Modal` element but it has a bug on Android
@@ -108,7 +109,7 @@ const DefaultModal = ({
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'absolute',
+    position: viewportPosition(),
     top: 0,
     bottom: 0,
     left: 0,
