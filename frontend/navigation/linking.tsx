@@ -121,8 +121,11 @@ const bannerRouteTarget = (state: RouteState | undefined): BannerTarget => {
   if (root.name === 'Prospect Profile Screen') return 'prospect';
   if (root.name !== 'Home') return 'none';
 
-  const tab = root.state?.routes?.[root.state?.index ?? 0]?.name;
-  return tab === 'Search' ? 'search' : 'none';
+  const tab = root.state?.routes?.[root.state?.index ?? 0];
+  if (tab?.name !== 'Search') return 'none';
+
+  const screen = tab.state?.routes?.[tab.state?.index ?? 0]?.name;
+  return screen === 'Search Filter Screen' ? 'none' : 'search';
 };
 
 const focusedRouteIsUnrestorable = (state: RouteState | undefined): boolean => {

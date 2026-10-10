@@ -14,8 +14,6 @@ import { ButtonForOption } from './button/option';
 import { SidePanelCard, SidePanelHeading } from './navigation/side-panel';
 import { useAppTheme } from '../app-theme/app-theme';
 import { useIsWebLoggedOut, useSignedInUser } from '../events/signed-in-user';
-import { setPublicSearchFilters } from '../events/public-search-filters';
-import { showSignUp } from './modal/sign-up-modal';
 import {
   SearchFilters,
   useHasUnsearchedChanges,
@@ -34,6 +32,7 @@ import {
   searchBasicsOptionGroups,
 } from '../data/option-groups';
 import {
+  MEMBERS_ONLY,
   QAndAFilterResults,
   SearchFilterList,
   TwoWayFilterToggles,
@@ -41,8 +40,10 @@ import {
   countChangedAdvancedFilters,
   twoWayFiltersDescription,
   useColdStartSearchFilters,
+  promptSignUpToFilter,
   useQAndAFilters,
   withCurrentValue,
+  withPublicSubmit,
 } from './search-filter-screen';
 import { requestSearch, useIsSearching } from '../events/search-requests';
 
@@ -231,47 +232,13 @@ const PanelInput = ({ og, isBasic = false }: {
   return null;
 };
 
-const promptSignUp = () =>
-  showSignUp(true, 'Join or sign in to filter matches');
-
-const submitPublicGender = async (gender: string[]) => {
-  if (!gender.length) return false;
-  setPublicSearchFilters({ gender });
-  return true;
-};
-
-const submitPublicAge = async (min_age: number | null, max_age: number | null) => {
-  setPublicSearchFilters({ age: { min_age, max_age } });
-  return true;
-};
-
-const withPublicSubmit = (
-  og: OptionGroup<OptionGroupInputs>,
-): OptionGroup<OptionGroupInputs> => {
-  const { input } = og;
-
-  if (isOptionGroupCheckChips(input)) {
-    return {
-      ...og,
-      input: { checkChips: { ...input.checkChips, submit: submitPublicGender } },
-    };
-  }
-  if (isOptionGroupRangeSlider(input)) {
-    return {
-      ...og,
-      input: { rangeSlider: { ...input.rangeSlider, submit: submitPublicAge } },
-    };
-  }
-  return og;
-};
-
 const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
   const { appTheme } = useAppTheme();
 
   return (
-    <Pressable onPress={promptSignUp}>
+    <Pressable onPress={promptSignUpToFilter}>
       <PanelHeading og={og}>
-        <DefaultText style={{ color: appTheme.hintColor }}>Members only</DefaultText>
+        <DefaultText style={{ color: appTheme.hintColor }}>{MEMBERS_ONLY}</DefaultText>
       </PanelHeading>
       <View style={[styles.slider, styles.lockedSlider]}>
         <View
@@ -288,17 +255,6 @@ const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
   );
 };
 
-const JoinBox = () =>
-  <View style={styles.joinBox}>
-    <DefaultText style={styles.joinText}>Join to use 20+ more filters</DefaultText>
-    <ButtonWithCenteredText
-      onPress={() => showSignUp(true)}
-      containerStyle={styles.joinButton}
-    >
-      Join or sign in
-    </ButtonWithCenteredText>
-  </View>;
-
 const BasicFilters = ({ data, isSignedOut }: {
   data: SearchFilters
   isSignedOut: boolean
@@ -308,8 +264,9 @@ const BasicFilters = ({ data, isSignedOut }: {
 
   return (
     <>
-      {searchBasicsOptionGroups.map((og, i) =>
-        <View
+      {searchBasicsOptionGroups.map((og, i) => {
+        const shownOg = isSignedOut ? withPublicSubmit(og) : og;
+        return <View
           key={og.title}
           style={[
             styles.section,
@@ -317,19 +274,15 @@ const BasicFilters = ({ data, isSignedOut }: {
             i === searchBasicsOptionGroups.length - 1 && styles.lastSection,
           ]}
         >
-          {isSignedOut && isOptionGroupSlider(og.input) ?
-            <LockedSlider og={og} /> :
+          {shownOg ?
             <PanelInput
-              og={withCurrentValue(
-                isSignedOut ? withPublicSubmit(og) : og,
-                data,
-                signedInUser,
-              )}
+              og={withCurrentValue(shownOg, data, signedInUser)}
               isBasic={true}
-            />
+            /> :
+            <LockedSlider og={og} />
           }
-        </View>
-      )}
+        </View>;
+      })}
     </>
   );
 };
@@ -414,7 +367,7 @@ const PanelBody = ({ title, data, isSignedOut, open }: {
   isSignedOut: boolean
   open: (title: string) => void
 }) => {
-  const openOrJoin = isSignedOut ? promptSignUp : open;
+  const openOrJoin = isSignedOut ? promptSignUpToFilter : open;
 
   const OptionButton = useCallback(
     ({ optionGroups, setting }: {
@@ -435,14 +388,11 @@ const PanelBody = ({ title, data, isSignedOut, open }: {
   }
   if (title === ADVANCED_FILTERS) {
     return (
-      <>
-        {isSignedOut && <JoinBox />}
-        <SearchFilterList
-          OptionButton={OptionButton}
-          onPressTwoWayFilters={() => openOrJoin(TWO_WAY_FILTERS)}
-          onPressQAndAAnswers={() => openOrJoin(Q_AND_A_ANSWERS)}
-        />
-      </>
+      <SearchFilterList
+        OptionButton={OptionButton}
+        onPressTwoWayFilters={() => openOrJoin(TWO_WAY_FILTERS)}
+        onPressQAndAAnswers={() => openOrJoin(Q_AND_A_ANSWERS)}
+      />
     );
   }
   if (title === Q_AND_A_ANSWERS) {
@@ -764,26 +714,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-  },
-  joinBox: {
-    marginBottom: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: 'rgb(228, 204, 255)',
-    alignItems: 'center',
-    gap: 10,
-  },
-  joinText: {
-    color: 'black',
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  joinButton: {
-    width: '100%',
-    height: 44,
-    marginTop: 0,
-    marginBottom: 0,
   },
   searchIcon: {
     fontSize: 18,
