@@ -60,3 +60,18 @@ BEGIN
     SET looking_for_ids = looking_for_ids || 6::SMALLINT
     WHERE looking_for_ids @> '{1,2,3,4,5}';
 END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'inbox'::regclass
+        AND attname = 'hidden'
+        AND NOT attisdropped
+    ) THEN
+        RETURN;
+    END IF;
+
+    ALTER TABLE inbox
+        ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT FALSE;
+END $$;

@@ -1808,6 +1808,7 @@ CREATE TABLE IF NOT EXISTS inbox (
     reaction TEXT,
     reaction_target_mam_id BIGINT,
     reaction_body TEXT,
+    hidden BOOLEAN                   NOT NULL DEFAULT FALSE,
     PRIMARY KEY(luser, remote_bare_jid)
 );
 

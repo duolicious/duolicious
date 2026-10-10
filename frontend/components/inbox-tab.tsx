@@ -18,7 +18,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useConversation } from '../chat/application-layer/hooks/conversation';
 import { refreshInbox } from '../chat/application-layer';
 import { TopNavBar } from './top-nav-bar';
-import { IntrosItem, ChatsItem } from './inbox-item';
+import { IntrosItem, ChatsItem, HiddenIntrosItem } from './inbox-item';
 import { DefaultText } from './default-text';
 import { ButtonGroup } from './button-group';
 import { useInboxStats } from '../chat/application-layer/hooks/inbox-stats';
@@ -44,6 +44,17 @@ const INBOX_PANEL_HEADER_HEIGHT = 48;
 
 const IntrosItemMemo = memo(IntrosItem);
 const ChatsItemMemo = memo(ChatsItem);
+
+const hideHiddenIntros = () => setInboxSettings({ showHidden: false });
+
+const HiddenIntrosBackButton = ({ position }: { position: 'left' | null }) => (
+  <TopNavBarButton
+    onPress={hideHiddenIntros}
+    iconName="arrow-back"
+    position={position}
+    secondary={true}
+  />
+);
 
 type InboxListItem = string | { dividerKey: string, label: string };
 
@@ -120,6 +131,8 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
     sectionIndex,
     sortByIndex,
     showArchive,
+    showHidden,
+    numHidden,
   } = useConversations();
 
   const stats = useInboxStats();
@@ -178,6 +191,8 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
   }, [conversations, numAboveDivider, sectionIndex]);
 
   const emptyText = (() => {
+    if (showHidden)
+      return 'No hidden intros to show';
     if (!showArchive && sectionIndex === 0)
       return (
         'This is where you’ll see messages from people who’ve reached out ' +
@@ -201,6 +216,8 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
   const endText = (() => {
     if (showArchive) {
       return 'No more archived conversations to show';
+    } else if (showHidden) {
+      return 'No more hidden intros';
     } else {
       if (sectionIndex === 0) {
         return 'Those are all the intros you have for now';
@@ -232,7 +249,12 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
         ref={scrollbar?.observeListRef}
         data={listData}
         ListHeaderComponent={<>{
-          !showArchive && <>
+          showHidden &&
+            <DefaultText style={styles.hiddenSubtitle}>
+              These intros might be rude
+            </DefaultText>
+        }{
+          !showArchive && !showHidden && <>
             <ButtonGroup
               buttons={[
                 'Intros' + introsNumericalLabel,
@@ -265,11 +287,14 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
             {emptyText}
           </DefaultText>
         }
-        ListFooterComponent={
-          listData.length > 0 ?
-            <DefaultText style={styles.endText}>{endText}</DefaultText> :
-            null
-        }
+        ListFooterComponent={<>
+          {!showArchive && !showHidden && sectionIndex === 0 && numHidden > 0 &&
+            <HiddenIntrosItem count={numHidden} />
+          }
+          {listData.length > 0 &&
+            <DefaultText style={styles.endText}>{endText}</DefaultText>
+          }
+        </>}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         onContentSizeChange={scrollbar?.onContentSizeChange}
@@ -283,7 +308,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
 
 const InboxTitle = () => {
   const { appTheme } = useAppTheme();
-  const { showArchive } = useInboxSettings();
+  const { showArchive, showHidden } = useInboxSettings();
   const [isOnline, setIsOnline] = useState(false);
 
   useLayoutEffect(() => {
@@ -302,7 +327,7 @@ const InboxTitle = () => {
           fontSize: 20,
         }}
       >
-        {'Inbox' + (showArchive ? ' (Archive)' : '')}
+        {showHidden ? 'Hidden intros' : 'Inbox' + (showArchive ? ' (Archive)' : '')}
       </DefaultText>
       {!isOnline &&
         <ActivityIndicator
@@ -320,7 +345,12 @@ const InboxTitle = () => {
 };
 
 const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
-  const { sectionIndex, showArchive, applySearchFilters } = useInboxSettings();
+  const {
+    sectionIndex,
+    showArchive,
+    showHidden,
+    applySearchFilters,
+  } = useInboxSettings();
 
   const stats = useInboxStats();
 
@@ -370,6 +400,10 @@ const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
     }, [])
   );
 
+  if (showHidden) {
+    return null;
+  }
+
   return (
     <View style={style}>
       {!showArchive && canApplySearchFilters &&
@@ -402,10 +436,12 @@ const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
 
 const InboxTab = () => {
   const scrollbar = useScrollbar('inbox');
+  const { showHidden } = useInboxSettings();
 
   return (
     <View style={styles.safeAreaView}>
       <TopNavBar>
+        {showHidden && <HiddenIntrosBackButton position="left" />}
         <InboxTitle />
         <InboxNavBarButtons style={styles.navBarButtons} />
       </TopNavBar>
@@ -414,15 +450,22 @@ const InboxTab = () => {
   );
 };
 
-const InboxPanel = memo(({ openPersonUuid }: { openPersonUuid?: string }) => (
-  <>
-    <View style={styles.panelHeader}>
-      <InboxTitle />
-      <InboxNavBarButtons style={styles.panelButtons} />
-    </View>
-    <InboxList openPersonUuid={openPersonUuid} />
-  </>
-));
+const InboxPanel = memo(({ openPersonUuid }: { openPersonUuid?: string }) => {
+  const { showHidden } = useInboxSettings();
+
+  return (
+    <>
+      <View style={styles.panelHeader}>
+        <View style={styles.panelTitle}>
+          {showHidden && <HiddenIntrosBackButton position={null} />}
+          <InboxTitle />
+        </View>
+        <InboxNavBarButtons style={styles.panelButtons} />
+      </View>
+      <InboxList openPersonUuid={openPersonUuid} />
+    </>
+  );
+});
 
 const styles = StyleSheet.create({
   safeAreaView: {
@@ -479,6 +522,12 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 10,
   },
+  panelTitle: {
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   panelButtons: {
     height: '100%',
     flexDirection: 'row',
@@ -489,6 +538,11 @@ const styles = StyleSheet.create({
   // the row had no gap, making it jump flush against this button.
   archiveButton: {
     marginLeft: 14,
+  },
+  hiddenSubtitle: {
+    color: 'grey',
+    textAlign: 'center',
+    marginBottom: 10,
   },
   endText: {
     fontFamily: 'TruenoBold',

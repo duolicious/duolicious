@@ -37,6 +37,7 @@ def store_message(
     callback: Callable[[], None] | Callable[[], Awaitable[None]] | None = None,
     timestamp_microseconds: int | None = None,
     deliver_to_recipient: bool = True,
+    hidden: bool = False,
 ) -> None:
     if timestamp_microseconds is None:
         timestamp_microseconds = now_microseconds()
@@ -67,6 +68,7 @@ def store_message(
             body=message.body,
             timestamp=timestamp_microseconds,
             deliver_to_recipient=deliver_to_recipient,
+            hidden=hidden,
         ),
         messaged_job=SetMessagedJob(
             from_id=from_id,

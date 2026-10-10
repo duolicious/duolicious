@@ -163,6 +163,7 @@ type Conversation = {
   isAvailableUser: boolean
   isVerified: boolean
   location: 'chats' | 'intros' | 'archive' | 'nowhere'
+  hidden: boolean
   awaitingReply: boolean
   matchesSearchFilters: boolean
 };
@@ -325,6 +326,7 @@ const conversationFromWire = (
     isAvailableUser: !!c.is_available,
     isVerified: !!c.is_verified,
     location: locations.includes(c.location) ? c.location : 'archive',
+    hidden: !!c.hidden,
     awaitingReply: !!c.awaiting_reply,
     matchesSearchFilters: !!(c.matches_search_filters ?? true),
   };
@@ -361,6 +363,7 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
     matchesSearchFilters: true,
     ...chatsConversation,
     ...introsConversation,
+    hidden: false,
     lastMessage: message,
     lastMessageRead: true,
     lastMessageTimestamp: new Date(),

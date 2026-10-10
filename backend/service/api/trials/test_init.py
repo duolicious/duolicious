@@ -1,6 +1,6 @@
 import unittest
 
-from service.api.trials import sent_messages_in_chats
+from service.api.trials import hide_rude_intros, sent_messages_in_chats
 
 
 class TestSentMessagesInChats(unittest.TestCase):
@@ -25,6 +25,23 @@ class TestSentMessagesInChats(unittest.TestCase):
         ]:
             with self.subTest(person_id=person_id):
                 self.assertEqual(sent_messages_in_chats(person_id), expected)
+
+
+class TestHideRudeIntros(unittest.TestCase):
+    def test_arms(self) -> None:
+        for person_id, expected in [
+            (4, False),
+            (390452, False),
+            (391550, False),
+            (391558, False),
+            (391559, False),
+            (391560, True),
+            (391561, False),
+            (391562, True),
+            (391563, False),
+        ]:
+            with self.subTest(person_id=person_id):
+                self.assertEqual(hide_rude_intros(person_id), expected)
 
 
 if __name__ == '__main__':

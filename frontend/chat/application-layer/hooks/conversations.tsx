@@ -17,9 +17,11 @@ import * as _ from 'lodash';
 
 const MIN_INTROS_TO_APPLY_SEARCH_FILTERS = 1;
 
+type Section = 'intros' | 'chats' | 'archive' | 'hidden';
+
 const shouldApplySearchFilters = (
   conversations: Conversation[],
-  section: 'intros' | 'chats' | 'archive',
+  section: Section,
   applySearchFilters: boolean,
 ): boolean =>
   section === 'intros' &&
@@ -28,16 +30,22 @@ const shouldApplySearchFilters = (
 
 const sinks = (
   conversation: Conversation,
-  section: 'intros' | 'chats' | 'archive',
+  section: Section,
   applySearchFilters: boolean,
 ): boolean =>
   section === 'chats'
     ? conversation.awaitingReply
     : applySearchFilters && !conversation.matchesSearchFilters;
 
-const getSection = (sectionIndex: number, showArchive: boolean) => {
+const getSection = (
+  sectionIndex: number,
+  showArchive: boolean,
+  showHidden: boolean,
+): Section => {
   if (showArchive) {
     return 'archive';
+  } else if (showHidden) {
+    return 'hidden';
   } else if (sectionIndex === 0) {
     return 'intros';
   } else {
@@ -67,21 +75,22 @@ const getSortBy = (sortByIndex: number) => {
  */
 const getSectionConversations = (
   inbox: Inbox | null,
-  section: 'intros' | 'chats' | 'archive',
+  section: Section,
 ): Conversation[] => {
   if (!inbox) return [];
 
   switch (section) {
-    case 'intros':  return inbox.intros.conversations;
+    case 'intros':  return inbox.intros.conversations.filter((c) => !c.hidden);
     case 'chats':   return inbox.chats.conversations;
     case 'archive': return inbox.archive.conversations;
+    case 'hidden':  return inbox.intros.conversations.filter((c) => c.hidden);
     default:        return [];
   }
 };
 
 const sortConversations = (
   conversations: Conversation[],
-  section: 'intros' | 'chats' | 'archive',
+  section: Section,
   sortBy: 'latest' | 'match',
   applySearchFilters: boolean,
 ): Conversation[] => {
@@ -94,7 +103,7 @@ const sortConversations = (
     sinks(c, section, applySearchFilters_) ? 0 : 1;
 
   return [...conversations].sort((a, b) => {
-    if (section === 'archive') {
+    if (section === 'archive' || section === 'hidden') {
       return compareArrays([
         +b.lastMessageTimestamp,
       ], [
@@ -121,7 +130,7 @@ type ConversationIds = {
 
 const computeConversationIds = (
   inbox: Inbox | null,
-  section: 'intros' | 'chats' | 'archive',
+  section: Section,
   sortBy: 'latest' | 'match',
   applySearchFilters: boolean,
 ): ConversationIds | null => {
@@ -155,6 +164,7 @@ type InboxSettings = {
   sectionIndex: number
   sortByIndex: number
   showArchive: boolean
+  showHidden: boolean
   applySearchFilters: boolean
 };
 
@@ -164,6 +174,7 @@ const defaultInboxSettings: InboxSettings = {
   sectionIndex: 0,
   sortByIndex: 0,
   showArchive: false,
+  showHidden: false,
   applySearchFilters: false,
 };
 
@@ -215,13 +226,15 @@ const useInboxSettings = (): InboxSettings => {
 type ConversationsState = InboxSettings & {
   conversations: string[] | null
   numAboveDivider: number | null
+  numHidden: number
 };
 
 const withComputedConversations = (
   settings: InboxSettings,
   inbox: Inbox | null,
 ): ConversationsState => {
-  const section = getSection(settings.sectionIndex, settings.showArchive);
+  const section = getSection(
+    settings.sectionIndex, settings.showArchive, settings.showHidden);
   const sortBy = getSortBy(settings.sortByIndex);
 
   const computed = computeConversationIds(
@@ -231,6 +244,7 @@ const withComputedConversations = (
     ...settings,
     conversations: computed?.ids ?? null,
     numAboveDivider: computed?.numAboveDivider ?? null,
+    numHidden: getSectionConversations(inbox, 'hidden').length,
   };
 };
 
