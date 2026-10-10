@@ -288,9 +288,12 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
           </DefaultText>
         }
         ListFooterComponent={<>
-          {!showArchive && !showHidden && sectionIndex === 0 && numHidden > 0 &&
-            <HiddenIntrosItem count={numHidden} />
-          }
+          {!showArchive && !showHidden && sectionIndex === 0 && numHidden > 0 && <>
+            {numAboveDivider !== null &&
+              <InboxDivider label={`Hidden (${numHidden})`} />
+            }
+            <HiddenIntrosItem count={numAboveDivider === null ? numHidden : null} />
+          </>}
           {listData.length > 0 &&
             <DefaultText style={styles.endText}>{endText}</DefaultText>
           }

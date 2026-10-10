@@ -205,7 +205,7 @@ const ChatsItem = ({
 
 const showHiddenIntros = () => setInboxSettings({ showHidden: true });
 
-const HiddenIntrosItem = ({ count }: { count: number }) => {
+const HiddenIntrosItem = ({ count }: { count: number | null }) => {
   const { appTheme } = useAppTheme();
 
   const {
@@ -244,9 +244,11 @@ const HiddenIntrosItem = ({ count }: { count: number }) => {
               </DefaultText>
             </View>
             <View style={styles.countRow}>
-              <DefaultText style={styles.grey}>
-                {count}
-              </DefaultText>
+              {count !== null &&
+                <DefaultText style={styles.grey}>
+                  {count}
+                </DefaultText>
+              }
               <Ionicons style={styles.chevron} name="chevron-forward" />
             </View>
           </View>

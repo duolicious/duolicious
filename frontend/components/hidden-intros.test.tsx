@@ -86,6 +86,7 @@ const renderInbox = async (
 describe('hidden intros', () => {
   afterEach(() => {
     act(() => {
+      setInboxSettings({ sectionIndex: 0, applySearchFilters: false });
       resetInboxSettings();
       notify<Inbox | null>('inbox', null);
     });
@@ -104,6 +105,20 @@ describe('hidden intros', () => {
     expect(renderer.root.findByType(HiddenIntrosItem).props.count).toBe(2);
     expect(text).not.toContain('first rude message');
     expect(text).not.toContain('second rude message');
+  });
+
+  test('get their own heading when search filters group the intros', async () => {
+    const renderer = await renderInbox([polite, rude1, rude2]);
+
+    expect(textOf(renderer)).not.toContain('Hidden (2)');
+
+    act(() => { setInboxSettings({ applySearchFilters: true }); });
+
+    const text = textOf(renderer);
+
+    expect(text).toContain('Within your search filters (1)');
+    expect(text).toContain('Hidden (2)');
+    expect(renderer.root.findByType(HiddenIntrosItem).props.count).toBeNull();
   });
 
   test('leave no row when there are none', async () => {
