@@ -31,14 +31,13 @@ class TestHideRudeIntros(unittest.TestCase):
     def test_arms(self) -> None:
         for person_id, expected in [
             (4, False),
-            (390452, False),
-            (391550, False),
-            (391558, False),
-            (391559, False),
-            (391560, True),
-            (391561, False),
-            (391562, True),
-            (391563, False),
+            (391560, False),
+            (391598, False),
+            (391599, False),
+            (391600, True),
+            (391601, False),
+            (391602, True),
+            (391603, False),
         ]:
             with self.subTest(person_id=person_id):
                 self.assertEqual(hide_rude_intros(person_id), expected)

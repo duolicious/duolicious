@@ -22,9 +22,9 @@ next_person_id=$(q "select last_value + 1 from person_id_seq")
 
 ../util/create-user.sh sender 0 0
 ../util/create-user.sh polite 0 0
-q "select setval('person_id_seq', 391560, false)"
+q "select setval('person_id_seq', 391600, false)"
 ../util/create-user.sh treated 0 0
-q "select setval('person_id_seq', 391561, false)"
+q "select setval('person_id_seq', 391601, false)"
 ../util/create-user.sh control 0 0
 q "select setval('person_id_seq', ${next_person_id}, false)"
 
@@ -44,8 +44,8 @@ politeuuid=$(get_uuid 'polite@example.com')
 treateduuid=$(get_uuid 'treated@example.com')
 controluuid=$(get_uuid 'control@example.com')
 
-[[ "$(get_id 'treated@example.com')" == 391560 ]]
-[[ "$(get_id 'control@example.com')" == 391561 ]]
+[[ "$(get_id 'treated@example.com')" == 391600 ]]
+[[ "$(get_id 'control@example.com')" == 391601 ]]
 
 chat_auth_as () {
   local connectionId=$1

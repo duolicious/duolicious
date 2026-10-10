@@ -3,4 +3,4 @@ def sent_messages_in_chats(person_id: int) -> bool:
 
 
 def hide_rude_intros(person_id: int) -> bool:
-    return person_id >= 391560 and person_id % 2 == 0
+    return person_id >= 391600 and person_id % 2 == 0
