@@ -77,6 +77,7 @@ import { DetailedVerificationBadges } from './verification-badge';
 import { listenUpdatedVerification } from '../verification/verification';
 import { InviteEntrypoint } from './invite';
 import { InvitePicker } from './invite';
+import { clubsRedesign } from '../util/trials';
 import { AudioBio } from './audio-bio';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { WEB_VERSION } from '../env/env';
@@ -731,23 +732,25 @@ const Options = ({ navigation, data }: {
         )
       }
 
-      <Title>Clubs</Title>
-      <ButtonForOption
-        onPress={goToClubSelector}
-        label="Clubs"
-        setting={clubsSetting}
-        noSettingText="None"
-        icon={
-          ({ color = 'black' }) => (
-            <FontAwesomeIcon
-              icon={faUserGroup}
-              size={14}
-              style={{ color }}
-            />
-          )
-        }
-      />
-      <InviteEntrypoint navigation={navigation}/>
+      {!clubsRedesign(signedInUser?.personId) && <>
+        <Title>Clubs</Title>
+        <ButtonForOption
+          onPress={goToClubSelector}
+          label="Clubs"
+          setting={clubsSetting}
+          noSettingText="None"
+          icon={
+            ({ color = 'black' }) => (
+              <FontAwesomeIcon
+                icon={faUserGroup}
+                size={14}
+                style={{ color }}
+              />
+            )
+          }
+        />
+        <InviteEntrypoint navigation={navigation}/>
+      </>}
 
       {(data.spotify_tester === true || data.spotify_connected === true) && <>
         <Title>Music</Title>
