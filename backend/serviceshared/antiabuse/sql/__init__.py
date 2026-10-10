@@ -97,6 +97,7 @@ SELECT
     END AS role,
     id,
     uuid::TEXT,
+    url_slug,
     location_long_friendly AS location,
     split_part(email, '@', 2) AS email_domain,
     ARRAY(
@@ -105,6 +106,12 @@ SELECT
         FROM duo_session
         WHERE person_id = p.id
     ) AS ip_addresses,
+    ARRAY(
+        SELECT DISTINCT
+            unnest(asns)
+        FROM duo_session
+        WHERE person_id = p.id
+    ) AS asns,
     count_answers,
     ARRAY(
         SELECT
