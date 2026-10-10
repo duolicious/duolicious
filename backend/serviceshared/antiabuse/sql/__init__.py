@@ -100,18 +100,20 @@ SELECT
     url_slug,
     location_long_friendly AS location,
     split_part(email, '@', 2) AS email_domain,
-    ARRAY(
-        SELECT DISTINCT
-            ip_address::TEXT
-        FROM duo_session
-        WHERE person_id = p.id
+    (
+        SELECT
+            jsonb_object_agg(ip_address, asns)
+        FROM (
+            SELECT
+                host(ip_address) AS ip_address,
+                array_agg(DISTINCT asn) FILTER (WHERE asn IS NOT NULL) AS asns
+            FROM duo_session
+            LEFT JOIN LATERAL unnest(duo_session.asns) AS asn ON TRUE
+            WHERE person_id = p.id
+            AND ip_address IS NOT NULL
+            GROUP BY ip_address
+        ) AS ip_asns
     ) AS ip_addresses,
-    ARRAY(
-        SELECT DISTINCT
-            unnest(asns)
-        FROM duo_session
-        WHERE person_id = p.id
-    ) AS asns,
     count_answers,
     ARRAY(
         SELECT
