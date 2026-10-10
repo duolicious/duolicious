@@ -1,7 +1,9 @@
 import {
   Pressable,
+  StyleSheet,
   View,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   useCallback,
 } from 'react';
@@ -15,6 +17,8 @@ import { VerificationBadge } from './verification-badge';
 import { usePressableAnimation } from '../animation/animation';
 import { setProspectHint } from '../navigation/prospect-cache';
 import { navigateToConversation } from '../navigation/use-navigation-to-conversation';
+import { setInboxSettings } from '../chat/application-layer/hooks/conversations';
+import { useAppTheme } from '../app-theme/app-theme';
 import Animated from 'react-native-reanimated';
 
 const IntrosItem = ({
@@ -81,18 +85,7 @@ const IntrosItem = ({
       onPress={onPress}
       {...hoverProps}
     >
-      <Animated.View
-        style={[{
-          borderRadius: 15,
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingTop: 5,
-          paddingBottom: 5,
-          paddingLeft: 10,
-          marginLeft: 5,
-          marginRight: 5,
-        }, backgroundStyle]}
-      >
+      <Animated.View style={[styles.row, backgroundStyle]}>
         <Avatar
           percentage={matchPercentage}
           photoUuid={photoUuid}
@@ -100,62 +93,23 @@ const IntrosItem = ({
           personUuid={personUuid}
           disableProfileNavigation={true}
         />
-        <View
-          style={{
-            paddingLeft: 10,
-            paddingRight: 20,
-            flexDirection: 'column',
-            flex: 1,
-            flexGrow: 1,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: 5,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                flexShrink: 1,
-                gap: 5,
-                alignItems: 'center',
-                paddingBottom: 5,
-              }}
-            >
-              <DefaultText
-                style={{
-                  fontSize: 16,
-                  fontWeight: '700',
-                  overflow: 'hidden',
-                  flexWrap: 'wrap',
-                  flexShrink: 1,
-                }}
-              >
+        <View style={styles.textColumn}>
+          <View style={styles.titleRow}>
+            <View style={styles.nameRow}>
+              <DefaultText style={styles.name}>
                 {name}
               </DefaultText>
               {isVerified &&
                 <VerificationBadge size={18} />
               }
             </View>
-            <DefaultText
-              style={{
-                color: 'grey',
-              }}
-            >
+            <DefaultText style={styles.grey}>
               {friendlyTimestamp(lastMessageTimestamp)}
             </DefaultText>
           </View>
           <DefaultText
             numberOfLines={1}
-            style={wasRead ? {
-              fontWeight: '400',
-              color: 'grey',
-            } : {
-              fontWeight: '600',
-            }}
+            style={wasRead ? styles.grey : styles.unread}
           >
             {lastMessage}
           </DefaultText>
@@ -215,18 +169,7 @@ const ChatsItem = ({
       onPress={onPress}
       {...hoverProps}
     >
-      <Animated.View
-        style={[{
-          borderRadius: 15,
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingTop: 5,
-          paddingBottom: 5,
-          paddingLeft: 10,
-          marginLeft: 5,
-          marginRight: 5,
-        }, backgroundStyle]}
-      >
+      <Animated.View style={[styles.row, backgroundStyle]}>
         <Avatar
           percentage={matchPercentage}
           photoUuid={photoUuid}
@@ -234,62 +177,23 @@ const ChatsItem = ({
           personUuid={personUuid}
           disableProfileNavigation={true}
         />
-        <View
-          style={{
-            paddingLeft: 10,
-            paddingRight: 20,
-            flexDirection: 'column',
-            flex: 1,
-            flexGrow: 1,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: 5,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                flexShrink: 1,
-                gap: 5,
-                alignItems: 'center',
-                paddingBottom: 5,
-              }}
-            >
-              <DefaultText
-                style={{
-                  fontSize: 16,
-                  fontWeight: '700',
-                  overflow: 'hidden',
-                  flexWrap: 'wrap',
-                  flexShrink: 1,
-                }}
-              >
+        <View style={styles.textColumn}>
+          <View style={styles.titleRow}>
+            <View style={styles.nameRow}>
+              <DefaultText style={styles.name}>
                 {name}
               </DefaultText>
               {isVerified &&
                 <VerificationBadge size={18} />
               }
             </View>
-            <DefaultText
-              style={{
-                color: 'grey',
-              }}
-            >
+            <DefaultText style={styles.grey}>
               {friendlyTimestamp(lastMessageTimestamp)}
             </DefaultText>
           </View>
           <DefaultText
             numberOfLines={1}
-            style={wasRead ? {
-              fontWeight: '400',
-              color: 'grey',
-            } : {
-              fontWeight: '600',
-            }}
+            style={wasRead ? styles.grey : styles.unread}
           >
             {lastMessage}
           </DefaultText>
@@ -299,7 +203,134 @@ const ChatsItem = ({
   );
 };
 
+const showHiddenIntros = () => setInboxSettings({ showHidden: true });
+
+const HiddenIntrosItem = ({ count }: { count: number | null }) => {
+  const { appTheme } = useAppTheme();
+
+  const {
+    backgroundStyle,
+    onPressIn,
+    onPressOut,
+    hoverProps,
+  } = usePressableAnimation(false);
+
+  return (
+    <Pressable
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onPress={showHiddenIntros}
+      {...hoverProps}
+    >
+      <Animated.View style={[styles.row, backgroundStyle]}>
+        <View style={styles.hiddenIconBox}>
+          <View
+            style={[
+              styles.hiddenIconCircle,
+              { backgroundColor: appTheme.inputColor },
+            ]}
+          >
+            <Ionicons
+              style={{ fontSize: 36, color: appTheme.hintColor }}
+              name="eye-off-outline"
+            />
+          </View>
+        </View>
+        <View style={styles.textColumn}>
+          <View style={styles.titleRow}>
+            <View style={styles.nameRow}>
+              <DefaultText style={styles.name}>
+                Hidden intros
+              </DefaultText>
+            </View>
+            <View style={styles.countRow}>
+              {count !== null &&
+                <DefaultText style={styles.grey}>
+                  {count}
+                </DefaultText>
+              }
+              <Ionicons style={styles.chevron} name="chevron-forward" />
+            </View>
+          </View>
+          <DefaultText numberOfLines={1} style={styles.grey}>
+            Might be rude
+          </DefaultText>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+const styles = StyleSheet.create({
+  row: {
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 5,
+    paddingBottom: 5,
+    paddingLeft: 10,
+    marginLeft: 5,
+    marginRight: 5,
+  },
+  textColumn: {
+    paddingLeft: 10,
+    paddingRight: 20,
+    flexDirection: 'column',
+    flex: 1,
+    flexGrow: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 5,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: 5,
+    alignItems: 'center',
+    paddingBottom: 5,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '700',
+    overflow: 'hidden',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+  },
+  grey: {
+    fontWeight: '400',
+    color: 'grey',
+  },
+  unread: {
+    fontWeight: '600',
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  chevron: {
+    fontSize: 20,
+    color: 'grey',
+  },
+  hiddenIconBox: {
+    width: 90,
+    height: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hiddenIconCircle: {
+    width: 82,
+    height: 82,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
 export {
   ChatsItem,
+  HiddenIntrosItem,
   IntrosItem,
 }

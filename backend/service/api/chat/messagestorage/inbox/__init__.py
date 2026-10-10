@@ -83,7 +83,8 @@ WITH viewer AS (
         reaction,
         reaction_body,
         COALESCE(unread_count, 0) AS unread_count,
-        timestamp
+        timestamp,
+        hidden
     FROM
         inbox
     WHERE
@@ -97,6 +98,7 @@ WITH viewer AS (
         entry.reaction_body,
         entry.unread_count,
         entry.timestamp,
+        entry.hidden,
         prospect.url_slug AS url_slug,
         prospect.name AS name,
         COALESCE(prospect.verification_level_id > 1, FALSE) AS verified,
@@ -237,6 +239,7 @@ SELECT
     is_available AND verified AS is_verified,
     is_available,
     location,
+    hidden,
     NOT prospect_messaged_person AS awaiting_reply,
     body AS last_message,
     reaction,
@@ -308,7 +311,8 @@ WITH upsert_sender AS (
         unread_count = 0,
         reaction = NULL,
         reaction_target_mam_id = NULL,
-        reaction_body = NULL
+        reaction_body = NULL,
+        hidden = FALSE
 ), upsert_recipient AS (
     -- Skipped (the SELECT returns no rows) when %(deliver_to_recipient)s is
     -- false -- i.e. the sender is shadow-banned -- so the recipient's inbox
@@ -322,7 +326,8 @@ WITH upsert_sender AS (
         body,
         direction,
         timestamp,
-        unread_count
+        unread_count,
+        hidden
     )
     SELECT
         %(to_username)s,
@@ -334,7 +339,8 @@ WITH upsert_sender AS (
         -- the message is incoming.
         'I'::mam_direction,
         %(timestamp)s,
-        1
+        CASE WHEN %(hidden)s::BOOLEAN THEN 0 ELSE 1 END,
+        %(hidden)s::BOOLEAN
     WHERE
         %(deliver_to_recipient)s::BOOLEAN
     ON CONFLICT (luser, remote_bare_jid)
@@ -343,7 +349,12 @@ WITH upsert_sender AS (
         body = EXCLUDED.body,
         direction = EXCLUDED.direction,
         timestamp = EXCLUDED.timestamp,
-        unread_count = COALESCE(inbox.unread_count, 0) + 1,
+        unread_count = CASE
+            WHEN inbox.hidden OR EXCLUDED.hidden
+            THEN 0
+            ELSE COALESCE(inbox.unread_count, 0) + 1
+        END,
+        hidden = inbox.hidden OR EXCLUDED.hidden,
         reaction = NULL,
         reaction_target_mam_id = NULL,
         reaction_body = NULL
@@ -423,6 +434,20 @@ SELECT
 """
 
 
+Q_IS_HIDDEN = """
+SELECT
+    1
+FROM
+    inbox
+WHERE
+    luser = %(luser)s
+AND
+    remote_bare_jid = %(remote_bare_jid)s
+AND
+    hidden
+"""
+
+
 Q_MARK_DISPLAYED = """
 UPDATE
     inbox
@@ -456,6 +481,7 @@ class UpsertConversationJob:
     body: str
     timestamp: int
     deliver_to_recipient: bool = True
+    hidden: bool = False
 
 
 @dataclass(frozen=True)
@@ -475,6 +501,15 @@ def _composed_body(body: str, reaction: str | None, reaction_body: str | None) -
         return gif_aware_body(body)
 
     return reaction_inbox_body(reaction, gif_aware_body(reaction_body))
+
+
+async def fetch_is_hidden(viewer_username: str, prospect_username: str) -> bool:
+    async with api_tx('read committed') as tx:
+        await tx.execute(Q_IS_HIDDEN, dict(
+            luser=viewer_username,
+            remote_bare_jid=f'{prospect_username}@{LSERVER}',
+        ))
+        return await tx.fetchone() is not None
 
 
 async def get_inbox(query_id: str, username: str) -> list[Outbound]:
@@ -538,6 +573,7 @@ def _conversation_from_row(row: Row) -> InboxConversation:
         is_verified=row['is_verified'],
         is_available=row['is_available'],
         location=row['location'],
+        hidden=row['hidden'],
         awaiting_reply=row['awaiting_reply'],
         matches_search_filters=row['matches_search_filters'],
         last_message=_composed_body(
@@ -723,6 +759,7 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
             body=job.body,
             timestamp=job.timestamp,
             deliver_to_recipient=job.deliver_to_recipient,
+            hidden=job.hidden,
         )
         for job in batch
     ]

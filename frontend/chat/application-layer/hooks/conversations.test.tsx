@@ -29,6 +29,7 @@ const conversation = (
   lastMessageTimestamp: Date,
   matchesSearchFilters: boolean,
   awaitingReply = false,
+  hidden = false,
 ): Conversation => ({
   personUuid,
   urlSlug: null,
@@ -42,6 +43,7 @@ const conversation = (
   isAvailableUser: true,
   isVerified: false,
   location: 'intros',
+  hidden,
   awaitingReply,
   matchesSearchFilters,
 });
@@ -149,5 +151,24 @@ describe('computeConversationIds', () => {
     expect(computeConversationIds(
       inboxOf([], [unrepliedOld, unrepliedNew]), 'chats', 'latest', false,
     )?.numAboveDivider).toBeNull();
+  });
+});
+
+describe('hidden intros', () => {
+  const hiddenOld = conversation('hiddenOld', 99, new Date(1500), true, false, true);
+  const hiddenNew = conversation('hiddenNew', 10, new Date(5000), true, false, true);
+
+  const inbox = inboxOf([...intros, hiddenOld, hiddenNew]);
+
+  it('leaves hidden intros out of the intros section', () => {
+    expect(computeConversationIds(inbox, 'intros', 'match', false)?.ids)
+      .toEqual(['match99filtered', 'match90old', 'match50new', 'match10filtered']);
+  });
+
+  it('lists only hidden intros in the hidden section, newest first', () => {
+    const computed = computeConversationIds(inbox, 'hidden', 'match', true);
+
+    expect(computed?.ids).toEqual(['hiddenNew', 'hiddenOld']);
+    expect(computed?.numAboveDivider).toBeNull();
   });
 });
