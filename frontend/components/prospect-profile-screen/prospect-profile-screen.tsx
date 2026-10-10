@@ -92,6 +92,7 @@ import {
   capLuminance,
   isUuid,
   isMobile,
+  viewportPosition,
 } from '../../util/util';
 import { useTimeSinceLabel } from '../../util/clock';
 import { useOnline } from '../../chat/application-layer/hooks/online';
@@ -444,7 +445,7 @@ const AnonymousSignInCta = ({navigation, name}: {
   return (
     <View
       style={{
-        position: 'absolute',
+        position: viewportPosition(),
         bottom: insets.bottom,
         width: '100%',
         maxWidth: COLUMN_MAX_WIDTH,
@@ -1299,7 +1300,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
           {showAuthedBottomButtons &&
             <View
               style={{
-                position: 'absolute',
+                position: viewportPosition(),
                 bottom: insets.bottom,
                 width: '100%',
                 justifyContent: 'center',

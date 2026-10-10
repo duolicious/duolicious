@@ -3,7 +3,7 @@ import { Pressable, View, useWindowDimensions } from 'react-native';
 import { CrossFade, CrossFadeText } from './cross-fade';
 import { DefaultText } from './default-text';
 import { Logo16 } from './logo';
-import { isMobile } from '../util/util';
+import { isMobile, viewportPosition } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
 import { showSignUp } from './modal/sign-up-modal';
 import { useNumActiveUsers } from './welcome-screen';
@@ -53,7 +53,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   return (
     <View
       style={{
-        position: 'absolute',
+        position: viewportPosition(),
         bottom: isMobile() ? 70 : 20,
         left: 0,
         right: 0,

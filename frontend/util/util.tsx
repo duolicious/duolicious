@@ -1,5 +1,6 @@
 import {
   Platform,
+  ViewStyle,
 } from 'react-native';
 import {
   Locale,
@@ -30,6 +31,10 @@ const isMobile = () => {
     isMobileWeb()
   );
 };
+
+const viewportPosition = (): ViewStyle['position'] =>
+  // @ts-expect-error – React Native's types omit react-native-web's 'fixed'
+  Platform.OS === 'web' && isMobileWeb() ? 'fixed' : 'absolute';
 
 /* Compare arrays as they would be in Python
  */
@@ -482,6 +487,7 @@ export {
   getShortElapsedTime,
   isMobile,
   isMobileWeb,
+  viewportPosition,
   jsonParseSilently,
   longFriendlyTimestamp,
   possessive,

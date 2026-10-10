@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { backgroundColors } from './background-colors';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { SHEET_Z_INDEX } from '../../constants/constants';
+import { viewportPosition } from '../../util/util';
 
 const SLIDE_DURATION = 250;
 const DISMISS_VELOCITY = 800;
@@ -216,6 +217,7 @@ const ModalBottomSheet = ({
 const styles = StyleSheet.create({
   wrapper: {
     ...StyleSheet.absoluteFillObject,
+    position: viewportPosition(),
     zIndex: SHEET_Z_INDEX,
   },
   avoidingView: {
