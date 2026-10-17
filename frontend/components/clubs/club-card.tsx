@@ -349,7 +349,7 @@ const ClubCardTitle = ({
       {onClose &&
         <Close
           onPress={onClose}
-          style={{ position: 'relative', marginTop: iconMarginTop }}
+          style={{ marginTop: iconMarginTop }}
         />
       }
     </View>

@@ -18,7 +18,7 @@ import {
   backgroundColors,
 } from './background-colors';
 import { useSkipped } from '../../hide-and-block/hide-and-block';
-import { Close } from '../button/close';
+import { HeaderWithClose } from '../button/close';
 import { useAppTheme } from '../../app-theme/app-theme';
 
 type ReportModalInitialData = {
@@ -145,23 +145,14 @@ const ReportModal = () => {
             gap: 10,
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <Close
-              onPress={close}
-              style={null}
-            />
-          </View>
-          <Title style={{
-            marginTop: 0,
-            alignSelf: 'center',
-          }}>
-            What would you like to report?
-          </Title>
+          <HeaderWithClose onPress={close}>
+            <Title style={{
+              marginTop: 10,
+              textAlign: 'center',
+            }}>
+              What would you like to report?
+            </Title>
+          </HeaderWithClose>
           <DefaultText
             style={{
               color: 'grey',

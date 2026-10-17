@@ -27,7 +27,7 @@ import Svg, { Path } from 'react-native-svg';
 import { DefaultText } from './default-text';
 import { DefaultTextInput } from './default-text-input';
 import { ButtonWithCenteredText } from './button/centered-text';
-import { Close } from './button/close';
+import { HeaderWithClose } from './button/close';
 import {
   OptionGroup,
   OptionGroupInputs,
@@ -386,12 +386,11 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
               shadowOpacity: 0.5,
               shadowRadius: 10,
               elevation: 3,
-              paddingTop: 20,
+              paddingTop: 10,
               width: '100%',
               overflow: 'hidden',
             }}
           >
-            <Close onPress={dismiss} color="black" />
             <View
               style={{
                 alignSelf: 'center',
@@ -402,14 +401,17 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                 paddingHorizontal: 10,
               }}
             >
-              <DefaultText
-                style={{
-                  textAlign: 'center',
-                  color: '#555',
-                }}
-              >
-                You’re invited to join
-              </DefaultText>
+              <HeaderWithClose onPress={dismiss} color="black">
+                <DefaultText
+                  style={{
+                    marginTop: 10,
+                    textAlign: 'center',
+                    color: '#555',
+                  }}
+                >
+                  You’re invited to join
+                </DefaultText>
+              </HeaderWithClose>
               <DefaultText
                 style={{
                   textAlign: 'center',
