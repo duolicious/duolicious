@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DefaultText } from './default-text';
 import { listen, notify } from '../events/events';
 import { ModalButton } from './button/modal';
@@ -47,6 +48,7 @@ type NonNullImageCropperOutput = Exclude<ImageCropperOutput[number], null>;
 const ImageCropper = () => {
   const [data, setData] = useState<ImageCropperInput>();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const imageSource = useMemo(() => ({uri: data?.base64}), [data?.base64]);
 
   const cropAreaBase = useRef<
@@ -71,9 +73,6 @@ const ImageCropper = () => {
     animatedCropArea.size.setValue(p.size);
   };
 
-  const statusBarHeight = (
-    Platform.OS === 'web' ? 0 : (StatusBar.currentHeight ?? 0));
-
   const computeRenderedImageSize = () => {
     if (!data) {
       return null;
@@ -81,15 +80,16 @@ const ImageCropper = () => {
 
     const aspectRatio = data.width / data.height;
 
-    // Reduce the available height by the button's height
-    const availableHeight = windowHeight - buttonHeight - statusBarHeight;
+    const availableWidth = windowWidth - insets.left - insets.right;
+    const availableHeight =
+      windowHeight - insets.top - insets.bottom - buttonHeight;
 
     let newWidth: number;
     let newHeight: number;
 
-    if (windowWidth / availableHeight < aspectRatio) {
-      newWidth = windowWidth;
-      newHeight = windowWidth / aspectRatio;
+    if (availableWidth / availableHeight < aspectRatio) {
+      newWidth = availableWidth;
+      newHeight = availableWidth / aspectRatio;
     } else {
       newWidth = availableHeight * aspectRatio;
       newHeight = availableHeight;
@@ -249,9 +249,16 @@ const ImageCropper = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      {
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      },
+    ]}>
       <View style={{
-        marginTop: statusBarHeight,
         width:  renderedImageSize?.width ?? 0,
         height: renderedImageSize?.height ?? 0,
         backgroundColor: 'black'
