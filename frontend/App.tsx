@@ -44,6 +44,7 @@ import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-c
 import { WebAppMovingModal } from './components/modal/web-app-moving-modal';
 import { SignUpModal } from './components/modal/sign-up-modal';
 import { ClubHosts } from './components/clubs/hosts';
+import { VideoHost } from './components/video-surface';
 import { SignUpBanner } from './components/sign-up-banner';
 import { useAppThemeLoader, useAppTheme } from './app-theme/app-theme';
 import { useAppStartup } from './app-startup/app-startup';
@@ -176,6 +177,7 @@ const App = () => {
               </Stack.Navigator>
               <ClubHosts/>
             </NavigationContainer>
+            <VideoHost/>
             <GlobalBackButton/>
             <SignUpBanner/>
             <TooltipListener/>

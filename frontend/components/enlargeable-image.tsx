@@ -7,12 +7,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from '../navigation/linking';
 import { Image as ExpoImage } from 'expo-image';
-import { photoUri } from '../util/photos';
+import { photoUri, videoUri } from '../util/photos';
+import { AutoplayVideo, unmuteVideos } from './looping-video';
 import type { PhotoGeometry } from '../util/photos';
 import {
   ZERO_BORDER_RADII,
   setExpandedPhoto,
-  useIsPhotoExpanded,
+  usePhotoExpansion,
 } from '../events/expanded-photo';
 import type { AlbumPhoto, BorderRadii } from '../events/expanded-photo';
 import { noSelect } from '../styles';
@@ -47,6 +48,7 @@ const EnlargeablePhoto = memo(({
   innerStyle,
   isPrimary,
   isVerified = false,
+  withControls = false,
 }: {
   photoUuid: string | undefined | null
   photoExtraExts?: string[] | undefined | null
@@ -60,13 +62,14 @@ const EnlargeablePhoto = memo(({
   innerStyle?: StyleProp<ViewStyle>
   isPrimary: boolean
   isVerified?: boolean
+  withControls?: boolean
 }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const ref = useRef<View>(null);
 
   // The gallery draws this same photo over the top of this preview and expands
   // it, so the preview gets out of the way for as long as it's up.
-  const isExpanded = useIsPhotoExpanded(photoUuid);
+  const expansion = usePhotoExpansion(photoUuid);
 
   const internalOnPress = useCallback((event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -83,6 +86,10 @@ const EnlargeablePhoto = memo(({
 
     if (!photoUuid) {
       return;
+    }
+
+    if (videoUri(photoUuid, photoExtraExts)) {
+      unmuteVideos();
     }
 
     const fullAlbum: AlbumPhoto[] =
@@ -103,6 +110,7 @@ const EnlargeablePhoto = memo(({
         album: fullAlbum,
         morph: null,
         covered: false,
+        closing: false,
       });
       return navigation.navigate('Gallery Screen', { photoUuid });
     }
@@ -121,6 +129,7 @@ const EnlargeablePhoto = memo(({
           }
           : null,
         covered: false,
+        closing: false,
       });
 
       navigation.navigate('Gallery Screen', { photoUuid });
@@ -146,6 +155,8 @@ const EnlargeablePhoto = memo(({
 
   const radii = toBorderRadii(borderRadius);
 
+  const video = videoUri(photoUuid, photoExtraExts);
+
   return (
     <Pressable
       ref={ref}
@@ -163,7 +174,7 @@ const EnlargeablePhoto = memo(({
           ...noSelect,
         },
         style,
-        isExpanded ? { opacity: 0 } : null,
+        expansion === 'covered' || expansion === 'closing' ? { opacity: 0 } : null,
       ]}
     >
       <PhotoOrSkeleton
@@ -176,6 +187,14 @@ const EnlargeablePhoto = memo(({
         forceExpoImage={true}
         onLoad={prefetchEnlargedImage}
       />
+      {video &&
+        <AutoplayVideo
+          uri={video}
+          withControls={withControls}
+          surfaceHidden={expansion === 'covered'}
+          opening={expansion === 'opening'}
+        />
+      }
       {isVerified &&
         <VerificationBadge
           style={{

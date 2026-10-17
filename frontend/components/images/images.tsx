@@ -1,5 +1,6 @@
 import {
   Platform,
+  StyleSheet,
   View,
 } from 'react-native';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
@@ -15,7 +16,12 @@ import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faCircleXmark } from '@fortawesome/free-solid-svg-icons/faCircleXmark'
-import { notify, listen, lastEvent } from '../../events/events';
+import {
+  notify,
+  listen,
+  lastEvent,
+  useDerivedEvent,
+} from '../../events/events';
 import {
   ImageCropperInput,
   ImageCropperOutput,
@@ -45,7 +51,16 @@ import {
 } from '../../data/option-groups';
 import { remap } from './logic';
 import { photoQueue } from '../../api/queue';
-import { japi } from '../../api/api';
+import { japi, uriToBase64 } from '../../api/api';
+import {
+  VideoJob,
+  startVideoUpload,
+  waitForVideoJob,
+} from '../../api/video-upload';
+import { LoopingVideo } from '../looping-video';
+import { notifyErrorToast, notifyIconToast } from '../toast';
+import { photoUri, videoLabel } from '../../util/photos';
+import { storeKv } from '../../kv-storage/kv-storage';
 import * as _ from "lodash";
 import { useAppTheme } from '../../app-theme/app-theme';
 import { Flair } from '../../components/badges';
@@ -56,6 +71,7 @@ const EV_IMAGES = 'images';
 const EV_IMAGE_CROPPER_OUTPUT = 'image-cropper-output';
 const EV_IMAGE_LOADING = 'image-loading';
 const EV_IMAGE_URI = 'image-uri';
+const EV_IMAGE_VIDEO_LABEL = 'image-video-label';
 const EV_SLOTS = 'slots';
 const EV_SLOT_ASSIGNMENT_FINISH = 'slot-assignment-finish';
 const EV_SLOT_ASSIGNMENT_START = 'slot-assignment-start';
@@ -63,6 +79,25 @@ const EV_SLOT_REQUEST = 'slot-request';
 const EV_UPDATED_NAME = 'updated-name';
 const EV_UPDATED_FLAIR = 'updated-flair';
 const EV_UPDATED_VERIFICATION = 'updated-verification';
+const EV_VIDEO_UPLOADS = 'video-uploads';
+
+const MAX_VIDEO_BYTES = 100_000_000;
+const MAX_VIDEO_SECONDS = 30;
+const VIDEO_CONTENT_TYPES = [
+  'video/mp4',
+  'video/quicktime',
+  'video/x-m4v',
+  'video/webm',
+  'video/x-matroska',
+  'video/3gpp',
+  'video/mpeg',
+  'video/ogg',
+  'video/x-msvideo',
+  'video/avi',
+  'video/vnd.avi',
+  'video/x-ms-wmv',
+  'video/x-ms-asf',
+];
 
 type Point2D = {
   x: number
@@ -107,6 +142,19 @@ type ImageLoading = {
 
 type ImageUri = {
   [k: number]: string | null
+};
+
+type ImageVideoLabel = {
+  [k: number]: string | null
+};
+
+type VideoUpload = {
+  localUri: string | null
+  progress: number | null
+};
+
+type VideoUploads = {
+  [k: number]: VideoUpload | null
 };
 
 type HttpPostAssignments = {
@@ -303,6 +351,62 @@ const useIsVerified = (fileNumber: SharedValue<number>) => {
   return { isVerifiedState, isVerifiedRef };
 };
 
+const useVideoLabel = (
+  fileNumber: SharedValue<number>,
+  initialVideoLabel: string | null,
+) => {
+  const [videoLabel, setVideoLabel] = useState(initialVideoLabel);
+
+  useEffect(() => {
+    return listen<ImageVideoLabel>(
+      EV_IMAGE_VIDEO_LABEL,
+      (data) => {
+        const videoLabel = data?.[fileNumber.value];
+
+        if (videoLabel === undefined) {
+          return;
+        }
+
+        setVideoLabel(videoLabel);
+      }
+    );
+  }, []);
+
+  return videoLabel;
+};
+
+const useVideoUpload = (
+  fileNumber: SharedValue<number>,
+  initialFileNumber: number,
+) => {
+  const [videoUpload, setVideoUpload] = useState(
+    lastEvent<VideoUploads>(EV_VIDEO_UPLOADS)?.[initialFileNumber] ?? null);
+  const videoUploadRef = useRef(videoUpload);
+
+  useEffect(() => {
+    return listen<VideoUploads>(
+      EV_VIDEO_UPLOADS,
+      (data) => {
+        const next = data?.[fileNumber.value] ?? null;
+
+        if (next === videoUploadRef.current) {
+          return;
+        }
+
+        videoUploadRef.current = next;
+        setVideoUpload(next);
+      }
+    );
+  }, []);
+
+  return videoUpload;
+};
+
+const rimInset = (cornerRadius: number, minimum: number) => {
+  'worklet';
+  return Math.max(minimum, cornerRadius * (1 - Math.SQRT1_2));
+};
+
 const isSquareish = (width: number, height: number) => {
   if (width === 0) return true;
   if (height === 0) return true;
@@ -353,11 +457,118 @@ const postAssignments = (photoAssignments: HttpPostAssignments) => {
   });
 };
 
+const notifyReplacedImage = (
+  position: number,
+  uri: string,
+  videoLabel: string | null,
+) => {
+  notify<ImageUri>(EV_IMAGE_URI, { [position]: uri });
+
+  notify<ImageVideoLabel>(EV_IMAGE_VIDEO_LABEL, { [position]: videoLabel });
+
+  notify<VerificationEvent>(
+    EV_UPDATED_VERIFICATION,
+    { photos: { [`${position}`]: false } }
+  );
+};
+
+const setVideoUpload = (position: number, upload: VideoUpload | null) => {
+  notify<VideoUploads>(
+    EV_VIDEO_UPLOADS,
+    { ...lastEvent<VideoUploads>(EV_VIDEO_UPLOADS), [position]: upload }
+  );
+};
+
+const showVideoFailure = async (uuid: string, message: string) => {
+  notifyErrorToast(message);
+
+  await storeKv('shown_video_failure', uuid);
+};
+
+const finishVideoJob = async (position: number, uuid: string) => {
+  const result = await waitForVideoJob(uuid);
+
+  setVideoUpload(position, null);
+
+  if (result?.ok) {
+    notifyReplacedImage(
+      position,
+      photoUri(result.photoUuid, 450),
+      videoLabel(result.durationSeconds),
+    );
+  } else if (result) {
+    await showVideoFailure(uuid, result.message);
+  }
+};
+
+const resumeVideoJob = async (job: VideoJob | null | undefined) => {
+  if (!job || lastEvent<VideoUploads>(EV_VIDEO_UPLOADS)?.[job.position]) {
+    return;
+  }
+
+  if (job.status !== 'failure') {
+    setVideoUpload(job.position, { localUri: null, progress: null });
+    return await finishVideoJob(job.position, job.uuid);
+  }
+
+  if (await storeKv('shown_video_failure') !== job.uuid) {
+    await showVideoFailure(job.uuid, job.message);
+  }
+};
+
+const uploadVideo = async (
+  position: number,
+  asset: ImagePicker.ImagePickerAsset,
+) => {
+  const contentType = asset.mimeType ?? '';
+  const seconds = (asset.duration ?? 0) / (Platform.OS === 'web' ? 1 : 1000);
+
+  if (!VIDEO_CONTENT_TYPES.includes(contentType)) {
+    return notifyErrorToast("That file isn’t a video we can use");
+  }
+
+  if ((asset.fileSize ?? 0) > MAX_VIDEO_BYTES) {
+    return notifyErrorToast('That video is over 100 MB. Try trimming it');
+  }
+
+  if (seconds > MAX_VIDEO_SECONDS) {
+    notifyIconToast(
+      `Only the first ${MAX_VIDEO_SECONDS} seconds will be used`,
+      (color) => <Ionicons name="cut-outline" size={24} color={color} />,
+    );
+  }
+
+  const setProgress = (progress: number | null) =>
+    setVideoUpload(position, { localUri: asset.uri, progress });
+
+  setProgress(0);
+
+  const body = asset.file ?? await (await fetch(asset.uri)).blob();
+
+  const uuid = await startVideoUpload(position, body, contentType, setProgress);
+
+  if (!uuid) {
+    return setVideoUpload(position, null);
+  }
+
+  setProgress(null);
+
+  await finishVideoJob(position, uuid);
+};
+
+const closeImagePicker = (fileNumber: SharedValue<number>) => {
+  isImagePickerOpen.value = false;
+  setIsImageLoading(fileNumber, false);
+};
+
 const addImage = async (
   fileNumber: SharedValue<number>,
   showProtip: boolean,
 ) => {
   if (getIsImageLoading(fileNumber)) {
+    return;
+  }
+  if (lastEvent<VideoUploads>(EV_VIDEO_UPLOADS)?.[fileNumber.value]) {
     return;
   }
   if (isImagePickerOpen.value) {
@@ -371,31 +582,30 @@ const addImage = async (
 
   // No permissions request is necessary for launching the image library
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: 'images',
+    mediaTypes: _.some(lastEvent<VideoUploads>(EV_VIDEO_UPLOADS))
+      ? ['images']
+      : ['images', 'videos'],
     quality: 1,
     selectionLimit: 1,
-    base64: true,
+    base64: Platform.OS !== 'web',
+    videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
   });
 
-  if (result.canceled && Platform.OS !== 'web') {
-    isImagePickerOpen.value = false;
-    setIsImageLoading(fileNumber, false);
-  }
-  if (result.canceled) {
-    return;
+  const asset = result.assets?.[0];
+
+  if (asset?.type === 'video') {
+    closeImagePicker(fileNumber);
+    return await uploadVideo(fileNumber.value, asset);
   }
 
-  const width = result.assets[0].width;
-  const height = result.assets[0].height;
-  const mimeType = result.assets[0].mimeType;
-  const base64 = result.assets[0].base64;
-  if (!width) return;
-  if (!height) return;
-  if (!mimeType) return;
-  if (!base64) {
-    console.warn('Unexpected output from launchImageLibraryAsync');
-    return;
+  const width = asset?.width;
+  const height = asset?.height;
+  const mimeType = asset?.mimeType;
+  if (!asset || !width || !height || !mimeType) {
+    return closeImagePicker(fileNumber);
   }
+
+  const base64 = asset.base64 ?? await uriToBase64(asset.uri);
 
   const base64Uri = `data:${mimeType};base64,${base64}`;
 
@@ -462,12 +672,7 @@ const useImagePickerResult = (
             singleData.size,
           );
 
-          notify<ImageUri>(EV_IMAGE_URI, { [fileNumber.value]: base64 });
-
-          notify<VerificationEvent>(
-            EV_UPDATED_VERIFICATION,
-            { photos: { [`${fileNumber.value}`]: false } }
-          );
+          notifyReplacedImage(fileNumber.value, base64, null);
         }
 
         setIsImageLoading(fileNumber, false);
@@ -579,6 +784,9 @@ const MoveableImage = ({
     input.photos.getBlurhash(String(initialFileNumber)) :
     null;
 
+  const initialVideoLabel =
+    input.photos.getVideoLabel?.(String(initialFileNumber)) ?? null;
+
   const { appTheme } = useAppTheme();
   const fileNumber = useSharedValue(initialFileNumber);
   const _slots = useSharedValue(slots);
@@ -586,6 +794,14 @@ const MoveableImage = ({
   const isLoading = useIsImageLoading(fileNumber);
   const { uriState, uriRef } = useUri(fileNumber, initialUri);
   const { isVerifiedState, isVerifiedRef } = useIsVerified(fileNumber);
+  const tileVideoLabel = useVideoLabel(fileNumber, initialVideoLabel);
+  const videoTagWidth = useSharedValue(0);
+  const videoUpload = useVideoUpload(fileNumber, initialFileNumber);
+  const isAnyVideoUploading = useDerivedEvent<VideoUploads, boolean>(
+    EV_VIDEO_UPLOADS,
+    (uploads) => _.some(uploads),
+    [],
+  );
 
   const getBorderRadius = useCallback((fileNumber: number) => {
     'worklet';
@@ -669,7 +885,7 @@ const MoveableImage = ({
       scheduleOnRN(addImageOnStart);
     })
 
-  const composedGesture = uriState && moveable
+  const composedGesture = uriState && moveable && !isAnyVideoUploading
     ? Gesture.Exclusive(pan, tap)
     : tap;
 
@@ -677,7 +893,7 @@ const MoveableImage = ({
     Gesture
     .Tap()
     .onStart(() => {
-      if (uriState === null || isLoading) {
+      if (uriState === null || isLoading || videoUpload) {
         return;
       }
 
@@ -773,6 +989,30 @@ const MoveableImage = ({
     borderRadius: borderRadius.value,
   }));
 
+  const removeButtonStyle = useAnimatedStyle(() => {
+    const inset = rimInset(borderRadius.value, 5) - 15;
+    return { top: inset, left: inset };
+  });
+
+  const verificationBadgeStyle = useAnimatedStyle(() => {
+    const inset = rimInset(borderRadius.value, 18) - 10;
+    return { top: inset, right: inset };
+  });
+
+  const tileWidth = absolutePosition?.width ?? 0;
+
+  const videoTagStyle = useAnimatedStyle(() => {
+    const round = Math.min(
+      1,
+      Math.max(0, (borderRadius.value - 5) / Math.max(1, tileWidth / 2 - 5)),
+    );
+
+    return {
+      bottom: 8 + 8 * round,
+      right: 8 + ((tileWidth - videoTagWidth.value) / 2 - 8) * round,
+    };
+  }, [tileWidth]);
+
   return (
     <GestureDetector gesture={composedGesture}>
       <Animated.View
@@ -819,39 +1059,74 @@ const MoveableImage = ({
               contentFit="contain"
             />
           }
+          {uriState && tileVideoLabel && !videoUpload &&
+            <Animated.View
+              pointerEvents="none"
+              onLayout={(e) => {
+                videoTagWidth.value = e.nativeEvent.layout.width;
+              }}
+              style={[
+                {
+                  position: 'absolute',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                },
+                videoTagStyle,
+              ]}
+            >
+              <Ionicons name="videocam" size={11} color="white" />
+              <DefaultText
+                style={{
+                  color: 'white',
+                  fontSize: 11,
+                  fontWeight: '500',
+                  fontVariant: ['tabular-nums'],
+                }}
+              >
+                {tileVideoLabel}
+              </DefaultText>
+            </Animated.View>
+          }
+          {videoUpload &&
+            <VideoUploadOverlay upload={videoUpload} />
+          }
           {isLoading &&
             <Loading/>
           }
         </Animated.View>
         {uriState &&
           <GestureDetector gesture={removeGesture}>
-            <View
-              style={{
-                position: 'absolute',
-                top: -10,
-                left: -10,
-                padding: 2,
-                borderRadius: 999,
-                backgroundColor: 'white',
-              }}
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  padding: 2,
+                  borderRadius: 999,
+                  backgroundColor: 'white',
+                },
+                removeButtonStyle,
+              ]}
             >
               <FontAwesomeIcon
                 icon={faCircleXmark}
                 size={26}
                 color="#000"
               />
-            </View>
+            </Animated.View>
           </GestureDetector>
         }
         {isVerifiedState && (
-          <VerificationBadge
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-            }}
-            size={20}
-          />
+          <Animated.View
+            pointerEvents="none"
+            style={[{ position: 'absolute' }, verificationBadgeStyle]}
+          >
+            <VerificationBadge size={20} />
+          </Animated.View>
         )}
       </Animated.View>
     </GestureDetector>
@@ -1170,6 +1445,57 @@ const AddIcon = () => {
   );
 };
 
+const VideoUploadOverlay = ({ upload }: { upload: VideoUpload }) => (
+  <View
+    pointerEvents="none"
+    style={[StyleSheet.absoluteFill, { backgroundColor: 'black' }]}
+  >
+    {upload.localUri &&
+      <LoopingVideo
+        uri={upload.localUri}
+        muted={true}
+        playing={true}
+        contentFit="cover"
+      />
+    }
+    <View
+      style={{
+        ...StyleSheet.absoluteFill,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      }}
+    >
+      {upload.progress === null &&
+        <LogoActivityIndicator size="large" color="white"/>
+      }
+      <DefaultText style={{ color: 'white', fontWeight: '700', fontSize: 12 }}>
+        {upload.progress === null ? 'Processing' : 'Uploading'}
+      </DefaultText>
+      {upload.progress !== null &&
+        <View
+          style={{
+            width: '70%',
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+          }}
+        >
+          <View
+            style={{
+              width: `${upload.progress * 100}%`,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: 'white',
+            }}
+          />
+        </View>
+      }
+    </View>
+  </View>
+);
+
 const Loading = () => {
   return (
     <View
@@ -1193,6 +1519,7 @@ export {
   Images,
   MoveableImage,
   Slot,
+  resumeVideoJob,
   useIsImageLoading,
   useUri,
 };

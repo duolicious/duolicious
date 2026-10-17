@@ -69,11 +69,14 @@ services:
 
       DUO_R2_BUCKET_NAME: s3-mock-bucket
       DUO_R2_AUDIO_BUCKET_NAME: s3-mock-audio-bucket
+      DUO_R2_VIDEO_UPLOAD_BUCKET_NAME: s3-mock-video-upload-bucket
       DUO_R2_ACCT_ID: unused-in-dev-env
       DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
       DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
 
       DUO_BOTO_ENDPOINT_URL: http://s3mock:9090
+      DUO_R2_PRESIGN_ENDPOINT_URL: http://localhost:9090
+      DUO_VIDEO_MAX_QUEUED_JOBS: '1'
 
       # Social-login OAuth audiences. Dummy values let the API boot;
       # any real /sign-in-with-* call will fail token verification,
@@ -156,6 +159,7 @@ services:
 
       DUO_R2_BUCKET_NAME: s3-mock-bucket
       DUO_R2_AUDIO_BUCKET_NAME: s3-mock-audio-bucket
+      DUO_R2_VIDEO_UPLOAD_BUCKET_NAME: s3-mock-video-upload-bucket
       DUO_R2_ACCT_ID: unused-in-dev-env
       DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
       DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
@@ -208,7 +212,7 @@ services:
     image: adobe/s3mock:3.12.0
 
     environment:
-      initialBuckets: s3-mock-bucket, s3-mock-audio-bucket
+      initialBuckets: s3-mock-bucket, s3-mock-audio-bucket, s3-mock-video-upload-bucket
       AWS_ACCESS_KEY_ID: s3-mock-access-key-id
       AWS_SECRET_ACCESS_KEY: s3-mock-secret-access-key-secret
 

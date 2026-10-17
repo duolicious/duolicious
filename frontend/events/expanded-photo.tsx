@@ -52,6 +52,8 @@ type ExpandedPhoto = {
   // same frame as the press, so hiding sooner leaves the photo missing for a
   // frame or two.
   covered: boolean
+
+  closing: boolean
 };
 
 const setExpandedPhoto = (expandedPhoto: ExpandedPhoto | null) => {
@@ -61,21 +63,35 @@ const setExpandedPhoto = (expandedPhoto: ExpandedPhoto | null) => {
 const getExpandedPhoto = (): ExpandedPhoto | null =>
   lastEvent<ExpandedPhoto | null>(EVENT_KEY) ?? null;
 
+const markExpandedPhotoClosing = () => {
+  const expandedPhoto = getExpandedPhoto();
+
+  if (expandedPhoto) {
+    setExpandedPhoto({ ...expandedPhoto, closing: true });
+  }
+};
+
 // Whether the gallery has this preview's photo covered. Such a preview hides
 // itself, so only one instance of the photo is ever apparent.
-const useIsPhotoExpanded = (photoUuid: string | undefined | null): boolean =>
+const usePhotoExpansion = (
+  photoUuid: string | undefined | null,
+): 'none' | 'opening' | 'covered' | 'closing' =>
   useDerivedEvent(
     EVENT_KEY,
     (e: ExpandedPhoto | null | undefined) =>
-      !!photoUuid && e?.photoUuid === photoUuid && e.covered,
+      !photoUuid || e?.photoUuid !== photoUuid ? 'none' :
+      !e.covered ? 'opening' :
+      e.closing ? 'closing' :
+      'covered',
     [photoUuid],
   );
 
 export {
   ZERO_BORDER_RADII,
   getExpandedPhoto,
+  markExpandedPhotoClosing,
   setExpandedPhoto,
-  useIsPhotoExpanded,
+  usePhotoExpansion,
 };
 
 export type {
