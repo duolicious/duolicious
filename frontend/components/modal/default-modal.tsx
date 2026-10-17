@@ -3,11 +3,8 @@ import {
   Animated,
   BackHandler,
   Easing,
-  Platform,
-  StatusBar,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { viewportPosition } from '../../util/util';
 
@@ -26,7 +23,6 @@ const DefaultModal = ({
   onRequestClose?: () => void,
   children: React.ReactNode
 }) => {
-  const { width, height } = useWindowDimensions();
   // Track whether the modal should be mounted in the tree
   const [isMounted, setIsMounted] = useState(visible);
   if (visible && !isMounted) {
@@ -84,12 +80,7 @@ const DefaultModal = ({
 
   return (
     <View
-      style={[
-        Platform.OS === 'web'
-          ? { width: '100%', height: '100%' }
-          : { width, height: height + (StatusBar?.currentHeight ?? 0) },
-        styles.wrapper
-      ]}
+      style={styles.wrapper}
       pointerEvents={visible ? 'auto' : 'none'}
     >
       {/* Animated container to handle the 'fade' effect */}

@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'react-native-feather';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faHeart } from '@fortawesome/free-solid-svg-icons';
@@ -433,60 +434,62 @@ const OfferingCard = ({
 
   return (
     <>
-      <FeatureCarousel active={active} setActive={setActive} compact={compact} />
-      <View
-        style={{
-          marginTop: compact ? 34 : 36,
-          height: compact ? 120 : 144,
-          paddingHorizontal: 24,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        {purchasables.map((purchasable) =>
-          <PlanCard
-            key={weeksIn(purchasable.cycle)}
-            purchasable={purchasable}
-            isSelected={purchasable === chosen}
-            compact={compact}
-            onPress={() => setPicked(purchasable)}
-          />
-        )}
-      </View>
-      <View
-        style={{
-          marginTop: compact ? 12 : 18,
-          paddingHorizontal: 24,
-          flexDirection: 'row',
-          gap: 5,
-        }}
-      >
-        <FontAwesomeIcon
-          icon={faHeart}
-          size={12}
-          color={goldColor}
-          style={{ marginTop: 2 }}
-        />
-        <DefaultText
-          disableTheme
+      <ScrollView>
+        <FeatureCarousel active={active} setActive={setActive} compact={compact} />
+        <View
           style={{
-            flex: 1,
-            fontSize: 12,
-            lineHeight: compact ? 16 : 17,
-            fontWeight: 500,
-            color: fadedWhite,
+            marginTop: compact ? 34 : 36,
+            height: compact ? 120 : 144,
+            paddingHorizontal: 24,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
           }}
         >
-          <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
-            Gold keeps Duolicious going.
+          {purchasables.map((purchasable) =>
+            <PlanCard
+              key={weeksIn(purchasable.cycle)}
+              purchasable={purchasable}
+              isSelected={purchasable === chosen}
+              compact={compact}
+              onPress={() => setPicked(purchasable)}
+            />
+          )}
+        </View>
+        <View
+          style={{
+            marginTop: compact ? 12 : 18,
+            paddingHorizontal: 24,
+            flexDirection: 'row',
+            gap: 5,
+          }}
+        >
+          <FontAwesomeIcon
+            icon={faHeart}
+            size={12}
+            color={goldColor}
+            style={{ marginTop: 2 }}
+          />
+          <DefaultText
+            disableTheme
+            style={{
+              flex: 1,
+              fontSize: 12,
+              lineHeight: compact ? 16 : 17,
+              fontWeight: 500,
+              color: fadedWhite,
+            }}
+          >
+            <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
+              Gold keeps Duolicious going.
+            </DefaultText>
+            {} It covers the servers, so the core app stays free and open source.
           </DefaultText>
-          {} It covers the servers, so the core app stays free and open source.
-        </DefaultText>
-      </View>
-      <View style={{ flex: 1, minHeight: 16 }} />
+        </View>
+      </ScrollView>
       <View
         style={{
+          paddingTop: 16,
           paddingHorizontal: 16,
           paddingBottom: compact ? 14 : 22,
           gap: 16,
@@ -531,9 +534,14 @@ const OfferingCard = ({
 const PointOfSaleModal = () => {
   const { feature, isVisible } = usePointOfSale();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isFullScreen = width < 600;
-  const cardHeight = isFullScreen ? height : Math.min(height - 40, 844);
-  const compact = cardHeight < 760;
+  const cardInsets = isFullScreen ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
+  const cardMargin = (inset: number) => isFullScreen ? 0 : 20 + inset;
+  const availableHeight = isFullScreen
+    ? height - insets.bottom
+    : Math.min(height - cardMargin(insets.top) - cardMargin(insets.bottom), 844);
+  const compact = availableHeight < 760;
 
   return (
     <DefaultModal
@@ -547,7 +555,10 @@ const PointOfSaleModal = () => {
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: isFullScreen ? 0 : 20,
+          paddingTop: cardMargin(insets.top),
+          paddingBottom: cardMargin(insets.bottom),
+          paddingLeft: cardMargin(insets.left),
+          paddingRight: cardMargin(insets.right),
           ...backgroundColors.dark,
         }}
       >
@@ -560,12 +571,15 @@ const PointOfSaleModal = () => {
             borderRadius: isFullScreen ? 0 : 16,
             overflow: 'hidden',
             backgroundColor: brandColor,
+            paddingBottom: cardInsets.bottom,
+            paddingLeft: cardInsets.left,
+            paddingRight: cardInsets.right,
           }}
         >
           <View
             style={{
               height: 44,
-              marginTop: compact ? 20 : 50,
+              marginTop: Math.max(compact ? 20 : 50, cardInsets.top),
               paddingHorizontal: 8,
               flexDirection: 'row',
               alignItems: 'center',
@@ -598,9 +612,7 @@ const PointOfSaleModal = () => {
               <X stroke="white" strokeWidth={3} width={24} height={24} />
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-            <OfferingCard feature={feature} compact={compact} />
-          </ScrollView>
+          <OfferingCard feature={feature} compact={compact} />
         </View>
       </View>
     </DefaultModal>
