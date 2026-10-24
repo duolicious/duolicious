@@ -8,7 +8,8 @@
     "web": "expo start --web",
     "test": "jest --runInBand --detectOpenHandles --forceExit",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "patch-package"
   },
   "jest": {
     "preset": "jest-expo",
@@ -98,6 +99,13 @@
     "patch-package": "^6.5.1",
     "ts-node": "^10.9.2",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-image"]
+      }
+    }
   },
   "private": true
 }

@@ -18,7 +18,6 @@ If you’re unsure about an approach, open a draft PR early for feedback.
 
 ```bash
 npm install
-npx patch-package
 npm run web   # or: npm run android | npm run ios
 ```
 
