@@ -229,7 +229,7 @@ test_reply_rate () {
 
 test_search_cache () {
   setup
-  q "delete from search_cache"
+  flush_redis
 
   # Ensure `user1` is ranked first in search results
   q "
@@ -241,7 +241,8 @@ test_search_cache () {
   where
     email IN ('searcher@example.com', 'user1@example.com')"
 
-  assert_search_names ''            10 1
+  echo 'Missing search results are rebuilt rather than coming back empty'
+  assert_search_names       'user2' 10 1
   assert_search_names 'user1 user2' 10 0
   assert_search_names       'user2' 10 1
 
@@ -251,6 +252,33 @@ test_search_cache () {
   assert_search_names 'user2' 10 1
   assert_search_names 'user1' 10 0
   assert_search_names      '' 10 1
+}
+
+test_deleted_accounts_leave_search_results () {
+  setup
+
+  q "
+  update
+    person
+  set
+    personality = array_full(47, 1),
+    count_answers = 1
+  where
+    email IN ('searcher@example.com', 'user1@example.com')"
+
+  assert_search_names 'user1 user2' 10 0
+  [[ "$(c GET /search | jq -r '[.[].name] | join(" ")')" = user1 ]]
+
+  echo 'A deleted prospect disappears from cached search results'
+  assume_role user1
+  c DELETE /account
+  assume_role searcher
+  [[ "$(c GET /search | jq -r '[.[].name] | join(" ")')" = user2 ]]
+
+  echo "A deleted searcher's search results are deleted too"
+  [[ "$(redis_exists "search_results:${searcher_id}")" = 1 ]]
+  c DELETE /account
+  [[ "$(redis_exists "search_results:${searcher_id}")" = 0 ]]
 }
 
 test_quiz_search () {
@@ -686,12 +714,15 @@ EOF
     "age": 26,
     "match_percentage": 99,
     "name": "user1",
+    "person_messaged_prospect": false,
     "profile_photo_blurhash": "the-blurhash",
     "profile_photo_uuid": null,
+    "prospect_messaged_person": false,
     "prospect_person_id": null,
     "prospect_uuid": null,
     "url_slug": null,
-    "verification_required_to_view": "basics"
+    "verification_required_to_view": "basics",
+    "verified": false
   }
 ]
 EOF
@@ -790,12 +821,15 @@ EOF
     "age": 26,
     "match_percentage": 99,
     "name": "user1",
+    "person_messaged_prospect": false,
     "profile_photo_blurhash": null,
     "profile_photo_uuid": null,
+    "prospect_messaged_person": false,
     "prospect_person_id": ${user1_id},
     "prospect_uuid": "${user1_uuid}",
     "url_slug": "user1",
-    "verification_required_to_view": null
+    "verification_required_to_view": null,
+    "verified": false
   }
 ]
 EOF
@@ -1131,6 +1165,8 @@ test_deactivated
 test_verification_required
 
 test_search_cache
+
+test_deleted_accounts_leave_search_results
 
 test_basic gender Man
 test_basic orientation Straight

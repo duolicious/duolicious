@@ -206,6 +206,16 @@ flush_redis () {
   exec 3>&- 3<&-
 }
 
+redis_exists () {
+  local reply
+  exec 3<>"/dev/tcp/${DUO_REDIS_HOST:-localhost}/${DUO_REDIS_PORT:-6379}"
+  printf 'EXISTS %s\r\n' "$1" >&3
+  read -r -u 3 -t 5 reply
+  exec 3>&- 3<&-
+  reply=${reply%$'\r'}
+  printf '%s' "${reply#:}"
+}
+
 # Generate a random base64-encoded PNG image (WxH) for testing.
 # Example: img=$(rand_image)
 rand_image () {
