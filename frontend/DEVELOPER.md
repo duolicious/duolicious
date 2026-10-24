@@ -7,13 +7,10 @@ This guide helps you get the Duolicious frontend running locally fast, run tests
 ## Quickstart
 
 ```bash
-# 1) Install dependencies
+# 1) Install dependencies (also applies the repo's patches)
 npm install
 
-# 2) Apply repo patches (required after install)
-npx patch-package
-
-# 3) Run the app (pick one)
+# 2) Run the app (pick one)
 npm run web        # Web (recommended for first-time contributors)
 npm run android    # Android (emulator or device required)
 npm run ios        # iOS (macOS + Xcode required)
@@ -143,10 +140,6 @@ GitHub Actions will run Jest, Playwright, type checks, and ESLint on pull reques
 - Linux file watcher limits (large projects):
   ```bash
   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-  ```
-- After `npm install`, always run:
-  ```bash
-  npx patch-package
   ```
 - Expo cache hiccups (rare):
   ```bash
