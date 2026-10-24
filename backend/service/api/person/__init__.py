@@ -40,11 +40,9 @@ from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
     Q_CLUB_MEMBERS,
-    Q_CLUB_MEMBERS_BY_ACTIVITY,
-    Q_CLUB_MEMBERS_BY_ACTIVITY_FIRST_RANK,
+    Q_CLUB_MEMBERS_FIRST_RANK,
     Q_SEARCHER,
 )
-from service.api.trials import club_card_by_activity
 from service.api.search import similar_profiles
 from service.api.searchfilters import TWO_WAY_FILTER_KEYS
 from serviceshared.commonsql import *
@@ -1299,21 +1297,13 @@ async def _related_clubs(club_name: str) -> Json:
         row = await tx.require_one(Q_RELATED_CLUBS, dict(club_name=club_name))
         return row['related_clubs']
 
-async def _club_members(
-    tx: Tx,
-    person_id: int | None,
-    params: psycopg.abc.Params,
-) -> list[Row]:
-    if person_id is None or not club_card_by_activity(person_id):
-        await tx.execute(Q_CLUB_MEMBERS, params)
-        return await tx.fetchall()
-
-    await tx.execute(Q_CLUB_MEMBERS_BY_ACTIVITY_FIRST_RANK, params)
+async def _club_members(tx: Tx, params: psycopg.abc.Params) -> list[Row]:
+    await tx.execute(Q_CLUB_MEMBERS_FIRST_RANK, params)
     first_rank = await tx.fetchall()
     if len(first_rank) == CLUB_CARD_MEMBERS:
         return first_rank
 
-    await tx.execute(Q_CLUB_MEMBERS_BY_ACTIVITY, params)
+    await tx.execute(Q_CLUB_MEMBERS, params)
     return await tx.fetchall()
 
 async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
@@ -1325,7 +1315,7 @@ async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
         searcher = await tx.require_one(
             Q_SEARCHER, dict(searcher_person_id=s.person_id))
 
-        members = await _club_members(tx, s.person_id, dict(
+        members = await _club_members(tx, dict(
             searcher_person_id=s.person_id,
             searcher_personality=row_vector(searcher, 'personality'),
             searcher_verification_level_id=row_int(
