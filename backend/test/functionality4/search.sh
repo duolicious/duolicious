@@ -714,12 +714,15 @@ EOF
     "age": 26,
     "match_percentage": 99,
     "name": "user1",
+    "person_messaged_prospect": false,
     "profile_photo_blurhash": "the-blurhash",
     "profile_photo_uuid": null,
+    "prospect_messaged_person": false,
     "prospect_person_id": null,
     "prospect_uuid": null,
     "url_slug": null,
-    "verification_required_to_view": "basics"
+    "verification_required_to_view": "basics",
+    "verified": false
   }
 ]
 EOF
