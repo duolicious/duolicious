@@ -45,7 +45,7 @@ from service.api.search.sql.search import (
     Q_SEARCHER,
 )
 from service.api.trials import club_card_by_activity
-from service.api.search import similar_profiles
+from service.api.search import delete_search_results, similar_profiles
 from service.api.searchfilters import TWO_WAY_FILTER_KEYS
 from serviceshared.commonsql import *
 from service.api.qanda import _flush_session_answers
@@ -921,6 +921,7 @@ async def delete_or_ban_account(
         await tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
 
     await sign_out(session_token_hashes)
+    await delete_search_results(person_ids)
 
     return rows
 
