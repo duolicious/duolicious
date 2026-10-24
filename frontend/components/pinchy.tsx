@@ -28,7 +28,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { FillImage } from './fill-image';
-import { hasGifExtraExt, photoUri } from '../util/photos';
+import type { VideoPlayer } from 'expo-video';
+import {
+  VideoControls,
+  unmuteVideos,
+  useControlsVisibility,
+  useVideoMuted,
+} from './looping-video';
+import { useSharedVideo } from './shared-video';
+import { VideoSurface } from './video-surface';
+import { hasGifExtraExt, photoUri, videoUri } from '../util/photos';
 import type { PhotoGeometry } from '../util/photos';
 import {
   constrainPosition,
@@ -98,6 +107,7 @@ const FitWithinScreenImage = ({
   cropUri,
   blurhash,
   isGif,
+  player,
   animatedStyle,
   onUpdateImageSize,
   geometry,
@@ -107,6 +117,7 @@ const FitWithinScreenImage = ({
   cropUri: string | null;
   blurhash: string | null;
   isGif: boolean;
+  player: VideoPlayer | null;
   animatedStyle: AnimatedStyle<ViewStyle>;
   onUpdateImageSize: (size: { imageWidth: number, imageHeight: number }) => void;
   geometry?: PhotoGeometry;
@@ -203,6 +214,9 @@ const FitWithinScreenImage = ({
           </View>
         }
         <FillImage uri={source.uri} onLoad={onOriginalLoad} />
+        {player &&
+          <VideoSurface player={player} contentFit="contain" />
+        }
         {spinner}
       </Animated.View>
     );
@@ -242,7 +256,7 @@ type PinchyPage = {
   justNavigated: SharedValue<boolean>
 };
 
-const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black'}: {
+const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, onDismiss, page, onNavigate, onTapEdge, backgroundColor = 'black', isActive = true, underMorph = false}: {
   uuid: string,
   extraExts: string[],
   blurhash?: string | null,
@@ -264,11 +278,26 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
   // the pan and double-tap wherever they sat.
   onTapEdge?: (dir: number) => void,
   backgroundColor?: string,
+  isActive?: boolean,
+  underMorph?: boolean,
 }) => {
   const {
     width: viewportWidth,
     height: viewportHeight,
   } = viewport;
+
+  const video = videoUri(uuid, extraExts);
+  const [paused, setPaused] = useState(false);
+  const player = useSharedVideo(isActive ? video : null, !paused, !useVideoMuted());
+
+  const showsMedia = !(video && underMorph);
+
+  const { controlsVisible, holdControls, pointerProps } =
+    useControlsVisibility(!paused);
+
+  if (!isActive && paused) {
+    setPaused(false);
+  }
 
   const {
     scale,
@@ -534,19 +563,22 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
       .maxDistance(10)
       .onEnd((e, success) => {
         'worklet';
-        if (!success || !onTapEdge) return;
+        if (!success) return;
         const width = viewportWidthSv.value;
-        if (e.x < width / 3) runOnJS(onTapEdge)(-1);
-        else if (e.x > width * 2 / 3) runOnJS(onTapEdge)(1);
+        const dir = e.x < width / 3 ? -1 : e.x > width * 2 / 3 ? 1 : 0;
+        if (dir !== 0 && onTapEdge) runOnJS(onTapEdge)(dir);
+        else if (video) runOnJS(unmuteVideos)();
       }),
-    [onTapEdge],
+    [onTapEdge, video],
   );
 
   const composed = useMemo(
     // Exclusive so a double-tap zooms without also paging: the edge tap only
     // activates once the double-tap window has passed.
-    () => Gesture.Simultaneous(pinch, pan, Gesture.Exclusive(doubleTap, edgeTap)),
-    [pinch, pan, doubleTap, edgeTap],
+    () => video
+      ? Gesture.Simultaneous(pan, edgeTap)
+      : Gesture.Simultaneous(pinch, pan, Gesture.Exclusive(doubleTap, edgeTap)),
+    [pinch, pan, doubleTap, edgeTap, video],
   );
 
   const animatedStyle = useAnimatedStyle<ViewStyle>(() => {
@@ -568,20 +600,35 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
   });
 
   return (
-    <GestureDetector gesture={composed}>
-      <View style={[styles.container, { backgroundColor }]}>
-        <FitWithinScreenImage
-          source={{ uri: photoUri(uuid, 'original', extraExts) }}
-          cropUri={hasGifExtraExt(extraExts) ? null : photoUri(uuid, 900)}
-          blurhash={blurhash ?? null}
-          isGif={hasGifExtraExt(extraExts)}
-          animatedStyle={animatedStyle}
-          onUpdateImageSize={onUpdateImageSize}
-          geometry={geometry}
-          viewport={{ width: viewportWidth, height: viewportHeight }}
+    <View style={StyleSheet.absoluteFill} {...pointerProps}>
+      <GestureDetector gesture={composed}>
+        <View style={[styles.container, { backgroundColor }]}>
+          <View style={[StyleSheet.absoluteFill, styles.media, !showsMedia && styles.hidden]}>
+            <FitWithinScreenImage
+              source={{ uri: photoUri(uuid, 'original', extraExts) }}
+              cropUri={hasGifExtraExt(extraExts) ? null : photoUri(uuid, 900)}
+              blurhash={blurhash ?? null}
+              isGif={hasGifExtraExt(extraExts)}
+              player={showsMedia ? player : null}
+              animatedStyle={animatedStyle}
+              onUpdateImageSize={onUpdateImageSize}
+              geometry={geometry}
+              viewport={{ width: viewportWidth, height: viewportHeight }}
+            />
+          </View>
+        </View>
+      </GestureDetector>
+      {video && isActive && player &&
+        <VideoControls
+          player={player}
+          playing={!paused}
+          onTogglePlaying={() => setPaused((paused) => !paused)}
+          visible={controlsVisible}
+          onHoverChange={holdControls}
+          style={styles.controls}
         />
-      </View>
-    </GestureDetector>
+      }
+    </View>
   );
 };
 
@@ -603,6 +650,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  controls: {
+    zIndex: 1000,
+  },
+  media: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hidden: {
+    opacity: 0,
   },
 });
 

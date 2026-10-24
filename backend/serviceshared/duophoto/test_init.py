@@ -1,4 +1,4 @@
-from service.api.person.duophoto import CropSize, PhotoGeometry, photo_geometry
+from serviceshared.duophoto import CropSize, PhotoGeometry, photo_geometry
 import unittest
 
 class TestPhotoGeometry(unittest.TestCase):
