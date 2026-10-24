@@ -821,12 +821,15 @@ EOF
     "age": 26,
     "match_percentage": 99,
     "name": "user1",
+    "person_messaged_prospect": false,
     "profile_photo_blurhash": null,
     "profile_photo_uuid": null,
+    "prospect_messaged_person": false,
     "prospect_person_id": ${user1_id},
     "prospect_uuid": "${user1_uuid}",
     "url_slug": "user1",
-    "verification_required_to_view": null
+    "verification_required_to_view": null,
+    "verified": false
   }
 ]
 EOF
