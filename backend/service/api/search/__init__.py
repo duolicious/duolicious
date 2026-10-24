@@ -86,18 +86,20 @@ async def _prospect_ids(
     try:
         await tx.execute('SET LOCAL jit = off')
         await tx.execute(uncached_search, params)
+        prospect_person_ids = [
+            row_int(row, 'prospect_person_id') for row in await tx.fetchall()
+        ]
+        timed_out = False
     except psycopg.errors.QueryCanceled:
         # The query probably timed-out because it was too specific
-        return []
-
-    prospect_person_ids = [
-        row_int(row, 'prospect_person_id') for row in await tx.fetchall()
-    ]
+        prospect_person_ids = []
+        timed_out = True
 
     await _redis.set(
         _search_results_key(searcher_person_id),
         ' '.join(map(str, prospect_person_ids)),
         ex=timedelta(days=30),
+        nx=timed_out,
     )
 
     return prospect_person_ids
@@ -224,24 +226,36 @@ async def _get_public_search_with_answers(
         return await tx.fetchall()
 
 
+async def _cached_similar_profiles(
+    viewer_person_id: int,
+    prospect_person_id: int,
+) -> object:
+    prospect_person_ids = await _cached_prospect_ids(viewer_person_id)
+
+    if not prospect_person_ids:
+        return []
+
+    async with api_tx('READ COMMITTED') as tx:
+        return await _search_results(
+            tx=tx,
+            query=Q_CACHED_SIMILAR_PROFILES,
+            prospect_person_ids=prospect_person_ids,
+            params=dict(
+                searcher_person_id=viewer_person_id,
+                prospect_person_id=prospect_person_id,
+                n=_NUM_SIMILAR_PROFILES,
+            ),
+        )
+
+
 async def similar_profiles(
     viewer_person_id: int | None,
     prospect_person_id: int,
     answers: list[t.PublicAnswer] | None,
 ) -> object:
     if viewer_person_id is not None:
-        async with api_tx('READ COMMITTED') as tx:
-            return await _search_results(
-                tx=tx,
-                query=Q_CACHED_SIMILAR_PROFILES,
-                prospect_person_ids=
-                    await _cached_prospect_ids(viewer_person_id) or [],
-                params=dict(
-                    searcher_person_id=viewer_person_id,
-                    prospect_person_id=prospect_person_id,
-                    n=_NUM_SIMILAR_PROFILES,
-                ),
-            )
+        return await _cached_similar_profiles(
+            viewer_person_id, prospect_person_id)
 
     if answers is None:
         return await _public_similar_profiles(prospect_person_id)
