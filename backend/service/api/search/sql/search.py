@@ -258,11 +258,6 @@ LIMIT
 
 
 Q_CLUB_MEMBERS = _q_club_members(
-    [*_CLUB_MEMBER_CLAUSES, _CLUB_MEMBER_ACTIVE],
-    [*_CLUB_MEMBER_GENDER_RANKS, _CLUB_MEMBER_DISTANCE],
-)
-
-Q_CLUB_MEMBERS_BY_ACTIVITY = _q_club_members(
     _CLUB_MEMBER_CLAUSES,
     [
         *_CLUB_MEMBER_GENDER_RANKS,
@@ -271,7 +266,7 @@ Q_CLUB_MEMBERS_BY_ACTIVITY = _q_club_members(
     ],
 )
 
-Q_CLUB_MEMBERS_BY_ACTIVITY_FIRST_RANK = _q_club_members(
+Q_CLUB_MEMBERS_FIRST_RANK = _q_club_members(
     [
         *_CLUB_MEMBER_CLAUSES,
         _CLUB_MEMBER_ACTIVE,
