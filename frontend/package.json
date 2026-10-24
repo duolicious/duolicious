@@ -99,5 +99,12 @@
     "ts-node": "^10.9.2",
     "typescript": "~6.0.3"
   },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-image"]
+      }
+    }
+  },
   "private": true
 }

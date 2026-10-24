@@ -1,0 +1,187 @@
+diff --git a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageViewWrapper.kt b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageViewWrapper.kt
+index 7abe582..19a6ba3 100644
+--- a/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageViewWrapper.kt
++++ b/node_modules/expo-image/android/src/main/java/expo/modules/image/ExpoImageViewWrapper.kt
+@@ -312,23 +312,19 @@ class ExpoImageViewWrapper(context: Context, appContext: AppContext) : ExpoView(
+             newView.bringToFront()
+             previousView.alpha = 1f
+             newView.alpha = 0f
+-            // A newer source can reuse this view as its `newView` before the fade-out ends. That
++            // A newer source can reuse this view as its `newView` before the fade-in ends. That
+             // cancels this animation, and the end action runs on cancel too, so without this guard
+             // it would recycle the view now holding the new image. See issue #46703.
+             val previousTarget = previousView.currentTarget
+-            previousView.animate().apply {
++            newView.animate().apply {
+               duration = transitionDuration
+-              alpha(0f)
++              alpha(1f)
+               withEndAction {
+                 if (previousView.currentTarget === previousTarget) {
+                   clearPreviousView()
+                 }
+               }
+             }
+-            newView.animate().apply {
+-              duration = transitionDuration
+-              alpha(1f)
+-            }
+           }
+         } else {
+           // We don't want to show the placeholder if something is currently displayed.
+@@ -337,6 +333,8 @@ class ExpoImageViewWrapper(context: Context, appContext: AppContext) : ExpoView(
+             return@trace
+           }
+ 
++          val replacesPlaceholder = firstView.drawable != null
++
+           firstView
+             .recycleView()
+             ?.apply {
+@@ -347,7 +345,7 @@ class ExpoImageViewWrapper(context: Context, appContext: AppContext) : ExpoView(
+             }
+ 
+           configureView(firstView, target, resource, isPlaceholder)
+-          if (transitionDuration > 0) {
++          if (transitionDuration > 0 && !replacesPlaceholder) {
+             firstView.bringToFront()
+             firstView.alpha = 0f
+             secondView.isVisible = false
+diff --git a/node_modules/expo-image/src/utils/blurhash/useBlurhash.tsx b/node_modules/expo-image/src/utils/blurhash/useBlurhash.tsx
+index 6728e03..885c236 100644
+--- a/node_modules/expo-image/src/utils/blurhash/useBlurhash.tsx
++++ b/node_modules/expo-image/src/utils/blurhash/useBlurhash.tsx
+@@ -2,7 +2,7 @@
+ // modified from https://gist.github.com/WorldMaker/a3cbe0059acd827edee568198376b95a
+ // https://github.com/woltapp/react-blurhash/issues/3
+ 
+-import { useEffect, useState, useMemo } from 'react';
++import { useMemo } from 'react';
+ 
+ import decode from './decode';
+ import { isBlurhashString } from '../resolveSources';
+@@ -12,8 +12,33 @@ const DEFAULT_SIZE = {
+   height: 32,
+ };
+ 
+-// We scale up the canvas to avoid an irritating visual glitch when animating in Chrome.
+-const scaleRatio = 10;
++const MAX_CACHED = 1000;
++const cache = new Map<string, string>();
++
++function blurhashToDataUrl(blurhash: string, width: number, height: number, punch: number) {
++  const key = `${blurhash}:${width}:${height}:${punch}`;
++  const cached = cache.get(key);
++  if (cached) {
++    return cached;
++  }
++  const canvas = document.createElement('canvas');
++  canvas.width = width;
++  canvas.height = height;
++  const context = canvas.getContext('2d');
++  if (!context) {
++    console.warn('Failed to decode blurhash');
++    return null;
++  }
++  const imageData = context.createImageData(width, height);
++  imageData.data.set(decode(blurhash, width, height, punch));
++  context.putImageData(imageData, 0, 0);
++  const dataUrl = canvas.toDataURL();
++  if (cache.size >= MAX_CACHED) {
++    cache.delete(cache.keys().next().value!);
++  }
++  cache.set(key, dataUrl);
++  return dataUrl;
++}
+ 
+ export function useBlurhash(
+   blurhash: { uri?: string; width?: number | null; height?: number | null } | undefined | null,
+@@ -21,65 +46,16 @@ export function useBlurhash(
+ ) {
+   punch = punch || 1;
+ 
+-  const [uri, setUri] = useState<string | null>(null);
+   const isBlurhash = (blurhash?.uri && isBlurhashString(blurhash.uri)) ?? false;
+-  useEffect(() => {
+-    let isCanceled = false;
+-
+-    if (!blurhash || !blurhash.uri || !isBlurhash) {
+-      return;
++  const uri = isBlurhash ? blurhash?.uri : undefined;
++  const width = blurhash?.width ?? DEFAULT_SIZE.width;
++  const height = blurhash?.height ?? DEFAULT_SIZE.height;
++  const source = useMemo(() => {
++    if (!uri) {
++      return null;
+     }
+-    const strippedBlurhashString = blurhash.uri.replace(/blurhash:\//, '');
+-
+-    const pixels = decode(
+-      strippedBlurhashString,
+-      blurhash.width ?? DEFAULT_SIZE.width,
+-      blurhash.height ?? DEFAULT_SIZE.height,
+-      punch
+-    );
+-
+-    const canvas = document.createElement('canvas');
+-    const upscaledCanvas = document.createElement('canvas');
+-    canvas.width = blurhash.width ?? DEFAULT_SIZE.width;
+-    canvas.height = blurhash.height ?? DEFAULT_SIZE.height;
+-    upscaledCanvas.width = (blurhash.width ?? DEFAULT_SIZE.width) * scaleRatio;
+-    upscaledCanvas.height = (blurhash.height ?? DEFAULT_SIZE.height) * scaleRatio;
+-    const context = canvas.getContext('2d');
+-    if (!context) {
+-      console.warn('Failed to decode blurhash');
+-      return;
+-    }
+-    const imageData = context.createImageData(canvas.width, canvas.height);
+-    imageData.data.set(pixels);
+-    context.putImageData(imageData, 0, 0);
+-    const upscaledContext = upscaledCanvas.getContext('2d');
+-    if (!upscaledContext) {
+-      console.warn('Failed to decode blurhash');
+-      return;
+-    }
+-    upscaledContext.scale(scaleRatio, scaleRatio);
+-    upscaledContext.drawImage(canvas, 0, 0);
+-    upscaledCanvas.toBlob((blob) => {
+-      if (!isCanceled) {
+-        setUri((oldUrl) => {
+-          if (oldUrl) {
+-            URL.revokeObjectURL(oldUrl);
+-          }
+-          return blob ? URL.createObjectURL(blob) : oldUrl;
+-        });
+-      }
+-    });
+-
+-    return function cleanupBlurhash() {
+-      isCanceled = true;
+-      setUri((oldUrl) => {
+-        if (oldUrl) {
+-          URL.revokeObjectURL(oldUrl);
+-        }
+-        return null;
+-      });
+-    };
+-  }, [blurhash?.uri, blurhash?.height, blurhash?.width, punch, isBlurhash]);
+-  const source = useMemo(() => (uri ? { uri } : null), [uri]);
++    const dataUrl = blurhashToDataUrl(uri.replace(/blurhash:\//, ''), width, height, punch);
++    return dataUrl ? { uri: dataUrl } : null;
++  }, [uri, width, height, punch]);
+   return [source, isBlurhash] as const;
+ }
+diff --git a/node_modules/expo-image/src/web/imageStyles.tsx b/node_modules/expo-image/src/web/imageStyles.tsx
+index 37a5fbc..bda7719 100644
+--- a/node_modules/expo-image/src/web/imageStyles.tsx
++++ b/node_modules/expo-image/src/web/imageStyles.tsx
+@@ -9,9 +9,6 @@ const style = `
+ [data-expoimage] .cross-dissolve-active {
+   opacity: 1;
+ }
+-[data-expoimage] .cross-dissolve-end {
+-  opacity: 0;
+-}
+ [data-expoimage] .flip-from-left {
+   transition-property: transform, opacity;
+   transition-timing-function: var(--expo-image-timing,linear), steps(2, jump-none) !important;
