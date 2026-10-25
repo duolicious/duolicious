@@ -1,4 +1,10 @@
-import { ReactNode, useCallback, useRef, useState } from 'react';
+import {
+  ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from './pressable';
 import { IconButton } from './button/icon-button';
@@ -432,16 +438,29 @@ const SearchFilterPanel = () => {
   const data = useColdStartSearchFilters();
   const hasUnsearchedChanges = useHasUnsearchedChanges();
   const isSearching = useIsSearching();
-  const [path, setPath] = useState<string[]>([]);
+  const [path, setPath] = useState<{ title: string, backScrollY: number }[]>([]);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
+  const restoreScrollY = useRef(0);
 
   const open = useCallback(
-    (title: string) => setPath((path) => [...path, title]),
+    (title: string) => setPath((path) =>
+      [...path, { title, backScrollY: scrollY.current }]),
     [],
   );
 
-  const back = useCallback(() => setPath((path) => path.slice(0, -1)), []);
+  const back = useCallback(() => {
+    restoreScrollY.current = _.last(path)?.backScrollY ?? 0;
+    setPath(path.slice(0, -1));
+  }, [path]);
 
-  const title = _.last(path);
+  const title = _.last(path)?.title;
+
+  useLayoutEffect(() => {
+    scrollViewRef.current?.scrollTo({ y: restoreScrollY.current, animated: false });
+    scrollY.current = restoreScrollY.current;
+    restoreScrollY.current = 0;
+  }, [title]);
   const isBasics = title === undefined;
   const numAdvancedFilters = data && !isSignedOut ?
     countChangedAdvancedFilters(data, signedInUser) : 0;
@@ -470,6 +489,8 @@ const SearchFilterPanel = () => {
       }
       <ScrollView
         key={title}
+        ref={scrollViewRef}
+        onScroll={(e) => scrollY.current = e.nativeEvent.contentOffset.y}
         style={isBasics ? styles.fitScroll : styles.fullScroll}
         contentContainerStyle={
           isBasics ?
