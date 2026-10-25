@@ -1,10 +1,4 @@
-import {
-  ReactNode,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { ReactNode, useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from './pressable';
 import { IconButton } from './button/icon-button';
@@ -438,29 +432,16 @@ const SearchFilterPanel = () => {
   const data = useColdStartSearchFilters();
   const hasUnsearchedChanges = useHasUnsearchedChanges();
   const isSearching = useIsSearching();
-  const [path, setPath] = useState<{ title: string, backScrollY: number }[]>([]);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollY = useRef(0);
-  const restoreScrollY = useRef(0);
+  const [path, setPath] = useState<string[]>([]);
 
   const open = useCallback(
-    (title: string) => setPath((path) =>
-      [...path, { title, backScrollY: scrollY.current }]),
+    (title: string) => setPath((path) => [...path, title]),
     [],
   );
 
-  const back = useCallback(() => {
-    restoreScrollY.current = _.last(path)?.backScrollY ?? 0;
-    setPath(path.slice(0, -1));
-  }, [path]);
+  const back = useCallback(() => setPath((path) => path.slice(0, -1)), []);
 
-  const title = _.last(path)?.title;
-
-  useLayoutEffect(() => {
-    scrollViewRef.current?.scrollTo({ y: restoreScrollY.current, animated: false });
-    scrollY.current = restoreScrollY.current;
-    restoreScrollY.current = 0;
-  }, [title]);
+  const title = _.last(path);
   const isBasics = title === undefined;
   const numAdvancedFilters = data && !isSignedOut ?
     countChangedAdvancedFilters(data, signedInUser) : 0;
@@ -487,36 +468,39 @@ const SearchFilterPanel = () => {
           <DefaultText style={styles.drilledTitle}>{title}</DefaultText>
         </View>
       }
-      <ScrollView
-        key={title}
-        ref={scrollViewRef}
-        onScroll={(e) => scrollY.current = e.nativeEvent.contentOffset.y}
-        style={isBasics ? styles.fitScroll : styles.fullScroll}
-        contentContainerStyle={
-          isBasics ?
-            undefined :
-            [
-              styles.drilledContent,
-              { borderTopColor: appTheme.interactiveBorderColor },
-            ]
-        }
-      >
-        {!data &&
-          <LogoActivityIndicator
-            style={styles.loading}
-            size="large"
-            color={appTheme.brandColor}
-          />
-        }
-        {data &&
-          <PanelBody
-            title={title}
-            data={data}
-            isSignedOut={isSignedOut}
-            open={open}
-          />
-        }
-      </ScrollView>
+      {[undefined, ...path].map((levelTitle, i) =>
+        <ScrollView
+          key={levelTitle ?? ''}
+          style={[
+            levelTitle === undefined ? styles.fitScroll : styles.fullScroll,
+            i < path.length && styles.hidden,
+          ]}
+          contentContainerStyle={
+            levelTitle === undefined ?
+              undefined :
+              [
+                styles.drilledContent,
+                { borderTopColor: appTheme.interactiveBorderColor },
+              ]
+          }
+        >
+          {!data &&
+            <LogoActivityIndicator
+              style={styles.loading}
+              size="large"
+              color={appTheme.brandColor}
+            />
+          }
+          {data &&
+            <PanelBody
+              title={levelTitle}
+              data={data}
+              isSignedOut={isSignedOut}
+              open={open}
+            />
+          }
+        </ScrollView>
+      )}
       <View
         style={[
           styles.footer,
@@ -596,6 +580,9 @@ const styles = StyleSheet.create({
   },
   fullScroll: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
   loading: {
     margin: 20,
