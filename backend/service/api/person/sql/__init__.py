@@ -1178,6 +1178,10 @@ LIMIT %(n)s
 OFFSET %(o)s
 """
 
+Q_LOCK_PERSONS_FOR_DELETION = """
+SELECT 1 FROM person WHERE id = ANY(%(person_ids)s) ORDER BY id FOR UPDATE
+"""
+
 Q_SELECT_SESSION_TOKEN_HASHES_BY_PERSON_ID = """
 SELECT
     session_token_hash

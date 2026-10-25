@@ -900,6 +900,10 @@ async def delete_or_ban_account(
 
         person_ids = [r['person_id'] for r in rows if r['person_id'] is not None]
         if person_ids:
+            await tx.execute(
+                Q_LOCK_PERSONS_FOR_DELETION,
+                params=dict(person_ids=person_ids),
+            )
             row_tx = await tx.execute(
                 Q_SELECT_SESSION_TOKEN_HASHES_BY_PERSON_ID,
                 params=dict(person_ids=person_ids),
