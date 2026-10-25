@@ -63,13 +63,11 @@ AND
 
 
 
-Q_LOCK_SEARCH_RESULTS = """
+Q_SEARCHER_EXISTS = """
 SELECT
-    pg_advisory_xact_lock(hashtext('search_results'), person_id)
-FROM
-    unnest(%(person_ids)s::INT[]) AS person_id
-ORDER BY
-    person_id
+    EXISTS (
+        SELECT 1 FROM person WHERE id = %(searcher_person_id)s
+    ) AS searcher_exists
 """
 
 
