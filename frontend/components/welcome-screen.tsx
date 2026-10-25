@@ -1,7 +1,6 @@
 import {
   Animated,
   Keyboard,
-  Linking,
   Platform,
   Text,
   View,
@@ -25,6 +24,7 @@ import type { RootParamList, WelcomeParamList } from '../navigation/linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
 import { DefaultText } from './default-text';
+import { LinkText } from './link-text';
 import { DefaultTextInput } from './default-text-input';
 import { ButtonWithCenteredText } from './button/centered-text';
 import { HeaderWithClose } from './button/close';
@@ -453,37 +453,35 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                   color: '#777',
                   textAlign: 'center',
                   alignSelf: 'center',
-                  fontSize: 12,
-                  lineHeight: 20,
+                  lineHeight: 28,
                 }}
               >
                 By joining you agree to our {}
-                <DefaultText
+                <LinkText
                   disableTheme
                   style={{
                     fontWeight: '600',
                   }}
-                  onPress={() => Linking.openURL('https://duolicious.app/terms')}
+                  href="https://duolicious.app/terms"
                 >
                   Terms
-                </DefaultText>
+                </LinkText>
                 {}, {}
-                <DefaultText
+                <LinkText
                   disableTheme
                   style={{ fontWeight: '600' }}
-                  onPress={() => Linking.openURL('https://duolicious.app/privacy')}
+                  href="https://duolicious.app/privacy"
                 >
                   Privacy Policy
-                </DefaultText>
+                </LinkText>
                 {} and {}
-                <DefaultText
+                <LinkText
                   disableTheme
                   style={{ fontWeight: '600' }}
-                  onPress={() => Linking.openURL('https://duolicious.app/guidelines')}
+                  href="https://duolicious.app/guidelines"
                 >
                   Community Guidelines
-                </DefaultText>
-                . You also agree to us using the sensitive details you share.
+                </LinkText>
               </DefaultText>
             </View>
           </View>
@@ -535,35 +533,33 @@ const TermsBlurb = () => (
       color: 'white',
       textAlign: 'center',
       alignSelf: 'center',
-      fontSize: 12,
-      lineHeight: 20,
+      lineHeight: 28,
     }}
   >
     By signing up you agree to our {}
-    <DefaultText
+    <LinkText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL('https://duolicious.app/terms')}
+      href="https://duolicious.app/terms"
     >
       Terms
-    </DefaultText>
+    </LinkText>
     {}, {}
-    <DefaultText
+    <LinkText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL('https://duolicious.app/privacy')}
+      href="https://duolicious.app/privacy"
     >
       Privacy Policy
-    </DefaultText>
+    </LinkText>
     {} and {}
-    <DefaultText
+    <LinkText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL('https://duolicious.app/guidelines')}
+      href="https://duolicious.app/guidelines"
     >
       Community Guidelines
-    </DefaultText>
-    . You also agree to us using the sensitive details you share.
+    </LinkText>
   </DefaultText>
 );
 
