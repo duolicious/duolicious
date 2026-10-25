@@ -105,6 +105,11 @@ for (const theme of ['light', 'dark']) {
     await tap(page, 'Get Verified');
     await shown(page, 'By continuing, you agree');
     await snap(page, `${theme}-get-verified`);
+
+    await page.goto('/profile');
+    await tap(page, 'Delete My Account');
+    await shown(page, 'Deleting your account won’t cancel your Gold subscription');
+    await snap(page, `${theme}-delete-account`);
   });
 }
 
