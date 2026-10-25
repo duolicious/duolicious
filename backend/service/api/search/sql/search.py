@@ -63,6 +63,17 @@ AND
 
 
 
+Q_LOCK_SEARCH_RESULTS = """
+SELECT
+    pg_advisory_xact_lock(hashtext('search_results'), person_id)
+FROM
+    unnest(%(person_ids)s::INT[]) AS person_id
+ORDER BY
+    person_id
+"""
+
+
+
 _HIDE_ME = sql_fragment("""
     -- The prospect wants to be shown to strangers or isn't a stranger
     (

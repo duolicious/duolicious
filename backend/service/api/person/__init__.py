@@ -36,7 +36,10 @@ from serviceshared.spotify.sql import (
 )
 from service.api.duohash import sha512
 from service.api.person.sql import *
-from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
+from service.api.search.sql import (
+    Q_LOCK_SEARCH_RESULTS,
+    Q_SET_SEARCH_PREFERENCE_CLUB,
+)
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
     Q_CLUB_MEMBERS,
@@ -917,6 +920,11 @@ async def delete_or_ban_account(
                 raise Exception('Deletion failed; Cannot cancel subscription')
 
         await tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
+
+        await tx.execute(
+            Q_LOCK_SEARCH_RESULTS,
+            params=dict(person_ids=person_ids),
+        )
 
     await sign_out(session_token_hashes)
     await delete_search_results(person_ids)

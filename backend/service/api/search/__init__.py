@@ -16,6 +16,7 @@ from service.api.search.sql import (
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
     Q_CACHED_SIMILAR_PROFILES,
+    Q_LOCK_SEARCH_RESULTS,
     Q_PUBLIC_SEARCH,
     Q_PUBLIC_SEARCH_WITH_ANSWERS,
     Q_PUBLIC_SIMILAR_PROFILES,
@@ -56,31 +57,46 @@ def _search_results_key(searcher_person_id: int) -> str:
     return f'search_results:{searcher_person_id}'
 
 
+async def _saved_prospect_ids(searcher_person_id: int) -> list[int] | None:
+    saved = await _redis.get(_search_results_key(searcher_person_id))
+    return None if saved is None else list(map(int, saved.split()))
+
+
 async def _prospect_ids(
     tx: Tx,
     searcher_person_id: int,
     refresh: bool,
     ignore_sort_preference: bool,
 ) -> list[int]:
-    cached = None if refresh else await _redis.get(
-        _search_results_key(searcher_person_id))
+    saved = None if refresh else await _saved_prospect_ids(searcher_person_id)
 
-    if cached is not None:
-        return list(map(int, cached.split()))
-
-    prefs = await tx.require_one(
-        Q_SEARCH_PARAMETERS,
-        dict(searcher_person_id=searcher_person_id),
-    )
-
-    uncached_search, params = build_uncached_search(
-        searcher_person_id=searcher_person_id,
-        prefs=prefs,
-        ignore_sort_preference=ignore_sort_preference,
-    )
+    if saved is not None:
+        return saved
 
     try:
         await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
+        await tx.execute(
+            Q_LOCK_SEARCH_RESULTS,
+            dict(person_ids=[searcher_person_id]),
+        )
+
+        saved = None if refresh else await _saved_prospect_ids(
+            searcher_person_id)
+
+        if saved is not None:
+            return saved
+
+        prefs = await tx.require_one(
+            Q_SEARCH_PARAMETERS,
+            dict(searcher_person_id=searcher_person_id),
+        )
+
+        uncached_search, params = build_uncached_search(
+            searcher_person_id=searcher_person_id,
+            prefs=prefs,
+            ignore_sort_preference=ignore_sort_preference,
+        )
+
         await tx.execute('SET LOCAL jit = off')
         await tx.execute(uncached_search, params)
         prospect_person_ids = [
@@ -142,6 +158,8 @@ async def get_search(
     )
 
     async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
+
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
         is_quiz = search_type in ('quiz-search', 'quiz-refresh')
