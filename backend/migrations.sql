@@ -33,3 +33,5 @@ END $$;
 DROP FUNCTION IF EXISTS age_gap_acceptability_odds(double precision, double precision);
 
 CREATE INDEX IF NOT EXISTS idx__location__lower_city ON location(lower(city) text_pattern_ops);
+
+DROP TABLE IF EXISTS search_cache;
