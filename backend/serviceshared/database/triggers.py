@@ -86,6 +86,7 @@ class CapturedChange:
 class Trigger(Protocol):
     name: str
     subject_column: str
+    subject_lock: str
     watched: Sequence[Watch]
 
     async def fire(
@@ -318,6 +319,7 @@ class Tracker:
         self._cur = cur
         self._stale: dict[str, set[int]] = {}
         self._captured: dict[tuple[str, int, int], _Captured] = {}
+        self._locked: set[tuple[str, int]] = set()
         self._unattributed: set[str] = set()
         self._pending_harvest: _PendingHarvest | None = None
 
@@ -354,7 +356,19 @@ class Tracker:
         the old value now so triggers can patch derived state with the (old,
         new) pair instead of re-reading every row."""
         self._expire_harvest()
-        for table in classify(query).capture_tables:
+        classified = classify(query)
+        for name in classified.triggers:
+            trigger = _by_name[name]
+            subject = _int_param(params, trigger.subject_column)
+            if subject is None:
+                continue
+            lock = (trigger.subject_lock, subject)
+            if lock in self._locked:
+                continue
+            self._locked.add(lock)
+            await self._cur.execute(
+                trigger.subject_lock, {trigger.subject_column: subject})
+        for table in classified.capture_tables:
             subject_column, capture = _captures[table]
             subject = _int_param(params, subject_column)
             key = _int_param(params, capture.key_column)

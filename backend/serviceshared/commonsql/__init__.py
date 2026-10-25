@@ -90,6 +90,10 @@ WHERE
 
 Q_REFRESH_CLUB_VECTOR = _q_refresh_club_vector('id = %(person_id)s')
 
+Q_LOCK_PERSON = """
+SELECT 1 FROM person WHERE id = %(person_id)s FOR NO KEY UPDATE
+"""
+
 Q_UPDATE_LAST = """
 UPDATE
     person

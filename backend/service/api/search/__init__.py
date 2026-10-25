@@ -155,9 +155,10 @@ async def get_search(
     )
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
-
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
         if search_type == 'quiz-search':
             result = await _quiz_search_results(

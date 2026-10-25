@@ -26,6 +26,8 @@ Fired = tuple[str, int, list[tuple[int, bool | None, bool | None]]]
 
 fired: list[Fired] = []
 
+LOCK_OWNER = 'SELECT 1 FROM owner WHERE id = %(owner_id)s FOR NO KEY UPDATE'
+
 
 def _record(
         name: str, owner_id: int, changes: Sequence[CapturedChange]) -> None:
@@ -39,6 +41,7 @@ def _record(
 class _WidgetModel:
     name = 'widget_model'
     subject_column = 'owner_id'
+    subject_lock = LOCK_OWNER
     watched: Sequence[Watch] = (Watch(
         table='widget',
         update_columns=frozenset({'value'}),
@@ -59,6 +62,7 @@ class _WidgetModel:
 class _MemberModel:
     name = 'member_model'
     subject_column = 'owner_id'
+    subject_lock = LOCK_OWNER
     watched: Sequence[Watch] = (
         Watch(table='gadget_member', inserts=True, deletes=True),)
 
@@ -74,6 +78,7 @@ class _MemberModel:
 class _ValveModel:
     name = 'valve_model'
     subject_column = 'owner_id'
+    subject_lock = LOCK_OWNER
     watched: Sequence[Watch] = (
         Watch(table='valve', update_columns=frozenset({'value'})),)
 
@@ -119,6 +124,7 @@ class FakeTx:
         values: dict[tuple[int, int], bool | None] | None = None,
     ) -> None:
         self.values = dict(values or {})
+        self.executed: list[tuple[str, psycopg.abc.Params]] = []
         self._row: Row | None = None
 
     @property
@@ -135,8 +141,10 @@ class FakeTx:
         params: psycopg.abc.Params | None = None,
     ) -> Tx:
         assert isinstance(params, dict)
-        self._row = {'value': self.values.get(
-            (params['owner_id'], params['widget_id']))}
+        self.executed.append((query, params))
+        if query != LOCK_OWNER:
+            self._row = {'value': self.values.get(
+                (params['owner_id'], params['widget_id']))}
         return self
 
     async def require_one(
@@ -331,3 +339,14 @@ class TestTracker(unittest.IsolatedAsyncioTestCase):
             ('widget_model', 1, [(10, True, False)]),
             ('widget_model', 2, [(10, None, True)]),
         ])
+
+    async def test_subject_is_locked_once_before_its_first_watched_write(
+            self) -> None:
+        for owner_id, widget_id in ((1, 10), (1, 11), (2, 10)):
+            await self.tracker.note_before(UPSERT_WIDGET, dict(
+                owner_id=owner_id, widget_id=widget_id, value=True))
+        locks = [
+            params for query, params in self.fake.executed
+            if query == LOCK_OWNER]
+        self.assertEqual(self.fake.executed[0][0], LOCK_OWNER)
+        self.assertEqual(locks, [dict(owner_id=1), dict(owner_id=2)])

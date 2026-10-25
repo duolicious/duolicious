@@ -879,7 +879,7 @@ async def delete_or_ban_account(
     s: t.SessionInfo | None,
     admin_ban_token: str | None = None,
 ) -> list[Row]:
-    async with api_tx() as tx:
+    async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 30_000')  # 30 seconds
 
         if admin_ban_token:

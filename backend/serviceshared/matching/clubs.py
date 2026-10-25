@@ -4,7 +4,7 @@ membership counts are tiny. The embeddings themselves are recomputed by the
 clubembeddings cron, which sweeps everyone by `club_vector_computed_at`."""
 from collections.abc import Sequence
 
-from serviceshared.commonsql import Q_REFRESH_CLUB_VECTOR
+from serviceshared.commonsql import Q_LOCK_PERSON, Q_REFRESH_CLUB_VECTOR
 from serviceshared.database.tx import Tx
 from serviceshared.database.triggers import CapturedChange, Watch
 
@@ -12,6 +12,7 @@ from serviceshared.database.triggers import CapturedChange, Watch
 class _SimilarClubsModel:
     name = 'similar_clubs'
     subject_column = 'person_id'
+    subject_lock = Q_LOCK_PERSON
     watched: Sequence[Watch] = (
         Watch(table='person_club', inserts=True, deletes=True),
     )

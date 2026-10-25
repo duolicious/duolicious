@@ -14,6 +14,7 @@ from typing import Literal
 
 from pgvector import Vector
 
+from serviceshared.commonsql import Q_LOCK_PERSON
 from serviceshared.database.triggers import Capture, CapturedChange, Watch
 from serviceshared.database.tx import Tx
 
@@ -150,6 +151,7 @@ def personality_vector(
 class _MatchPercentageModel:
     name = 'match_percentage'
     subject_column = 'person_id'
+    subject_lock = Q_LOCK_PERSON
     watched: Sequence[Watch] = (
         Watch(
             table='answer',

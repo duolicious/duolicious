@@ -9,6 +9,7 @@ first-layer sums instead of re-reading every answer.
 """
 from collections.abc import Sequence
 
+from serviceshared.commonsql import Q_LOCK_PERSON
 from serviceshared.database.triggers import Capture, CapturedChange, Watch
 from serviceshared.database.tx import Tx
 from serviceshared.kvmatching import refresh
@@ -19,6 +20,7 @@ _ANSWER_CAPTURE = Capture(key_column='question_id', value_column='answer')
 class _LongerConversationsModel:
     name = 'longer_conversations'
     subject_column = 'person_id'
+    subject_lock = Q_LOCK_PERSON
     watched: Sequence[Watch] = (
         Watch(
             table='person',
