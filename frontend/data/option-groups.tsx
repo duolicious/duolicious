@@ -37,7 +37,7 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { patchProfileInfo, useProfileInfo } from '../events/profile-info';
+import { patchProfileInfo } from '../events/profile-info';
 import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
@@ -52,16 +52,16 @@ import { markFeedStale } from '../events/stale-feed';
 import { DefaultText } from '../components/default-text';
 import {
   Linking,
-  Platform,
   StyleSheet,
   View,
 } from 'react-native';
-import { FC, Fragment } from 'react';
+import { FC } from 'react';
 import { onboardingQueue } from '../api/queue';
 import { showVerificationCamera } from '../components/verification-camera';
 import { notifyUpdatedVerification } from '../verification/verification';
 import { setAppThemeName } from '../app-theme/app-theme';
 import { showPointOfSale } from '../components/modal/point-of-sale-modal';
+import { StoreSubscriptionWarning } from '../components/store-subscription-warning';
 import { descriptionStyle, noneFontSize } from '../components/option-styles';
 import {
   MAX_DISTANCE_KM,
@@ -605,59 +605,18 @@ const FinishOnboardingDescription = () => (
   </View>
 );
 
-const APP_STORE = {
-  name: 'the App Store',
-  url: 'https://apps.apple.com/account/subscriptions',
-};
-
-const GOOGLE_PLAY = {
-  name: 'Google Play',
-  url: 'https://play.google.com/store/account/subscriptions',
-};
-
-const SUBSCRIPTION_STORES = Platform.select({
-  ios: [APP_STORE],
-  android: [GOOGLE_PLAY],
-  default: [APP_STORE, GOOGLE_PLAY],
-});
-
-const DeletionDescription = () => {
-  const [signedInUser] = useSignedInUser();
-  const profileInfo = useProfileInfo();
-  const hasStoreSubscription =
-    signedInUser?.hasGold && !profileInfo?.paypal_subscription;
-
-  return (
-    <DefaultText style={descriptionStyle.style} >
-      Are you sure you want to delete your account? {}
-      <DefaultText disableTheme style={{ fontWeight: '700' }}>
-        This will
-        permanently delete your account data and
-        immediately log you out.
-      </DefaultText> {}
-      {hasStoreSubscription &&
-        <>
-          Deleting your account won’t cancel your Gold subscription, so cancel
-          it in {}
-          {SUBSCRIPTION_STORES.map(({ name, url }, i) =>
-            <Fragment key={name}>
-              {i > 0 && ' or '}
-              <DefaultText
-                disableTheme
-                onPress={() => Linking.openURL(url)}
-                style={{ fontWeight: '700' }}
-              >
-                {name}
-              </DefaultText>
-            </Fragment>
-          )}
-          {} too. {}
-        </>
-      }
-      If you’re sure, type “delete” to confirm.
-    </DefaultText>
-  );
-};
+const DeletionDescription = () => (
+  <DefaultText style={descriptionStyle.style} >
+    Are you sure you want to delete your account? {}
+    <DefaultText disableTheme style={{ fontWeight: '700' }}>
+      This will
+      permanently delete your account data and
+      immediately log you out.
+    </DefaultText> {}
+    <StoreSubscriptionWarning />
+    If you’re sure, type “delete” to confirm.
+  </DefaultText>
+);
 
 const DeactivationDescription = () => (
   <DefaultText style={descriptionStyle.style} >

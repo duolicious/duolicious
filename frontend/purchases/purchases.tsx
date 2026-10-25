@@ -150,10 +150,17 @@ const toPurchasable = (
   };
 };
 
-const restoreSubscription = async (): Promise<boolean> =>
-  !isExpoGo &&
-  (await Purchases.syncPurchasesForResult())
-    .customerInfo.activeSubscriptions.length > 0;
+const restoreSubscription = async (): Promise<boolean> => {
+  if (isExpoGo) return false;
+
+  try {
+    const { customerInfo } = await Purchases.syncPurchasesForResult();
+    return customerInfo.activeSubscriptions.length > 0;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+};
 
 const getOffering = async (): Promise<Offering | 'subscribed' | null> => {
   const personUuid = getSignedInUser()?.personUuid;
