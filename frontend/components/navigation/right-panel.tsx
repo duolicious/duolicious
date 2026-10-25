@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { DefaultText } from '../default-text';
+import { LinkText } from '../link-text';
 import { getRandomElement } from '../../util/util';
 import { PARTNER_URL } from '../../env/env';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
@@ -60,16 +61,15 @@ const DuoliciousRightPanelContent = () => {
         group should be something Duolicious members would like.)
         {'\n\n'}
         Inquiries: {}
-        <DefaultText
+        <LinkText
           style={{
             color: 'white',
             fontWeight: '700'
           }}
-          // @ts-ignore
           href="mailto:admin@duolicious.app"
         >
           admin@duolicious.app
-        </DefaultText>
+        </LinkText>
       </DefaultText>
     </View>
   );
@@ -120,15 +120,14 @@ const SponsoredRightPanelContent = () => {
 
       <DefaultText style={{ textAlign: 'center' }}>
         Want to promote your social group for free? Inquire at {}
-        <DefaultText
+        <LinkText
           style={{
             fontWeight: '700'
           }}
-          // @ts-ignore
           href="mailto:admin@duolicious.app"
         >
           admin@duolicious.app
-        </DefaultText>
+        </LinkText>
         .
       </DefaultText>
     </View>

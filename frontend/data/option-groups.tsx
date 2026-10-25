@@ -50,8 +50,8 @@ import { markSearchResultsStale } from '../events/stale-search-results';
 import { markInboxStale } from '../events/stale-inbox';
 import { markFeedStale } from '../events/stale-feed';
 import { DefaultText } from '../components/default-text';
+import { LinkText } from '../components/link-text';
 import {
-  Linking,
   StyleSheet,
   View,
 } from 'react-native';
@@ -512,13 +512,13 @@ To verify your photos, your face should be in at least one profile pic. But neve
 `}
     <DefaultText disableTheme style={{ fontSize: 12 }}>
       By continuing, you agree to us checking your selfie with AI, as described in our {}
-      <DefaultText
+      <LinkText
         disableTheme
-        onPress={() => Linking.openURL('https://duolicious.app/privacy#verification-selfies')}
+        href="https://duolicious.app/privacy#verification-selfies"
         style={{ fontWeight: '700' }}
       >
         Privacy Policy
-      </DefaultText>
+      </LinkText>
       .
     </DefaultText>
   </DefaultText>
@@ -547,13 +547,13 @@ const FinishOnboardingDescription = () => (
   <View style={{ gap: 15 }}>
     <DefaultText style={{ color: 'white' }}>
       You’re ready to go! But before we unleash you on the other members, let’s
-      recap our <DefaultText
+      recap our <LinkText
         disableTheme
-        onPress={() => Linking.openURL('https://duolicious.app/guidelines/')}
+        href="https://duolicious.app/guidelines/"
         style={{ fontWeight: '700' }}
       >
         Community Guidelines
-      </DefaultText>. Do:
+      </LinkText>. Do:
     </DefaultText>
 
     <View style={styles.list}>

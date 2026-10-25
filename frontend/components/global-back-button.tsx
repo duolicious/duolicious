@@ -68,6 +68,8 @@ const GlobalBackButton = () => {
       return;
     }
 
+    if (placement.layout === 'pending') return;
+
     setShown(placement);
 
     if (!previous) {

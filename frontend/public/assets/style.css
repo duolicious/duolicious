@@ -367,9 +367,9 @@ a:hover {
 
 #footer #bottom-nav {
   box-sizing: border-box;
-  justify-content: space-between;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 30px;
   list-style-type: none;
   padding-top: 60px;
   padding-bottom: 60px;
@@ -377,8 +377,6 @@ a:hover {
   padding-right: 10px;
   border-bottom: 1px solid #ffffff;
   width: 100%;
-  row-gap: 50px;
-  column-gap: 150px;
 }
 
 #footer #bottom-nav span {
