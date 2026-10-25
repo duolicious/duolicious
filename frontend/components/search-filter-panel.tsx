@@ -468,34 +468,39 @@ const SearchFilterPanel = () => {
           <DefaultText style={styles.drilledTitle}>{title}</DefaultText>
         </View>
       }
-      <ScrollView
-        key={title}
-        style={isBasics ? styles.fitScroll : styles.fullScroll}
-        contentContainerStyle={
-          isBasics ?
-            undefined :
-            [
-              styles.drilledContent,
-              { borderTopColor: appTheme.interactiveBorderColor },
-            ]
-        }
-      >
-        {!data &&
-          <LogoActivityIndicator
-            style={styles.loading}
-            size="large"
-            color={appTheme.brandColor}
-          />
-        }
-        {data &&
-          <PanelBody
-            title={title}
-            data={data}
-            isSignedOut={isSignedOut}
-            open={open}
-          />
-        }
-      </ScrollView>
+      {[undefined, ...path].map((levelTitle, i) =>
+        <ScrollView
+          key={levelTitle ?? ''}
+          style={[
+            levelTitle === undefined ? styles.fitScroll : styles.fullScroll,
+            i < path.length && styles.hidden,
+          ]}
+          contentContainerStyle={
+            levelTitle === undefined ?
+              undefined :
+              [
+                styles.drilledContent,
+                { borderTopColor: appTheme.interactiveBorderColor },
+              ]
+          }
+        >
+          {!data &&
+            <LogoActivityIndicator
+              style={styles.loading}
+              size="large"
+              color={appTheme.brandColor}
+            />
+          }
+          {data &&
+            <PanelBody
+              title={levelTitle}
+              data={data}
+              isSignedOut={isSignedOut}
+              open={open}
+            />
+          }
+        </ScrollView>
+      )}
       <View
         style={[
           styles.footer,
@@ -575,6 +580,9 @@ const styles = StyleSheet.create({
   },
   fullScroll: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
   loading: {
     margin: 20,
