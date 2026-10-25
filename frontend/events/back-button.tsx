@@ -5,7 +5,7 @@ import { lastEvent, listen, notify } from './events';
 const EVENT_KEY = 'back-button';
 
 type BackButtonPlacement = {
-  layout: 'column' | 'window' | number
+  layout: 'column' | 'window' | 'pending' | number
   transition: 'fade' | 'instant'
   onPress: () => void
 };
