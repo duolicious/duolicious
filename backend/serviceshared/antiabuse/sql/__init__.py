@@ -250,14 +250,6 @@ WITH subject_person_id AS (
         %(report_reason)s
     ) ON CONFLICT DO NOTHING
 ), q2 AS (
-    DELETE FROM search_cache
-    WHERE
-        searcher_person_id = (SELECT id FROM subject_person_id) AND
-        prospect_person_id = (SELECT id FROM object_person_id)
-    OR
-        searcher_person_id = (SELECT id FROM object_person_id) AND
-        prospect_person_id = (SELECT id FROM subject_person_id)
-), q3 AS (
     UPDATE
         person
     SET
@@ -272,7 +264,7 @@ WITH subject_person_id AS (
         1
 )
 SELECT EXISTS (
-    SELECT * FROM q3
+    SELECT * FROM q2
 ) AS is_automoded
 """
 

@@ -49,12 +49,10 @@ const Avatar = ({
   const imageStyle = [styles.imageStyle, { margin: Math.round(size / 22) }];
   const badgeSize = Math.max(22, size / 3);
 
-  return (
-    <Pressable
-      style={{ width: size, height: size }}
-      disabled={!isLinkToProfile}
-      {...(isLinkToProfile ? profileLink : {})}
-    >
+  const style = { width: size, height: size };
+
+  const content = (
+    <>
       {!Boolean(photoUuid || photoBlurhash) &&
         <View
           style={[
@@ -198,8 +196,12 @@ const Avatar = ({
           }
         </View>
       }
-    </Pressable>
-  )
+    </>
+  );
+
+  return isLinkToProfile
+    ? <Pressable style={style} {...profileLink}>{content}</Pressable>
+    : <View style={style}>{content}</View>;
 };
 
 const styles = StyleSheet.create({

@@ -1,6 +1,6 @@
 import { test as base, expect, Page } from '@playwright/test';
 import { readFileSync } from 'fs';
-import { SEED_FILE, Seed, signIn, viewer } from './backend';
+import { SEED_FILE, Seed, api, signIn, viewer } from './backend';
 import { prepare, snap } from './stable-page';
 
 const readSeed = (): Seed => JSON.parse(readFileSync(SEED_FILE, 'utf8'));
@@ -27,6 +27,23 @@ const visit = async (page: Page, path: string, readyText: string, name: string) 
   await snap(page, name);
 };
 
+const signInPage = async (page: Page, seed: Seed, theme: string) => {
+  const session = await signIn(viewer.email);
+  const seen = JSON.stringify([session.uuid]);
+
+  await prepare(page, seed.time + SIGNED_IN_CLOCK_OFFSET_MS, {
+    session_token: session.token,
+    person_uuid: session.uuid,
+    app_theme_name: theme,
+    web_session_bridge_answered: '1',
+    seen_search_filters_hint: seen,
+    seen_inbox_filter_hint: seen,
+    seen_reply_hint: seen,
+  });
+
+  return session;
+};
+
 test('signed-out screens', async ({ page }) => {
   await prepare(page, readSeed().time);
 
@@ -45,19 +62,9 @@ for (const theme of ['light', 'dark']) {
     test.setTimeout(240_000);
 
     const seed = readSeed();
-    const session = await signIn(viewer.email);
-    const seen = JSON.stringify([session.uuid]);
     const blake = seed.uuids.blake;
 
-    await prepare(page, seed.time + SIGNED_IN_CLOCK_OFFSET_MS, {
-      session_token: session.token,
-      person_uuid: session.uuid,
-      app_theme_name: theme,
-      web_session_bridge_answered: '1',
-      seen_search_filters_hint: seen,
-      seen_inbox_filter_hint: seen,
-      seen_reply_hint: seen,
-    });
+    await signInPage(page, seed, theme);
 
     await visit(page, '/qa', 'Answer Publicly', `${theme}-qa`);
     await visit(page, '/search', 'Blake, 26', `${theme}-search`);
@@ -95,5 +102,59 @@ for (const theme of ['light', 'dark']) {
     await snap(page, `${theme}-you-visited`);
 
     await visit(page, '/profile', 'Verification', `${theme}-profile`);
+    await tap(page, 'Get Verified');
+    await shown(page, 'By continuing, you agree');
+    await snap(page, `${theme}-get-verified`);
+  });
+}
+
+test('back button anchored to the profile photo', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+
+  const seed = readSeed();
+  await signInPage(page, seed, 'light');
+
+  await page.setViewportSize({ width: 1050, height: 720 });
+  await visit(page, `/${seed.uuids.blake}`, 'Engineer', 'prospect-profile-1050px');
+
+  for (const width of [990, 900, 500]) {
+    await page.setViewportSize({ width, height: 720 });
+    await snap(page, `prospect-profile-${width}px`);
+  }
+});
+
+for (const theme of ['light', 'dark']) {
+  test(`skipping someone in the ${theme} theme`, async ({ page }, testInfo) => {
+    const seed = readSeed();
+    const session = await signInPage(page, seed, theme);
+    const chat = `/chat/${seed.uuids.emery}`;
+    const hasInboxPanel = testInfo.project.name === 'desktop';
+
+    try {
+      await page.goto(chat);
+      await shown(page, 'Definitely sourdough');
+      await tap(page, '\uf2d4');
+      await tap(page, 'Skip');
+      if (hasInboxPanel) {
+        await shown(page, 'You skipped Emery');
+        await snap(page, `${theme}-skipped`);
+      }
+
+      await visit(page, chat, 'so you can’t message each other', `${theme}-skipped-conversation`);
+      await tap(page, 'Undo skip');
+      await expect(page.getByText('so you can’t message each other')).toBeHidden();
+
+      if (!hasInboxPanel) return;
+
+      await page.route('**/skip/by-uuid/**', (route) => route.fulfill({ body: '' }));
+      await tap(page, '\uf2d4');
+      await tap(page, 'Report');
+      await page.getByPlaceholder('Write here...').filter({ visible: true }).fill('Kept messaging after I said no thanks.');
+      await tap(page, 'Submit');
+      await shown(page, 'You reported Emery');
+      await snap(page, `${theme}-reported`);
+    } finally {
+      await api('POST', `/unskip/by-uuid/${seed.uuids.emery}`, session);
+    }
   });
 }

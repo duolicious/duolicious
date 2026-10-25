@@ -497,17 +497,32 @@ const offOn = [
   'On',
 ];
 
-const verificationDescription = `
-To prove you’re real, you can take a selfie while you do three things at once:
+const VerificationDescription = () => (
+  <DefaultText style={{ fontSize: noneFontSize }}>
+    {`To prove you’re real, you can take a selfie while you do three things at once:
 
 \xa0\xa01. Smile 😊
 \xa0\xa02. Give one thumb down 👎
 \xa0\xa03. Touch your eyebrow 🤨
 
-You can use one hand for those last two by touching your eyebrow with your thumb. Using two hands is also fine. Our AI will check your selfie and let you know if you’re verified.
+You can use one hand for those last two by touching your eyebrow with your thumb. Using two hands is also fine. We’ll check your selfie with AI and let you know if you’re verified.
 
 To verify your photos, your face should be in at least one profile pic. But never reveal your verification selfie to anyone, or they can pretend they’re you.
-`.trim();
+
+`}
+    <DefaultText disableTheme style={{ fontSize: 12 }}>
+      By continuing, you agree to us checking your selfie with AI, as described in our {}
+      <DefaultText
+        disableTheme
+        onPress={() => Linking.openURL('https://duolicious.app/privacy#verification-selfies')}
+        style={{ fontWeight: '700' }}
+      >
+        Privacy Policy
+      </DefaultText>
+      .
+    </DefaultText>
+  </DefaultText>
+);
 
 const styles = StyleSheet.create({
   row: {
@@ -2243,7 +2258,7 @@ const verificationOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     description: 'Get a pretty blue badge by taking a selfie!',
     input: {
       none: {
-        description: verificationDescription,
+        description: VerificationDescription,
         textAlign: 'left',
         submit: async () => {
           showVerificationCamera(true);

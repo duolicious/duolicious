@@ -40,14 +40,12 @@ everyone_sees_the_best_25_members () {
 
   jc POST /join-club -d '{ "name": "chess" }'
 
-  local search_cache_rows=$(q "select count(*) from search_cache")
   local club_preference=$(q "select club_name from search_preference where person_id = (select id from person where name = 'searcher')")
 
   q "update person set hide_me_from_strangers = false"
 
   [[ "$(members chess | jq length)" == "25" ]]
 
-  [[ "$(q "select count(*) from search_cache")" == "$search_cache_rows" ]]
   [[ "$(q "select club_name from search_preference where person_id = (select id from person where name = 'searcher')")" == "$club_preference" ]]
 }
 
@@ -99,40 +97,61 @@ people_who_want_your_gender_come_next () {
   [[ "$(members chess | jq length)" == "3" ]]
 }
 
-the_trial_lists_recently_online_members_by_distance () {
-  echo 'In the trial, members are ordered by gender, then distance, and must have been online in the past month'
+inactive_members_come_after_active_ones () {
+  echo 'Members are ordered by gender, then whether they were online in the past month, then distance'
 
   reset_db
 
+  ../util/create-user.sh searcher 0 0
   for i in $(seq 1 4); do
     ../util/create-user.sh "member$i" 0 0
     assume_role "member$i"
     jc POST /join-club -d '{ "name": "chess" }'
   done
 
-  local next_person_id=$(q "select last_value + 1 from person_id_seq")
-  q "select setval('person_id_seq', 393450, false)"
-  ../util/create-user.sh treated 0 0
-  q "select setval('person_id_seq', 393451, false)"
-  ../util/create-user.sh control 0 0
-  q "select setval('person_id_seq', ${next_person_id}, false)"
-
-  q "update person set gender_id = (select id from gender where name = 'Man') where name in ('treated', 'control')"
+  q "update person set gender_id = (select id from gender where name = 'Man') where name = 'searcher'"
   q "update person set gender_id = (select id from gender where name = 'Woman') where name like 'member%'"
-  q "update search_preference set gender_ids = array[(select id from gender where name = 'Woman')] where person_id in (select id from person where name in ('treated', 'control', 'member4'))"
+  q "update search_preference set gender_ids = array[(select id from gender where name = 'Woman')] where person_id in (select id from person where name in ('searcher', 'member4'))"
   q "update search_preference set gender_ids = array[(select id from gender where name = 'Man')] where person_id in (select id from person where name in ('member1', 'member2', 'member3'))"
 
-  q "update person set coordinates = 'POINT(0 0)' where name in ('treated', 'control')"
+  q "update person set coordinates = 'POINT(0 0)' where name = 'searcher'"
   q "update person set coordinates = 'POINT(20 0)' where name = 'member1'"
   q "update person set coordinates = 'POINT(10 0)' where name = 'member2'"
   q "update person set coordinates = 'POINT(1 0)' where name in ('member3', 'member4')"
   q "update person set last_online_time = now() - interval '31 days' where name = 'member3'"
 
-  assume_role treated
-  [[ "$(members chess | jq -c '[.[].name]')" == '["member2","member1","member4"]' ]]
+  assume_role searcher
+  [[ "$(members chess | jq -c '[.[].name]')" == '["member2","member1","member3","member4"]' ]]
+}
 
-  assume_role control
-  [[ "$(members chess | jq length)" == "4" ]]
+active_members_of_the_best_rank_fill_the_card () {
+  echo '25 active members of the best rank leave no place for inactive ones'
+
+  reset_db
+
+  ../util/create-user.sh searcher 0 0
+  for i in $(seq 1 26); do
+    ../util/create-user.sh "member$i" 0 0
+    assume_role "member$i"
+    jc POST /join-club -d '{ "name": "chess" }'
+  done
+
+  q "update person set gender_id = (select id from gender where name = 'Man') where name = 'searcher'"
+  q "update person set gender_id = (select id from gender where name = 'Woman') where name like 'member%'"
+  q "update search_preference set gender_ids = array[(select id from gender where name = 'Woman')] where person_id = (select id from person where name = 'searcher')"
+  q "update search_preference set gender_ids = array[(select id from gender where name = 'Man')] where person_id in (select id from person where name like 'member%')"
+
+  q "update person set coordinates = 'POINT(0 0)' where name = 'searcher'"
+  q "update person set coordinates = 'POINT(10 0)' where name like 'member%'"
+  q "update person set coordinates = 'POINT(1 0)' where name = 'member1'"
+  q "update person set coordinates = 'POINT(20 0)' where name = 'member2'"
+  q "update person set last_online_time = now() - interval '31 days' where name = 'member1'"
+
+  assume_role searcher
+  local names=$(members chess | jq -c '[.[].name]')
+  [[ "$(jq length <<< "$names")" == "25" ]]
+  [[ "$(jq -r '.[-1]' <<< "$names")" == "member2" ]]
+  [[ "$(jq 'index("member1")' <<< "$names")" == "null" ]]
 }
 
 club_card_shows_count_and_related_clubs () {
@@ -206,7 +225,8 @@ joining_or_leaving_returns_suggestions_from_ten_clubs () {
 everyone_sees_the_best_25_members
 preferred_genders_come_first
 people_who_want_your_gender_come_next
-the_trial_lists_recently_online_members_by_distance
+inactive_members_come_after_active_ones
+active_members_of_the_best_rank_fill_the_card
 club_card_shows_count_and_related_clubs
 suggested_clubs_are_popular_clubs_you_have_not_joined
 joining_or_leaving_returns_suggestions_from_ten_clubs

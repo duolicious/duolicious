@@ -1,25 +1,18 @@
-import React from 'react';
 import {
   Keyboard,
   Platform,
   View,
+  ViewProps,
 } from 'react-native';
-import { Pressable } from './pressable';
 
 const KeyboardDismissingView = (
-  {children, ...rest}: React.ComponentProps<typeof View> & {
-    children?: React.ReactNode,
-    enabled?: boolean,
-  }
-) => {
-  if (Platform.OS === 'web' || rest.enabled === false) {
-    return <View {...rest}>{children}</View>
-  } else {
-    return <Pressable onPress={Keyboard.dismiss} {...rest}>
-      {children}
-    </Pressable>
-  }
-};
+  { enabled = true, ...rest }: ViewProps & { enabled?: boolean }
+) =>
+  <View
+    onStartShouldSetResponder={() => enabled && Platform.OS !== 'web'}
+    onResponderRelease={Keyboard.dismiss}
+    {...rest}
+  />;
 
 export {
   KeyboardDismissingView,

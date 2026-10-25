@@ -5,7 +5,7 @@ import { lastEvent, listen, notify } from './events';
 const EVENT_KEY = 'back-button';
 
 type BackButtonPlacement = {
-  layout: 'column' | 'window'
+  layout: 'column' | 'window' | number
   transition: 'fade' | 'instant'
   onPress: () => void
 };
@@ -85,7 +85,7 @@ const useBackButtonClaim = (
 
   const stablePlacement = useMemo(
     (): BackButtonPlacement | null =>
-      layout && transition
+      layout !== null && transition
         ? { layout, transition, onPress: () => onPressRef.current() }
         : null,
     [layout, transition],

@@ -64,9 +64,6 @@ const friendlyTimestamp = (date: Date): string => {
 };
 
 
-const sectionFromIndex = (sectionIndex: number): SectionKey =>
-  sectionIndex === 0 ? 'visited_you' : 'you_visited';
-
 const sectionFromKey = (itemKey: string): SectionKey =>
   itemKey.startsWith('you_visited-') ? 'you_visited' : 'visited_you';
 
@@ -250,7 +247,9 @@ const VisitorsTab = () => {
 
   const [sectionIndex, setSectionIndex] = useState(0);
 
-  const keys = useVisitorKeys(sectionFromIndex(sectionIndex));
+  const visitedYouKeys = useVisitorKeys('visited_you');
+  const youVisitedKeys = useVisitorKeys('you_visited');
+  const keys = sectionIndex === 0 ? visitedYouKeys : youVisitedKeys;
   const lastVisitedAt = useLastVisitedAt();
   const lastMarkedCheckAt = useRef<string>(null);
 
@@ -338,6 +337,7 @@ const VisitorsTab = () => {
             }
             renderItem={RenderItem}
             keyExtractor={keyExtractor}
+            windowSize={11}
             onContentSizeChange={onContentSizeChange}
             onScroll={onScroll}
             showsVerticalScrollIndicator={showsVerticalScrollIndicator}

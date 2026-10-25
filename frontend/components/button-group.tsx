@@ -1,4 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import {
+  startTransition,
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+} from 'react';
 import {
   StyleSheet,
   LayoutChangeEvent,
@@ -12,9 +18,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { DefaultText } from './default-text';
+import { delay } from '../util/util';
 
 
-const DURATION = 250;
+const DURATION = 150;
 
 type ButtonGroupProps = {
   buttons: string[];
@@ -42,13 +49,14 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
   const indicatorX = useSharedValue(0);
   const indicatorW = useSharedValue(0);
   const hasLaidOutInitial = useRef(false);
+  const [shownIndex, setShownIndex] = useOptimistic(selectedIndex);
 
   // shared value for fade
   const opacity = useSharedValue(disabled ? 0 : 1);
 
   // animate indicator on select/layout change
   useEffect(() => {
-    const { x, width } = layouts[selectedIndex] || { x: 0, width: 0 };
+    const { x, width } = layouts[shownIndex] || { x: 0, width: 0 };
     if (width <= 0) return;
 
     if (hasLaidOutInitial.current) {
@@ -59,7 +67,7 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
       indicatorW.value = width;
       hasLaidOutInitial.current = true;
     }
-  }, [selectedIndex, layouts]);
+  }, [shownIndex, layouts]);
 
   // animate opacity on disabled change
   useEffect(() => {
@@ -105,11 +113,15 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
       />
 
       {buttons.map((label, i) => {
-        const isSelected = i === selectedIndex;
+        const isSelected = i === shownIndex;
         return (
           <Pressable
             key={i}
-            onPress={() => onPress(i)}
+            onPress={() => startTransition(async () => {
+              setShownIndex(i);
+              await delay(DURATION);
+              startTransition(() => onPress(i));
+            })}
             onLayout={onButtonLayout(i)}
             style={styles.button}
           >

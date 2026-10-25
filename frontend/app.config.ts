@@ -13,7 +13,7 @@ const config: ExpoConfig = {
   // back into the app. expo-auth-session's Google provider derives the
   // redirect URI from the package name, so the scheme must match.
   scheme: 'app.duolicious',
-  version: "33.1.3",
+  version: "33.1.4",
   orientation: "portrait",
   icon: './assets/icon.png',
   updates: {

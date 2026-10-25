@@ -1,6 +1,6 @@
 import unittest
 
-from service.api.trials import club_card_by_distance, sent_messages_in_chats
+from service.api.trials import sent_messages_in_chats
 
 
 class TestSentMessagesInChats(unittest.TestCase):
@@ -25,22 +25,6 @@ class TestSentMessagesInChats(unittest.TestCase):
         ]:
             with self.subTest(person_id=person_id):
                 self.assertEqual(sent_messages_in_chats(person_id), expected)
-
-
-class TestClubCardByDistance(unittest.TestCase):
-    def test_arms(self) -> None:
-        for person_id, expected in [
-            (4, False),
-            (391550, False),
-            (393448, False),
-            (393449, False),
-            (393450, True),
-            (393451, False),
-            (393452, True),
-            (393453, False),
-        ]:
-            with self.subTest(person_id=person_id):
-                self.assertEqual(club_card_by_distance(person_id), expected)
 
 
 if __name__ == '__main__':
