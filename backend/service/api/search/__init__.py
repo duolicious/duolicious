@@ -56,21 +56,17 @@ def _search_results_key(searcher_person_id: int) -> str:
     return f'search_results:{searcher_person_id}'
 
 
-async def _cached_prospect_ids(searcher_person_id: int) -> list[int] | None:
-    cached = await _redis.get(_search_results_key(searcher_person_id))
-    return None if cached is None else list(map(int, cached.split()))
-
-
 async def _prospect_ids(
     tx: Tx,
     searcher_person_id: int,
     refresh: bool,
     ignore_sort_preference: bool,
 ) -> list[int]:
-    cached = None if refresh else await _cached_prospect_ids(searcher_person_id)
+    cached = None if refresh else await _redis.get(
+        _search_results_key(searcher_person_id))
 
     if cached is not None:
-        return cached
+        return list(map(int, cached.split()))
 
     prefs = await tx.require_one(
         Q_SEARCH_PARAMETERS,
@@ -84,6 +80,7 @@ async def _prospect_ids(
     )
 
     try:
+        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
         await tx.execute('SET LOCAL jit = off')
         await tx.execute(uncached_search, params)
         prospect_person_ids = [
@@ -145,8 +142,6 @@ async def get_search(
     )
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
-
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
         is_quiz = search_type in ('quiz-search', 'quiz-refresh')
@@ -226,36 +221,28 @@ async def _get_public_search_with_answers(
         return await tx.fetchall()
 
 
-async def _cached_similar_profiles(
-    viewer_person_id: int,
-    prospect_person_id: int,
-) -> object:
-    prospect_person_ids = await _cached_prospect_ids(viewer_person_id)
-
-    if not prospect_person_ids:
-        return []
-
-    async with api_tx('READ COMMITTED') as tx:
-        return await _search_results(
-            tx=tx,
-            query=Q_CACHED_SIMILAR_PROFILES,
-            prospect_person_ids=prospect_person_ids,
-            params=dict(
-                searcher_person_id=viewer_person_id,
-                prospect_person_id=prospect_person_id,
-                n=_NUM_SIMILAR_PROFILES,
-            ),
-        )
-
-
 async def similar_profiles(
     viewer_person_id: int | None,
     prospect_person_id: int,
     answers: list[t.PublicAnswer] | None,
 ) -> object:
     if viewer_person_id is not None:
-        return await _cached_similar_profiles(
-            viewer_person_id, prospect_person_id)
+        async with api_tx('READ COMMITTED') as tx:
+            return await _search_results(
+                tx=tx,
+                query=Q_CACHED_SIMILAR_PROFILES,
+                prospect_person_ids=await _prospect_ids(
+                    tx=tx,
+                    searcher_person_id=viewer_person_id,
+                    refresh=False,
+                    ignore_sort_preference=False,
+                ),
+                params=dict(
+                    searcher_person_id=viewer_person_id,
+                    prospect_person_id=prospect_person_id,
+                    n=_NUM_SIMILAR_PROFILES,
+                ),
+            )
 
     if answers is None:
         return await _public_similar_profiles(prospect_person_id)
