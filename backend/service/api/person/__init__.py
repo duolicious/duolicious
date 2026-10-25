@@ -875,6 +875,17 @@ async def get_compare_answers(
         row_tx = await tx.execute(Q_ANSWER_COMPARISON, params)
         return await row_tx.fetchall()
 
+async def _cancel_live_subscriptions(
+    tx: Tx,
+    person_ids: list[int],
+    already_cancelled: set[str],
+) -> set[str]:
+    subscription_ids = set(await live_subscription_ids(tx, person_ids))
+    for subscription_id in subscription_ids - already_cancelled:
+        if not await paypal.cancel_subscription(subscription_id):
+            raise Exception('Deletion failed; Cannot cancel subscription')
+    return subscription_ids
+
 async def delete_or_ban_account(
     s: t.SessionInfo | None,
     admin_ban_token: str | None = None,
@@ -899,6 +910,9 @@ async def delete_or_ban_account(
             raise ValueError('At least one parameter must not be None')
 
         person_ids = [r['person_id'] for r in rows if r['person_id'] is not None]
+
+        cancelled = await _cancel_live_subscriptions(tx, person_ids, set())
+
         if person_ids:
             await tx.execute(
                 Q_LOCK_PERSONS_FOR_DELETION,
@@ -916,9 +930,7 @@ async def delete_or_ban_account(
         else:
             session_token_hashes = []
 
-        for subscription_id in await live_subscription_ids(tx, person_ids):
-            if not await paypal.cancel_subscription(subscription_id):
-                raise Exception('Deletion failed; Cannot cancel subscription')
+        await _cancel_live_subscriptions(tx, person_ids, cancelled)
 
         await tx.executemany(Q_DELETE_ACCOUNT, params_seq=rows)
 
