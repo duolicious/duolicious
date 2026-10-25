@@ -13,7 +13,6 @@ from service.api.search.sql.search import (
     Q_CACHED_SEARCH,
     Q_CACHED_SIMILAR_PROFILES,
     Q_QUIZ_SEARCH,
-    Q_SEARCHER_EXISTS,
     Q_SET_SEARCH_PREFERENCE_CLUB,
     build_uncached_search,
 )
@@ -27,7 +26,6 @@ __all__ = [
     'Q_PUBLIC_SIMILAR_PROFILES',
     'Q_QUIZ_SEARCH',
     'Q_SAME_COUNTRY_ONLY',
-    'Q_SEARCHER_EXISTS',
     'Q_SET_SEARCH_PREFERENCE_CLUB',
     'build_uncached_search',
     'feed_v2_query',

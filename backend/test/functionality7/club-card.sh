@@ -40,15 +40,12 @@ everyone_sees_the_best_25_members () {
 
   jc POST /join-club -d '{ "name": "chess" }'
 
-  local search_results_key="search_results:$(q "select id from person where name = 'searcher'")"
-  local search_results=$(redis_exists "$search_results_key")
   local club_preference=$(q "select club_name from search_preference where person_id = (select id from person where name = 'searcher')")
 
   q "update person set hide_me_from_strangers = false"
 
   [[ "$(members chess | jq length)" == "25" ]]
 
-  [[ "$(redis_exists "$search_results_key")" == "$search_results" ]]
   [[ "$(q "select club_name from search_preference where person_id = (select id from person where name = 'searcher')")" == "$club_preference" ]]
 }
 

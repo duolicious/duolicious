@@ -63,15 +63,6 @@ AND
 
 
 
-Q_SEARCHER_EXISTS = """
-SELECT
-    EXISTS (
-        SELECT 1 FROM person WHERE id = %(searcher_person_id)s
-    ) AS searcher_exists
-"""
-
-
-
 _HIDE_ME = sql_fragment("""
     -- The prospect wants to be shown to strangers or isn't a stranger
     (
@@ -461,9 +452,14 @@ WITH searcher AS (
     SELECT
         personality,
         verification_level_id,
-        count_answers
+        count_answers,
+        show_skipped
     FROM
         person
+    JOIN
+        search_preference
+    ON
+        search_preference.person_id = person.id
     WHERE
         id = %(searcher_person_id)s
 ), cached AS (
@@ -516,18 +512,7 @@ WITH searcher AS (
     WHERE
         {_PROSPECT_DIDNT_SKIP_SEARCHER}
     AND
-        (
-            (
-                SELECT
-                    show_skipped
-                FROM
-                    search_preference
-                WHERE
-                    person_id = %(searcher_person_id)s
-            )
-        OR
-            {_SEARCHER_DIDNT_SKIP_PROSPECT}
-        )
+        (searcher.show_skipped OR {_SEARCHER_DIDNT_SKIP_PROSPECT})
 ), page AS (
     SELECT
         *,
