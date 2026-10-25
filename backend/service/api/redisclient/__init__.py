@@ -1,12 +1,12 @@
 """
 Factory for the `redis.asyncio` client used across the API service.
 
-Several modules (`sessioncache`, `rediscache`, `visitorspush`) each need their
-own dedicated connection pool but want identical connection settings, so the
-construction lives here rather than being copy-pasted three ways.
+Several modules (`sessioncache`, `rediscache`, `visitorspush`, `search`) each
+need their own dedicated connection pool but want identical connection
+settings, so the construction lives here rather than being copy-pasted.
 
-The timeouts are not optional. Every caller treats Redis as a best-effort
-accelerator and swallows errors, degrading to a cache miss / no-op -- but that
+The timeouts are not optional. Most callers treat Redis as a best-effort
+accelerator and swallow errors, degrading to a cache miss / no-op -- but that
 fallback only works if a call actually *returns*. Without socket timeouts a
 slow or unreachable Redis blocks the caller indefinitely, stalling every other
 coroutine on the worker's event loop with it. Bounding both timeouts turns a

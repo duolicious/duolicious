@@ -40,14 +40,12 @@ everyone_sees_the_best_25_members () {
 
   jc POST /join-club -d '{ "name": "chess" }'
 
-  local search_cache_rows=$(q "select count(*) from search_cache")
   local club_preference=$(q "select club_name from search_preference where person_id = (select id from person where name = 'searcher')")
 
   q "update person set hide_me_from_strangers = false"
 
   [[ "$(members chess | jq length)" == "25" ]]
 
-  [[ "$(q "select count(*) from search_cache")" == "$search_cache_rows" ]]
   [[ "$(q "select club_name from search_preference where person_id = (select id from person where name = 'searcher')")" == "$club_preference" ]]
 }
 
