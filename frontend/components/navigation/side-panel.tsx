@@ -34,7 +34,8 @@ const SidePanelLayout = ({ left, right, style, onColumnLeft, children }: {
     <View
       style={[styles.space, !!left && styles.panelSpace]}
       pointerEvents="box-none"
-      onLayout={onColumnLeft && ((e) => onColumnLeft(e.nativeEvent.layout.width))}
+      onLayout={onColumnLeft && (({ nativeEvent: { layout } }) =>
+        layout.height > 0 && onColumnLeft(layout.width))}
     >
       {left &&
         <View style={[styles.panel, styles.leftPanel]} pointerEvents="box-none">

@@ -1149,9 +1149,9 @@ const Content = ({navigation, route}: ProspectScreenProps) => {
   const [columnLeft, setColumnLeft] = useState<number>();
 
   useBackButtonClaim(
-    columnLeft !== undefined && (!isAnonymousViewer || Platform.OS === 'web')
+    !isAnonymousViewer || Platform.OS === 'web'
       ? {
-        layout: columnLeft,
+        layout: columnLeft ?? 'pending',
         transition: Platform.OS === 'web' ? 'instant' : 'fade',
         onPress: () => navigation.goBack(),
       }
