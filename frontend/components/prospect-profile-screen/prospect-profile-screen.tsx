@@ -1006,6 +1006,7 @@ const ProspectProfile = ({
   showShareAndReport,
   paddingBottom,
   besideSidePanel,
+  onColumnLeft,
 }: {
   handle: string,
   data: FetchedUserData | undefined,
@@ -1013,6 +1014,7 @@ const ProspectProfile = ({
   showShareAndReport: boolean,
   paddingBottom: number,
   besideSidePanel?: boolean,
+  onColumnLeft?: (columnLeft: number) => void,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
   const [roundPrimaryPhoto, setRoundPrimaryPhoto] = useState(false);
@@ -1047,7 +1049,7 @@ const ProspectProfile = ({
     >
       <Reanimated.View style={animatedStyle}>
         <HeartBackground>
-          <SidePanelLayout right={besideSidePanel}>
+          <SidePanelLayout right={besideSidePanel} onColumnLeft={onColumnLeft}>
             <View style={{ paddingBottom }}>
               <EnlargeablePhoto
                 photoUuid={firstOrNull(data?.photo_uuids)}
@@ -1144,10 +1146,12 @@ const Content = ({navigation, route}: ProspectScreenProps) => {
       signedInUser.personUuid === handle);
   const isAnonymousViewer = !signedInUser;
 
+  const [columnLeft, setColumnLeft] = useState<number>();
+
   useBackButtonClaim(
-    !isAnonymousViewer || Platform.OS === 'web'
+    columnLeft !== undefined && (!isAnonymousViewer || Platform.OS === 'web')
       ? {
-        layout: 'column',
+        layout: columnLeft,
         transition: Platform.OS === 'web' ? 'instant' : 'fade',
         onPress: () => navigation.goBack(),
       }
@@ -1251,6 +1255,7 @@ const Content = ({navigation, route}: ProspectScreenProps) => {
           paddingBottom={
             showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100}
           besideSidePanel={showSimilarProfiles}
+          onColumnLeft={setColumnLeft}
         />
         <SidePanelLayout
           style={styles.overlay}
