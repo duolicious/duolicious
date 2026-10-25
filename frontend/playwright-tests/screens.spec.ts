@@ -108,6 +108,21 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
+test('back button anchored to the profile photo', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+
+  const seed = readSeed();
+  await signInPage(page, seed, 'light');
+
+  await page.setViewportSize({ width: 1050, height: 720 });
+  await visit(page, `/${seed.uuids.blake}`, 'Engineer', 'prospect-profile-1050px');
+
+  for (const width of [990, 900, 500]) {
+    await page.setViewportSize({ width, height: 720 });
+    await snap(page, `prospect-profile-${width}px`);
+  }
+});
+
 for (const theme of ['light', 'dark']) {
   test(`skipping someone in the ${theme} theme`, async ({ page }, testInfo) => {
     const seed = readSeed();

@@ -43,7 +43,9 @@ const GlobalBackButton = () => {
 
   const hide = useCallback(() => setShown(null), []);
 
-  const targetX = placement?.layout === 'column'
+  const targetX = typeof placement?.layout === 'number'
+    ? placement.layout
+    : placement?.layout === 'column'
     ? Math.max(0, (width - COLUMN_MAX_WIDTH) / 2)
     : 0;
 
