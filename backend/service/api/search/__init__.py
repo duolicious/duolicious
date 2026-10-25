@@ -98,7 +98,7 @@ async def _prospect_ids(
     await _redis.set(
         _search_results_key(searcher_person_id),
         ' '.join(map(str, prospect_person_ids)),
-        ex=timedelta(days=30),
+        ex=timedelta(days=1),
         nx=timed_out,
     )
 
