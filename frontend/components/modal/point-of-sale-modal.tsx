@@ -370,6 +370,11 @@ const FeatureCarousel = ({
   );
 };
 
+const grantGold = () => {
+  setSignedInUser((u) => u && { ...u, hasGold: true });
+  hidePointOfSale();
+};
+
 const OfferingCard = ({
   feature,
   width,
@@ -386,7 +391,10 @@ const OfferingCard = ({
     () => FEATURES.findIndex((f) => f.key === feature));
 
   useEffect(() => {
-    getOffering().then(setOffering, () => setOffering(null));
+    getOffering().then(
+      (o) => o === 'subscribed' ? grantGold() : setOffering(o),
+      () => setOffering(null),
+    );
   }, []);
 
   if (!offering) {
@@ -425,18 +433,7 @@ const OfferingCard = ({
       return;
     }
 
-    setSignedInUser((u) => {
-      if (!u) {
-        return u;
-      }
-
-      return {
-        ...u,
-        hasGold: true,
-      };
-    });
-
-    hidePointOfSale();
+    grantGold();
   };
 
   return (

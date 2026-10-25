@@ -52,10 +52,11 @@ import { markFeedStale } from '../events/stale-feed';
 import { DefaultText } from '../components/default-text';
 import {
   Linking,
+  Platform,
   StyleSheet,
   View,
 } from 'react-native';
-import { FC } from 'react';
+import { FC, Fragment } from 'react';
 import { onboardingQueue } from '../api/queue';
 import { showVerificationCamera } from '../components/verification-camera';
 import { notifyUpdatedVerification } from '../verification/verification';
@@ -604,6 +605,22 @@ const FinishOnboardingDescription = () => (
   </View>
 );
 
+const APP_STORE = {
+  name: 'the App Store',
+  url: 'https://apps.apple.com/account/subscriptions',
+};
+
+const GOOGLE_PLAY = {
+  name: 'Google Play',
+  url: 'https://play.google.com/store/account/subscriptions',
+};
+
+const SUBSCRIPTION_STORES = Platform.select({
+  ios: [APP_STORE],
+  android: [GOOGLE_PLAY],
+  default: [APP_STORE, GOOGLE_PLAY],
+});
+
 const DeletionDescription = () => (
   <DefaultText style={descriptionStyle.style} >
     Are you sure you want to delete your account? {}
@@ -612,6 +629,20 @@ const DeletionDescription = () => (
       permanently delete your account data and
       immediately log you out.
     </DefaultText> {}
+    If you subscribed to Gold through {}
+    {SUBSCRIPTION_STORES.map(({ name, url }, i) =>
+      <Fragment key={name}>
+        {i > 0 && ' or '}
+        <DefaultText
+          disableTheme
+          onPress={() => Linking.openURL(url)}
+          style={{ fontWeight: '700' }}
+        >
+          {name}
+        </DefaultText>
+      </Fragment>
+    )}
+    , deleting your account won’t cancel it, so cancel it there too. {}
     If you’re sure, type “delete” to confirm.
   </DefaultText>
 );

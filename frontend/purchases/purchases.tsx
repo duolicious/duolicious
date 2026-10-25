@@ -150,11 +150,18 @@ const toPurchasable = (
   };
 };
 
-const getOffering = async (): Promise<Offering | null> => {
+const restoreSubscription = async (): Promise<boolean> =>
+  !isExpoGo &&
+  (await Purchases.syncPurchasesForResult())
+    .customerInfo.activeSubscriptions.length > 0;
+
+const getOffering = async (): Promise<Offering | 'subscribed' | null> => {
   const personUuid = getSignedInUser()?.personUuid;
   if (!personUuid) return null;
 
   await ensurePurchasesConfigured();
+  if (await restoreSubscription()) return 'subscribed';
+
   const offering = await getCurrentOfferingForUserMemoized(personUuid);
   if (!offering) return null;
 
