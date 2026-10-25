@@ -37,7 +37,7 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { patchProfileInfo } from '../events/profile-info';
+import { patchProfileInfo, useProfileInfo } from '../events/profile-info';
 import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
@@ -61,7 +61,6 @@ import { showVerificationCamera } from '../components/verification-camera';
 import { notifyUpdatedVerification } from '../verification/verification';
 import { setAppThemeName } from '../app-theme/app-theme';
 import { showPointOfSale } from '../components/modal/point-of-sale-modal';
-import { StoreSubscriptionWarning } from '../components/store-subscription-warning';
 import { descriptionStyle, noneFontSize } from '../components/option-styles';
 import {
   MAX_DISTANCE_KM,
@@ -605,18 +604,26 @@ const FinishOnboardingDescription = () => (
   </View>
 );
 
-const DeletionDescription = () => (
-  <DefaultText style={descriptionStyle.style} >
-    Are you sure you want to delete your account? {}
-    <DefaultText disableTheme style={{ fontWeight: '700' }}>
-      This will
-      permanently delete your account data and
-      immediately log you out.
-    </DefaultText> {}
-    <StoreSubscriptionWarning />
-    If you’re sure, type “delete” to confirm.
-  </DefaultText>
-);
+const DeletionDescription = () => {
+  const [signedInUser] = useSignedInUser();
+  const profileInfo = useProfileInfo();
+  const hasStoreSubscription =
+    signedInUser?.hasGold && !profileInfo?.paypal_subscription;
+
+  return (
+    <DefaultText style={descriptionStyle.style} >
+      Are you sure you want to delete your account? {}
+      <DefaultText disableTheme style={{ fontWeight: '700' }}>
+        This will
+        permanently delete your account data and
+        immediately log you out.
+      </DefaultText> {}
+      {hasStoreSubscription &&
+        'It won’t cancel your App Store or Google Play subscription. '}
+      If you’re sure, type “delete” to confirm.
+    </DefaultText>
+  );
+};
 
 const DeactivationDescription = () => (
   <DefaultText style={descriptionStyle.style} >
