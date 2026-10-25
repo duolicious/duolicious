@@ -108,7 +108,7 @@ for (const theme of ['light', 'dark']) {
 
     await page.goto('/profile');
     await tap(page, 'Delete My Account');
-    await shown(page, 'Deleting your account won’t cancel your Gold subscription');
+    await shown(page, 'It won’t cancel your');
     await snap(page, `${theme}-delete-account`);
   });
 }

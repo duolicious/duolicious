@@ -23,16 +23,15 @@ const StoreSubscriptionWarning = () => {
 
   return (
     <>
-      Deleting your account won’t cancel your Gold subscription. If you
-      haven’t already, cancel it in {}
+      It won’t cancel your {}
       <StoreLink
-        name="the App Store"
+        name="App Store"
         url="https://apps.apple.com/account/subscriptions"
       /> or {}
       <StoreLink
         name="Google Play"
         url="https://play.google.com/store/account/subscriptions"
-      />. {}
+      /> subscription. {}
     </>
   );
 };

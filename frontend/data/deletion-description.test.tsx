@@ -53,8 +53,7 @@ const deletionScreenText = (
 };
 
 const STORE_WARNING =
-  'Deleting your account won’t cancel your Gold subscription. If you ' +
-  'haven’t already, cancel it in the App Store or Google Play.';
+  'It won’t cancel your App Store or Google Play subscription.';
 
 describe('the account deletion screen', () => {
   test('tells people with App Store or Google Play Gold to cancel it there', () => {
