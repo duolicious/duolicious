@@ -259,11 +259,6 @@ test_search_cache () {
   c DELETE /account
   assume_role searcher
   [[ "$(c GET /search | jq length)" = 0 ]]
-
-  echo "A deleted searcher's saved search results are deleted too"
-  [[ "$(redis EXISTS "search_results:${searcher_id}")" = :1 ]]
-  c DELETE /account
-  [[ "$(redis EXISTS "search_results:${searcher_id}")" = :0 ]]
 }
 
 test_quiz_search () {

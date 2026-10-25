@@ -200,16 +200,10 @@ assert_eventually () {
 # Clear the API's Redis result cache so the next cached call reflects the
 # current database rather than a snapshot left by an earlier call or test run.
 flush_redis () {
-  redis FLUSHALL > /dev/null
-}
-
-redis () {
-  local reply
   exec 3<>"/dev/tcp/${DUO_REDIS_HOST:-localhost}/${DUO_REDIS_PORT:-6379}"
-  printf '%s\r\n' "$*" >&3
-  read -r -u 3 -t 5 reply
+  printf 'FLUSHALL\r\n' >&3
+  read -r -u 3 -t 5 _reply
   exec 3>&- 3<&-
-  printf '%s' "${reply%$'\r'}"
 }
 
 # Generate a random base64-encoded PNG image (WxH) for testing.

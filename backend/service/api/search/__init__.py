@@ -54,16 +54,12 @@ async def _search_results(
         return await tx.fetchall()
 
 
-def _search_results_key(searcher_person_id: int) -> str:
-    return f'search_results:{searcher_person_id}'
-
-
 async def _prospect_ids(
     searcher_person_id: int,
     refresh: bool,
     ignore_sort_preference: bool,
 ) -> list[int]:
-    key = _search_results_key(searcher_person_id)
+    key = f'search_results:{searcher_person_id}'
 
     while True:
         saved = None if refresh else await _redis.get(key)
@@ -78,56 +74,42 @@ async def _prospect_ids(
 
     try:
         async with api_tx('READ COMMITTED') as tx:
+            await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
+
+            prefs = await tx.require_one(
+                Q_SEARCH_PARAMETERS,
+                dict(searcher_person_id=searcher_person_id),
+            )
+
+            uncached_search, params = build_uncached_search(
+                searcher_person_id=searcher_person_id,
+                prefs=prefs,
+                ignore_sort_preference=ignore_sort_preference,
+            )
+
             try:
-                async with tx.connection.transaction():
-                    await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
-
-                    prefs = await tx.require_one(
-                        Q_SEARCH_PARAMETERS,
-                        dict(searcher_person_id=searcher_person_id),
-                    )
-
-                    uncached_search, params = build_uncached_search(
-                        searcher_person_id=searcher_person_id,
-                        prefs=prefs,
-                        ignore_sort_preference=ignore_sort_preference,
-                    )
-
-                    await tx.execute('SET LOCAL jit = off')
-                    await tx.execute(uncached_search, params)
-                    prospect_person_ids = [
-                        row_int(row, 'prospect_person_id')
-                        for row in await tx.fetchall()
-                    ]
-                    timed_out = False
+                await tx.execute('SET LOCAL jit = off')
+                await tx.execute(uncached_search, params)
+                prospect_person_ids = [
+                    row_int(row, 'prospect_person_id')
+                    for row in await tx.fetchall()
+                ]
+                timed_out = False
             except psycopg.errors.QueryCanceled:
                 # The query probably timed-out because it was too specific
                 prospect_person_ids = []
                 timed_out = True
 
-            await _redis.set(
-                key,
-                ' '.join(map(str, prospect_person_ids)),
-                ex=timedelta(days=1),
-                nx=timed_out,
-            )
-
-            await tx.execute(
-                'SELECT 1 FROM person WHERE id = %(id)s',
-                dict(id=searcher_person_id),
-            )
-
-            if not await tx.fetchall():
-                await _redis.delete(key)
+        await _redis.set(
+            key,
+            ' '.join(map(str, prospect_person_ids)),
+            ex=timedelta(days=1),
+            nx=timed_out,
+        )
 
         return prospect_person_ids
     finally:
         await _redis.delete(f'{key}:lock')
-
-
-async def delete_search_results(person_ids: list[int]) -> None:
-    if person_ids:
-        await _redis.delete(*map(_search_results_key, person_ids))
 
 
 SearchType = Literal[
