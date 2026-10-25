@@ -8,6 +8,7 @@ import { ProfileInfo, setProfileInfo } from '../events/profile-info';
 const { act, create } = require('react-test-renderer');
 
 jest.mock('../App', () => ({ navigationContainerRef: {} }));
+jest.mock('../chat/websocket-layer', () => ({}));
 jest.mock('../components/logo', () => ({}));
 jest.mock('../navigation/reset-client-state', () => ({}));
 jest.mock('../notifications/notifications', () => ({}));
