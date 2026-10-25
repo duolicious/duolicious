@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AppStoreBadges } from '../../badges/app-store/app-store';
+import { LEGAL_LINKS } from '../../../constants/constants';
 const twitterIcon = require('../../../assets/social/twitter-white.svg');
 const redditIcon = require('../../../assets/social/reddit-white.svg');
 const githubIcon = require('../../../assets/social/github-white.svg');
@@ -52,18 +53,13 @@ const LegalLinks = () => {
         width: '100%',
         justifyContent: 'center',
         display: 'flex',
-        gap: '12px',
+        gap: '4px 12px',
         border: 'none',
         padding: '0',
         margin: '0',
       }}
     >
-      {[
-        ['FAQ', '/faq/'],
-        ['Guidelines', '/guidelines/'],
-        ['Terms', '/terms/'],
-        ['Privacy', '/privacy/'],
-      ].map(([label, href]) =>
+      {LEGAL_LINKS.map(([label, href]) =>
         <li key={href}>
           <a
             target="_blank"
@@ -72,8 +68,8 @@ const LegalLinks = () => {
             onMouseLeave={() => setHoveredHref(null)}
             style={{
               color: 'white',
-              fontFamily: 'MontserratSemiBold',
-              fontSize: '15px',
+              fontFamily: 'MontserratRegular',
+              fontSize: '12px',
               textDecoration: hoveredHref === href ? 'underline' : 'none',
             }}
           >
