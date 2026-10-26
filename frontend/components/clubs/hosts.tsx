@@ -30,10 +30,8 @@ const POPOVER_WIDTH = 360;
 const EDGE = 8;
 const FADE_DURATION = 150;
 
-const firstClubCard = (card: OpenClubCard): OpenClubCard =>
-  card.previous ? firstClubCard(card.previous) : card;
-
-const scrollOffsets = new WeakMap<OpenClubCard, number>();
+const clubCardChain = (card: OpenClubCard): OpenClubCard[] =>
+  card.previous ? [...clubCardChain(card.previous), card] : [card];
 
 const Popover = ({
   visible,
@@ -140,8 +138,8 @@ const ClubCardHost = () => {
   const { width, height } = useWindowDimensions();
   const card = useOpenClubCard();
   const shown = useLatest(card);
-  const first = shown && firstClubCard(shown);
-  const cache = useMemo((): ClubCardCache => new Map(), [first]);
+  const cards = shown ? clubCardChain(shown) : [];
+  const cache = useMemo((): ClubCardCache => new Map(), [cards[0]]);
   const { isScrolled, onScroll } = useIsScrolled(shown);
   const [isOpened, setIsOpened] = useState(false);
   const onOpened = useCallback(() => setIsOpened(true), []);
@@ -155,17 +153,11 @@ const ClubCardHost = () => {
 
   const body =
     <ClubCardBody
-      key={shown.name}
-      name={shown.name}
+      cards={cards}
       isOpened={isOpened}
-      rowPosition={shown.rowPosition ?? 'front'}
       onPressClub={(name) =>
         openClubCard({ name, anchor: shown.anchor, previous: shown })}
-      onScroll={(e) => {
-        scrollOffsets.set(shown, e.nativeEvent.contentOffset.y);
-        onScroll(e);
-      }}
-      initialScrollY={scrollOffsets.get(shown) ?? 0}
+      onScroll={onScroll}
       cache={cache}
     />;
 

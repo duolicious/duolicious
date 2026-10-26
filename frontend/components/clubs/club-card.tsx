@@ -1,4 +1,4 @@
-import { ComponentProps, memo, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { ComponentProps, memo, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -22,6 +22,7 @@ import { useAppTheme } from '../../app-theme/app-theme';
 import { isMobile } from '../../util/util';
 import {
   ClubItem,
+  OpenClubCard,
   RowPosition,
   closeClubs,
   clubQuota,
@@ -353,21 +354,17 @@ const ClubCardTitle = ({
   );
 };
 
-const ClubCardBody = ({
+const ClubCardContent = ({
   name,
   isOpened,
   rowPosition,
   onPressClub,
-  onScroll,
-  initialScrollY,
   cache,
 }: {
   name: string,
   isOpened: boolean,
   rowPosition: RowPosition,
   onPressClub: (name: string) => void,
-  onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void,
-  initialScrollY: number,
   cache: ClubCardCache,
 }) => {
   const { appTheme } = useAppTheme();
@@ -375,8 +372,6 @@ const ClubCardBody = ({
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const isMember = useIsClubMember(name);
   const response = useClubCard(name, isMember, cache);
-  const scrollRef = useRef<ScrollView>(null);
-  const isScrollRestored = useRef(false);
   const fetched = isOpened ? response : null;
   const card = fetched === 'error' ? null : fetched;
 
@@ -498,23 +493,61 @@ const ClubCardBody = ({
   );
 
   return (
+    <>
+      {header}
+      {members.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
+      {footer}
+    </>
+  );
+};
+
+const scrollOffsets = new WeakMap<OpenClubCard, number>();
+
+const ClubCardBody = ({
+  cards,
+  isOpened,
+  onPressClub,
+  onScroll,
+  cache,
+}: {
+  cards: OpenClubCard[],
+  isOpened: boolean,
+  onPressClub: (name: string) => void,
+  onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void,
+  cache: ClubCardCache,
+}) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const top = cards[cards.length - 1];
+
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ y: scrollOffsets.get(top) ?? 0, animated: false });
+  }, [top]);
+
+  return (
     <SheetScrollView
       ref={scrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 20 }}
-      onContentSizeChange={() => {
-        if (isScrollRestored.current) {
-          return;
-        }
-        isScrollRestored.current = true;
-        scrollRef.current?.scrollTo({ y: initialScrollY, animated: false });
+      onScroll={(e) => {
+        scrollOffsets.set(top, e.nativeEvent.contentOffset.y);
+        onScroll(e);
       }}
-      onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      {header}
-      {members.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
-      {footer}
+      {cards.map((card, i) =>
+        <View
+          key={`${i}:${card.name}`}
+          style={{ display: card === top ? 'flex' : 'none' }}
+        >
+          <ClubCardContent
+            name={card.name}
+            isOpened={isOpened}
+            rowPosition={card.rowPosition ?? 'front'}
+            onPressClub={onPressClub}
+            cache={cache}
+          />
+        </View>
+      )}
     </SheetScrollView>
   );
 };
