@@ -51,6 +51,8 @@ import { notifyErrorToast, notifyLinkCopiedToast } from '../toast';
 
 const MAX_MEMBERS = 25;
 
+const MAX_MOUNTED_CARDS = 2;
+
 const TITLE_LINE_HEIGHT = 34;
 
 const onPressInvite = (clubName: string) => async () => {
@@ -518,6 +520,14 @@ const ClubCardBody = ({
 }) => {
   const scrollRef = useRef<ScrollView>(null);
   const top = cards[cards.length - 1];
+  const [shallowest, setShallowest] = useState(0);
+  const depth = Math.min(
+    Math.max(shallowest, cards.length - MAX_MOUNTED_CARDS),
+    cards.length - 1,
+  );
+  if (depth !== shallowest) {
+    setShallowest(depth);
+  }
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ y: scrollOffsets.get(top) ?? 0, animated: false });
@@ -534,9 +544,9 @@ const ClubCardBody = ({
       }}
       scrollEventThrottle={16}
     >
-      {cards.map((card, i) =>
+      {cards.slice(depth).map((card, i) =>
         <View
-          key={`${i}:${card.name}`}
+          key={`${depth + i}:${card.name}`}
           style={{ display: card === top ? 'flex' : 'none' }}
         >
           <ClubCardContent
