@@ -137,11 +137,7 @@ const Facepile = memo(({ members }: { members: ClubMember[] }) => {
       {members.map((m, i) =>
         <ImageBackground
           key={m.person_uuid}
-          source={{
-            uri: `${IMAGES_URL}/450-${m.photo_uuid}.jpg`,
-            height: 450,
-            width: 450,
-          }}
+          source={{ uri: `${IMAGES_URL}/450-${m.photo_uuid}.jpg` }}
           placeholder={m.photo_blurhash && { blurhash: m.photo_blurhash }}
           transition={150}
           contentFit="cover"
