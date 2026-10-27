@@ -619,7 +619,7 @@ const DeletionDescription = () => {
         immediately log you out.
       </DefaultText> {}
       {hasStoreSubscription &&
-        'It won’t cancel your App Store or Google Play subscription. '}
+        'It won’t cancel your Gold subscription. '}
       If you’re sure, type “delete” to confirm.
     </DefaultText>
   );

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PointOfSaleModal, showPointOfSale } from './point-of-sale-modal';
+import { Toast } from '../toast';
 import { getSignedInUser, setSignedInUser } from '../../events/signed-in-user';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -40,6 +41,7 @@ jest.mock('react-native-purchases', () => ({
   },
 }));
 
+jest.mock('../logo', () => ({ Logo14: () => null }));
 jest.mock('../logo/logo-activity-indicator', () => ({
   LogoActivityIndicator: () => null,
 }));
@@ -67,6 +69,7 @@ const openPaywall = async (): Promise<string> => {
         }}
       >
         <PointOfSaleModal />
+        <Toast />
       </SafeAreaProvider>
     );
   });
@@ -108,6 +111,7 @@ describe('opening the Gold paywall in the mobile apps', () => {
     const shown = await openPaywall();
 
     expect(shown).not.toContain('Get Gold');
+    expect(shown).toContain('Your Gold subscription is now on this account');
     expect(getSignedInUser()?.hasGold).toBe(true);
   });
 

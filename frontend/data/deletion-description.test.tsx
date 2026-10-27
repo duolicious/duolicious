@@ -52,11 +52,10 @@ const deletionScreenText = (
   return text;
 };
 
-const STORE_WARNING =
-  'It won’t cancel your App Store or Google Play subscription.';
+const STORE_WARNING = 'It won’t cancel your Gold subscription.';
 
 describe('the account deletion screen', () => {
-  test('tells people with App Store or Google Play Gold to cancel it there', () => {
+  test('tells people with App Store or Google Play Gold that it won’t be cancelled', () => {
     expect(deletionScreenText(true, null)).toBe(
       'Are you sure you want to delete your account? This will permanently ' +
       'delete your account data and immediately log you out. ' +

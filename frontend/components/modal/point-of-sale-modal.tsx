@@ -21,6 +21,7 @@ import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { listen, notify } from '../../events/events';
 import { setSignedInUser } from '../../events/signed-in-user';
 import { getOffering } from '../../purchases/purchases';
+import { notifyGoldToast } from '../gold-toast';
 import {
   Offering,
   Purchasable,
@@ -392,7 +393,15 @@ const OfferingCard = ({
 
   useEffect(() => {
     getOffering().then(
-      (o) => o === 'subscribed' ? grantGold() : setOffering(o),
+      (o) => {
+        if (o !== 'subscribed') {
+          setOffering(o);
+          return;
+        }
+
+        grantGold();
+        notifyGoldToast('Your Gold subscription is now on this account');
+      },
       () => setOffering(null),
     );
   }, []);
