@@ -4,6 +4,7 @@ import { api, japi } from '../api/api';
 import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { getSignedInUser } from '../events/signed-in-user';
+import { maybeRequestReview } from '../store-review/store-review';
 
 const clubQuota = (hasGold?: boolean) => {
   if (hasGold ?? getSignedInUser()?.hasGold) {
@@ -137,6 +138,10 @@ const joinClub = (
 
   if (otherClubs.length === 0) {
     selectSearchClub(name);
+  }
+
+  if (otherClubs.length === 24) {
+    maybeRequestReview(1000);
   }
 
   return true;

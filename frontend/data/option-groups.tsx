@@ -37,7 +37,8 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { patchProfileInfo } from '../events/profile-info';
+import { getProfileInfo, patchProfileInfo } from '../events/profile-info';
+import { maybeRequestReview } from '../store-review/store-review';
 import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
@@ -782,10 +783,14 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       buttons: {
         values: relationshipStatus,
         submit: async (relationshipStatus: string) => {
+          const wasSingle = getProfileInfo()?.relationship_status === 'Single';
           const ok = (
             await japi('patch', '/profile-info', { relationship_status: relationshipStatus })
           ).ok;
           if (ok) patchProfileInfo({ relationship_status: relationshipStatus });
+          if (ok && wasSingle && ['Seeing someone', 'Engaged', 'Married'].includes(relationshipStatus)) {
+            maybeRequestReview(1000);
+          }
           return ok;
         },
         clear: clearProfileField('relationship_status', 'Unanswered'),
