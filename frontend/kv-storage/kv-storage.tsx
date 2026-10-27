@@ -11,6 +11,7 @@ const KEYS = [
   'inbox_order',
   'inbox_section',
   'last_path',
+  'last_review_request_time',
   'navigation_state',
   'draft_messages',
   'person_uuid',

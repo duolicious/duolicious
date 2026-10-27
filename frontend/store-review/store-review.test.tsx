@@ -1,5 +1,37 @@
+import * as StoreReview from 'expo-store-review';
 import type { ChatMessage } from '../chat/application-layer';
-import { isMutualConversation } from './store-review';
+import { isMutualConversation, maybeRequestReview } from './store-review';
+
+jest.mock('expo-store-review', () => ({
+  isAvailableAsync: jest.fn(async () => true),
+  requestReview: jest.fn(async () => {}),
+}));
+
+const mockKv: Record<string, string> = {};
+
+jest.mock('../kv-storage/kv-storage', () => ({
+  storeKv: async (key: string, value?: string) => {
+    if (value === undefined) return mockKv[key] ?? null;
+    mockKv[key] = value;
+  },
+}));
+
+describe('maybeRequestReview', () => {
+  const day = 24 * 60 * 60 * 1000;
+
+  it('waits four months between requests', async () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1000 * day);
+
+    await maybeRequestReview();
+    now.mockReturnValue(1119 * day);
+    await maybeRequestReview();
+    expect(StoreReview.requestReview).toHaveBeenCalledTimes(1);
+
+    now.mockReturnValue(1120 * day);
+    await maybeRequestReview();
+    expect(StoreReview.requestReview).toHaveBeenCalledTimes(2);
+  });
+});
 
 const message = (fromCurrentUser: boolean, day: number): ChatMessage => ({
   type: 'chat-text',
