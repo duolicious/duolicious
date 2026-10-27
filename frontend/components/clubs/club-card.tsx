@@ -1,7 +1,5 @@
 import { ComponentProps, memo, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   View,
@@ -509,13 +507,13 @@ const ClubCardBody = ({
   cards,
   isOpened,
   onPressClub,
-  onScroll,
+  onIsScrolled,
   cache,
 }: {
   cards: OpenClubCard[],
   isOpened: boolean,
   onPressClub: (name: string) => void,
-  onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void,
+  onIsScrolled: (isScrolled: boolean) => void,
   cache: ClubCardCache,
 }) => {
   const scrollRef = useRef<ScrollView>(null);
@@ -530,7 +528,9 @@ const ClubCardBody = ({
   }
 
   useLayoutEffect(() => {
-    scrollRef.current?.scrollTo({ y: scrollOffsets.get(top) ?? 0, animated: false });
+    const y = scrollOffsets.get(top) ?? 0;
+    scrollRef.current?.scrollTo({ y, animated: false });
+    onIsScrolled(y > 0);
   }, [top]);
 
   return (
@@ -538,9 +538,9 @@ const ClubCardBody = ({
       ref={scrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 20 }}
-      onScroll={(e) => {
-        scrollOffsets.set(top, e.nativeEvent.contentOffset.y);
-        onScroll(e);
+      onScroll={({ nativeEvent }) => {
+        scrollOffsets.set(top, nativeEvent.contentOffset.y);
+        onIsScrolled(nativeEvent.contentOffset.y > 0);
       }}
       scrollEventThrottle={16}
     >

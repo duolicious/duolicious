@@ -22,7 +22,6 @@ import Animated, { FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
 import { ModalBottomSheet } from '../modal/modal-bottom-sheet';
 import { ClubsPanel } from './clubs-panel';
 import { ClubCardBody, ClubCardCache, ClubCardTitle } from './club-card';
-import { useIsScrolled } from './use-is-scrolled';
 import { placePopover } from './place-popover';
 import { useLatest } from '../../util/use-latest';
 
@@ -140,7 +139,7 @@ const ClubCardHost = () => {
   const shown = useLatest(card);
   const cards = shown ? clubCardChain(shown) : [];
   const cache = useMemo((): ClubCardCache => new Map(), [cards[0]]);
-  const { isScrolled, onScroll } = useIsScrolled(shown);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isOpened, setIsOpened] = useState(false);
   const onOpened = useCallback(() => setIsOpened(true), []);
 
@@ -157,7 +156,7 @@ const ClubCardHost = () => {
       isOpened={isOpened}
       onPressClub={(name) =>
         openClubCard({ name, anchor: shown.anchor, previous: shown })}
-      onScroll={onScroll}
+      onIsScrolled={setIsScrolled}
       cache={cache}
     />;
 
