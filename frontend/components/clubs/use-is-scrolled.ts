@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
-const useIsScrolled = <T,>(resetKey?: T) => {
-  const [scrolled, setScrolled] = useState<{ key?: T } | null>(null);
+const useIsScrolled = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const onScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) =>
-    setScrolled(nativeEvent.contentOffset.y > 0 ? { key: resetKey } : null);
+    setIsScrolled(nativeEvent.contentOffset.y > 0);
 
-  return { isScrolled: scrolled !== null && scrolled.key === resetKey, onScroll };
+  return { isScrolled, onScroll };
 };
 
 export {
