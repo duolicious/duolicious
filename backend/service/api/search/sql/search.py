@@ -9,6 +9,7 @@ from serviceshared.database import (
     row_int,
     row_int_or_none,
     row_str,
+    row_str_list,
     row_str_or_none,
     row_vector,
 )
@@ -329,32 +330,26 @@ def _prospect_select(sort_expression: str) -> str:
 
         {sort_expression} AS sort_distance"""
 
-_MUTUAL_CLUB_COUNT = """,
-
-        (
+_MUTUAL_CLUB_COUNT = """(
             SELECT
                 count(*)
             FROM
-                person_club AS prospect_club
-            JOIN
-                person_club AS searcher_club
-            ON
-                searcher_club.club_name = prospect_club.club_name
+                person_club
             WHERE
-                prospect_club.person_id = nearest.prospect_person_id
+                person_id = nearest.prospect_person_id
             AND
-                searcher_club.person_id = %(searcher_person_id)s
-        ) AS mutual_club_count"""
+                club_name = ANY(%(searcher_club_names)s::TEXT[])
+        )"""
 
 
-def _rerank(sort_by: SortBy) -> tuple[str, str]:
+def _mutual_club_count(sort_by: SortBy, prefs: Row) -> _Sort:
     if sort_by == SORT_CLUBS:
-        return _MUTUAL_CLUB_COUNT, 'mutual_club_count DESC, sort_distance'
-    return '', 'sort_distance'
+        return _MUTUAL_CLUB_COUNT, dict(
+            searcher_club_names=row_str_list(prefs, 'searcher_club_names'))
+    return '0', {}
 
 
-def _ranked_prospect_ids(order_by: str) -> str:
-    return f"""), do_promote_verified AS (
+_RANKED_PROSPECT_IDS = """), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
@@ -380,7 +375,8 @@ ORDER BY
             has_photo
     END DESC,
 
-    {order_by}
+    mutual_club_count DESC,
+    sort_distance
 LIMIT
     500
 """
@@ -451,7 +447,8 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
-    rerank_columns, order_by = _rerank(sort_by)
+    mutual_club_count, mutual_club_params = _mutual_club_count(sort_by, prefs)
+    params.update(mutual_club_params)
 
     sql = f"""
 WITH nearest AS (
@@ -468,10 +465,11 @@ WITH nearest AS (
         750
 ), candidates AS (
     SELECT
-        *{rerank_columns}
+        *,
+        {mutual_club_count} AS mutual_club_count
     FROM
         nearest
-{_ranked_prospect_ids(order_by)}"""
+{_RANKED_PROSPECT_IDS}"""
 
     return sql, params
 

@@ -44,6 +44,7 @@ def maximal_prefs() -> Row:
         club_preference=None,
         sort_by='Match percentage',
         searcher_club_vector=Vector([0.0] * 64),
+        searcher_club_names=['a club'],
         min_age=18,
         max_age=99,
         min_height_cm=1,
@@ -134,13 +135,19 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
         clubs_prefs = maximal_prefs()
         clubs_prefs['sort_by'] = 'Similar clubs'
 
-        match_sql, _ = build_uncached_search(1, match_prefs, False)
-        clubs_sql, _ = build_uncached_search(1, clubs_prefs, False)
-        quiz_sql, _ = build_uncached_search(1, clubs_prefs, True)
+        match = build_uncached_search(1, match_prefs, False)
+        clubs = build_uncached_search(1, clubs_prefs, False)
+        quiz = build_uncached_search(1, clubs_prefs, True)
 
-        self.assertIn('mutual_club_count DESC, sort_distance', clubs_sql)
-        self.assertNotIn('mutual_club_count', match_sql)
-        self.assertNotIn('mutual_club_count', quiz_sql)
+        clubs_sql, clubs_params = clubs
+        self.assertIn(
+            'club_name = ANY(%(searcher_club_names)s::TEXT[])', clubs_sql)
+        self.assertEqual(clubs_params['searcher_club_names'], ['a club'])
+
+        for sql, params in (match, quiz):
+            self.assertIn('0 AS mutual_club_count', sql)
+            self.assertNotIn('searcher_club_names', sql)
+            self.assertNotIn('searcher_club_names', params)
 
     def test_distance_ordering_ranks_by_geographic_proximity(self) -> None:
         prefs = maximal_prefs()
