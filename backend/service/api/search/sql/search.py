@@ -9,6 +9,7 @@ from serviceshared.database import (
     row_int,
     row_int_or_none,
     row_str,
+    row_str_list,
     row_str_or_none,
     row_vector,
 )
@@ -329,6 +330,25 @@ def _prospect_select(sort_expression: str) -> str:
 
         {sort_expression} AS sort_distance"""
 
+_MUTUAL_CLUB_COUNT = """(
+            SELECT
+                count(*)
+            FROM
+                person_club
+            WHERE
+                person_id = nearest.prospect_person_id
+            AND
+                club_name = ANY(%(searcher_club_names)s::TEXT[])
+        )"""
+
+
+def _mutual_club_count(sort_by: SortBy, prefs: Row) -> _Sort:
+    if sort_by == SORT_CLUBS:
+        return _MUTUAL_CLUB_COUNT, dict(
+            searcher_club_names=row_str_list(prefs, 'searcher_club_names'))
+    return '0', {}
+
+
 _RANKED_PROSPECT_IDS = """), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
@@ -355,6 +375,7 @@ ORDER BY
             has_photo
     END DESC,
 
+    mutual_club_count DESC,
     sort_distance
 LIMIT
     500
@@ -426,8 +447,11 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
+    mutual_club_count, mutual_club_params = _mutual_club_count(sort_by, prefs)
+    params.update(mutual_club_params)
+
     sql = f"""
-WITH candidates AS (
+WITH nearest AS (
 {_prospect_select(sort_expression)}
     FROM
 {_from_clause(club_preference)}
@@ -439,6 +463,12 @@ WITH candidates AS (
 
     LIMIT
         750
+), candidates AS (
+    SELECT
+        *,
+        {mutual_club_count} AS mutual_club_count
+    FROM
+        nearest
 {_RANKED_PROSPECT_IDS}"""
 
     return sql, params
