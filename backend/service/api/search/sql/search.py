@@ -329,7 +329,32 @@ def _prospect_select(sort_expression: str) -> str:
 
         {sort_expression} AS sort_distance"""
 
-_RANKED_PROSPECT_IDS = """), do_promote_verified AS (
+_MUTUAL_CLUB_COUNT = """,
+
+        (
+            SELECT
+                count(*)
+            FROM
+                person_club AS prospect_club
+            JOIN
+                person_club AS searcher_club
+            ON
+                searcher_club.club_name = prospect_club.club_name
+            WHERE
+                prospect_club.person_id = nearest.prospect_person_id
+            AND
+                searcher_club.person_id = %(searcher_person_id)s
+        ) AS mutual_club_count"""
+
+
+def _rerank(sort_by: SortBy) -> tuple[str, str]:
+    if sort_by == SORT_CLUBS:
+        return _MUTUAL_CLUB_COUNT, 'mutual_club_count DESC, sort_distance'
+    return '', 'sort_distance'
+
+
+def _ranked_prospect_ids(order_by: str) -> str:
+    return f"""), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
@@ -355,7 +380,7 @@ ORDER BY
             has_photo
     END DESC,
 
-    sort_distance
+    {order_by}
 LIMIT
     500
 """
@@ -426,8 +451,10 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
+    rerank_columns, order_by = _rerank(sort_by)
+
     sql = f"""
-WITH candidates AS (
+WITH nearest AS (
 {_prospect_select(sort_expression)}
     FROM
 {_from_clause(club_preference)}
@@ -439,7 +466,12 @@ WITH candidates AS (
 
     LIMIT
         750
-{_RANKED_PROSPECT_IDS}"""
+), candidates AS (
+    SELECT
+        *{rerank_columns}
+    FROM
+        nearest
+{_ranked_prospect_ids(order_by)}"""
 
     return sql, params
 

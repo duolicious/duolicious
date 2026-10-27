@@ -129,6 +129,19 @@ class TestMatchesSearchFiltersMirrorsSearch(unittest.TestCase):
             [0.0] * 64,
         )
 
+    def test_club_ordering_ranks_by_mutual_clubs_first(self) -> None:
+        match_prefs = maximal_prefs()
+        clubs_prefs = maximal_prefs()
+        clubs_prefs['sort_by'] = 'Similar clubs'
+
+        match_sql, _ = build_uncached_search(1, match_prefs, False)
+        clubs_sql, _ = build_uncached_search(1, clubs_prefs, False)
+        quiz_sql, _ = build_uncached_search(1, clubs_prefs, True)
+
+        self.assertIn('mutual_club_count DESC, sort_distance', clubs_sql)
+        self.assertNotIn('mutual_club_count', match_sql)
+        self.assertNotIn('mutual_club_count', quiz_sql)
+
     def test_distance_ordering_ranks_by_geographic_proximity(self) -> None:
         prefs = maximal_prefs()
         prefs['sort_by'] = 'Distance'
