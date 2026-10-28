@@ -115,7 +115,7 @@ def report_template(
 {accused_img_html}
 
 
-<p><b>Last messages between reporter and accused:</b></p>
+<p><b>Messages:</b></p>
 <pre>
 {safe_last_messages}
 </pre>
@@ -216,6 +216,7 @@ async def lodge_report(
     is_automoded: bool,
     is_shadow_banned: bool,
     is_underage: bool,
+    messages: list[dict[str, object]] | None,
 ) -> None:
     params = dict(
         subject_uuid=subject_uuid,
@@ -224,7 +225,7 @@ async def lodge_report(
     )
 
     async with api_tx() as tx:
-        last_messages = await (await tx.execute(Q_LAST_MESSAGES, params=params)).fetchall()
+        last_messages = messages or await (await tx.execute(Q_LAST_MESSAGES, params=params)).fetchall()
 
         report_obj = await (await tx.execute(Q_MAKE_REPORT, params=params)).fetchall()
 
@@ -289,6 +290,7 @@ async def skip_by_uuid(
     object_uuid: str,
     reason: str,
     is_automatic: bool,
+    messages: list[dict[str, object]] | None = None,
 ) -> None:
     is_underage = not is_automatic and is_underage_report(reason)
 
@@ -339,4 +341,5 @@ async def skip_by_uuid(
             is_automoded=is_automoded,
             is_shadow_banned=is_shadow_banned,
             is_underage=is_underage,
+            messages=messages,
         )
