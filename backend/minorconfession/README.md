@@ -14,9 +14,12 @@ Detection runs in two stages, each time a message is stored:
 2. **Stage 2** is `is_minor_confession` in the `stage2` package. It reads
    the sender's claimed age and profile summary, the four messages before the
    target, and the target itself. If its score passes the threshold, the
-   sender is reported from the bot account, the way the profile reporter does.
-   The report includes those messages, so a moderator can see what triggered
-   it.
+   sender is reported from the bot account. The report includes those
+   messages, so a moderator can see what triggered it, and its subject is
+   tagged `[underage - chat model]`. Unlike an underage report from a member,
+   it doesn't make the sender verify. Every flagged message is reported, even
+   if the sender was reported before, by this check or by the bio check in
+   `service/cron/profilereporter`.
 
 Both stages run in the chat server, in a batcher that picks up each message
 after it's stored, so they never delay delivery. Stage 1 needs only the
@@ -53,7 +56,7 @@ Later rounds added:
 - 1,800 items that an earlier stage 1, made of regular expressions, passed
   and an earlier model scored highest, which is where its mistakes cost most;
 - 2,091 items that the same stage 1 passed, drawn at random. These make up the
-  **live** benchmark below and are never trained on.
+  **live** benchmark below.
 
 Because those items were found with patterns, they favour stage 1 models that
 use the same patterns. The **fresh** benchmark fixes that. It's a random
@@ -65,6 +68,9 @@ labelled:
 - every other item the shipped stage 1 passes.
 
 It holds 15 `yes` items from 14 senders, and 62 `maybe` items.
+
+The training scripts leave out both benchmarks, from training and from
+choosing checkpoints.
 
 Items with explicit sexual words were left out. A blind second labelling of
 520 validation items agreed with the first on 95% of `yes` labels (F1 0.95),

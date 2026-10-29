@@ -40,6 +40,6 @@ diff -u --color \
   <(_get_emails) \
   ../../test/fixtures/cron-emails-profilereporter
 
-! get_emails | grep -F 'Report:' | grep -F '[underage]'
+! get_emails | grep -F 'Report:' | grep -F '[underage'
 
 [[ "$(q "select verification_required from person where name = 'user2'")" == f ]]

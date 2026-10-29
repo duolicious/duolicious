@@ -110,9 +110,9 @@ def main() -> None:
     train = [
         (item.message, TARGETS[item.label])
         for item in items
-        if item.split == 'train' and not item.is_live and item.label != 'no']
+        if item.split == 'train' and not item.is_benchmark and item.label != 'no']
     examples = train * args.oversample + [(m, 0.0) for m in pool[:300000]]
-    val = [item for item in items if item.split == 'val' and not item.is_live]
+    val = [item for item in items if item.split == 'val' and not item.is_benchmark]
 
     tokenizer = AutoTokenizer.from_pretrained(args.base)
     model = AutoModelForSequenceClassification.from_pretrained(

@@ -31,9 +31,12 @@ from io import StringIO
 import re
 import random
 from collections.abc import Mapping, Sequence
+from typing import Literal
 from serviceshared.antiabuse.lodgereport.constants import EmailEntry
 
 logger = logging.getLogger(__name__)
+
+ReportSource = Literal['member report', 'profile reporter', 'chat model']
 
 
 def _repack_last_messages_in_place(
@@ -160,7 +163,7 @@ def report_subject(
     report_obj: Sequence[Mapping[str, object]],
     is_automoded: bool,
     is_shadow_banned: bool,
-    is_underage: bool,
+    underage_source: ReportSource | None,
 ) -> str:
     subject_person_id = row_int(report_obj[0], 'id')
     object_person_id = row_int(report_obj[1], 'id')
@@ -173,8 +176,8 @@ def report_subject(
     elif is_automoded:
         subject += ' [automoded]'
 
-    if is_underage:
-        subject += ' [underage]'
+    if underage_source:
+        subject += f' [underage - {underage_source}]'
 
     return subject
 
@@ -185,7 +188,7 @@ def _send_report_email(
     last_messages: list[dict[str, object]],
     is_automoded: bool,
     is_shadow_banned: bool,
-    is_underage: bool,
+    underage_source: ReportSource | None,
 ) -> None:
     report_email = _sample_email_addresses(REPORT_EMAILS)
 
@@ -195,7 +198,7 @@ def _send_report_email(
                 report_obj=report_obj,
                 is_automoded=is_automoded,
                 is_shadow_banned=is_shadow_banned,
-                is_underage=is_underage,
+                underage_source=underage_source,
             ),
             body=report_template(
                 report_obj=report_obj,
@@ -215,7 +218,7 @@ async def lodge_report(
     reason: str,
     is_automoded: bool,
     is_shadow_banned: bool,
-    is_underage: bool,
+    underage_source: ReportSource | None,
     messages: list[dict[str, object]] | None,
 ) -> None:
     params = dict(
@@ -239,7 +242,7 @@ async def lodge_report(
             last_messages=last_messages,
             is_automoded=is_automoded,
             is_shadow_banned=is_shadow_banned,
-            is_underage=is_underage,
+            underage_source=underage_source,
         )
     ).start()
 
@@ -289,17 +292,19 @@ async def skip_by_uuid(
     subject_uuid: str,
     object_uuid: str,
     reason: str,
-    is_automatic: bool,
+    source: ReportSource,
     messages: list[dict[str, object]] | None = None,
 ) -> None:
-    is_underage = not is_automatic and is_underage_report(reason)
+    is_underage_member_report = (
+        source == 'member report' and is_underage_report(reason))
 
     params = dict(
         subject_uuid=subject_uuid,
         object_uuid=object_uuid,
         reported=bool(reason),
         report_reason=reason or '',
-        requires_verification=is_bot_report(reason) or is_underage,
+        requires_verification=(
+            is_bot_report(reason) or is_underage_member_report),
     )
 
     is_shadow_banned = False
@@ -340,6 +345,9 @@ async def skip_by_uuid(
             reason=reason,
             is_automoded=is_automoded,
             is_shadow_banned=is_shadow_banned,
-            is_underage=is_underage,
+            underage_source=(
+                source
+                if is_underage_member_report or source == 'chat model'
+                else None),
             messages=messages,
         )

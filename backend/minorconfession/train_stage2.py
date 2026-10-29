@@ -190,8 +190,8 @@ def main() -> None:
     torch.manual_seed(args.seed)
 
     items = load(args.data)
-    train = [item for item in items if item.split == 'train' and not item.is_live]
-    val = [item for item in items if item.split == 'val']
+    train = [item for item in items if item.split == 'train' and not item.is_benchmark]
+    val = [item for item in items if item.split == 'val' and not item.is_benchmark]
     targets = (
         teacher_targets(args.teachers, train) if args.teachers
         else [TARGETS[item.label] for item in train])

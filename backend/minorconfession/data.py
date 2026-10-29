@@ -8,7 +8,7 @@ TARGETS = {'yes': 1.0, 'maybe': 0.6, 'no': 0.0}
 @dataclass
 class Item:
     split: str
-    is_live: bool
+    is_benchmark: bool
     label: str
     claimed_age: int
     about: str
@@ -26,7 +26,7 @@ def load(data: Path) -> list[Item]:
         for row in map(json.loads, path.read_text().splitlines()):
             items.setdefault(row['id'], Item(
                 split=row['split'],
-                is_live=row['source'].startswith('stage1_random'),
+                is_benchmark=row['source'].startswith(('stage1_random', 'unbiased')),
                 label=labels.get(row['id'], 'skip'),
                 claimed_age=row['claimed_age'],
                 about=row['about'],

@@ -9,6 +9,7 @@ from serviceshared.antiabuse.minorconfession.stage1 import (
 from serviceshared.antiabuse.minorconfession.stage2 import (
     is_minor_confession,
 )
+from serviceshared.antiabuse.sql import BOT_ACCOUNT_SQL
 from serviceshared.batcher import Batcher
 from serviceshared.database import api_tx
 import asyncio
@@ -16,20 +17,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-Q_SELECT_CONVERSATIONS = """
-WITH bot_account AS (
-    SELECT
-        id,
-        uuid
-    FROM
-        person
-    WHERE
-        roles @> ARRAY['bot']
-    ORDER BY
-        roles
-    LIMIT
-        1
-)
+Q_SELECT_CONVERSATIONS = f"""
+WITH bot_account AS ({BOT_ACCOUNT_SQL})
 SELECT
     bot_account.uuid::TEXT AS subject_uuid,
     person.uuid::TEXT AS object_uuid,
@@ -66,17 +55,7 @@ SELECT
             LIMIT
                 4
         ) AS recent
-    ) AS before,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            skipped
-        WHERE
-            skipped.subject_person_id = bot_account.id
-        AND
-            skipped.object_person_id = person.id
-    ) AS is_reported
+    ) AS before
 FROM
     unnest(
         %(from_usernames)s::TEXT[],
@@ -118,7 +97,6 @@ async def _process_batch(batch: list[StoreMamMessageJob]) -> None:
         before = [(message['is_me'], message['body']) for message in row['before']]
 
         if \
-                row['is_reported'] or \
                 row['object_uuid'] in reported or \
                 not await asyncio.to_thread(
                     is_minor_confession,
@@ -135,7 +113,7 @@ async def _process_batch(batch: list[StoreMamMessageJob]) -> None:
             subject_uuid=row['subject_uuid'],
             object_uuid=row['object_uuid'],
             reason='Automatically lodged report: Child safety (chat)',
-            is_automatic=True,
+            source='chat model',
             messages=[
                 *[
                     dict(sent_by='accused' if is_me else 'other person', body=body)
