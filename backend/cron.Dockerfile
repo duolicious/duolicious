@@ -10,6 +10,7 @@ ENV OPENBLAS_NUM_THREADS=2
 WORKDIR /app
 
 COPY \
+  --exclude=serviceshared/antiabuse/minorconfession \
   --exclude=test \
   --exclude=vm \
   . /app

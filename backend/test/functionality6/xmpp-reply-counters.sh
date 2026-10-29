@@ -33,36 +33,6 @@ user1uuid=$(get_uuid 'user1@example.com')
 user2uuid=$(get_uuid 'user2@example.com')
 user3uuid=$(get_uuid 'user3@example.com')
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 2
-}
-
 # The four counters in one string, so a single assertion pins every one of them
 # and an unintended bump can't hide behind an unchecked column. In order:
 # intros received, of those the ones replied to, intros sent, and of those the
@@ -91,6 +61,7 @@ echo Everyone starts at zero
 echo An intro counts as sent for the sender and received for the recipient
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "hello there user2"
+sleep 2
 
 [[ "$(counters user1)" = '0 0 1 0' ]]
 [[ "$(counters user2)" = '1 0 0 0' ]]
@@ -100,6 +71,7 @@ send_message "$user1uuid" "$user1token" "$user2uuid" "hello there user2"
 echo A reply counts for the replier and credits the intro that earned it
 
 send_message "$user2uuid" "$user2token" "$user1uuid" "hello back user1"
+sleep 2
 
 [[ "$(counters user1)" = '0 0 1 1' ]]
 [[ "$(counters user2)" = '1 1 0 0' ]]
@@ -109,7 +81,9 @@ send_message "$user2uuid" "$user2token" "$user1uuid" "hello back user1"
 echo Further messages in an existing conversation move nothing
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "still here user2"
+sleep 2
 send_message "$user2uuid" "$user2token" "$user1uuid" "still here user1"
+sleep 2
 
 [[ "$(counters user1)" = '0 0 1 1' ]]
 [[ "$(counters user2)" = '1 1 0 0' ]]
@@ -119,6 +93,7 @@ send_message "$user2uuid" "$user2token" "$user1uuid" "still here user1"
 echo A second intro from the same sender counts again
 
 send_message "$user1uuid" "$user1token" "$user3uuid" "hello there user3"
+sleep 2
 
 [[ "$(counters user1)" = '0 0 2 1' ]]
 [[ "$(counters user3)" = '1 0 0 0' ]]

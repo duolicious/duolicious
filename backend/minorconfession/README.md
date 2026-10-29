@@ -17,9 +17,10 @@ Detection runs in two stages, each time a message is stored:
    sender is reported from the bot account. The report includes those
    messages, so a moderator can see what triggered it, and its subject is
    tagged `[underage - chat model]`. Unlike an underage report from a member,
-   it doesn't make the sender verify. Every flagged message is reported, even
-   if the sender was reported before, by this check or by the bio check in
-   `service/cron/profilereporter`.
+   it doesn't make the sender verify. A sender is reported again for each new
+   flagged message, even if they were reported before, by this check or by
+   the bio check in `service/cron/profilereporter`. Flagged messages that the
+   batcher handles together count once per sender.
 
 Both stages run in the chat server, in a batcher that picks up each message
 after it's stored, so they never delay delivery. Stage 1 needs only the
