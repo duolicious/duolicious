@@ -1,6 +1,6 @@
 import unittest
 
-from serviceshared.antiabuse.minorconfession.classifier import (
+from serviceshared.antiabuse.minorconfession.stage2 import (
     is_minor_confession,
 )
 

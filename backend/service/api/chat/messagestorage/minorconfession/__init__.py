@@ -3,11 +3,11 @@ from service.api.chat.messagestorage.mam import (
     microseconds_to_mam_message_id,
 )
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
-from serviceshared.antiabuse.minorconfession.classifier import (
-    is_minor_confession,
-)
-from serviceshared.antiabuse.minorconfession.firstpass import (
+from serviceshared.antiabuse.minorconfession.stage1 import (
     may_confess_minor,
+)
+from serviceshared.antiabuse.minorconfession.stage2 import (
+    is_minor_confession,
 )
 from serviceshared.batcher import Batcher
 from serviceshared.database import api_tx

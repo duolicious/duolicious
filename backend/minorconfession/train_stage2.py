@@ -1,9 +1,7 @@
 import argparse
-import json
 import math
 import random
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -20,52 +18,21 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 
+from minorconfession.data import TARGETS, Item, load
 from serviceshared.antiabuse.minorconfession.encoding import encode
 
 SERVING_DIR = (
     Path(__file__).parent.parent /
-    'serviceshared' / 'antiabuse' / 'minorconfession' / 'classifier')
-
-TARGETS = {'yes': 1.0, 'maybe': 0.6, 'no': 0.0}
+    'serviceshared' / 'antiabuse' / 'minorconfession' / 'stage2')
 
 
-@dataclass
-class Item:
-    split: str
-    is_live: bool
-    label: str
-    claimed_age: int
-    about: str
-    before: list[tuple[bool, str]]
-    message: str
-
-    def input_ids(self, tokenizer: PreTrainedTokenizerFast) -> list[int]:
-        return encode(
-            tokenizer.backend_tokenizer,
-            self.claimed_age,
-            self.about,
-            self.before,
-            self.message)
-
-
-def load(data: Path) -> list[Item]:
-    labels = {
-        row['id']: row['label']
-        for path in sorted(data.glob('labels/*.jsonl'))
-        for row in map(json.loads, filter(str.strip, path.read_text().splitlines()))}
-    items: dict[str, Item] = {}
-    for path in sorted(data.glob('items/*.jsonl')):
-        for row in map(json.loads, path.read_text().splitlines()):
-            items.setdefault(row['id'], Item(
-                split=row['split'],
-                is_live=row['source'].startswith('stage1_random'),
-                label=labels.get(row['id'], 'skip'),
-                claimed_age=row['claimed_age'],
-                about=row['about'],
-                before=[(who == 'ME', text) for who, text in row['before']],
-                message=row['target']))
-
-    return [item for item in items.values() if item.label != 'skip']
+def input_ids(tokenizer: PreTrainedTokenizerFast, item: Item) -> list[int]:
+    return encode(
+        tokenizer.backend_tokenizer,
+        item.claimed_age,
+        item.about,
+        item.before,
+        item.message)
 
 
 def batches(
@@ -90,7 +57,7 @@ def logits(
 ) -> list[float]:
     model.eval()
     result: list[float] = []
-    examples = [(item.input_ids(tokenizer), 0.0) for item in items]
+    examples = [(input_ids(tokenizer, item), 0.0) for item in items]
     with torch.no_grad(), torch.autocast('cuda', dtype=torch.bfloat16, enabled=bf16):
         for ids, mask, _ in batches(examples, 64, tokenizer.pad_token_id):
             result += model(input_ids=ids, attention_mask=mask).logits.squeeze(-1).float().cpu().tolist()
@@ -233,7 +200,7 @@ def main() -> None:
     model = fit(
         args.base,
         tokenizer,
-        [(item.input_ids(tokenizer), t) for item, t in zip(train, targets)],
+        [(input_ids(tokenizer, item), t) for item, t in zip(train, targets)],
         val,
         epochs=args.epochs,
         learning_rate=args.lr,

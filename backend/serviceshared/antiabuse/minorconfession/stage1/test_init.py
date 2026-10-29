@@ -1,6 +1,6 @@
 import unittest
 
-from serviceshared.antiabuse.minorconfession.firstpass import (
+from serviceshared.antiabuse.minorconfession.stage1 import (
     may_confess_minor,
 )
 

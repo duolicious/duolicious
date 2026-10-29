@@ -6,7 +6,7 @@ from tokenizers import Tokenizer
 from serviceshared.antiabuse.minorconfession.encoding import encode
 
 _TOKENIZER = Tokenizer.from_file(
-    str(Path(__file__).parent / 'classifier' / 'tokenizer.json'))
+    str(Path(__file__).parent / 'stage2' / 'tokenizer.json'))
 
 
 def _turns(ids: list[int]) -> list[str]:

@@ -15,11 +15,11 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 
-from minorconfession.train import TARGETS, load
+from minorconfession.data import TARGETS, load
 
 SERVING_DIR = (
     Path(__file__).parent.parent /
-    'serviceshared' / 'antiabuse' / 'minorconfession' / 'firstpass')
+    'serviceshared' / 'antiabuse' / 'minorconfession' / 'stage1')
 
 PASS_RATE = 0.024
 

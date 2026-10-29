@@ -8,10 +8,10 @@ training pipeline, not a service: a developer runs it by hand.
 
 Detection runs in two stages, each time a message is stored:
 
-1. **Stage 1** is `may_confess_minor` in the `firstpass` package, a small
+1. **Stage 1** is `may_confess_minor` in the `stage1` package, a small
    transformer (4 layers, 256 wide) that reads the message alone. It's tuned
    for recall, not precision, and passes about 2.5% of messages to stage 2.
-2. **Stage 2** is `is_minor_confession` in the `classifier` package. It reads
+2. **Stage 2** is `is_minor_confession` in the `stage2` package. It reads
    the sender's claimed age and profile summary, the four messages before the
    target, and the target itself. If its score passes the threshold, the
    sender is reported from the bot account, the way the profile reporter does.
@@ -72,10 +72,11 @@ which bounds how well any model can score here.
 
 ## Training
 
-`DATA` holds `items/*.jsonl` and `labels/*.jsonl`. Run the scripts from
-`backend` with `backend` on `PYTHONPATH`, so that they encode conversations
-with the same function the classifier uses. Both fine-tune a base model with
-soft targets (`yes` 1.0, `maybe` 0.6, `no` 0).
+`DATA` holds `items/*.jsonl` and `labels/*.jsonl`, which `data.py` loads for
+both training scripts. Run the scripts from `backend` with `backend` on
+`PYTHONPATH`, so that stage 2's script encodes conversations with the same
+function stage 2 uses. Both fine-tune a base model with soft targets (`yes`
+1.0, `maybe` 0.6, `no` 0).
 
 ### Stage 1
 
@@ -86,18 +87,18 @@ on 300,000 of them and on the train `yes` and `maybe` items, repeated ten
 times. It keeps the checkpoint that catches the most validation items at a
 2.4% pass rate, with `maybe` items counting a quarter as much as `yes` items.
 `--serve` writes the int8 model and its tokenizer into
-`firstpass`:
+`stage1`:
 
 ```
-python minorconfession/train_firstpass.py DATA NEGATIVES FIRSTPASS --serve
+python minorconfession/train_stage1.py DATA NEGATIVES STAGE1 --serve
 ```
 
-Then set `_THRESHOLD` in `firstpass` to the logit at which the int8 model on a
+Then set `_THRESHOLD` in `stage1` to the logit at which the int8 model on a
 CPU passes 2.5% of typical messages without explicit sexual words.
 
 ### Stage 2
 
-`train.py` keeps the epoch with the best validation AP. The shipped model was
+`train_stage2.py` keeps the epoch with the best validation AP. The shipped model was
 made in three steps.
 
 First, train teachers. DeBERTa-v3-base needs bf16 and a smaller batch to fit
@@ -105,22 +106,22 @@ in 8 GB. Its validation AP varies a lot between seeds, so train four and keep
 the best two:
 
 ```
-python minorconfession/train.py DATA TEACHER1 --base microsoft/deberta-v3-base \
+python minorconfession/train_stage2.py DATA TEACHER1 --base microsoft/deberta-v3-base \
     --seed 1 --bf16 --batch 8 --accum 2
 ```
 
 Then train a roberta-base student. Its target for each training item is the
 mean of the label's target and the teachers' average probability. `--serve`
-writes it into the classifier as an int8 ONNX model, with its weights split
-into two files under GitHub's 100 MB limit:
+writes it into `stage2` as an int8 ONNX model, with its weights split into
+two files under GitHub's 100 MB limit:
 
 ```
-python minorconfession/train.py DATA STUDENT --seed 2 \
+python minorconfession/train_stage2.py DATA STUDENT --seed 2 \
     --teachers TEACHER1 TEACHER4 --serve
 ```
 
 Last, score the fresh benchmark's stage 1 passes with the int8 model on a
-CPU, and set `_THRESHOLD` in the classifier to the logit that flags about 10
+CPU, and set `_THRESHOLD` in `stage2` to the logit that flags about 10
 messages a day.
 
 DeBERTa itself isn't shipped. Int8 quantization wrecks its scores (a logit of
