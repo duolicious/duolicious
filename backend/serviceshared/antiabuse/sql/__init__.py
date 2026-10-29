@@ -1,5 +1,18 @@
 from serviceshared.gold.sql import has_gold_sql
 
+BOT_ACCOUNT_SQL = """
+SELECT
+    uuid
+FROM
+    person
+WHERE
+    roles @> ARRAY['bot']
+ORDER BY
+    roles
+LIMIT
+    1
+"""
+
 Q_LAST_MESSAGES = """
 WITH last_messages AS (
     SELECT

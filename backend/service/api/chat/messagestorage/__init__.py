@@ -7,6 +7,8 @@ from service.api.chat.messagestorage.inbox import (
 from service.api.chat.messagestorage.mam import (
         process_store_mam_message_batch,
         StoreMamMessageJob)
+from service.api.chat.messagestorage.minorconfession import (
+        minor_confession_batcher)
 from service.api.chat.messagestorage.reaction import set_mam_reaction
 from service.api.chat.messagestorage.setmessaged import (
         process_set_messaged_batch,
@@ -189,6 +191,9 @@ async def _process_store_message_batch(batch: list[StoreMessageJob]) -> None:
         await process_store_mam_message_batch(tx, store_mam_message_jobs)
         await process_upsert_conversation_batch(tx, upsert_conversation_jobs)
         await process_set_messaged_batch(tx, messaged_jobs)
+
+    for job in store_mam_message_jobs:
+        minor_confession_batcher.enqueue(job)
 
 _store_message_batcher = Batcher[StoreMessageJob](
     process_fn=_process_store_message_batch,
