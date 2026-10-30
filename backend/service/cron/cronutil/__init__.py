@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from botocore.exceptions import ClientError
 from service.cron.cronutil.sql import *
 from pathlib import Path
+from typing import Literal
 from serviceshared import asyncboto
 import asyncio
 import boto3
@@ -150,8 +151,9 @@ async def delete_audio_from_object_store(
                 await tx.execute(Q_MARK_AUDIO_DELETED, dict(uuids=chunk))
             logger.info('Objects have been marked as deleted')
 
-async def download_450_images(
+async def download_images(
     uuids: list[str],
+    size: Literal['450', 'original'],
     max_workers: int = 5,
 ) -> list[io.BytesIO | None]:
     if not uuids:
@@ -168,7 +170,7 @@ async def download_450_images(
 
     def download_one(uuid: str) -> io.BytesIO | None:
         buffer = io.BytesIO()
-        key = f'450-{uuid}.jpg'
+        key = f'{size}-{uuid}.jpg'
         retries = 3
         for attempt in range(retries):
             try:

@@ -1,0 +1,5 @@
+numpy
+onnxruntime
+Pillow
+pillow-jxl-plugin
+scikit-learn

@@ -2,14 +2,19 @@ from serviceshared.database import api_tx
 from service.cron.nsfwphotorunner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
-    download_450_images,
+    download_images,
     log_stacktrace,
 )
 import asyncio
 import random
 import logging
 
-from serviceshared.duoenv.cron import NSFW_PHOTO_RUNNER_POLL_SECONDS
+from serviceshared.duoenv.cron import (
+    CLIP_NSFW_PHOTO_RUNNER_POLL_SECONDS,
+    NSFW_PHOTO_RUNNER_POLL_SECONDS,
+    OFFPEAK_MAX_LOAD_PCT,
+)
+from serviceshared.util import is_offpeak
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +31,7 @@ async def predict_nsfw_photos_once() -> None:
 
     uuids = [r['uuid'] for r in rows]
 
-    image_data_seq = await download_450_images(uuids)
+    image_data_seq = await download_images(uuids, '450')
 
     missing_uuids, missing_image_data_seq = [], []
     present_uuids, present_image_data_seq = [], []
@@ -62,3 +67,40 @@ async def predict_nsfw_photos_forever() -> None:
     while True:
         await log_stacktrace(predict_nsfw_photos_once)
         await asyncio.sleep(NSFW_PHOTO_RUNNER_POLL_SECONDS)
+
+async def predict_clip_nsfw_photos_once() -> None:
+    from serviceshared.antiabuse.clipnsfw.predict import predict_clip_nsfw
+
+    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'predict_clip_nsfw_photos_once'):
+        return
+
+    async with api_tx() as tx:
+        cur = await tx.execute(Q_50_UNSCORED_CLIP_PHOTOS)
+        uuids = [r['uuid'] for r in await cur.fetchall()]
+
+    image_data_seq = await download_images(uuids, 'original')
+
+    present = {
+        uuid: image_data
+        for uuid, image_data in zip(uuids, image_data_seq)
+        if image_data
+    }
+
+    scores = dict(zip(
+        present,
+        await asyncio.to_thread(predict_clip_nsfw, list(present.values())),
+    ))
+
+    params_seq = [
+        dict(uuid=uuid, clip_nsfw_score=scores.get(uuid, -1.0))
+        for uuid in uuids
+    ]
+
+    async with api_tx() as tx:
+        await tx.executemany(Q_SET_CLIP_NSFW_SCORE, params_seq)
+
+async def predict_clip_nsfw_photos_forever() -> None:
+    await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
+    while True:
+        await log_stacktrace(predict_clip_nsfw_photos_once)
+        await asyncio.sleep(CLIP_NSFW_PHOTO_RUNNER_POLL_SECONDS)

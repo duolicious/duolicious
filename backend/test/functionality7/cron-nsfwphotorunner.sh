@@ -43,18 +43,22 @@ q "
 
 
 # Maximum number of retries
-max_retries=10
+max_retries=60
 count=0
 
 # Function to perform the query and check conditions
 check_conditions() {
-  q "select person_id, position, uuid, nsfw_score from photo"
+  q "select person_id, position, uuid, nsfw_score, clip_nsfw_score from photo"
 
   local condition1="$(q "select count(*) from photo where position = 1 and abs(nsfw_score - 0.236) < 0.01")"
   local condition2="$(q "select count(*) from photo where position = 2 and abs(nsfw_score - 0.061) < 0.01")"
   local condition3="$(q "select count(*) from photo where position = 3 and abs(nsfw_score + 1.000) < 0.01")"
+  local condition4="$(q "select count(*) from photo where position = 1 and abs(clip_nsfw_score - 0.131) < 0.01")"
+  local condition5="$(q "select count(*) from photo where position = 2 and abs(clip_nsfw_score - 0.031) < 0.01")"
+  local condition6="$(q "select count(*) from photo where position = 3 and abs(clip_nsfw_score + 1.000) < 0.01")"
 
-  [[ "$condition1" = 1 && "$condition2" = 1 && "$condition3" = 1 ]]
+  [[ "$condition1" = 1 && "$condition2" = 1 && "$condition3" = 1 &&
+     "$condition4" = 1 && "$condition5" = 1 && "$condition6" = 1 ]]
 }
 
 # Loop to retry checking conditions up to max_retries times
@@ -87,3 +91,6 @@ jc PATCH /profile-info \
 
 assert_eventually 1 q "
   select count(*) from photo where position = 2 and abs(nsfw_score - 0.236) < 0.01"
+
+assert_eventually 1 q "
+  select count(*) from photo where position = 2 and abs(clip_nsfw_score - 0.131) < 0.01"

@@ -10,6 +10,13 @@ ENV OPENBLAS_NUM_THREADS=2
 WORKDIR /app
 
 COPY \
+  serviceshared/antiabuse/clipnsfw/download-model.sh \
+  /app/serviceshared/antiabuse/clipnsfw/
+
+RUN /app/serviceshared/antiabuse/clipnsfw/download-model.sh
+
+COPY \
+  --exclude=serviceshared/antiabuse/clipnsfw/vision_model.onnx* \
   --exclude=serviceshared/antiabuse/minorconfession \
   --exclude=test \
   --exclude=vm \
