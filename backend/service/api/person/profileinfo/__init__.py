@@ -109,7 +109,7 @@ WITH existing_uuid AS (
         crop_top,
         crop_left,
         nsfw_score,
-        clip_nsfw_score
+        nsfw_score_v2
     ) VALUES (
         %(person_id)s,
         %(position)s,
@@ -133,7 +133,7 @@ WITH existing_uuid AS (
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
         nsfw_score = EXCLUDED.nsfw_score,
-        clip_nsfw_score = EXCLUDED.clip_nsfw_score,
+        nsfw_score_v2 = EXCLUDED.nsfw_score_v2,
         verified = FALSE
 ), updated_person AS (
     UPDATE person
@@ -157,7 +157,7 @@ WITH stored_photo AS (
         photo
     SET
         nsfw_score = NULL,
-        clip_nsfw_score = NULL
+        nsfw_score_v2 = NULL
     WHERE
         uuid = %(uuid)s
     RETURNING

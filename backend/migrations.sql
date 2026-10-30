@@ -15,7 +15,7 @@
 
 DROP TABLE IF EXISTS search_cache;
 
-ALTER TABLE photo ADD COLUMN IF NOT EXISTS clip_nsfw_score FLOAT4;
+ALTER TABLE photo ADD COLUMN IF NOT EXISTS nsfw_score_v2 FLOAT4;
 
-CREATE INDEX IF NOT EXISTS idx__photo__clip_nsfw_score
-    ON photo(clip_nsfw_score);
+CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
+    ON photo(nsfw_score_v2);

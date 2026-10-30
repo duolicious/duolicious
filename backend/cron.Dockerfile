@@ -16,7 +16,7 @@ COPY \
 RUN /app/serviceshared/antiabuse/clipnsfw/download-model.sh
 
 COPY \
-  --exclude=serviceshared/antiabuse/clipnsfw/vision_model.onnx* \
+  --exclude=serviceshared/antiabuse/clipnsfw/model.safetensors* \
   --exclude=serviceshared/antiabuse/minorconfession \
   --exclude=test \
   --exclude=vm \

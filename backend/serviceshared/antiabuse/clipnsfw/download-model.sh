@@ -4,12 +4,12 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-[[ -f vision_model.onnx ]] && exit 0
+[[ -f model.safetensors ]] && exit 0
 
-curl -fsSL -o vision_model.onnx.part \
-  https://huggingface.co/Xenova/clip-vit-large-patch14/resolve/c307790166907339eed5a9a53a249af534102536/onnx/vision_model.onnx
+curl -fsSL -o model.safetensors.part \
+  https://huggingface.co/openai/clip-vit-large-patch14/resolve/32bd64288804d66eefd0ccbe215aa642df71cc41/model.safetensors
 
-echo 'ff49f8aa57c7abfd26e382eb083e4dbf988505223a9bd3767dbfd4e729206709  vision_model.onnx.part' \
+echo 'a2bf730a0c7debf160f7a6b50b3aaf3703e7e88ac73de7a314903141db026dcb  model.safetensors.part' \
   | sha256sum --check --quiet
 
-mv vision_model.onnx.part vision_model.onnx
+mv model.safetensors.part model.safetensors

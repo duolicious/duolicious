@@ -1,2 +1,2 @@
-vision_model.onnx
-vision_model.onnx.part
+model.safetensors
+model.safetensors.part

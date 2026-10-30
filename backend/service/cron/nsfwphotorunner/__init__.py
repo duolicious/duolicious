@@ -10,7 +10,7 @@ import random
 import logging
 
 from serviceshared.duoenv.cron import (
-    CLIP_NSFW_PHOTO_RUNNER_POLL_SECONDS,
+    NSFW_V2_PHOTO_RUNNER_POLL_SECONDS,
     NSFW_PHOTO_RUNNER_POLL_SECONDS,
     OFFPEAK_MAX_LOAD_PCT,
 )
@@ -68,14 +68,14 @@ async def predict_nsfw_photos_forever() -> None:
         await log_stacktrace(predict_nsfw_photos_once)
         await asyncio.sleep(NSFW_PHOTO_RUNNER_POLL_SECONDS)
 
-async def predict_clip_nsfw_photos_once() -> None:
+async def predict_nsfw_v2_photos_once() -> None:
     from serviceshared.antiabuse.clipnsfw.predict import predict_clip_nsfw
 
-    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'predict_clip_nsfw_photos_once'):
+    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'predict_nsfw_v2_photos_once'):
         return
 
     async with api_tx() as tx:
-        cur = await tx.execute(Q_50_UNSCORED_CLIP_PHOTOS)
+        cur = await tx.execute(Q_50_UNSCORED_V2_PHOTOS)
         uuids = [r['uuid'] for r in await cur.fetchall()]
 
     image_data_seq = await download_images(uuids, 'original')
@@ -92,15 +92,15 @@ async def predict_clip_nsfw_photos_once() -> None:
     ))
 
     params_seq = [
-        dict(uuid=uuid, clip_nsfw_score=scores.get(uuid, -1.0))
+        dict(uuid=uuid, nsfw_score_v2=scores.get(uuid, -1.0))
         for uuid in uuids
     ]
 
     async with api_tx() as tx:
-        await tx.executemany(Q_SET_CLIP_NSFW_SCORE, params_seq)
+        await tx.executemany(Q_SET_NSFW_SCORE_V2, params_seq)
 
-async def predict_clip_nsfw_photos_forever() -> None:
+async def predict_nsfw_v2_photos_forever() -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
-        await log_stacktrace(predict_clip_nsfw_photos_once)
-        await asyncio.sleep(CLIP_NSFW_PHOTO_RUNNER_POLL_SECONDS)
+        await log_stacktrace(predict_nsfw_v2_photos_once)
+        await asyncio.sleep(NSFW_V2_PHOTO_RUNNER_POLL_SECONDS)

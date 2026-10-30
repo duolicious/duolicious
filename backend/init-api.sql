@@ -482,7 +482,7 @@ CREATE TABLE IF NOT EXISTS photo (
     height INT,
     crop_top INT,
     crop_left INT,
-    clip_nsfw_score FLOAT4,
+    nsfw_score_v2 FLOAT4,
     PRIMARY KEY (person_id, position)
 );
 
@@ -908,8 +908,8 @@ CREATE INDEX IF NOT EXISTS idx__photo__uuid
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
     ON photo(nsfw_score);
 
-CREATE INDEX IF NOT EXISTS idx__photo__clip_nsfw_score
-    ON photo(clip_nsfw_score);
+CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
+    ON photo(nsfw_score_v2);
 
 CREATE INDEX IF NOT EXISTS idx__onboardee__created_at
     ON onboardee(created_at);

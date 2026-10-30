@@ -1,7 +1,6 @@
-`vision_model.onnx` is downloaded by `download-model.sh` from
-[Xenova/clip-vit-large-patch14](https://huggingface.co/Xenova/clip-vit-large-patch14),
-an ONNX export of the image encoder in
-[openai/CLIP](https://github.com/openai/CLIP).
+`model.safetensors` is downloaded by `download-model.sh` from
+[openai/clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14),
+the weights of the model in [openai/CLIP](https://github.com/openai/CLIP).
 See `backend/clipnsfw/README.md` for how `probe.npz` is trained.
 
 The license of openai/CLIP can be found

@@ -198,7 +198,7 @@ services:
       # The test host's load is unrelated to prod traffic; never suppress.
       DUO_OFFPEAK_FUNCTION_OVERRIDE: 'true'
 
-      DUO_CRON_CLIP_NSFW_PHOTO_RUNNER_POLL_SECONDS: '1'
+      DUO_CRON_NSFW_V2_PHOTO_RUNNER_POLL_SECONDS: '1'
 
       DUO_CRON_MAX_RANDOM_START_DELAY: '0'
 
