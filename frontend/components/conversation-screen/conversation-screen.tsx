@@ -49,7 +49,7 @@ import { delay, isUuid, possessive } from '../../util/util';
 import { ReportModalInitialData } from '../modal/report-modal';
 import { listen, notify } from '../../events/events';
 import { ImageBackground } from 'expo-image';
-import { maybeRequestReview } from '../../store-review/store-review';
+import { isMutualConversation, maybeRequestReview } from '../../store-review/store-review';
 import { MessageDivider }  from './message-divider';
 import * as _ from 'lodash';
 import { Input } from './input';
@@ -597,12 +597,21 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
 
-    if (messageIds && messageIds.length > 45) {
+    saveDraft('');
+  }, [personUuid, saveDraft]);
+
+  useEffect(() => navigation.addListener('beforeRemove', () => {
+    const messages = (messageIds ?? []).flatMap((id) => {
+      const m = getMessage(id);
+      return m?.status === 'sent' && m.message.type !== 'typing'
+        ? [m.message]
+        : [];
+    });
+
+    if (isMutualConversation(messages)) {
       maybeRequestReview(1000);
     }
-
-    saveDraft('');
-  }, [personUuid, messageIds, saveDraft]);
+  }), [navigation, messageIds]);
 
   const sendTypingMessage = useMemo(
     () => _.debounce(

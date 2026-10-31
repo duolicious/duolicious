@@ -46,6 +46,7 @@ import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { SheetScrollView } from '../modal/modal-bottom-sheet';
 import { showPointOfSale } from '../modal/point-of-sale-modal';
 import { notifyErrorToast, notifyLinkCopiedToast } from '../toast';
+import { maybeRequestReviewOnReturn } from '../../store-review/store-review';
 
 const MAX_MEMBERS = 25;
 
@@ -57,6 +58,7 @@ const onPressInvite = (clubName: string) => async () => {
   await Clipboard.setStringAsync(
     `${INVITE_URL}/${encodeURIComponent(clubName)}`);
   notifyLinkCopiedToast('Invite Link Copied!');
+  maybeRequestReviewOnReturn();
 };
 
 type ClubMember = {
