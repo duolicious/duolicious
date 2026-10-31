@@ -614,7 +614,7 @@ WITH searcher AS (
         WHERE
             uuid = mapped_last_event_data->>'added_photo_uuid'
         AND
-            photo.nsfw_score > 0.2
+            photo.nsfw_score_v2 > 0.5
     )
     -- Exclude events advertising clubs that were banned after being joined.
     -- Only 'joined-club' events have a 'joined_club_name' key, so the check
