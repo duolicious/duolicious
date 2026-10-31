@@ -53,11 +53,11 @@ WITH q1 AS (
     RETURNING
         uuid, person_id
 ), each_deleted_photo AS (
-    SELECT uuid, NULL::photo_moderator AS moderated_by FROM q6
+    SELECT uuid FROM q6
 
     UNION
 
-    SELECT uuid, 'nsfw-classifier' FROM q7
+    SELECT uuid FROM q7
 ), q8 AS (
     DELETE FROM
         export_data_token
@@ -67,9 +67,9 @@ WITH q1 AS (
         1
 ), q9 AS (
     INSERT INTO
-        undeleted_photo (uuid, moderated_by)
+        undeleted_photo (uuid)
     SELECT
-        uuid, moderated_by
+        uuid
     FROM
         each_deleted_photo
     RETURNING

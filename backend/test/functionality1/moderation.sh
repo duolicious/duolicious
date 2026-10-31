@@ -206,10 +206,10 @@ specific_photo_is_banned () {
 
   [[ "$(q "select count(*) from photo")" -eq 2 ]]
   # The photocleaner keeps the deleted photo's embedding
-  assert_eventually 'admin 768' q "
-    select moderated_by || ' ' || vector_dims(embedding)
-    from moderated_photo_embedding
-    where uuid = '${deleted_uuid}'"
+  assert_eventually 768 q "
+    select vector_dims(embedding)
+    from banned_photo_hash
+    where photo_uuid = '${deleted_uuid}'"
   wait_for_deletion_by_uuid "${deleted_uuid}"
   [[ "$(q "select count(*) from banned_photo_hash where hash <> ''")" -eq 1 ]]
   # Deleting the accused's photo reverts their added-photo event

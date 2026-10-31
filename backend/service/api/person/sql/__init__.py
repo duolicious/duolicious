@@ -2440,22 +2440,22 @@ WITH deleted_token AS (
         )
 ), inserted_undeleted_photo AS (
     INSERT INTO undeleted_photo (
-        uuid,
-        moderated_by
+        uuid
     )
     SELECT
-        uuid,
-        'admin'
+        uuid
     FROM
         deleted_photo
     RETURNING
         uuid
 ), inserted_banned_photo_hash AS (
     INSERT INTO banned_photo_hash (
-        hash
+        hash,
+        photo_uuid
     )
     SELECT
-        hash
+        hash,
+        uuid
     FROM
         deleted_photo
     WHERE
