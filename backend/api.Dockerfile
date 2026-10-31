@@ -14,6 +14,7 @@ WORKDIR /app
 
 COPY \
   --exclude=serviceshared/antiabuse/antiporn \
+  --exclude=serviceshared/antiabuse/clipnsfw \
   --exclude=test \
   --exclude=vm \
   . /app

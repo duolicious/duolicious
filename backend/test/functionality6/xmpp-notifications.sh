@@ -23,37 +23,6 @@ q "delete from mam_message"
 q "delete from inbox"
 q "delete from intro_hash"
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-  local id=${5:-id1}
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "${id}",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 1
-}
-
 # Send a <duo_register_push_token token='…'/> for the authenticated session. An
 # empty token clears it.
 register_push_token () {
@@ -163,7 +132,9 @@ q "insert into duo_session
 clear_pushes
 
 send_message "$webauuid" "$webatoken" "$webbuuid" "hello webb" "id-web"
+sleep 1
 send_message "$webauuid" "$webatoken" "$webcuuid" "hello webc" "id-mobile"
+sleep 1
 
 sleep 3 # MongooseIM takes some time to flush messages to the DB
 
@@ -206,6 +177,7 @@ sendrid=$(get_id 'sendr@example.com')
 clear_pushes
 
 send_message "$sendruuid" "$sendrtoken" "$recvruuid" "hello recvr" "id-happy"
+sleep 1
 
 sleep 3
 

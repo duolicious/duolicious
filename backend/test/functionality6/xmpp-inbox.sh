@@ -33,42 +33,6 @@ user1id=$(get_id 'user1@example.com')
 user2id=$(get_id 'user2@example.com')
 user3id=$(get_id 'user3@example.com')
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  # Construct the JSON payload equivalent to:
-  # <message type='chat' from='${fromUuid}@duolicious.app' to='${toUuid}@duolicious.app'
-  #          id='id1' xmlns='jabber:client'>
-  #   <body>${message}</body>
-  #   <request xmlns='urn:xmpp:receipts'/>
-  # </message>
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 1
-}
-
 get_inbox () {
   local userUuid=$1
   local userToken=$2
@@ -136,10 +100,14 @@ echo "The inbox is as expected after users message each other"
 #    └────┤ 3 │◄─────┘
 #         └───┘
 send_message "$user2uuid" "$user2token" "$user1uuid" "from user 2 to user 1"
+sleep 1
 send_message "$user2uuid" "$user2token" "$user3uuid" "from user 2 to user 3"
+sleep 1
 
 send_message "$user3uuid" "$user3token" "$user1uuid" "from user 3 to user 1"
+sleep 1
 send_message "$user3uuid" "$user3token" "$user2uuid" "from user 3 to user 2"
+sleep 1
 
 inbox_1=$(get_inbox "$user1uuid" "$user1token")
 inbox_2=$(get_inbox "$user2uuid" "$user2token")

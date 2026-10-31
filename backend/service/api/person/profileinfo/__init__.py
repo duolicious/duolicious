@@ -81,7 +81,8 @@ WITH stored_photo AS (
     UPDATE
         photo
     SET
-        nsfw_score = NULL
+        nsfw_score = NULL,
+        nsfw_score_v2 = NULL
     WHERE
         uuid = %(uuid)s
     RETURNING
@@ -389,6 +390,7 @@ async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
         extra_exts=['gif'] if is_gif else [],
         hash=base64_file.md5_hash,
         nsfw_score=-1,
+        nsfw_score_v2=-1,
         duration_seconds=None,
         **photo_geometry_params(geometry),
     )

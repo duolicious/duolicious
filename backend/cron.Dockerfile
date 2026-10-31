@@ -10,14 +10,25 @@ ENV DUO_FFMPEG_USER=nobody
 
 WORKDIR /app
 
-COPY \
-  --exclude=test \
-  --exclude=vm \
-  . /app
+COPY requirements.txt /app/
 
 RUN : \
   && apt update \
   && apt install -y ffmpeg \
   && pip install --no-cache-dir -r /app/requirements.txt
+
+COPY \
+  serviceshared/antiabuse/clipnsfw/download-model.sh \
+  serviceshared/antiabuse/clipnsfw/build_onnx.py \
+  /app/serviceshared/antiabuse/clipnsfw/
+
+RUN /app/serviceshared/antiabuse/clipnsfw/download-model.sh
+
+COPY \
+  --exclude=serviceshared/antiabuse/clipnsfw/model.* \
+  --exclude=serviceshared/antiabuse/minorconfession \
+  --exclude=test \
+  --exclude=vm \
+  . /app
 
 CMD /app/cron.main.sh

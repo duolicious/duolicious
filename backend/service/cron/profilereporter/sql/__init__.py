@@ -1,18 +1,9 @@
-Q_SELECT_UNMODERATED_PERSON_ABOUT = """
-WITH bot_account AS (
-    SELECT
-        uuid AS subject_uuid
-    FROM
-        person
-    WHERE
-        roles @> ARRAY['bot']
-    ORDER BY
-        roles
-    LIMIT
-        1
-)
+from serviceshared.antiabuse.sql import BOT_ACCOUNT_SQL
+
+Q_SELECT_UNMODERATED_PERSON_ABOUT = f"""
+WITH bot_account AS ({BOT_ACCOUNT_SQL})
 SELECT
-    bot_account.subject_uuid AS subject_uuid,
+    bot_account.uuid AS subject_uuid,
     person.uuid AS object_uuid,
     person.about AS about
 FROM

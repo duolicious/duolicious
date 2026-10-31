@@ -33,40 +33,6 @@ user1id=$(get_id 'user1@example.com')
 user2id=$(get_id 'user2@example.com')
 user3id=$(get_id 'user3@example.com')
 
-# Authenticate as the sender then deliver a chat message over the JSON
-# subprotocol. Equivalent to the XML:
-#   <message type='chat' from='…' to='…' id='id1' xmlns='jabber:client'>
-#     <body>…</body><request xmlns='urn:xmpp:receipts'/>
-#   </message>
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-}
-
 # Assert that at least one popped stanza satisfies the jq boolean expression,
 # where each stanza is bound to `.`. Reads the popped output from stdin.
 assert_any () {

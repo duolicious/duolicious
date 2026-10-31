@@ -38,35 +38,9 @@ user3id=$(get_id 'user3@example.com')
 
 # Authenticate as the sender, send one message, then return whatever the
 # sender's own connection received back (e.g. the delivery receipt).
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local body=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${body}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  # Clear anything left over, send, then collect the sender-side responses.
+send_message_and_pop () {
   curl -sX GET http://localhost:3001/pop > /dev/null
-  curl -sX POST http://localhost:3001/send \
-    -H "Content-Type: application/json" -d "$payload" > /dev/null
+  send_message "$@" > /dev/null
   sleep 3
 
   curl -sX GET http://localhost:3001/pop
@@ -77,7 +51,7 @@ echo "A shadow-banned sender's message is stored only on their own side"
 
 q "update person set shadow_banned_at = now() where name = 'user1'"
 
-receipt=$(send_message "$user1uuid" "$user1token" "$user2uuid" "hello from a shadow-banned user")
+receipt=$(send_message_and_pop "$user1uuid" "$user1token" "$user2uuid" "hello from a shadow-banned user")
 
 # The sender still gets a delivery receipt, so their app behaves normally
 echo "$receipt" | grep -q duo_message_delivered \
@@ -103,7 +77,7 @@ echo "$receipt" | grep -q duo_message_delivered \
 
 echo "A non-banned sender's message reaches the recipient (control)"
 
-receipt=$(send_message "$user3uuid" "$user3token" "$user2uuid" "hello from a normal user")
+receipt=$(send_message_and_pop "$user3uuid" "$user3token" "$user2uuid" "hello from a normal user")
 
 echo "$receipt" | grep -q duo_message_delivered \
   || { echo "Expected the normal sender to get a delivery receipt"; exit 1; }

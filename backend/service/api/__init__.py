@@ -302,7 +302,7 @@ async def post_skip_by_uuid(
         subject_uuid=string(s.person_uuid, 'person_uuid'),
         object_uuid=prospect_uuid,
         reason=req.report_reason or '',
-        is_automatic=False,
+        source='member report',
     )
     return None
 

@@ -65,31 +65,15 @@ EOF
   curl -sX GET "http://localhost:3001/pop?id=${connectionId}" > /dev/null
 }
 
-send_message () {
+send_message_as () {
   local connectionId=$1
   local fromUuid=$2
   local toUuid=$3
   local message=$4
 
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
   curl -X POST "http://localhost:3001/send?id=${connectionId}" \
     -H "Content-Type: application/json" \
-    -d "$payload"
+    -d "$(chat_message_json "$fromUuid" "$toUuid" "$message")"
 
   # Wait for the message store to flush and the inbox entry to be pushed
   sleep 2
@@ -126,7 +110,7 @@ chat_auth_as user2 "$user2uuid" "$user2token"
 
 echo "A message pushes a complete inbox entry to the recipient, before the message"
 
-send_message user2 "$user2uuid" "$user1uuid" "intro from user 2"
+send_message_as user2 "$user2uuid" "$user1uuid" "intro from user 2"
 
 received_1=$(curl -sX GET "http://localhost:3001/pop?id=user1")
 
@@ -240,7 +224,7 @@ diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
 
 echo "A reply moves the conversation to chats on both sides"
 
-send_message user1 "$user1uuid" "$user2uuid" "reply from user 1"
+send_message_as user1 "$user1uuid" "$user2uuid" "reply from user 1"
 
 received_2=$(curl -sX GET "http://localhost:3001/pop?id=user2")
 
@@ -384,7 +368,7 @@ echo "The delivered stamp matches the inbox timestamp everywhere it appears"
 
 curl -sX GET "http://localhost:3001/pop?id=user2" > /dev/null
 
-send_message user2 "$user2uuid" "$user1uuid" "stamped message"
+send_message_as user2 "$user2uuid" "$user1uuid" "stamped message"
 
 delivered_stamp=$(curl -sX GET "http://localhost:3001/pop?id=user2" \
   | jq -s -r '[.[] | .duo_message_delivered | select(. != null)][0]["@stamp"]')
@@ -433,7 +417,7 @@ curl -sX GET "http://localhost:3001/pop?id=user1" > /dev/null
 
 echo "Sent messages in Chats trial: the treated arm's first message is pushed to it as a chat"
 
-send_message treated "$treateduuid" "$user1uuid" "unreplied from treated"
+send_message_as treated "$treateduuid" "$user1uuid" "unreplied from treated"
 
 received=$(curl -sX GET "http://localhost:3001/pop?id=treated")
 
@@ -475,7 +459,7 @@ diff -u --color <(echo "$actual_snapshot") <(jq -S '[.]' <<< "$expected_entry")
 
 echo "Sent messages in Chats trial: the control arm's unreplied conversation stays hidden"
 
-send_message control "$controluuid" "$user1uuid" "unreplied from control"
+send_message_as control "$controluuid" "$user1uuid" "unreplied from control"
 
 received=$(curl -sX GET "http://localhost:3001/pop?id=control")
 
@@ -514,7 +498,7 @@ q "update person set last_online_time = now() where id = ${user1id}"
 
 echo "Sent messages in Chats trial: a reply stops the treated arm's conversation awaiting one"
 
-send_message user1 "$user1uuid" "$treateduuid" "reply to treated"
+send_message_as user1 "$user1uuid" "$treateduuid" "reply to treated"
 
 actual_entry=$(curl -sX GET "http://localhost:3001/pop?id=treated" | jq -sS -r '
   [.[] | .duo_inbox_entry | select(. != null)][0]
@@ -532,7 +516,7 @@ diff -u --color <(echo "$actual_entry") <(jq -S . <<< "$expected_fields")
 
 echo "Sent messages in Chats trial: after a reply, the treated arm gets no extra inbox entry"
 
-send_message treated "$treateduuid" "$user1uuid" "second from treated"
+send_message_as treated "$treateduuid" "$user1uuid" "second from treated"
 
 received=$(curl -sX GET "http://localhost:3001/pop?id=treated")
 

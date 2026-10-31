@@ -16,7 +16,8 @@ from serviceshared.database import (
     row_str,
 )
 
-SearchParam: TypeAlias = int | str | list[int] | Vector | HalfVector | None
+SearchParam: TypeAlias = (
+    int | str | list[int] | list[str] | Vector | HalfVector | None)
 
 
 def sql_fragment(text: str) -> str:
@@ -290,6 +291,11 @@ SELECT
         ),
         array_full(64, 0)::VECTOR(64)
     ) AS searcher_club_vector,
+    ARRAY(
+        SELECT club_name
+        FROM person_club
+        WHERE person_id = person.id
+    ) AS searcher_club_names,
     EXTRACT(YEAR FROM AGE(person.date_of_birth))::INT AS searcher_age,
     person.height_cm AS searcher_height_cm,
 {_SEARCHER_ATTR_SELECTS},

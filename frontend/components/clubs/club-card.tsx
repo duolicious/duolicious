@@ -1,7 +1,5 @@
-import { ComponentProps, memo, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { ComponentProps, memo, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   View,
@@ -22,6 +20,7 @@ import { useAppTheme } from '../../app-theme/app-theme';
 import { isMobile } from '../../util/util';
 import {
   ClubItem,
+  OpenClubCard,
   RowPosition,
   closeClubs,
   clubQuota,
@@ -49,6 +48,8 @@ import { showPointOfSale } from '../modal/point-of-sale-modal';
 import { notifyErrorToast, notifyLinkCopiedToast } from '../toast';
 
 const MAX_MEMBERS = 25;
+
+const MAX_MOUNTED_CARDS = 2;
 
 const TITLE_LINE_HEIGHT = 34;
 
@@ -137,11 +138,7 @@ const Facepile = memo(({ members }: { members: ClubMember[] }) => {
       {members.map((m, i) =>
         <ImageBackground
           key={m.person_uuid}
-          source={{
-            uri: `${IMAGES_URL}/450-${m.photo_uuid}.jpg`,
-            height: 450,
-            width: 450,
-          }}
+          source={{ uri: `${IMAGES_URL}/450-${m.photo_uuid}.jpg` }}
           placeholder={m.photo_blurhash && { blurhash: m.photo_blurhash }}
           transition={150}
           contentFit="cover"
@@ -357,21 +354,17 @@ const ClubCardTitle = ({
   );
 };
 
-const ClubCardBody = ({
+const ClubCardContent = ({
   name,
   isOpened,
   rowPosition,
   onPressClub,
-  onScroll,
-  initialScrollY,
   cache,
 }: {
   name: string,
   isOpened: boolean,
   rowPosition: RowPosition,
   onPressClub: (name: string) => void,
-  onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void,
-  initialScrollY: number,
   cache: ClubCardCache,
 }) => {
   const { appTheme } = useAppTheme();
@@ -379,8 +372,6 @@ const ClubCardBody = ({
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const isMember = useIsClubMember(name);
   const response = useClubCard(name, isMember, cache);
-  const scrollRef = useRef<ScrollView>(null);
-  const isScrollRestored = useRef(false);
   const fetched = isOpened ? response : null;
   const card = fetched === 'error' ? null : fetched;
 
@@ -502,23 +493,71 @@ const ClubCardBody = ({
   );
 
   return (
+    <>
+      {header}
+      {members.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
+      {footer}
+    </>
+  );
+};
+
+const scrollOffsets = new WeakMap<OpenClubCard, number>();
+
+const ClubCardBody = ({
+  cards,
+  isOpened,
+  onPressClub,
+  onIsScrolled,
+  cache,
+}: {
+  cards: OpenClubCard[],
+  isOpened: boolean,
+  onPressClub: (name: string) => void,
+  onIsScrolled: (isScrolled: boolean) => void,
+  cache: ClubCardCache,
+}) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const top = cards[cards.length - 1];
+  const [shallowest, setShallowest] = useState(0);
+  const depth = Math.min(
+    Math.max(shallowest, cards.length - MAX_MOUNTED_CARDS),
+    cards.length - 1,
+  );
+  if (depth !== shallowest) {
+    setShallowest(depth);
+  }
+
+  useLayoutEffect(() => {
+    const y = scrollOffsets.get(top) ?? 0;
+    scrollRef.current?.scrollTo({ y, animated: false });
+    onIsScrolled(y > 0);
+  }, [top]);
+
+  return (
     <SheetScrollView
       ref={scrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 20 }}
-      onContentSizeChange={() => {
-        if (isScrollRestored.current) {
-          return;
-        }
-        isScrollRestored.current = true;
-        scrollRef.current?.scrollTo({ y: initialScrollY, animated: false });
+      onScroll={({ nativeEvent }) => {
+        scrollOffsets.set(top, nativeEvent.contentOffset.y);
+        onIsScrolled(nativeEvent.contentOffset.y > 0);
       }}
-      onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      {header}
-      {members.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
-      {footer}
+      {cards.slice(depth).map((card, i) =>
+        <View
+          key={`${depth + i}:${card.name}`}
+          style={{ display: card === top ? 'flex' : 'none' }}
+        >
+          <ClubCardContent
+            name={card.name}
+            isOpened={isOpened}
+            rowPosition={card.rowPosition ?? 'front'}
+            onPressClub={onPressClub}
+            cache={cache}
+          />
+        </View>
+      )}
     </SheetScrollView>
   );
 };

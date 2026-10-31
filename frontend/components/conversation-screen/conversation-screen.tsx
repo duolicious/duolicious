@@ -374,11 +374,7 @@ const ConversationScreenNavBar = ({
           }}
         >
           <ImageBackground
-            source={photoUuid && {
-              uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-              height: 30,
-              width: 30,
-            }}
+            source={photoUuid && { uri: `${IMAGES_URL}/450-${photoUuid}.jpg` }}
             placeholder={photoBlurhash && { blurhash: photoBlurhash }}
             transition={150}
             style={{
@@ -958,11 +954,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
             {messageIds.length === 0 &&
               <>
                 <ImageBackground
-                  source={photoUuid && {
-                    uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-                    height: 450,
-                    width: 450,
-                  }}
+                  source={photoUuid && { uri: `${IMAGES_URL}/450-${photoUuid}.jpg` }}
                   placeholder={photoBlurhash && { blurhash: photoBlurhash }}
                   transition={150}
                   style={{

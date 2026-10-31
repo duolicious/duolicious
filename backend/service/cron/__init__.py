@@ -22,7 +22,10 @@ from service.cron.clubseo import (
 from service.cron.garbagerecords import delete_garbage_records_forever
 from service.cron.spotifyrefresh import refresh_spotify_forever
 from service.cron.messagenotifications import send_notifications_forever
-from service.cron.nsfwphotorunner import predict_nsfw_photos_forever
+from service.cron.nsfwphotorunner import (
+    predict_nsfw_v2_photos_forever,
+    predict_nsfw_photos_forever,
+)
 from service.cron.visitornotifications import (
     send_visitor_notifications_forever,
 )
@@ -74,6 +77,8 @@ async def main() -> None:
             clean_audio_forever(),
 
             predict_nsfw_photos_forever(),
+
+            predict_nsfw_v2_photos_forever(),
 
             # Should only be enabled when it's likely that the object store
             # contains photos which aren't tracked by the DB

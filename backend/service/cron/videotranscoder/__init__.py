@@ -249,6 +249,7 @@ async def publish_video(job: Job, work: Path, cpu: int) -> None:
         extra_exts=['mp4'],
         hash=md5,
         nsfw_score=nsfw_score,
+        nsfw_score_v2=None,
         duration_seconds=max(1, round(output.format.duration or duration)),
         **photo_geometry_params(geometry),
     )
