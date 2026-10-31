@@ -41,38 +41,60 @@ q "
   insert into photo (person_id, position, uuid, blurhash, hash)
   values ($PERSON_ID, 3, 'not-in-object-store', '', random()::text)"
 
+curl -sf -X PUT --data-binary 'not an image' \
+  http://localhost:9090/s3-mock-bucket/450-unreadable.jpg
+
+q "
+  insert into photo (person_id, position, uuid, blurhash, hash)
+  values ($PERSON_ID, 4, 'unreadable', '', random()::text)"
+
 
 # Maximum number of retries
-max_retries=10
-count=0
+max_retries=60
+
+# Retry a check every second until it passes, up to max_retries times
+retry_until() {
+  local count=0
+
+  while ! "$@"; do
+    ((count++)) || true
+    echo "Attempt $count: Conditions not met. Retrying..."
+
+    if [[ $count -eq $max_retries ]]; then
+      echo "Maximum retries reached. Exiting."
+      exit 1
+    fi
+
+    sleep 1
+  done
+
+  echo "Conditions met within $count retries."
+}
 
 # Function to perform the query and check conditions
 check_conditions() {
-  q "select person_id, position, uuid, nsfw_score from photo"
+  q "select person_id, position, uuid, nsfw_score, nsfw_score_v2 from photo"
 
   local condition1="$(q "select count(*) from photo where position = 1 and abs(nsfw_score - 0.236) < 0.01")"
   local condition2="$(q "select count(*) from photo where position = 2 and abs(nsfw_score - 0.061) < 0.01")"
   local condition3="$(q "select count(*) from photo where position = 3 and abs(nsfw_score + 1.000) < 0.01")"
+  local condition4="$(q "select count(*) from photo where position = 1 and abs(nsfw_score_v2 - 0.622) < 0.01")"
+  local condition5="$(q "select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.017) < 0.01")"
+  local condition6="$(q "select count(*) from photo where position = 3 and abs(nsfw_score_v2 + 1.000) < 0.01")"
+  local condition7="$(q "select count(*) from photo where position = 4 and abs(nsfw_score + 1.000) < 0.01")"
+  local condition8="$(q "select count(*) from photo where position = 4 and abs(nsfw_score_v2 + 1.000) < 0.01")"
 
-  [[ "$condition1" = 1 && "$condition2" = 1 && "$condition3" = 1 ]]
+  [[ "$condition1" = 1 && "$condition2" = 1 && "$condition3" = 1 &&
+     "$condition4" = 1 && "$condition5" = 1 && "$condition6" = 1 &&
+     "$condition7" = 1 && "$condition8" = 1 ]]
 }
 
-# Loop to retry checking conditions up to max_retries times
-while ! check_conditions; do
-  ((count++)) || true
-  echo "Attempt $count: Conditions not met. Retrying..."
+check_rescored() {
+  [[ "$(q "select count(*) from photo where position = 2 and abs(nsfw_score - 0.236) < 0.01")" = 1 &&
+     "$(q "select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.622) < 0.01")" = 1 ]]
+}
 
-  # Break loop if maximum retries have been reached
-  if [[ $count -eq $max_retries ]]; then
-    echo "Maximum retries reached. Exiting."
-    exit 1
-  fi
-
-  # Wait for 1 second before the next retry
-  sleep 1
-done
-
-echo "Conditions met within $count retries."
+retry_until check_conditions
 
 echo 'A photo which replaces another in the same position is rescanned'
 jc PATCH /profile-info \
@@ -85,5 +107,4 @@ jc PATCH /profile-info \
           }
       }"
 
-assert_eventually 1 q "
-  select count(*) from photo where position = 2 and abs(nsfw_score - 0.236) < 0.01"
+retry_until check_rescored
