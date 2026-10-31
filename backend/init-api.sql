@@ -486,8 +486,22 @@ CREATE TABLE IF NOT EXISTS photo (
     PRIMARY KEY (person_id, position)
 );
 
+DO $$ BEGIN
+    CREATE TYPE photo_moderator AS ENUM ('admin', 'nsfw-classifier');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 CREATE TABLE IF NOT EXISTS undeleted_photo (
-    uuid TEXT PRIMARY KEY
+    uuid TEXT PRIMARY KEY,
+    moderated_by photo_moderator
+);
+
+CREATE TABLE IF NOT EXISTS moderated_photo_embedding (
+    uuid TEXT PRIMARY KEY,
+    moderated_by photo_moderator NOT NULL,
+    embedding HALFVEC(768) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS banned_photo_hash (
