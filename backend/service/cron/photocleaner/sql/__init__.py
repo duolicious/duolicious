@@ -1,28 +1,22 @@
 Q_UNUSED_PHOTOS = """
 SELECT
-    uuid,
-    moderated_by,
-    moderated_by IS NOT NULL AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            moderated_photo_embedding
-        WHERE
-            moderated_photo_embedding.uuid = undeleted_photo.uuid
-    ) AS needs_embedding
+    undeleted_photo.uuid,
+    banned_photo_hash.hash AS unembedded_banned_hash
 FROM
     undeleted_photo
+LEFT JOIN
+    banned_photo_hash
+ON
+    banned_photo_hash.photo_uuid = undeleted_photo.uuid
+AND
+    banned_photo_hash.embedding IS NULL
 """
 
-Q_INSERT_MODERATED_PHOTO_EMBEDDING = """
-INSERT INTO moderated_photo_embedding (
-    uuid,
-    moderated_by,
-    embedding
-) VALUES (
-    %(uuid)s,
-    %(moderated_by)s,
-    %(embedding)s
-)
-ON CONFLICT DO NOTHING
+Q_SET_BANNED_PHOTO_EMBEDDING = """
+UPDATE
+    banned_photo_hash
+SET
+    embedding = %(embedding)s
+WHERE
+    hash = %(hash)s
 """

@@ -46,10 +46,10 @@ It prints the 10-fold cross-validated accuracy and every image the probe gets
 wrong, then overwrites `probe.npz` with a probe fitted to all the images.
 Training embeds images with the same code that scores them in production.
 
-## Embeddings of moderated photos
+## Embeddings of banned photos
 
-Moderated photos are deleted, so they can't be embedded again later. Before
-the `photocleaner` cron deletes the files of a photo that an admin deleted or
-that the classifier deleted, it stores the photo's embedding in
-`moderated_photo_embedding`, along with who deleted it. Those embeddings can
-be added to the training data for a future probe trained on the same encoder.
+Photos that an admin deletes are gone with their files, so they can't be
+embedded again later. Their hashes go in `banned_photo_hash`, along with each
+photo's UUID. Before the `photocleaner` cron deletes the files, it stores the
+photo's embedding there too. Those embeddings can be added to the training
+data for a future probe trained on the same encoder.

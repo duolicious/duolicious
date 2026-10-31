@@ -20,18 +20,6 @@ ALTER TABLE photo ADD COLUMN IF NOT EXISTS nsfw_score_v2 FLOAT4;
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
     ON photo(nsfw_score_v2);
 
-DO $$ BEGIN
-    CREATE TYPE photo_moderator AS ENUM ('admin', 'nsfw-classifier');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-ALTER TABLE undeleted_photo
-    ADD COLUMN IF NOT EXISTS moderated_by photo_moderator;
-
-CREATE TABLE IF NOT EXISTS moderated_photo_embedding (
-    uuid TEXT PRIMARY KEY,
-    moderated_by photo_moderator NOT NULL,
-    embedding HALFVEC(768) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
+ALTER TABLE banned_photo_hash
+    ADD COLUMN IF NOT EXISTS photo_uuid TEXT,
+    ADD COLUMN IF NOT EXISTS embedding HALFVEC(768);
