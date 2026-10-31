@@ -2,6 +2,7 @@ from io import BytesIO
 from pathlib import Path
 
 import numpy as np
+import numpy.typing as npt
 from PIL import Image
 
 from serviceshared.antiabuse.clipnsfw import embed
@@ -14,10 +15,17 @@ _SESSION = onnx_session(str(_DIR / 'model.onnx'))
 _PROBE = np.load(_DIR / 'probe.npz')
 
 
-def _predict_one(image_data: BytesIO) -> float:
+def embed_clip_nsfw(image_data: BytesIO) -> npt.NDArray[np.float32] | None:
     try:
-        embedding = embed(_SESSION, image_data)
+        return embed(_SESSION, image_data)
     except (OSError, Image.DecompressionBombError):
+        return None
+
+
+def _predict_one(image_data: BytesIO) -> float:
+    embedding = embed_clip_nsfw(image_data)
+
+    if embedding is None:
         return -1.0
 
     return float(1 / (1 + np.exp(-(

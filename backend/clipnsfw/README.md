@@ -45,3 +45,11 @@ PYTHONPATH=. python clipnsfw/train.py POSITIVE_DIR NEGATIVE_DIR
 It prints the 10-fold cross-validated accuracy and every image the probe gets
 wrong, then overwrites `probe.npz` with a probe fitted to all the images.
 Training embeds images with the same code that scores them in production.
+
+## Embeddings of banned photos
+
+Photos that an admin deletes are gone with their files, so they can't be
+embedded again later. Their hashes go in `banned_photo_hash`, along with each
+photo's UUID. Before the `photocleaner` cron deletes the files, it stores the
+photo's embedding there too. Those embeddings can be added to the training
+data for a future probe trained on the same encoder.
