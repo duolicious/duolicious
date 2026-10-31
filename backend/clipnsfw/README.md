@@ -26,9 +26,10 @@ Scoring has two parts:
 2. A logistic regression on that embedding, the "probe", turns it into a
    probability. Its 768 weights and bias are in `probe.npz`.
 
-The encoder sees the centre square of the photo, resized to 224 by 224
-pixels, as CLIP was trained. Scoring takes about 2 seconds per photo with two
-threads.
+The encoder sees `450-{uuid}.jpg`, the square that members chose and that
+Bumble's model also scores, resized to 224 by 224 pixels. Training
+centre-crops the labelled images to a square instead, as CLIP was trained.
+Scoring takes about 2 seconds per photo with two threads.
 
 ## Training
 

@@ -42,11 +42,11 @@ q "
   values ($PERSON_ID, 3, 'not-in-object-store', '', random()::text)"
 
 curl -sf -X PUT --data-binary 'not an image' \
-  http://localhost:9090/s3-mock-bucket/original-unreadable.jpg
+  http://localhost:9090/s3-mock-bucket/450-unreadable.jpg
 
 q "
-  insert into photo (person_id, position, uuid, blurhash, hash)
-  values ($PERSON_ID, 4, 'unreadable', '', random()::text)"
+  insert into photo (person_id, position, uuid, blurhash, hash, nsfw_score)
+  values ($PERSON_ID, 4, 'unreadable', '', random()::text, -1)"
 
 
 # Maximum number of retries
@@ -60,8 +60,8 @@ check_conditions() {
   local condition1="$(q "select count(*) from photo where position = 1 and abs(nsfw_score - 0.236) < 0.01")"
   local condition2="$(q "select count(*) from photo where position = 2 and abs(nsfw_score - 0.061) < 0.01")"
   local condition3="$(q "select count(*) from photo where position = 3 and abs(nsfw_score + 1.000) < 0.01")"
-  local condition4="$(q "select count(*) from photo where position = 1 and abs(nsfw_score_v2 - 0.131) < 0.01")"
-  local condition5="$(q "select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.031) < 0.01")"
+  local condition4="$(q "select count(*) from photo where position = 1 and abs(nsfw_score_v2 - 0.622) < 0.01")"
+  local condition5="$(q "select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.017) < 0.01")"
   local condition6="$(q "select count(*) from photo where position = 3 and abs(nsfw_score_v2 + 1.000) < 0.01")"
   local condition7="$(q "select count(*) from photo where position = 4 and abs(nsfw_score_v2 + 1.000) < 0.01")"
 
@@ -102,4 +102,4 @@ assert_eventually 1 q "
   select count(*) from photo where position = 2 and abs(nsfw_score - 0.236) < 0.01"
 
 assert_eventually 1 q "
-  select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.131) < 0.01"
+  select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.622) < 0.01"

@@ -3,7 +3,7 @@ from serviceshared.database import api_tx, row_str
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_images_from_object_store,
-    download_images,
+    download_450_images,
     log_stacktrace,
 )
 import asyncio
@@ -40,7 +40,7 @@ s3_client = boto3.client(
 )
 
 async def update_blurhashes(uuids: list[str]) -> None:
-    images = [_require_image(image) for image in await download_images(uuids, '450')]
+    images = [_require_image(image) for image in await download_450_images(uuids)]
     blurhashes = compute_blurhashes(images)
 
     params_seq = [

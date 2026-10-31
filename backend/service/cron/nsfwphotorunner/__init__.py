@@ -2,7 +2,7 @@ from serviceshared.database import api_tx
 from service.cron.nsfwphotorunner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
-    download_images,
+    download_450_images,
     log_stacktrace,
 )
 import asyncio
@@ -31,7 +31,7 @@ async def predict_nsfw_photos_once() -> None:
 
     uuids = [r['uuid'] for r in rows]
 
-    image_data_seq = await download_images(uuids, '450')
+    image_data_seq = await download_450_images(uuids)
 
     missing_uuids, missing_image_data_seq = [], []
     present_uuids, present_image_data_seq = [], []
@@ -78,7 +78,7 @@ async def predict_nsfw_v2_photos_once() -> None:
         cur = await tx.execute(Q_50_UNSCORED_V2_PHOTOS)
         uuids = [r['uuid'] for r in await cur.fetchall()]
 
-    image_data_seq = await download_images(uuids, 'original')
+    image_data_seq = await download_450_images(uuids)
 
     present = {
         uuid: image_data
