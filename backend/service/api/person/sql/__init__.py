@@ -2440,10 +2440,12 @@ WITH deleted_token AS (
         )
 ), inserted_undeleted_photo AS (
     INSERT INTO undeleted_photo (
-        uuid
+        uuid,
+        moderated_by
     )
     SELECT
-        uuid
+        uuid,
+        'admin'
     FROM
         deleted_photo
     RETURNING
