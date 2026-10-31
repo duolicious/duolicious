@@ -420,6 +420,12 @@ EOF
 
   q "update person set public_profile = true where name = 'user1'"
   c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")'
+
+  q "update photo set nsfw_score_v2 = 0.51 where person_id = (select id from person where name = 'user1')"
+  ! c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")' || exit 1
+
+  q "update photo set nsfw_score_v2 = 0.5 where person_id = (select id from person where name = 'user1')"
+  c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")'
 }
 
 joined_club_feed_items () {

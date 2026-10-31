@@ -12,9 +12,7 @@ import logging
 from serviceshared.duoenv.cron import (
     NSFW_V2_PHOTO_RUNNER_POLL_SECONDS,
     NSFW_PHOTO_RUNNER_POLL_SECONDS,
-    OFFPEAK_MAX_LOAD_PCT,
 )
-from serviceshared.util import is_offpeak
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +68,6 @@ async def predict_nsfw_photos_forever() -> None:
 
 async def predict_nsfw_v2_photos_once() -> None:
     from serviceshared.antiabuse.clipnsfw.predict import predict_clip_nsfw
-
-    if not is_offpeak(OFFPEAK_MAX_LOAD_PCT, 'predict_nsfw_v2_photos_once'):
-        return
 
     async with api_tx() as tx:
         cur = await tx.execute(Q_50_UNSCORED_V2_PHOTOS)
