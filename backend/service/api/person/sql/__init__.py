@@ -1303,6 +1303,11 @@ WITH photo_ AS (
     SELECT json_object_agg(position, blurhash) AS j
     FROM photo
     WHERE person_id = %(person_id)s
+), photo_duration_seconds AS (
+    SELECT json_object_agg(position, duration_seconds) AS j
+    FROM photo
+    WHERE person_id = %(person_id)s
+    AND duration_seconds IS NOT NULL
 ), photo_verification AS (
     SELECT json_object_agg(position, verified) AS j
     FROM photo
@@ -1429,6 +1434,24 @@ WITH photo_ AS (
     WHERE person_id = %(person_id)s
     AND provider = 'paypal'
     AND expires_at > NOW()
+
+), latest_video_job AS (
+    SELECT
+        json_build_object(
+            'uuid', uuid,
+            'position', position,
+            'status', status,
+            'message', message
+        ) AS j
+    FROM (
+        SELECT *
+        FROM video_job
+        WHERE person_id = %(person_id)s
+        AND status <> 'uploading'
+        ORDER BY created_at DESC
+        LIMIT 1
+    ) AS newest_video_job
+    WHERE status IN ('queued', 'running', 'failure')
 
 ), unit AS (
     SELECT unit.name AS j
@@ -1572,7 +1595,9 @@ SELECT
         'flair', (SELECT j FROM flair)
 
     )::jsonb || jsonb_build_object(
-        'paypal_subscription', (SELECT j FROM paypal_subscription)
+        'paypal_subscription', (SELECT j FROM paypal_subscription),
+        'video_job', (SELECT j FROM latest_video_job),
+        'photo_duration_seconds', (SELECT j FROM photo_duration_seconds)
     ) AS j
 """
 
@@ -2817,7 +2842,13 @@ SELECT json_build_object(
 
                 'https://user-images.duolicious.app/original-' ||
                     uuid ||
-                    '.jpg' AS photo_url
+                    '.jpg' AS photo_url,
+
+                CASE WHEN 'mp4' = ANY(extra_exts) THEN
+                    'https://user-images.duolicious.app/' ||
+                        uuid ||
+                        '.mp4'
+                END AS video_url
 
             FROM
                 photo
