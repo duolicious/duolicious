@@ -41,41 +41,6 @@ assert_any () {
   jq -se "any(.[]; $1)" > /dev/null
 }
 
-# Authenticate as the sender then deliver a chat message over the JSON
-# subprotocol. Equivalent to the XML:
-#   <message type='chat' from='…' to='…' id='…' xmlns='jabber:client'>
-#     <body>…</body><request xmlns='urn:xmpp:receipts'/>
-#   </message>
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-  local id=${5:-id1}
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "${id}",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-}
-
 # Register (or, with an empty token, clear) a push token for the authenticated
 # session. Equivalent to <duo_register_push_token token='…'/>.
 register_push_token () {

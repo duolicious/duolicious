@@ -2275,6 +2275,7 @@
         "height": 100,
         "crop_top": 0,
         "crop_left": 0,
+        "nsfw_score_v2": 0.008941,
         "photo_url": "https://user-images.duolicious.app/original-a4f0d4832db8165c8a09abed85a958702276406988eca0aa208a0bc6d33fb2e1.jpg"
       },
       {
@@ -2290,6 +2291,7 @@
         "height": 100,
         "crop_top": 0,
         "crop_left": 0,
+        "nsfw_score_v2": 0.017634,
         "photo_url": "https://user-images.duolicious.app/original-da00679ee501955f098b2915ddd8cfdc3ec225be80f8c061c90a645a399d7457.jpg"
       }
     ],

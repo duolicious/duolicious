@@ -482,6 +482,7 @@ CREATE TABLE IF NOT EXISTS photo (
     height INT,
     crop_top INT,
     crop_left INT,
+    nsfw_score_v2 FLOAT4,
     PRIMARY KEY (person_id, position)
 );
 
@@ -817,25 +818,6 @@ CREATE TABLE IF NOT EXISTS visited (
 );
 
 --------------------------------------------------------------------------------
--- TABLES TO SPEED UP SEARCHING
---------------------------------------------------------------------------------
-
-CREATE UNLOGGED TABLE IF NOT EXISTS search_cache (
-    searcher_person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    position SMALLINT,
-    prospect_person_id INT NOT NULL,
-    prospect_uuid UUID NOT NULL,
-    profile_photo_uuid TEXT,
-    profile_photo_blurhash TEXT,
-    verified BOOLEAN NOT NULL DEFAULT FALSE,
-    name TEXT NOT NULL,
-    age SMALLINT,
-    match_percentage SMALLINT NOT NULL,
-    personality VECTOR(47) NOT NULL,
-    PRIMARY KEY (searcher_person_id, position)
-);
-
---------------------------------------------------------------------------------
 -- INDEXES
 --------------------------------------------------------------------------------
 
@@ -873,8 +855,6 @@ CREATE INDEX IF NOT EXISTS idx__person__last_event_time
 CREATE INDEX IF NOT EXISTS idx__person__roles
     ON person
     USING GIN (roles);
-
-CREATE INDEX IF NOT EXISTS idx__search_cache__searcher_person_id__position ON search_cache(searcher_person_id, position);
 
 CREATE INDEX IF NOT EXISTS idx__answer__person_id_public_answer ON answer(person_id, public_, answer);
 -- Lets the feed's 'answered-question' facepiles scan a question's public
@@ -927,6 +907,9 @@ CREATE INDEX IF NOT EXISTS idx__photo__uuid
 
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
     ON photo(nsfw_score);
+
+CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
+    ON photo(nsfw_score_v2);
 
 CREATE INDEX IF NOT EXISTS idx__onboardee__created_at
     ON onboardee(created_at);

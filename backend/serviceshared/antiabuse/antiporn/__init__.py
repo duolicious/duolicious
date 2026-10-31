@@ -2,10 +2,9 @@ from PIL import Image
 from typing import List
 import numpy as np
 import numpy.typing as npt
-import onnxruntime as ort
 from pathlib import Path
 from io import BytesIO
-from serviceshared.duoenv.shared import OMP_NUM_THREADS
+from serviceshared.inference import onnx_session
 
 _MODEL_PATH_BASE = Path(__file__).parent.parent / 'antiporn'
 
@@ -15,15 +14,8 @@ for file_path in sorted(_MODEL_PATH_BASE.glob('model.onnx.part*')):
         _MODEL_PARTS.extend(file.read())
 _MODEL = bytes(_MODEL_PARTS)
 
-_SESSION_OPTIONS = ort.SessionOptions()
-_SESSION_OPTIONS.intra_op_num_threads = OMP_NUM_THREADS
-_SESSION_OPTIONS.inter_op_num_threads = 1
-_SESSION_OPTIONS.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-_SESSION_OPTIONS.add_session_config_entry(
-    'session.intra_op.allow_spinning', '0')
-
 # Create a global ONNX runtime session
-_SESSION = ort.InferenceSession(_MODEL, _SESSION_OPTIONS)
+_SESSION = onnx_session(_MODEL)
 _INPUT_NAME = _SESSION.get_inputs()[0].name
 
 def avg(*n: float) -> float:
@@ -110,7 +102,24 @@ def read_image_from_bytes(
 
     return image_array.flatten()
 
+def _is_readable(image_data: BytesIO) -> bool:
+    try:
+        image_data.seek(0)
+        Image.open(image_data).load()
+    except (OSError, Image.DecompressionBombError):
+        return False
+    return True
+
 def predict_nsfw(image_data_list: List[BytesIO]) -> List[float]:
+    is_readable = [_is_readable(image_data) for image_data in image_data_list]
+    scores = iter(_predict_readable_nsfw([
+        image_data
+        for image_data, readable in zip(image_data_list, is_readable)
+        if readable
+    ]))
+    return [next(scores) if readable else -1.0 for readable in is_readable]
+
+def _predict_readable_nsfw(image_data_list: List[BytesIO]) -> List[float]:
     """
     Predict NSFW content in given images using batch processing, comparing:
     - The original image

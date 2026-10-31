@@ -73,11 +73,7 @@ const Avatar = ({
       }
       {Boolean(photoUuid || photoBlurhash) &&
         <ImageBackground
-          source={photoUuid ? {
-            uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-            height: 450,
-            width: 450,
-          } : undefined}
+          source={photoUuid ? { uri: `${IMAGES_URL}/450-${photoUuid}.jpg` } : undefined}
           placeholder={photoBlurhash && { blurhash: photoBlurhash }}
           transition={!photoUuid ? { duration: 0, effect: null } : 150}
           style={imageStyle}

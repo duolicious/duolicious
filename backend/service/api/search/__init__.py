@@ -1,3 +1,4 @@
+import asyncio
 import psycopg
 import service.api.duotypes as t
 from service.api import sessioncache
@@ -8,8 +9,9 @@ from serviceshared.database import Tx, api_tx, row_bool, row_int
 from serviceshared.util.coerce import integer
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
+from service.api.redisclient import make_redis_client
 from collections.abc import Sequence
-from typing import Literal, Tuple
+from typing import Literal
 from service.api.searchfilters import Q_SEARCH_PARAMETERS
 from service.api.search.sql import (
     Q_APPLY_CLUB_PREFERENCE,
@@ -20,16 +22,17 @@ from service.api.search.sql import (
     Q_PUBLIC_SIMILAR_PROFILES,
     Q_PUBLIC_SIMILAR_PROFILES_WITH_ANSWERS,
     Q_QUIZ_SEARCH,
-    Q_DELETE_SEARCH_CACHE,
     Q_SAME_COUNTRY_ONLY,
     build_uncached_search,
     feed_v2_query,
 )
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 _NUM_SIMILAR_PROFILES = 8
+
+_redis = make_redis_client()
 
 
 @dataclass
@@ -37,88 +40,76 @@ class ClubHttpArg:
     club: str | None
 
 
-async def _quiz_search_results(
-    tx: Tx,
-    searcher_person_id: int,
-    n: int,
+async def _search_results(
+    query: str,
+    prospect_person_ids: list[int],
+    params: dict[str, int],
 ) -> object:
-    params = dict(
-        searcher_person_id=searcher_person_id,
-        n=n,
-    )
+    if not prospect_person_ids:
+        return []
 
-    await tx.execute(Q_QUIZ_SEARCH, params)
-    return await tx.fetchall()
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(
+            query, dict(params, prospect_person_ids=prospect_person_ids))
+        return await tx.fetchall()
 
 
-async def _refresh_search_cache(
-    tx: Tx,
+async def _prospect_ids(
     searcher_person_id: int,
+    refresh: bool,
     ignore_sort_preference: bool,
-) -> bool:
-    prefs = await tx.require_one(
-        Q_SEARCH_PARAMETERS,
-        dict(searcher_person_id=searcher_person_id),
-    )
+) -> list[int]:
+    key = f'search_results:{searcher_person_id}'
 
-    uncached_search, params = build_uncached_search(
-        searcher_person_id=searcher_person_id,
-        prefs=prefs,
-        ignore_sort_preference=ignore_sort_preference,
-    )
+    while True:
+        saved = None if refresh else await _redis.get(key)
+
+        if saved is not None:
+            return list(map(int, saved.split()))
+
+        if await _redis.set(f'{key}:lock', '1', nx=True, ex=15):
+            break
+
+        await asyncio.sleep(0.05)
 
     try:
-        await tx.execute('SET LOCAL jit = off')
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
 
-        await tx.execute(Q_DELETE_SEARCH_CACHE, params)
-        await tx.execute(uncached_search, params)
-        return True
-    except psycopg.errors.QueryCanceled:
-        # The query probably timed-out because it was too specific
-        return False
+            prefs = await tx.require_one(
+                Q_SEARCH_PARAMETERS,
+                dict(searcher_person_id=searcher_person_id),
+            )
 
+            uncached_search, params = build_uncached_search(
+                searcher_person_id=searcher_person_id,
+                prefs=prefs,
+                ignore_sort_preference=ignore_sort_preference,
+            )
 
-async def _refreshed_quiz_search_results(
-    tx: Tx,
-    searcher_person_id: int,
-    n: int,
-) -> object:
-    if not await _refresh_search_cache(
-        tx, searcher_person_id, ignore_sort_preference=True
-    ):
-        return []
+            try:
+                await tx.execute('SET LOCAL jit = off')
+                await tx.execute(uncached_search, params)
+                prospect_person_ids = [
+                    row_int(row, 'prospect_person_id')
+                    for row in await tx.fetchall()
+                ]
+                timed_out = False
+            except psycopg.errors.QueryCanceled:
+                # The query probably timed-out because it was too specific
+                prospect_person_ids = []
+                timed_out = True
 
-    return await _quiz_search_results(tx, searcher_person_id, n)
+        await _redis.set(
+            key,
+            ' '.join(map(str, prospect_person_ids)),
+            ex=timedelta(days=1),
+            nx=timed_out,
+        )
 
-
-async def _uncached_search_results(
-    tx: Tx,
-    searcher_person_id: int,
-    no: Tuple[int, int],
-) -> object:
-    if not await _refresh_search_cache(
-        tx, searcher_person_id, ignore_sort_preference=False
-    ):
-        return []
-
-    return await _cached_search_results(tx, searcher_person_id, no)
-
-
-async def _cached_search_results(
-    tx: Tx,
-    searcher_person_id: int,
-    no: Tuple[int, int],
-) -> object:
-    n, o = no
-
-    params = dict(
-        searcher_person_id=searcher_person_id,
-        n=n,
-        o=o,
-    )
-
-    await tx.execute(Q_CACHED_SEARCH, params)
-    return await tx.fetchall()
+        return prospect_person_ids
+    finally:
+        await _redis.delete(f'{key}:lock')
 
 
 SearchType = Literal[
@@ -143,7 +134,8 @@ async def get_search(
 ) -> object:
     search_type = get_search_type(q)
 
-    no = (1 if q.n is None else q.n, 0 if q.o is None else q.o)
+    n = 1 if q.n is None else q.n
+    o = 0 if q.o is None else q.o
 
     if s.person_id is None:
         return '', 500
@@ -155,36 +147,23 @@ async def get_search(
     )
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 10000') # 10 seconds
-
         await tx.execute(Q_APPLY_CLUB_PREFERENCE, params)
 
-        if search_type == 'quiz-search':
-            result = await _quiz_search_results(
-                tx=tx,
-                searcher_person_id=s.person_id,
-                n=no[0])
+    is_quiz = search_type in ('quiz-search', 'quiz-refresh')
 
-        elif search_type == 'quiz-refresh':
-            result = await _refreshed_quiz_search_results(
-                tx=tx,
-                searcher_person_id=s.person_id,
-                n=no[0])
+    prospect_person_ids = await _prospect_ids(
+        searcher_person_id=s.person_id,
+        refresh=search_type in ('quiz-refresh', 'uncached-search'),
+        ignore_sort_preference=is_quiz,
+    )
 
-        elif search_type == 'uncached-search':
-            result = await _uncached_search_results(
-                tx=tx,
-                searcher_person_id=s.person_id,
-                no=no)
-
-        elif search_type == 'cached-search':
-            result = await _cached_search_results(
-                tx=tx,
-                searcher_person_id=s.person_id,
-                no=no)
-
-        else:
-            raise Exception('Unexpected quiz type')
+    result = await _search_results(
+        query=Q_QUIZ_SEARCH if is_quiz else Q_CACHED_SEARCH,
+        prospect_person_ids=(
+            prospect_person_ids if is_quiz
+            else prospect_person_ids[o:o + n]),
+        params=dict(searcher_person_id=s.person_id, n=n),
+    )
 
     # Q_APPLY_CLUB_PREFERENCE clears `pending_club_name`, so drop the now-stale
     # cached session (see the sessioncache correctness model).
@@ -251,13 +230,19 @@ async def similar_profiles(
     answers: list[t.PublicAnswer] | None,
 ) -> object:
     if viewer_person_id is not None:
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute(Q_CACHED_SIMILAR_PROFILES, dict(
+        return await _search_results(
+            query=Q_CACHED_SIMILAR_PROFILES,
+            prospect_person_ids=await _prospect_ids(
+                searcher_person_id=viewer_person_id,
+                refresh=False,
+                ignore_sort_preference=False,
+            ),
+            params=dict(
                 searcher_person_id=viewer_person_id,
                 prospect_person_id=prospect_person_id,
                 n=_NUM_SIMILAR_PROFILES,
-            ))
-            return await tx.fetchall()
+            ),
+        )
 
     if answers is None:
         return await _public_similar_profiles(prospect_person_id)

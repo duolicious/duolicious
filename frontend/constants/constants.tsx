@@ -11,8 +11,17 @@ const COLUMN_MAX_WIDTH = 600;
 
 const SHEET_Z_INDEX = 9999;
 
+const LEGAL_LINKS = [
+  ['FAQ', '/faq/'],
+  ['Guidelines', '/guidelines/'],
+  ['Terms', '/terms/'],
+  ['Privacy', '/privacy/'],
+  ['Consumer Health Data', '/consumer-health-data/'],
+] as const;
+
 export {
   COLUMN_MAX_WIDTH,
+  LEGAL_LINKS,
   ONLINE_COLOR,
   ONLINE_RECENTLY_COLOR,
   ONLINE_RECENTLY_WINDOW_MS,

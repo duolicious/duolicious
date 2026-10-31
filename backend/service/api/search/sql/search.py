@@ -9,6 +9,7 @@ from serviceshared.database import (
     row_int,
     row_int_or_none,
     row_str,
+    row_str_list,
     row_str_or_none,
     row_vector,
 )
@@ -59,15 +60,6 @@ AND
     %(do_modify)s
 AND
     club_name IS DISTINCT FROM %(club_name)s::TEXT
-"""
-
-
-
-Q_DELETE_SEARCH_CACHE = """
-DELETE FROM
-    search_cache
-WHERE
-    searcher_person_id = %(searcher_person_id)s
 """
 
 
@@ -330,104 +322,63 @@ def _prospect_select(sort_expression: str) -> str:
     return f"""    SELECT
         prospect.id AS prospect_person_id,
 
-        uuid AS prospect_uuid,
-
-        name,
-
-        prospect.personality,
-
         verification_level_id > 1 AS verified,
 
-        (
-            SELECT
-                uuid
-            FROM
-                photo
-            WHERE
-                person_id = prospect.id
-            ORDER BY
-                position
-            LIMIT 1
-        ) AS profile_photo_uuid,
-
-        CASE
-            WHEN show_my_age
-            THEN EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
-            ELSE NULL
-        END AS age,
-
-        CLAMP(
-            0,
-            99,
-            100 * (1 - (prospect.personality <#> %(searcher_personality)s)) / 2
-        ) AS match_percentage,
+        EXISTS (
+            SELECT 1 FROM photo WHERE person_id = prospect.id
+        ) AS has_photo,
 
         {sort_expression} AS sort_distance"""
 
-_SEARCH_CACHE_INSERT = """), do_promote_verified AS (
+_MUTUAL_CLUB_COUNT = """(
+            SELECT
+                count(*)
+            FROM
+                person_club
+            WHERE
+                person_id = nearest.prospect_person_id
+            AND
+                club_name = ANY(%(searcher_club_names)s::TEXT[])
+        )"""
+
+
+def _mutual_club_count(sort_by: SortBy, prefs: Row) -> _Sort:
+    if sort_by == SORT_CLUBS:
+        return _MUTUAL_CLUB_COUNT, dict(
+            searcher_club_names=row_str_list(prefs, 'searcher_club_names'))
+    return '0', {}
+
+
+_RANKED_PROSPECT_IDS = """), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
         candidates
     WHERE
-        profile_photo_uuid IS NOT NULL
+        has_photo
     AND
         verified
     AND
         %(searcher_count_answers)s > 0
 )
-INSERT INTO search_cache (
-    searcher_person_id,
-    position,
-    prospect_person_id,
-    prospect_uuid,
-    profile_photo_uuid,
-    name,
-    age,
-    match_percentage,
-    personality,
-    verified
-)
 SELECT
-    %(searcher_person_id)s,
-    ROW_NUMBER() OVER (
-        ORDER BY
-            -- If this is changed, other subqueries will need changing too
-            CASE
-                WHEN (SELECT x FROM do_promote_verified)
-                THEN
-                    profile_photo_uuid IS NOT NULL AND verified
-                ELSE
-                    profile_photo_uuid IS NOT NULL
-            END DESC,
-
-            sort_distance
-    ) AS position,
-    prospect_person_id,
-    prospect_uuid,
-    profile_photo_uuid,
-    name,
-    age,
-    match_percentage,
-    personality,
-    verified
+    prospect_person_id
 FROM
     candidates
 ORDER BY
-    position
+    -- If this is changed, other subqueries will need changing too
+    CASE
+        WHEN (SELECT x FROM do_promote_verified)
+        THEN
+            has_photo AND verified
+        ELSE
+            has_photo
+    END DESC,
+
+    mutual_club_count DESC,
+    sort_distance
 LIMIT
     500
-ON CONFLICT (searcher_person_id, position) DO UPDATE SET
-    searcher_person_id = EXCLUDED.searcher_person_id,
-    position = EXCLUDED.position,
-    prospect_person_id = EXCLUDED.prospect_person_id,
-    prospect_uuid = EXCLUDED.prospect_uuid,
-    profile_photo_uuid = EXCLUDED.profile_photo_uuid,
-    name = EXCLUDED.name,
-    age = EXCLUDED.age,
-    match_percentage = EXCLUDED.match_percentage,
-    personality = EXCLUDED.personality,
-    verified = EXCLUDED.verified
 """
 
 
@@ -469,7 +420,6 @@ def build_uncached_search(
 ) -> tuple[str, dict[str, SearchParam]]:
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
-        searcher_personality=row_vector(prefs, 'searcher_personality'),
         searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
     )
 
@@ -497,8 +447,11 @@ def build_uncached_search(
         *filters.clauses,
     ])
 
+    mutual_club_count, mutual_club_params = _mutual_club_count(sort_by, prefs)
+    params.update(mutual_club_params)
+
     sql = f"""
-WITH candidates AS (
+WITH nearest AS (
 {_prospect_select(sort_expression)}
     FROM
 {_from_clause(club_preference)}
@@ -510,7 +463,13 @@ WITH candidates AS (
 
     LIMIT
         750
-{_SEARCH_CACHE_INSERT}"""
+), candidates AS (
+    SELECT
+        *,
+        {mutual_club_count} AS mutual_club_count
+    FROM
+        nearest
+{_RANKED_PROSPECT_IDS}"""
 
     return sql, params
 
@@ -519,20 +478,74 @@ WITH candidates AS (
 
 def _cached_search(selection: str) -> str:
     return f"""
-WITH page AS (
+WITH searcher AS (
     SELECT
-        prospect_person_id,
-        prospect_uuid,
+        personality,
+        verification_level_id,
+        count_answers,
+        show_skipped
+    FROM
+        person
+    JOIN
+        search_preference
+    ON
+        search_preference.person_id = person.id
+    WHERE
+        id = %(searcher_person_id)s
+), cached AS (
+    SELECT
+        ranked.position,
+        prospect.id AS prospect_person_id,
+        prospect.uuid AS prospect_uuid,
+        prospect.url_slug,
+        prospect.personality,
+        profile_photo.uuid AS profile_photo_uuid,
+        profile_photo.blurhash AS profile_photo_blurhash,
+        prospect.name,
         (
-            SELECT url_slug FROM person WHERE id = prospect_person_id
-        ) AS url_slug,
-        profile_photo_uuid,
-        (
-            SELECT blurhash FROM photo WHERE profile_photo_uuid = photo.uuid
-        ) AS profile_photo_blurhash,
-        name,
-        age,
-        match_percentage,
+            CASE
+                WHEN prospect.show_my_age
+                THEN EXTRACT(YEAR FROM AGE(prospect.date_of_birth))
+            END
+        )::SMALLINT AS age,
+        CLAMP(
+            0,
+            99,
+            100 * (1 - (prospect.personality <#> searcher.personality)) / 2
+        )::SMALLINT AS match_percentage,
+        prospect.verification_level_id > 1 AS verified,
+        searcher.verification_level_id AS searcher_verification_level_id,
+        prospect.privacy_verification_level_id
+    FROM
+        searcher
+    CROSS JOIN
+        unnest(%(prospect_person_ids)s::INT[])
+            WITH ORDINALITY AS ranked(prospect_person_id, position)
+    JOIN
+        person AS prospect
+    ON
+        prospect.id = ranked.prospect_person_id
+    LEFT JOIN LATERAL (
+        SELECT
+            uuid,
+            blurhash
+        FROM
+            photo
+        WHERE
+            person_id = prospect.id
+        ORDER BY
+            position
+        LIMIT 1
+    ) AS profile_photo
+    ON
+        TRUE
+    WHERE
+        {_PROSPECT_DIDNT_SKIP_SEARCHER}
+    AND
+        (searcher.show_skipped OR {_SEARCHER_DIDNT_SKIP_PROSPECT})
+), page AS (
+    SELECT
+        *,
         EXISTS (
             SELECT
                 1
@@ -552,28 +565,9 @@ WITH page AS (
                 subject_person_id = prospect_person_id
             AND
                 object_person_id = %(searcher_person_id)s
-        ) AS prospect_messaged_person,
-        verified,
-        (
-            SELECT
-                verification_level_id
-            FROM
-                person
-            WHERE
-                id = %(searcher_person_id)s
-        ) AS searcher_verification_level_id,
-        (
-            SELECT
-                privacy_verification_level_id
-            FROM
-                person
-            WHERE
-                id = prospect_person_id
-        ) AS privacy_verification_level_id
+        ) AS prospect_messaged_person
     FROM
-        search_cache
-    WHERE
-        searcher_person_id = %(searcher_person_id)s
+        cached
 {selection}
 )
 SELECT
@@ -616,16 +610,12 @@ ON
 
 
 Q_CACHED_SEARCH = _cached_search("""
-    AND
-        position >  %(o)s
-    AND
-        position <= %(o)s + %(n)s
     ORDER BY
         position
 """)
 
 Q_CACHED_SIMILAR_PROFILES = _cached_search("""
-    AND
+    WHERE
         prospect_person_id != %(prospect_person_id)s
     ORDER BY
         personality <#> (
@@ -635,71 +625,23 @@ Q_CACHED_SIMILAR_PROFILES = _cached_search("""
         %(n)s
 """)
 
-Q_QUIZ_SEARCH = f"""
-WITH searcher AS (
-    SELECT
-        personality,
-        count_answers
-    FROM
-        person
-    WHERE
-        person.id = %(searcher_person_id)s
-), do_promote_verified AS (
-    SELECT
-        count(*) >= 250 AS x
-    FROM
-        search_cache,
-        searcher
-    WHERE
-        searcher_person_id = %(searcher_person_id)s
-    AND
-        profile_photo_uuid IS NOT NULL
-    AND
-        verified
-    AND
-        (SELECT count_answers > 0 FROM searcher)
-), page AS (
-    SELECT
-        prospect_person_id,
-        prospect_uuid,
-        (
-            SELECT url_slug FROM person WHERE id = prospect_person_id
-        ) AS url_slug,
-        profile_photo_uuid,
-        (
-            SELECT blurhash FROM photo WHERE profile_photo_uuid = photo.uuid
-        ) AS profile_photo_blurhash,
-        name,
-        age,
-        CLAMP(
-            0,
-            99,
-            100 * (1 - (personality <#> (SELECT personality FROM searcher))) / 2
-        )::SMALLINT AS match_percentage,
-        (
-            SELECT
-                verification_level_id
-            FROM
-                person
-            WHERE
-                id = %(searcher_person_id)s
-        ) AS searcher_verification_level_id,
-        (
-            SELECT
-                privacy_verification_level_id
-            FROM
-                person
-            WHERE
-                id = prospect_person_id
-        ) AS privacy_verification_level_id
-    FROM
-        search_cache
-    WHERE
-        searcher_person_id = %(searcher_person_id)s
+Q_QUIZ_SEARCH = _cached_search("""
     ORDER BY
         -- If this is changed, other subqueries will need changing too
         CASE
-            WHEN (SELECT x FROM do_promote_verified)
+            WHEN
+                (SELECT count_answers > 0 FROM searcher)
+            AND
+                (
+                    SELECT
+                        count(*) >= 250
+                    FROM
+                        cached
+                    WHERE
+                        profile_photo_uuid IS NOT NULL
+                    AND
+                        verified
+                )
             THEN
                 profile_photo_uuid IS NOT NULL AND verified
             ELSE
@@ -709,39 +651,4 @@ WITH searcher AS (
         match_percentage DESC
     LIMIT
         %(n)s
-)
-SELECT
-    public_page.profile_photo_blurhash,
-    public_page.name,
-    public_page.age,
-    public_page.match_percentage,
-    public_page.verification_required_to_view,
-
-    private_page.prospect_person_id,
-    private_page.prospect_uuid,
-    private_page.url_slug,
-    private_page.profile_photo_uuid
-FROM
-    (
-        SELECT
-            *,
-
-            {_verification_required_to_view(
-                'searcher_verification_level_id',
-                'privacy_verification_level_id')} AS verification_required_to_view
-        FROM
-            page
-    ) AS public_page
-LEFT JOIN
-    (
-        SELECT
-            *
-        FROM
-            page
-        WHERE
-            searcher_verification_level_id >= privacy_verification_level_id
-    ) AS private_page
-ON
-    private_page.prospect_person_id = public_page.prospect_person_id
-"""
-
+""")

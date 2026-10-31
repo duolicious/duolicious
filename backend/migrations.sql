@@ -13,23 +13,9 @@
 -- from this file: init-api.sql already carries the change for fresh databases.
 
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_attribute
-        WHERE attrelid = 'person'::regclass
-        AND attname = 'looking_for_id'
-        AND NOT attisdropped
-    ) THEN
-        RETURN;
-    END IF;
+DROP TABLE IF EXISTS search_cache;
 
-    DROP TRIGGER IF EXISTS trigger_sync_looking_for ON person;
-    DROP FUNCTION IF EXISTS sync_looking_for();
-    ALTER TABLE person DROP COLUMN IF EXISTS looking_for_id;
-END $$;
+ALTER TABLE photo ADD COLUMN IF NOT EXISTS nsfw_score_v2 FLOAT4;
 
-
-DROP FUNCTION IF EXISTS age_gap_acceptability_odds(double precision, double precision);
-
-CREATE INDEX IF NOT EXISTS idx__location__lower_city ON location(lower(city) text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
+    ON photo(nsfw_score_v2);

@@ -31,7 +31,7 @@ quietly_assume_role () {
 
 # Wait for images to be given nsfw scores, rather than racing the runner
 wait_for_nsfw_scores () {
-  while [[ "$(q "select count(*) from photo where nsfw_score is null")" != 0 ]]
+  while [[ "$(q "select count(*) from photo where nsfw_score is null or nsfw_score_v2 is null")" != 0 ]]
   do
     sleep 0.1
   done

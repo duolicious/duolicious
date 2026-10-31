@@ -58,6 +58,7 @@ import {
 } from '../data/option-groups';
 import { Images } from './images/images';
 import { DefaultText } from './default-text';
+import { LinkText } from './link-text';
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
@@ -84,12 +85,13 @@ import { WEB_VERSION } from '../env/env';
 import { photoQueue } from '../api/queue';
 import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useAppTheme } from '../app-theme/app-theme';
+import { LEGAL_LINKS } from '../constants/constants';
 import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons/faRightFromBracket'
 import { faDownload } from '@fortawesome/free-solid-svg-icons/faDownload'
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { INVITE_URL } from '../env/env';
 import { Pressable } from './pressable';
-import { copyProfileLink } from '../util/util';
+import { copyProfileLink, isMobile } from '../util/util';
 
 
 type ProfileInfoPatchResponse = {
@@ -880,7 +882,6 @@ const AboutDuolicious = () => {
         About
       </Title>
       <DefaultText
-        onPress={() => Linking.openURL('https://github.com/duolicious/duolicious')}
         style={{
           textAlign: 'center',
           color: '#999',
@@ -888,13 +889,15 @@ const AboutDuolicious = () => {
       >
         Duolicious is free software licensed under the AGPLv3. The source code
         used to make Duolicious is available {}
-        <DefaultText style={{fontWeight: '600', color: '#37f'}}>
+        <LinkText
+          href="https://github.com/duolicious/duolicious"
+          style={{fontWeight: '600', color: '#37f'}}
+        >
           here
-        </DefaultText>
+        </LinkText>
         .
       </DefaultText>
       <DefaultText
-        onPress={() => Linking.openURL('mailto:support@duolicious.app')}
         style={{
           marginTop: 25,
           textAlign: 'center',
@@ -902,40 +905,41 @@ const AboutDuolicious = () => {
         }}
       >
         You can contact us at {}
-        <DefaultText style={{fontWeight: '600', color: '#37f'}}>
+        <LinkText
+          href="mailto:support@duolicious.app"
+          style={{fontWeight: '600', color: '#37f'}}
+        >
           support@duolicious.app
-        </DefaultText>
+        </LinkText>
         {} to provide feedback, report abuse, or submit any other concerns or
         queries you have.
       </DefaultText>
 
-      <View
-        style={{
-          marginTop: 25,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: 20,
-        }}
-      >
-        {([
-          ['FAQ', 'https://duolicious.app/faq/'],
-          ['Guidelines', 'https://duolicious.app/guidelines/'],
-          ['Terms', 'https://duolicious.app/terms/'],
-          ['Privacy', 'https://duolicious.app/privacy/'],
-        ] as const).map(([label, href]) =>
-          <DefaultText
-            key={href}
-            onPress={() => Linking.openURL(href)}
-            style={{
-              fontWeight: '600',
-              color: '#37f',
-            }}
-          >
-            {label}
-          </DefaultText>
-        )}
-      </View>
+      {isMobile() &&
+        <View
+          style={{
+            marginTop: 25,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            rowGap: 8,
+            columnGap: 16,
+          }}
+        >
+          {LEGAL_LINKS.map(([label, path]) =>
+            <LinkText
+              key={path}
+              href={`https://duolicious.app${path}`}
+              style={{
+                fontSize: 13,
+                color: '#37f',
+              }}
+            >
+              {label}
+            </LinkText>
+          )}
+        </View>
+      }
 
       {Platform.OS === 'web' &&
         <DefaultText

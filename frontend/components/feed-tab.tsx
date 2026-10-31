@@ -587,11 +587,7 @@ const FacepileAvatar = ({
   return (
     <Pressable onPress={onPress} link={link}>
       <ImageBackground
-        source={{
-          uri: `${IMAGES_URL}/450-${member.photo_uuid}.jpg`,
-          height: 450,
-          width: 450,
-        }}
+        source={{ uri: `${IMAGES_URL}/450-${member.photo_uuid}.jpg` }}
         placeholder={{ blurhash: member.photo_blurhash }}
         transition={150}
         style={[styles.facepileImage, { borderColor: appTheme.primaryColor }]}
@@ -666,11 +662,7 @@ const ViewerFacepileAvatar = ({
       >
         {viewer.photo_uuid
           ? <ImageBackground
-              source={{
-                uri: `${IMAGES_URL}/450-${viewer.photo_uuid}.jpg`,
-                height: 450,
-                width: 450,
-              }}
+              source={{ uri: `${IMAGES_URL}/450-${viewer.photo_uuid}.jpg` }}
               placeholder={
                 viewer.photo_blurhash && { blurhash: viewer.photo_blurhash }}
               transition={150}

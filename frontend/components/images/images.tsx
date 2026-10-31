@@ -804,11 +804,7 @@ const MoveableImage = ({
           {uriState &&
             <ExpoImage
               pointerEvents="none"
-              source={{
-                uri: uriState,
-                height: 450,
-                width: 450,
-              }}
+              source={{ uri: uriState }}
               placeholder={initialBlurhash && { blurhash: initialBlurhash }}
               transition={150}
               style={{

@@ -23,16 +23,19 @@ const useFitsSidePanels = (
     [numPanels, minColumnWidth],
   ));
 
-const SidePanelLayout = ({ left, right, style, children }: {
+const SidePanelLayout = ({ left, right, style, onColumnLeft, children }: {
   left?: ReactNode
   right?: ReactNode
   style?: ViewStyle
+  onColumnLeft?: (columnLeft: number) => void
   children: ReactNode
 }) =>
   <View style={[styles.row, style]} pointerEvents="box-none">
     <View
       style={[styles.space, !!left && styles.panelSpace]}
       pointerEvents="box-none"
+      onLayout={onColumnLeft && (({ nativeEvent: { layout } }) =>
+        layout.height > 0 && onColumnLeft(layout.width))}
     >
       {left &&
         <View style={[styles.panel, styles.leftPanel]} pointerEvents="box-none">
