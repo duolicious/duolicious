@@ -1,4 +1,6 @@
 numpy
+onnx
+onnxruntime
 Pillow
 pillow-jxl-plugin
 scikit-learn

@@ -20,14 +20,15 @@ Scoring has two parts:
    embedding. `download-model.sh` fetches OpenAI's weights from their
    Hugging Face account, pinned by revision and checksum. At 1.7 GB they're
    too big for this repository. They're in the safetensors format, which
-   holds only numbers, so loading them can't run code. The encoder itself is
-   written in numpy.
+   holds only numbers, so loading them can't run code. `build_onnx.py` writes
+   the encoder as an ONNX graph around those weights, and onnxruntime runs it.
+   The cron image does this when it's built.
 2. A logistic regression on that embedding, the "probe", turns it into a
    probability. Its 768 weights and bias are in `probe.npz`.
 
 The encoder sees the centre square of the photo, resized to 224 by 224
-pixels, as CLIP was trained. Scoring takes about 2.5 seconds per photo with
-two threads.
+pixels, as CLIP was trained. Scoring takes about 2 seconds per photo with two
+threads.
 
 ## Training
 
@@ -37,7 +38,7 @@ that aren't. Neither is in this repository. From `backend/`:
 ```sh
 pip install -r clipnsfw/requirements.txt
 serviceshared/antiabuse/clipnsfw/download-model.sh
-OPENBLAS_NUM_THREADS=1 PYTHONPATH=. python clipnsfw/train.py POSITIVE_DIR NEGATIVE_DIR
+PYTHONPATH=. python clipnsfw/train.py POSITIVE_DIR NEGATIVE_DIR
 ```
 
 It prints the 10-fold cross-validated accuracy and every image the probe gets

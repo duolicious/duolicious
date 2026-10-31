@@ -11,6 +11,7 @@ mypy
 nltk
 numpy
 numpy==1.26.4
+onnx
 onnxruntime
 openai
 pgvector

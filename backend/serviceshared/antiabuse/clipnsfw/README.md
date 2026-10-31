@@ -1,6 +1,6 @@
-`model.safetensors` is downloaded by `download-model.sh` from
+`model.onnx` is built by `download-model.sh` from the weights in
 [openai/clip-vit-large-patch14](https://huggingface.co/openai/clip-vit-large-patch14),
-the weights of the model in [openai/CLIP](https://github.com/openai/CLIP).
+the model in [openai/CLIP](https://github.com/openai/CLIP).
 See `backend/clipnsfw/README.md` for how `probe.npz` is trained.
 
 The license of openai/CLIP can be found

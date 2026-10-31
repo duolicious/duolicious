@@ -9,19 +9,22 @@ ENV OPENBLAS_NUM_THREADS=2
 
 WORKDIR /app
 
+COPY requirements.txt /app/
+
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
 COPY \
   serviceshared/antiabuse/clipnsfw/download-model.sh \
+  serviceshared/antiabuse/clipnsfw/build_onnx.py \
   /app/serviceshared/antiabuse/clipnsfw/
 
 RUN /app/serviceshared/antiabuse/clipnsfw/download-model.sh
 
 COPY \
-  --exclude=serviceshared/antiabuse/clipnsfw/model.safetensors* \
+  --exclude=serviceshared/antiabuse/clipnsfw/model.* \
   --exclude=serviceshared/antiabuse/minorconfession \
   --exclude=test \
   --exclude=vm \
   . /app
-
-RUN pip install --no-cache-dir -r /app/requirements.txt
 
 CMD /app/cron.main.sh
