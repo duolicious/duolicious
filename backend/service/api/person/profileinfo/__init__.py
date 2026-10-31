@@ -108,7 +108,6 @@ WITH existing_uuid AS (
         height,
         crop_top,
         crop_left,
-        nsfw_score,
         nsfw_score_v2
     ) VALUES (
         %(person_id)s,
@@ -121,7 +120,6 @@ WITH existing_uuid AS (
         %(height)s,
         %(crop_top)s,
         %(crop_left)s,
-        -1,
         -1
     ) ON CONFLICT (person_id, position) DO UPDATE SET
         uuid = EXCLUDED.uuid,
@@ -132,7 +130,6 @@ WITH existing_uuid AS (
         height = EXCLUDED.height,
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
-        nsfw_score = EXCLUDED.nsfw_score,
         nsfw_score_v2 = EXCLUDED.nsfw_score_v2,
         verified = FALSE
 ), updated_person AS (
@@ -156,7 +153,6 @@ WITH stored_photo AS (
     UPDATE
         photo
     SET
-        nsfw_score = NULL,
         nsfw_score_v2 = NULL
     WHERE
         uuid = %(uuid)s
