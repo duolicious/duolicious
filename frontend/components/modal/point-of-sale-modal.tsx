@@ -21,6 +21,7 @@ import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
 import { listen, notify } from '../../events/events';
 import { setSignedInUser } from '../../events/signed-in-user';
 import { getOffering } from '../../purchases/purchases';
+import { notifyGoldToast } from '../gold-toast';
 import {
   Offering,
   Purchasable,
@@ -370,6 +371,11 @@ const FeatureCarousel = ({
   );
 };
 
+const grantGold = () => {
+  setSignedInUser((u) => u && { ...u, hasGold: true });
+  hidePointOfSale();
+};
+
 const OfferingCard = ({
   feature,
   width,
@@ -386,7 +392,18 @@ const OfferingCard = ({
     () => FEATURES.findIndex((f) => f.key === feature));
 
   useEffect(() => {
-    getOffering().then(setOffering, () => setOffering(null));
+    getOffering().then(
+      (o) => {
+        if (o !== 'subscribed') {
+          setOffering(o);
+          return;
+        }
+
+        grantGold();
+        notifyGoldToast('Your Gold subscription is now on this account');
+      },
+      () => setOffering(null),
+    );
   }, []);
 
   if (!offering) {
@@ -425,18 +442,7 @@ const OfferingCard = ({
       return;
     }
 
-    setSignedInUser((u) => {
-      if (!u) {
-        return u;
-      }
-
-      return {
-        ...u,
-        hasGold: true,
-      };
-    });
-
-    hidePointOfSale();
+    grantGold();
   };
 
   return (
