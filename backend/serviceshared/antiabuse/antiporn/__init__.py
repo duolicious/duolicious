@@ -102,7 +102,24 @@ def read_image_from_bytes(
 
     return image_array.flatten()
 
+def _is_readable(image_data: BytesIO) -> bool:
+    try:
+        image_data.seek(0)
+        Image.open(image_data).load()
+    except (OSError, Image.DecompressionBombError):
+        return False
+    return True
+
 def predict_nsfw(image_data_list: List[BytesIO]) -> List[float]:
+    is_readable = [_is_readable(image_data) for image_data in image_data_list]
+    scores = iter(_predict_readable_nsfw([
+        image_data
+        for image_data, readable in zip(image_data_list, is_readable)
+        if readable
+    ]))
+    return [next(scores) if readable else -1.0 for readable in is_readable]
+
+def _predict_readable_nsfw(image_data_list: List[BytesIO]) -> List[float]:
     """
     Predict NSFW content in given images using batch processing, comparing:
     - The original image
