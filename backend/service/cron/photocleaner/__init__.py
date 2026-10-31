@@ -7,7 +7,7 @@ from service.cron.cronutil import (
     log_stacktrace,
 )
 from collections.abc import Mapping
-from pgvector import HalfVector
+from pgvector import Vector
 import asyncio
 import random
 import logging
@@ -34,7 +34,7 @@ async def store_banned_photo_embeddings(
     ])
 
     params_seq = [
-        dict(hash=r['unembedded_banned_hash'], embedding=HalfVector(embedding))
+        dict(hash=r['unembedded_banned_hash'], embedding=Vector(embedding))
         for r, embedding in zip(rows, embeddings)
         if embedding is not None
     ]

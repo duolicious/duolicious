@@ -22,4 +22,4 @@ CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
 
 ALTER TABLE banned_photo_hash
     ADD COLUMN IF NOT EXISTS photo_uuid TEXT,
-    ADD COLUMN IF NOT EXISTS embedding HALFVEC(768);
+    ADD COLUMN IF NOT EXISTS embedding VECTOR(768);
