@@ -5,6 +5,7 @@ import {
   ViewStyle,
   useWindowDimensions,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 type AnchorMeasurement = {
   x: number,
@@ -141,9 +142,9 @@ const AnchoredOverlay = ({
       animationType="none"
       onRequestClose={onRequestClose}
     >
-      <View style={{ flex: 1 }}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
         {content}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
