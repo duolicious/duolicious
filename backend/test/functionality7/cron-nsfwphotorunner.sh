@@ -41,6 +41,13 @@ q "
   insert into photo (person_id, position, uuid, blurhash, hash)
   values ($PERSON_ID, 3, 'not-in-object-store', '', random()::text)"
 
+curl -sf -X PUT --data-binary 'not an image' \
+  http://localhost:9090/s3-mock-bucket/original-unreadable.jpg
+
+q "
+  insert into photo (person_id, position, uuid, blurhash, hash)
+  values ($PERSON_ID, 4, 'unreadable', '', random()::text)"
+
 
 # Maximum number of retries
 max_retries=60
@@ -56,9 +63,11 @@ check_conditions() {
   local condition4="$(q "select count(*) from photo where position = 1 and abs(nsfw_score_v2 - 0.131) < 0.01")"
   local condition5="$(q "select count(*) from photo where position = 2 and abs(nsfw_score_v2 - 0.031) < 0.01")"
   local condition6="$(q "select count(*) from photo where position = 3 and abs(nsfw_score_v2 + 1.000) < 0.01")"
+  local condition7="$(q "select count(*) from photo where position = 4 and abs(nsfw_score_v2 + 1.000) < 0.01")"
 
   [[ "$condition1" = 1 && "$condition2" = 1 && "$condition3" = 1 &&
-     "$condition4" = 1 && "$condition5" = 1 && "$condition6" = 1 ]]
+     "$condition4" = 1 && "$condition5" = 1 && "$condition6" = 1 &&
+     "$condition7" = 1 ]]
 }
 
 # Loop to retry checking conditions up to max_retries times

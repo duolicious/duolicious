@@ -10,9 +10,9 @@ The cron service's `predict_nsfw_v2_photos_forever` writes each photo's
 score to `photo.nsfw_score_v2`. It reads photos whose score is NULL, so it
 both backfills existing photos and scores new uploads. It runs only when the
 host's load is below `DUO_CRON_OFFPEAK_MAX_LOAD_PCT`. The score is between 0
-and 1, or -1 when the photo isn't in the object store. Nothing reads it yet:
-Bumble's model in `serviceshared/antiabuse/antiporn` still decides which
-photos are hidden and deleted.
+and 1, or -1 when the photo isn't in the object store or can't be read.
+Nothing reads it yet: Bumble's model in `serviceshared/antiabuse/antiporn`
+still decides which photos are hidden and deleted.
 
 Scoring has two parts:
 
