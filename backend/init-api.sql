@@ -493,7 +493,7 @@ CREATE TABLE IF NOT EXISTS undeleted_photo (
 CREATE TABLE IF NOT EXISTS banned_photo_hash (
     hash TEXT NOT NULL,
     photo_uuid TEXT,
-    embedding HALFVEC(768),
+    embedding VECTOR(768),
     PRIMARY KEY (hash)
 );
 
