@@ -2450,10 +2450,12 @@ WITH deleted_token AS (
         uuid
 ), inserted_banned_photo_hash AS (
     INSERT INTO banned_photo_hash (
-        hash
+        hash,
+        photo_uuid
     )
     SELECT
-        hash
+        hash,
+        uuid
     FROM
         deleted_photo
     WHERE

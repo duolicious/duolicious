@@ -199,9 +199,23 @@ specific_photo_is_banned () {
   # The reporter, the accused and the bystander all have added-photo events
   [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 3 ]]
 
+  local deleted_uuid=$(q "select uuid from photo where person_id = ${accused_id}")
+  local deleted_hash=$(q "select hash from photo where person_id = ${accused_id}")
+  wait_for_creation_by_uuid "${deleted_uuid}" 450
+
   c GET "/admin/delete-photo/$(deleted_photo_token)"
 
   [[ "$(q "select count(*) from photo")" -eq 2 ]]
+  # The photocleaner keeps the deleted photo's embedding, but not its UUID
+  assert_eventually 768 q "
+    select vector_dims(embedding)
+    from banned_photo_hash
+    where hash = '${deleted_hash}'"
+  [[ "$(q "
+    select count(*)
+    from banned_photo_hash
+    where photo_uuid is not null")" -eq 0 ]]
+  wait_for_deletion_by_uuid "${deleted_uuid}"
   [[ "$(q "select count(*) from banned_photo_hash where hash <> ''")" -eq 1 ]]
   # Deleting the accused's photo reverts their added-photo event
   [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 2 ]]
