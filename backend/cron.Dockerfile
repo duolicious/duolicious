@@ -6,12 +6,16 @@ ENV PYTHONUNBUFFERED=true
 
 ENV OMP_NUM_THREADS=2
 ENV OPENBLAS_NUM_THREADS=2
+ENV DUO_FFMPEG_USER=nobody
 
 WORKDIR /app
 
 COPY requirements.txt /app/
 
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN : \
+  && apt update \
+  && apt install -y ffmpeg \
+  && pip install --no-cache-dir -r /app/requirements.txt
 
 COPY \
   serviceshared/antiabuse/clipnsfw/download-model.sh \
