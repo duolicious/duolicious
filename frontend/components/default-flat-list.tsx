@@ -11,6 +11,7 @@ import {
   StyleSheet,
   View,
   ViewStyle,
+  ViewToken,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
@@ -26,6 +27,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -204,10 +206,12 @@ type DefaultFlatListProps<ItemT> =
     | "data"
     | "keyExtractor"
     | "onRefresh"
+    | "onViewableItemsChanged"
     | "refreshing"
     | "renderItem"
   > & {
     renderItem: ListRenderItem<ItemT>,
+    fetchAheadScreens?: number,
     keyExtractor?: (item: ItemT, index: number) => string,
     emptyText?: string,
     errorText?: string,
@@ -580,10 +584,33 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     columnWrapperStyle,
     renderItem,
     keyExtractor: itemKeyExtractor = keyExtractor,
+    fetchAheadScreens,
     ...listProps
   } = props;
 
   const data = useMemo(() => _.chunk(items, numColumns), [items, numColumns]);
+
+  const latest = useRef({ rowCount: 0, fetchAheadScreens: 0, fetchNextPage });
+
+  useLayoutEffect(() => {
+    latest.current = {
+      rowCount: data.length,
+      fetchAheadScreens: fetchAheadScreens ?? 0,
+      fetchNextPage,
+    };
+  }, [data.length, fetchAheadScreens, fetchNextPage]);
+
+  const onViewableItemsChanged = useCallback((
+    { viewableItems }: { viewableItems: ViewToken<ItemT[]>[] }
+  ) => {
+    const { rowCount, fetchAheadScreens, fetchNextPage } = latest.current;
+    const lastVisibleRow = viewableItems.at(-1)?.index ?? -1;
+    const rowsBelow = rowCount - 1 - lastVisibleRow;
+
+    if (rowsBelow < fetchAheadScreens * viewableItems.length) {
+      return fetchNextPage();
+    }
+  }, []);
 
   const renderRow = useCallback(
     ({ item: row, index, separators }: ListRenderItemInfo<ItemT[]>) =>
@@ -615,8 +642,12 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
       ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
-      onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
-      onEndReached={fetchNextPage}
+      {...(fetchAheadScreens === undefined ? {
+        onEndReachedThreshold: props.onEndReachedThreshold ?? 3,
+        onEndReached: fetchNextPage,
+      } : {
+        onViewableItemsChanged,
+      })}
       {...listProps}
       {...slots}
       {...hiddenOnScrollHeader}
