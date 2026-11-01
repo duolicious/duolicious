@@ -164,12 +164,12 @@ test_photo_scanned_once_stored () {
 
   local uuid=$(q "select uuid from photo where position = 1")
 
-  [[ "$(q "select nsfw_score from photo where uuid = '$uuid'")" = -1 ]] \
+  [[ "$(q "select nsfw_score_v2 from photo where uuid = '$uuid'")" = -1 ]] \
     || assert_photos_downloadable_by_uuid "$uuid"
 
   wait "$large_photo_upload"
 
-  [[ "$(q "select nsfw_score from photo where uuid = '$uuid'")" != -1 ]]
+  [[ "$(q "select nsfw_score_v2 from photo where uuid = '$uuid'")" != -1 ]]
 
   jc DELETE /profile-info -d '{ "files": [1] }'
 }

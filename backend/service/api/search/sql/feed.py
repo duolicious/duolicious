@@ -331,8 +331,7 @@ WITH searcher AS (
     LEFT JOIN LATERAL (
         SELECT
             photo.uuid,
-            photo.blurhash,
-            photo.nsfw_score
+            photo.blurhash
         FROM
             photo
         WHERE
