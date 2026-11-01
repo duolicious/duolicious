@@ -61,6 +61,20 @@ excludes_long_offline () {
   j_assert_length "$(public_search)" 2
 }
 
+excludes_nsfw_photos () {
+  setup
+
+  q "delete from person where email = 'user1@example.com'"
+  ../util/create-user.sh user1 0 1
+  q "update person set public_profile = true"
+
+  q "update photo set nsfw_score_v2 = 0.5"
+  j_assert_length "$(public_search)" 3
+
+  q "update photo set nsfw_score_v2 = 0.51"
+  j_assert_length "$(public_search)" 2
+}
+
 pagination_limits_and_offsets () {
   setup
 
@@ -98,6 +112,7 @@ returns_public_profiles
 excludes_non_public_profiles
 excludes_deactivated_and_shadow_banned
 excludes_long_offline
+excludes_nsfw_photos
 pagination_limits_and_offsets
 defaults_to_first_page
 rejects_n_above_fifty

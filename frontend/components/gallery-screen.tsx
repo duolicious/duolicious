@@ -18,7 +18,7 @@ import { useBackButtonClaim } from '../events/back-button';
 import { getSignedInUser } from '../events/signed-in-user';
 import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
-import { dragDismissRadius, dragDistance } from './pinchy-math';
+import { dragDismissRadius, dragDistance, zoomTransform } from './pinchy-math';
 import { FillImage } from './fill-image';
 import { useVideoMuted } from './looping-video';
 import { useSharedVideo } from './shared-video';
@@ -129,8 +129,7 @@ const ExpandingPhoto = ({
   }, [geometry, from, container, frameAt]);
 
   // At `progress` 1 this is the photo exactly as Pinchy has it, zoom and all,
-  // so closing carries it out from wherever the user left it. Same transform
-  // order as Pinchy's.
+  // so closing carries it out from wherever the user left it.
   const clipStyle = useAnimatedStyle(() => {
     // A dismiss drag rounds all four corners on top of the open/close
     // rounding, so the corners match the dragged photo at the hand-off.
@@ -145,15 +144,12 @@ const ExpandingPhoto = ({
       borderTopRightRadius: lerp(radii.topRight, 0, progress.value) + dragRadius,
       borderBottomLeftRadius: lerp(radii.bottomLeft, 0, progress.value) + dragRadius,
       borderBottomRightRadius: lerp(radii.bottomRight, 0, progress.value) + dragRadius,
-      transform: [
-        // The pager offset and dismiss drag are screen-space, so they go
-        // outermost, ahead of the zoom scale.
-        { translateX: (openedX - scrollX.value) + dismiss.x.value },
-        { translateY: dismiss.y.value },
-        { scale: lerp(1, zoom.scale.value, progress.value) },
-        { translateX: lerp(0, zoom.translateX.value, progress.value) },
-        { translateY: lerp(0, zoom.translateY.value, progress.value) },
-      ],
+      transform: zoomTransform(
+        lerp(1, zoom.scale.value, progress.value),
+        (openedX - scrollX.value) + dismiss.x.value
+          + lerp(0, zoom.translateX.value, progress.value),
+        dismiss.y.value + lerp(0, zoom.translateY.value, progress.value),
+      ),
     };
   });
 

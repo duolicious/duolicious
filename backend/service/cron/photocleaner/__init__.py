@@ -3,8 +3,10 @@ from service.cron.photocleaner.sql import *
 from service.cron.cronutil import (
     MAX_RANDOM_START_DELAY,
     delete_images_from_object_store,
+    download_450_images,
     log_stacktrace,
 )
+from pgvector import Vector
 import asyncio
 import random
 import logging
@@ -18,12 +20,42 @@ logger = logging.getLogger(__name__)
 
 logger.info('Hello from cron module')
 
+async def store_banned_photo_embeddings(
+    uuids_and_hashes: list[tuple[str, str]],
+) -> None:
+    from serviceshared.antiabuse.clipnsfw.predict import embed_clip_nsfw
+
+    image_data_seq = await download_450_images(
+        [uuid for uuid, _ in uuids_and_hashes])
+
+    embeddings = await asyncio.to_thread(lambda: [
+        embed_clip_nsfw(image_data) if image_data else None
+        for image_data in image_data_seq
+    ])
+
+    params_seq = [
+        dict(
+            hash=banned_hash,
+            embedding=None if embedding is None else Vector(embedding),
+        )
+        for (_, banned_hash), embedding in zip(uuids_and_hashes, embeddings)
+    ]
+
+    async with api_tx() as tx:
+        await tx.executemany(Q_SET_BANNED_PHOTO_EMBEDDING, params_seq)
+
 async def clean_photos_once() -> None:
     params = dict(polling_interval_seconds=PHOTO_CLEANER_POLL_SECONDS)
 
     async with api_tx() as tx:
         cur_unused_photos = await tx.execute(Q_UNUSED_PHOTOS, params)
         rows_unused_photos = await cur_unused_photos.fetchall()
+
+    await log_stacktrace(lambda: store_banned_photo_embeddings([
+        (r['uuid'], r['banned_hash'])
+        for r in rows_unused_photos
+        if r['banned_hash']
+    ]))
 
     uuids = [r['uuid'] for r in rows_unused_photos]
     await delete_images_from_object_store(
