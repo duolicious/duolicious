@@ -52,9 +52,9 @@ async def clean_photos_once() -> None:
         rows_unused_photos = await cur_unused_photos.fetchall()
 
     await log_stacktrace(lambda: store_banned_photo_embeddings([
-        (r['uuid'], r['unembedded_banned_hash'])
+        (r['uuid'], r['banned_hash'])
         for r in rows_unused_photos
-        if r['unembedded_banned_hash']
+        if r['banned_hash']
     ]))
 
     uuids = [r['uuid'] for r in rows_unused_photos]
