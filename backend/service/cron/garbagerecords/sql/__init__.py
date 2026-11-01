@@ -47,7 +47,9 @@ WITH q1 AS (
     DELETE FROM
         photo
     WHERE
-        nsfw_score > 0.8
+        uuid IN (
+            SELECT uuid FROM photo WHERE nsfw_score_v2 > 0.95 LIMIT 50
+        )
     RETURNING
         uuid, person_id
 ), each_deleted_photo AS (

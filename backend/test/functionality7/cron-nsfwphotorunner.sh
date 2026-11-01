@@ -108,3 +108,13 @@ jc PATCH /profile-info \
       }"
 
 retry_until check_rescored
+
+echo 'Photos scored above 0.95 are deleted'
+deleted_uuid=$(q "select uuid from photo where position = 1")
+q "update photo set nsfw_score_v2 = 0.96 where position = 1"
+q "update photo set nsfw_score_v2 = 0.95 where position = 2"
+
+wait_for_deletion_by_uuid "$deleted_uuid"
+
+[[ "$(q "select count(*) from photo where position = 1")" = 0 ]]
+[[ "$(q "select count(*) from photo where position = 2")" = 1 ]]
