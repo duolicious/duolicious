@@ -37,6 +37,7 @@ import {
   focalZoomPosition,
   lockedDragMode,
   pageNavDirection,
+  zoomTransform,
 } from './pinchy-math';
 
 // Double-tap zoom eases in rather than snapping. A pinch or pan writing the
@@ -562,14 +563,11 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
 
     return {
       borderRadius: dragDismissRadius(dismissX, dismissY),
-      // Translations go ahead of the scale so they stay in screen pixels:
-      // easing scale and position together then moves every point of the
-      // photo in a straight line.
-      transform: [
-        { translateX: dismissX + positionX.value },
-        { translateY: dismissY + positionY.value },
-        { scale: scale.value },
-      ],
+      transform: zoomTransform(
+        scale.value,
+        dismissX + positionX.value,
+        dismissY + positionY.value,
+      ),
     };
   });
 
