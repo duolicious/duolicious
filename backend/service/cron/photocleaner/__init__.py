@@ -34,9 +34,11 @@ async def store_banned_photo_embeddings(
     ])
 
     params_seq = [
-        dict(hash=banned_hash, embedding=Vector(embedding))
+        dict(
+            hash=banned_hash,
+            embedding=None if embedding is None else Vector(embedding),
+        )
         for (_, banned_hash), embedding in zip(uuids_and_hashes, embeddings)
-        if embedding is not None
     ]
 
     async with api_tx() as tx:

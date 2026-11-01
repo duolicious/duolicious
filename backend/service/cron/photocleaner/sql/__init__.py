@@ -16,7 +16,8 @@ Q_SET_BANNED_PHOTO_EMBEDDING = """
 UPDATE
     banned_photo_hash
 SET
-    embedding = %(embedding)s
+    embedding = %(embedding)s,
+    photo_uuid = NULL
 WHERE
     hash = %(hash)s
 """
