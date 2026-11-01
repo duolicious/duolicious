@@ -143,19 +143,13 @@ def file_md5(path: Path) -> str:
         return hashlib.file_digest(file, 'md5').hexdigest()
 
 
-def score_frames(work: Path) -> tuple[float, float]:
-    from serviceshared.antiabuse.antiporn import predict_nsfw
+def score_frames(work: Path) -> float:
     from serviceshared.antiabuse.clipnsfw.predict import predict_clip_nsfw
 
-    frames = [
-        path.read_bytes()
+    return max(predict_clip_nsfw([
+        io.BytesIO(path.read_bytes())
         for path in [work / 'poster.png', *sorted(work.glob('still-*.png'))]
-    ]
-
-    return (
-        max(predict_nsfw([io.BytesIO(frame) for frame in frames])),
-        max(predict_clip_nsfw([io.BytesIO(frame) for frame in frames])),
-    )
+    ]))
 
 
 async def publish_video(job: Job, work: Path, cpu: int) -> None:
@@ -226,9 +220,9 @@ async def publish_video(job: Job, work: Path, cpu: int) -> None:
     if len(video) > 10_000_000:
         raise Exception(f'The transcoded video is {len(video)} bytes')
 
-    nsfw_score, nsfw_score_v2 = await asyncio.to_thread(score_frames, work)
+    nsfw_score_v2 = await asyncio.to_thread(score_frames, work)
 
-    if nsfw_score > 0.8:
+    if nsfw_score_v2 > 0.95:
         raise Rejection(V_RULES)
 
     poster = await asyncio.to_thread(
@@ -254,7 +248,6 @@ async def publish_video(job: Job, work: Path, cpu: int) -> None:
         blurhash=blurhash,
         extra_exts=['mp4'],
         hash=md5,
-        nsfw_score=nsfw_score,
         nsfw_score_v2=nsfw_score_v2,
         duration_seconds=max(1, round(output.format.duration or duration)),
         **photo_geometry_params(geometry),
