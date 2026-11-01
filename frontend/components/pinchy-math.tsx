@@ -3,11 +3,11 @@
 // `'worklet'` directives let the reanimated babel plugin inline these into the
 // gesture worklets that call them.
 
-// The (pre-scale, image-unit) position that keeps the point under the fingers
-// at the start of a pinch under them at `newScale`. Screen coordinates relate
-// to position as `screen = centre + scale * (imagePoint + position)`, so the
-// image point under the base focal is `(focalBase - centre)/baseScale -
-// basePosition`, and we solve for the position that puts it under the current
+// The screen-space position that keeps the point under the fingers at the
+// start of a pinch under them at `newScale`. Screen coordinates relate to
+// position as `screen = centre + position + scale * imagePoint`, so the image
+// point under the base focal is `(focalBase - centre - basePosition) /
+// baseScale`, and we solve for the position that puts it under the current
 // focal at the new scale. When the fingers move without spreading this reduces
 // to a pan.
 const focalZoomPosition = (
@@ -23,12 +23,12 @@ const focalZoomPosition = (
   const cx = viewportWidth / 2;
   const cy = viewportHeight / 2;
 
-  const anchorX = (baseFocal.x - cx) / baseScale - basePosition.x;
-  const anchorY = (baseFocal.y - cy) / baseScale - basePosition.y;
+  const anchorX = (baseFocal.x - cx - basePosition.x) / baseScale;
+  const anchorY = (baseFocal.y - cy - basePosition.y) / baseScale;
 
   return {
-    x: (focal.x - cx) / newScale - anchorX,
-    y: (focal.y - cy) / newScale - anchorY,
+    x: focal.x - cx - newScale * anchorX,
+    y: focal.y - cy - newScale * anchorY,
   };
 };
 
@@ -50,20 +50,15 @@ const constrainPosition = (
   const adjustedWidth = imageWidth * currentScale;
   const adjustedHeight = imageHeight * currentScale;
 
-  const maxTranslateX = (adjustedWidth > viewportWidth) ?
-    (adjustedWidth - viewportWidth) / 2 / currentScale :
-    (viewportWidth - adjustedWidth) / 2 / currentScale;
-
-  const maxTranslateY = (adjustedHeight > viewportHeight) ?
-    (adjustedHeight - viewportHeight) / 2 / currentScale :
-    (viewportHeight - adjustedHeight) / 2 / currentScale;
+  const maxTranslateX = (adjustedWidth - viewportWidth) / 2;
+  const maxTranslateY = (adjustedHeight - viewportHeight) / 2;
 
   return {
     x: (adjustedWidth > viewportWidth) ?
-       Math.min(maxTranslateX, Math.max(-maxTranslateX, x + dx / currentScale)) :
+       Math.min(maxTranslateX, Math.max(-maxTranslateX, x + dx)) :
        0,
     y: (adjustedHeight > viewportHeight) ?
-       Math.min(maxTranslateY, Math.max(-maxTranslateY, y + dy / currentScale)) :
+       Math.min(maxTranslateY, Math.max(-maxTranslateY, y + dy)) :
        0,
   };
 };
@@ -144,6 +139,15 @@ const dragDismissRadius = (x: number, y: number): number => {
     * DRAG_DISMISS_MAX_RADIUS;
 };
 
+const zoomTransform = (
+  scale: number,
+  x: number,
+  y: number,
+): [{ translateX: number }, { translateY: number }, { scale: number }] => {
+  'worklet';
+  return [{ translateX: x }, { translateY: y }, { scale }];
+};
+
 export {
   constrainPosition,
   dragDismissRadius,
@@ -151,4 +155,5 @@ export {
   focalZoomPosition,
   lockedDragMode,
   pageNavDirection,
+  zoomTransform,
 };
