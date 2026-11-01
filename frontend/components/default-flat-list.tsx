@@ -11,6 +11,7 @@ import {
   StyleSheet,
   View,
   ViewStyle,
+  ViewToken,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
@@ -26,6 +27,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -78,6 +80,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
 });
+
+const FETCH_AHEAD_SCREENS = 5;
 
 type Page<ItemT> = ItemT[] | 'fetching'
 
@@ -203,7 +207,10 @@ type DefaultFlatListProps<ItemT> =
     | "ListFooterComponent"
     | "data"
     | "keyExtractor"
+    | "onEndReached"
+    | "onEndReachedThreshold"
     | "onRefresh"
+    | "onViewableItemsChanged"
     | "refreshing"
     | "renderItem"
   > & {
@@ -585,6 +592,24 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
 
   const data = useMemo(() => _.chunk(items, numColumns), [items, numColumns]);
 
+  const latest = useRef({ rowCount: 0, fetchNextPage });
+
+  useLayoutEffect(() => {
+    latest.current = { rowCount: data.length, fetchNextPage };
+  }, [data.length, fetchNextPage]);
+
+  const onViewableItemsChanged = useCallback((
+    { viewableItems }: { viewableItems: ViewToken<ItemT[]>[] }
+  ) => {
+    const { rowCount, fetchNextPage } = latest.current;
+    const lastVisibleRow = viewableItems.at(-1)?.index ?? -1;
+    const rowsBelow = rowCount - 1 - lastVisibleRow;
+
+    if (rowsBelow < FETCH_AHEAD_SCREENS * viewableItems.length) {
+      return fetchNextPage();
+    }
+  }, []);
+
   const renderRow = useCallback(
     ({ item: row, index, separators }: ListRenderItemInfo<ItemT[]>) =>
       numColumns === 1 ?
@@ -615,8 +640,7 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
       ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
-      onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
-      onEndReached={fetchNextPage}
+      onViewableItemsChanged={onViewableItemsChanged}
       {...listProps}
       {...slots}
       {...hiddenOnScrollHeader}

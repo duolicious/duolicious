@@ -54,7 +54,11 @@ describe('DefaultFlatList', () => {
     await layOut(renderer);
     expect(shownItems(renderer)).toEqual(['a', 'b']);
 
-    await act(async () => { await flatList(renderer).onEndReached(); });
+    await act(async () => {
+      await flatList(renderer).onViewableItemsChanged({
+        viewableItems: [{ index: 1 }],
+      });
+    });
     expect(shownItems(renderer)).toEqual(['a', 'b', 'c']);
   });
 
