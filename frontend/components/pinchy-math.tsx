@@ -139,10 +139,6 @@ const dragDismissRadius = (x: number, y: number): number => {
     * DRAG_DISMISS_MAX_RADIUS;
 };
 
-// The photo's transform: a screen-space offset, then the zoom. Keeping the
-// offset ahead of the scale keeps it in screen pixels, so easing scale and
-// offset together moves every point of the photo in a straight line. Shared by
-// the zoomable photo and the closing one so the two agree at the hand-off.
 const zoomTransform = (
   scale: number,
   x: number,
