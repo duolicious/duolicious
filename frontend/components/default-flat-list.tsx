@@ -233,7 +233,6 @@ type DefaultFlashListProps<ItemT> =
       endText?: string,
       endTextStyle?: StyleProp<ViewStyle>,
       fetchPage: (pageNumber: number) => Promise<ItemT[] | FetchPageError | null>,
-      fetchAheadScreens?: number,
       hideListHeaderComponentWhenEmpty?: boolean,
       hideListHeaderComponentWhenLoading?: boolean,
       dataKey?: string,
@@ -676,8 +675,6 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
     onLayout,
   } = useList<ItemT, FlashListRef<ItemT>>(ref, props);
 
-  const { fetchAheadScreens, ...listProps } = props;
-
   const contentContainerStyle = useMemo(() => ({
     ...styles.flatList,
     ...(props.contentContainerStyle as object | undefined),
@@ -692,10 +689,10 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
       ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
-      onEndReachedThreshold={fetchAheadScreens ?? props.onEndReachedThreshold ?? 3}
+      onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
       onEndReached={fetchNextPage}
       data={items}
-      {...listProps}
+      {...props}
       {...slots}
       contentContainerStyle={contentContainerStyle}
       onContentSizeChange={onContentSizeChange}
