@@ -63,6 +63,17 @@ AND ( -- Exclude users who should be verified but aren't
 )
 AND
     prospect.last_online_time > now() - interval '7 days'
+AND
+    NOT EXISTS (
+        SELECT
+            1
+        FROM
+            photo
+        WHERE
+            person_id = prospect.id
+        AND
+            nsfw_score_v2 > 0.5
+    )
 {tail}
 """
 
