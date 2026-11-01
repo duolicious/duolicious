@@ -11,3 +11,7 @@
 --
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
+
+
+ALTER TABLE photo
+    DROP COLUMN IF EXISTS nsfw_score;
