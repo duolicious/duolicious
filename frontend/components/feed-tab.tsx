@@ -1553,6 +1553,7 @@ const FeedTab = () => {
           "everyone’s doing\xa0👀"
         }
         fetchPage={fetchPage}
+        fetchAheadScreens={5}
         contentContainerStyle={styles.listContentContainerStyle}
         renderItem={renderItem}
         keyExtractor={keyExtractor}

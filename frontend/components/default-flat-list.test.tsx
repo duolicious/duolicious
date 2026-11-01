@@ -12,7 +12,7 @@ jest.mock('./logo/logo-activity-indicator', () => ({
 
 type Renderer = ReturnType<typeof create>;
 
-const renderList = (pages: string[][][]) => {
+const renderList = (pages: string[][][], fetchAheadScreens?: number) => {
   let generation = -1;
   const fetchPage = async (pageNumber: number) => {
     if (pageNumber === 1) generation++;
@@ -27,6 +27,7 @@ const renderList = (pages: string[][][]) => {
       <DefaultFlatList<string>
         ref={ref}
         fetchPage={fetchPage}
+        fetchAheadScreens={fetchAheadScreens}
         renderItem={({ item }) => <Text>{item}</Text>}
       />
     );
@@ -54,12 +55,29 @@ describe('DefaultFlatList', () => {
     await layOut(renderer);
     expect(shownItems(renderer)).toEqual(['a', 'b']);
 
+    await act(async () => { await flatList(renderer).onEndReached(); });
+    expect(shownItems(renderer)).toEqual(['a', 'b', 'c']);
+  });
+
+  test('fetches ahead from the last visible row', async () => {
+    const { renderer } = renderList([[['a', 'b', 'c'], ['d']]], 1);
+
+    await layOut(renderer);
+    expect(flatList(renderer).onEndReached).toBeUndefined();
+
     await act(async () => {
       await flatList(renderer).onViewableItemsChanged({
-        viewableItems: [{ index: 1 }],
+        viewableItems: [{ index: 0 }],
       });
     });
     expect(shownItems(renderer)).toEqual(['a', 'b', 'c']);
+
+    await act(async () => {
+      await flatList(renderer).onViewableItemsChanged({
+        viewableItems: [{ index: 2 }],
+      });
+    });
+    expect(shownItems(renderer)).toEqual(['a', 'b', 'c', 'd']);
   });
 
   test('shows refreshed results', async () => {

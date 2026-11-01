@@ -81,8 +81,6 @@ const styles = StyleSheet.create({
   },
 });
 
-const FETCH_AHEAD_SCREENS = 5;
-
 type Page<ItemT> = ItemT[] | 'fetching'
 
 type FetchPageError = {
@@ -207,14 +205,13 @@ type DefaultFlatListProps<ItemT> =
     | "ListFooterComponent"
     | "data"
     | "keyExtractor"
-    | "onEndReached"
-    | "onEndReachedThreshold"
     | "onRefresh"
     | "onViewableItemsChanged"
     | "refreshing"
     | "renderItem"
   > & {
     renderItem: ListRenderItem<ItemT>,
+    fetchAheadScreens?: number,
     keyExtractor?: (item: ItemT, index: number) => string,
     emptyText?: string,
     errorText?: string,
@@ -236,6 +233,7 @@ type DefaultFlashListProps<ItemT> =
       endText?: string,
       endTextStyle?: StyleProp<ViewStyle>,
       fetchPage: (pageNumber: number) => Promise<ItemT[] | FetchPageError | null>,
+      fetchAheadScreens?: number,
       hideListHeaderComponentWhenEmpty?: boolean,
       hideListHeaderComponentWhenLoading?: boolean,
       dataKey?: string,
@@ -587,25 +585,30 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     columnWrapperStyle,
     renderItem,
     keyExtractor: itemKeyExtractor = keyExtractor,
+    fetchAheadScreens,
     ...listProps
   } = props;
 
   const data = useMemo(() => _.chunk(items, numColumns), [items, numColumns]);
 
-  const latest = useRef({ rowCount: 0, fetchNextPage });
+  const latest = useRef({ rowCount: 0, fetchAheadScreens: 0, fetchNextPage });
 
   useLayoutEffect(() => {
-    latest.current = { rowCount: data.length, fetchNextPage };
-  }, [data.length, fetchNextPage]);
+    latest.current = {
+      rowCount: data.length,
+      fetchAheadScreens: fetchAheadScreens ?? 0,
+      fetchNextPage,
+    };
+  }, [data.length, fetchAheadScreens, fetchNextPage]);
 
   const onViewableItemsChanged = useCallback((
     { viewableItems }: { viewableItems: ViewToken<ItemT[]>[] }
   ) => {
-    const { rowCount, fetchNextPage } = latest.current;
+    const { rowCount, fetchAheadScreens, fetchNextPage } = latest.current;
     const lastVisibleRow = viewableItems.at(-1)?.index ?? -1;
     const rowsBelow = rowCount - 1 - lastVisibleRow;
 
-    if (rowsBelow < FETCH_AHEAD_SCREENS * viewableItems.length) {
+    if (rowsBelow < fetchAheadScreens * viewableItems.length) {
       return fetchNextPage();
     }
   }, []);
@@ -640,7 +643,12 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
       ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
-      onViewableItemsChanged={onViewableItemsChanged}
+      {...(fetchAheadScreens === undefined ? {
+        onEndReachedThreshold: props.onEndReachedThreshold ?? 3,
+        onEndReached: fetchNextPage,
+      } : {
+        onViewableItemsChanged,
+      })}
       {...listProps}
       {...slots}
       {...hiddenOnScrollHeader}
@@ -668,6 +676,8 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
     onLayout,
   } = useList<ItemT, FlashListRef<ItemT>>(ref, props);
 
+  const { fetchAheadScreens, ...listProps } = props;
+
   const contentContainerStyle = useMemo(() => ({
     ...styles.flatList,
     ...(props.contentContainerStyle as object | undefined),
@@ -682,10 +692,10 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
       ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
-      onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
+      onEndReachedThreshold={fetchAheadScreens ?? props.onEndReachedThreshold ?? 3}
       onEndReached={fetchNextPage}
       data={items}
-      {...props}
+      {...listProps}
       {...slots}
       contentContainerStyle={contentContainerStyle}
       onContentSizeChange={onContentSizeChange}
