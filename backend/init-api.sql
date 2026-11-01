@@ -475,7 +475,6 @@ CREATE TABLE IF NOT EXISTS photo (
     uuid TEXT NOT NULL,
     blurhash TEXT NOT NULL,
     verified BOOLEAN NOT NULL DEFAULT FALSE,
-    nsfw_score FLOAT4,
     extra_exts TEXT[] NOT NULL DEFAULT '{}',
     hash TEXT NOT NULL,
     width INT,
@@ -906,9 +905,6 @@ CREATE INDEX IF NOT EXISTS idx__deleted_photo_admin_token__expires_at
 
 CREATE INDEX IF NOT EXISTS idx__photo__uuid
     ON photo(uuid);
-
-CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
-    ON photo(nsfw_score);
 
 CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
     ON photo(nsfw_score_v2);
