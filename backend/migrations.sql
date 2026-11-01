@@ -11,8 +11,3 @@
 --
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
-
-
-ALTER TABLE banned_photo_hash
-    ADD COLUMN IF NOT EXISTS photo_uuid TEXT,
-    ADD COLUMN IF NOT EXISTS embedding VECTOR(768);
