@@ -1,17 +1,14 @@
 import { japi } from './api';
 import { takeWebReturnParams } from './oauth-return';
 import { refreshProfileInfo } from '../events/profile-info';
-import { Logo14 } from '../components/logo';
-import { SomethingWentWrongToast, notifyIconToast } from '../components/toast';
+import { SomethingWentWrongToast } from '../components/toast';
+import { notifyGoldToast } from '../components/gold-toast';
 import { notify } from '../events/events';
 
 const GOLD_TOAST_LABELS = new Map([
   ['subscribed', 'You now have Gold'],
   ['pending', 'Your PayPal subscription is being processed'],
 ]);
-
-const notifyGoldToast = (label: string) =>
-  notifyIconToast(label, (color) => <Logo14 size={24} color={color} />, 6000);
 
 const showPendingPayPalResultToast = (): void => {
   const label = GOLD_TOAST_LABELS.get(
