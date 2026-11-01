@@ -13,6 +13,9 @@
 -- from this file: init-api.sql already carries the change for fresh databases.
 
 
+ALTER TABLE photo
+    DROP COLUMN IF EXISTS nsfw_score;
+
 CREATE TABLE IF NOT EXISTS video_job (
     uuid TEXT PRIMARY KEY,
     person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
