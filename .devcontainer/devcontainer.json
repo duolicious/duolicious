@@ -3,7 +3,7 @@
   "build": { "dockerfile": "Dockerfile" },
   "features": {
     "ghcr.io/devcontainers/features/node:2": { "version": "lts" },
-    "ghcr.io/devcontainers/features/docker-in-docker:4": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:4": { "moby": false },
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "forwardPorts": [8081, 5000, 8025, 8080],
