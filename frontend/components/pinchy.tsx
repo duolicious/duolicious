@@ -509,16 +509,23 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
           positionX.set(withTiming(0, ZOOM_TIMING));
           positionY.set(withTiming(0, ZOOM_TIMING));
         } else {
-          const offsetX = imageWidth.value / 2 - e.x;
-          const offsetY = imageHeight.value / 2 - e.y;
+          const target = focalZoomPosition(
+            scale.value,
+            2,
+            { x: positionX.value, y: positionY.value },
+            { x: e.x, y: e.y },
+            { x: viewportWidthSv.value / 2, y: viewportHeightSv.value / 2 },
+            viewportWidthSv.value,
+            viewportHeightSv.value,
+          );
           const newPos = constrainPosition(
             2,
             imageWidth.value,
             imageHeight.value,
             viewportWidthSv.value,
             viewportHeightSv.value,
-            offsetX,
-            offsetY,
+            target.x,
+            target.y,
           );
           scale.set(withTiming(2, ZOOM_TIMING));
           positionX.set(withTiming(newPos.x, ZOOM_TIMING));
@@ -555,14 +562,13 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
 
     return {
       borderRadius: dragDismissRadius(dismissX, dismissY),
-      // The dismiss drag translates the whole photo in screen space, so it goes
-      // outermost (ahead of the zoom scale, which it must not be multiplied by).
+      // Translations go ahead of the scale so they stay in screen pixels:
+      // easing scale and position together then moves every point of the
+      // photo in a straight line.
       transform: [
-        { translateX: dismissX },
-        { translateY: dismissY },
+        { translateX: dismissX + positionX.value },
+        { translateY: dismissY + positionY.value },
         { scale: scale.value },
-        { translateX: positionX.value },
-        { translateY: positionY.value },
       ],
     };
   });

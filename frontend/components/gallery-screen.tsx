@@ -133,13 +133,15 @@ const ExpandingPhoto = ({
       borderBottomLeftRadius: lerp(radii.bottomLeft, 0, progress.value) + dragRadius,
       borderBottomRightRadius: lerp(radii.bottomRight, 0, progress.value) + dragRadius,
       transform: [
-        // The pager offset and dismiss drag are screen-space, so they go
-        // outermost, ahead of the zoom scale.
-        { translateX: (openedX - scrollX.value) + dismiss.x.value },
-        { translateY: dismiss.y.value },
+        {
+          translateX: (openedX - scrollX.value) + dismiss.x.value
+            + lerp(0, zoom.translateX.value, progress.value),
+        },
+        {
+          translateY: dismiss.y.value
+            + lerp(0, zoom.translateY.value, progress.value),
+        },
         { scale: lerp(1, zoom.scale.value, progress.value) },
-        { translateX: lerp(0, zoom.translateX.value, progress.value) },
-        { translateY: lerp(0, zoom.translateY.value, progress.value) },
       ],
     };
   });
