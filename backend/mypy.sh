@@ -23,7 +23,7 @@ fi
 
 if [ -n "$1" ]
 then
-  python3 -m mypy "${1}"
+  python3 -m mypy --python-version "$(< .python-version)" "${1}"
 else
-  python3 -m mypy .
+  python3 -m mypy --python-version "$(< .python-version)" .
 fi
