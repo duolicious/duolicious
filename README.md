@@ -113,7 +113,7 @@ still the easiest way to get everything running at once.
 CI runs the full test suite for both halves on every push and pull request to
 `main` (see [`.github/workflows/`](.github/workflows/)):
 
-- **Backend:** mypy, unit tests, and functionality suites 1–6.
+- **Backend:** mypy, unit tests, and the functionality suites.
 - **Frontend:** ESLint, Jest, Playwright, and TypeScript type checks.
 
 ## Contributing
