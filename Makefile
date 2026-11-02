@@ -1,10 +1,13 @@
 # The commands CI runs, so a local run and CI run the same thing.
 # `make help` lists the targets.
-.PHONY: help check backend-typecheck backend-unit backend-functionality \
+.PHONY: help install check backend-typecheck backend-unit backend-functionality \
 	e2e-backend frontend-lint frontend-typecheck frontend-test frontend-e2e
 
 help:  ## List the targets
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-24s %s\n", $$1, $$2}'
+
+install:  ## Install the frontend's packages and Playwright's Chromium
+	cd frontend && npm ci && npx playwright install --with-deps chromium
 
 check: backend-typecheck frontend-lint frontend-typecheck frontend-test  ## Every check that needs no test stack
 

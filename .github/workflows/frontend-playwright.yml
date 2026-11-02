@@ -40,12 +40,8 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: lts/*
-    - name: Install dependencies
-      working-directory: frontend
-      run: npm ci
-    - name: Install Playwright Browsers
-      working-directory: frontend
-      run: npx playwright install --with-deps chromium
+    - name: Install dependencies and Playwright's Chromium
+      run: make install
     - name: Run Playwright tests
       run: make frontend-e2e PROJECTS='${{ matrix.projects }}'
     - name: Show backend logs

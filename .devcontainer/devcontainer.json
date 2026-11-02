@@ -14,7 +14,7 @@
     "8080": { "label": "Status" }
   },
   "otherPortsAttributes": { "onAutoForward": "silent" },
-  "updateContentCommand": "cd frontend && npm ci && npx playwright install --with-deps chromium",
+  "updateContentCommand": "make install",
   "customizations": {
     "vscode": {
       "extensions": [
