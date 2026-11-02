@@ -253,7 +253,14 @@ WITH valid_session AS (
     WHERE
         session_token_hash = %(session_token_hash)s AND
         otp = %(otp)s AND
-        otp_expiry > NOW()
+        otp_expiry > NOW() AND
+        NOT EXISTS (
+            SELECT 1
+            FROM person
+            WHERE
+                person.id = duo_session.person_id AND
+                'bot' = ANY(person.roles)
+        )
     RETURNING email
 )
 DELETE FROM onboardee
