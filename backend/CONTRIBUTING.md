@@ -49,26 +49,26 @@ Two principles shape the tree:
 ./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
-- Run a full suite (e.g. functionality1):
+- Run a full suite (e.g. functionality1) from the repository root:
 
 ```bash
-./test/util/with-container.sh ./test/functionality.sh 1
+make backend-functionality SUITE=1
 ```
 
 ## Type checking
 
-Run mypy before opening a PR:
+Run the type checks before opening a PR:
 
 ```bash
-./mypy.sh           # core modules
-./mypy.sh path.py   # a specific file or directory
+make backend-typecheck   # from the repository root
+./mypy.sh path.py        # from backend/: a specific file or directory
 ```
 
 ## Pull request process
 
 1. Fork the repo and create your branch from `main` or the appropriate topic branch
 2. Make your change with tests where sensible
-3. Ensure `./mypy.sh` passes
+3. Ensure `make backend-typecheck` passes
 4. Add/update docs if behavior changes
 5. Open a PR using the template below
 

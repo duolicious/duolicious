@@ -7,19 +7,14 @@ on:
     paths:
       - backend/**
       - .devcontainer/Dockerfile
+      - Makefile
       - .github/workflows/backend-test.yml
   pull_request:
     paths:
       - backend/**
       - .devcontainer/Dockerfile
+      - Makefile
       - .github/workflows/backend-test.yml
-
-# All run-steps below execute from the backend subdirectory, so the
-# relative paths inherited from the original backend repo
-# (./mypy.sh, ./test/...) resolve unchanged.
-defaults:
-  run:
-    working-directory: backend
 
 jobs:
   mypy:
@@ -29,8 +24,7 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version-file: backend/.python-version
-    - run: ./check-python-version.sh
-    - run: ./mypy.sh
+    - run: make backend-typecheck
 
   functionality-tests-1:
     runs-on: ubuntu-latest
@@ -40,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 1
+        run: make backend-functionality SUITE=1
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -58,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 4
+        run: make backend-functionality SUITE=4
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -76,7 +70,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 2
+        run: make backend-functionality SUITE=2
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -97,7 +91,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 3
+        run: make backend-functionality SUITE=3
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -115,7 +109,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 5
+        run: make backend-functionality SUITE=5
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -133,7 +127,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 6
+        run: make backend-functionality SUITE=6
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -151,7 +145,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 7
+        run: make backend-functionality SUITE=7
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -169,7 +163,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 8
+        run: make backend-functionality SUITE=8
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -187,7 +181,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run functionality tests
-        run: ./test/util/with-container.sh ./test/functionality.sh 9
+        run: make backend-functionality SUITE=9
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'
@@ -205,7 +199,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run unit tests
-        run: ./test/util/with-container.sh ./test/unit/unit.sh --no-sudo
+        run: make backend-unit
         env:
           DUO_EMAIL_KEY: 'not-a-real-key'
           DUO_EMAIL_URL: 'https://example.com'

@@ -27,7 +27,7 @@ Optional: if you hit OpenSSL errors on some Node setups or file watch limits on 
 - For native:
   - Android: Android Studio + SDK, an emulator or device
   - iOS: macOS with Xcode installed
-- For end‑to‑end tests: Playwright browsers
+- For end‑to‑end tests: Playwright browsers, and `make` to start the backend
   - Install once: `npx playwright install --with-deps`
 
 You do not need to install the Expo CLI globally; commands are run via npm scripts or `npx`.
@@ -107,11 +107,9 @@ First‑time setup:
 ```bash
 npx playwright install --with-deps
 ```
-The tests drive the app against the real backend. Start a fresh copy of the backend's test stack first, with its rate limits switched off (from `backend/`):
+The tests drive the app against the real backend. Start a fresh copy of the backend's test stack first, with its rate limits switched off (from the repository root):
 ```bash
-mkdir -p test/input
-for f in enable-mocking disable-ip-rate-limit disable-account-rate-limit; do echo 1 > test/input/$f; done
-docker compose -f docker-compose.test.yml up -d --build api status s3mock smtp redis
+make e2e-backend
 ```
 The `seed` project fills the database with a fixed cast of members (it needs `psql` on your `PATH`), and `screens.spec.ts` and `onboarding.spec.ts` compare each screen against the PNGs in `playwright-tests/*-snapshots/`, on desktop and phone layouts. Screenshots render differently between machines, so the committed PNGs come from CI: when a screen changes on purpose, download the failed job's `playwright-report-…` artifact and copy each `test-results/**/<name>-actual.png` over the matching snapshot. New screens write their first PNG into `playwright-tests/*-snapshots/` in the same artifact.
 
