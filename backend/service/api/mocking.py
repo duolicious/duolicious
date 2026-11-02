@@ -24,6 +24,7 @@ enable_mocking_file = _input_dir / 'enable-mocking'
 disable_ip_rate_limit_file = _input_dir / 'disable-ip-rate-limit'
 disable_account_rate_limit_file = _input_dir / 'disable-account-rate-limit'
 mock_ip_address_file = _input_dir / 'mock-ip-address'
+max_online_subscriptions_file = _input_dir / 'max-online-subscriptions'
 
 
 def _file_says_enabled(path: Path) -> bool:
@@ -33,13 +34,9 @@ def _file_says_enabled(path: Path) -> bool:
         return file.read().strip() == '1'
 
 
-def _mocking_allowed(env: str, sentinel_says_on: bool) -> bool:
-    return env == 'dev' and sentinel_says_on
-
-
 @lru_cache()
 def _enable_mocking(ttl_hash: int | None = None) -> bool:
-    return _mocking_allowed(ENV, _file_says_enabled(enable_mocking_file))
+    return ENV == 'dev' and _file_says_enabled(enable_mocking_file)
 
 
 def enable_mocking() -> bool:
@@ -63,3 +60,12 @@ def mock_ip_address() -> str | None:
         return None
     with mock_ip_address_file.open() as file:
         return file.read().strip() or None
+
+
+def max_online_subscriptions_override() -> int | None:
+    if not enable_mocking() or not max_online_subscriptions_file.is_file():
+        return None
+    try:
+        return int(max_online_subscriptions_file.read_text())
+    except ValueError:
+        return None

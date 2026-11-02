@@ -347,10 +347,10 @@ b64url () {
 
 # Mint a fake JWT for the social-login mocking path.
 # Args: $1 = JSON payload string. The header is fixed (HS256/JWT) and the
-# signature is a constant garbage value — when test/input/enable-mocking
-# is '1', auth/social.py decodes payloads without verifying the
-# signature, so any non-empty signature works. Issuer / audience / exp
-# are still enforced, so the JSON payload must include them.
+# signature is a constant garbage value — when mocking is on (see
+# service/api/mocking.py), auth/social.py decodes payloads without
+# verifying the signature, so any non-empty signature works. Issuer /
+# audience / exp are still enforced, so the JSON payload must include them.
 # Example:
 #   t=$(mint_fake_jwt '{"iss":"https://accounts.google.com","aud":"test-dummy.apps.googleusercontent.com","sub":"g-1","email":"a@example.com","email_verified":true,"exp":9999999999}')
 mint_fake_jwt () {

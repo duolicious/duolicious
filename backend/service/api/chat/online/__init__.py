@@ -12,7 +12,7 @@ from enum import Enum
 from serviceshared.commonsql import Q_UPDATE_LAST
 from serviceshared.batcher import Batcher
 from service.api.chat.session import Session
-from service.api.mocking import enable_mocking
+from service.api.mocking import max_online_subscriptions_override
 from service.api.chatprotocol.outbound import (
     OnlineEvent,
     Outbound,
@@ -26,7 +26,6 @@ from serviceshared.database import api_tx
 import asyncio
 import time
 from functools import lru_cache
-from pathlib import Path
 from dataclasses import dataclass
 from serviceshared.constants import (
     LAST_UPDATE_INTERVAL_SECONDS,
@@ -36,27 +35,10 @@ from serviceshared.constants import (
 
 logger = logging.getLogger(__name__)
 
-_TEST_INPUT_DIR = Path(__file__).parents[4] / 'test' / 'input'
-
-
-def _read_test_input(name: str) -> str | None:
-    try:
-        return (_TEST_INPUT_DIR / name).read_text().strip()
-    except:
-        return None
-
-
 @lru_cache(maxsize=1)
 def _max_online_subscriptions(ttl_hash: int) -> int:
-    if not enable_mocking():
-        return MAX_ONLINE_SUBSCRIPTIONS
-
-    override = _read_test_input('max-online-subscriptions')
-
-    try:
-        return MAX_ONLINE_SUBSCRIPTIONS if override is None else int(override)
-    except ValueError:
-        return MAX_ONLINE_SUBSCRIPTIONS
+    override = max_online_subscriptions_override()
+    return MAX_ONLINE_SUBSCRIPTIONS if override is None else override
 
 
 def max_online_subscriptions() -> int:
