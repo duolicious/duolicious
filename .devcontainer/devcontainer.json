@@ -1,0 +1,28 @@
+{
+  "name": "Duolicious",
+  "build": { "dockerfile": "Dockerfile" },
+  "features": {
+    "ghcr.io/devcontainers/features/node:2": { "version": "lts" },
+    "ghcr.io/devcontainers/features/docker-in-docker:4": { "moby": false },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "forwardPorts": [8081, 5000, 8025, 8080],
+  "portsAttributes": {
+    "8081": { "label": "Frontend (web)" },
+    "5000": { "label": "API" },
+    "8025": { "label": "MailHog" },
+    "8080": { "label": "Status" }
+  },
+  "otherPortsAttributes": { "onAutoForward": "silent" },
+  "updateContentCommand": "cd frontend && npm ci && npx playwright install --with-deps chromium",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}

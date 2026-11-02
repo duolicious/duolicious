@@ -28,7 +28,7 @@ Optional: if you hit OpenSSL errors on some Node setups or file watch limits on 
   - Android: Android Studio + SDK, an emulator or device
   - iOS: macOS with Xcode installed
 - For end‑to‑end tests: Playwright browsers
-  - Install once: `npx playwright install --with-deps`
+  - Install once: `npx playwright install --with-deps` (the dev container already installed Chromium, which every configured project uses; opening a trace in Firefox, as the example below does, needs this full install)
 
 You do not need to install the Expo CLI globally; commands are run via npm scripts or `npx`.
 
@@ -144,6 +144,10 @@ GitHub Actions will run Jest, Playwright, type checks, and ESLint on pull reques
 - Expo cache hiccups (rare):
   ```bash
   npx expo start -c
+  ```
+- `EACCES` errors on `.expo` from Expo or Playwright after `docker compose up`: the stack's frontend service runs Expo as root on the bind-mounted `frontend/`, so it leaves `.expo` owned by root. Remove it:
+  ```bash
+  sudo rm -rf .expo
   ```
 
 ---
