@@ -1480,7 +1480,7 @@ async def get_export_data(token: str) -> object:
     # text itself is exported verbatim via the `body` column.
     for row in raw_data['mam_message'] or []:
         row['timestamp'] = datetime.fromtimestamp(
-            timestamp=(row['id'] >> 8) / 1_000_000,
+            (row['id'] >> 8) / 1_000_000,
             tz=timezone.utc,
         ).isoformat()
 

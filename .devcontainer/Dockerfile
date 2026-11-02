@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/python:3.12-trixie
+FROM mcr.microsoft.com/devcontainers/python:3.11-trixie
 RUN apt-get update \
     && apt-get install -y --no-install-recommends postgresql-common \
     && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
