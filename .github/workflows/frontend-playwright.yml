@@ -6,16 +6,14 @@ on:
     paths:
       - frontend/**
       - backend/**
+      - Makefile
       - .github/workflows/frontend-playwright.yml
   pull_request:
     paths:
       - frontend/**
       - backend/**
+      - Makefile
       - .github/workflows/frontend-playwright.yml
-
-defaults:
-  run:
-    working-directory: frontend
 
 jobs:
   test:
@@ -26,42 +24,32 @@ jobs:
         include:
           - name: desktop screens
             artifact: desktop
-            projects: --project desktop
+            projects: desktop
           - name: phone screens
             artifact: phone
-            projects: --project phone
+            projects: phone
           - name: onboarding
             artifact: onboarding
-            projects: --project onboarding-desktop --project onboarding-phone
+            projects: onboarding-desktop onboarding-phone
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Start backend
-      working-directory: backend
-      run: |
-        mkdir -p test/input
-        for f in enable-mocking disable-ip-rate-limit disable-account-rate-limit; do echo 1 > test/input/$f; done
-        docker compose -f docker-compose.test.yml up -d --build api status s3mock smtp redis > /tmp/compose.log 2>&1 &
+      run: make e2e-backend > /tmp/compose.log 2>&1 &
     - uses: actions/setup-node@v4
       with:
         node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps chromium
-    - name: Wait for backend
-      run: curl --silent --fail --retry 300 --retry-delay 1 --retry-all-errors --output /dev/null http://localhost:5000/health
+    - name: Install dependencies and Playwright's Chromium
+      run: make install
     - name: Run Playwright tests
-      run: npx playwright test ${{ matrix.projects }}
+      run: make frontend-e2e PROJECTS='${{ matrix.projects }}'
     - name: Show backend logs
       if: failure()
       working-directory: backend
       run: |
         cat /tmp/compose.log
         docker compose -f docker-compose.test.yml logs api
-    # upload-artifact's `path` is resolved from the workspace root, not the
-    # job's working-directory, so it must include the subdirectory prefix.
     - uses: actions/upload-artifact@v4
       if: always()
       with:

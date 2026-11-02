@@ -26,10 +26,10 @@ Run one test file in a disposable environment:
 ./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
-Run an entire test suite (e.g. all tests in functionality1):
+Run an entire test suite (e.g. all tests in functionality1) from the repository root:
 
 ```bash
-./test/util/with-container.sh ./test/functionality.sh 1
+make backend-functionality SUITE=1
 ```
 
 ## Common local URLs
