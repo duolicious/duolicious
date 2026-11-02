@@ -1,3 +1,4 @@
+import { View } from 'react-native';
 import { Pressable } from '../pressable';
 import { FC } from 'react';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
@@ -110,7 +111,9 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
         }, backgroundStyle]}
       >
         {Icon_ &&
-          <Icon_ color={appTheme.secondaryColor} />
+          <View style={{ width: 18, alignItems: 'center' }}>
+            <Icon_ color={appTheme.secondaryColor} />
+          </View>
         }
         <DefaultText
           style={{
