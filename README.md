@@ -111,12 +111,12 @@ still the easiest way to get everything running at once.
 ### Dev container
 
 [`.devcontainer/`](.devcontainer/) defines a container with the tools the
-tests and linters use (Python, Node, `psql`, ffmpeg, Chromium and Docker), so
-the host needs only Docker and a dev container client, such as VS Code's Dev
-Containers extension. The container runs `make install` when it's created. It
-runs its own Docker daemon, so it's privileged, and `docker compose up` and the
-test stacks build their images inside it. Rebuild the container after
-`.devcontainer/` changes.
+tests and linters use (Python, Node, jq, zstd, `psql` and `pg_dump` 18, ffmpeg,
+Chromium and Docker), so the host needs only Docker and a dev container client,
+such as VS Code's Dev Containers extension. The container runs `make install`
+when it's created. It runs its own Docker daemon, so it's privileged, and
+`docker compose up` and the test stacks build their images inside it. Rebuild
+the container after `.devcontainer/` changes.
 
 ## Tests
 

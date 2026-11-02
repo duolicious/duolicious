@@ -28,7 +28,7 @@ Optional: if you hit OpenSSL errors on some Node setups or file watch limits on 
   - Android: Android Studio + SDK, an emulator or device
   - iOS: macOS with Xcode installed
 - For end‑to‑end tests: Playwright browsers
-  - Install once: `npx playwright install --with-deps` (in the dev container, `make install` already installed Chromium, which every configured project uses)
+  - Install once: `npx playwright install --with-deps` (in the dev container, `make install` already installed Chromium, which every configured project uses; opening a trace in Firefox, as the example below does, needs this full install)
 - For end‑to‑end tests: `make`, to start the backend
 
 You do not need to install the Expo CLI globally; commands are run via npm scripts or `npx`.
@@ -104,7 +104,7 @@ npx eslint . --fix
 ```
 
 ### End‑to‑end tests (Playwright)
-First‑time setup, which the dev container's `make install` has already done for Chromium, the browser every configured project uses:
+First‑time setup:
 ```bash
 npx playwright install --with-deps
 ```
@@ -116,7 +116,7 @@ make e2e-backend frontend-e2e
 
 The `seed` project fills the database with a fixed cast of members (it needs `psql` on your `PATH`), and `screens.spec.ts` and `onboarding.spec.ts` compare each screen against the PNGs in `playwright-tests/*-snapshots/`, on desktop and phone layouts. Screenshots render differently between machines, so the committed PNGs come from CI: when a screen changes on purpose, download the failed job's `playwright-report-…` artifact and copy each `test-results/**/<name>-actual.png` over the matching snapshot. New screens write their first PNG into `playwright-tests/*-snapshots/` in the same artifact.
 
-Run tests and capture traces:
+From `frontend/`, run tests and capture traces:
 ```bash
 npx playwright test --trace on
 ```
