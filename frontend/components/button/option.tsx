@@ -103,7 +103,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           borderBottomWidth: 2,
           borderRadius: 999,
           paddingLeft: 10,
-          paddingRight: 20,
+          paddingRight: showChevron ? 20 : 15,
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'space-between',
@@ -123,7 +123,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
         <DefaultText
           style={{
             paddingLeft: 20,
-            paddingRight: 10,
+            paddingRight: showChevron ? 10 : 0,
             ...((setting ?? noSettingText) === noSettingText ? {
               color: '#888888',
               fontStyle: 'italic',
