@@ -14,6 +14,8 @@ import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faPalette } from '@fortawesome/free-solid-svg-icons/faPalette'
 import { faMoon } from '@fortawesome/free-solid-svg-icons/faMoon'
+import { faPowerOff } from '@fortawesome/free-solid-svg-icons/faPowerOff'
+import { faTrashCan } from '@fortawesome/free-solid-svg-icons/faTrashCan'
 import { faRulerVertical } from '@fortawesome/free-solid-svg-icons/faRulerVertical'
 import { faRuler } from '@fortawesome/free-solid-svg-icons/faRuler'
 import { faHandsPraying } from '@fortawesome/free-solid-svg-icons/faHandsPraying'
@@ -1237,6 +1239,13 @@ const notificationSettingsOptionGroups: OptionGroup<OptionGroupButtons>[] = [
 const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [
   {
     title: 'Delete My Account',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faTrashCan}
+        size={14}
+        style={{ color }}
+      />
+    ),
     description: DeletionDescription,
     input: {
       textShort: {
@@ -1268,6 +1277,13 @@ const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [
 const deactivationOptionGroups: OptionGroup<OptionGroupNone>[] = [
   {
     title: 'Deactivate My Account',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faPowerOff}
+        size={14}
+        style={{ color }}
+      />
+    ),
     description: DeactivationDescription,
     input: {
       none: {

@@ -32,6 +32,7 @@ const RestorePurchasesButton = ({ restorePurchases }: {
         status === 'failed' ? 'Try again later' : ''
       }
       loading={status === 'loading'}
+      showChevron={false}
       icon={
         ({ color = 'black' }) => (
           <FontAwesomeIcon

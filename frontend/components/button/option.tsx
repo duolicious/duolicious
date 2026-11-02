@@ -22,6 +22,7 @@ type ButtonForOptionProps = {
   navigationScreen?: string;
   navigation?: NavigationProp<ParamListBase>;
   loading?: boolean;
+  showChevron?: boolean;
 };
 
 const ButtonForOption = (props: ButtonForOptionProps) => {
@@ -37,6 +38,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
     navigationScreen,
     navigation,
     loading = false,
+    showChevron = true,
   } = props;
 
   if ((label === undefined) === (optionGroups === undefined)) {
@@ -144,7 +146,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
             color={appTheme.brandColor}
           />
         }
-        {!loading &&
+        {!loading && showChevron &&
           <Ionicons
             style={{
               position: 'absolute',
