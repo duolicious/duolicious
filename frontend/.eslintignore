@@ -1,2 +1,4 @@
 playwright-hars/
 playwright-fixtures/
+playwright-report/
+test-results/
