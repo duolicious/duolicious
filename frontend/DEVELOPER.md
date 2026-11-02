@@ -107,10 +107,12 @@ First‑time setup:
 ```bash
 npx playwright install --with-deps
 ```
-The tests drive the app against the real backend. Start a fresh copy of the backend's test stack first, with its rate limits switched off (from the repository root):
+The tests drive the app against the real backend. From the repository root, this starts a fresh copy of the backend's test stack, with its rate limits switched off, waits for its API to be healthy, then runs the tests:
 ```bash
-make e2e-backend
+make e2e-backend frontend-e2e
 ```
+`PROJECTS` picks the Playwright projects, e.g. `make e2e-backend frontend-e2e PROJECTS='desktop phone'`. To run Playwright yourself, as in the commands below, start the stack with `make e2e-backend` and wait until http://localhost:5000/health responds.
+
 The `seed` project fills the database with a fixed cast of members (it needs `psql` on your `PATH`), and `screens.spec.ts` and `onboarding.spec.ts` compare each screen against the PNGs in `playwright-tests/*-snapshots/`, on desktop and phone layouts. Screenshots render differently between machines, so the committed PNGs come from CI: when a screen changes on purpose, download the failed job's `playwright-report-…` artifact and copy each `test-results/**/<name>-actual.png` over the matching snapshot. New screens write their first PNG into `playwright-tests/*-snapshots/` in the same artifact.
 
 Run tests and capture traces:
