@@ -89,8 +89,9 @@ configuration.
 
 The ports are published on `127.0.0.1` only, so other machines on your network
 can't reach the stack. To reach it from other machines, start it with
-`DUO_BIND_ADDRESS=0.0.0.0 docker compose up`. This also exposes Postgres, with
-its default password, and Redis, with no password, to everyone on that network.
+`DUO_BIND_ADDRESS=0.0.0.0 docker compose up`. This also exposes, to everyone on
+that network, Postgres with its default password, Redis with no password, and
+MailHog, which shows every email the stack sends.
 
 If `localhost` doesn't connect, use `127.0.0.1`: the ports are IPv4-only, and
 some clients try IPv6 `::1` first without falling back.

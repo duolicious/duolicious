@@ -3,6 +3,9 @@
 # Paths resolve relative to this file's directory, so it works both on its
 # own (run from frontend/) and when pulled into the root stack
 # via `include`.
+#
+# DUO_BIND_ADDRESS sets the host address every port is published on. See
+# "Run the whole app in one command" in the root README before overriding it.
 services:
   frontend:
     build:

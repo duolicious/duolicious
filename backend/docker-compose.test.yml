@@ -1,3 +1,5 @@
+# DUO_BIND_ADDRESS sets the host address every port is published on. See
+# "Run the whole app in one command" in the root README before overriding it.
 services:
   status:
     build:
