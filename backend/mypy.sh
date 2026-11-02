@@ -20,9 +20,4 @@ then
   python3 -m pip install -q --disable-pip-version-check -r requirements-dev.txt
 fi
 
-if [ -n "$1" ]
-then
-  python3 -m mypy --python-version "$(< .python-version)" "${1}"
-else
-  python3 -m mypy --python-version "$(< .python-version)" .
-fi
+python3 -m mypy --python-version "$(< .python-version)" "${1:-.}"
