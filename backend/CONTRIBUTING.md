@@ -4,7 +4,7 @@ Thanks for your interest in improving Duolicious! This guide will help you get s
 
 ## Getting started (5 minutes)
 
-1. Install: Docker (with Compose), jq, curl, ffmpeg, zstd
+1. Install: Docker (with Compose), jq, curl, ffmpeg, zstd, make
 2. Clone and start the dev stack:
 
 ```bash

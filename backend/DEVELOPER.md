@@ -195,7 +195,7 @@ Then run this from the repository root:
 make backend-functionality SUITE=${n}
 ```
 
-You can also do this in one terminal:
+You can also do this in one terminal, from `backend/`:
 
 ```bash
 docker compose up
