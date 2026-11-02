@@ -12,6 +12,7 @@ from enum import Enum
 from serviceshared.commonsql import Q_UPDATE_LAST
 from serviceshared.batcher import Batcher
 from service.api.chat.session import Session
+from service.api.mocking import enable_mocking
 from service.api.chatprotocol.outbound import (
     OnlineEvent,
     Outbound,
@@ -47,7 +48,7 @@ def _read_test_input(name: str) -> str | None:
 
 @lru_cache(maxsize=1)
 def _max_online_subscriptions(ttl_hash: int) -> int:
-    if _read_test_input('enable-mocking') != '1':
+    if not enable_mocking():
         return MAX_ONLINE_SUBSCRIPTIONS
 
     override = _read_test_input('max-online-subscriptions')

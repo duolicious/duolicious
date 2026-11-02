@@ -1,9 +1,13 @@
 """Test-only overrides toggled by files under `test/input/`.
 
 The functionality test suite drops sentinel files here to force otherwise
-non-deterministic behaviour: bypass rate limits, or pin the client IP. All of
-these are inert unless `enable-mocking` is present, so they can never loosen
-anything in production.
+non-deterministic behaviour. Mocking can skip the IP and account rate limits
+(including the per-account limit on OTP guesses), pin the client IP, skip
+signature checks on Google and Apple sign-in tokens, and change the chat
+online-subscription cap.
+
+All of it is inert unless `DUO_ENV` is `dev` and `enable-mocking` contains
+`1`, so a sentinel file that reaches another environment changes nothing.
 """
 
 import time
@@ -11,6 +15,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from starlette.requests import HTTPConnection
+
+from serviceshared.duoenv.api import ENV
 
 _input_dir = Path(__file__).parent.parent.parent / 'test' / 'input'
 
@@ -27,9 +33,13 @@ def _file_says_enabled(path: Path) -> bool:
         return file.read().strip() == '1'
 
 
+def _mocking_allowed(env: str, sentinel_says_on: bool) -> bool:
+    return env == 'dev' and sentinel_says_on
+
+
 @lru_cache()
 def _enable_mocking(ttl_hash: int | None = None) -> bool:
-    return _file_says_enabled(enable_mocking_file)
+    return _mocking_allowed(ENV, _file_says_enabled(enable_mocking_file))
 
 
 def enable_mocking() -> bool:

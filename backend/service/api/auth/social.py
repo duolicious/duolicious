@@ -86,9 +86,8 @@ def _decode_unverified(
     """
     Decode a JWT *without* signature verification, then enforce the
     same iss/aud/exp/required-claim checks that the real verifiers do.
-    Used only when `enable_mocking()` is True — in production this path
-    is never reached because the mocking flag file isn't shipped in the
-    Docker image (`Dockerfile`'s api stage excludes the `test/` directory).
+    Used only when `enable_mocking()` is True, which requires `DUO_ENV`
+    to be `dev` (see `service.api.mocking`).
     """
     try:
         claims = jwt.decode(
