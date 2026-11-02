@@ -246,7 +246,21 @@ RETURNING
     otp.otp
 """
 
-Q_MAYBE_DELETE_ONBOARDEE = """
+# Keeps a bot-role account's session signed out. Both OTP sign-in queries
+# need it: `post_check_otp` commits `Q_MAYBE_DELETE_ONBOARDEE` even when
+# `Q_MAYBE_SIGN_IN` rejects the session. The caller must name the table
+# `duo_session`.
+_Q_SESSION_NOT_BOT = """
+NOT EXISTS (
+    SELECT 1
+    FROM person
+    WHERE
+        person.id = duo_session.person_id AND
+        'bot' = ANY(person.roles)
+)
+"""
+
+Q_MAYBE_DELETE_ONBOARDEE = f"""
 WITH valid_session AS (
     UPDATE duo_session
     SET signed_in = TRUE
@@ -254,13 +268,7 @@ WITH valid_session AS (
         session_token_hash = %(session_token_hash)s AND
         otp = %(otp)s AND
         otp_expiry > NOW() AND
-        NOT EXISTS (
-            SELECT 1
-            FROM person
-            WHERE
-                person.id = duo_session.person_id AND
-                'bot' = ANY(person.roles)
-        )
+        {_Q_SESSION_NOT_BOT}
     RETURNING email
 )
 DELETE FROM onboardee
@@ -280,16 +288,8 @@ WITH valid_session AS (
         otp = %(otp)s
     AND
         otp_expiry > NOW()
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            person
-        WHERE
-            person.id = duo_session.person_id
-        AND
-            'bot' = ANY(person.roles)
-    )
+    AND
+        {_Q_SESSION_NOT_BOT}
     RETURNING
         person_id,
         email
