@@ -4,6 +4,8 @@
 
 You can run everything with Docker, or run the Python services locally with hot reload against Dockerized infrastructure.
 
+Either way, the Compose files publish ports on `127.0.0.1` only. The [root README](../README.md#run-the-whole-app-in-one-command) covers reaching the stack from other machines, and what to do if `localhost` doesn't connect.
+
 ### Option A: Everything in Docker (easiest)
 
 ```bash
@@ -11,8 +13,6 @@ docker compose up -d
 # Health check
 curl -sf http://localhost:5000/health && echo API OK
 ```
-
-The Compose files publish ports on `127.0.0.1` only. Set `DUO_BIND_ADDRESS=0.0.0.0` to reach the stack from other machines. If `localhost` doesn't connect, use `127.0.0.1`.
 
 ### Option B: Run API/Chat from source with hot reload
 
