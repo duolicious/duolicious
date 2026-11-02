@@ -93,6 +93,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress_}
+      disabled={loading}
       {...hoverProps}
     >
       <Animated.View
@@ -111,7 +112,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
         }, backgroundStyle]}
       >
         {Icon_ &&
-          <View style={{ width: 18, alignItems: 'center' }}>
+          <View style={{ minWidth: 18, alignItems: 'center' }}>
             <Icon_ color={appTheme.secondaryColor} />
           </View>
         }

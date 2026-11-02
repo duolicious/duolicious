@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RestorePurchasesButton } from './restore-purchases-button';
 import { restorePurchases } from '../purchases/purchases';
 import { Toast } from './toast';
+import { Pressable } from './pressable';
 import { getSignedInUser, setSignedInUser } from '../events/signed-in-user';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -42,7 +43,7 @@ const textOf = (node: RenderedNode | RenderedNode[]): string =>
 const storeAccountWith = (activeSubscriptions: string[]) => async () =>
   ({ activeSubscriptions });
 
-const pressRestorePurchases = async (): Promise<string> => {
+const renderButton = async () => {
   let root: ReturnType<typeof create>;
   await act(async () => {
     root = create(
@@ -59,15 +60,22 @@ const pressRestorePurchases = async (): Promise<string> => {
       </SafeAreaProvider>
     );
   });
+  return root;
+};
+
+const tap = async (root: ReturnType<typeof create>) => {
+  const { props } = root.root.findByType(Pressable);
+  await act(async () => {
+    if (!props.disabled) props.onPress();
+  });
+};
+
+const pressRestorePurchases = async (): Promise<string> => {
+  const root = await renderButton();
 
   expect(textOf(root.toJSON())).toContain('Restore Purchases');
 
-  await act(async () => {
-    root.root
-      .findAll((node: { props: { onPress?: unknown } }) =>
-        typeof node.props.onPress === 'function')[0]
-      .props.onPress();
-  });
+  await tap(root);
   await act(async () => {
     jest.runAllTimers();
   });
@@ -124,5 +132,20 @@ describe('pressing Restore Purchases in the mobile apps', () => {
 
     expect(shown).toContain('Try again later');
     expect(getSignedInUser()?.hasGold).toBe(false);
+  });
+
+  test('restores once when pressed again while restoring', async () => {
+    let finish = () => {};
+    const restore = jest.fn(() => new Promise<{ activeSubscriptions: string[] }>(
+      (resolve) => { finish = () => resolve({ activeSubscriptions: ['weekly'] }); }));
+    mockRestorePurchases = restore;
+
+    const root = await renderButton();
+    await tap(root);
+    await tap(root);
+    await act(async () => finish());
+    act(() => root.unmount());
+
+    expect(restore).toHaveBeenCalledTimes(1);
   });
 });
