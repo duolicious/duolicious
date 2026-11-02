@@ -13,6 +13,7 @@ import {
   OfferingInterval,
   Purchasable,
   PurchaseResult,
+  RestoreResult,
 } from './offering';
 
 type ApiKeys = {
@@ -150,25 +151,11 @@ const toPurchasable = (
   };
 };
 
-const restoreSubscription = async (): Promise<boolean> => {
-  if (isExpoGo) return false;
-
-  try {
-    const { customerInfo } = await Purchases.syncPurchasesForResult();
-    return customerInfo.activeSubscriptions.length > 0;
-  } catch (e) {
-    console.error(e);
-    return false;
-  }
-};
-
-const getOffering = async (): Promise<Offering | 'subscribed' | null> => {
+const getOffering = async (): Promise<Offering | null> => {
   const personUuid = getSignedInUser()?.personUuid;
   if (!personUuid) return null;
 
   await ensurePurchasesConfigured();
-  if (await restoreSubscription()) return 'subscribed';
-
   const offering = await getCurrentOfferingForUserMemoized(personUuid);
   if (!offering) return null;
 
@@ -186,6 +173,18 @@ const getOffering = async (): Promise<Offering | 'subscribed' | null> => {
   return { purchasables };
 };
 
+const restorePurchases: (() => Promise<RestoreResult>) | null = async () => {
+  try {
+    await ensurePurchasesConfigured();
+    const customerInfo = await Purchases.restorePurchases();
+    return customerInfo.activeSubscriptions.length > 0 ? 'restored' : 'none';
+  } catch (e) {
+    console.error(e);
+    return 'failed';
+  }
+};
+
 export {
   getOffering,
+  restorePurchases,
 };

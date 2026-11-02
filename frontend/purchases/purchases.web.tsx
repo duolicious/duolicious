@@ -1,6 +1,12 @@
 import { api, japi } from '../api/api';
 import { navigateAway, webReturnTarget } from '../api/oauth-return';
-import { Offering, OfferingInterval, PurchaseResult, weeksIn } from './offering';
+import {
+  Offering,
+  OfferingInterval,
+  PurchaseResult,
+  RestoreResult,
+  weeksIn,
+} from './offering';
 
 type Plan = {
   id: string,
@@ -48,6 +54,9 @@ const getOffering = async (): Promise<Offering | null> => {
   };
 };
 
+const restorePurchases: (() => Promise<RestoreResult>) | null = null;
+
 export {
   getOffering,
+  restorePurchases,
 };

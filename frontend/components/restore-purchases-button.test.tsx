@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { PointOfSaleModal, showPointOfSale } from './point-of-sale-modal';
-import { Toast } from '../toast';
-import { getSignedInUser, setSignedInUser } from '../../events/signed-in-user';
+import { RestorePurchasesButton } from './restore-purchases-button';
+import { restorePurchases } from '../purchases/purchases';
+import { Toast } from './toast';
+import { getSignedInUser, setSignedInUser } from '../events/signed-in-user';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { act, create } = require('react-test-renderer');
 
-type CustomerInfo = { activeSubscriptions: string[] };
-
-let mockSyncPurchases: () => Promise<{ customerInfo: CustomerInfo }>;
+let mockRestorePurchases: () => Promise<{ activeSubscriptions: string[] }>;
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -19,30 +18,15 @@ jest.mock('expo-constants', () => ({
 
 jest.mock('react-native-purchases', () => ({
   __esModule: true,
-  INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_INELIGIBLE: 1 },
   default: {
     configure: () => {},
     setDebugLogsEnabled: () => {},
-    syncPurchasesForResult: () => mockSyncPurchases(),
-    getOfferings: async () => ({
-      current: {
-        availablePackages: [{
-          product: {
-            identifier: 'weekly',
-            priceString: '$4.99',
-            pricePerWeekString: '$4.99',
-            subscriptionPeriod: 'P1W',
-            introPrice: null,
-          },
-        }],
-      },
-    }),
-    checkTrialOrIntroductoryPriceEligibility: async () => ({}),
+    restorePurchases: () => mockRestorePurchases(),
   },
 }));
 
-jest.mock('../logo', () => ({ Logo14: () => null }));
-jest.mock('../logo/logo-activity-indicator', () => ({
+jest.mock('./logo', () => ({ Logo14: () => null }));
+jest.mock('./logo/logo-activity-indicator', () => ({
   LogoActivityIndicator: () => null,
 }));
 
@@ -56,9 +40,9 @@ const textOf = (node: RenderedNode | RenderedNode[]): string =>
       : (node?.children ?? []).map(textOf).join(' ');
 
 const storeAccountWith = (activeSubscriptions: string[]) => async () =>
-  ({ customerInfo: { activeSubscriptions } });
+  ({ activeSubscriptions });
 
-const openPaywall = async (): Promise<string> => {
+const pressRestorePurchases = async (): Promise<string> => {
   let root: ReturnType<typeof create>;
   await act(async () => {
     root = create(
@@ -68,13 +52,21 @@ const openPaywall = async (): Promise<string> => {
           insets: { top: 0, left: 0, right: 0, bottom: 0 },
         }}
       >
-        <PointOfSaleModal />
+        {restorePurchases &&
+          <RestorePurchasesButton restorePurchases={restorePurchases} />
+        }
         <Toast />
       </SafeAreaProvider>
     );
   });
+
+  expect(textOf(root.toJSON())).toContain('Restore Purchases');
+
   await act(async () => {
-    showPointOfSale('read-receipts');
+    root.root
+      .findAll((node: { props: { onPress?: unknown } }) =>
+        typeof node.props.onPress === 'function')[0]
+      .props.onPress();
   });
   await act(async () => {
     jest.runAllTimers();
@@ -86,7 +78,7 @@ const openPaywall = async (): Promise<string> => {
   return text;
 };
 
-describe('opening the Gold paywall in the mobile apps', () => {
+describe('pressing Restore Purchases in the mobile apps', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     setSignedInUser({
@@ -105,33 +97,31 @@ describe('opening the Gold paywall in the mobile apps', () => {
     jest.useRealTimers();
   });
 
-  test('gives Gold back, instead of selling it again, when the store already bills for it', async () => {
-    mockSyncPurchases = storeAccountWith(['weekly']);
+  test('gives Gold to this account when the store bills for it', async () => {
+    mockRestorePurchases = storeAccountWith(['weekly']);
 
-    const shown = await openPaywall();
+    const shown = await pressRestorePurchases();
 
-    expect(shown).not.toContain('Get Gold');
     expect(shown).toContain('Your Gold subscription is now on this account');
     expect(getSignedInUser()?.hasGold).toBe(true);
   });
 
-  test('offers plans when the store has no live subscription', async () => {
-    mockSyncPurchases = storeAccountWith([]);
+  test('says there’s nothing to restore when the store has no live subscription', async () => {
+    mockRestorePurchases = storeAccountWith([]);
 
-    const shown = await openPaywall();
+    const shown = await pressRestorePurchases();
 
-    expect(shown).toContain('Get Gold');
-    expect(shown).toContain('$4.99');
+    expect(shown).toContain('Nothing to restore');
     expect(getSignedInUser()?.hasGold).toBe(false);
   });
 
-  test('still offers plans when RevenueCat can’t be reached', async () => {
+  test('asks to try again later when the store can’t be reached', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    mockSyncPurchases = async () => { throw new Error('Network error'); };
+    mockRestorePurchases = async () => { throw new Error('Network error'); };
 
-    const shown = await openPaywall();
+    const shown = await pressRestorePurchases();
 
-    expect(shown).toContain('$4.99');
+    expect(shown).toContain('Try again later');
     expect(getSignedInUser()?.hasGold).toBe(false);
   });
 });
