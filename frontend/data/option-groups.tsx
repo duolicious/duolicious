@@ -14,6 +14,8 @@ import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faPalette } from '@fortawesome/free-solid-svg-icons/faPalette'
 import { faMoon } from '@fortawesome/free-solid-svg-icons/faMoon'
+import { faPause } from '@fortawesome/free-solid-svg-icons/faPause'
+import { faUserXmark } from '@fortawesome/free-solid-svg-icons/faUserXmark'
 import { faRulerVertical } from '@fortawesome/free-solid-svg-icons/faRulerVertical'
 import { faRuler } from '@fortawesome/free-solid-svg-icons/faRuler'
 import { faHandsPraying } from '@fortawesome/free-solid-svg-icons/faHandsPraying'
@@ -37,7 +39,7 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { getProfileInfo, patchProfileInfo } from '../events/profile-info';
+import { getProfileInfo, patchProfileInfo, useProfileInfo } from '../events/profile-info';
 import { maybeRequestReview } from '../store-review/store-review';
 import { cancelPaypalSubscription } from '../api/paypal';
 import {
@@ -605,17 +607,26 @@ const FinishOnboardingDescription = () => (
   </View>
 );
 
-const DeletionDescription = () => (
-  <DefaultText style={descriptionStyle.style} >
-    Are you sure you want to delete your account? {}
-    <DefaultText disableTheme style={{ fontWeight: '700' }}>
-      This will
-      permanently delete your account data and
-      immediately log you out.
-    </DefaultText> {}
-    If you’re sure, type “delete” to confirm.
-  </DefaultText>
-);
+const DeletionDescription = () => {
+  const [signedInUser] = useSignedInUser();
+  const profileInfo = useProfileInfo();
+  const hasStoreSubscription =
+    signedInUser?.hasGold && !profileInfo?.paypal_subscription;
+
+  return (
+    <DefaultText style={descriptionStyle.style} >
+      Are you sure you want to delete your account? {}
+      <DefaultText disableTheme style={{ fontWeight: '700' }}>
+        This will
+        permanently delete your account data and
+        immediately log you out.
+      </DefaultText> {}
+      {hasStoreSubscription &&
+        'It won’t cancel your Gold subscription. '}
+      If you’re sure, type “delete” to confirm.
+    </DefaultText>
+  );
+};
 
 const DeactivationDescription = () => (
   <DefaultText style={descriptionStyle.style} >
@@ -1228,6 +1239,13 @@ const notificationSettingsOptionGroups: OptionGroup<OptionGroupButtons>[] = [
 const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [
   {
     title: 'Delete My Account',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faUserXmark}
+        size={14}
+        style={{ color }}
+      />
+    ),
     description: DeletionDescription,
     input: {
       textShort: {
@@ -1259,6 +1277,13 @@ const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [
 const deactivationOptionGroups: OptionGroup<OptionGroupNone>[] = [
   {
     title: 'Deactivate My Account',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faPause}
+        size={14}
+        style={{ color }}
+      />
+    ),
     description: DeactivationDescription,
     input: {
       none: {

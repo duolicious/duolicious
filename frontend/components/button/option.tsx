@@ -1,3 +1,4 @@
+import { View } from 'react-native';
 import { Pressable } from '../pressable';
 import { FC } from 'react';
 import { NavigationProp, ParamListBase } from '@react-navigation/native';
@@ -22,6 +23,7 @@ type ButtonForOptionProps = {
   navigationScreen?: string;
   navigation?: NavigationProp<ParamListBase>;
   loading?: boolean;
+  showChevron?: boolean;
 };
 
 const ButtonForOption = (props: ButtonForOptionProps) => {
@@ -37,6 +39,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
     navigationScreen,
     navigation,
     loading = false,
+    showChevron = true,
   } = props;
 
   if ((label === undefined) === (optionGroups === undefined)) {
@@ -90,6 +93,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress_}
+      disabled={loading}
       {...hoverProps}
     >
       <Animated.View
@@ -101,14 +105,16 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
           borderBottomWidth: 2,
           borderRadius: 999,
           paddingLeft: 10,
-          paddingRight: 20,
+          paddingRight: showChevron ? 20 : 15,
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'space-between',
         }, backgroundStyle]}
       >
         {Icon_ &&
-          <Icon_ color={appTheme.secondaryColor} />
+          <View style={{ minWidth: 18, alignItems: 'center' }}>
+            <Icon_ color={appTheme.secondaryColor} />
+          </View>
         }
         <DefaultText
           style={{
@@ -121,7 +127,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
         <DefaultText
           style={{
             paddingLeft: 20,
-            paddingRight: 10,
+            paddingRight: showChevron ? 10 : 0,
             ...((setting ?? noSettingText) === noSettingText ? {
               color: '#888888',
               fontStyle: 'italic',
@@ -144,7 +150,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
             color={appTheme.brandColor}
           />
         }
-        {!loading &&
+        {!loading && showChevron &&
           <Ionicons
             style={{
               position: 'absolute',

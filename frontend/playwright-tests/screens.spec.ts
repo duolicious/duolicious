@@ -105,6 +105,14 @@ for (const theme of ['light', 'dark']) {
     await tap(page, 'Get Verified');
     await shown(page, 'By continuing, you agree');
     await snap(page, `${theme}-get-verified`);
+
+    await page.goto('/profile');
+    await page.getByText('My Account', { exact: true }).filter({ visible: true }).last().scrollIntoViewIfNeeded();
+    await snap(page, `${theme}-my-account`);
+
+    await tap(page, 'Delete My Account');
+    await shown(page, 'It won’t cancel your');
+    await snap(page, `${theme}-delete-account`);
   });
 }
 

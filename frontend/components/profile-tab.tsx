@@ -32,6 +32,8 @@ import {
 import type { ProfileParamList, RootParamList } from '../navigation/linking';
 import { navigationContainerRef } from '../App';
 import { ButtonForOption, ButtonForOptionProps } from './button/option';
+import { RestorePurchasesButton } from './restore-purchases-button';
+import { restorePurchases } from '../purchases/purchases';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { OptionScreen } from './option-screen';
 import { Title } from './title';
@@ -810,6 +812,7 @@ const Options = ({ navigation, data }: {
         label="Sign Out"
         setting=""
         loading={isLoadingSignOut}
+        showChevron={false}
         icon={
           ({ color = 'black' }) => (
             <FontAwesomeIcon
@@ -821,12 +824,9 @@ const Options = ({ navigation, data }: {
         }
       />
 
-      <Title style={{ marginTop: 70 }}>Deactivate My Account</Title>
-      <OptionButton optionGroups={deactivationOptionGroups} setting="" showSkipButton={false}/>
-
       {data.paypal_subscription &&
         <>
-          <Title>Gold Subscription</Title>
+          <Title style={{ marginTop: 70 }}>Gold Subscription</Title>
           {data.paypal_subscription.can_cancel
             ? <OptionButton optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
             : <>
@@ -844,10 +844,10 @@ const Options = ({ navigation, data }: {
         </>
       }
 
-      <Title>Delete My Account</Title>
-      <OptionButton optionGroups={deletionOptionGroups} setting=""/>
-
-      <Title style={{ marginTop: 70 }}>Export My Data</Title>
+      <Title style={{ marginTop: 70 }}>My Account</Title>
+      {restorePurchases &&
+        <RestorePurchasesButton restorePurchases={restorePurchases} />
+      }
       <ButtonForOption
         onPress={exportData}
         label="Export My Data"
@@ -863,6 +863,8 @@ const Options = ({ navigation, data }: {
           )
         }
       />
+      <OptionButton optionGroups={deactivationOptionGroups} setting="" showSkipButton={false}/>
+      <OptionButton optionGroups={deletionOptionGroups} setting=""/>
     </View>
   );
 };

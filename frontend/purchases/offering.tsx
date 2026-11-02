@@ -8,6 +8,8 @@ type OfferingInterval = {
 
 type PurchaseResult = 'purchased' | 'cancelled' | 'failed';
 
+type RestoreResult = 'restored' | 'none' | 'failed';
+
 type Purchasable = {
   price: string,
   pricePerWeek: string | null,
@@ -46,6 +48,7 @@ export {
   OfferingInterval,
   Purchasable,
   PurchaseResult,
+  RestoreResult,
   byCycleLength,
   intervalText,
   renewalText,

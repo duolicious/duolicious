@@ -13,6 +13,7 @@ import {
   OfferingInterval,
   Purchasable,
   PurchaseResult,
+  RestoreResult,
 } from './offering';
 
 type ApiKeys = {
@@ -172,6 +173,18 @@ const getOffering = async (): Promise<Offering | null> => {
   return { purchasables };
 };
 
+const restorePurchases: (() => Promise<RestoreResult>) | null = async () => {
+  try {
+    await ensurePurchasesConfigured();
+    const customerInfo = await Purchases.restorePurchases();
+    return customerInfo.activeSubscriptions.length > 0 ? 'restored' : 'none';
+  } catch (e) {
+    console.error(e);
+    return 'failed';
+  }
+};
+
 export {
   getOffering,
+  restorePurchases,
 };
