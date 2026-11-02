@@ -27,8 +27,9 @@ Optional: if you hit OpenSSL errors on some Node setups or file watch limits on 
 - For native:
   - Android: Android Studio + SDK, an emulator or device
   - iOS: macOS with Xcode installed
-- For end‑to‑end tests: Playwright browsers, and `make` to start the backend
-  - Install once: `npx playwright install --with-deps`
+- For end‑to‑end tests: Playwright browsers
+  - Install once: `npx playwright install --with-deps` (in the dev container, `make install` already installed Chromium, which every configured project uses)
+- For end‑to‑end tests: `make`, to start the backend
 
 You do not need to install the Expo CLI globally; commands are run via npm scripts or `npx`.
 
@@ -103,7 +104,7 @@ npx eslint . --fix
 ```
 
 ### End‑to‑end tests (Playwright)
-First‑time setup:
+First‑time setup, which the dev container's `make install` has already done for Chromium, the browser every configured project uses:
 ```bash
 npx playwright install --with-deps
 ```
