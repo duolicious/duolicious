@@ -246,14 +246,13 @@ RETURNING
     otp.otp
 """
 
-# Which sessions an OTP check signs in. Both OTP sign-in queries use it,
-# because `post_check_otp` commits `Q_MAYBE_DELETE_ONBOARDEE` even when
-# `Q_MAYBE_SIGN_IN` rejects the session. The caller must name the table
-# `duo_session` and pass `session_token_hash` and `otp`.
+# Which sessions an OTP check signs in. Both OTP sign-in queries must accept
+# the same sessions, so they share this condition. The caller must update
+# `duo_session` without an alias and pass `session_token_hash` and `otp`.
 _Q_OTP_SIGN_IN_CONDITION = """
-session_token_hash = %(session_token_hash)s AND
-otp = %(otp)s AND
-otp_expiry > NOW() AND
+duo_session.session_token_hash = %(session_token_hash)s AND
+duo_session.otp = %(otp)s AND
+duo_session.otp_expiry > NOW() AND
 NOT EXISTS (
     SELECT 1
     FROM person
