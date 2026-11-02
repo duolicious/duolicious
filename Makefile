@@ -34,6 +34,6 @@ frontend-typecheck:  ## TypeScript type checks
 frontend-test:  ## Jest
 	cd frontend && npm test
 
-frontend-e2e:  ## Playwright, once e2e-backend is healthy; PROJECTS='--project desktop' picks projects
+frontend-e2e:  ## Playwright, once e2e-backend is healthy; PROJECTS='desktop phone' picks projects
 	curl --silent --fail --retry 300 --retry-delay 1 --retry-all-errors --output /dev/null http://localhost:5000/health
-	cd frontend && npx playwright test $(PROJECTS)
+	cd frontend && npx playwright test $(foreach p,$(PROJECTS),--project $(p))

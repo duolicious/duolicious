@@ -24,13 +24,13 @@ jobs:
         include:
           - name: desktop screens
             artifact: desktop
-            projects: --project desktop
+            projects: desktop
           - name: phone screens
             artifact: phone
-            projects: --project phone
+            projects: phone
           - name: onboarding
             artifact: onboarding
-            projects: --project onboarding-desktop --project onboarding-phone
+            projects: onboarding-desktop onboarding-phone
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
