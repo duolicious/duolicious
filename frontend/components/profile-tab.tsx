@@ -812,6 +812,7 @@ const Options = ({ navigation, data }: {
         label="Sign Out"
         setting=""
         loading={isLoadingSignOut}
+        showChevron={false}
         icon={
           ({ color = 'black' }) => (
             <FontAwesomeIcon
