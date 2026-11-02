@@ -102,6 +102,7 @@ describe('pressing Restore Purchases in the mobile apps', () => {
 
     const shown = await pressRestorePurchases();
 
+    expect(shown).toContain('Restored');
     expect(shown).toContain('Your Gold subscription is now on this account');
     expect(getSignedInUser()?.hasGold).toBe(true);
   });

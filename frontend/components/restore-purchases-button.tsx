@@ -28,6 +28,7 @@ const RestorePurchasesButton = ({ restorePurchases }: {
       onPress={restore}
       label="Restore Purchases"
       setting={
+        status === 'restored' ? 'Restored' :
         status === 'none' ? 'Nothing to restore' :
         status === 'failed' ? 'Try again later' : ''
       }
