@@ -87,6 +87,11 @@ The frontend's default API URLs already point at the backend's published
 localhost ports, so the web app talks to your local backend with no extra
 configuration.
 
+The ports are published on `127.0.0.1` only, so other machines on your network
+can't reach the stack. To reach it from other machines, start it with
+`DUO_BIND_ADDRESS=0.0.0.0 docker compose up`. If `localhost` doesn't connect,
+use `127.0.0.1`.
+
 The local `docker compose up` stack runs without any secrets — it mocks the
 OpenAI-backed features (account verification and club SEO descriptions), so you
 don't need a key for development.

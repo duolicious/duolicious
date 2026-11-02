@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: status.Dockerfile
     ports:
-      - "8080:8080"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:8080:8080"
 
   postgres:
     build:
@@ -16,7 +16,7 @@ services:
       -c pg_stat_statements.track=all
       -c random_page_cost=1.1
     ports:
-      - "5432:5432"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:5432:5432"
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: postgres
@@ -38,7 +38,7 @@ services:
       firehol:
         condition: service_started
     ports:
-      - "5000:5000"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:5000:5000"
     volumes:
       - ./test:/app/test:ro
     environment:
@@ -131,7 +131,7 @@ services:
       dockerfile: Dockerfile
       target: cron
     ports:
-      - "8082:8080"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:8082:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,14 +219,14 @@ services:
       AWS_SECRET_ACCESS_KEY: s3-mock-secret-access-key-secret
 
     ports:
-      - 9090:9090
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:9090:9090"
 
   smtp:
     image: mailhog/mailhog
 
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:1025:1025"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:8025:8025"
 
   chatjsontest:
     build:
@@ -236,7 +236,7 @@ services:
         MOCK: chatjsontest
 
     ports:
-      - "3001:3001"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3001:3001"
 
   pushmock:
     build:
@@ -246,7 +246,7 @@ services:
         MOCK: pushmock
 
     ports:
-      - "3002:3002"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3002:3002"
 
   spotifymock:
     build:
@@ -260,7 +260,7 @@ services:
       SPOTIFY_MOCK_CLIENT_SECRET: test-spotify-client-secret
 
     ports:
-      - "3003:3003"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3003:3003"
 
   paypalmock:
     build:
@@ -274,7 +274,7 @@ services:
       PAYPAL_MOCK_CLIENT_SECRET: test-paypal-client-secret
 
     ports:
-      - "3004:3004"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3004:3004"
 
   discordmock:
     build:
@@ -288,7 +288,7 @@ services:
       DISCORD_MOCK_CLIENT_SECRET: test-discord-client-secret
 
     ports:
-      - "3005:3005"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3005:3005"
 
   firehol:
     build:
@@ -296,13 +296,13 @@ services:
       dockerfile: Dockerfile
       target: firehol
     ports:
-      - "5070:5070"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:5070:5070"
 
   redis:
     image: "redis:alpine"
     container_name: redis
     ports:
-      - "6379:6379"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:6379:6379"
 
 networks:
   default:

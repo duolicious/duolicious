@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: status.Dockerfile
     ports:
-      - "8080:8080"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     volumes:
       - ./service/status/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./service/status/index.html:/usr/share/nginx/html/index.html:ro
@@ -19,7 +19,7 @@ services:
       -c shared_preload_libraries=pg_stat_statements
       -c pg_stat_statements.track=all
     ports:
-      - "5432:5432"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:5432:5432"
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: postgres
@@ -44,7 +44,7 @@ services:
       firehol:
         condition: service_started
     ports:
-      - "5000:5000"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:5000:5000"
     volumes:
       - .:/app:ro
     environment:
@@ -136,7 +136,7 @@ services:
       dockerfile: Dockerfile
       target: cron
     ports:
-      - "8082:8080"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:8082:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -204,14 +204,14 @@ services:
       AWS_SECRET_ACCESS_KEY: s3-mock-secret-access-key-secret
 
     ports:
-      - 9090:9090
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:9090:9090"
 
   smtp:
     image: mailhog/mailhog
 
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:1025:1025"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:8025:8025"
 
   chatjsontest:
     build:
@@ -224,7 +224,7 @@ services:
       - ./test/chatjsontest/index.js:/usr/src/app/index.js
 
     ports:
-      - "3001:3001"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3001:3001"
 
   pushmock:
     build:
@@ -234,7 +234,7 @@ services:
         MOCK: pushmock
 
     ports:
-      - "3002:3002"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3002:3002"
 
   spotifymock:
     build:
@@ -251,7 +251,7 @@ services:
       SPOTIFY_MOCK_CLIENT_SECRET: dev-spotify-client-secret
 
     ports:
-      - "3003:3003"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3003:3003"
 
   paypalmock:
     build:
@@ -268,7 +268,7 @@ services:
       PAYPAL_MOCK_CLIENT_SECRET: dev-paypal-client-secret
 
     ports:
-      - "3004:3004"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3004:3004"
 
   discordmock:
     build:
@@ -285,7 +285,7 @@ services:
       DISCORD_MOCK_CLIENT_SECRET: dev-discord-client-secret
 
     ports:
-      - "3005:3005"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:3005:3005"
 
   firehol:
     build:
@@ -293,7 +293,7 @@ services:
       dockerfile: Dockerfile
       target: firehol
     ports:
-      - "5070:5070"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:5070:5070"
     volumes:
       - .:/app:ro
     # Hot-reload on source changes. watchfiles ships with uvicorn[standard], so
@@ -309,7 +309,7 @@ services:
     image: "redis:alpine"
     container_name: redis
     ports:
-      - "6379:6379"
+      - "${DUO_BIND_ADDRESS:-127.0.0.1}:6379:6379"
 
 volumes:
   postgres_test:

@@ -12,6 +12,8 @@ docker compose up -d
 curl -sf http://localhost:5000/health && echo API OK
 ```
 
+The Compose files publish ports on `127.0.0.1` only. Set `DUO_BIND_ADDRESS=0.0.0.0` to reach the stack from other machines. If `localhost` doesn't connect, use `127.0.0.1`.
+
 ### Option B: Run API/Chat from source with hot reload
 
 1. Start infra-only services in Docker:
