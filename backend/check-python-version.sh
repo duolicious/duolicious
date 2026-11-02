@@ -17,9 +17,10 @@ status=0
 
 python_dockerfiles='api.Dockerfile cron.Dockerfile firehol.Dockerfile ../.devcontainer/Dockerfile'
 
-# Docker reads FROM in any case.
-python_from='^FROM( --[^ ]+)* ([^ ]*/)?python([:@ ]|$)'
-python_tag='^FROM( --[^ ]+)* ([^ ]*/)?python:([0-9]+\.[0-9]+)([^0-9]|$)'
+# Docker reads FROM in any case, after leading whitespace, with tabs as well as
+# spaces between its words.
+python_from='^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+([^[:space:]]*/)?python([@:[:space:]]|$)'
+python_tag='^[[:space:]]*FROM([[:space:]]+--[^[:space:]]+)*[[:space:]]+([^[:space:]]*/)?python:([0-9]+\.[0-9]+)([^0-9]|$)'
 shopt -s nocasematch
 
 for dockerfile in $python_dockerfiles
