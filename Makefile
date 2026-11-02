@@ -36,5 +36,5 @@ frontend-test:  ## Jest
 
 frontend-e2e:  ## Playwright, once e2e-backend is healthy; PROJECTS='desktop phone' picks projects
 	curl --silent --fail --retry 300 --retry-delay 1 --retry-all-errors --output /dev/null http://localhost:5000/health \
-		|| { echo 'No healthy API at localhost:5000; make e2e-backend starts it' >&2; exit 1; }
+		|| { echo 'No healthy API at localhost:5000 after 300 tries: start it with make e2e-backend, or if it is running, see its log' >&2; exit 1; }
 	cd frontend && npx playwright test $(foreach p,$(PROJECTS),--project $(p))
