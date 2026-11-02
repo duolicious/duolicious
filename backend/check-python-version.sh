@@ -4,6 +4,8 @@
 # .devcontainer/Dockerfile has the X.Y version in .python-version, which the
 # CI mypy job reads. A python FROM line with no X.Y tag, such as one taking its
 # version from an ARG, or pinning a digest alone, fails: it can't be compared.
+# So does a python_dockerfiles entry with no python FROM line, as after a move
+# to FROM ${BASE_IMAGE}, which would otherwise drop out of the check.
 
 set -e
 
@@ -13,8 +15,21 @@ cd "$script_dir"
 expected=$(< .python-version)
 status=0
 
+python_dockerfiles='api.Dockerfile cron.Dockerfile firehol.Dockerfile ../.devcontainer/Dockerfile'
+
+# Docker reads FROM in any case.
 python_from='^FROM( --[^ ]+)* ([^ ]*/)?python([:@ ]|$)'
 python_tag='^FROM( --[^ ]+)* ([^ ]*/)?python:([0-9]+\.[0-9]+)([^0-9]|$)'
+shopt -s nocasematch
+
+for dockerfile in $python_dockerfiles
+do
+  if ! grep -Eiq "$python_from" "$dockerfile"
+  then
+    echo "$dockerfile has no python FROM line to check"
+    status=1
+  fi
+done
 
 for dockerfile in *.Dockerfile ../.devcontainer/Dockerfile
 do
@@ -29,7 +44,7 @@ do
       echo "$dockerfile uses Python ${BASH_REMATCH[3]}; .python-version says $expected"
       status=1
     fi
-  done < <(grep -E "$python_from" "$dockerfile")
+  done < <(grep -Ei "$python_from" "$dockerfile")
 done
 
 exit "$status"
