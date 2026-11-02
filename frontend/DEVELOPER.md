@@ -143,6 +143,10 @@ GitHub Actions will run Jest, Playwright, type checks, and ESLint on pull reques
   ```bash
   npx expo start -c
   ```
+- `EACCES` errors on `.expo` from Expo or Playwright after `docker compose up`: the stack's frontend service runs Expo as root on the bind-mounted `frontend/`, so it leaves `.expo` owned by root. Remove it:
+  ```bash
+  sudo rm -rf .expo
+  ```
 
 ---
 

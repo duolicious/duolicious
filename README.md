@@ -108,6 +108,16 @@ You can develop each side on its own — see the per-directory READMEs and
 `DEVELOPER.md` files linked in the table above. The root `docker compose up` is
 still the easiest way to get everything running at once.
 
+### Dev container
+
+[`.devcontainer/`](.devcontainer/) defines a container with the tools the
+tests and linters use (Python, Node, `psql`, ffmpeg, Chromium and Docker), so
+the host needs only Docker and a dev container client, such as VS Code's Dev
+Containers extension. The container runs `make install` when it's created. It
+runs its own Docker daemon, so it's privileged, and `docker compose up` and the
+test stacks build their images inside it. Rebuild the container after
+`.devcontainer/` changes.
+
 ## Tests
 
 CI runs the full test suite for both halves on every push and pull request to
