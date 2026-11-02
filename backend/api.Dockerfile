@@ -6,20 +6,22 @@ ENV PYTHONUNBUFFERED=true
 ENV OPENBLAS_NUM_THREADS=1
 ENV OMP_NUM_THREADS=1
 
+WORKDIR /app
+
+COPY requirements.txt /app/
+
+RUN : \
+  && apt update \
+  && apt install -y ffmpeg \
+  && pip install --no-cache-dir -r /app/requirements.txt
+
 ARG DUO_COMMIT_HASH=unknown
 ENV DUO_COMMIT_HASH=$DUO_COMMIT_HASH
-
-WORKDIR /app
 
 COPY \
   --exclude=serviceshared/antiabuse/clipnsfw \
   --exclude=test \
   --exclude=vm \
   . /app
-
-RUN : \
-  && apt update \
-  && apt install -y ffmpeg \
-  && pip install --no-cache-dir -r /app/requirements.txt
 
 CMD /app/api.main.sh
