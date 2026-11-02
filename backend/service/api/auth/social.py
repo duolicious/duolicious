@@ -86,8 +86,7 @@ def _decode_unverified(
     """
     Decode a JWT *without* signature verification, then enforce the
     same iss/aud/exp/required-claim checks that the real verifiers do.
-    Used only when `enable_mocking()` is True, which requires `DUO_ENV`
-    to be `dev` (see `service.api.mocking`).
+    Used only when `enable_mocking()` is True (see `service.api.mocking`).
     """
     try:
         claims = jwt.decode(

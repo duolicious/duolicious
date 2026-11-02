@@ -81,7 +81,7 @@ make backend-typecheck   # from the repository root
 
 #### `api` container
 
-* `DUO_ENV` - Should be set to `prod` for production deployments. Setting this to `prod` disables the ability to sign up with an OTP of 000000 by using an @example.com email address.
+* `DUO_ENV` - Should be set to `prod` for production deployments. Setting this to `prod` disables the ability to sign up with an OTP of 000000 by using an @example.com email address. The test mocking in `service/api/mocking.py` takes effect only when this is `dev`.
 
 These environment variables let the `api` container know where your SMTP server is and how to log into it:
 

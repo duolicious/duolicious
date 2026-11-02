@@ -35,6 +35,7 @@ from serviceshared.constants import (
 
 logger = logging.getLogger(__name__)
 
+
 @lru_cache(maxsize=1)
 def _max_online_subscriptions(ttl_hash: int) -> int:
     override = max_online_subscriptions_override()

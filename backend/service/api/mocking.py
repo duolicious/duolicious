@@ -10,13 +10,16 @@ All of it is inert unless `DUO_ENV` is `dev` and `enable-mocking` contains
 `1`, so a sentinel file that reaches another environment changes nothing.
 """
 
+import logging
 import time
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 from starlette.requests import HTTPConnection
 
 from serviceshared.duoenv.api import ENV
+
+logger = logging.getLogger(__name__)
 
 _input_dir = Path(__file__).parent.parent.parent / 'test' / 'input'
 
@@ -27,16 +30,32 @@ mock_ip_address_file = _input_dir / 'mock-ip-address'
 max_online_subscriptions_file = _input_dir / 'max-online-subscriptions'
 
 
+def _read_sentinel(path: Path) -> str | None:
+    # The suites create and delete sentinels while the API runs, so a file
+    # that is missing, or vanishes mid-read, means the override is off.
+    try:
+        return path.read_text().strip()
+    except OSError:
+        return None
+
+
 def _file_says_enabled(path: Path) -> bool:
-    if not path.is_file():
-        return False
-    with path.open() as file:
-        return file.read().strip() == '1'
+    return _read_sentinel(path) == '1'
+
+
+# Cached so it logs once per process.
+@cache
+def _warn_that_mocking_is_on() -> None:
+    logger.warning(
+        'Test mocking is on: sentinel files in %s take effect', _input_dir)
 
 
 @lru_cache()
 def _enable_mocking(ttl_hash: int | None = None) -> bool:
-    return ENV == 'dev' and _file_says_enabled(enable_mocking_file)
+    on = ENV == 'dev' and _file_says_enabled(enable_mocking_file)
+    if on:
+        _warn_that_mocking_is_on()
+    return on
 
 
 def enable_mocking() -> bool:
@@ -56,16 +75,16 @@ def disable_account_rate_limit(request: HTTPConnection | None = None) -> bool:
 
 
 def mock_ip_address() -> str | None:
-    if not enable_mocking() or not mock_ip_address_file.is_file():
+    if not enable_mocking():
         return None
-    with mock_ip_address_file.open() as file:
-        return file.read().strip() or None
+    return _read_sentinel(mock_ip_address_file) or None
 
 
 def max_online_subscriptions_override() -> int | None:
-    if not enable_mocking() or not max_online_subscriptions_file.is_file():
+    if not enable_mocking():
         return None
+    value = _read_sentinel(max_online_subscriptions_file)
     try:
-        return int(max_online_subscriptions_file.read_text())
+        return None if value is None else int(value)
     except ValueError:
         return None

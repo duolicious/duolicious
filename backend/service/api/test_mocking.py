@@ -13,6 +13,7 @@ from service.api.chat import online
 _GOOGLE_AUD = 'test-google-aud'
 _APPLE_AUD = 'test-apple-aud'
 _NONCE = 'test-nonce'
+_NON_DEV_ENVS = ['prod', 'staging']
 
 
 def _token_with_a_garbage_signature(iss: str, aud: str) -> str:
@@ -64,32 +65,39 @@ class _AllSentinelsOn(unittest.TestCase):
         p = patch.object(mocking, 'ENV', env)
         p.start()
         self.addCleanup(p.stop)
-        mocking._enable_mocking.cache_clear()
-        online._max_online_subscriptions.cache_clear()
-        self.addCleanup(mocking._enable_mocking.cache_clear)
-        self.addCleanup(online._max_online_subscriptions.cache_clear)
+        for cached in [
+            mocking._enable_mocking,
+            mocking._warn_that_mocking_is_on,
+            online._max_online_subscriptions,
+        ]:
+            cached.cache_clear()
+            self.addCleanup(cached.cache_clear)
 
 
 class TestOverridesFollowTheGate(_AllSentinelsOn):
     def test_overrides_apply_in_dev(self) -> None:
         self._set_env('dev')
 
-        self.assertTrue(mocking.enable_mocking())
+        with self.assertLogs(mocking.logger, 'WARNING'):
+            self.assertTrue(mocking.enable_mocking())
         self.assertTrue(mocking.disable_ip_rate_limit())
         self.assertTrue(mocking.disable_account_rate_limit())
         self.assertEqual(mocking.mock_ip_address(), '203.0.113.7')
         self.assertEqual(online.max_online_subscriptions(), 3)
 
     def test_overrides_are_inert_outside_dev(self) -> None:
-        self._set_env('prod')
+        for env in _NON_DEV_ENVS:
+            with self.subTest(env=env):
+                self._set_env(env)
 
-        self.assertFalse(mocking.enable_mocking())
-        self.assertFalse(mocking.disable_ip_rate_limit())
-        self.assertFalse(mocking.disable_account_rate_limit())
-        self.assertIsNone(mocking.mock_ip_address())
-        self.assertEqual(
-            online.max_online_subscriptions(),
-            online.MAX_ONLINE_SUBSCRIPTIONS)
+                with self.assertNoLogs(mocking.logger, 'WARNING'):
+                    self.assertFalse(mocking.enable_mocking())
+                self.assertFalse(mocking.disable_ip_rate_limit())
+                self.assertFalse(mocking.disable_account_rate_limit())
+                self.assertIsNone(mocking.mock_ip_address())
+                self.assertEqual(
+                    online.max_online_subscriptions(),
+                    online.MAX_ONLINE_SUBSCRIPTIONS)
 
 
 class TestSignInFollowsTheGate(_AllSentinelsOn):
@@ -129,13 +137,15 @@ class TestSignInFollowsTheGate(_AllSentinelsOn):
         self.assertEqual(apple.sub, 'test-sub')
 
     def test_signature_is_checked_outside_dev(self) -> None:
-        self._set_env('prod')
+        for env in _NON_DEV_ENVS:
+            with self.subTest(env=env):
+                self._set_env(env)
 
-        with self.assertRaises(social.SocialAuthError):
-            social.verify_google_id_token(self.google_token)
-        with self.assertRaises(social.SocialAuthError):
-            social.verify_apple_identity_token(
-                self.apple_token, expected_nonce=_NONCE)
+                with self.assertRaises(social.SocialAuthError):
+                    social.verify_google_id_token(self.google_token)
+                with self.assertRaises(social.SocialAuthError):
+                    social.verify_apple_identity_token(
+                        self.apple_token, expected_nonce=_NONCE)
 
 
 if __name__ == '__main__':
