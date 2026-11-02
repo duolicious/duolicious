@@ -93,6 +93,13 @@ can't reach the stack. To reach it from other machines, start it with
 that network, Postgres with its default password, Redis with no password, and
 MailHog, which shows every email the stack sends.
 
+Other machines can then load the web app, but it still sends its API, chat,
+media and status requests to `localhost`, which for them is their own machine.
+The `DUO_*` settings in
+[`frontend/DEVELOPER.md`](frontend/DEVELOPER.md#environment-configuration)
+change those URLs, but the Compose stack doesn't pass them to the frontend
+container.
+
 If `localhost` doesn't connect, use `127.0.0.1`: the ports are IPv4-only, and
 some clients try IPv6 `::1` first without falling back.
 
