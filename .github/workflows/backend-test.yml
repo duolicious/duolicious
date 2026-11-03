@@ -19,15 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - id: python
-      working-directory: backend
-      run: |
-        # Assign on its own line: inside a larger command, python-version.sh's exit status is lost.
-        version=$(./python-version.sh)
-        echo "version=$version" >> "$GITHUB_OUTPUT"
     - uses: actions/setup-python@v5
       with:
-        python-version: ${{ steps.python.outputs.version }}
+        python-version-file: backend/.python-version
     - run: make backend-typecheck
 
   functionality-tests:

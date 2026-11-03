@@ -1,28 +1,45 @@
 # syntax=docker.io/docker/dockerfile:1.7-labs
 
-# The backend's Python version lives on this line only. python-version.sh
-# parses it for mypy.sh and the CI mypy job, so keep the
-# `FROM python:X.Y AS base` form.
-FROM python:3.11 AS base
+FROM debian:trixie-slim AS base
 
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /usr/local/bin/uv
+
+# build-essential compiles pytricia, which is published only as source; curl
+# downloads cron's model.
+RUN : \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends build-essential ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+ENV UV_PYTHON_PREFERENCE=only-managed
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+
+ENV DUO_USE_VENV=false
 ENV PYTHONUNBUFFERED=true
+ENV PYTHONDONTWRITEBYTECODE=true
+ENV PYTHONPATH=/app
+ENV OPENBLAS_NUM_THREADS=1
+ENV OMP_NUM_THREADS=1
 
 WORKDIR /app
 
-COPY requirements.txt /app/
+# uv installs the Python that .python-version names; that file is the
+# version's only home, which setup-python and mypy.sh also read.
+COPY .python-version requirements.txt /app/
 
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN : \
+  && uv venv /opt/venv \
+  && uv pip install --no-cache -r requirements.txt
 
 
 FROM base AS api
 
-ENV DUO_USE_VENV=false
-ENV OPENBLAS_NUM_THREADS=1
-ENV OMP_NUM_THREADS=1
-
 RUN : \
-  && apt update \
-  && apt install -y ffmpeg
+  && apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 
 ARG DUO_COMMIT_HASH=unknown
 ENV DUO_COMMIT_HASH=$DUO_COMMIT_HASH
@@ -37,10 +54,6 @@ CMD /app/api.main.sh
 
 
 FROM base AS cron
-
-ENV DUO_USE_VENV=false
-ENV OMP_NUM_THREADS=2
-ENV OPENBLAS_NUM_THREADS=2
 
 COPY \
   serviceshared/antiabuse/clipnsfw/download-model.sh \
@@ -63,9 +76,6 @@ CMD /app/cron.main.sh
 # base installs all of requirements.txt, so the images can't drift onto
 # different package versions.
 FROM base AS firehol
-
-ENV PYTHONDONTWRITEBYTECODE=true
-ENV PYTHONPATH=/app
 
 COPY service/firehol /app/service/firehol
 
