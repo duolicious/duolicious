@@ -60,7 +60,8 @@ CMD /app/cron.main.sh
 
 
 # The server only needs `pytricia` and the standard library, but the shared
-# base installs all of requirements.txt, which keeps one requirements file.
+# base installs all of requirements.txt, so the images can't drift onto
+# different package versions.
 FROM base AS firehol
 
 ENV PYTHONDONTWRITEBYTECODE=true

@@ -26,6 +26,7 @@ jobs:
     - uses: actions/checkout@v4
     - id: python
       run: |
+        # Assign on its own line: inside a larger command, python-version.sh's exit status is lost.
         version=$(./python-version.sh)
         echo "version=$version" >> "$GITHUB_OUTPUT"
     - uses: actions/setup-python@v5

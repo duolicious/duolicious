@@ -5,6 +5,7 @@ cd "$script_dir"
 
 set -e
 
+# Assign on its own line: inside a larger command, python-version.sh's exit status is lost.
 python_version=$(./python-version.sh)
 
 export PYTHONUNBUFFERED=true
