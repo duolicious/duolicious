@@ -116,6 +116,10 @@ CI runs the full test suite for both halves on every push and pull request to
 - **Backend:** mypy, unit tests, and the functionality suites.
 - **Frontend:** ESLint, Jest, Playwright, and TypeScript type checks.
 
+Each test job runs a `make` target. From the repository root, `make help` lists
+them, and `make check` runs the ones that need no test stack: the backend type
+checks, ESLint, Jest and the TypeScript type checks.
+
 ## Contributing
 
 There are a few ways to help:
