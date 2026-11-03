@@ -24,10 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - id: python
+      run: echo "version=$(./python-version.sh)" >> "$GITHUB_OUTPUT"
     - uses: actions/setup-python@v5
       with:
-        python-version-file: backend/.python-version
-    - run: ./check-python-version.sh
+        python-version: ${{ steps.python.outputs.version }}
     - run: ./mypy.sh
 
   functionality-tests:
