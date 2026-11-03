@@ -9,11 +9,16 @@ export PYTHONUNBUFFERED=true
 export PYTHONDONTWRITEBYTECODE=true
 export PYTHONPATH=.
 
-if [ "${DUO_USE_VENV:-true}" = true ]
+if [ "${DUO_USE_VENV:-true}" = true ] && [ -d venv/mypy/ ]
 then
-  [ -d venv/mypy/ ] || python3 -m venv venv/mypy/
   export PATH=$(readlink -e venv/mypy/bin):$PATH
-  python3 -m pip install -q --disable-pip-version-check -r requirements-dev.txt
+fi
+
+if [ "${DUO_USE_VENV:-true}" = true ] && [ ! -d venv/mypy/ ]
+then
+  python3 -m venv venv/mypy/
+  export PATH=$(readlink -e venv/mypy/bin):$PATH
+  python3 -m pip install -r requirements-dev.txt
 fi
 
 if [ -n "$1" ]
