@@ -204,8 +204,8 @@ docker compose up
 ...Then run this in another:
 
 ```bash
-# Where ${n} is the test you want to run
-DUO_DB_PORT=5432 ./test/functionality${n}.sh
+# Where ${n} is the suite you want to run
+DUO_DB_PORT=5432 ./test/functionality.sh ${n}
 ```
 
 ## Using pg_stat_statements:
