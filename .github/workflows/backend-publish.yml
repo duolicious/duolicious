@@ -6,8 +6,8 @@ on:
       - backend/**
       - .github/workflows/backend-publish.yml
 
-# Docker builds run from the backend subdirectory, so `-f Dockerfile .`
-# uses backend/ as the build context exactly as before.
+# Docker builds run from the backend subdirectory, so the `.` build context
+# is backend/.
 defaults:
   run:
     working-directory: backend

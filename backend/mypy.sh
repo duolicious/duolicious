@@ -5,6 +5,8 @@ cd "$script_dir"
 
 set -e
 
+python_version=$(./python-version.sh)
+
 export PYTHONUNBUFFERED=true
 export PYTHONDONTWRITEBYTECODE=true
 export PYTHONPATH=.
@@ -20,8 +22,6 @@ then
   export PATH=$(readlink -e venv/mypy/bin):$PATH
   python3 -m pip install -r requirements-dev.txt
 fi
-
-python_version=$(./python-version.sh)
 
 if [ -n "$1" ]
 then
