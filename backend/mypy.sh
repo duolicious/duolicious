@@ -21,9 +21,11 @@ then
   python3 -m pip install -r requirements-dev.txt
 fi
 
+python_version=$(./python-version.sh)
+
 if [ -n "$1" ]
 then
-  python3 -m mypy --python-version "$(./python-version.sh)" "${1}"
+  python3 -m mypy --python-version "$python_version" "${1}"
 else
-  python3 -m mypy --python-version "$(./python-version.sh)" .
+  python3 -m mypy --python-version "$python_version" .
 fi

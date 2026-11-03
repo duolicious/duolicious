@@ -1,10 +1,10 @@
 """
 FireHOL block-list service.
 
-Runs in its own container (see Dockerfile's firehol stage) so the (large) pytricia tries
-are held in memory once, rather than once per API worker. API workers reach it
-over HTTP via `antiabuse.anonymizers.firehol` (the client), which fails open —
-treating any error or timeout as "not blocked".
+Runs in its own container (see Dockerfile's firehol stage) so the (large)
+pytricia tries are held in memory once, rather than once per API worker. API
+workers reach it over HTTP via `antiabuse.anonymizers.firehol` (the client),
+which fails open — treating any error or timeout as "not blocked".
 
 Because the client owns the timeout/fail-open policy and this service only sees
 a few requests per minute, the service itself is deliberately simple: a single

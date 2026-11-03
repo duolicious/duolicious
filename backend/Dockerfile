@@ -1,7 +1,8 @@
 # syntax=docker.io/docker/dockerfile:1.7-labs
 
-# The backend's Python version lives on this line only: compose, Backend
-# Publish and the CI mypy job (through python-version.sh) all read it here.
+# The backend's Python version lives on this line only. python-version.sh
+# parses it for mypy.sh and the CI mypy job, so keep the
+# `FROM python:X.Y AS base` form.
 FROM python:3.11 AS base
 
 ENV PYTHONUNBUFFERED=true
