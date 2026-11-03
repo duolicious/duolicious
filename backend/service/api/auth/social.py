@@ -88,7 +88,7 @@ def _decode_unverified(
     same iss/aud/exp/required-claim checks that the real verifiers do.
     Used only when `enable_mocking()` is True — in production this path
     is never reached because the mocking flag file isn't shipped in the
-    Docker image (`api.Dockerfile` excludes the `test/` directory).
+    Docker image (`Dockerfile`'s api stage excludes the `test/` directory).
     """
     try:
         claims = jwt.decode(

@@ -5,6 +5,8 @@ cd "$script_dir"
 
 set -e
 
+python_version=$(< .python-version)
+
 export PYTHONUNBUFFERED=true
 export PYTHONDONTWRITEBYTECODE=true
 export PYTHONPATH=.
@@ -23,7 +25,7 @@ fi
 
 if [ -n "$1" ]
 then
-  python3 -m mypy "${1}"
+  python3 -m mypy --python-version "$python_version" "${1}"
 else
-  python3 -m mypy .
+  python3 -m mypy --python-version "$python_version" .
 fi
