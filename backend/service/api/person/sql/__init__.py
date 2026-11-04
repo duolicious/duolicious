@@ -155,6 +155,8 @@ WITH {_VISIBLE_PROSPECT_CTE}, personality AS (
                 person
             WHERE
                 id = %(person_id)s
+            AND
+                EXISTS (SELECT 1 FROM visible_prospect)
         ) AS person_trait
     ON
         person_trait.trait_id = trait.id
@@ -165,7 +167,7 @@ WITH {_VISIBLE_PROSPECT_CTE}, personality AS (
                 name,
                 (trait_ratio(presence_score, absence_score, 5000)).*
             FROM person
-            WHERE id = %(prospect_person_id)s
+            WHERE id = (SELECT id FROM visible_prospect)
         ) AS prospect_trait
     ON
         prospect_trait.trait_id = trait.id
@@ -1159,7 +1161,7 @@ AND
 
 Q_ANSWER_COMPARISON = f"""
 WITH {_VISIBLE_PROSPECT_CTE}, prospect_name AS(
-    SELECT name FROM person WHERE id = %(prospect_person_id)s
+    SELECT name FROM person WHERE id = (SELECT id FROM visible_prospect)
 ), person_name AS(
     SELECT name FROM person WHERE id = %(person_id)s
 ), comparison AS (
@@ -1185,7 +1187,7 @@ WITH {_VISIBLE_PROSPECT_CTE}, prospect_name AS(
             question ON
             question.id = answer.question_id AND
             (question.topic = %(topic)s OR %(topic)s = 'All') AND
-            answer.person_id = %(prospect_person_id)s AND
+            answer.person_id = (SELECT id FROM visible_prospect) AND
             answer.public_ = TRUE AND
             answer.answer IS NOT NULL AND
             (
