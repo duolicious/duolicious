@@ -17,6 +17,7 @@ credentials.json
 /android
 /ios
 modules/*/android/build
+modules/*/android/.gradle
 
 # iOS builds
 build-*.ipa
