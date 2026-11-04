@@ -75,12 +75,12 @@ c GET "/update-notifications?type=Visitors&token=${user1_token}&frequency=Daily"
 [[ 0 -eq "$(q "select count(*) from person where intros_notification = 5 and email = 'user1@example.com'")" ]]
 [[ 1 -eq "$(q "select count(*) from person where visitors_notification = 2 and email = 'user1@example.com'")" ]]
 
-# A link from before tokens, with only an email address, changes nothing
+# A link with an email address and no token is rejected, and the settings stay as they were
 before=$(notifications user1@example.com)
 [[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Immediately')" = 400 ]]
 [[ "$(notifications user1@example.com)" = "$before" ]]
 
-# A token whose signature has been changed changes nothing
+# A token with a changed signature is rejected, and the settings stay as they were
 [[ "$(status "/update-notifications?type=Every&token=${user1_token}x&frequency=Immediately")" = 400 ]]
 [[ "$(notifications user1@example.com)" = "$before" ]]
 
