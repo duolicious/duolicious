@@ -100,6 +100,8 @@ visible_prospect AS (
     AND (
             prospect.id = %(person_id)s
         OR (
+            -- Match the probes on the parameter: on prospect.id the planner
+            -- makes them hashed subplans over every row targeting the viewer.
             {_visible_to_viewer_sql(
                 prospect='prospect',
                 viewer_id='%(person_id)s',
