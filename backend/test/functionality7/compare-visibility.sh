@@ -165,4 +165,7 @@ q "update person set shadow_banned_at = now() where id = $prospect_id"
 expect "$prospect_id" 200
 q "update person set shadow_banned_at = null where id = $prospect_id"
 
-expect "$prospect_id" 200
+echo 'The viewer can compare themself while hidden from strangers'
+q "update person set hide_me_from_strangers = true where id = $viewer_id"
+expect "$viewer_id" 200
+q "update person set hide_me_from_strangers = false where id = $viewer_id"
