@@ -449,9 +449,16 @@ is_inbox_empty () {
   [[ $(curl -s 'http://localhost:8025/api/v1/messages') == '[]' ]]
 }
 
-# Pretty-print the latest messages from MailHog (To, From, Subject, Body).
+# Pretty-print the latest messages from MailHog (To, From, Subject, Body), with
+# each link's token replaced by TOKEN.
 # Example: get_emails | grep "Subject:"
 get_emails () {
+  get_emails_with_tokens | sed 's/token=[^&"]*/token=TOKEN/g'
+}
+
+# As get_emails, but with the links' tokens left in.
+# Example: get_emails_with_tokens | grep -o 'token=[^&"]*'
+get_emails_with_tokens () {
   (
     set +x
 
@@ -477,8 +484,7 @@ get_emails () {
     local body=$(
       echo "$body" \
       | tr -d '\r' \
-      | grep -v '^[ \t]*$' \
-      | sed 's/token=[^&"]*/token=TOKEN/g'
+      | grep -v '^[ \t]*$'
     )
 
     printf "%s\n" "To: $to"

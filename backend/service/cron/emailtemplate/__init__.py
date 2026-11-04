@@ -1,11 +1,11 @@
 from urllib.parse import urlencode
 
-from serviceshared.unsubscribe import unsubscribe_token
+from serviceshared.unsubscribe import person_token
 
 def frequency_url(person_uuid: str, type: str, frequency: str) -> str:
     base_url = 'https://api.duolicious.app/update-notifications'
     params = {
-        'token': unsubscribe_token(person_uuid),
+        'token': person_token(person_uuid),
         'type': type,
         'frequency': frequency
     }

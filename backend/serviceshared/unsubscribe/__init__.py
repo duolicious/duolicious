@@ -12,12 +12,12 @@ def _signature(person_uuid: str) -> bytes:
     return base64.urlsafe_b64encode(digest).rstrip(b'=')
 
 
-def unsubscribe_token(person_uuid: str) -> str:
+def person_token(person_uuid: str) -> str:
     return f'{person_uuid}.{_signature(person_uuid).decode()}'
 
 
 def unsubscribe_url(person_uuid: str) -> str:
-    token = unsubscribe_token(person_uuid)
+    token = person_token(person_uuid)
     return f'https://api.duolicious.app/unsubscribe?{urlencode(dict(token=token))}'
 
 

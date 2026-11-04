@@ -1182,7 +1182,7 @@ async def get_update_notifications(
 ) -> object:
     person_uuid = person_uuid_from_token(token)
     if person_uuid is None:
-        return 'This link has expired. You can change notification settings in the app.', 400
+        return 'This link is no longer valid. You can change notification settings in the app.', 400
 
     params = dict(
         person_uuid=person_uuid,

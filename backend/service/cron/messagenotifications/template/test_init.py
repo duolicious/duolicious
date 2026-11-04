@@ -2,7 +2,7 @@ import unittest
 from service.cron.messagenotifications.template import (
     emailtemplate,
 )
-from serviceshared.unsubscribe import unsubscribe_token
+from serviceshared.unsubscribe import person_token
 
 PERSON_UUID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
@@ -40,7 +40,7 @@ class TestEmailTemplate(unittest.TestCase):
     def test_frequency_links_carry_a_signed_token(self) -> None:
         email = emailtemplate(PERSON_UUID, has_intro=True, has_chat=True)
 
-        self.assertIn(f'token={unsubscribe_token(PERSON_UUID)}&', email)
+        self.assertIn(f'token={person_token(PERSON_UUID)}&', email)
         self.assertNotIn('email=', email)
 
 if __name__ == '__main__':
