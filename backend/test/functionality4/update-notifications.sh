@@ -84,9 +84,13 @@ before=$(notifications user1@example.com)
 [[ "$(status "/update-notifications?type=Every&token=${user1_token}x&frequency=Immediately")" = 400 ]]
 [[ "$(notifications user1@example.com)" = "$before" ]]
 
+# A valid token with a frequency that does not exist is rejected, and the settings stay as they were
+[[ "$(status "/update-notifications?type=Every&token=${user1_token}&frequency=Hourly")" = 400 ]]
+[[ "$(notifications user1@example.com)" = "$before" ]]
+
 # user2's token changes user2 only
 user2_before=$(notifications user2@example.com)
+[[ "$user2_before" != "4,4,4" ]]
 c GET "/update-notifications?type=Every&token=${user2_token}&frequency=Weekly"
 [[ "$(notifications user2@example.com)" = "4,4,4" ]]
 [[ "$(notifications user1@example.com)" = "$before" ]]
-[[ "$user2_before" != "4,4,4" ]]

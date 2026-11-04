@@ -1215,7 +1215,7 @@ async def get_update_notifications(
             f"<b>{type}</b> notification frequency set to "
             f"<b>{frequency}</b>")
     else:
-        return 'Invalid notification frequency', 400
+        return 'This link is no longer valid, or the notification frequency is invalid', 400
 
 async def post_unsubscribe(token: str) -> object:
     person_uuid = person_uuid_from_token(token)
