@@ -474,7 +474,6 @@ get_emails () {
       local body=${maybe_encoded_body}
     fi
 
-    # The links' signed tokens differ on every run.
     local body=$(
       echo "$body" \
       | tr -d '\r' \

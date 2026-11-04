@@ -12,8 +12,6 @@ q "delete from person"
 ../util/create-user.sh user1 0 0
 ../util/create-user.sh user2 0 0
 
-# The token in the emails' frequency links, signed with the test stack's
-# DUO_UNSUBSCRIBE_SECRET (docker-compose.test.yml).
 token_of () {
   python3 -c '
 import base64, hashlib, hmac, sys
@@ -26,7 +24,6 @@ print(uuid + "." + base64.urlsafe_b64encode(digest).rstrip(b"=").decode())
 user1_token=$(token_of "$(q "select uuid from person where email = 'user1@example.com'")")
 user2_token=$(token_of "$(q "select uuid from person where email = 'user2@example.com'")")
 
-# The status code alone: `c` only says whether the request succeeded.
 status () {
   curl -s -o /dev/null -w '%{http_code}' "http://localhost:5000$1"
 }
