@@ -27,9 +27,10 @@ RUN : \
 
 FROM debian:trixie-slim AS base
 
+# curl runs api's health check and downloads cron's model.
 RUN : \
   && apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/python /opt/python
@@ -67,11 +68,6 @@ CMD /app/api.main.sh
 
 
 FROM base AS cron
-
-RUN : \
-  && apt-get update \
-  && apt-get install -y --no-install-recommends curl \
-  && rm -rf /var/lib/apt/lists/*
 
 COPY \
   serviceshared/antiabuse/clipnsfw/download-model.sh \
