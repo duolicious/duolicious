@@ -827,7 +827,16 @@ async def get_compare_personalities(
         topic=db_topic,
     )
 
+    visibility_params = dict(
+        person_id=s.person_id,
+        prospect_person_id=prospect_person_id,
+    )
+
     async with api_tx('READ COMMITTED') as tx:
+        row = await tx.require_one(Q_IS_PROSPECT_VISIBLE, visibility_params)
+        if not row['visible']:
+            return 'Prospect not found', 404
+
         row_tx = await tx.execute(Q_SELECT_PERSONALITY, params)
         return await row_tx.fetchall()
 
@@ -872,6 +881,10 @@ async def get_compare_answers(
     )
 
     async with api_tx('READ COMMITTED') as tx:
+        row = await tx.require_one(Q_IS_PROSPECT_VISIBLE, params)
+        if not row['visible']:
+            return 'Prospect not found', 404
+
         row_tx = await tx.execute(Q_ANSWER_COMPARISON, params)
         return await row_tx.fetchall()
 

@@ -1178,6 +1178,58 @@ LIMIT %(n)s
 OFFSET %(o)s
 """
 
+# Whether the viewer may see the prospect: the signed-in-viewer filter of
+# `Q_SELECT_PROSPECT_PROFILE`, so the compare endpoints show only people whose
+# profile the viewer could open. Always one row, so an id that doesn't exist
+# looks the same as one that's hidden.
+Q_IS_PROSPECT_VISIBLE = """
+SELECT EXISTS (
+    SELECT
+        1
+    FROM
+        person AS prospect
+    WHERE
+        prospect.id = %(prospect_person_id)s
+    AND
+        prospect.activated
+    AND (
+            prospect.id = %(person_id)s
+        OR (
+            (
+                NOT prospect.hide_me_from_strangers
+            OR
+                prospect.public_profile
+            OR
+                EXISTS (
+                    SELECT 1 FROM messaged
+                    WHERE messaged.subject_person_id = prospect.id
+                      AND messaged.object_person_id  = %(person_id)s
+                )
+            )
+        AND (
+                prospect.privacy_verification_level_id <= (
+                    SELECT verification_level_id
+                    FROM person AS viewer
+                    WHERE viewer.id = %(person_id)s
+                )
+            OR
+                EXISTS (
+                    SELECT 1 FROM messaged
+                    WHERE messaged.subject_person_id = prospect.id
+                      AND messaged.object_person_id  = %(person_id)s
+                )
+            )
+        AND
+            NOT EXISTS (
+                SELECT 1 FROM skipped
+                WHERE skipped.subject_person_id = prospect.id
+                  AND skipped.object_person_id  = %(person_id)s
+            )
+        )
+    )
+) AS visible
+"""
+
 Q_SELECT_SESSION_TOKEN_HASHES_BY_PERSON_ID = """
 SELECT
     session_token_hash
