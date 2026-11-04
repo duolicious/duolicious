@@ -802,16 +802,17 @@ async def post_unskip_by_uuid(s: t.SessionInfo, prospect_uuid: str) -> None:
     async with api_tx() as tx:
         await tx.execute(Q_DELETE_SKIPPED_BY_UUID, params)
 
-async def _is_prospect_visible(
-    tx: Tx,
-    person_id: int | None,
-    prospect_person_id: int,
-) -> bool:
-    row = await tx.require_one(
-        Q_IS_PROSPECT_VISIBLE,
-        dict(person_id=person_id, prospect_person_id=prospect_person_id),
-    )
-    return row_bool(row, 'visible')
+async def _select_comparison(
+    query: str,
+    params: Mapping[str, object],
+) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row = await tx.require_one(query, params)
+
+    if not row_bool(row, 'visible'):
+        return '', 404
+
+    return row['j']
 
 async def get_compare_personalities(
     s: t.SessionInfo,
@@ -832,18 +833,14 @@ async def get_compare_personalities(
     db_topic = url_topic_to_db_topic[topic]
 
     params = dict(
+        person_id=s.person_id,
         person_id_as_int=s.person_id,
         person_id_as_str=None,
         prospect_person_id=prospect_person_id,
         topic=db_topic,
     )
 
-    async with api_tx('READ COMMITTED') as tx:
-        if not await _is_prospect_visible(tx, s.person_id, prospect_person_id):
-            return '', 404
-
-        row_tx = await tx.execute(Q_SELECT_PERSONALITY, params)
-        return await row_tx.fetchall()
+    return await _select_comparison(Q_SELECT_PERSONALITY, params)
 
 async def get_compare_answers(
     s: t.SessionInfo,
@@ -885,12 +882,7 @@ async def get_compare_answers(
         o=o,
     )
 
-    async with api_tx('READ COMMITTED') as tx:
-        if not await _is_prospect_visible(tx, s.person_id, prospect_person_id):
-            return '', 404
-
-        row_tx = await tx.execute(Q_ANSWER_COMPARISON, params)
-        return await row_tx.fetchall()
+    return await _select_comparison(Q_ANSWER_COMPARISON, params)
 
 async def delete_or_ban_account(
     s: t.SessionInfo | None,

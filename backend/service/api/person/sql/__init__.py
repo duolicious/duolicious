@@ -43,74 +43,148 @@ _Q_ESTIMATED_END_DATE = """
 (SELECT iso8601_utc(estimated_end_date) FROM funding) AS estimated_end_date
 """
 
-Q_SELECT_PERSONALITY = """
-SELECT
-    CASE
-        WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
-        THEN 'Extraversion'
-        ELSE trait.name
-    END                               AS trait_name,
-    CASE
-        WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
-        THEN NULL
-        ELSE trait.min_label
-    END                               AS trait_min_label,
-    CASE
-        WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
-        THEN NULL
-        ELSE trait.max_label
-    END                               AS trait_max_label,
-    trait.description                 AS trait_description,
-    person_trait.name                 AS person_name,
-    person_trait.tiny_id              AS person_id,
-    ROUND(100 * person_trait.ratio)   AS person_percentage,
-    prospect_trait.name               AS prospect_name,
-    ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
-    CASE
-        WHEN %(prospect_person_id)s IS NOT NULL
-        THEN COALESCE(prospect_trait.ratio, 0)
-        ELSE COALESCE(person_trait.ratio, 0)
-    END AS position
-FROM
-    trait
-LEFT JOIN
-    (
-        SELECT
-            id,
-            tiny_id,
-            name,
-            (trait_ratio(presence_score, absence_score, 5000)).*
-        FROM
-            person
-        WHERE
-            id = %(person_id_as_int)s::INT
-        OR
-            tiny_id = %(person_id_as_str)s::TEXT
-    ) AS person_trait
-ON
-    person_trait.trait_id = trait.id
-LEFT JOIN
-    (
-        SELECT
-            id,
-            name,
-            (trait_ratio(presence_score, absence_score, 5000)).*
-        FROM person
-        WHERE id = %(prospect_person_id)s
-    ) AS prospect_trait
-ON
-    prospect_trait.trait_id = trait.id
-WHERE
-    trait.id IN (
-        SELECT trait_id
-        FROM trait_topic
-        WHERE
-            trait_topic.name = %(topic)s OR
-            %(topic)s::TEXT IS NULL
+def _visible_to_viewer_sql(
+    prospect: str,
+    viewer_id: str,
+    prospect_has_messaged_viewer: str,
+    prospect_skipped_viewer: str,
+) -> str:
+    return f"""
+        (
+                NOT {prospect}.hide_me_from_strangers
+            OR
+                {prospect}.public_profile
+            OR
+                {prospect_has_messaged_viewer}
+        )
+        AND (
+            {prospect}.privacy_verification_level_id <= (
+                SELECT
+                    verification_level_id
+                FROM
+                    person
+                WHERE
+                    id = {viewer_id}
+            )
+            OR
+                {prospect_has_messaged_viewer}
+        )
+        AND
+            NOT {prospect_skipped_viewer}
+    """
+
+_VISIBLE_PROSPECT_CTE = f"""
+visible_prospect AS (
+    SELECT
+        prospect.id
+    FROM
+        person AS prospect
+    WHERE
+        prospect.id = %(prospect_person_id)s
+    AND
+        prospect.activated
+    AND (
+            prospect.id = %(person_id)s
+        OR (
+            {_visible_to_viewer_sql(
+                prospect='prospect',
+                viewer_id='%(person_id)s',
+                prospect_has_messaged_viewer='''EXISTS (
+                    SELECT 1 FROM messaged
+                    WHERE messaged.subject_person_id = prospect.id
+                      AND messaged.object_person_id  = %(person_id)s
+                )''',
+                prospect_skipped_viewer='''EXISTS (
+                    SELECT 1 FROM skipped
+                    WHERE skipped.subject_person_id = prospect.id
+                      AND skipped.object_person_id  = %(person_id)s
+                )''',
+            )}
+        )
     )
-ORDER BY
-    position DESC,
-    trait_name ASC
+)
+"""
+
+Q_SELECT_PERSONALITY = f"""
+WITH {_VISIBLE_PROSPECT_CTE}, personality AS (
+    SELECT
+        CASE
+            WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
+            THEN 'Extraversion'
+            ELSE trait.name
+        END                               AS trait_name,
+        CASE
+            WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
+            THEN NULL
+            ELSE trait.min_label
+        END                               AS trait_min_label,
+        CASE
+            WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
+            THEN NULL
+            ELSE trait.max_label
+        END                               AS trait_max_label,
+        trait.description                 AS trait_description,
+        person_trait.name                 AS person_name,
+        person_trait.tiny_id              AS person_id,
+        ROUND(100 * person_trait.ratio)   AS person_percentage,
+        prospect_trait.name               AS prospect_name,
+        ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
+        CASE
+            WHEN %(prospect_person_id)s IS NOT NULL
+            THEN COALESCE(prospect_trait.ratio, 0)
+            ELSE COALESCE(person_trait.ratio, 0)
+        END AS position
+    FROM
+        trait
+    LEFT JOIN
+        (
+            SELECT
+                id,
+                tiny_id,
+                name,
+                (trait_ratio(presence_score, absence_score, 5000)).*
+            FROM
+                person
+            WHERE
+                id = %(person_id_as_int)s::INT
+            OR
+                tiny_id = %(person_id_as_str)s::TEXT
+        ) AS person_trait
+    ON
+        person_trait.trait_id = trait.id
+    LEFT JOIN
+        (
+            SELECT
+                id,
+                name,
+                (trait_ratio(presence_score, absence_score, 5000)).*
+            FROM person
+            WHERE id = %(prospect_person_id)s
+        ) AS prospect_trait
+    ON
+        prospect_trait.trait_id = trait.id
+    WHERE
+        trait.id IN (
+            SELECT trait_id
+            FROM trait_topic
+            WHERE
+                trait_topic.name = %(topic)s OR
+                %(topic)s::TEXT IS NULL
+        )
+)
+SELECT
+    EXISTS (SELECT 1 FROM visible_prospect) AS visible,
+    COALESCE(
+        (
+            SELECT
+                json_agg(personality ORDER BY position DESC, trait_name ASC)
+            FROM
+                personality
+            WHERE
+                EXISTS (SELECT 1 FROM visible_prospect)
+        ),
+        '[]'::json
+    ) AS j
 """
 
 # Reactivation/sign-in metadata bumps shared by `/check-otp` and the
@@ -649,27 +723,13 @@ WITH prospect_base AS (
         -- level, and skipped status.
         (
             %(person_id)s IS NOT NULL
-        AND (
-                NOT prospect.hide_me_from_strangers
-            OR
-                prospect.public_profile
-            OR
-                viewer_rel.prospect_has_messaged_person
-        )
-        AND (
-            prospect.privacy_verification_level_id <= (
-                SELECT
-                    verification_level_id
-                FROM
-                    person
-                WHERE
-                    id = %(person_id)s
-            )
-            OR
-                viewer_rel.prospect_has_messaged_person
-        )
         AND
-            NOT viewer_rel.prospect_skipped_person
+            {_visible_to_viewer_sql(
+                prospect='prospect',
+                viewer_id='%(person_id)s',
+                prospect_has_messaged_viewer='viewer_rel.prospect_has_messaged_person',
+                prospect_skipped_viewer='viewer_rel.prospect_skipped_person',
+            )}
         )
         OR
         -- Anonymous viewer: only when the prospect has opted in to
@@ -979,7 +1039,7 @@ WHERE
 # state) and deliberately does NOT write to `visited` — opening someone's
 # chat is not the same as viewing their profile, so it shouldn't surface them
 # in the prospect's "Visitors" tab.
-Q_SELECT_CONVERSATION_PROSPECT = """
+Q_SELECT_CONVERSATION_PROSPECT = f"""
 WITH prospect AS (
     SELECT
         person.id,
@@ -1012,30 +1072,19 @@ WITH prospect AS (
     AND (
         (
             person.shadow_banned_at IS NULL
-        AND (
-                NOT person.hide_me_from_strangers
-            OR
-                person.public_profile
-            OR
-                m.prospect_has_messaged_person
-            )
-        AND (
-                person.privacy_verification_level_id <= (
-                    SELECT verification_level_id
-                    FROM person AS viewer
-                    WHERE viewer.id = %(person_id)s
-                )
-            OR
-                m.prospect_has_messaged_person
-        )
         AND
-            NOT EXISTS (
-                SELECT 1
-                FROM skipped
-                WHERE
-                    subject_person_id = person.id AND
-                    object_person_id  = %(person_id)s
-            )
+            {_visible_to_viewer_sql(
+                prospect='person',
+                viewer_id='%(person_id)s',
+                prospect_has_messaged_viewer='m.prospect_has_messaged_person',
+                prospect_skipped_viewer='''EXISTS (
+                    SELECT 1
+                    FROM skipped
+                    WHERE
+                        subject_person_id = person.id AND
+                        object_person_id  = %(person_id)s
+                )''',
+            )}
         )
         OR
             person.id = %(person_id)s
@@ -1111,119 +1160,85 @@ AND
     subject_person_id = %(subject_person_id)s
 """
 
-Q_ANSWER_COMPARISON = """
-WITH prospect_name AS(
+Q_ANSWER_COMPARISON = f"""
+WITH {_VISIBLE_PROSPECT_CTE}, prospect_name AS(
     SELECT name FROM person WHERE id = %(prospect_person_id)s
 ), person_name AS(
     SELECT name FROM person WHERE id = %(person_id)s
-)
-SELECT
-    prospect_answer.person_id AS prospect_person_id,
-    (SELECT name FROM prospect_name) AS prospect_name,
-    prospect_answer.answer AS prospect_answer,
-    person_answer.person_id AS person_id,
-    (SELECT name FROM person_name) AS person_name,
-    person_answer.answer AS person_answer,
-    person_answer.public_ AS person_public_,
-    question.id AS question_id,
-    question.question AS question,
-    question.topic AS topic
-FROM (
+), comparison AS (
     SELECT
-        person_id,
-        question_id,
-        answer.answer
-    FROM
-        answer
+        prospect_answer.person_id AS prospect_person_id,
+        (SELECT name FROM prospect_name) AS prospect_name,
+        prospect_answer.answer AS prospect_answer,
+        person_answer.person_id AS person_id,
+        (SELECT name FROM person_name) AS person_name,
+        person_answer.answer AS person_answer,
+        person_answer.public_ AS person_public_,
+        question.id AS question_id,
+        question.question AS question,
+        question.topic AS topic
+    FROM (
+        SELECT
+            person_id,
+            question_id,
+            answer.answer
+        FROM
+            answer
+        JOIN
+            question ON
+            question.id = answer.question_id AND
+            (question.topic = %(topic)s OR %(topic)s = 'All') AND
+            answer.person_id = %(prospect_person_id)s AND
+            answer.public_ = TRUE AND
+            answer.answer IS NOT NULL AND
+            (
+                %(prospect_person_id)s = %(person_id)s OR
+                NOT EXISTS (
+                    SELECT 1 FROM person
+                    WHERE id = %(prospect_person_id)s AND shadow_banned_at IS NOT NULL
+                )
+            )
+    ) AS prospect_answer
     JOIN
         question ON
-        question.id = answer.question_id AND
-        (question.topic = %(topic)s OR %(topic)s = 'All') AND
-        answer.person_id = %(prospect_person_id)s AND
-        answer.public_ = TRUE AND
-        answer.answer IS NOT NULL AND
-        (
-            %(prospect_person_id)s = %(person_id)s OR
-            NOT EXISTS (
-                SELECT 1 FROM person
-                WHERE id = %(prospect_person_id)s AND shadow_banned_at IS NOT NULL
-            )
-        )
-) AS prospect_answer
-JOIN
-    question ON
-    question.id = prospect_answer.question_id
-LEFT JOIN
-    answer AS person_answer ON
-    person_answer.person_id = %(person_id)s AND
-    person_answer.question_id = prospect_answer.question_id
-WHERE
-    (
-        %(agreement)s != 'Agree' OR
-        person_answer.answer IS NOT NULL AND
-        prospect_answer.answer IS NOT NULL AND
-        person_answer.answer = prospect_answer.answer
-    ) AND (
-        %(agreement)s != 'Disagree' OR
-        person_answer.answer IS NOT NULL AND
-        prospect_answer.answer IS NOT NULL AND
-        person_answer.answer != prospect_answer.answer
-    ) AND (
-        %(agreement)s != 'Unanswered' OR
-        person_answer.answer IS NULL
-    )
-ORDER BY
-    question.id
-LIMIT %(n)s
-OFFSET %(o)s
-"""
-
-Q_IS_PROSPECT_VISIBLE = """
-SELECT EXISTS (
-    SELECT
-        1
-    FROM
-        person AS prospect
+        question.id = prospect_answer.question_id
+    LEFT JOIN
+        answer AS person_answer ON
+        person_answer.person_id = %(person_id)s AND
+        person_answer.question_id = prospect_answer.question_id
     WHERE
-        prospect.id = %(prospect_person_id)s
-    AND
-        prospect.activated
-    AND (
-            prospect.id = %(person_id)s
-        OR (
-            (
-                NOT prospect.hide_me_from_strangers
-            OR
-                prospect.public_profile
-            OR
-                EXISTS (
-                    SELECT 1 FROM messaged
-                    WHERE messaged.subject_person_id = prospect.id
-                      AND messaged.object_person_id  = %(person_id)s
-                )
-            )
-        AND (
-                prospect.privacy_verification_level_id <= (
-                    SELECT verification_level_id
-                    FROM person AS viewer
-                    WHERE viewer.id = %(person_id)s
-                )
-            OR
-                EXISTS (
-                    SELECT 1 FROM messaged
-                    WHERE messaged.subject_person_id = prospect.id
-                      AND messaged.object_person_id  = %(person_id)s
-                )
-            )
-        AND
-            NOT EXISTS (
-                SELECT 1 FROM skipped
-                WHERE skipped.subject_person_id = prospect.id
-                  AND skipped.object_person_id  = %(person_id)s
-            )
+        (
+            %(agreement)s != 'Agree' OR
+            person_answer.answer IS NOT NULL AND
+            prospect_answer.answer IS NOT NULL AND
+            person_answer.answer = prospect_answer.answer
+        ) AND (
+            %(agreement)s != 'Disagree' OR
+            person_answer.answer IS NOT NULL AND
+            prospect_answer.answer IS NOT NULL AND
+            person_answer.answer != prospect_answer.answer
+        ) AND (
+            %(agreement)s != 'Unanswered' OR
+            person_answer.answer IS NULL
         )
-    )
-) AS visible
+    ORDER BY
+        question.id
+    LIMIT %(n)s
+    OFFSET %(o)s
+)
+SELECT
+    EXISTS (SELECT 1 FROM visible_prospect) AS visible,
+    COALESCE(
+        (
+            SELECT
+                json_agg(comparison ORDER BY question_id)
+            FROM
+                comparison
+            WHERE
+                EXISTS (SELECT 1 FROM visible_prospect)
+        ),
+        '[]'::json
+    ) AS j
 """
 
 Q_SELECT_SESSION_TOKEN_HASHES_BY_PERSON_ID = """
