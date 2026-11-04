@@ -22,15 +22,12 @@ setup () {
   assume_role viewer
 }
 
-# The status code alone: `c` only says whether the request succeeded.
 status () {
   curl -s -o /dev/null -w '%{http_code}' \
     --header "Authorization: Bearer $SESSION_TOKEN" \
     "http://localhost:5000$1"
 }
 
-# Both compare endpoints answer the viewer's request for `person_id` with
-# `expected`.
 expect () {
   local person_id=$1
   local expected=$2

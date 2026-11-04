@@ -1178,10 +1178,6 @@ LIMIT %(n)s
 OFFSET %(o)s
 """
 
-# Whether the viewer may see the prospect: the signed-in-viewer filter of
-# `Q_SELECT_PROSPECT_PROFILE`, so the compare endpoints show only people whose
-# profile the viewer could open. Always one row, so an id that doesn't exist
-# looks the same as one that's hidden.
 Q_IS_PROSPECT_VISIBLE = """
 SELECT EXISTS (
     SELECT
