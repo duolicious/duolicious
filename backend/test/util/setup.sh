@@ -474,10 +474,12 @@ get_emails () {
       local body=${maybe_encoded_body}
     fi
 
+    # The links' signed tokens differ on every run.
     local body=$(
       echo "$body" \
       | tr -d '\r' \
-      | grep -v '^[ \t]*$'
+      | grep -v '^[ \t]*$' \
+      | sed 's/token=[^&"]*/token=TOKEN/g'
     )
 
     printf "%s\n" "To: $to"

@@ -1,7 +1,11 @@
 import unittest
 from urllib.parse import parse_qs, urlparse
 
-from serviceshared.unsubscribe import person_uuid_from_token, unsubscribe_url
+from serviceshared.unsubscribe import (
+    person_uuid_from_token,
+    unsubscribe_token,
+    unsubscribe_url,
+)
 
 PERSON_UUID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
@@ -13,6 +17,10 @@ def token_of(url: str) -> str:
 class TestUnsubscribeToken(unittest.TestCase):
     def test_round_trip(self) -> None:
         token = token_of(unsubscribe_url(PERSON_UUID))
+        self.assertEqual(person_uuid_from_token(token), PERSON_UUID)
+
+    def test_token_round_trip(self) -> None:
+        token = unsubscribe_token(PERSON_UUID)
         self.assertEqual(person_uuid_from_token(token), PERSON_UUID)
 
     def test_rejects_other_person(self) -> None:

@@ -2263,7 +2263,7 @@ WITH updated_rows AS (
     FROM
         immediacy
     WHERE
-        person.email = %(email)s
+        person.uuid = %(person_uuid)s
     AND
         immediacy.name = %(frequency)s
     RETURNING 1
@@ -2283,7 +2283,7 @@ WITH updated_rows AS (
     FROM
         immediacy
     WHERE
-        person.email = %(email)s
+        person.uuid = %(person_uuid)s
     AND
         immediacy.name = %(frequency)s
     RETURNING 1
@@ -2303,7 +2303,7 @@ WITH updated_rows AS (
     FROM
         immediacy
     WHERE
-        person.email = %(email)s
+        person.uuid = %(person_uuid)s
     AND
         immediacy.name = %(frequency)s
     RETURNING 1

@@ -49,7 +49,7 @@ def push_body(row: VisitorNotification) -> str:
 
 def email_body(row: VisitorNotification) -> str:
     return visitor_emailtemplate(
-        email=row.email, visitor_count=row.visitor_count)
+        person_uuid=row.person_uuid, visitor_count=row.visitor_count)
 
 async def update_last_notification_time(row: VisitorNotification) -> None:
     params = dict(username=row.person_uuid)

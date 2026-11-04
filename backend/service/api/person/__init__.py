@@ -1176,12 +1176,16 @@ async def post_disconnect_spotify(s: t.SessionInfo) -> None:
         await tx.execute(Q_DISCONNECT_SPOTIFY, params)
 
 async def get_update_notifications(
-    email: str,
+    token: str,
     type: str,
     frequency: str,
 ) -> object:
+    person_uuid = person_uuid_from_token(token)
+    if person_uuid is None:
+        return 'This link has expired. You can change notification settings in the app.', 400
+
     params = dict(
-        email=email,
+        person_uuid=person_uuid,
         frequency=frequency,
     )
 
@@ -1209,10 +1213,9 @@ async def get_update_notifications(
         return (
             f"✅ "
             f"<b>{type}</b> notification frequency set to "
-            f"<b>{frequency}</b> for "
-            f"<b>{email}</b>")
+            f"<b>{frequency}</b>")
     else:
-        return 'Invalid email address or notification frequency', 400
+        return 'Invalid notification frequency', 400
 
 async def post_unsubscribe(token: str) -> object:
     person_uuid = person_uuid_from_token(token)
