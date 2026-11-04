@@ -29,6 +29,7 @@ Optional: if you hit OpenSSL errors on some Node setups or file watch limits on 
   - iOS: macOS with Xcode installed
 - For end‑to‑end tests: Playwright browsers
   - Install once: `npx playwright install --with-deps` (the dev container already installed Chromium, which every configured project uses; opening a trace in Firefox, as the example below does, needs this full install)
+- For end‑to‑end tests: `make`, to start the backend
 
 You do not need to install the Expo CLI globally; commands are run via npm scripts or `npx`.
 
@@ -107,15 +108,15 @@ First‑time setup:
 ```bash
 npx playwright install --with-deps
 ```
-The tests drive the app against the real backend. Start a fresh copy of the backend's test stack first, with its rate limits switched off (from `backend/`):
+The tests drive the app against the real backend. From the repository root, this starts a fresh copy of the backend's test stack, with its rate limits switched off, waits for its API to be healthy, then runs the tests:
 ```bash
-mkdir -p test/input
-for f in enable-mocking disable-ip-rate-limit disable-account-rate-limit; do echo 1 > test/input/$f; done
-docker compose -f docker-compose.test.yml up -d --build api status s3mock smtp redis
+make e2e-backend frontend-e2e
 ```
+`PROJECTS` picks the Playwright projects, e.g. `make e2e-backend frontend-e2e PROJECTS='desktop phone'`. To run Playwright yourself, as in the commands below, start the stack with `make e2e-backend` and wait until http://localhost:5000/health responds.
+
 The `seed` project fills the database with a fixed cast of members (it needs `psql` on your `PATH`), and `screens.spec.ts` and `onboarding.spec.ts` compare each screen against the PNGs in `playwright-tests/*-snapshots/`, on desktop and phone layouts. Screenshots render differently between machines, so the committed PNGs come from CI: when a screen changes on purpose, download the failed job's `playwright-report-…` artifact and copy each `test-results/**/<name>-actual.png` over the matching snapshot. New screens write their first PNG into `playwright-tests/*-snapshots/` in the same artifact.
 
-Run tests and capture traces:
+From `frontend/`, run tests and capture traces:
 ```bash
 npx playwright test --trace on
 ```

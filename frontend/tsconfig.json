@@ -8,5 +8,6 @@
     "strictNullChecks": true,
     "noImplicitAny": true,
     "esModuleInterop": true
-  }
+  },
+  "exclude": ["node_modules", "playwright-report", "test-results"]
 }

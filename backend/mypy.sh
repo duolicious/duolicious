@@ -5,6 +5,8 @@ cd "$script_dir"
 
 set -e
 
+python_version=$(< .python-version)
+
 export PYTHONUNBUFFERED=true
 export PYTHONDONTWRITEBYTECODE=true
 export PYTHONPATH=.
@@ -18,12 +20,12 @@ if [ "${DUO_USE_VENV:-true}" = true ] && [ ! -d venv/mypy/ ]
 then
   python3 -m venv venv/mypy/
   export PATH=$(readlink -e venv/mypy/bin):$PATH
-  python3 -m pip install -r mypy.requirements.txt
+  python3 -m pip install -r requirements-dev.txt
 fi
 
 if [ -n "$1" ]
 then
-  python3 -m mypy "${1}"
+  python3 -m mypy --python-version "$python_version" "${1}"
 else
-  python3 -m mypy .
+  python3 -m mypy --python-version "$python_version" .
 fi
