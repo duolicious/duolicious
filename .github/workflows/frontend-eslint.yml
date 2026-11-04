@@ -5,15 +5,13 @@ on:
       - main
     paths:
       - frontend/**
+      - Makefile
       - .github/workflows/frontend-eslint.yml
   pull_request:
     paths:
       - frontend/**
+      - Makefile
       - .github/workflows/frontend-eslint.yml
-
-defaults:
-  run:
-    working-directory: frontend
 
 jobs:
   test:
@@ -25,7 +23,7 @@ jobs:
       with:
         node-version: lts/*
     - name: Install dependencies
+      working-directory: frontend
       run: npm ci
     - name: Run lint
-      run: |
-        npm run lint
+      run: make frontend-lint

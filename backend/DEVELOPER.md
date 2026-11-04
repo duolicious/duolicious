@@ -62,17 +62,17 @@ Notes:
 ./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
-- Run a whole suite:
+- Run a whole suite, from the repository root:
 
 ```bash
-./test/util/with-container.sh ./test/functionality.sh 1
+make backend-functionality SUITE=1
 ```
 
 ### Type checking
 
 ```bash
-./mypy.sh           # check core modules
-./mypy.sh path.py   # check a specific file or directory
+make backend-typecheck   # from the repository root
+./mypy.sh path.py        # from backend/: check a specific file or directory
 ```
 
 ## Production deployments
@@ -197,15 +197,16 @@ Install these:
 * jq
 * curl
 * ffmpeg
+* make
 
-Then run this:
+Then run this from the repository root:
 
 ```bash
-# Where ${n} is the test you want to run
-./test/util/with-container.sh ./test/functionality${n}.sh
+# Where ${n} is the suite you want to run
+make backend-functionality SUITE=${n}
 ```
 
-You can also do this in one terminal:
+You can also do this in one terminal, from `backend/`:
 
 ```bash
 docker compose up
@@ -214,8 +215,8 @@ docker compose up
 ...Then run this in another:
 
 ```bash
-# Where ${n} is the test you want to run
-DUO_DB_PORT=5432 ./test/functionality${n}.sh
+# Where ${n} is the suite you want to run
+DUO_DB_PORT=5432 ./test/functionality.sh ${n}
 ```
 
 ## Using pg_stat_statements:

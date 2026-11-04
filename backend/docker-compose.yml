@@ -36,7 +36,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: api.Dockerfile
+      dockerfile: Dockerfile
+      target: api
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,7 +135,8 @@ services:
   cron:
     build:
       context: .
-      dockerfile: cron.Dockerfile
+      dockerfile: Dockerfile
+      target: cron
     ports:
       - "8082:8080"
     depends_on:
@@ -291,7 +293,8 @@ services:
   firehol:
     build:
       context: .
-      dockerfile: firehol.Dockerfile
+      dockerfile: Dockerfile
+      target: firehol
     ports:
       - "5070:5070"
     volumes:
