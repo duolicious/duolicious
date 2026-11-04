@@ -160,4 +160,9 @@ q "insert into skipped (subject_person_id, object_person_id)
 expect "$prospect_id" 404
 q "delete from skipped"
 
+echo 'A shadow-banned prospect stays visible, as on their profile'
+q "update person set shadow_banned_at = now() where id = $prospect_id"
+expect "$prospect_id" 200
+q "update person set shadow_banned_at = null where id = $prospect_id"
+
 expect "$prospect_id" 200
