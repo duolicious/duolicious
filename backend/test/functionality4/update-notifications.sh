@@ -28,6 +28,10 @@ status () {
   curl -s -o /dev/null -w '%{http_code}' "http://localhost:5000$1"
 }
 
+response () {
+  curl -s -w ' %{http_code}' "http://localhost:5000$1"
+}
+
 notifications () {
   q "select concat_ws(',', chats_notification, intros_notification, visitors_notification)
      from person where email = '$1'"
@@ -75,9 +79,26 @@ c GET "/update-notifications?type=Visitors&token=${user1_token}&frequency=Daily"
 [[ 0 -eq "$(q "select count(*) from person where intros_notification = 5 and email = 'user1@example.com'")" ]]
 [[ 1 -eq "$(q "select count(*) from person where visitors_notification = 2 and email = 'user1@example.com'")" ]]
 
-# A link with an email address and no token is rejected, and the settings stay as they were
 before=$(notifications user1@example.com)
-[[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Immediately')" = 400 ]]
+if [[ "$(date -u +%F)" > 2026-12-15 ]]
+then
+  # After the cutoff, a link with an email address and no token is rejected, and the settings stay as they were
+  [[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Immediately')" = 400 ]]
+  [[ "$(notifications user1@example.com)" = "$before" ]]
+else
+  # Until the cutoff, a link with an email address and no token changes the settings
+  [[ "$before" != "1,1,1" ]]
+  [[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Immediately')" = 200 ]]
+  [[ "$(notifications user1@example.com)" = "1,1,1" ]]
+fi
+
+# A link with an email address and no token gets the same answer whether or not the address has an account
+[[ "$(response '/update-notifications?type=Every&email=user1@example.com&frequency=Immediately')" = \
+   "$(response '/update-notifications?type=Every&email=nobody@example.com&frequency=Immediately')" ]]
+
+# A link with an email address and no token and a frequency that does not exist is rejected, and the settings stay as they were
+before=$(notifications user1@example.com)
+[[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Hourly')" = 400 ]]
 [[ "$(notifications user1@example.com)" = "$before" ]]
 
 # A token with a changed signature is rejected, and the settings stay as they were
