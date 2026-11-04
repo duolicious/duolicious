@@ -802,6 +802,17 @@ async def post_unskip_by_uuid(s: t.SessionInfo, prospect_uuid: str) -> None:
     async with api_tx() as tx:
         await tx.execute(Q_DELETE_SKIPPED_BY_UUID, params)
 
+async def _is_prospect_visible(
+    tx: Tx,
+    person_id: int | None,
+    prospect_person_id: int,
+) -> bool:
+    row = await tx.require_one(
+        Q_IS_PROSPECT_VISIBLE,
+        dict(person_id=person_id, prospect_person_id=prospect_person_id),
+    )
+    return row_bool(row, 'visible')
+
 async def get_compare_personalities(
     s: t.SessionInfo,
     prospect_person_id: int,
@@ -827,15 +838,9 @@ async def get_compare_personalities(
         topic=db_topic,
     )
 
-    visibility_params = dict(
-        person_id=s.person_id,
-        prospect_person_id=prospect_person_id,
-    )
-
     async with api_tx('READ COMMITTED') as tx:
-        row = await tx.require_one(Q_IS_PROSPECT_VISIBLE, visibility_params)
-        if not row['visible']:
-            return 'Prospect not found', 404
+        if not await _is_prospect_visible(tx, s.person_id, prospect_person_id):
+            return '', 404
 
         row_tx = await tx.execute(Q_SELECT_PERSONALITY, params)
         return await row_tx.fetchall()
@@ -881,9 +886,8 @@ async def get_compare_answers(
     )
 
     async with api_tx('READ COMMITTED') as tx:
-        row = await tx.require_one(Q_IS_PROSPECT_VISIBLE, params)
-        if not row['visible']:
-            return 'Prospect not found', 404
+        if not await _is_prospect_visible(tx, s.person_id, prospect_person_id):
+            return '', 404
 
         row_tx = await tx.execute(Q_ANSWER_COMPARISON, params)
         return await row_tx.fetchall()
