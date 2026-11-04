@@ -43,6 +43,20 @@ _Q_ESTIMATED_END_DATE = """
 (SELECT iso8601_utc(estimated_end_date) FROM funding) AS estimated_end_date
 """
 
+def _prospect_has_messaged_viewer_sql(prospect_id: str, viewer_id: str) -> str:
+    return f"""EXISTS (
+        SELECT 1 FROM messaged
+        WHERE messaged.subject_person_id = {prospect_id}
+          AND messaged.object_person_id  = {viewer_id}
+    )"""
+
+def _prospect_skipped_viewer_sql(prospect_id: str, viewer_id: str) -> str:
+    return f"""EXISTS (
+        SELECT 1 FROM skipped
+        WHERE skipped.subject_person_id = {prospect_id}
+          AND skipped.object_person_id  = {viewer_id}
+    )"""
+
 def _visible_to_viewer_sql(
     prospect: str,
     viewer_id: str,
@@ -89,16 +103,14 @@ visible_prospect AS (
             {_visible_to_viewer_sql(
                 prospect='prospect',
                 viewer_id='%(person_id)s',
-                prospect_has_messaged_viewer='''EXISTS (
-                    SELECT 1 FROM messaged
-                    WHERE messaged.subject_person_id = prospect.id
-                      AND messaged.object_person_id  = %(person_id)s
-                )''',
-                prospect_skipped_viewer='''EXISTS (
-                    SELECT 1 FROM skipped
-                    WHERE skipped.subject_person_id = prospect.id
-                      AND skipped.object_person_id  = %(person_id)s
-                )''',
+                prospect_has_messaged_viewer=_prospect_has_messaged_viewer_sql(
+                    prospect_id='%(prospect_person_id)s',
+                    viewer_id='%(person_id)s',
+                ),
+                prospect_skipped_viewer=_prospect_skipped_viewer_sql(
+                    prospect_id='%(prospect_person_id)s',
+                    viewer_id='%(person_id)s',
+                ),
             )}
         )
     )
@@ -129,11 +141,7 @@ WITH {_VISIBLE_PROSPECT_CTE}, personality AS (
         ROUND(100 * person_trait.ratio)   AS person_percentage,
         prospect_trait.name               AS prospect_name,
         ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
-        CASE
-            WHEN %(prospect_person_id)s IS NOT NULL
-            THEN COALESCE(prospect_trait.ratio, 0)
-            ELSE COALESCE(person_trait.ratio, 0)
-        END AS position
+        COALESCE(prospect_trait.ratio, 0) AS position
     FROM
         trait
     LEFT JOIN
@@ -146,9 +154,7 @@ WITH {_VISIBLE_PROSPECT_CTE}, personality AS (
             FROM
                 person
             WHERE
-                id = %(person_id_as_int)s::INT
-            OR
-                tiny_id = %(person_id_as_str)s::TEXT
+                id = %(person_id)s
         ) AS person_trait
     ON
         person_trait.trait_id = trait.id
@@ -654,16 +660,14 @@ WITH prospect_base AS (
     -- targeting the viewer - so the cost grows with how many people have
     -- messaged or skipped the viewer.
     SELECT
-        EXISTS (
-            SELECT 1 FROM messaged
-            WHERE messaged.subject_person_id = prospect_base.id
-              AND messaged.object_person_id  = %(person_id)s
-        ) AS prospect_has_messaged_person,
-        EXISTS (
-            SELECT 1 FROM skipped
-            WHERE skipped.subject_person_id = prospect_base.id
-              AND skipped.object_person_id  = %(person_id)s
-        ) AS prospect_skipped_person
+        {_prospect_has_messaged_viewer_sql(
+            prospect_id='prospect_base.id',
+            viewer_id='%(person_id)s',
+        )} AS prospect_has_messaged_person,
+        {_prospect_skipped_viewer_sql(
+            prospect_id='prospect_base.id',
+            viewer_id='%(person_id)s',
+        )} AS prospect_skipped_person
     FROM prospect_base
 ), prospect AS (
     SELECT
@@ -1050,14 +1054,10 @@ WITH prospect AS (
         person
     LEFT JOIN LATERAL (
         SELECT
-            EXISTS (
-                SELECT 1
-                FROM messaged
-                WHERE
-                    messaged.subject_person_id = person.id
-                AND
-                    messaged.object_person_id = %(person_id)s
-            ) AS prospect_has_messaged_person
+            {_prospect_has_messaged_viewer_sql(
+                prospect_id='person.id',
+                viewer_id='%(person_id)s',
+            )} AS prospect_has_messaged_person
     ) AS m
     ON
         TRUE
@@ -1077,13 +1077,10 @@ WITH prospect AS (
                 prospect='person',
                 viewer_id='%(person_id)s',
                 prospect_has_messaged_viewer='m.prospect_has_messaged_person',
-                prospect_skipped_viewer='''EXISTS (
-                    SELECT 1
-                    FROM skipped
-                    WHERE
-                        subject_person_id = person.id AND
-                        object_person_id  = %(person_id)s
-                )''',
+                prospect_skipped_viewer=_prospect_skipped_viewer_sql(
+                    prospect_id='person.id',
+                    viewer_id='%(person_id)s',
+                ),
             )}
         )
         OR
