@@ -318,9 +318,6 @@ async def post_check_otp(
     )
 
     async with api_tx() as tx:
-        # The transaction commits on the 401 return below too, so
-        # `Q_MAYBE_DELETE_ONBOARDEE` must accept only the sessions that
-        # `Q_MAYBE_SIGN_IN` accepts.
         await tx.execute(Q_MAYBE_DELETE_ONBOARDEE, params)
         await tx.execute(Q_MAYBE_SIGN_IN, params)
         row = await tx.fetchone()

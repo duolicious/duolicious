@@ -246,9 +246,6 @@ RETURNING
     otp.otp
 """
 
-# Which sessions an OTP check signs in. Both OTP sign-in queries must accept
-# the same sessions, so they share this condition. The caller must update
-# `duo_session` without an alias and pass `session_token_hash` and `otp`.
 _Q_OTP_SIGN_IN_CONDITION = """
 duo_session.session_token_hash = %(session_token_hash)s AND
 duo_session.otp = %(otp)s AND
@@ -264,11 +261,10 @@ NOT EXISTS (
 
 Q_MAYBE_DELETE_ONBOARDEE = f"""
 WITH valid_session AS (
-    UPDATE duo_session
-    SET signed_in = TRUE
+    SELECT email
+    FROM duo_session
     WHERE
         {_Q_OTP_SIGN_IN_CONDITION}
-    RETURNING email
 )
 DELETE FROM onboardee
 WHERE email IN (SELECT email FROM valid_session)
