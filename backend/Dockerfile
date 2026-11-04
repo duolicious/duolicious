@@ -1,19 +1,40 @@
 # syntax=docker.io/docker/dockerfile:1.7-labs
 
-FROM debian:trixie-slim AS base
+FROM debian:trixie-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /usr/local/bin/uv
 
-# build-essential compiles pytricia, which is published only as source; curl
-# downloads cron's model.
+# build-essential compiles pytricia, which is published only as source.
 RUN : \
   && apt-get update \
-  && apt-get install -y --no-install-recommends build-essential ca-certificates curl \
+  && apt-get install -y --no-install-recommends build-essential ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 ENV UV_PYTHON_PREFERENCE=only-managed
 ENV VIRTUAL_ENV=/opt/venv
+
+WORKDIR /app
+
+# uv installs the Python that .python-version names; that file is the
+# version's only home, which setup-python and mypy.sh also read.
+COPY .python-version requirements.txt /app/
+
+RUN : \
+  && uv venv /opt/venv \
+  && uv pip install --no-cache --compile-bytecode -r requirements.txt
+
+
+FROM debian:trixie-slim AS base
+
+RUN : \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/python /opt/python
+COPY --from=builder /opt/venv /opt/venv
+
 ENV PATH=/opt/venv/bin:$PATH
 
 ENV DUO_USE_VENV=false
@@ -24,14 +45,6 @@ ENV OPENBLAS_NUM_THREADS=1
 ENV OMP_NUM_THREADS=1
 
 WORKDIR /app
-
-# uv installs the Python that .python-version names; that file is the
-# version's only home, which setup-python and mypy.sh also read.
-COPY .python-version requirements.txt /app/
-
-RUN : \
-  && uv venv /opt/venv \
-  && uv pip install --no-cache -r requirements.txt
 
 
 FROM base AS api
@@ -54,6 +67,11 @@ CMD /app/api.main.sh
 
 
 FROM base AS cron
+
+RUN : \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY \
   serviceshared/antiabuse/clipnsfw/download-model.sh \
