@@ -1193,17 +1193,14 @@ async def get_update_notifications(
     frequency: str,
 ) -> object:
     person_uuid = person_uuid_from_token(token)
-    if (
-        person_uuid is None
-        and email
-        and accepts_email_only_links(datetime.now(timezone.utc).date())
-    ):
-        # TODO(#1913): remove the email-only link, and the email parameter, after EMAIL_ONLY_LINKS_CUTOFF
-        return await _update_notifications_by_email(email, type, frequency)
-    if person_uuid is None:
-        return 'This link is no longer valid. You can change notification settings in the app.', 400
+    if person_uuid is not None:
+        return await _update_notifications(person_uuid, type, frequency)
 
-    return await _update_notifications(person_uuid, type, frequency)
+    # TODO(#1913): remove the email-only link, and the email parameter, after EMAIL_ONLY_LINKS_CUTOFF
+    if email and accepts_email_only_links(datetime.now(timezone.utc).date()):
+        return await _update_notifications_by_email(email, type, frequency)
+
+    return 'This link is no longer valid. You can change notification settings in the app.', 400
 
 async def _update_notifications_by_email(
     email: str,
