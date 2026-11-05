@@ -1180,7 +1180,10 @@ async def get_update_notifications(
     type: str,
     frequency: str,
 ) -> object:
-    person_uuid = person_uuid_from_token(token)
+    params = dict(
+        person_uuid=person_uuid_from_token(token),
+        frequency=frequency,
+    )
 
     if type == 'Intros':
         queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
@@ -1198,11 +1201,6 @@ async def get_update_notifications(
         return 'Invalid type', 400
 
     async with api_tx('READ COMMITTED') as tx:
-        params = dict(
-            person_uuid=person_uuid,
-            frequency=frequency,
-        )
-
         query_results = []
         for q in queries:
             query_results.append((await tx.require_one(q, params))['ok'])
