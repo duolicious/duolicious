@@ -1175,23 +1175,6 @@ async def post_disconnect_spotify(s: t.SessionInfo) -> None:
     async with api_tx() as tx:
         await tx.execute(Q_DISCONNECT_SPOTIFY, params)
 
-_NOTIFICATION_UPDATE_QUERIES = {
-    'Intros': [Q_UPDATE_INTROS_NOTIFICATIONS],
-    'Chats': [Q_UPDATE_CHATS_NOTIFICATIONS],
-    'Visitors': [Q_UPDATE_VISITORS_NOTIFICATIONS],
-    'Every': [
-        Q_UPDATE_INTROS_NOTIFICATIONS,
-        Q_UPDATE_CHATS_NOTIFICATIONS,
-        Q_UPDATE_VISITORS_NOTIFICATIONS,
-    ],
-}
-
-def _frequency_set_message(type: str, frequency: str) -> str:
-    return (
-        f"✅ "
-        f"<b>{type}</b> notification frequency set to "
-        f"<b>{frequency}</b>")
-
 async def get_update_notifications(
     token: str,
     email: str,
@@ -1199,60 +1182,45 @@ async def get_update_notifications(
     frequency: str,
 ) -> object:
     person_uuid = person_uuid_from_token(token)
-    if person_uuid is not None:
-        return await _update_notifications(person_uuid, type, frequency)
 
-    # TODO(#1913): remove the email-only link and the email parameter
-    if email:
-        return await _update_notifications_by_email(email, type, frequency)
-
-    return 'This link is no longer valid. You can change notification settings in the app.', 400
-
-async def _update_notifications_by_email(
-    email: str,
-    type: str,
-    frequency: str,
-) -> object:
-    if type not in _NOTIFICATION_UPDATE_QUERIES:
+    if type == 'Intros':
+        queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
+    elif type == 'Chats':
+        queries = [Q_UPDATE_CHATS_NOTIFICATIONS]
+    elif type == 'Visitors':
+        queries = [Q_UPDATE_VISITORS_NOTIFICATIONS]
+    elif type == 'Every':
+        queries = [
+            Q_UPDATE_INTROS_NOTIFICATIONS,
+            Q_UPDATE_CHATS_NOTIFICATIONS,
+            Q_UPDATE_VISITORS_NOTIFICATIONS,
+        ]
+    else:
         return 'Invalid type', 400
 
     async with api_tx('READ COMMITTED') as tx:
-        row = await tx.require_one(
-            Q_EMAIL_ONLY_LINK_TARGET,
-            dict(email=email, frequency=frequency),
+        # TODO(#1913): remove the email-only link and the email parameter
+        if person_uuid is None and email:
+            await tx.execute(Q_PERSON_UUID_BY_EMAIL, dict(email=email))
+            row = await tx.fetchone()
+            person_uuid = str(row['uuid']) if row else None
+
+        params = dict(
+            person_uuid=person_uuid,
+            frequency=frequency,
         )
 
-    if not row['is_frequency']:
-        return 'This link is no longer valid, or the notification frequency is invalid', 400
-
-    if row['person_uuid'] is None:
-        return _frequency_set_message(type, frequency)
-
-    return await _update_notifications(str(row['person_uuid']), type, frequency)
-
-async def _update_notifications(
-    person_uuid: str,
-    type: str,
-    frequency: str,
-) -> object:
-    params = dict(
-        person_uuid=person_uuid,
-        frequency=frequency,
-    )
-
-    queries = _NOTIFICATION_UPDATE_QUERIES.get(type)
-    if queries is None:
-        return 'Invalid type', 400
-
-    async with api_tx('READ COMMITTED') as tx:
         query_results = []
         for q in queries:
             query_results.append((await tx.require_one(q, params))['ok'])
 
     if all(query_results):
-        return _frequency_set_message(type, frequency)
+        return (
+            f"✅ "
+            f"<b>{type}</b> notification frequency set to "
+            f"<b>{frequency}</b>")
     else:
-        return 'This link is no longer valid, or the notification frequency is invalid', 400
+        return 'Invalid token or notification frequency', 400
 
 async def post_unsubscribe(token: str) -> object:
     person_uuid = person_uuid_from_token(token)
