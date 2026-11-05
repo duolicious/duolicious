@@ -246,15 +246,25 @@ RETURNING
     otp.otp
 """
 
-Q_MAYBE_DELETE_ONBOARDEE = """
-WITH valid_session AS (
-    UPDATE duo_session
-    SET signed_in = TRUE
+_Q_OTP_SIGN_IN_CONDITION = """
+duo_session.session_token_hash = %(session_token_hash)s AND
+duo_session.otp = %(otp)s AND
+duo_session.otp_expiry > NOW() AND
+NOT EXISTS (
+    SELECT 1
+    FROM person
     WHERE
-        session_token_hash = %(session_token_hash)s AND
-        otp = %(otp)s AND
-        otp_expiry > NOW()
-    RETURNING email
+        person.id = duo_session.person_id AND
+        'bot' = ANY(person.roles)
+)
+"""
+
+Q_MAYBE_DELETE_ONBOARDEE = f"""
+WITH valid_session AS (
+    SELECT email
+    FROM duo_session
+    WHERE
+        {_Q_OTP_SIGN_IN_CONDITION}
 )
 DELETE FROM onboardee
 WHERE email IN (SELECT email FROM valid_session)
@@ -268,21 +278,7 @@ WITH valid_session AS (
     SET
         signed_in = TRUE
     WHERE
-        session_token_hash = %(session_token_hash)s
-    AND
-        otp = %(otp)s
-    AND
-        otp_expiry > NOW()
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            person
-        WHERE
-            person.id = duo_session.person_id
-        AND
-            'bot' = ANY(person.roles)
-    )
+        {_Q_OTP_SIGN_IN_CONDITION}
     RETURNING
         person_id,
         email
