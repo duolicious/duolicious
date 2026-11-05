@@ -1177,6 +1177,17 @@ async def post_disconnect_spotify(s: t.SessionInfo) -> None:
 
 EMAIL_ONLY_LINKS_CUTOFF = date(2026, 12, 15)
 
+_NOTIFICATION_UPDATE_QUERIES = {
+    'Intros': [Q_UPDATE_INTROS_NOTIFICATIONS],
+    'Chats': [Q_UPDATE_CHATS_NOTIFICATIONS],
+    'Visitors': [Q_UPDATE_VISITORS_NOTIFICATIONS],
+    'Every': [
+        Q_UPDATE_INTROS_NOTIFICATIONS,
+        Q_UPDATE_CHATS_NOTIFICATIONS,
+        Q_UPDATE_VISITORS_NOTIFICATIONS,
+    ],
+}
+
 def accepts_email_only_links(today: date) -> bool:
     return today <= EMAIL_ONLY_LINKS_CUTOFF
 
@@ -1207,19 +1218,22 @@ async def _update_notifications_by_email(
     type: str,
     frequency: str,
 ) -> object:
-    if type not in ('Intros', 'Chats', 'Visitors', 'Every'):
+    if type not in _NOTIFICATION_UPDATE_QUERIES:
         return 'Invalid type', 400
-    if frequency not in ('Immediately', 'Daily', 'Every 3 days', 'Weekly', 'Never'):
-        return 'This link is no longer valid, or the notification frequency is invalid', 400
 
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_PERSON_UUID_BY_EMAIL, dict(email=email))
-        row = await tx.fetchone()
+        row = await tx.require_one(
+            Q_EMAIL_ONLY_LINK_TARGET,
+            dict(email=email, frequency=frequency),
+        )
 
-    if row is None:
+    if not row['is_frequency']:
+        return 'This link is no longer valid, or the notification frequency is invalid', 400
+
+    if row['person_uuid'] is None:
         return _frequency_set_message(type, frequency)
 
-    return await _update_notifications(str(row['uuid']), type, frequency)
+    return await _update_notifications(str(row['person_uuid']), type, frequency)
 
 async def _update_notifications(
     person_uuid: str,
@@ -1231,19 +1245,8 @@ async def _update_notifications(
         frequency=frequency,
     )
 
-    if type == 'Intros':
-        queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
-    elif type == 'Chats':
-        queries = [Q_UPDATE_CHATS_NOTIFICATIONS]
-    elif type == 'Visitors':
-        queries = [Q_UPDATE_VISITORS_NOTIFICATIONS]
-    elif type == 'Every':
-        queries = [
-            Q_UPDATE_INTROS_NOTIFICATIONS,
-            Q_UPDATE_CHATS_NOTIFICATIONS,
-            Q_UPDATE_VISITORS_NOTIFICATIONS,
-        ]
-    else:
+    queries = _NOTIFICATION_UPDATE_QUERIES.get(type)
+    if queries is None:
         return 'Invalid type', 400
 
     async with api_tx('READ COMMITTED') as tx:

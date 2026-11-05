@@ -90,6 +90,11 @@ else
   [[ "$before" != "1,1,1" ]]
   [[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Immediately')" = 200 ]]
   [[ "$(notifications user1@example.com)" = "1,1,1" ]]
+
+  # Until the cutoff, a link with an email address and no token accepts any frequency in the immediacy table
+  q "insert into immediacy (name) values ('Fortnightly')"
+  [[ "$(status '/update-notifications?type=Chats&email=nobody@example.com&frequency=Fortnightly')" = 200 ]]
+  q "delete from immediacy where name = 'Fortnightly'"
 fi
 
 # A link with an email address and no token gets the same answer whether or not the address has an account
@@ -99,6 +104,10 @@ fi
 # A link with an email address and no token and a frequency that does not exist is rejected, and the settings stay as they were
 before=$(notifications user1@example.com)
 [[ "$(status '/update-notifications?type=Every&email=user1@example.com&frequency=Hourly')" = 400 ]]
+[[ "$(notifications user1@example.com)" = "$before" ]]
+
+# A link with an email address and no token and a type that does not exist is rejected, and the settings stay as they were
+[[ "$(status '/update-notifications?type=Monthly&email=user1@example.com&frequency=Immediately')" = 400 ]]
 [[ "$(notifications user1@example.com)" = "$before" ]]
 
 # A token with a changed signature is rejected, and the settings stay as they were

@@ -2254,13 +2254,10 @@ FROM (
 ) AS popular
 """
 
-Q_PERSON_UUID_BY_EMAIL = """
+Q_EMAIL_ONLY_LINK_TARGET = """
 SELECT
-    uuid
-FROM
-    person
-WHERE
-    email = %(email)s
+    (SELECT uuid FROM person WHERE email = %(email)s) AS person_uuid,
+    EXISTS (SELECT 1 FROM immediacy WHERE name = %(frequency)s) AS is_frequency
 """
 
 Q_UPDATE_CHATS_NOTIFICATIONS = """
