@@ -3,12 +3,13 @@ import { createElement } from 'react';
 import { deletionOptionGroups } from './option-groups';
 import { SignedInUser, setSignedInUser } from '../events/signed-in-user';
 import { ProfileInfo, setProfileInfo } from '../events/profile-info';
+import { logout } from '../chat/application-layer';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { act, create } = require('react-test-renderer');
 
 jest.mock('../App', () => ({ navigationContainerRef: {} }));
-jest.mock('../chat/websocket-layer', () => ({}));
+jest.mock('../chat/application-layer', () => ({ logout: jest.fn() }));
 jest.mock('../components/logo', () => ({}));
 jest.mock('../navigation/reset-client-state', () => ({}));
 jest.mock('../notifications/notifications', () => ({}));
@@ -69,5 +70,11 @@ describe('the account deletion screen', () => {
   test('says nothing about cancelling to PayPal subscribers, whose subscription deletion cancels', () => {
     expect(deletionScreenText(true, { can_cancel: true, paid_until: '' }))
       .not.toContain(STORE_WARNING);
+  });
+
+  test('keeps chat signed in when the confirmation is mistyped', async () => {
+    const { submit } = deletionOptionGroups[0].input.textShort;
+    expect(await submit('delte')).toBe(false);
+    expect(logout).not.toHaveBeenCalled();
   });
 });
