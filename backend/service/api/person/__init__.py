@@ -71,7 +71,11 @@ from service.api.search.rediscache import redis_cache
 from datetime import datetime, timezone
 from urllib.parse import quote
 from service.api.person.duophoto import CropSize
-from service.api.auth.session import sign_out, enforce_session_limit
+from service.api.auth.session import (
+    close_chat_connections,
+    enforce_session_limit,
+    sign_out,
+)
 from service.api.auth.social import (
     SocialAuthError,
     verify_apple_identity_token,
@@ -931,6 +935,8 @@ async def post_deactivate(s: t.SessionInfo) -> None:
 
     for row in rows:
         await sessioncache.delete_session(row['session_token_hash'])
+
+    await close_chat_connections(row['session_token_hash'] for row in rows)
 
 
 async def get_search_filters(s: t.SessionInfo) -> object:

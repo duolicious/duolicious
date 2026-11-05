@@ -7,6 +7,7 @@ import regex
 import sys
 from websockets.exceptions import ConnectionClosedError
 from service.api.async_lru_cache import AsyncLruCache
+from service.api.auth.session import SIGNED_OUT_CHANNEL_PREFIX
 import random
 from datetime import datetime, timezone
 from service.api.chat.robot9000 import Q_SELECT_INTRO_HASH, upsert_intro_hash
@@ -171,6 +172,10 @@ async def redis_forward_to_websocket(
         async for message in pubsub.listen():
             if message is None or message.get("type") != "message":
                 continue
+
+            if message['channel'].startswith(SIGNED_OUT_CHANNEL_PREFIX):
+                await websocket.close()
+                return
 
             try:
                 outbound = from_bus(message['data'])
@@ -815,7 +820,10 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
 
 
             if not is_subscribed_by_username and session.username:
-                await pubsub.subscribe(session.username)
+                await pubsub.subscribe(
+                    session.username,
+                    f'{SIGNED_OUT_CHANNEL_PREFIX}{session.session_token_hash}',
+                )
                 is_subscribed_by_username = True
     except WebSocketDisconnect as e:
         log_closed(f'client disconnected (code={e.code})')

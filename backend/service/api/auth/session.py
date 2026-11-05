@@ -3,6 +3,12 @@ from typing import Iterable
 from serviceshared.constants import MAX_SIGNED_IN_SESSIONS
 from serviceshared.database import Row, Tx, api_tx
 from service.api import sessioncache
+from service.api.redisclient import make_redis_client
+
+
+SIGNED_OUT_CHANNEL_PREFIX = 'signed-out:'
+
+_redis = make_redis_client()
 
 
 Q_SIGN_OUT_SESSIONS = """
@@ -42,6 +48,17 @@ async def sign_out(session_token_hashes: Iterable[str]) -> None:
 
     for session_token_hash in hashes:
         await sessioncache.delete_session(session_token_hash)
+
+    await close_chat_connections(hashes)
+
+
+async def close_chat_connections(session_token_hashes: Iterable[str]) -> None:
+    for session_token_hash in session_token_hashes:
+        try:
+            await _redis.publish(
+                SIGNED_OUT_CHANNEL_PREFIX + session_token_hash, '')
+        except Exception:
+            pass
 
 
 async def enforce_session_limit(
