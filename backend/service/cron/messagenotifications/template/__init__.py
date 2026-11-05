@@ -20,9 +20,9 @@ def little_part(has_intro: bool, has_chat: bool) -> str:
         return 'Open the app to read them'
     return 'Open the app to read it'
 
-def emailtemplate(email: str, has_intro: bool, has_chat: bool) -> str:
+def emailtemplate(person_uuid: str, has_intro: bool, has_chat: bool) -> str:
     return notification_emailtemplate(
-        email=email,
+        person_uuid=person_uuid,
         subject=MESSAGE_SUBJECT,
         big=big_part(has_intro, has_chat),
         little=little_part(has_intro, has_chat),

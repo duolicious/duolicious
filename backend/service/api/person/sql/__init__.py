@@ -2250,6 +2250,10 @@ FROM (
 ) AS popular
 """
 
+Q_PERSON_UUID_BY_EMAIL = """
+SELECT uuid FROM person WHERE email = %(email)s
+"""
+
 Q_UPDATE_CHATS_NOTIFICATIONS = """
 WITH updated_rows AS (
     UPDATE
@@ -2259,7 +2263,7 @@ WITH updated_rows AS (
     FROM
         immediacy
     WHERE
-        person.email = %(email)s
+        person.uuid = %(person_uuid)s
     AND
         immediacy.name = %(frequency)s
     RETURNING 1
@@ -2279,7 +2283,7 @@ WITH updated_rows AS (
     FROM
         immediacy
     WHERE
-        person.email = %(email)s
+        person.uuid = %(person_uuid)s
     AND
         immediacy.name = %(frequency)s
     RETURNING 1
@@ -2299,7 +2303,7 @@ WITH updated_rows AS (
     FROM
         immediacy
     WHERE
-        person.email = %(email)s
+        person.uuid = %(person_uuid)s
     AND
         immediacy.name = %(frequency)s
     RETURNING 1

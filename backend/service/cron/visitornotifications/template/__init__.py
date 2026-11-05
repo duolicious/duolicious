@@ -27,9 +27,9 @@ def big_part(visitor_count: int) -> str:
             count=count_part(visitor_count))
     return VISITOR_NOTIFICATION_BODY
 
-def visitor_emailtemplate(email: str, visitor_count: int) -> str:
+def visitor_emailtemplate(person_uuid: str, visitor_count: int) -> str:
     return notification_emailtemplate(
-        email=email,
+        person_uuid=person_uuid,
         subject=title_part(visitor_count),
         big=big_part(visitor_count),
         little=VISITOR_LITTLE_PART,

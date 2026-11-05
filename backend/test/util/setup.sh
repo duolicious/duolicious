@@ -477,7 +477,8 @@ get_emails () {
     local body=$(
       echo "$body" \
       | tr -d '\r' \
-      | grep -v '^[ \t]*$'
+      | grep -v '^[ \t]*$' \
+      | sed 's/token=[^&"]*/token=TOKEN/g'
     )
 
     printf "%s\n" "To: $to"

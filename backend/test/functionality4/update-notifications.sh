@@ -53,3 +53,16 @@ c GET '/update-notifications?type=Visitors&email=user1@example.com&frequency=Dai
 [[ 1 -eq "$(q "select count(*) from person where chats_notification  = 5 and email = 'user1@example.com'")" ]]
 [[ 0 -eq "$(q "select count(*) from person where intros_notification = 5 and email = 'user1@example.com'")" ]]
 [[ 1 -eq "$(q "select count(*) from person where visitors_notification = 2 and email = 'user1@example.com'")" ]]
+
+token=$(python3 -c '
+import base64, hashlib, hmac, sys
+uuid = sys.argv[1]
+digest = hmac.digest(b"dev-unsubscribe-secret", uuid.encode(), hashlib.sha256)
+print(uuid + "." + base64.urlsafe_b64encode(digest).rstrip(b"=").decode())
+' "$(q "select uuid from person where email = 'user1@example.com'")")
+
+c GET "/update-notifications?type=Chats&token=${token}&frequency=Weekly"
+[[ 1 -eq "$(q "select count(*) from person where chats_notification  = 4 and email = 'user1@example.com'")" ]]
+
+! c GET "/update-notifications?type=Chats&token=${token}x&frequency=Daily"
+[[ 1 -eq "$(q "select count(*) from person where chats_notification  = 4 and email = 'user1@example.com'")" ]]
