@@ -2250,10 +2250,6 @@ FROM (
 ) AS popular
 """
 
-Q_PERSON_UUID_BY_EMAIL = """
-SELECT uuid FROM person WHERE email = %(email)s
-"""
-
 Q_UPDATE_CHATS_NOTIFICATIONS = """
 WITH updated_rows AS (
     UPDATE
