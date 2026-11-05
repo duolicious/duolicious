@@ -68,7 +68,7 @@ from serviceshared.antiabuse.antispam.signupemail import (
 from serviceshared.antiabuse import anonymizers
 from service.api.async_lru_cache import AsyncLruCache
 from service.api.search.rediscache import redis_cache
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from urllib.parse import quote
 from service.api.person.duophoto import CropSize
 from service.api.auth.session import sign_out, enforce_session_limit
@@ -1175,8 +1175,6 @@ async def post_disconnect_spotify(s: t.SessionInfo) -> None:
     async with api_tx() as tx:
         await tx.execute(Q_DISCONNECT_SPOTIFY, params)
 
-EMAIL_ONLY_LINKS_CUTOFF = date(2026, 12, 15)
-
 _NOTIFICATION_UPDATE_QUERIES = {
     'Intros': [Q_UPDATE_INTROS_NOTIFICATIONS],
     'Chats': [Q_UPDATE_CHATS_NOTIFICATIONS],
@@ -1187,9 +1185,6 @@ _NOTIFICATION_UPDATE_QUERIES = {
         Q_UPDATE_VISITORS_NOTIFICATIONS,
     ],
 }
-
-def accepts_email_only_links(today: date) -> bool:
-    return today <= EMAIL_ONLY_LINKS_CUTOFF
 
 def _frequency_set_message(type: str, frequency: str) -> str:
     return (
@@ -1207,8 +1202,8 @@ async def get_update_notifications(
     if person_uuid is not None:
         return await _update_notifications(person_uuid, type, frequency)
 
-    # TODO(#1913): remove the email-only link, and the email parameter, after EMAIL_ONLY_LINKS_CUTOFF
-    if email and accepts_email_only_links(datetime.now(timezone.utc).date()):
+    # TODO(#1913): remove the email-only link and the email parameter
+    if email:
         return await _update_notifications_by_email(email, type, frequency)
 
     return 'This link is no longer valid. You can change notification settings in the app.', 400
