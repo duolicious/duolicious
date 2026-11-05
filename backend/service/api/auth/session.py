@@ -57,11 +57,6 @@ async def sign_out(session_token_hashes: Iterable[str]) -> None:
     for session_token_hash in hashes:
         await sessioncache.delete_session(session_token_hash)
 
-    await close_chat_connections(hashes)
-
-
-async def close_chat_connections(session_token_hashes: Iterable[str]) -> None:
-    for session_token_hash in session_token_hashes:
         try:
             await _redis.publish(signed_out_channel(session_token_hash), '')
         except Exception:
