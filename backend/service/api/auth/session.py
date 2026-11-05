@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable
 
 from serviceshared.constants import MAX_SIGNED_IN_SESSIONS
@@ -8,7 +9,14 @@ from service.api.redisclient import make_redis_client
 
 SIGNED_OUT_CHANNEL_PREFIX = 'signed-out:'
 
+
+def signed_out_channel(session_token_hash: str) -> str:
+    return SIGNED_OUT_CHANNEL_PREFIX + session_token_hash
+
+
 _redis = make_redis_client()
+
+logger = logging.getLogger(__name__)
 
 
 Q_SIGN_OUT_SESSIONS = """
@@ -55,10 +63,9 @@ async def sign_out(session_token_hashes: Iterable[str]) -> None:
 async def close_chat_connections(session_token_hashes: Iterable[str]) -> None:
     for session_token_hash in session_token_hashes:
         try:
-            await _redis.publish(
-                SIGNED_OUT_CHANNEL_PREFIX + session_token_hash, '')
+            await _redis.publish(signed_out_channel(session_token_hash), '')
         except Exception:
-            pass
+            logger.exception('Closing chat connections failed')
 
 
 async def enforce_session_limit(
