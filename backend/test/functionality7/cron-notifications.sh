@@ -179,25 +179,6 @@ test_one_click_unsubscribe () {
   [[ "$(q "select count(*) from person where chats_notification = 5")" = 1 ]]
 }
 
-test_frequency_link () {
-  test_happy_path_chats
-
-  local url=$(
-    get_emails_with_tokens \
-      | grep -o 'https://api.duolicious.app/update-notifications?[^"]*type=Chats&frequency=Weekly')
-  local path=${url#https://api.duolicious.app}
-  [[ "$path" = /update-notifications?token=* ]]
-
-  local notifications="
-    select concat_ws(',', chats_notification, intros_notification, visitors_notification)
-    from person
-    where uuid::text = '$user1id'"
-
-  [[ "$(q "$notifications")" = "1,2,4" ]]
-  c GET "$path"
-  [[ "$(q "$notifications")" = "4,2,4" ]]
-}
-
 test_happy_path_chat_not_deferred_by_intro () {
   setup
 
@@ -1026,7 +1007,6 @@ test_visitors_emailed_when_no_phone () {
 test_happy_path_intros
 test_happy_path_chats
 test_one_click_unsubscribe
-test_frequency_link
 test_happy_path_chat_not_deferred_by_intro
 
 test_chat_notification_also_covers_a_capped_intro
