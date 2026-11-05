@@ -169,7 +169,7 @@ async def redis_forward_to_websocket(
     """
     Listens on the Redis subscription channel and forwards any messages to the
     connected websocket client, rendering each protocol-neutral bus payload to
-    JSON.
+    JSON. Closes the websocket when the connection's session is signed out.
     """
     try:
         async for message in pubsub.listen():
