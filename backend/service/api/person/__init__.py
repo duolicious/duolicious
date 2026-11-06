@@ -1183,14 +1183,12 @@ async def post_disconnect_spotify(s: t.SessionInfo) -> None:
         await tx.execute(Q_DISCONNECT_SPOTIFY, params)
 
 async def get_update_notifications(
+    token: str,
     email: str,
     type: str,
     frequency: str,
 ) -> object:
-    params = dict(
-        email=email,
-        frequency=frequency,
-    )
+    person_uuid = person_uuid_from_token(token)
 
     if type == 'Intros':
         queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
@@ -1208,6 +1206,17 @@ async def get_update_notifications(
         return 'Invalid type', 400
 
     async with api_tx('READ COMMITTED') as tx:
+        # TODO(#1913): remove the email-only link and the email parameter
+        if person_uuid is None and email:
+            await tx.execute(Q_PERSON_UUID_BY_EMAIL, dict(email=email))
+            row = await tx.fetchone()
+            person_uuid = str(row['uuid']) if row else None
+
+        params = dict(
+            person_uuid=person_uuid,
+            frequency=frequency,
+        )
+
         query_results = []
         for q in queries:
             query_results.append((await tx.require_one(q, params))['ok'])
@@ -1216,10 +1225,9 @@ async def get_update_notifications(
         return (
             f"✅ "
             f"<b>{type}</b> notification frequency set to "
-            f"<b>{frequency}</b> for "
-            f"<b>{email}</b>")
+            f"<b>{frequency}</b>")
     else:
-        return 'Invalid email address or notification frequency', 400
+        return 'Invalid token or notification frequency', 400
 
 async def post_unsubscribe(token: str) -> object:
     person_uuid = person_uuid_from_token(token)
