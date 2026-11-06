@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from serviceshared.commonsql import Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME
 from service.api.person.visitornotification import notify_of_visit
-from service.api.visitorsql import Q_VISITOR_ITEM, Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION
+from service.api.visitorsql import Q_VISITOR_ITEM
 
 PROSPECT_UUID = '00000000-0000-0000-0000-000000000001'
 
@@ -47,7 +47,6 @@ def run_notify_of_visit(
     executed: list[str] = []
 
     rows: dict[str, object] = {
-        Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION: 1 if wants_immediate else None,
         Q_VISITOR_ITEM: {'j': visitor_item} if visitor_item else None,
     }
 
@@ -70,6 +69,7 @@ def run_notify_of_visit(
             prospect_id=prospect_id,
             prospect_uuid=PROSPECT_UUID,
             prospect_online=prospect_online,
+            prospect_wants_immediate=wants_immediate,
         ))
 
     return pushes, executed
@@ -122,12 +122,11 @@ class TestNotifyOfVisit(unittest.TestCase):
                 ['phone-a', 'phone-b'])
 
     def test_silent_unless_set_to_immediately(self) -> None:
-        # And the expensive visitors-tab query is never reached.
         pushes, executed = run_notify_of_visit(
                 wants_immediate=False, visitor_item={'name': 'Alice'})
 
         self.assertEqual(pushes, [])
-        self.assertNotIn(Q_VISITOR_ITEM, executed)
+        self.assertEqual(executed, [])
 
     def test_a_visit_the_visitors_tab_hides_is_not_announced(self) -> None:
         # No item: made invisibly, or by somebody skipped, shadow banned or

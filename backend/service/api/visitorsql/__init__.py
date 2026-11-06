@@ -310,21 +310,6 @@ FROM
 LIMIT 1
 """
 
-# Whether a visit is worth announcing at all is `Q_VISITOR_ITEM`'s business: it
-# decides what the visitors tab shows, and a notification about a visit the tab
-# hides would be one the person can't act on. All that's left to ask is whether
-# they want to hear about it the moment it happens.
-Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION = """
-SELECT
-    1
-FROM
-    person
-WHERE
-    id = %(person_id)s
-AND
-    visitors_notification = 1 -- Immediate notification ID
-"""
-
 Q_MARK_VISITORS_CHECKED = """
 UPDATE
     person

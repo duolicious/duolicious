@@ -965,7 +965,11 @@ SELECT
         )
     ) AS j,
     (SELECT id   FROM prospect) AS prospect_id,
-    (SELECT uuid FROM prospect) AS prospect_uuid
+    (SELECT uuid FROM prospect) AS prospect_uuid,
+    (
+        -- Immediate notification ID
+        SELECT visitors_notification = 1 FROM prospect
+    ) AS prospect_wants_immediate
 WHERE
     EXISTS (SELECT 1 FROM prospect)
 """

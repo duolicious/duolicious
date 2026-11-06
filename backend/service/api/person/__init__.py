@@ -734,6 +734,8 @@ async def get_prospect_profile(
         # visit events below carry a valid one.
         prospect_uuid = api_row.get('prospect_uuid')
         prospect_id = row_int(api_row, 'prospect_id')
+        prospect_wants_immediate = row_bool(
+            api_row, 'prospect_wants_immediate')
 
     if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(
@@ -770,6 +772,7 @@ async def get_prospect_profile(
             prospect_id=prospect_id,
             prospect_uuid=str(prospect_uuid),
             prospect_online=prospect_online,
+            prospect_wants_immediate=prospect_wants_immediate,
         )
 
     return profile

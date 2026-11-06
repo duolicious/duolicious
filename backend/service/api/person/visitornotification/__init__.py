@@ -8,21 +8,9 @@ from serviceshared.constants import (
 from serviceshared.database import api_tx
 from service.api.pushtokens import fetch_push_tokens
 from serviceshared.unseennotificationcount import increment_unseen_notification_count
-from service.api.visitorsql import (
-    Q_VISITOR_ITEM,
-    Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
-)
+from service.api.visitorsql import Q_VISITOR_ITEM
 
 logger = logging.getLogger(__name__)
-
-
-async def _wants_immediate_notification(prospect_id: int) -> bool:
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(
-            Q_WANTS_IMMEDIATE_VISITOR_NOTIFICATION,
-            dict(person_id=prospect_id))
-
-        return await tx.fetchone() is not None
 
 
 async def _visitor_name(viewer_id: int, prospect_id: int) -> str | None:
@@ -87,21 +75,17 @@ async def notify_of_visit(
     prospect_id: int,
     prospect_uuid: str,
     prospect_online: bool,
+    prospect_wants_immediate: bool,
 ) -> None:
     """
     Push the moment the visit happens, for people who asked to hear about
     visitors immediately. Everyone else -- and anyone no push can reach -- is
     left to the periodic check, which waits ten minutes and may email instead.
     """
-    if prospect_id == viewer_id:
+    if prospect_id == viewer_id or not prospect_wants_immediate:
         return
 
     try:
-        # Cheapest question first: most people are on the weekly default, and
-        # for them nothing else here needs asking.
-        if not await _wants_immediate_notification(prospect_id):
-            return
-
         name = await _visitor_name(viewer_id, prospect_id)
 
         if not name:
