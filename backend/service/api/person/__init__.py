@@ -802,18 +802,6 @@ async def post_unskip_by_uuid(s: t.SessionInfo, prospect_uuid: str) -> None:
     async with api_tx() as tx:
         await tx.execute(Q_DELETE_SKIPPED_BY_UUID, params)
 
-async def _select_comparison(
-    query: str,
-    params: Mapping[str, object],
-) -> object:
-    async with api_tx('READ COMMITTED') as tx:
-        row = await tx.require_one(query, params)
-
-    if not row_bool(row, 'visible'):
-        return '', 404
-
-    return row['j']
-
 async def get_compare_personalities(
     s: t.SessionInfo,
     prospect_person_id: int,
@@ -838,7 +826,9 @@ async def get_compare_personalities(
         topic=db_topic,
     )
 
-    return await _select_comparison(Q_SELECT_PERSONALITY, params)
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_SELECT_PERSONALITY, params)
+        return await row_tx.fetchall()
 
 async def get_compare_answers(
     s: t.SessionInfo,
@@ -880,7 +870,9 @@ async def get_compare_answers(
         o=o,
     )
 
-    return await _select_comparison(Q_ANSWER_COMPARISON, params)
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ANSWER_COMPARISON, params)
+        return await row_tx.fetchall()
 
 async def delete_or_ban_account(
     s: t.SessionInfo | None,

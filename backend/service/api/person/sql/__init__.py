@@ -43,23 +43,22 @@ _Q_ESTIMATED_END_DATE = """
 (SELECT iso8601_utc(estimated_end_date) FROM funding) AS estimated_end_date
 """
 
-def _prospect_has_messaged_viewer_sql(prospect_id: str, viewer_id: str) -> str:
+def _prospect_has_messaged_viewer_sql(prospect_id: str) -> str:
     return f"""EXISTS (
         SELECT 1 FROM messaged
         WHERE messaged.subject_person_id = {prospect_id}
-          AND messaged.object_person_id  = {viewer_id}
+          AND messaged.object_person_id  = %(person_id)s
     )"""
 
-def _prospect_skipped_viewer_sql(prospect_id: str, viewer_id: str) -> str:
+def _prospect_skipped_viewer_sql(prospect_id: str) -> str:
     return f"""EXISTS (
         SELECT 1 FROM skipped
         WHERE skipped.subject_person_id = {prospect_id}
-          AND skipped.object_person_id  = {viewer_id}
+          AND skipped.object_person_id  = %(person_id)s
     )"""
 
 def _visible_to_viewer_sql(
     prospect: str,
-    viewer_id: str,
     prospect_has_messaged_viewer: str,
     prospect_skipped_viewer: str,
 ) -> str:
@@ -78,7 +77,7 @@ def _visible_to_viewer_sql(
                 FROM
                     person
                 WHERE
-                    id = {viewer_id}
+                    id = %(person_id)s
             )
             OR
                 {prospect_has_messaged_viewer}
@@ -90,7 +89,7 @@ def _visible_to_viewer_sql(
 _VISIBLE_PROSPECT_CTE = f"""
 visible_prospect AS (
     SELECT
-        prospect.id
+        1
     FROM
         person AS prospect
     WHERE
@@ -99,102 +98,83 @@ visible_prospect AS (
         prospect.activated
     AND (
             prospect.id = %(person_id)s
-        OR (
-            -- Match the probes on the parameter: on prospect.id the planner
-            -- makes them hashed subplans over every row targeting the viewer.
+        OR
             {_visible_to_viewer_sql(
                 prospect='prospect',
-                viewer_id='%(person_id)s',
                 prospect_has_messaged_viewer=_prospect_has_messaged_viewer_sql(
-                    prospect_id='%(prospect_person_id)s',
-                    viewer_id='%(person_id)s',
-                ),
+                    '%(prospect_person_id)s'),
                 prospect_skipped_viewer=_prospect_skipped_viewer_sql(
-                    prospect_id='%(prospect_person_id)s',
-                    viewer_id='%(person_id)s',
-                ),
+                    '%(prospect_person_id)s'),
             )}
-        )
     )
 )
 """
 
 Q_SELECT_PERSONALITY = f"""
-WITH {_VISIBLE_PROSPECT_CTE}, personality AS (
-    SELECT
-        CASE
-            WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
-            THEN 'Extraversion'
-            ELSE trait.name
-        END                               AS trait_name,
-        CASE
-            WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
-            THEN NULL
-            ELSE trait.min_label
-        END                               AS trait_min_label,
-        CASE
-            WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
-            THEN NULL
-            ELSE trait.max_label
-        END                               AS trait_max_label,
-        trait.description                 AS trait_description,
-        person_trait.name                 AS person_name,
-        person_trait.tiny_id              AS person_id,
-        ROUND(100 * person_trait.ratio)   AS person_percentage,
-        prospect_trait.name               AS prospect_name,
-        ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
-        COALESCE(prospect_trait.ratio, 0) AS position
-    FROM
-        trait
-    LEFT JOIN
-        (
-            SELECT
-                id,
-                tiny_id,
-                name,
-                (trait_ratio(presence_score, absence_score, 5000)).*
-            FROM
-                person
-            WHERE
-                id = %(person_id)s
-            AND
-                EXISTS (SELECT 1 FROM visible_prospect)
-        ) AS person_trait
-    ON
-        person_trait.trait_id = trait.id
-    LEFT JOIN
-        (
-            SELECT
-                id,
-                name,
-                (trait_ratio(presence_score, absence_score, 5000)).*
-            FROM person
-            WHERE id = (SELECT id FROM visible_prospect)
-        ) AS prospect_trait
-    ON
-        prospect_trait.trait_id = trait.id
-    WHERE
-        trait.id IN (
-            SELECT trait_id
-            FROM trait_topic
-            WHERE
-                trait_topic.name = %(topic)s OR
-                %(topic)s::TEXT IS NULL
-        )
-)
+WITH {_VISIBLE_PROSPECT_CTE}
 SELECT
-    EXISTS (SELECT 1 FROM visible_prospect) AS visible,
-    COALESCE(
-        (
-            SELECT
-                json_agg(personality ORDER BY position DESC, trait_name ASC)
-            FROM
-                personality
-            WHERE
-                EXISTS (SELECT 1 FROM visible_prospect)
-        ),
-        '[]'::json
-    ) AS j
+    CASE
+        WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
+        THEN 'Extraversion'
+        ELSE trait.name
+    END                               AS trait_name,
+    CASE
+        WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
+        THEN NULL
+        ELSE trait.min_label
+    END                               AS trait_min_label,
+    CASE
+        WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
+        THEN NULL
+        ELSE trait.max_label
+    END                               AS trait_max_label,
+    trait.description                 AS trait_description,
+    person_trait.name                 AS person_name,
+    person_trait.tiny_id              AS person_id,
+    ROUND(100 * person_trait.ratio)   AS person_percentage,
+    prospect_trait.name               AS prospect_name,
+    ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
+    COALESCE(prospect_trait.ratio, 0) AS position
+FROM
+    trait
+LEFT JOIN
+    (
+        SELECT
+            id,
+            tiny_id,
+            name,
+            (trait_ratio(presence_score, absence_score, 5000)).*
+        FROM
+            person
+        WHERE
+            id = %(person_id)s
+    ) AS person_trait
+ON
+    person_trait.trait_id = trait.id
+LEFT JOIN
+    (
+        SELECT
+            id,
+            name,
+            (trait_ratio(presence_score, absence_score, 5000)).*
+        FROM person
+        WHERE id = %(prospect_person_id)s
+    ) AS prospect_trait
+ON
+    prospect_trait.trait_id = trait.id
+WHERE
+    trait.id IN (
+        SELECT trait_id
+        FROM trait_topic
+        WHERE
+            trait_topic.name = %(topic)s OR
+            %(topic)s::TEXT IS NULL
+    )
+AND
+    EXISTS (SELECT 1 FROM visible_prospect)
+ORDER BY
+    position DESC,
+    trait_name ASC
 """
 
 # Reactivation/sign-in metadata bumps shared by `/check-otp` and the
@@ -660,14 +640,8 @@ WITH prospect_base AS (
     -- targeting the viewer - so the cost grows with how many people have
     -- messaged or skipped the viewer.
     SELECT
-        {_prospect_has_messaged_viewer_sql(
-            prospect_id='prospect_base.id',
-            viewer_id='%(person_id)s',
-        )} AS prospect_has_messaged_person,
-        {_prospect_skipped_viewer_sql(
-            prospect_id='prospect_base.id',
-            viewer_id='%(person_id)s',
-        )} AS prospect_skipped_person
+        {_prospect_has_messaged_viewer_sql('prospect_base.id')} AS prospect_has_messaged_person,
+        {_prospect_skipped_viewer_sql('prospect_base.id')} AS prospect_skipped_person
     FROM prospect_base
 ), prospect AS (
     SELECT
@@ -730,7 +704,6 @@ WITH prospect_base AS (
         AND
             {_visible_to_viewer_sql(
                 prospect='prospect',
-                viewer_id='%(person_id)s',
                 prospect_has_messaged_viewer='viewer_rel.prospect_has_messaged_person',
                 prospect_skipped_viewer='viewer_rel.prospect_skipped_person',
             )}
@@ -1054,10 +1027,7 @@ WITH prospect AS (
         person
     LEFT JOIN LATERAL (
         SELECT
-            {_prospect_has_messaged_viewer_sql(
-                prospect_id='person.id',
-                viewer_id='%(person_id)s',
-            )} AS prospect_has_messaged_person
+            {_prospect_has_messaged_viewer_sql('person.id')} AS prospect_has_messaged_person
     ) AS m
     ON
         TRUE
@@ -1075,12 +1045,8 @@ WITH prospect AS (
         AND
             {_visible_to_viewer_sql(
                 prospect='person',
-                viewer_id='%(person_id)s',
                 prospect_has_messaged_viewer='m.prospect_has_messaged_person',
-                prospect_skipped_viewer=_prospect_skipped_viewer_sql(
-                    prospect_id='person.id',
-                    viewer_id='%(person_id)s',
-                ),
+                prospect_skipped_viewer=_prospect_skipped_viewer_sql('person.id'),
             )}
         )
         OR
@@ -1159,83 +1125,71 @@ AND
 
 Q_ANSWER_COMPARISON = f"""
 WITH {_VISIBLE_PROSPECT_CTE}, prospect_name AS(
-    SELECT name FROM person WHERE id = (SELECT id FROM visible_prospect)
+    SELECT name FROM person WHERE id = %(prospect_person_id)s
 ), person_name AS(
     SELECT name FROM person WHERE id = %(person_id)s
-), comparison AS (
-    SELECT
-        prospect_answer.person_id AS prospect_person_id,
-        (SELECT name FROM prospect_name) AS prospect_name,
-        prospect_answer.answer AS prospect_answer,
-        person_answer.person_id AS person_id,
-        (SELECT name FROM person_name) AS person_name,
-        person_answer.answer AS person_answer,
-        person_answer.public_ AS person_public_,
-        question.id AS question_id,
-        question.question AS question,
-        question.topic AS topic
-    FROM (
-        SELECT
-            person_id,
-            question_id,
-            answer.answer
-        FROM
-            answer
-        JOIN
-            question ON
-            question.id = answer.question_id AND
-            (question.topic = %(topic)s OR %(topic)s = 'All') AND
-            answer.person_id = (SELECT id FROM visible_prospect) AND
-            answer.public_ = TRUE AND
-            answer.answer IS NOT NULL AND
-            (
-                %(prospect_person_id)s = %(person_id)s OR
-                NOT EXISTS (
-                    SELECT 1 FROM person
-                    WHERE id = %(prospect_person_id)s AND shadow_banned_at IS NOT NULL
-                )
-            )
-    ) AS prospect_answer
-    JOIN
-        question ON
-        question.id = prospect_answer.question_id
-    LEFT JOIN
-        answer AS person_answer ON
-        person_answer.person_id = %(person_id)s AND
-        person_answer.question_id = prospect_answer.question_id
-    WHERE
-        (
-            %(agreement)s != 'Agree' OR
-            person_answer.answer IS NOT NULL AND
-            prospect_answer.answer IS NOT NULL AND
-            person_answer.answer = prospect_answer.answer
-        ) AND (
-            %(agreement)s != 'Disagree' OR
-            person_answer.answer IS NOT NULL AND
-            prospect_answer.answer IS NOT NULL AND
-            person_answer.answer != prospect_answer.answer
-        ) AND (
-            %(agreement)s != 'Unanswered' OR
-            person_answer.answer IS NULL
-        )
-    ORDER BY
-        question.id
-    LIMIT %(n)s
-    OFFSET %(o)s
 )
 SELECT
-    EXISTS (SELECT 1 FROM visible_prospect) AS visible,
-    COALESCE(
+    prospect_answer.person_id AS prospect_person_id,
+    (SELECT name FROM prospect_name) AS prospect_name,
+    prospect_answer.answer AS prospect_answer,
+    person_answer.person_id AS person_id,
+    (SELECT name FROM person_name) AS person_name,
+    person_answer.answer AS person_answer,
+    person_answer.public_ AS person_public_,
+    question.id AS question_id,
+    question.question AS question,
+    question.topic AS topic
+FROM (
+    SELECT
+        person_id,
+        question_id,
+        answer.answer
+    FROM
+        answer
+    JOIN
+        question ON
+        question.id = answer.question_id AND
+        (question.topic = %(topic)s OR %(topic)s = 'All') AND
+        answer.person_id = %(prospect_person_id)s AND
+        answer.public_ = TRUE AND
+        answer.answer IS NOT NULL AND
         (
-            SELECT
-                json_agg(comparison ORDER BY question_id)
-            FROM
-                comparison
-            WHERE
-                EXISTS (SELECT 1 FROM visible_prospect)
-        ),
-        '[]'::json
-    ) AS j
+            %(prospect_person_id)s = %(person_id)s OR
+            NOT EXISTS (
+                SELECT 1 FROM person
+                WHERE id = %(prospect_person_id)s AND shadow_banned_at IS NOT NULL
+            )
+        )
+) AS prospect_answer
+JOIN
+    question ON
+    question.id = prospect_answer.question_id
+LEFT JOIN
+    answer AS person_answer ON
+    person_answer.person_id = %(person_id)s AND
+    person_answer.question_id = prospect_answer.question_id
+WHERE
+    (
+        %(agreement)s != 'Agree' OR
+        person_answer.answer IS NOT NULL AND
+        prospect_answer.answer IS NOT NULL AND
+        person_answer.answer = prospect_answer.answer
+    ) AND (
+        %(agreement)s != 'Disagree' OR
+        person_answer.answer IS NOT NULL AND
+        prospect_answer.answer IS NOT NULL AND
+        person_answer.answer != prospect_answer.answer
+    ) AND (
+        %(agreement)s != 'Unanswered' OR
+        person_answer.answer IS NULL
+    )
+AND
+    EXISTS (SELECT 1 FROM visible_prospect)
+ORDER BY
+    question.id
+LIMIT %(n)s
+OFFSET %(o)s
 """
 
 Q_SELECT_SESSION_TOKEN_HASHES_BY_PERSON_ID = """
