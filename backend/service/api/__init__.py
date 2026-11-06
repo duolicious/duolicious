@@ -481,7 +481,6 @@ async def post_disconnect_spotify(
 async def get_update_notifications(request: Request) -> object:
     return await person.get_update_notifications(
         token=request.query_params.get('token', ''),
-        email=request.query_params.get('email', ''),
         type=request.query_params.get('type', ''),
         frequency=request.query_params.get('frequency', ''),
     )
