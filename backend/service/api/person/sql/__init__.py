@@ -712,7 +712,11 @@ WITH prospect_base AS (
 SELECT
     prospect.id AS person_id,
     prospect.uuid AS person_uuid,
-    photos.*,
+    photos.photo_uuids,
+    photos.photo_extra_exts,
+    photos.photo_blurhashes,
+    photos.photo_verifications,
+    photos.photo_geometries,
     (
         SELECT audio.uuid
         FROM audio
@@ -800,7 +804,8 @@ SELECT
         AS show_my_looking_for,
 
     -- Clubs
-    clubs.*,
+    clubs.mutual_clubs,
+    clubs.other_clubs,
 
     -- Music
     COALESCE(
