@@ -209,7 +209,7 @@ EOF
 
 message_checks_for () {
   q "select count(*) from notification_due
-     where kind = 'message'
+     where kind = 'intro'
      and person_id = (select id from person where uuid::text = '$1')"
 }
 

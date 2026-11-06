@@ -819,7 +819,7 @@ CREATE TABLE IF NOT EXISTS visited (
 );
 
 DO $$ BEGIN
-    CREATE TYPE notification_kind AS ENUM ('message', 'visitor');
+    CREATE TYPE notification_kind AS ENUM ('intro', 'chat', 'visitor');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -827,6 +827,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS notification_due (
     person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     kind notification_kind NOT NULL,
+    event_at TIMESTAMP NOT NULL,
     due_at TIMESTAMP NOT NULL,
 
     PRIMARY KEY (person_id, kind)

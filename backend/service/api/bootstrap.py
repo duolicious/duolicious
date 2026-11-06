@@ -14,7 +14,9 @@ from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
+from serviceshared.commonsql import notification_due_sql
 from serviceshared.database import api_tx
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -33,28 +35,40 @@ _email_domains_good_file = (
 _banned_club_file = (
     Path(__file__).parent.parent.parent / 'banned-club.sql')
 
-_Q_SEED_NOTIFICATION_DUE = """
-WITH seeded AS (
-    SELECT EXISTS (SELECT 1 FROM notification_due) AS done
-), message AS (
-    INSERT INTO notification_due (person_id, kind, due_at)
-    SELECT DISTINCT person.id, 'message'::notification_kind, NOW()
-    FROM inbox
-    JOIN person ON person.uuid = uuid_or_null(inbox.luser)
-    WHERE NOT (SELECT done FROM seeded)
-    AND inbox.unread_count > 0
-    AND inbox.timestamp >
-        EXTRACT(EPOCH FROM NOW() - INTERVAL '10 days')::bigint * 1000000
-    ON CONFLICT DO NOTHING
-)
-INSERT INTO notification_due (person_id, kind, due_at)
-SELECT DISTINCT object_person_id, 'visitor'::notification_kind, NOW()
-FROM visited
-WHERE NOT (SELECT done FROM seeded)
-AND NOT invisible
-AND updated_at > NOW() - INTERVAL '10 days'
-ON CONFLICT DO NOTHING
-"""
+def _q_seed_notification_due(
+    kind: Literal['intro', 'chat', 'visitor'],
+    events: str,
+) -> str:
+    return notification_due_sql(kind, f"""
+        SELECT *
+        FROM ({events}) AS event
+        WHERE NOT EXISTS (SELECT 1 FROM notification_due WHERE kind = '{kind}')
+    """)
+
+def _q_seed_message_notification_due(
+    kind: Literal['intro', 'chat'],
+    box: str,
+) -> str:
+    return _q_seed_notification_due(kind, f"""
+        SELECT person.id, to_timestamp(inbox.timestamp / 1000000.0)
+        FROM inbox
+        JOIN person ON person.uuid = uuid_or_null(inbox.luser)
+        WHERE inbox.box = '{box}'
+        AND inbox.unread_count > 0
+        AND inbox.timestamp >
+            EXTRACT(EPOCH FROM NOW() - INTERVAL '10 days')::bigint * 1000000
+    """)
+
+_Q_SEED_NOTIFICATION_DUE = [
+    _q_seed_message_notification_due('intro', 'inbox'),
+    _q_seed_message_notification_due('chat', 'chats'),
+    _q_seed_notification_due('visitor', """
+        SELECT object_person_id, updated_at
+        FROM visited
+        WHERE NOT invisible
+        AND updated_at > NOW() - INTERVAL '10 days'
+    """),
+]
 
 _SQL_CONSTANTS = {
     'LAST_ONLINE_NOW_SECONDS': LAST_ONLINE_NOW_SECONDS,
@@ -109,7 +123,8 @@ async def init_db() -> None:
 
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
-        await tx.execute(_Q_SEED_NOTIFICATION_DUE)
+        for query in _Q_SEED_NOTIFICATION_DUE:
+            await tx.execute(query)
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)

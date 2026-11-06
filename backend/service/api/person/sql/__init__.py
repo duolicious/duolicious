@@ -755,7 +755,7 @@ WITH prospect_base AS (
         invisible
 ), visitor_notification_due AS (
     {notification_due_sql('visitor', '''
-        SELECT object_person_id
+        SELECT object_person_id, NOW()
         FROM updated_visited
         WHERE NOT invisible
     ''')}

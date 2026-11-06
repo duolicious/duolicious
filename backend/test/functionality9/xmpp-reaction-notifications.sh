@@ -274,7 +274,7 @@ send_reaction_as user1 "$user2uuid" "$mam_id" "$emoji1"
          and remote_bare_jid = '${user1uuid}@duolicious.app'")" == "chats" ]]
 
 [[ "$(q "select count(*) from notification_due
-         where person_id = ${user2id} and kind = 'message'")" -eq 1 ]]
+         where person_id = ${user2id} and kind = 'chat'")" -eq 1 ]]
 
 # The reactor's own row is updated too, read
 [[ "$(inbox_row "$user1uuid" "$user2uuid")" == "${body1}|${emoji1}|0" ]]

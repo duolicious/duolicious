@@ -128,17 +128,39 @@ WHERE
 """
 
 def notification_due_sql(
-    kind: Literal['message', 'visitor'],
-    person_ids: str,
+    kind: Literal['intro', 'chat', 'visitor'],
+    events: str,
 ) -> str:
     return f"""
-    INSERT INTO notification_due (person_id, kind, due_at)
-    SELECT DISTINCT
-        person_id, '{kind}'::notification_kind, NOW() + INTERVAL '10 minutes'
-    FROM ({person_ids}) AS due(person_id)
-    ORDER BY person_id
+    INSERT INTO notification_due (person_id, kind, event_at, due_at)
+    SELECT
+        person.id,
+        '{kind}'::notification_kind,
+        event.at,
+        GREATEST(
+            event.at + INTERVAL '10 minutes',
+            to_timestamp(person.{kind}_seconds + CASE immediacy.name
+                WHEN 'Daily'        THEN 86400
+                WHEN 'Every 3 days' THEN 259200
+                WHEN 'Weekly'       THEN 604800
+                ELSE                     0
+            END)
+        )
+    FROM (
+        SELECT person_id, MAX(at) AS at
+        FROM ({events}) AS event(person_id, at)
+        GROUP BY person_id
+    ) AS event
+    JOIN person
+    ON person.id = event.person_id
+    JOIN immediacy
+    ON immediacy.id = person.{kind}s_notification
+    WHERE immediacy.name <> 'Never'
+    ORDER BY person.id
     ON CONFLICT (person_id, kind) DO UPDATE SET
+        event_at = EXCLUDED.event_at,
         due_at = EXCLUDED.due_at
+    WHERE EXCLUDED.event_at > notification_due.event_at
     """
 
 Q_IS_ALLOWED_CLUB_NAME = """

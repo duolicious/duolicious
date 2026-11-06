@@ -13,6 +13,7 @@ from service.api.searchfilters import (
     two_way_filters,
 )
 from dataclasses import dataclass
+from typing import Literal
 from datetime import datetime
 from service.api.chat.chatutil import (
     LSERVER,
@@ -350,14 +351,25 @@ SELECT 1
 """
 
 
-Q_SCHEDULE_MESSAGE_NOTIFICATIONS = notification_due_sql('message', """
-    SELECT person.id
-    FROM unnest(%(lusers)s::TEXT[], %(remote_bare_jids)s::TEXT[])
-        AS written(luser, remote_bare_jid)
-    JOIN inbox USING (luser, remote_bare_jid)
-    JOIN person ON person.uuid = uuid_or_null(inbox.luser)
-    WHERE inbox.unread_count > 0
-""")
+def _q_schedule_message_notifications(
+    kind: Literal['intro', 'chat'],
+    box: str,
+) -> str:
+    return notification_due_sql(kind, f"""
+        SELECT person.id, NOW()
+        FROM unnest(%(lusers)s::TEXT[], %(remote_bare_jids)s::TEXT[])
+            AS written(luser, remote_bare_jid)
+        JOIN inbox USING (luser, remote_bare_jid)
+        JOIN person ON person.uuid = uuid_or_null(inbox.luser)
+        WHERE inbox.unread_count > 0
+        AND inbox.box = '{box}'
+    """)
+
+
+Q_SCHEDULE_MESSAGE_NOTIFICATIONS = [
+    _q_schedule_message_notifications('intro', 'inbox'),
+    _q_schedule_message_notifications('chat', 'chats'),
+]
 
 
 Q_SET_INBOX_REACTION = f"""
@@ -397,8 +409,8 @@ WITH update_reactor AS (
     RETURNING
         luser
 )
-{notification_due_sql('message', '''
-    SELECT person.id
+{notification_due_sql('chat', '''
+    SELECT person.id, NOW()
     FROM update_partner
     JOIN person ON person.uuid = uuid_or_null(update_partner.luser)
 ''')}
@@ -728,10 +740,11 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
     await tx.executemany(Q_UPSERT_CONVERSATION, params_seq)
 
     delivered = [p for p in params_seq if p['deliver_to_recipient']]
-    await tx.execute(Q_SCHEDULE_MESSAGE_NOTIFICATIONS, dict(
-        lusers=[p['to_username'] for p in delivered],
-        remote_bare_jids=[p['sender_jid'] for p in delivered],
-    ))
+    for query in Q_SCHEDULE_MESSAGE_NOTIFICATIONS:
+        await tx.execute(query, dict(
+            lusers=[p['to_username'] for p in delivered],
+            remote_bare_jids=[p['sender_jid'] for p in delivered],
+        ))
 
 
 def mark_displayed(

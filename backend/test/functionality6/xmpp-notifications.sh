@@ -184,3 +184,22 @@ sleep 3
 [[ "$(q "select count(*) from messaged where subject_person_id = $sendrid and object_person_id = $recvrid")" = 1 ]]
 [[ "$(q "select count(*) from person where uuid::text = '$recvruuid' and intro_seconds > 0")" = 1 ]]
 [[ "$(count_pushes_to 'recvr-token')" = 1 ]]
+
+
+
+echo 'A daily intro inside its window is checked once the window ends'
+
+q "update person
+   set intros_notification = 2,
+       intro_seconds = extract(epoch from now() - interval '1 hour')::int
+   where id = $recvrid"
+
+clear_pushes
+
+send_message "$sendruuid" "$sendrtoken" "$recvruuid" "hello again" "id-daily"
+sleep 2
+
+[[ "$(count_pushes_to 'recvr-token')" = 0 ]]
+[[ "$(q "select round(extract(epoch from due_at - now()) / 3600)
+         from notification_due
+         where person_id = $recvrid and kind = 'intro'")" = 23 ]]
