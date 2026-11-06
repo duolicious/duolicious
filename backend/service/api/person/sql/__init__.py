@@ -603,19 +603,17 @@ WITH prospect_base AS (
         END AS location,
 
         (
-            SELECT ROUND(EXTRACT(EPOCH FROM NOW() - prospect.last_online_time))
+            SELECT EXTRACT(EPOCH FROM NOW() - prospect.last_online_time)::INT
             WHERE prospect.show_my_online_status
         ) AS seconds_since_last_online,
 
-        (
-            ROUND(EXTRACT(EPOCH FROM NOW() - sign_up_time))
-        ) AS seconds_since_sign_up,
+        EXTRACT(EPOCH FROM NOW() - sign_up_time)::INT AS seconds_since_sign_up,
 
         (
             SELECT ROUND(
                 prospect.count_intros_sent_with_reply::numeric /
                 prospect.count_intros_sent * 100,
-                1)
+                1)::FLOAT
             WHERE %(person_id)s IS NOT NULL
             AND prospect.sign_up_time <= NOW() - interval '1 day'
             AND prospect.count_intros_sent >= 5
@@ -625,7 +623,7 @@ WITH prospect_base AS (
             SELECT ROUND(
                 prospect.count_intros_received_with_reply::numeric /
                 prospect.count_intros_received * 100,
-                1)
+                1)::FLOAT
             WHERE %(person_id)s IS NOT NULL
             AND prospect.sign_up_time <= NOW() - interval '1 day'
             AND prospect.count_intros_received >= 5
@@ -710,140 +708,143 @@ WITH prospect_base AS (
     ON CONFLICT (subject_person_id, object_person_id) DO UPDATE SET
         updated_at = now(),
         invisible = EXCLUDED.invisible
-), negative_dot_prod AS (
-    -- Empty for anonymous viewers, so `match_percentage` is NULL and the
-    -- frontend hides the donut. Without the guard, `CLAMP(0, 99, NULL)`
-    -- would coerce to 0 (`GREATEST(0, NULL) = 0`), misrepresenting itself
-    -- as a genuine 0 percent match.
-    SELECT (
-        SELECT personality FROM person WHERE id = %(person_id)s
-    ) <#> (
-        SELECT personality FROM prospect
-    ) AS negative_dot_prod
-    WHERE %(person_id)s IS NOT NULL
-), match_percentage AS (
-    SELECT
-        CLAMP(
-            0,
-            99,
-            100 * (1 - negative_dot_prod.negative_dot_prod) / 2
-        )::SMALLINT AS j
-    FROM
-        negative_dot_prod
-), photos AS (
-    SELECT
-        COALESCE(json_agg(photo.uuid       ORDER BY position), '[]'::json) AS uuids,
-        COALESCE(json_agg(photo.extra_exts ORDER BY position), '[]'::json) AS extra_exts,
-        COALESCE(json_agg(photo.blurhash   ORDER BY position), '[]'::json) AS blurhashes,
-        COALESCE(json_agg(photo.verified   ORDER BY position), '[]'::json) AS verifications,
-        COALESCE(json_agg(({PHOTO_GEOMETRY}) ORDER BY position), '[]'::json) AS geometries
-    FROM photo
-    JOIN prospect
-    ON   prospect.id = photo.person_id
-), audio_bio_uuid AS (
-    SELECT audio.uuid AS j
-    FROM   audio
-    JOIN   prospect
-    ON     prospect.id = audio.person_id
-    WHERE  audio.position = -1
-), gender AS (
-    SELECT gender.name AS j
-    FROM gender JOIN prospect ON gender_id = gender.id
-    WHERE gender.name != 'Unanswered'
-), orientation AS (
-    SELECT orientation.name AS j
-    FROM orientation JOIN prospect ON orientation_id = orientation.id
-    WHERE orientation.name != 'Unanswered'
-), ethnicity AS (
-    SELECT ethnicity.name AS j
-    FROM ethnicity JOIN prospect ON ethnicity_id = ethnicity.id
-    WHERE ethnicity.name != 'Unanswered'
-), body_type AS (
-    SELECT body_type.name AS j
-    FROM body_type JOIN prospect ON body_type_id = body_type.id
-    WHERE body_type.name != 'Unanswered'
-), looking_for AS (
-    SELECT
-        COALESCE(
-            array_agg(looking_for.name ORDER BY looking_for.id),
-            ARRAY[]::TEXT[]
-        ) AS j
-    FROM looking_for JOIN prospect ON looking_for.id = ANY(looking_for_ids)
-    WHERE looking_for.name != 'Unanswered'
-    AND prospect.show_my_looking_for
-), smoking AS (
-    SELECT yes_no_optional.name AS j
-    FROM yes_no_optional JOIN prospect ON smoking_id = yes_no_optional.id
-    WHERE yes_no_optional.name != 'Unanswered'
-), drinking AS (
-    SELECT frequency.name AS j
-    FROM frequency JOIN prospect ON drinking_id = frequency.id
-    WHERE frequency.name != 'Unanswered'
-), drugs AS (
-    SELECT yes_no_optional.name AS j
-    FROM yes_no_optional JOIN prospect ON drugs_id = yes_no_optional.id
-    WHERE yes_no_optional.name != 'Unanswered'
-), long_distance AS (
-    SELECT yes_no_optional.name AS j
-    FROM yes_no_optional JOIN prospect ON long_distance_id = yes_no_optional.id
-    WHERE yes_no_optional.name != 'Unanswered'
-    AND prospect.show_my_looking_for
-), relationship_status AS (
-    SELECT relationship_status.name AS j
-    FROM relationship_status JOIN prospect ON relationship_status_id = relationship_status.id
-    WHERE relationship_status.name != 'Unanswered'
-), has_kids AS (
-    SELECT yes_no_maybe.name AS j
-    FROM yes_no_maybe JOIN prospect ON has_kids_id = yes_no_maybe.id
-    WHERE yes_no_maybe.name != 'Unanswered'
-), wants_kids AS (
-    SELECT yes_no_maybe.name AS j
-    FROM yes_no_maybe JOIN prospect ON wants_kids_id = yes_no_maybe.id
-    WHERE yes_no_maybe.name != 'Unanswered'
-), exercise AS (
-    SELECT frequency.name AS j
-    FROM frequency JOIN prospect ON exercise_id = frequency.id
-    WHERE frequency.name != 'Unanswered'
-), religion AS (
-    SELECT religion.name AS j
-    FROM religion JOIN prospect ON religion_id = religion.id
-    WHERE religion.name != 'Unanswered'
-), star_sign AS (
-    SELECT star_sign.name AS j
-    FROM star_sign JOIN prospect ON star_sign_id = star_sign.id
-    WHERE star_sign.name != 'Unanswered'
-), pref_gender AS (
-    SELECT COALESCE(array_agg(g.name ORDER BY g.id), ARRAY[]::TEXT[]) AS j
-    FROM public.gender AS g, search_preference
-    WHERE search_preference.person_id = (SELECT id FROM prospect)
-    AND g.id = ANY(search_preference.gender_ids)
-    AND (SELECT show_my_looking_for FROM prospect)
-), pref_age AS (
-    SELECT json_build_object(
-        'min_age', min_age,
-        'max_age', max_age
-    ) AS j
-    FROM search_preference
-    WHERE person_id = (SELECT id FROM prospect)
-    AND (SELECT show_my_looking_for FROM prospect)
-), is_skipped AS (
-    SELECT
-        EXISTS (
-            SELECT 1
-            FROM skipped
-            WHERE
-                subject_person_id = %(person_id)s AND
-                object_person_id  = (SELECT id FROM prospect)
-        ) AS j
-), advertiser_friendly AS (
+)
+SELECT
+    prospect.id AS person_id,
+    prospect.uuid AS person_uuid,
+    photos.*,
+    (
+        SELECT audio.uuid
+        FROM audio
+        WHERE audio.person_id = prospect.id
+        AND audio.position = -1
+    ) AS audio_bio_uuid,
+    prospect.name,
+    prospect.url_slug,
+    prospect.age,
+    prospect.location,
+    (
+        -- Empty for anonymous viewers, so `match_percentage` is NULL and the
+        -- frontend hides the donut.
+        SELECT
+            CLAMP(
+                0,
+                99,
+                100 * (1 - (viewer.personality <#> prospect.personality)) / 2
+            )::SMALLINT
+        FROM person AS viewer
+        WHERE viewer.id = %(person_id)s
+    ) AS match_percentage,
+    prospect.about,
+    prospect.count_answers,
+    EXISTS (
+        SELECT 1
+        FROM skipped
+        WHERE
+            subject_person_id = %(person_id)s AND
+            object_person_id  = prospect.id
+    ) AS is_skipped,
     -- Ads have been removed; this is kept as a constant so existing native
     -- clients (which validate this field) keep working without the DB spending
     -- time computing it.
-    SELECT FALSE AS j
-), clubs AS (
+    FALSE AS advertiser_friendly,
+    prospect.seconds_since_last_online,
+    prospect.seconds_since_sign_up,
+    prospect.gets_reply_percentage,
+    prospect.gives_reply_percentage,
+    (SELECT ({computed_flair_sql('prospect')}) FROM prospect) AS flair,
+
+    -- Basics
+    prospect.occupation,
+    prospect.education,
+    prospect.height_cm,
+    NULLIF(gender.name, 'Unanswered') AS gender,
+    NULLIF(orientation.name, 'Unanswered') AS orientation,
+    NULLIF(ethnicity.name, 'Unanswered') AS ethnicity,
+    NULLIF(body_type.name, 'Unanswered') AS body_type,
+    ARRAY(
+        SELECT looking_for.name
+        FROM looking_for
+        WHERE looking_for.id = ANY(prospect.looking_for_ids)
+        AND looking_for.name != 'Unanswered'
+        AND prospect.show_my_looking_for
+        ORDER BY looking_for.id
+    ) AS looking_for,
+    NULLIF(smoking.name, 'Unanswered') AS smoking,
+    NULLIF(drinking.name, 'Unanswered') AS drinking,
+    NULLIF(drugs.name, 'Unanswered') AS drugs,
+    CASE WHEN prospect.show_my_looking_for
+        THEN NULLIF(long_distance.name, 'Unanswered')
+    END AS long_distance,
+    NULLIF(relationship_status.name, 'Unanswered') AS relationship_status,
+    NULLIF(has_kids.name, 'Unanswered') AS has_kids,
+    NULLIF(wants_kids.name, 'Unanswered') AS wants_kids,
+    NULLIF(exercise.name, 'Unanswered') AS exercise,
+    NULLIF(religion.name, 'Unanswered') AS religion,
+    NULLIF(star_sign.name, 'Unanswered') AS star_sign,
+    ARRAY(
+        SELECT g.name
+        FROM search_preference, gender AS g
+        WHERE search_preference.person_id = prospect.id
+        AND g.id = ANY(search_preference.gender_ids)
+        AND prospect.show_my_looking_for
+        ORDER BY g.id
+    ) AS gender_preference,
+    (
+        SELECT json_build_object('min_age', min_age, 'max_age', max_age)
+        FROM search_preference
+        WHERE person_id = prospect.id
+        AND prospect.show_my_looking_for
+    ) AS age_preference,
+    CASE WHEN prospect.show_my_looking_for THEN 'Yes' ELSE 'No' END
+        AS show_my_looking_for,
+
+    -- Clubs
+    clubs.*,
+
+    -- Music
+    COALESCE(
+        (
+            SELECT top_artists
+            FROM person_spotify
+            WHERE person_id = prospect.id
+        ),
+        '[]'::jsonb
+    ) AS spotify_artists,
+
+    -- Verifications
+    prospect.verified_age,
+    prospect.verified_gender,
+    prospect.verified_ethnicity,
+
+    -- Theme
+    prospect.title_color,
+    prospect.body_color,
+    prospect.background_color
+FROM
+    prospect
+CROSS JOIN LATERAL (
     SELECT
-        prospect_person_club.club_name,
-        person_club_.person_id IS NOT NULL AS is_mutual
+        COALESCE(json_agg(photo.uuid       ORDER BY position), '[]'::json) AS photo_uuids,
+        COALESCE(json_agg(photo.extra_exts ORDER BY position), '[]'::json) AS photo_extra_exts,
+        COALESCE(json_agg(photo.blurhash   ORDER BY position), '[]'::json) AS photo_blurhashes,
+        COALESCE(json_agg(photo.verified   ORDER BY position), '[]'::json) AS photo_verifications,
+        COALESCE(json_agg(({PHOTO_GEOMETRY}) ORDER BY position), '[]'::json) AS photo_geometries
+    FROM photo
+    WHERE photo.person_id = prospect.id
+) AS photos
+CROSS JOIN LATERAL (
+    SELECT
+        COALESCE(
+            array_agg(prospect_person_club.club_name ORDER BY prospect_person_club.club_name)
+                FILTER (WHERE person_club_.person_id IS NOT NULL),
+            ARRAY[]::TEXT[]
+        ) AS mutual_clubs,
+        COALESCE(
+            array_agg(prospect_person_club.club_name ORDER BY prospect_person_club.club_name)
+                FILTER (WHERE person_club_.person_id IS NULL),
+            ARRAY[]::TEXT[]
+        ) AS other_clubs
     FROM
         person_club AS prospect_person_club
     LEFT JOIN
@@ -853,121 +854,22 @@ WITH prospect_base AS (
     AND
         person_club_.person_id = %(person_id)s
     WHERE
-        prospect_person_club.person_id = (SELECT id FROM prospect)
-    ORDER BY
-        is_mutual DESC,
-        club_name
-), mutual_clubs_json AS (
-    SELECT COALESCE(
-        json_agg(
-            club_name
-            ORDER BY
-                is_mutual DESC,
-                club_name
-        ),
-        '[]'::json
-    ) AS j
-    FROM clubs
-    WHERE is_mutual
-), other_clubs_json AS (
-    SELECT COALESCE(
-        json_agg(
-            club_name
-            ORDER BY
-                is_mutual DESC,
-                club_name
-        ),
-        '[]'::json
-    ) AS j
-    FROM clubs
-    WHERE NOT is_mutual
-), spotify_artists_json AS (
-    SELECT
-        COALESCE(
-            (
-                SELECT top_artists
-                FROM person_spotify
-                WHERE person_id = (SELECT id FROM prospect)
-            ),
-            '[]'::jsonb
-        ) AS j
-), flair AS (
-    SELECT
-        ({computed_flair_sql('prospect')}) AS computed_flair
-    FROM
-        prospect
-)
-SELECT
-    json_build_object(
-        'person_id',                 (SELECT id                        FROM prospect),
-        'person_uuid',               (SELECT uuid                      FROM prospect),
-        'photo_uuids',               (SELECT uuids                     FROM photos),
-        'photo_extra_exts',          (SELECT extra_exts                FROM photos),
-        'photo_blurhashes',          (SELECT blurhashes                FROM photos),
-        'photo_verifications',       (SELECT verifications             FROM photos),
-        'photo_geometries',          (SELECT geometries                FROM photos),
-        'audio_bio_uuid',            (SELECT j                         FROM audio_bio_uuid),
-        'name',                      (SELECT name                      FROM prospect),
-        'url_slug',                  (SELECT url_slug                  FROM prospect),
-        'age',                       (SELECT age                       FROM prospect),
-        'location',                  (SELECT location                  FROM prospect),
-        'match_percentage',          (SELECT j                         FROM match_percentage),
-        'about',                     (SELECT about                     FROM prospect),
-        'count_answers',             (SELECT count_answers             FROM prospect),
-        'is_skipped',                (SELECT j                         FROM is_skipped),
-        'advertiser_friendly',       (SELECT j                         FROM advertiser_friendly),
-        'seconds_since_last_online', (SELECT seconds_since_last_online FROM prospect),
-        'seconds_since_sign_up',     (SELECT seconds_since_sign_up     FROM prospect),
-        'gets_reply_percentage',     (SELECT gets_reply_percentage     FROM prospect),
-        'gives_reply_percentage',    (SELECT gives_reply_percentage    FROM prospect),
-        'flair',                     (SELECT computed_flair            FROM flair),
-
-        -- Basics
-        'occupation',             (SELECT occupation    FROM prospect),
-        'education',              (SELECT education     FROM prospect),
-        'height_cm',              (SELECT height_cm     FROM prospect),
-        'gender',                 (SELECT j             FROM gender),
-        'orientation',            (SELECT j             FROM orientation),
-        'ethnicity',              (SELECT j             FROM ethnicity),
-        'body_type',              (SELECT j             FROM body_type),
-        'looking_for',            (SELECT j             FROM looking_for),
-        'smoking',                (SELECT j             FROM smoking),
-        'drinking',               (SELECT j             FROM drinking),
-        'drugs',                  (SELECT j             FROM drugs),
-        'long_distance',          (SELECT j             FROM long_distance),
-        'relationship_status',    (SELECT j             FROM relationship_status),
-        'has_kids',               (SELECT j             FROM has_kids),
-        'wants_kids',             (SELECT j             FROM wants_kids),
-        'exercise',               (SELECT j             FROM exercise),
-        'religion',               (SELECT j             FROM religion),
-        'star_sign',              (SELECT j             FROM star_sign),
-        'gender_preference',      (SELECT j             FROM pref_gender),
-        'age_preference',         (SELECT j             FROM pref_age),
-        'show_my_looking_for',    (SELECT CASE WHEN show_my_looking_for THEN 'Yes' ELSE 'No' END FROM prospect),
-
-        -- Clubs
-        'mutual_clubs',           (SELECT j             FROM mutual_clubs_json),
-        'other_clubs',            (SELECT j             FROM other_clubs_json),
-
-        -- Music
-        'spotify_artists',        (SELECT j             FROM spotify_artists_json),
-
-        -- Verifications
-        'verified_age',           (SELECT verified_age       FROM prospect),
-        'verified_gender',        (SELECT verified_gender    FROM prospect),
-        'verified_ethnicity',     (SELECT verified_ethnicity FROM prospect),
-
-        -- Theme
-        'theme', json_build_object(
-            'title_color',         (SELECT title_color      FROM prospect),
-            'body_color',          (SELECT body_color       FROM prospect),
-            'background_color',    (SELECT background_color FROM prospect)
-        )
-    ) AS j,
-    (SELECT id   FROM prospect) AS prospect_id,
-    (SELECT uuid FROM prospect) AS prospect_uuid
-WHERE
-    EXISTS (SELECT 1 FROM prospect)
+        prospect_person_club.person_id = prospect.id
+) AS clubs
+LEFT JOIN gender ON gender.id = prospect.gender_id
+LEFT JOIN orientation ON orientation.id = prospect.orientation_id
+LEFT JOIN ethnicity ON ethnicity.id = prospect.ethnicity_id
+LEFT JOIN body_type ON body_type.id = prospect.body_type_id
+LEFT JOIN yes_no_optional AS smoking ON smoking.id = prospect.smoking_id
+LEFT JOIN frequency AS drinking ON drinking.id = prospect.drinking_id
+LEFT JOIN yes_no_optional AS drugs ON drugs.id = prospect.drugs_id
+LEFT JOIN yes_no_optional AS long_distance ON long_distance.id = prospect.long_distance_id
+LEFT JOIN relationship_status ON relationship_status.id = prospect.relationship_status_id
+LEFT JOIN yes_no_maybe AS has_kids ON has_kids.id = prospect.has_kids_id
+LEFT JOIN yes_no_maybe AS wants_kids ON wants_kids.id = prospect.wants_kids_id
+LEFT JOIN frequency AS exercise ON exercise.id = prospect.exercise_id
+LEFT JOIN religion ON religion.id = prospect.religion_id
+LEFT JOIN star_sign ON star_sign.id = prospect.star_sign_id
 """
 
 # Slim variant of `Q_SELECT_PROSPECT_PROFILE` for the chat header. Returns just
