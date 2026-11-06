@@ -171,6 +171,7 @@ def reschedule_notification_sql(
         SELECT person_id, event_at
         FROM notification_due
         WHERE kind = '{kind}' AND person_id = {person_id}
+        FOR UPDATE SKIP LOCKED
     """)
 
 Q_IS_ALLOWED_CLUB_NAME = """
