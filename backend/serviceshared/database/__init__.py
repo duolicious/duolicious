@@ -34,11 +34,11 @@ from serviceshared.database.tx import Row, Tx
 
 logger = logging.getLogger(__name__)
 
-_valid_isolation_levels = [
-    'SERIALIZABLE',
-    'REPEATABLE READ',
-    'READ COMMITTED',
-]
+_isolation_levels = {
+    'SERIALIZABLE': psycopg.IsolationLevel.SERIALIZABLE,
+    'REPEATABLE READ': psycopg.IsolationLevel.REPEATABLE_READ,
+    'READ COMMITTED': psycopg.IsolationLevel.READ_COMMITTED,
+}
 
 _default_transaction_isolation = 'REPEATABLE READ'
 
@@ -171,14 +171,13 @@ async def close_db_pool() -> None:
 async def api_tx(
     isolation_level: str = _default_transaction_isolation,
 ) -> AsyncIterator[Tx]:
-    normalized_isolation_level = isolation_level.upper()
+    level = _isolation_levels.get(isolation_level.upper())
 
-    if normalized_isolation_level not in _valid_isolation_levels:
+    if level is None:
         raise ValueError(isolation_level)
 
     async with _pool().connection() as conn, conn.cursor() as raw_cur:
-        await conn.set_isolation_level(psycopg.IsolationLevel[
-            normalized_isolation_level.replace(' ', '_')])
+        await conn.set_isolation_level(level)
         cur = TxCursor(raw_cur)
         yield cur
         await cur.flush_triggers()
