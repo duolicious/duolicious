@@ -160,8 +160,18 @@ def notification_due_sql(
     ON CONFLICT (person_id, kind) DO UPDATE SET
         event_at = EXCLUDED.event_at,
         due_at = EXCLUDED.due_at
-    WHERE EXCLUDED.event_at > notification_due.event_at
+    WHERE EXCLUDED.event_at >= notification_due.event_at
     """
+
+def reschedule_notification_sql(
+    kind: Literal['intro', 'chat', 'visitor'],
+    person_id: str,
+) -> str:
+    return notification_due_sql(kind, f"""
+        SELECT person_id, event_at
+        FROM notification_due
+        WHERE kind = '{kind}' AND person_id = {person_id}
+    """)
 
 Q_IS_ALLOWED_CLUB_NAME = """
 WITH similar_banned_club AS (

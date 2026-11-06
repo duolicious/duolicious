@@ -60,6 +60,7 @@ from serviceshared.unsubscribe import person_uuid_from_token
 from starlette.responses import Response
 from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
+from typing import Literal
 import psycopg
 from serviceshared.antiabuse.antispam.signupemail import (
     get_email_info,
@@ -1183,17 +1184,18 @@ async def get_update_notifications(
 ) -> object:
     person_uuid = person_uuid_from_token(token)
 
+    queries: list[tuple[str, Literal['intro', 'chat', 'visitor']]]
     if type == 'Intros':
-        queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_INTROS_NOTIFICATIONS, 'intro')]
     elif type == 'Chats':
-        queries = [Q_UPDATE_CHATS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_CHATS_NOTIFICATIONS, 'chat')]
     elif type == 'Visitors':
-        queries = [Q_UPDATE_VISITORS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_VISITORS_NOTIFICATIONS, 'visitor')]
     elif type == 'Every':
         queries = [
-            Q_UPDATE_INTROS_NOTIFICATIONS,
-            Q_UPDATE_CHATS_NOTIFICATIONS,
-            Q_UPDATE_VISITORS_NOTIFICATIONS,
+            (Q_UPDATE_INTROS_NOTIFICATIONS, 'intro'),
+            (Q_UPDATE_CHATS_NOTIFICATIONS, 'chat'),
+            (Q_UPDATE_VISITORS_NOTIFICATIONS, 'visitor'),
         ]
     else:
         return 'Invalid type', 400
@@ -1211,8 +1213,11 @@ async def get_update_notifications(
         )
 
         query_results = []
-        for q in queries:
+        for q, kind in queries:
             query_results.append((await tx.require_one(q, params))['ok'])
+            await tx.execute(reschedule_notification_sql(
+                kind, '(SELECT id FROM person WHERE uuid = %(person_uuid)s)'),
+                params)
 
     if all(query_results):
         return (
