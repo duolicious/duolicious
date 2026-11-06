@@ -177,11 +177,9 @@ async def api_tx(
         raise ValueError(isolation_level)
 
     async with _pool().connection() as conn, conn.cursor() as raw_cur:
+        await conn.set_isolation_level(psycopg.IsolationLevel[
+            normalized_isolation_level.replace(' ', '_')])
         cur = TxCursor(raw_cur)
-        if normalized_isolation_level != _default_transaction_isolation:
-            await cur.execute(
-                f'SET TRANSACTION ISOLATION LEVEL {normalized_isolation_level}'
-            )
         yield cur
         await cur.flush_triggers()
 
