@@ -10,6 +10,7 @@ from serviceshared.gold.sql import club_quota_sql, has_gold_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     computed_flair_sql,
+    notification_due_sql,
     Q_IS_ALLOWED_CLUB_NAME,
     Q_IS_REGISTERED_BY_NORMALIZED_EMAIL,
 )
@@ -749,6 +750,15 @@ WITH prospect_base AS (
     ON CONFLICT (subject_person_id, object_person_id) DO UPDATE SET
         updated_at = now(),
         invisible = EXCLUDED.invisible
+    RETURNING
+        object_person_id,
+        invisible
+), visitor_notification_due AS (
+    {notification_due_sql('visitor', '''
+        SELECT object_person_id
+        FROM updated_visited
+        WHERE NOT invisible
+    ''')}
 )
 SELECT
     prospect.id AS person_id,

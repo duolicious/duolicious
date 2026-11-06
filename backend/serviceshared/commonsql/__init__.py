@@ -1,4 +1,5 @@
 from serviceshared.gold.sql import has_gold_sql
+from typing import Literal
 
 # Whether a person already exists with this normalized email. Shared so the
 # sign-up OTP flow (`_OTP_CTE`) and the email-info lookup (`Q_EMAIL_INFO`) can
@@ -125,6 +126,20 @@ SET
 WHERE
     uuid = uuid_or_null(%(username)s)
 """
+
+def notification_due_sql(
+    kind: Literal['message', 'visitor'],
+    person_ids: str,
+) -> str:
+    return f"""
+    INSERT INTO notification_due (person_id, kind, due_at)
+    SELECT DISTINCT
+        person_id, '{kind}'::notification_kind, NOW() + INTERVAL '10 minutes'
+    FROM ({person_ids}) AS due(person_id)
+    ORDER BY person_id
+    ON CONFLICT (person_id, kind) DO UPDATE SET
+        due_at = EXCLUDED.due_at
+    """
 
 Q_IS_ALLOWED_CLUB_NAME = """
 WITH similar_banned_club AS (

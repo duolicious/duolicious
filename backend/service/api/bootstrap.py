@@ -33,6 +33,29 @@ _email_domains_good_file = (
 _banned_club_file = (
     Path(__file__).parent.parent.parent / 'banned-club.sql')
 
+_Q_SEED_NOTIFICATION_DUE = """
+WITH seeded AS (
+    SELECT EXISTS (SELECT 1 FROM notification_due) AS done
+), message AS (
+    INSERT INTO notification_due (person_id, kind, due_at)
+    SELECT DISTINCT person.id, 'message'::notification_kind, NOW()
+    FROM inbox
+    JOIN person ON person.uuid = uuid_or_null(inbox.luser)
+    WHERE NOT (SELECT done FROM seeded)
+    AND inbox.unread_count > 0
+    AND inbox.timestamp >
+        EXTRACT(EPOCH FROM NOW() - INTERVAL '10 days')::bigint * 1000000
+    ON CONFLICT DO NOTHING
+)
+INSERT INTO notification_due (person_id, kind, due_at)
+SELECT DISTINCT object_person_id, 'visitor'::notification_kind, NOW()
+FROM visited
+WHERE NOT (SELECT done FROM seeded)
+AND NOT invisible
+AND updated_at > NOW() - INTERVAL '10 days'
+ON CONFLICT DO NOTHING
+"""
+
 _SQL_CONSTANTS = {
     'LAST_ONLINE_NOW_SECONDS': LAST_ONLINE_NOW_SECONDS,
     'LAST_ONLINE_DEFAULT_NAME': LAST_ONLINE_DEFAULT_NAME,
@@ -83,6 +106,10 @@ async def init_db() -> None:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(migrations_sql_file)
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        await tx.execute(_Q_SEED_NOTIFICATION_DUE)
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)

@@ -1,6 +1,7 @@
 import logging
 
 from serviceshared.batcher import Batcher
+from serviceshared.commonsql import notification_due_sql
 from serviceshared.constants import LAST_ONLINE_DEFAULT_SECONDS
 from serviceshared.database import Row, Tx, api_tx, row_int, row_str
 from service.api.trials import sent_messages_in_chats
@@ -349,6 +350,16 @@ SELECT 1
 """
 
 
+Q_SCHEDULE_MESSAGE_NOTIFICATIONS = notification_due_sql('message', """
+    SELECT person.id
+    FROM unnest(%(lusers)s::TEXT[], %(remote_bare_jids)s::TEXT[])
+        AS written(luser, remote_bare_jid)
+    JOIN inbox USING (luser, remote_bare_jid)
+    JOIN person ON person.uuid = uuid_or_null(inbox.luser)
+    WHERE inbox.unread_count > 0
+""")
+
+
 Q_SET_INBOX_REACTION = f"""
 WITH update_reactor AS (
     UPDATE inbox SET
@@ -365,24 +376,32 @@ WITH update_reactor AS (
         luser = %(reactor_username)s
     AND
         remote_bare_jid = %(partner_jid)s
+), update_partner AS (
+    UPDATE inbox SET
+        reaction = %(reaction)s,
+        reaction_target_mam_id = %(reaction_target_mam_id)s,
+        reaction_body = %(reaction_body)s,
+        box = 'chats',
+        timestamp = %(timestamp)s,
+        unread_count = CASE
+            WHEN reaction_target_mam_id = %(reaction_target_mam_id)s
+            THEN GREATEST(COALESCE(unread_count, 0), 1)
+            ELSE COALESCE(unread_count, 0) + 1
+        END
+    WHERE
+        %(deliver_to_recipient)s::BOOLEAN
+    AND
+        luser = %(partner_username)s
+    AND
+        remote_bare_jid = %(reactor_jid)s
+    RETURNING
+        luser
 )
-UPDATE inbox SET
-    reaction = %(reaction)s,
-    reaction_target_mam_id = %(reaction_target_mam_id)s,
-    reaction_body = %(reaction_body)s,
-    box = 'chats',
-    timestamp = %(timestamp)s,
-    unread_count = CASE
-        WHEN reaction_target_mam_id = %(reaction_target_mam_id)s
-        THEN GREATEST(COALESCE(unread_count, 0), 1)
-        ELSE COALESCE(unread_count, 0) + 1
-    END
-WHERE
-    %(deliver_to_recipient)s::BOOLEAN
-AND
-    luser = %(partner_username)s
-AND
-    remote_bare_jid = %(reactor_jid)s
+{notification_due_sql('message', '''
+    SELECT person.id
+    FROM update_partner
+    JOIN person ON person.uuid = uuid_or_null(update_partner.luser)
+''')}
 """
 
 
@@ -707,6 +726,12 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
     ]
 
     await tx.executemany(Q_UPSERT_CONVERSATION, params_seq)
+
+    delivered = [p for p in params_seq if p['deliver_to_recipient']]
+    await tx.execute(Q_SCHEDULE_MESSAGE_NOTIFICATIONS, dict(
+        lusers=[p['to_username'] for p in delivered],
+        remote_bare_jids=[p['sender_jid'] for p in delivered],
+    ))
 
 
 def mark_displayed(

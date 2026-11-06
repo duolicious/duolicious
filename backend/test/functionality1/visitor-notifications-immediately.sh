@@ -64,6 +64,13 @@ pushes_to () {
         | {title, body, screen: .data.params.screen}]"
 }
 
+visitor_check_scheduled () {
+  q "select count(*) from notification_due
+     where kind = 'visitor'
+     and person_id = (select id from person where uuid::text = '$prospect_uuid')
+     and due_at between now() + interval '9 minutes' and now() + interval '10 minutes'"
+}
+
 visitor_seconds_of_prospect () {
   q "select visitor_seconds from person where uuid::text = '$prospect_uuid'"
 }
@@ -138,6 +145,7 @@ test_sad_not_set_to_immediately () {
 
   [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
+  [[ "$(visitor_check_scheduled)" = 1 ]]
 }
 
 # A visit made while browsing invisibly never reaches the visitors tab, so it
@@ -154,6 +162,7 @@ test_sad_invisible_visit () {
 
   [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
+  [[ "$(visitor_check_scheduled)" = 0 ]]
 }
 
 # A shadow-banned visitor doesn't exist from anyone else's perspective.

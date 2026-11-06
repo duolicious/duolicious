@@ -15,3 +15,23 @@
 
 ALTER TABLE photo
     DROP COLUMN IF EXISTS nsfw_score;
+
+DO $$
+BEGIN
+    IF to_regclass('notification_due') IS NOT NULL THEN
+        RETURN;
+    END IF;
+
+    CREATE TYPE notification_kind AS ENUM ('message', 'visitor');
+
+    CREATE TABLE notification_due (
+        person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        kind notification_kind NOT NULL,
+        due_at TIMESTAMP NOT NULL,
+
+        PRIMARY KEY (person_id, kind)
+    );
+
+    CREATE INDEX idx__notification_due__kind__due_at
+        ON notification_due(kind, due_at);
+END $$;
