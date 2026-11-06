@@ -722,20 +722,23 @@ async def get_prospect_profile(
 
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_SELECT_PROSPECT_PROFILE, params)
-        api_row = await row_tx.fetchone()
-        if not api_row:
-            return '', 404
+        profile = await row_tx.fetchone()
 
-        profile = api_row.get('j')
-        if not isinstance(profile, dict) or not profile:
-            return '', 404
+    if not profile:
+        return '', 404
 
-        # The handle may have been a url_slug; resolve to the real uuid so the
-        # visit events below carry a valid one.
-        prospect_uuid = api_row.get('prospect_uuid')
-        prospect_id = row_int(api_row, 'prospect_id')
-        prospect_wants_immediate = row_bool(
-            api_row, 'prospect_wants_immediate')
+    profile['theme'] = {
+        key: profile.pop(key)
+        for key in ('title_color', 'body_color', 'background_color')
+    }
+
+    prospect_wants_immediate = row_bool(profile, 'prospect_wants_immediate')
+    del profile['prospect_wants_immediate']
+
+    # The handle may have been a url_slug; resolve to the real uuid so the
+    # visit events below carry a valid one.
+    prospect_uuid = profile['person_uuid']
+    prospect_id = row_int(profile, 'person_id')
 
     if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(
@@ -751,8 +754,7 @@ async def get_prospect_profile(
     if s is None:
         return profile
 
-    if s.person_id is not None and s.person_uuid is not None and \
-            prospect_uuid is not None:
+    if s.person_id is not None and s.person_uuid is not None:
         seconds_since_last_online = profile.get('seconds_since_last_online')
         prospect_online = (
             isinstance(seconds_since_last_online, (int, float)) and
