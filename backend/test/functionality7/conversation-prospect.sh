@@ -101,6 +101,53 @@ prospect_skipped_viewer_returns_404 () {
   ! c GET "/conversation-prospect/${user2_uuid}" || exit 1
 }
 
+hidden_from_strangers_returns_404_until_prospect_messages_viewer () {
+  setup_fresh_users
+
+  user1_id=$(q "select id from person where name = 'user1'")
+  user2_id=$(q "select id from person where name = 'user2'")
+  user2_uuid=$(q "select uuid from person where name = 'user2'")
+
+  q "update person set hide_me_from_strangers = true where id = ${user2_id}"
+
+  assume_role user1
+  ! c GET "/conversation-prospect/${user2_uuid}" || exit 1
+
+  q "insert into messaged (subject_person_id, object_person_id) values (${user2_id}, ${user1_id})"
+  c GET "/conversation-prospect/${user2_uuid}" > /dev/null
+}
+
+verification_level_above_viewers_returns_404_until_prospect_messages_viewer () {
+  setup_fresh_users
+
+  user1_id=$(q "select id from person where name = 'user1'")
+  user2_id=$(q "select id from person where name = 'user2'")
+  user2_uuid=$(q "select uuid from person where name = 'user2'")
+
+  q "update person set privacy_verification_level_id = 3 where id = ${user2_id}"
+  q "update person set verification_level_id = 1 where id = ${user1_id}"
+
+  assume_role user1
+  ! c GET "/conversation-prospect/${user2_uuid}" || exit 1
+
+  q "insert into messaged (subject_person_id, object_person_id) values (${user2_id}, ${user1_id})"
+  c GET "/conversation-prospect/${user2_uuid}" > /dev/null
+}
+
+shadow_banned_prospect_returns_404 () {
+  setup_fresh_users
+
+  user2_uuid=$(q "select uuid from person where name = 'user2'")
+
+  q "update person set shadow_banned_at = now() where name = 'user2'"
+
+  assume_role user1
+  ! c GET "/conversation-prospect/${user2_uuid}" || exit 1
+
+  q "update person set shadow_banned_at = null where name = 'user2'"
+  c GET "/conversation-prospect/${user2_uuid}" > /dev/null
+}
+
 unknown_uuid_returns_404 () {
   setup_fresh_users
 
@@ -122,5 +169,8 @@ does_not_record_a_visit
 returns_only_header_fields
 reflects_skipped_state
 prospect_skipped_viewer_returns_404
+hidden_from_strangers_returns_404_until_prospect_messages_viewer
+verification_level_above_viewers_returns_404_until_prospect_messages_viewer
+shadow_banned_prospect_returns_404
 unknown_uuid_returns_404
 requires_auth

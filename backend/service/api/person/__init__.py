@@ -822,8 +822,7 @@ async def get_compare_personalities(
     db_topic = url_topic_to_db_topic[topic]
 
     params = dict(
-        person_id_as_int=s.person_id,
-        person_id_as_str=None,
+        person_id=s.person_id,
         prospect_person_id=prospect_person_id,
         topic=db_topic,
     )

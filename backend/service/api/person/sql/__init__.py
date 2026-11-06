@@ -43,7 +43,75 @@ _Q_ESTIMATED_END_DATE = """
 (SELECT iso8601_utc(estimated_end_date) FROM funding) AS estimated_end_date
 """
 
-Q_SELECT_PERSONALITY = """
+def _prospect_has_messaged_viewer_sql(prospect_id: str) -> str:
+    return f"""EXISTS (
+        SELECT 1 FROM messaged
+        WHERE messaged.subject_person_id = {prospect_id}
+          AND messaged.object_person_id  = %(person_id)s
+    )"""
+
+def _prospect_skipped_viewer_sql(prospect_id: str) -> str:
+    return f"""EXISTS (
+        SELECT 1 FROM skipped
+        WHERE skipped.subject_person_id = {prospect_id}
+          AND skipped.object_person_id  = %(person_id)s
+    )"""
+
+def _visible_to_viewer_sql(
+    prospect: str,
+    prospect_has_messaged_viewer: str,
+    prospect_skipped_viewer: str,
+) -> str:
+    return f"""
+        (
+                NOT {prospect}.hide_me_from_strangers
+            OR
+                {prospect}.public_profile
+            OR
+                {prospect_has_messaged_viewer}
+        )
+        AND (
+            {prospect}.privacy_verification_level_id <= (
+                SELECT
+                    verification_level_id
+                FROM
+                    person
+                WHERE
+                    id = %(person_id)s
+            )
+            OR
+                {prospect_has_messaged_viewer}
+        )
+        AND
+            NOT {prospect_skipped_viewer}
+    """
+
+_VISIBLE_PROSPECT_CTE = f"""
+visible_prospect AS (
+    SELECT
+        1
+    FROM
+        person AS prospect
+    WHERE
+        prospect.id = %(prospect_person_id)s
+    AND
+        prospect.activated
+    AND (
+            prospect.id = %(person_id)s
+        OR
+            {_visible_to_viewer_sql(
+                prospect='prospect',
+                prospect_has_messaged_viewer=_prospect_has_messaged_viewer_sql(
+                    '%(prospect_person_id)s'),
+                prospect_skipped_viewer=_prospect_skipped_viewer_sql(
+                    '%(prospect_person_id)s'),
+            )}
+    )
+)
+"""
+
+Q_SELECT_PERSONALITY = f"""
+WITH {_VISIBLE_PROSPECT_CTE}
 SELECT
     CASE
         WHEN %(topic)s::TEXT = 'Big 5' AND trait.name = 'Introversion/Extraversion'
@@ -66,11 +134,7 @@ SELECT
     ROUND(100 * person_trait.ratio)   AS person_percentage,
     prospect_trait.name               AS prospect_name,
     ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
-    CASE
-        WHEN %(prospect_person_id)s IS NOT NULL
-        THEN COALESCE(prospect_trait.ratio, 0)
-        ELSE COALESCE(person_trait.ratio, 0)
-    END AS position
+    COALESCE(prospect_trait.ratio, 0) AS position
 FROM
     trait
 LEFT JOIN
@@ -83,9 +147,7 @@ LEFT JOIN
         FROM
             person
         WHERE
-            id = %(person_id_as_int)s::INT
-        OR
-            tiny_id = %(person_id_as_str)s::TEXT
+            id = %(person_id)s
     ) AS person_trait
 ON
     person_trait.trait_id = trait.id
@@ -108,6 +170,8 @@ WHERE
             trait_topic.name = %(topic)s OR
             %(topic)s::TEXT IS NULL
     )
+AND
+    EXISTS (SELECT 1 FROM visible_prospect)
 ORDER BY
     position DESC,
     trait_name ASC
@@ -576,16 +640,8 @@ WITH prospect_base AS (
     -- targeting the viewer - so the cost grows with how many people have
     -- messaged or skipped the viewer.
     SELECT
-        EXISTS (
-            SELECT 1 FROM messaged
-            WHERE messaged.subject_person_id = prospect_base.id
-              AND messaged.object_person_id  = %(person_id)s
-        ) AS prospect_has_messaged_person,
-        EXISTS (
-            SELECT 1 FROM skipped
-            WHERE skipped.subject_person_id = prospect_base.id
-              AND skipped.object_person_id  = %(person_id)s
-        ) AS prospect_skipped_person
+        {_prospect_has_messaged_viewer_sql('prospect_base.id')} AS prospect_has_messaged_person,
+        {_prospect_skipped_viewer_sql('prospect_base.id')} AS prospect_skipped_person
     FROM prospect_base
 ), prospect AS (
     SELECT
@@ -643,27 +699,12 @@ WITH prospect_base AS (
         -- level, and skipped status.
         (
             %(person_id)s IS NOT NULL
-        AND (
-                NOT prospect.hide_me_from_strangers
-            OR
-                prospect.public_profile
-            OR
-                viewer_rel.prospect_has_messaged_person
-        )
-        AND (
-            prospect.privacy_verification_level_id <= (
-                SELECT
-                    verification_level_id
-                FROM
-                    person
-                WHERE
-                    id = %(person_id)s
-            )
-            OR
-                viewer_rel.prospect_has_messaged_person
-        )
         AND
-            NOT viewer_rel.prospect_skipped_person
+            {_visible_to_viewer_sql(
+                prospect='prospect',
+                prospect_has_messaged_viewer='viewer_rel.prospect_has_messaged_person',
+                prospect_skipped_viewer='viewer_rel.prospect_skipped_person',
+            )}
         )
         OR
         -- Anonymous viewer: only when the prospect has opted in to
@@ -882,7 +923,7 @@ LEFT JOIN star_sign ON star_sign.id = prospect.star_sign_id
 # state) and deliberately does NOT write to `visited` — opening someone's
 # chat is not the same as viewing their profile, so it shouldn't surface them
 # in the prospect's "Visitors" tab.
-Q_SELECT_CONVERSATION_PROSPECT = """
+Q_SELECT_CONVERSATION_PROSPECT = f"""
 WITH prospect AS (
     SELECT
         person.id,
@@ -893,14 +934,7 @@ WITH prospect AS (
         person
     LEFT JOIN LATERAL (
         SELECT
-            EXISTS (
-                SELECT 1
-                FROM messaged
-                WHERE
-                    messaged.subject_person_id = person.id
-                AND
-                    messaged.object_person_id = %(person_id)s
-            ) AS prospect_has_messaged_person
+            {_prospect_has_messaged_viewer_sql('person.id')} AS prospect_has_messaged_person
     ) AS m
     ON
         TRUE
@@ -915,30 +949,12 @@ WITH prospect AS (
     AND (
         (
             person.shadow_banned_at IS NULL
-        AND (
-                NOT person.hide_me_from_strangers
-            OR
-                person.public_profile
-            OR
-                m.prospect_has_messaged_person
-            )
-        AND (
-                person.privacy_verification_level_id <= (
-                    SELECT verification_level_id
-                    FROM person AS viewer
-                    WHERE viewer.id = %(person_id)s
-                )
-            OR
-                m.prospect_has_messaged_person
-        )
         AND
-            NOT EXISTS (
-                SELECT 1
-                FROM skipped
-                WHERE
-                    subject_person_id = person.id AND
-                    object_person_id  = %(person_id)s
-            )
+            {_visible_to_viewer_sql(
+                prospect='person',
+                prospect_has_messaged_viewer='m.prospect_has_messaged_person',
+                prospect_skipped_viewer=_prospect_skipped_viewer_sql('person.id'),
+            )}
         )
         OR
             person.id = %(person_id)s
@@ -1014,8 +1030,8 @@ AND
     subject_person_id = %(subject_person_id)s
 """
 
-Q_ANSWER_COMPARISON = """
-WITH prospect_name AS(
+Q_ANSWER_COMPARISON = f"""
+WITH {_VISIBLE_PROSPECT_CTE}, prospect_name AS(
     SELECT name FROM person WHERE id = %(prospect_person_id)s
 ), person_name AS(
     SELECT name FROM person WHERE id = %(person_id)s
@@ -1075,6 +1091,8 @@ WHERE
         %(agreement)s != 'Unanswered' OR
         person_answer.answer IS NULL
     )
+AND
+    EXISTS (SELECT 1 FROM visible_prospect)
 ORDER BY
     question.id
 LIMIT %(n)s
