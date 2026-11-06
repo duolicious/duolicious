@@ -499,8 +499,6 @@ WITH searcher AS (
         prospect.uuid AS prospect_uuid,
         prospect.url_slug,
         prospect.personality,
-        profile_photo.uuid AS profile_photo_uuid,
-        profile_photo.blurhash AS profile_photo_blurhash,
         prospect.name,
         (
             CASE
@@ -525,27 +523,15 @@ WITH searcher AS (
         person AS prospect
     ON
         prospect.id = ranked.prospect_person_id
-    LEFT JOIN LATERAL (
-        SELECT
-            uuid,
-            blurhash
-        FROM
-            photo
-        WHERE
-            person_id = prospect.id
-        ORDER BY
-            position
-        LIMIT 1
-    ) AS profile_photo
-    ON
-        TRUE
     WHERE
         {_PROSPECT_DIDNT_SKIP_SEARCHER}
     AND
         (searcher.show_skipped OR {_SEARCHER_DIDNT_SKIP_PROSPECT})
 ), page AS (
     SELECT
-        *,
+        selected.*,
+        profile_photo.uuid AS profile_photo_uuid,
+        profile_photo.blurhash AS profile_photo_blurhash,
         EXISTS (
             SELECT
                 1
@@ -567,8 +553,24 @@ WITH searcher AS (
                 object_person_id = %(searcher_person_id)s
         ) AS prospect_messaged_person
     FROM
-        cached
-{selection}
+        (
+            SELECT * FROM cached
+            {selection}
+        ) AS selected
+    LEFT JOIN LATERAL (
+        SELECT
+            uuid,
+            blurhash
+        FROM
+            photo
+        WHERE
+            person_id = selected.prospect_person_id
+        ORDER BY
+            position
+        LIMIT 1
+    ) AS profile_photo
+    ON
+        TRUE
 )
 SELECT
     public_page.profile_photo_blurhash,
@@ -625,7 +627,11 @@ Q_CACHED_SIMILAR_PROFILES = _cached_search("""
         %(n)s
 """)
 
-Q_QUIZ_SEARCH = _cached_search("""
+_HAS_PHOTO = sql_fragment("""
+    EXISTS (SELECT 1 FROM photo WHERE photo.person_id = prospect_person_id)
+""")
+
+Q_QUIZ_SEARCH = _cached_search(f"""
     ORDER BY
         -- If this is changed, other subqueries will need changing too
         CASE
@@ -638,14 +644,14 @@ Q_QUIZ_SEARCH = _cached_search("""
                     FROM
                         cached
                     WHERE
-                        profile_photo_uuid IS NOT NULL
+                        {_HAS_PHOTO}
                     AND
                         verified
                 )
             THEN
-                profile_photo_uuid IS NOT NULL AND verified
+                {_HAS_PHOTO} AND verified
             ELSE
-                profile_photo_uuid IS NOT NULL
+                {_HAS_PHOTO}
         END DESC,
 
         match_percentage DESC
