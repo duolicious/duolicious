@@ -17,6 +17,7 @@ Callback = Callable[[], None] | Callable[[], Awaitable[None]] | None
 # application entrypoints (the FastAPI lifespan and the cron `main()`) call
 # `start_all()` once their loop is running.
 _batchers: list["Batcher"] = []
+_tasks: set[asyncio.Task[None]] = set()
 
 
 async def start_all() -> None:
@@ -24,9 +25,17 @@ async def start_all() -> None:
         batcher.start()
 
 
+def track(task: asyncio.Task[None]) -> None:
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+
+
 async def drain_all() -> None:
+    while _tasks or any(b._task and b._pending for b in _batchers):
+        await asyncio.sleep(0.01)
+
     for batcher in _batchers:
-        await batcher.drain()
+        batcher.stop()
 
 
 @dataclass
@@ -44,13 +53,13 @@ class Batcher(Generic[T]):
         max_batch_size: int = 100,
         retry: bool = False
     ):
-        self._queue: asyncio.Queue[BatchItem[T] | None] = asyncio.Queue()
+        self._queue: asyncio.Queue[BatchItem[T]] = asyncio.Queue()
         self._process_fn = process_fn
         self._flush_interval = flush_interval
         self._min_batch_size = min_batch_size
         self._max_batch_size = max_batch_size
         self._retry = retry
-        self._draining = False
+        self._pending = 0
         self._task: asyncio.Task[None] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         _batchers.append(self)
@@ -58,13 +67,16 @@ class Batcher(Generic[T]):
     def enqueue(self, item: T, callback: Callback = None) -> None:
         batch_item = BatchItem(item, callback)
 
-        # `asyncio.Queue` is not thread-safe, so if the consumer is running we
-        # hand the item to the loop thread. `call_soon_threadsafe` is safe to
-        # call from the loop thread itself, so this works for every caller.
-        if self._loop is None:
-            self._queue.put_nowait(batch_item)
+        # `asyncio.Queue` is not thread-safe, so a caller on another thread hands
+        # the item to the loop thread.
+        if self._loop is None or self._loop is asyncio._get_running_loop():
+            self._put(batch_item)
         else:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, batch_item)
+            self._loop.call_soon_threadsafe(self._put, batch_item)
+
+    def _put(self, batch_item: BatchItem[T]) -> None:
+        self._pending += 1
+        self._queue.put_nowait(batch_item)
 
     def set_flush_interval(self, flush_interval: float) -> None:
         self._flush_interval = flush_interval
@@ -95,10 +107,6 @@ class Batcher(Generic[T]):
             except asyncio.TimeoutError:
                 continue
 
-            if batch_item is None:
-                self._draining = True
-                break
-
             batch.append(batch_item)
 
         return batch or None
@@ -123,17 +131,18 @@ class Batcher(Generic[T]):
             logger.exception('Processing batch failed')
             if self._retry:
                 for bi in batch:
-                    self._queue.put_nowait(bi)
+                    self._put(bi)
             return
 
         for bi in batch:
             await self._run_callback(bi.callback)
 
     async def _process_batches_forever(self) -> None:
-        while not self._draining:
+        while True:
             batch = await self._wait_for_next_batch()
             if batch is not None:
                 await self._process_batch(batch)
+                self._pending -= len(batch)
 
     def start(self) -> None:
         # Recreate the queue here, on the running loop, so it binds to the loop
@@ -142,7 +151,7 @@ class Batcher(Generic[T]):
         # the one it first bound to, so reusing the import-time queue breaks any
         # start() on a fresh loop (e.g. every IsolatedAsyncioTestCase case).
         self._queue = asyncio.Queue()
-        self._draining = False
+        self._pending = 0
         self._loop = asyncio.get_running_loop()
         self._task = self._loop.create_task(self._process_batches_forever())
 
@@ -150,11 +159,3 @@ class Batcher(Generic[T]):
         if self._task is not None:
             self._task.cancel()
             self._task = None
-
-    async def drain(self) -> None:
-        if self._task is None:
-            return
-
-        self._queue.put_nowait(None)
-        await self._task
-        self._task = None

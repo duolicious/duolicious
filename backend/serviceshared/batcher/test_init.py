@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, call
 import asyncio
 import time
-from serviceshared.batcher import Batcher
+from serviceshared.batcher import Batcher, drain_all, track
 
 class TestBatcher(unittest.IsolatedAsyncioTestCase):
     batcher: Batcher[int]
@@ -178,24 +178,34 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         await self.assertEventually(
             lambda: self.process_fn.assert_called_once_with([1]))
 
-    async def test_drain_processes_pending_items(self) -> None:
-        self.batcher = Batcher(
+    async def test_drain_all_follows_chained_enqueues(self) -> None:
+        downstream: Batcher[int] = Batcher(
             process_fn=self.process_fn,
-            flush_interval=60,
-            min_batch_size=1,
-            max_batch_size=10,
-            retry=False
+            flush_interval=0.5,
         )
+
+        def forward(batch: list[int]) -> None:
+            for item in batch:
+                downstream.enqueue(item)
+
+        self.batcher = Batcher(process_fn=forward, flush_interval=0.5)
+        downstream.start()
         self.batcher.start()
 
-        self.batcher.enqueue(1)
-        self.batcher.enqueue(2)
-        await asyncio.sleep(0.1)
-        self.process_fn.assert_not_called()
+        self.batcher.enqueue(1, callback=lambda: downstream.enqueue(2))
+        await drain_all()
 
-        await self.batcher.drain()
+        self.process_fn.assert_has_calls([call([1]), call([2])])
 
-        self.process_fn.assert_called_once_with([1, 2])
+    async def test_drain_all_waits_for_tracked_tasks(self) -> None:
+        async def send() -> None:
+            await asyncio.sleep(0.2)
+            self.process_fn()
+
+        track(asyncio.create_task(send()))
+        await drain_all()
+
+        self.process_fn.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
