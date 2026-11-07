@@ -798,6 +798,26 @@ class PostVerificationSelfie(BaseModel):
     base64_file: Base64File
 
 
+class PostVideoUpload(BaseModel):
+    position: int = Field(ge=MIN_PHOTO_POSITION, le=MAX_PHOTO_POSITION)
+    byte_size: int = Field(gt=0, le=constants.MAX_VIDEO_UPLOAD_BYTES)
+    content_type: Literal[
+        'video/mp4',
+        'video/quicktime',
+        'video/x-m4v',
+        'video/webm',
+        'video/x-matroska',
+        'video/3gpp',
+        'video/mpeg',
+        'video/ogg',
+        'video/x-msvideo',
+        'video/avi',
+        'video/vnd.avi',
+        'video/x-ms-wmv',
+        'video/x-ms-asf',
+    ]
+
+
 class ValidDatetime(BaseModel):
     datetime: datetime
 

@@ -142,6 +142,7 @@ type OptionGroupPhotos = {
     delete: (filename: string) => Promise<boolean>
     getUri?: (position: string, resolution: string) => string | null
     getBlurhash?: (position: string) => string | null
+    getVideoLabel?: (position: string) => string | null
   }
 };
 

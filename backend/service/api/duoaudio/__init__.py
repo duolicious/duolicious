@@ -1,10 +1,8 @@
-import io
-import subprocess
-import tempfile
-from pathlib import Path
+import asyncio
 import base64
 import binascii
 from serviceshared import constants
+from serviceshared.ffmpeg import FfmpegError, ffmpeg, workdir
 from serviceshared.util import human_readable_size_metric
 import logging
 from serviceshared import asyncboto
@@ -39,75 +37,31 @@ async def put_audio_in_object_store(
         Body=audio_file_bytes,
     )
 
-def transcode_and_trim_audio(
-    input_audio: io.BytesIO,
-    max_duration_or_none: int | None = None
-) -> io.BytesIO:
-    max_duration = (
-            constants.MAX_AUDIO_SECONDS
-            if max_duration_or_none is None
-            else max_duration_or_none)
-
-    # Ensure input audio is not empty
-    if input_audio.getbuffer().nbytes == 0:
-        raise ValueError("Input audio buffer is empty.")
-
-    # Prepare the output buffer for the transcoded and trimmed audio
-    output_audio = io.BytesIO()
-
-    # Create a temporary directory to store input and output files
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Convert the temporary directory path to a Path object
-        temp_dir_path = Path(temp_dir)
-
-        # Define file paths for the temporary input and output files
-        temp_input_file_path = temp_dir_path / 'input_audio'
-        temp_output_file_path = temp_dir_path / 'output_audio.aac'
-
-        # Write the input audio data to the temporary input file
-        with temp_input_file_path.open('wb') as temp_input_file:
-            temp_input_file.write(input_audio.getvalue())
-
-        # FFmpeg command to transcode audio with settings optimized for voice data
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-i',   str(temp_input_file_path),  # Read from temporary input file
-            '-t',   str(max_duration),          # Set max_duration
-            '-c:a', 'aac',                      # Use AAC codec
-            '-b:a', '128k',                     # Bitrate
-            '-ar',  '44100',                    # Sample rate
-            '-ac',  '1',                        # Set audio to mono
-            '-f',   'adts',                     # Set format to AAC
-            str(temp_output_file_path)          # Output to temporary output file
-        ]
-
-        # Run FFmpeg as a subprocess
-        process = subprocess.run(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=20,
-        )
-
-        # Check if the transcoding was successful
-        if process.returncode != 0:
-            raise RuntimeError(f"FFmpeg error: {process.stderr.decode()}")
-
-        # Check for empty output
-        if not temp_output_file_path.exists() or temp_output_file_path.stat().st_size == 0:
-            raise RuntimeError(
-                "FFmpeg produced an empty output file.\n"
-                f"stderr was {process.stderr.decode()}"
+async def transcode_and_trim_audio(audio_bytes: bytes) -> bytes | ValueError:
+    try:
+        with workdir() as work:
+            (work / 'input').write_bytes(audio_bytes)
+            await ffmpeg(
+                [
+                    '-i', str(work / 'input'),
+                    '-t', str(constants.MAX_AUDIO_SECONDS),
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    '-ar', '44100',
+                    '-ac', '1',
+                    '-f', 'adts',
+                    str(work / 'output.aac'),
+                ],
+                formats='mov,matroska,ogg,wav,mp3,aac',
+                cpu_seconds=20,
+                timeout_seconds=20,
             )
+            transcoded = (work / 'output.aac').read_bytes()
+    except FfmpegError:
+        logger.exception('Processing audio failed')
+        return ValueError('Error while processing audio')
 
-        # Read the transcoded audio from the output file into the output buffer
-        with temp_output_file_path.open('rb') as temp_output_file:
-            output_audio.write(temp_output_file.read())
-
-    # Reset buffer position to the start
-    output_audio.seek(0)
-
-    return output_audio
+    return transcoded or ValueError('Error while processing audio')
 
 
 def decode_base64_audio(audio_base64: str) -> bytes | ValueError:
@@ -129,22 +83,12 @@ def decode_base64_audio(audio_base64: str) -> bytes | ValueError:
     return decoded_bytes
 
 
-def transcode_and_trim_audio_from_bytes(
-    audio_bytes: bytes
-) -> bytes | ValueError:
-    try:
-        return transcode_and_trim_audio(io.BytesIO(audio_bytes)).getvalue()
-    except:
-        logger.exception('Processing audio failed')
-        return ValueError('Error while processing audio')
-
-
-def transcode_and_trim_audio_from_base64(
+async def transcode_and_trim_audio_from_base64(
     audio_base64: str
 ) -> bytes | ValueError:
-    decoded_bytes = decode_base64_audio(audio_base64)
+    decoded_bytes = await asyncio.to_thread(decode_base64_audio, audio_base64)
 
     if isinstance(decoded_bytes, ValueError):
         return decoded_bytes
 
-    return transcode_and_trim_audio_from_bytes(decoded_bytes)
+    return await transcode_and_trim_audio(decoded_bytes)
