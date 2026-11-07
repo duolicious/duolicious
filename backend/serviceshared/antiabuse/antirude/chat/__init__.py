@@ -1,23 +1,27 @@
-from serviceshared.antiabuse.normalize import normalize_string
-from serviceshared.antiabuse.normalize.normalizationlists import chat
+from pathlib import Path
 import re
 
+from tokenizers import Tokenizer
 
-_needle = '(' + '|'.join(f'{re.escape(s)}' for s in chat) + ')'
+from serviceshared.antiabuse.normalize import normalize_chat_message
+from serviceshared.inference import any_window_above, onnx_session
 
+_DIR = Path(__file__).parent
 
-_rude_pattern = (
-    r'((?<=[^a-z0-9])|^)' +
-    f'{_needle}' +
-    r'((?=[^a-z0-9])|$)')
+_ALWAYS_RUDE = re.compile(
+    r"\b(1488|cunny|heil hitler|kikes?|lolicon|shotacon|sieg heil|trannoids?|"
+    r"you(?: wi|['’])ll never be a (?:real )?woman|ywnbar?w)\b|(?<!s)nigger",
+    re.IGNORECASE)
 
+_TOKENIZER = Tokenizer.from_file(str(_DIR / 'tokenizer.json'))
 
-_rude_matcher = re.compile(_rude_pattern, re.IGNORECASE)
+_SESSION = onnx_session(str(_DIR / 'model.onnx'))
 
 
 def is_rude(s: str) -> bool:
-    return \
-            bool(_rude_matcher.search(
-                normalize_string(s, chat, do_remove_modifiers=False))) or \
-            bool(_rude_matcher.search(
-                normalize_string(s, chat, do_remove_modifiers=True)))
+    text = normalize_chat_message(s)
+
+    if _ALWAYS_RUDE.search(text):
+        return True
+
+    return any_window_above(_SESSION, _TOKENIZER.encode(text), 1.8)

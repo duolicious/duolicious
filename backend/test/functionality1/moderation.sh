@@ -199,9 +199,23 @@ specific_photo_is_banned () {
   # The reporter, the accused and the bystander all have added-photo events
   [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 3 ]]
 
+  local deleted_uuid=$(q "select uuid from photo where person_id = ${accused_id}")
+  local deleted_hash=$(q "select hash from photo where person_id = ${accused_id}")
+  wait_for_creation_by_uuid "${deleted_uuid}" 450
+
   c GET "/admin/delete-photo/$(deleted_photo_token)"
 
   [[ "$(q "select count(*) from photo")" -eq 2 ]]
+  # The photocleaner keeps the deleted photo's embedding, but not its UUID
+  assert_eventually 768 q "
+    select vector_dims(embedding)
+    from banned_photo_hash
+    where hash = '${deleted_hash}'"
+  [[ "$(q "
+    select count(*)
+    from banned_photo_hash
+    where photo_uuid is not null")" -eq 0 ]]
+  wait_for_deletion_by_uuid "${deleted_uuid}"
   [[ "$(q "select count(*) from banned_photo_hash where hash <> ''")" -eq 1 ]]
   # Deleting the accused's photo reverts their added-photo event
   [[ "$(q "select count(*) from person where last_event_name = 'added-photo'")" -eq 2 ]]
@@ -397,7 +411,58 @@ automod_ignores_reporters_who_answered_few_questions () {
   [[ "$(accused_is_shadow_banned)" == f ]]
 }
 
+# The reporter has been around for over a month and is photo-verified, which
+# makes their bot and underage reports require the accused to get verified
+setup_verified_reporter () {
+  setup
+
+  q "update person
+     set sign_up_time = now() - interval '31 days',
+         verification_level_id = 3
+     where email = 'reporter@gmail.com'"
+
+  assume_role 'reporter@gmail.com'
+}
+
+accused_requires_verification () {
+  q "select verification_required from person where id = ${accused_id}"
+}
+
+bot_report_requires_verification () {
+  setup_verified_reporter
+
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
+  [[ "$(accused_requires_verification)" == t ]]
+}
+
+underage_report_requires_verification () {
+  setup_verified_reporter
+
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "They are a minor and arent 18" }'
+  [[ "$(accused_requires_verification)" == t ]]
+}
+
+other_reports_do_not_require_verification () {
+  setup_verified_reporter
+
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "rude to me" }'
+  [[ "$(accused_requires_verification)" == f ]]
+}
+
+unverified_reporters_do_not_require_verification () {
+  setup_verified_reporter
+
+  q "update person set verification_level_id = 1 where email = 'reporter@gmail.com'"
+
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "underage" }'
+  [[ "$(accused_requires_verification)" == f ]]
+}
+
 # Execute tests
+bot_report_requires_verification
+underage_report_requires_verification
+other_reports_do_not_require_verification
+unverified_reporters_do_not_require_verification
 automod_shadow_bans_after_two_bot_reports
 automod_spares_gold_users
 automod_ignores_untrustworthy_reporters

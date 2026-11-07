@@ -5,11 +5,12 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
-  Pressable,
   ScrollView,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from './pressable';
+import { IconButton } from './button/icon-button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ForwardedRef,
@@ -55,7 +56,6 @@ import {
   OptionGroupLocationSelector,
   OptionGroupNone,
   OptionGroupOtp,
-  OptionGroupPhotos,
   OptionGroupRangeSlider,
   OptionGroupSlider,
   OptionGroupTextLong,
@@ -70,7 +70,6 @@ import {
   isOptionGroupLocationSelector,
   isOptionGroupNone,
   isOptionGroupOtp,
-  isOptionGroupPhotos,
   isOptionGroupRangeSlider,
   isOptionGroupSlider,
   isOptionGroupTextLong,
@@ -81,12 +80,6 @@ import {
 } from '../data/option-groups';
 import { getProfileInfo } from '../events/profile-info';
 import { descriptionStyle, noneFontSize } from './option-styles';
-import {
-  MoveableImage,
-  Slot,
-  useIsImageLoading,
-  useUri,
-} from './images/images';
 import { DefaultLongTextInput } from './default-long-text-input';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckChip as CheckChip_, CheckChips as CheckChips_ } from './check-chip';
@@ -137,25 +130,23 @@ type InputProps<T extends OptionGroupInputs> = {
 type SubmitHandle = { submit: () => void; skip?: () => void };
 
 const Buttons = forwardRef((props: InputProps<OptionGroupButtons>, ref) => {
-  const [, render] = useState({});
+  const [inputValue, setInputValue] = useState(
+    props.input.buttons.currentValue ?? '');
 
-  const inputValueRef = useRef<string>(props.input.buttons.currentValue ?? '');
-
-  const selectedIndex = props.input.buttons.values.indexOf(inputValueRef.current);
+  const selectedIndex = props.input.buttons.values.indexOf(inputValue);
 
   const onChangeInputValue = useCallback((index: number) => {
-    inputValueRef.current = props.input.buttons.values[index];
-    render({});
+    setInputValue(props.input.buttons.values[index]);
   }, []);
 
   const submit = useCallback(async () => {
     props.setIsLoading(true);
 
-    const ok = await props.input.buttons.submit(inputValueRef?.current);
+    const ok = await props.input.buttons.submit(inputValue);
     ok && props.onSubmitSuccess();
 
     props.setIsLoading(false);
-  }, []);
+  }, [inputValue]);
 
   const skip = useCallback(async () => {
     const clear = props.input.buttons.clear;
@@ -172,7 +163,7 @@ const Buttons = forwardRef((props: InputProps<OptionGroupButtons>, ref) => {
   useImperativeHandle(
     ref,
     () => ({ submit, ...(props.input.buttons.clear ? { skip } : {}) }),
-    [],
+    [submit],
   );
 
   return (
@@ -292,15 +283,15 @@ const GivenName = forwardRef((props: InputProps<OptionGroupGivenName>, ref) => {
   const [isInvalid, setIsInvalid] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [slugPreview, setSlugPreview] = useState('');
-  const [slugTaken, setSlugTaken] = useState(false);
-  const inputValueRef = useRef<string>('');
+  const [takenName, setTakenName] = useState<string | null>(null);
+  const [name, setName] = useState('');
 
   // The backend is the source of truth for the slug and its availability (the
   // app deliberately doesn't recompute slug_base() here, so the two can't drift
   // apart). Debounce a best-effort check; it upserts the onboardee's name,
   // which is harmless before finish-onboarding. Routed through onboardingQueue
   // (same as submit()) so the writes stay ordered.
-  const checkAvailability = useCallback(_.debounce(async (name: string) => {
+  useEffect(() => {
     // Nothing typed yet — no feedback (an empty name is "invalid" server-side,
     // but we don't want to nag before the user has entered anything).
     if (!name.trim()) return;
@@ -310,51 +301,59 @@ const GivenName = forwardRef((props: InputProps<OptionGroupGivenName>, ref) => {
       is_random?: boolean,
     };
 
-    const response = await onboardingQueue.addTask(
-      () => japi<OnboardeeInfoResponse>('patch', '/onboardee-info', { name }));
-    // Drop a response the user has already typed past: if the input no longer
-    // matches the name we checked, a newer check is (or will be) in flight for
-    // the current value.
-    if (name !== inputValueRef.current) return;
-    // The response settles the in-flight check, so the "checking" indicator can
-    // give way to the validity error or slug preview below.
-    setIsChecking(false);
-    // Same response drives both the validity error and the slug preview: an
-    // invalid name (too short/long, not a real name) comes back !ok, so we can
-    // surface "not a real name" as the user types instead of only on submit.
-    setIsInvalid(!response.ok);
-    if (response.ok) {
-      setSlugPreview(response.json?.url_slug ?? '');
-      setSlugTaken(response.json?.is_random ?? false);
-    }
-  }, 500), []);
+    let isCancelled = false;
+
+    const timeout = setTimeout(async () => {
+      const response = await onboardingQueue.addTask(
+        () => japi<OnboardeeInfoResponse>('patch', '/onboardee-info', { name }));
+      // Drop a response the user has already typed past: a newer check is (or
+      // will be) in flight for the current value.
+      if (isCancelled) return;
+      // The response settles the in-flight check, so the "checking" indicator can
+      // give way to the validity error or slug preview below.
+      setIsChecking(false);
+      // Same response drives both the validity error and the slug preview: an
+      // invalid name (too short/long, not a real name) comes back !ok, so we can
+      // surface "not a real name" as the user types instead of only on submit.
+      setIsInvalid(!response.ok);
+      if (response.ok) {
+        setSlugPreview(response.json?.url_slug ?? '');
+        setTakenName(response.json?.is_random ? name : null);
+      }
+    }, 500);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [name]);
 
   const onChangeInputValue = useCallback((value: string) => {
-    inputValueRef.current = value;
+    if (value === name) return;
+    setName(value);
     // Clear stale feedback immediately; the debounced check re-derives both the
     // validity error and the slug preview from the next server response.
     setIsInvalid(false);
     setSlugPreview('');
-    setSlugTaken(false);
+    setTakenName(null);
     // Show the "checking" indicator the moment there's something to check, so
     // the user gets immediate feedback through the debounce and network delay
     // (an empty name is never checked, so it shows nothing).
     setIsChecking(!!value.trim());
-    checkAvailability(value);
-  }, []);
+  }, [name]);
 
   const submit = useCallback(async () => {
     setIsInvalid(false);
     props.setIsLoading(true);
 
-    const ok = await props.input.givenName.submit(inputValueRef?.current);
+    const ok = await props.input.givenName.submit(name);
     setIsInvalid(!ok);
     ok && props.onSubmitSuccess();
 
     props.setIsLoading(false);
-  }, []);
+  }, [name]);
 
-  useImperativeHandle(ref, () => ({ submit }), []);
+  useImperativeHandle(ref, () => ({ submit }), [submit]);
 
   return (
     <>
@@ -413,7 +412,7 @@ const GivenName = forwardRef((props: InputProps<OptionGroupGivenName>, ref) => {
                       <DefaultText style={{ fontWeight: 700 }} disableTheme={true}>
                         {INVITE_URL}/p/{slugPreview}
                       </DefaultText>
-                      {slugTaken && ` (${inputValueRef.current} is taken)`}
+                      {takenName && ` (${takenName} is taken)`}
                     </>
                   : null}
             </DefaultText>}
@@ -428,6 +427,7 @@ const Otp = forwardRef((props: InputProps<OptionGroupOtp>, ref) => {
   const [isLoadingResend, setIsLoadingResend] = useState(false);
   const [isInvalid, setIsInvalid] = useState(false);
   const [counter, setCounter] = useState(counterInit);
+  const [numRejections, setNumRejections] = useState(0);
   const inputValueRef = useRef<string>('');
   const isSubmittingRef = useRef(false);
 
@@ -445,6 +445,10 @@ const Otp = forwardRef((props: InputProps<OptionGroupOtp>, ref) => {
     try {
       const result = await props.input.otp.submit(inputValueRef?.current);
       setIsInvalid(result === 'rejected');
+      if (result === 'rejected') {
+        inputValueRef.current = '';
+        setNumRejections((n) => n + 1);
+      }
       if (result === 'needs-onboarding') props.onSubmitSuccess();
     } finally {
       props.setIsLoading(false);
@@ -472,7 +476,7 @@ const Otp = forwardRef((props: InputProps<OptionGroupOtp>, ref) => {
 
   return (
     <>
-      <OtpInput codeLength={6} submit={submit}
+      <OtpInput key={numRejections} codeLength={6} submit={submit}
         onChangeOtp={onChangeInputValue}/>
       <DefaultText
         style={{
@@ -502,17 +506,17 @@ const Otp = forwardRef((props: InputProps<OptionGroupOtp>, ref) => {
 
 const LocationSelector = forwardRef((props: InputProps<OptionGroupLocationSelector>, ref) => {
   const [invalidMsg, setInvalidMsg] = useState<string | null>(null);
-  const inputValueRef = useRef<LocationValue>({
+  const [inputValue, setInputValue] = useState<LocationValue>({
     text: props.input.locationSelector.currentValue ?? '',
   });
 
   const onChangeInputValue = useCallback((value: LocationValue) => {
-    inputValueRef.current = value;
+    setInputValue(value);
     setInvalidMsg(null);
   }, []);
 
   const submit = useCallback(async () => {
-    if (inputValueRef.current.text === '') {
+    if (inputValue.text === '') {
       setInvalidMsg('Choose a location first');
       return;
     }
@@ -520,20 +524,20 @@ const LocationSelector = forwardRef((props: InputProps<OptionGroupLocationSelect
     setInvalidMsg(null);
     props.setIsLoading(true);
 
-    const ok = await props.input.locationSelector.submit(inputValueRef.current);
+    const ok = await props.input.locationSelector.submit(inputValue);
     setInvalidMsg(ok ? null : 'Never heard of it! Try again?');
     ok && props.onSubmitSuccess();
 
     props.setIsLoading(false);
-  }, []);
+  }, [inputValue]);
 
-  useImperativeHandle(ref, () => ({ submit }), []);
+  useImperativeHandle(ref, () => ({ submit }), [submit]);
 
   return (
     <>
       <LocationSelector_
         onChange={onChangeInputValue}
-        currentValue={inputValueRef.current}
+        currentValue={inputValue}
         color={props.color}
       />
       <DefaultText
@@ -564,127 +568,6 @@ const LocationSelector = forwardRef((props: InputProps<OptionGroupLocationSelect
         </ButtonWithCenteredText>
       }
     </>
-  );
-});
-
-const Photos = forwardRef((props: InputProps<OptionGroupPhotos>, ref) => {
-  const errFileSize = (
-    'Something went wrong. Make sure your images are smaller than 10MB and ' +
-    '5000x5000 pixels.'
-  );
-  const errNumber = (
-    'We need at least one photo'
-  );
-  const errRateLimit = (
-    'You’re doing that too much'
-  );
-  const errGeneric = (
-    'Something went wrong'
-  );
-
-  const showProtip = props.input.photos.showProtip ?? true;
-  const validateAtLeastOne = props.input.photos.validateAtLeastOne ?? false;
-  const firstFileNumber = props.input.photos.firstFileNumber ?? 1;
-
-  const [isInvalid, setIsInvalid] = useState(false);
-  const [lastInvalidReason, setLastInvalidReason] = useState(errFileSize);
-  const isLoading = useIsImageLoading(firstFileNumber);
-  const uri = useUri(firstFileNumber, null);
-
-  const isNumberInvalid = validateAtLeastOne && uri === null;
-
-  const submit = useCallback(async () => {
-    if (props.isLoading) {
-      return;
-    }
-
-    setIsInvalid(false);
-    if (isNumberInvalid) {
-      setLastInvalidReason(errNumber);
-      setIsInvalid(true);
-      return;
-    }
-
-    if (!props.input.photos.submitAll) {
-      props.onSubmitSuccess();
-      return;
-    }
-
-    props.setIsLoading(true);
-
-    const { ok, status } = await props.input.photos.submitAll();
-
-    setIsInvalid(!ok);
-    if (status === 429) {
-      setLastInvalidReason(errRateLimit);
-    } else if (!ok) {
-      setLastInvalidReason(errGeneric);
-    }
-
-    ok && props.onSubmitSuccess();
-
-    props.setIsLoading(false);
-  }, [props.isLoading, isNumberInvalid]);
-
-  useImperativeHandle(ref, () => ({ submit }), [submit]);
-
-  useEffect(() => {
-    props.setIsLoading(isLoading);
-  }, [isLoading]);
-
-  useEffect(() => {
-    setIsInvalid(false);
-  }, [uri]);
-
-  return (
-    <View
-      style={{
-        paddingLeft: 20,
-        paddingRight: 20,
-        width: '100%',
-        alignSelf: 'center',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <View
-        style={{
-          width: '50%',
-          aspectRatio: 1,
-          alignSelf: 'center',
-        }}
-      >
-        <Slot />
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-          }}
-        >
-          <MoveableImage
-            input={props.input}
-            initialFileNumber={firstFileNumber}
-            showProtip={showProtip}
-            moveable={false}
-          />
-        </View>
-      </View>
-      <DefaultText
-        style={{
-          textAlign: 'center',
-          color: props.theme !== 'light' ? 'white' : 'red',
-          marginTop: 5,
-          opacity: isInvalid ? 1 : 0,
-          overflow: 'visible',
-          height: 40,
-        }}
-      >
-        {lastInvalidReason}
-      </DefaultText>
-    </View>
   );
 });
 
@@ -786,7 +669,7 @@ const TextShort = forwardRef((props: InputProps<OptionGroupTextShort>, ref) => {
           marginLeft: 20,
           marginRight: 20,
         }}
-        defaultValue={inputValueRef.current}
+        defaultValue={props.input.textShort.currentValue ?? ''}
         onChangeText={onChangeInputValue}
         onSubmitEditing={isMobile() ? undefined : () => submit()}
         placeholder="Type here..."
@@ -939,6 +822,51 @@ const RangeSlider = forwardRef((props: InputProps<OptionGroupRangeSlider>, ref) 
   );
 });
 
+const BoldList = ({ items }: { items: string[] }) =>
+  items.map((item, index) => (
+    <Fragment key={item}>
+      {index > 0 && (index === items.length - 1 ? ' and ' : ', ')}
+      <DefaultText disableTheme style={{ fontWeight: '700' }}>
+        {item}
+      </DefaultText>
+    </Fragment>
+  ));
+
+const VerificationText = ({
+  verified,
+  unverified
+}: {
+  verified: string[],
+  unverified: string[],
+}) => {
+  return (
+    <View style={{ gap: 15, flex: 1, width: '100%' }} >
+      {verified.length > 0 &&
+        <DefaultText
+          style={{
+            fontSize: 16,
+            width: '100%',
+            textAlign: 'center',
+          }}
+        >
+          We were able to verify your <BoldList items={verified} />.
+        </DefaultText>
+      }
+      {unverified.length > 0 &&
+        <DefaultText
+          style={{
+            fontSize: 16,
+            width: '100%',
+            textAlign: 'center',
+          }}
+        >
+          You can verify your <BoldList items={unverified} /> later.
+        </DefaultText>
+      }
+    </View>
+  );
+};
+
 const VerificationChecker = forwardRef((props: InputProps<OptionGroupVerificationChecker>, ref) => {
   const [status, setStatus] = useState<
     | 'uploading-photo'
@@ -1053,61 +981,6 @@ const VerificationChecker = forwardRef((props: InputProps<OptionGroupVerificatio
     });
   }, []);
 
-  const VerificationText = useCallback(({
-    verified,
-    unverified
-  }: {
-    verified: string[],
-    unverified: string[],
-  }) => {
-    return (
-      <View style={{ gap: 15, flex: 1, width: '100%' }} >
-        {verified.length > 0 &&
-          <DefaultText
-            style={{
-              fontSize: 16,
-              width: '100%',
-              textAlign: 'center',
-            }}
-          >
-            We were able to verify your {}
-            {verified.map((item, index) => (
-              <Fragment key={index}>
-                {index > 0 && index < verified.length - 1 && ', '}
-                {index === verified.length - 1 && ' and '}
-                <DefaultText disableTheme key={index} style={{ fontWeight: '700' }}>
-                  {item}
-                </DefaultText>
-              </Fragment>
-            ))}
-            .
-          </DefaultText>
-        }
-        {unverified.length > 0 &&
-          <DefaultText
-            style={{
-              fontSize: 16,
-              width: '100%',
-              textAlign: 'center',
-            }}
-          >
-            You can verify your {}
-            {unverified.map((item, index) => (
-              <Fragment key={index}>
-                {index > 0 && index < verified.length - 1 && ', '}
-                {index === verified.length - 1 && ' and '}
-                <DefaultText disableTheme style={{ fontWeight: '700' }}>
-                  {item}
-                </DefaultText>
-              </Fragment>
-            ))}
-            {} later.
-          </DefaultText>
-        }
-      </View>
-    );
-  }, []);
-
   return (
     <>
       {isDone &&
@@ -1220,17 +1093,17 @@ const VerificationChecker = forwardRef((props: InputProps<OptionGroupVerificatio
 });
 
 const ColorPickerButton = ({
-  lastSetter,
+  selectSetter,
   currentColor,
   setColor,
   style = {},
 }: {
-  lastSetter: React.MutableRefObject<React.Dispatch<React.SetStateAction<string>>>,
+  selectSetter: (setColor: (c: string) => void) => void,
   currentColor: string
   setColor: (c: string) => void,
   style?: ViewStyle,
 }) => {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
 
   const fadeIn = useCallback(() => {
     Animated.timing(opacity, {
@@ -1255,9 +1128,9 @@ const ColorPickerButton = ({
       return;
     }
 
-    lastSetter.current = setColor;
+    selectSetter(setColor);
     notify<ShowColorPickerEvent>('show-color-picker', currentColor);
-  }, [setColor, currentColor]);
+  }, [selectSetter, setColor, currentColor]);
 
   return (
     <Pressable
@@ -1312,7 +1185,11 @@ const ThemePicker = forwardRef((props: InputProps<OptionGroupThemePicker>, ref) 
   const [backgroundColor, setBackgroundColor] = useState(
     props.input.themePicker.currentBackgroundColor ?? '#ffffff');
 
-  const lastSetter = useRef(setTitleColor);
+  const lastSetter = useRef<(c: string) => void>(setTitleColor);
+
+  const selectSetter = useCallback((setColor: (c: string) => void) => {
+    lastSetter.current = setColor;
+  }, []);
 
   const submit = useCallback(async () => {
     props.setIsLoading(true);
@@ -1360,7 +1237,7 @@ const ThemePicker = forwardRef((props: InputProps<OptionGroupThemePicker>, ref) 
           Example Heading
         </Title>
         <ColorPickerButton
-          lastSetter={lastSetter}
+          selectSetter={selectSetter}
           currentColor={titleColor}
           setColor={setTitleColor}
         />
@@ -1381,13 +1258,13 @@ const ThemePicker = forwardRef((props: InputProps<OptionGroupThemePicker>, ref) 
           Your profile will look like this.
         </DefaultText>
         <ColorPickerButton
-          lastSetter={lastSetter}
+          selectSetter={selectSetter}
           currentColor={bodyColor}
           setColor={setBodyColor}
         />
       </View>
       <ColorPickerButton
-        lastSetter={lastSetter}
+        selectSetter={selectSetter}
         currentColor={backgroundColor}
         setColor={setBackgroundColor}
         style={{
@@ -1449,8 +1326,6 @@ const InputElement = forwardRef((props: InputProps<OptionGroupInputs>, ref: Forw
     return <DatePicker {...{ref, ...props, input: props.input}}/>;
   } else if (isOptionGroupLocationSelector(props.input)) {
     return <LocationSelector {...{ref, ...props, input: props.input}}/>;
-  } else if (isOptionGroupPhotos(props.input)) {
-    return <Photos {...{ref, ...props, input: props.input}}/>;
   } else if (isOptionGroupTextLong(props.input)) {
     return <TextLong {...{ref, ...props, input: props.input}}/>;
   } else if (isOptionGroupTextShort(props.input)) {
@@ -1502,36 +1377,35 @@ const OptionScreenHeader = ({
         }}
       >
         {showCloseButton &&
-          <Pressable
+          <IconButton
+            label="Close"
             onPress={() => navigation.popToTop()}
-            style={{position: 'absolute', top: 0, left: 0, zIndex: 99}}
+            padding={10}
+            style={{position: 'absolute', top: 1, left: 0, zIndex: 99}}
           >
             <Ionicons
               style={{
-                marginTop: 10,
-                marginLeft: 10,
                 fontSize: 30,
+                lineHeight: 30,
                 color: appTheme.secondaryColor,
               }}
               name="close"
             />
-          </Pressable>
+          </IconButton>
         }
         {showBackButton &&
-          <Pressable
+          <IconButton
+            label="Back"
             onPress={() => navigation.goBack()}
+            padding={15}
             style={{position: 'absolute', top: 0, left: 0, zIndex: 99}}
           >
             <FontAwesomeIcon
-              style={{
-                margin: 15,
-                color: 'white',
-              }}
               icon={faArrowLeft}
               size={24}
               color="white"
             />
-          </Pressable>
+          </IconButton>
         }
         <DefaultText
           disableTheme
@@ -1703,10 +1577,11 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
   const onLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) =>
     setContainerHeight(nativeEvent.layout.height), []);
 
+  // Compare the heights to determine if there is more content offscreen when
+  // either one changes.
   useEffect(() => {
-    // Compare the heights to determine if there is more content offscreen when
-    // the component mounts.
     if (containerHeight > 0 && contentHeight > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsBottom(containerHeight >= contentHeight);
     }
   }, [containerHeight, contentHeight]);

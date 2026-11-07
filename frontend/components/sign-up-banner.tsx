@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
+import { Pressable } from './pressable';
 import { CrossFade, CrossFadeText } from './cross-fade';
 import { DefaultText } from './default-text';
 import { Logo16 } from './logo';

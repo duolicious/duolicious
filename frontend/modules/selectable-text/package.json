@@ -1,0 +1,14 @@
+{
+  "name": "selectable-text",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/SelectableTextNativeComponent.ts",
+  "codegenConfig": {
+    "name": "SelectableTextSpec",
+    "type": "all",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "app.duolicious.selectabletext"
+    }
+  }
+}

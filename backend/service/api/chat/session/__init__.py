@@ -4,23 +4,12 @@ from typing import List
 
 from serviceshared.database import api_tx
 from service.api.duohash import sha512
-from service.api.chatprotocol.jid import LSERVER
-from service.api.chatprotocol.inbound import (
-    IqBind,
-    IqSession,
-    SaslAuth,
-    SessionRequest,
-    StreamOpenReq,
-)
+from service.api.chatprotocol.inbound import SaslAuth
 from service.api.chatprotocol.outbound import (
     AuthFailure,
     AuthSuccess,
-    BindResult,
     Outbound,
-    SessionResult,
     StreamClose,
-    StreamFeatures,
-    StreamOpenResponse,
 )
 
 
@@ -92,23 +81,6 @@ async def is_authorized(payload_b64: str | None, session: Session) -> bool:
     return False
 
 
-def handle_open(req: StreamOpenReq, session: Session) -> List[Outbound]:
-    """
-    Handles an <open> stanza in the XMPP framing namespace.
-
-    - When unauthenticated, offers STARTTLS and SASL (mechanism PLAIN).
-    - When authenticated, offers session and bind.
-    """
-    return [
-        StreamOpenResponse(
-            version=req.version,
-            id=str(uuid.uuid4()),
-            from_=req.to,
-        ),
-        StreamFeatures(authenticated=bool(session.username)),
-    ]
-
-
 async def handle_auth(req: SaslAuth, session: Session) -> List[Outbound]:
     """
     Handles an <auth> stanza in the SASL namespace.
@@ -117,32 +89,3 @@ async def handle_auth(req: SaslAuth, session: Session) -> List[Outbound]:
         return [AuthSuccess()]
 
     return [AuthFailure(), StreamClose()]
-
-
-def handle_iq_bind(iq_id: str, session: Session) -> List[Outbound]:
-    if session.username is None:
-        return []  # Ignore requests from unauthenticated clients
-
-    return [BindResult(iq_id=iq_id, jid=f'{session.username}@{LSERVER}')]
-
-
-def handle_iq_session(iq_id: str, session: Session) -> List[Outbound]:
-    if session.username is None:
-        return []
-
-    return [SessionResult(iq_id=iq_id)]
-
-
-async def maybe_get_session_response(
-    request: SessionRequest,
-    session: Session,
-) -> List[Outbound]:
-    if isinstance(request, StreamOpenReq):
-        return handle_open(request, session)
-    if isinstance(request, SaslAuth):
-        return await handle_auth(request, session)
-    if isinstance(request, IqBind):
-        return handle_iq_bind(request.iq_id, session)
-    if isinstance(request, IqSession):
-        return handle_iq_session(request.iq_id, session)
-    return []

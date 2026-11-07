@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { GestureResponderEvent } from 'react-native';
+import { View } from 'react-native';
 import { api, japi } from '../api/api';
 import { notify, lastEvent, useDerivedEvent } from '../events/events';
 import { searchQueue } from '../api/queue';
 import { getSignedInUser } from '../events/signed-in-user';
-import { clubsRedesign } from '../util/trials';
 
 const clubQuota = (hasGold?: boolean) => {
   if (hasGold ?? getSignedInUser()?.hasGold) {
@@ -33,6 +32,7 @@ type OpenClubCard = {
   name: string,
   anchor: Anchor,
   rowPosition?: RowPosition,
+  previous?: OpenClubCard,
 };
 
 const sortClubs = (names: string[]) => [...names].sort((a, b) => {
@@ -135,7 +135,7 @@ const joinClub = (
     'joined-clubs',
     rowPosition === 'front' ? [name, ...otherClubs] : [...otherClubs, name]);
 
-  if (otherClubs.length === 0 && clubsRedesign(getSignedInUser()?.personId)) {
+  if (otherClubs.length === 0) {
     selectSearchClub(name);
   }
 
@@ -170,6 +170,7 @@ const useSuggestedClubs = () => {
 
   const [shown, setShown] = useState(suggested);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setShown(suggested), [suggested]);
 
   const leaving = useMemo(() => {
@@ -190,29 +191,24 @@ const openClubs = (anchor: Anchor) => {
 const useClubsSheet = () => useDerivedEvent<Anchor | null | undefined, Anchor | null>(
   'clubs-sheet', (s) => s ?? null, []);
 
-const openClubCard = ({
-  name,
-  anchor,
-  rowPosition,
-}: Omit<OpenClubCard, 'anchor'> & { anchor: Anchor | GestureResponderEvent }) => {
-  if ('nativeEvent' in anchor) {
-    return anchor.currentTarget.measureInWindow((x, y, width, height) =>
-      openClubCard({ name, anchor: { x, y, width, height }, rowPosition }));
-  }
-
-  notify<OpenClubCard | null>('club-card', { name, anchor, rowPosition });
+const openClubCard = (card: OpenClubCard) => {
+  notify<OpenClubCard | null>('club-card', card);
 };
 
-const pressClub = (name: string) => (e: GestureResponderEvent) => {
-  if (clubsRedesign(getSignedInUser()?.personId)) {
-    return openClubCard({ name, anchor: e });
-  }
-
-  return isClubMember(name) ? leaveClub(name) : joinClub(name);
-};
+const pressClub = (
+  name: string,
+  rowPosition?: RowPosition,
+) => (view: View) =>
+  view.measureInWindow((x, y, width, height) =>
+    openClubCard({ name, anchor: { x, y, width, height }, rowPosition }));
 
 const useOpenClubCard = () => useDerivedEvent<OpenClubCard | null | undefined, OpenClubCard | null>(
   'club-card', (c) => c ?? null, []);
+
+const backClubCard = () => {
+  notify<OpenClubCard | null>(
+    'club-card', lastEvent<OpenClubCard | null>('club-card')?.previous ?? null);
+};
 
 const closeClubCard = () => {
   notify<OpenClubCard | null>('club-card', null);
@@ -230,6 +226,7 @@ export {
   leaveClub,
   Anchor,
   RowPosition,
+  backClubCard,
   closeClubCard,
   closeClubs,
   fetchClubItems,
@@ -238,6 +235,7 @@ export {
   moveClubToFront,
   openClubCard,
   openClubs,
+  OpenClubCard,
   pressClub,
   selectSearchClub,
   setClubs,

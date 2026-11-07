@@ -47,36 +47,6 @@ next_query_id () {
   printf "%s" "$_next_query_id"
 }
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 1
-}
-
 mark_displayed () {
   local fromUuid=$1
   local fromToken=$2
@@ -169,6 +139,7 @@ echo "A gold user sees a read receipt once the recipient reads their message"
 set_gold true "uuid = '${user1uuid}'"
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "hello from user 1"
+sleep 1
 
 mark_displayed "$user2uuid" "$user2token" "$user1uuid"
 
@@ -223,6 +194,7 @@ displayed_at_after_reopen=$(q "
 echo "Reading a newer message advances the read receipt"
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "another message from user 1"
+sleep 1
 
 mark_displayed "$user2uuid" "$user2token" "$user1uuid"
 sleep 2
@@ -245,6 +217,7 @@ echo "A non-gold user sees no read receipts"
 set_gold false "uuid = '${user3uuid}'"
 
 send_message "$user3uuid" "$user3token" "$user2uuid" "hello from user 3"
+sleep 1
 
 mark_displayed "$user2uuid" "$user2token" "$user3uuid"
 

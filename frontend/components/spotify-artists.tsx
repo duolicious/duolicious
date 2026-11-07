@@ -1,11 +1,11 @@
 import {
   ColorValue,
   Linking,
-  Pressable,
   StyleSheet,
   TextStyle,
   View,
 } from 'react-native';
+import { Pressable } from './pressable';
 import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';

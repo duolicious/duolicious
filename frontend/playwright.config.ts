@@ -12,20 +12,19 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './playwright-tests',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [ ['html', { open: 'never'}], ['list'] ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    // baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://localhost:8081',
+    timezoneId: 'UTC',
+    locale: 'en-US',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on',
@@ -33,16 +32,42 @@ export default defineConfig({
 
   timeout: 60000,
 
+  expect: {
+    toHaveScreenshot: {
+      stylePath: './playwright-tests/screenshot.css',
+      maxDiffPixels: 25,
+    },
+  },
+
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        launchOptions: {
-          args: ['--disable-web-security'],
-        },
-      },
+      name: 'seed',
+      testMatch: /seed\.setup\.ts/,
+    },
+    {
+      name: 'desktop',
+      testMatch: /screens\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['seed'],
+    },
+    {
+      name: 'phone',
+      testMatch: /screens\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+      dependencies: ['seed'],
+    },
+    {
+      name: 'onboarding-desktop',
+      testMatch: /onboarding\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['seed'],
+    },
+    {
+      name: 'onboarding-phone',
+      testMatch: /onboarding\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
+      dependencies: ['seed'],
     },
 
     // {

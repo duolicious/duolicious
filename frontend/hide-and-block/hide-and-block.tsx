@@ -1,7 +1,6 @@
 import {
   useEffect,
   useState,
-  useRef,
 } from 'react';
 import { japi } from '../api/api';
 import { listen, notify, lastEvent } from '../events/events';
@@ -15,12 +14,14 @@ type SkippedNetworkState
 
 type SkippedState = {
   isSkipped: boolean
+  wasReported: boolean
   wasPostSkipFiredInThisSession: boolean
   networkState: SkippedNetworkState
 };
 
 const INITIAL_STATE: SkippedState = {
   isSkipped: false,
+  wasReported: false,
   wasPostSkipFiredInThisSession: false,
   networkState: 'settled',
 };
@@ -42,13 +43,13 @@ const lastState = (personUuid: string | null | undefined) => {
 
 const useSkipped = (
   personUuid: string | null | undefined,
-  onPostSkip?: () => void
+  onPostSkip?: (wasReported: boolean) => void
 ) => {
-  const personUuidRef = useRef<string | null | undefined>(personUuid);
+  const [statePersonUuid, setStatePersonUuid] = useState(personUuid);
   const [state, setState] = useState<SkippedState>(lastState(personUuid));
 
-  if (personUuidRef.current !== personUuid) {
-    personUuidRef.current = personUuid;
+  if (statePersonUuid !== personUuid) {
+    setStatePersonUuid(personUuid);
     setState((oldState) => {
       const newState = lastState(personUuid)
 
@@ -77,7 +78,7 @@ const useSkipped = (
           oldState.isSkipped !== newState.isSkipped &&
           newState.isSkipped
         ) {
-          onPostSkip?.();
+          onPostSkip?.(newState.wasReported);
         }
 
         if (_.isEqual(oldState, newState)) {
@@ -93,6 +94,7 @@ const useSkipped = (
 
   return {
     isSkipped: state.isSkipped,
+    wasReported: state.wasReported,
     wasPostSkipFiredInThisSession: state.wasPostSkipFiredInThisSession,
     isLoading: state.networkState !== 'settled',
     isFetching: state.networkState === 'fetching',
@@ -151,6 +153,7 @@ const postSkipped = async (
     personUuid,
     {
       isSkipped,
+      wasReported: isSkipped && !!reportReason,
       networkState: 'settled',
     }
   );

@@ -1,10 +1,10 @@
 import {
   ActivityIndicator,
   ImageStyle,
-  Pressable,
   StyleProp,
   View,
 } from 'react-native';
+import { Pressable } from './pressable';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
   useEffect,

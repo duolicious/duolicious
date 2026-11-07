@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Tests for the `/feed-v2` endpoint (Q_FEED_V2). Unlike v1, the v2 feed:
+# Tests for the `/feed-v2` endpoint. The feed:
 #
 #   * Orders people by when their online session started (came_online_time),
 #     not by event time or by when they were last online, so staying online
@@ -11,7 +11,6 @@
 #   * Only shows people of the viewer's preferred gender and age range, who
 #     also prefer the viewer's gender. The age filter is one-way: people
 #     appear in the viewer's feed regardless of their own age preference
-#     (`age_gap_acceptability_odds` no longer applies)
 #   * Includes a `came_online_time` field, which clients use as the `before`
 #     cursor for the next page, and an `online_time` field showing when the
 #     person was last online
@@ -420,6 +419,12 @@ EOF
   ! c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")' || exit 1
 
   q "update person set public_profile = true where name = 'user1'"
+  c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")'
+
+  q "update photo set nsfw_score_v2 = 0.51 where person_id = (select id from person where name = 'user1')"
+  ! c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")' || exit 1
+
+  q "update photo set nsfw_score_v2 = 0.5 where person_id = (select id from person where name = 'user1')"
   c GET "/feed-v2?before=${before}" | jq -e 'any(.[]; .name == "user1")'
 }
 

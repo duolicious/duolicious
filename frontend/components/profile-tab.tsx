@@ -23,10 +23,17 @@ import {
   NativeStackScreenProps,
   createNativeStackNavigator,
 } from '@react-navigation/native-stack';
-import { CompositeScreenProps } from '@react-navigation/native';
+import {
+  CompositeScreenProps,
+  NavigationProp,
+  ParamListBase,
+  useNavigation,
+} from '@react-navigation/native';
 import type { ProfileParamList, RootParamList } from '../navigation/linking';
 import { navigationContainerRef } from '../App';
 import { ButtonForOption, ButtonForOptionProps } from './button/option';
+import { RestorePurchasesButton } from './restore-purchases-button';
+import { restorePurchases } from '../purchases/purchases';
 import { DuoliciousTopNavBar } from './top-nav-bar';
 import { OptionScreen } from './option-screen';
 import { Title } from './title';
@@ -53,6 +60,7 @@ import {
 } from '../data/option-groups';
 import { Images } from './images/images';
 import { DefaultText } from './default-text';
+import { LinkText } from './link-text';
 import { sessionToken, sessionPersonUuid } from '../kv-storage/session-token';
 import { lastPath } from '../kv-storage/last-path';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
@@ -62,8 +70,6 @@ import { cmToFeetInchesStr } from '../units/units';
 import { photoUri } from '../util/photos';
 import * as _ from "lodash";
 import { aboutQueue, nameQueue } from '../api/queue';
-import { ClubSelector } from './club-selector';
-import { sortClubs, useJoinedClubs } from '../club/club';
 import {
   connectSpotify,
   disconnectSpotify,
@@ -75,23 +81,19 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { logout } from '../chat/application-layer';
 import { DetailedVerificationBadges } from './verification-badge';
 import { listenUpdatedVerification } from '../verification/verification';
-import { InviteEntrypoint } from './invite';
-import { InvitePicker } from './invite';
-import { clubsRedesign } from '../util/trials';
 import { AudioBio } from './audio-bio';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { WEB_VERSION } from '../env/env';
 import { photoQueue } from '../api/queue';
 import { showPointOfSale } from './modal/point-of-sale-modal';
 import { useAppTheme } from '../app-theme/app-theme';
+import { LEGAL_LINKS } from '../constants/constants';
 import { faRightFromBracket } from '@fortawesome/free-solid-svg-icons/faRightFromBracket'
 import { faDownload } from '@fortawesome/free-solid-svg-icons/faDownload'
-import { faUserGroup } from '@fortawesome/free-solid-svg-icons/faUserGroup'
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { INVITE_URL } from '../env/env';
-import { Pressable } from 'react-native-gesture-handler';
-import { copyProfileLink } from '../util/util';
-import { lookingForGoals } from './prospect-profile-screen/looking-for';
+import { Pressable } from './pressable';
+import { copyProfileLink, isMobile } from '../util/util';
 
 
 type ProfileInfoPatchResponse = {
@@ -154,16 +156,6 @@ const ProfileTab = () => {
         name="Profile Option Screen"
         component={OptionScreen}
         options={{ title: 'Settings' }}
-      />
-      <Stack.Screen
-        name="Club Selector"
-        component={ClubSelector}
-        options={{ title: 'Clubs' }}
-      />
-      <Stack.Screen
-        name="Invite Picker"
-        component={InvitePicker}
-        options={{ title: 'Invite friends' }}
       />
     </Stack.Navigator>
   );
@@ -362,13 +354,13 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
     return false;
   };
 
-  const debouncedOnChangeNameText = useCallback(
-    _.debounce(enqueueName, 1000),
+  const debouncedOnChangeNameText = useMemo(
+    () => _.debounce(enqueueName, 1000),
     []
   );
 
-  const debouncedOnChangeAboutText = useCallback(
-    _.debounce(enqueueAbout, 1000),
+  const debouncedOnChangeAboutText = useMemo(
+    () => _.debounce(enqueueAbout, 1000),
     []
   );
 
@@ -531,6 +523,16 @@ const MusicSection = ({data}: {data: ProfileInfo}) => {
 const optionGroupToDataKey = (og: OptionGroup<OptionGroupInputs>) =>
   og.title.toLowerCase().replaceAll(' ', '_');
 
+const OptionButton = (props: ButtonForOptionProps) => {
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+
+  return <ButtonForOption
+    navigation={navigation}
+    navigationScreen="Profile Option Screen"
+    {...props}
+  />;
+};
+
 const Options = ({ navigation, data }: {
   navigation: ProfileTabScreenProps['navigation'],
   data: ProfileInfo,
@@ -567,12 +569,11 @@ const Options = ({ navigation, data }: {
     }
     const value = data?.[optionGroupToDataKey(og)];
     if (value === undefined) return og;
-    if (isOptionGroupCheckChips(og.input)) {
-      const checked = lookingForGoals(value);
+    if (isOptionGroupCheckChips(og.input) && Array.isArray(value)) {
       return _.merge({}, og, { input: { checkChips: {
         values: og.input.checkChips.values.map((v) => ({
           ...v,
-          checked: checked.includes(v.label),
+          checked: value.includes(v.label),
         })),
       } } });
     }
@@ -617,14 +618,6 @@ const Options = ({ navigation, data }: {
     });
   }, []);
 
-  const Button_ = useCallback((props: ButtonForOptionProps) => {
-    return <ButtonForOption
-      navigation={navigation}
-      navigationScreen="Profile Option Screen"
-      {...props}
-    />;
-  }, [navigation]);
-
   const signOut = useCallback(async () => {
     setIsLoadingSignOut(true);
     await logout();
@@ -659,17 +652,6 @@ const Options = ({ navigation, data }: {
     setDataExportStatus('ok');
   }, []);
 
-  const goToClubSelector = useCallback(() => {
-    // `Club Selector` reads the current clubs from the `joined-clubs` event,
-    // so there's no reason to pass them as (non-serializable) route params.
-    navigation.navigate("Club Selector");
-  }, [navigation]);
-
-  const joinedClubs = useJoinedClubs();
-  const clubsSetting = joinedClubs?.length
-    ? sortClubs(joinedClubs).join(', ')
-    : undefined;
-
   const isCompletelyVerified = (
     Object.values(data?.photo_verification ?? {}).every(Boolean) &&
     (data?.verified_gender ?? false) &&
@@ -688,7 +670,7 @@ const Options = ({ navigation, data }: {
         style={{ marginBottom: 10 }}
       />
       {!isCompletelyVerified && <>
-          <Button_
+          <OptionButton
             setting=""
             optionGroups={verificationOptionGroups}
             showSkipButton={false}
@@ -720,7 +702,7 @@ const Options = ({ navigation, data }: {
       <Title>Basics</Title>
       {
         _basicsOptionGroups.map((og, i) =>
-          <Button_
+          <OptionButton
             key={i}
             setting={
               og.title === 'Height' ?
@@ -732,26 +714,6 @@ const Options = ({ navigation, data }: {
         )
       }
 
-      {!clubsRedesign(signedInUser?.personId) && <>
-        <Title>Clubs</Title>
-        <ButtonForOption
-          onPress={goToClubSelector}
-          label="Clubs"
-          setting={clubsSetting}
-          noSettingText="None"
-          icon={
-            ({ color = 'black' }) => (
-              <FontAwesomeIcon
-                icon={faUserGroup}
-                size={14}
-                style={{ color }}
-              />
-            )
-          }
-        />
-        <InviteEntrypoint navigation={navigation}/>
-      </>}
-
       {(data.spotify_tester === true || data.spotify_connected === true) && <>
         <Title>Music</Title>
         <MusicSection data={data}/>
@@ -760,7 +722,7 @@ const Options = ({ navigation, data }: {
       <Title>Themes</Title>
       {
         _themePickerOptionGroups.map((og, i) =>
-          <Button_
+          <OptionButton
             key={i}
             setting={
               og.title === 'Profile Theme'
@@ -809,7 +771,7 @@ const Options = ({ navigation, data }: {
       <Title style={{ marginTop: 70 }}>Notification Settings</Title>
       {
         _notificationSettingsOptionGroups.map((og, i) =>
-          <Button_
+          <OptionButton
             key={i}
             setting={asSettingLabel(getCurrentValue(og.input))}
             optionGroups={_notificationSettingsOptionGroups.slice(i)}
@@ -819,7 +781,7 @@ const Options = ({ navigation, data }: {
       <Title>Privacy Settings</Title>
       {
         _visiblePrivacySettingsOptionGroups.map((og, i) =>
-          <Button_
+          <OptionButton
             key={i}
             setting={asSettingLabel(getCurrentValue(og.input))}
             // Pass the FULL privacy list (not the filtered visible one) so the
@@ -836,7 +798,7 @@ const Options = ({ navigation, data }: {
       <Title>General Settings</Title>
       {
         _generalSettingsOptionGroups.map((og, i) =>
-          <Button_
+          <OptionButton
             key={i}
             setting={asSettingLabel(getCurrentValue(og.input))}
             optionGroups={_generalSettingsOptionGroups.slice(i)}
@@ -850,6 +812,7 @@ const Options = ({ navigation, data }: {
         label="Sign Out"
         setting=""
         loading={isLoadingSignOut}
+        showChevron={false}
         icon={
           ({ color = 'black' }) => (
             <FontAwesomeIcon
@@ -861,14 +824,11 @@ const Options = ({ navigation, data }: {
         }
       />
 
-      <Title style={{ marginTop: 70 }}>Deactivate My Account</Title>
-      <Button_ optionGroups={deactivationOptionGroups} setting="" showSkipButton={false}/>
-
       {data.paypal_subscription &&
         <>
-          <Title>Gold Subscription</Title>
+          <Title style={{ marginTop: 70 }}>Gold Subscription</Title>
           {data.paypal_subscription.can_cancel
-            ? <Button_ optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
+            ? <OptionButton optionGroups={cancelGoldOptionGroups} setting="" showSkipButton={false}/>
             : <>
                 <DefaultText style={{ color: '#999' }}>
                   Your Gold subscription is cancelled. Gold ends on {}
@@ -884,10 +844,10 @@ const Options = ({ navigation, data }: {
         </>
       }
 
-      <Title>Delete My Account</Title>
-      <Button_ optionGroups={deletionOptionGroups} setting=""/>
-
-      <Title style={{ marginTop: 70 }}>Export My Data</Title>
+      <Title style={{ marginTop: 70 }}>My Account</Title>
+      {restorePurchases &&
+        <RestorePurchasesButton restorePurchases={restorePurchases} />
+      }
       <ButtonForOption
         onPress={exportData}
         label="Export My Data"
@@ -903,6 +863,8 @@ const Options = ({ navigation, data }: {
           )
         }
       />
+      <OptionButton optionGroups={deactivationOptionGroups} setting="" showSkipButton={false}/>
+      <OptionButton optionGroups={deletionOptionGroups} setting=""/>
     </View>
   );
 };
@@ -922,7 +884,6 @@ const AboutDuolicious = () => {
         About
       </Title>
       <DefaultText
-        onPress={() => Linking.openURL('https://github.com/duolicious/duolicious')}
         style={{
           textAlign: 'center',
           color: '#999',
@@ -930,13 +891,15 @@ const AboutDuolicious = () => {
       >
         Duolicious is free software licensed under the AGPLv3. The source code
         used to make Duolicious is available {}
-        <DefaultText style={{fontWeight: '600', color: '#37f'}}>
+        <LinkText
+          href="https://github.com/duolicious/duolicious"
+          style={{fontWeight: '600', color: '#37f'}}
+        >
           here
-        </DefaultText>
+        </LinkText>
         .
       </DefaultText>
       <DefaultText
-        onPress={() => Linking.openURL('mailto:support@duolicious.app')}
         style={{
           marginTop: 25,
           textAlign: 'center',
@@ -944,40 +907,41 @@ const AboutDuolicious = () => {
         }}
       >
         You can contact us at {}
-        <DefaultText style={{fontWeight: '600', color: '#37f'}}>
+        <LinkText
+          href="mailto:support@duolicious.app"
+          style={{fontWeight: '600', color: '#37f'}}
+        >
           support@duolicious.app
-        </DefaultText>
+        </LinkText>
         {} to provide feedback, report abuse, or submit any other concerns or
         queries you have.
       </DefaultText>
 
-      <View
-        style={{
-          marginTop: 25,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: 20,
-        }}
-      >
-        {([
-          ['FAQ', 'https://duolicious.app/faq/'],
-          ['Guidelines', 'https://duolicious.app/guidelines/'],
-          ['Terms', 'https://duolicious.app/terms/'],
-          ['Privacy', 'https://duolicious.app/privacy/'],
-        ] as const).map(([label, href]) =>
-          <DefaultText
-            key={href}
-            onPress={() => Linking.openURL(href)}
-            style={{
-              fontWeight: '600',
-              color: '#37f',
-            }}
-          >
-            {label}
-          </DefaultText>
-        )}
-      </View>
+      {isMobile() &&
+        <View
+          style={{
+            marginTop: 25,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            rowGap: 8,
+            columnGap: 16,
+          }}
+        >
+          {LEGAL_LINKS.map(([label, path]) =>
+            <LinkText
+              key={path}
+              href={`https://duolicious.app${path}`}
+              style={{
+                fontSize: 13,
+                color: '#37f',
+              }}
+            >
+              {label}
+            </LinkText>
+          )}
+        </View>
+      }
 
       {Platform.OS === 'web' &&
         <DefaultText

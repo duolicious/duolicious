@@ -64,6 +64,13 @@ pushes_to () {
         | {title, body, screen: .data.params.screen}]"
 }
 
+visitor_check_due_in_minutes () {
+  q "select round(extract(epoch from due_at - now()) / 60)
+     from notification_due
+     where kind = 'visitor'
+     and person_id = (select id from person where uuid::text = '$prospect_uuid')"
+}
+
 visitor_seconds_of_prospect () {
   q "select visitor_seconds from person where uuid::text = '$prospect_uuid'"
 }
@@ -138,6 +145,55 @@ test_sad_not_set_to_immediately () {
 
   [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
+  [[ "$(visitor_check_due_in_minutes)" = 10 ]]
+}
+
+test_sad_inside_weekly_window () {
+  setup
+  give_prospect_a_phone
+  put_prospect_offline
+
+  q "update person
+     set visitors_notification = 4,
+         visitor_seconds = extract(epoch from now() - interval '1 day')::int
+     where uuid::text = '$prospect_uuid'"
+
+  visit_as_viewer
+
+  [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
+  [[ "$(visitor_check_due_in_minutes)" = $((6 * 24 * 60)) ]]
+}
+
+test_switching_to_immediately_reschedules () {
+  setup
+  give_prospect_a_phone
+  put_prospect_offline
+
+  q "update person
+     set visitors_notification = 4,
+         visitor_seconds = extract(epoch from now() - interval '1 day')::int
+     where uuid::text = '$prospect_uuid'"
+
+  visit_as_viewer
+  [[ "$(visitor_check_due_in_minutes)" = $((6 * 24 * 60)) ]]
+
+  assume_role prospect
+  jc PATCH /profile-info -d '{ "visitors": "Immediately" }'
+  [[ "$(visitor_check_due_in_minutes)" = 10 ]]
+}
+
+test_sad_set_to_never () {
+  setup
+  give_prospect_a_phone
+  put_prospect_offline
+
+  q "update person set visitors_notification = 5
+     where uuid::text = '$prospect_uuid'"
+
+  visit_as_viewer
+
+  [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
+  [[ "$(visitor_check_due_in_minutes)" = '' ]]
 }
 
 # A visit made while browsing invisibly never reaches the visitors tab, so it
@@ -154,6 +210,7 @@ test_sad_invisible_visit () {
 
   [[ "$(count_pushes_to 'visitor_push_token')" = 0 ]]
   [[ "$(visitor_seconds_of_prospect)" = 0 ]]
+  [[ "$(visitor_check_due_in_minutes)" = '' ]]
 }
 
 # A shadow-banned visitor doesn't exist from anyone else's perspective.
@@ -268,6 +325,9 @@ test_no_badge_while_online
 test_pushed_to_each_phone
 
 test_sad_not_set_to_immediately
+test_sad_inside_weekly_window
+test_switching_to_immediately_reschedules
+test_sad_set_to_never
 test_sad_invisible_visit
 test_sad_shadow_banned_viewer
 test_sad_prospect_skipped_the_viewer

@@ -245,8 +245,11 @@ const AudioBio = ({
     return true;
   };
 
+  const recordedSeconds = Math.floor(recorderState.durationMillis / 1000);
+
   const formattedStatus = (() => {
-    const [mins, secs] = secToMinSec(duration ?? 0);
+    const [mins, secs] = secToMinSec(
+      (playingState === 'Recording' ? recordedSeconds : duration) ?? 0);
     const [maxMins, maxSecs] = secToMinSec(maxDuration);
 
     if (playingState === 'Recording') {
@@ -290,18 +293,11 @@ const AudioBio = ({
   }, [player]);
 
   useEffect(() => {
-    if (playingState !== 'Recording') {
-      return;
-    }
-
-    const seconds = Math.floor(recorderState.durationMillis / 1000);
-
-    setDuration(seconds);
-
-    if (seconds >= maxDuration) {
+    if (playingState === 'Recording' && recordedSeconds >= maxDuration) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       stopRecording();
     }
-  }, [recorderState.durationMillis, playingState, maxDuration]);
+  }, [recordedSeconds, playingState, maxDuration]);
 
   return (
     <View

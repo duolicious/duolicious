@@ -1,0 +1,5 @@
+confusable-homoglyphs
+onnx>=1.17
+psycopg[binary]>=3.2
+torch>=2.6
+transformers>=4.40

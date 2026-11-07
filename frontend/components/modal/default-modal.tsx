@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Animated,
   BackHandler,
   Easing,
-  Platform,
-  StatusBar,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { viewportPosition } from '../../util/util';
 
@@ -26,17 +23,18 @@ const DefaultModal = ({
   onRequestClose?: () => void,
   children: React.ReactNode
 }) => {
-  const { width, height } = useWindowDimensions();
   // Track whether the modal should be mounted in the tree
   const [isMounted, setIsMounted] = useState(visible);
+  if (visible && !isMounted) {
+    setIsMounted(true);
+  }
 
   // Opacity value for the fade animation
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
 
   // Whenever `visible` changes, run the fade in/out animation
   useEffect(() => {
     if (visible) {
-      setIsMounted(true);
       Animated.timing(opacity, {
         toValue: 1,
         duration: 250,
@@ -82,12 +80,7 @@ const DefaultModal = ({
 
   return (
     <View
-      style={[
-        Platform.OS === 'web'
-          ? { width: '100%', height: '100%' }
-          : { width, height: height + (StatusBar?.currentHeight ?? 0) },
-        styles.wrapper
-      ]}
+      style={styles.wrapper}
       pointerEvents={visible ? 'auto' : 'none'}
     >
       {/* Animated container to handle the 'fade' effect */}
@@ -118,7 +111,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });
 

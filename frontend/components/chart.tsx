@@ -1,9 +1,9 @@
 import {
   DimensionValue,
   LayoutAnimation,
-  Pressable,
   View,
 } from 'react-native';
+import { Pressable } from './pressable';
 import {
   useCallback,
   useState,
@@ -14,6 +14,120 @@ import { commonStyles } from '../styles';
 import { useAppTheme } from '../app-theme/app-theme';
 import { usePressableAnimation } from '../animation/animation';
 import Animated from 'react-native-reanimated';
+
+const Tick = ({position, color, compact, ...props}: {
+  compact: boolean,
+  position?: number,
+  color: string,
+  label?: string | null,
+  labelPercentage?: number,
+  extraHeight?: number,
+  round?: boolean,
+}) => {
+  const {label, labelPercentage, extraHeight, round = false} = props;
+
+  const position_ = position && Math.round(position);
+  const extraHeight_ = extraHeight || 0;
+
+  const labelPos = position_ ?? 0;
+  const labelPosition: {
+    left: DimensionValue
+  } | {
+    right: DimensionValue
+  } = labelPos < 50 ?
+    {left: `${labelPos}%`} :
+    {right: `${100 - labelPos}%`};
+
+  return <>
+    {
+      position_ !== undefined && <View
+        style={{
+          position: 'absolute',
+          left: `${position_}%`,
+          marginLeft: round ? -5 : (label === undefined ? 0 : -1),
+          backgroundColor: color,
+          top: 40 - extraHeight_ - (compact ? 40 : 0),
+          width: round ? 11 : (label === undefined ? 1 : 3),
+          height: 11 + extraHeight_,
+          borderRadius: 999,
+        }}
+      />
+    }
+    {
+      position_ !== undefined && label && <DefaultText
+        style={{
+          position: 'absolute',
+          ...labelPosition,
+          top: 20 - extraHeight_,
+          color: color,
+          fontWeight: '600',
+        }}
+      >
+        {label} <DefaultText style={{fontWeight: '400'}}>
+          ({labelPercentage}%)
+        </DefaultText>
+      </DefaultText>
+    }
+    {
+      position_ !== undefined && label === null && <DefaultText
+        style={{
+          position: 'absolute',
+          ...labelPosition,
+          marginLeft: 10,
+          marginRight: 10,
+          top: -5,
+          color: color,
+        }}
+      >
+        {labelPercentage}%
+      </DefaultText>
+    }
+    {
+      position_ === undefined && (label || label === null) && <View
+        style={{
+          width: '100%',
+          position: 'absolute',
+          top: label === null ? -5 : (20 - extraHeight_),
+          flexDirection: 'row',
+          justifyContent: 'center',
+        }}
+      >
+        <DefaultText
+          style={{
+            color: color,
+            fontWeight: '600',
+            backgroundColor: label === null ? 'white' : undefined,
+            borderRadius: 5,
+          }}
+        >
+          {label}<DefaultText style={{fontWeight: '400'}}>
+            {' '}(Not enough Q&A answers){' '}
+          </DefaultText>
+        </DefaultText>
+      </View>
+    }
+  </>
+};
+
+const TraitInfoButton = ({ expanded }: { expanded: boolean }) => {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Ionicons
+        style={{
+          color: '#888',
+          fontSize: 16,
+        }}
+        name={expanded ? 'chevron-up' : 'chevron-down'}
+      />
+    </View>
+  );
+};
 
 const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
   name1?: string | null,
@@ -66,118 +180,7 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
   const minLabel_ = minLabel ? `100%` : '0%';
   const maxLabel_ = maxLabel ? `100%` : '100%';
 
-  const Tick = useCallback(({position, color, ...props}: {
-    position?: number,
-    color: string,
-    label?: string | null,
-    labelPercentage?: number,
-    extraHeight?: number,
-    round?: boolean,
-  }) => {
-    const {label, labelPercentage, extraHeight, round = false} = props;
 
-    const position_ = position && Math.round(position);
-    const extraHeight_ = extraHeight || 0;
-
-    const labelPos = position_ ?? 0;
-    const labelPosition: {
-      left: DimensionValue
-    } | {
-      right: DimensionValue
-    } = labelPos < 50 ?
-      {left: `${labelPos}%`} :
-      {right: `${100 - labelPos}%`};
-
-    return <>
-      {
-        position_ !== undefined && <View
-          style={{
-            position: 'absolute',
-            left: `${position_}%`,
-            marginLeft: round ? -5 : (label === undefined ? 0 : -1),
-            backgroundColor: color,
-            top: 40 - extraHeight_ - (compact ? 40 : 0),
-            width: round ? 11 : (label === undefined ? 1 : 3),
-            height: 11 + extraHeight_,
-            borderRadius: 999,
-          }}
-        />
-      }
-      {
-        position_ !== undefined && label && <DefaultText
-          style={{
-            position: 'absolute',
-            ...labelPosition,
-            top: 20 - extraHeight_,
-            color: color,
-            fontWeight: '600',
-          }}
-        >
-          {label} <DefaultText style={{fontWeight: '400'}}>
-            ({labelPercentage}%)
-          </DefaultText>
-        </DefaultText>
-      }
-      {
-        position_ !== undefined && label === null && <DefaultText
-          style={{
-            position: 'absolute',
-            ...labelPosition,
-            marginLeft: 10,
-            marginRight: 10,
-            top: -5,
-            color: color,
-          }}
-        >
-          {labelPercentage}%
-        </DefaultText>
-      }
-      {
-        position_ === undefined && (label || label === null) && <View
-          style={{
-            width: '100%',
-            position: 'absolute',
-            top: label === null ? -5 : (20 - extraHeight_),
-            flexDirection: 'row',
-            justifyContent: 'center',
-          }}
-        >
-          <DefaultText
-            style={{
-              color: color,
-              fontWeight: '600',
-              backgroundColor: label === null ? 'white' : undefined,
-              borderRadius: 5,
-            }}
-          >
-            {label}<DefaultText style={{fontWeight: '400'}}>
-              {' '}(Not enough Q&A answers){' '}
-            </DefaultText>
-          </DefaultText>
-        </View>
-      }
-    </>
-  }, [compact]);
-
-  const TraitInfoButton = useCallback(() => {
-    return (
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Ionicons
-          style={{
-            color: '#888',
-            fontSize: 16,
-          }}
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-        />
-      </View>
-    );
-  }, [expanded]);
 
   return (
     <Animated.View
@@ -247,7 +250,7 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
                 {minLabel}
               </DefaultText>
               <View style={{flex: 1}}>
-                {!expanded && <TraitInfoButton/>}
+                {!expanded && <TraitInfoButton expanded={expanded}/>}
               </View>
               <DefaultText style={{ fontWeight: '500', flex: 10, textAlign: 'right' }}>
                 {maxLabel}
@@ -255,17 +258,17 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
             </View>
           }
 
-          <Tick color="#ddd" position={0}/>
-          <Tick color="#ddd" position={50}/>
-          <Tick color="#ddd" position={100}/>
+          <Tick compact={compact} color="#ddd" position={0}/>
+          <Tick compact={compact} color="#ddd" position={50}/>
+          <Tick compact={compact} color="#ddd" position={100}/>
 
-          <Tick
+          <Tick compact={compact}
             color="#c3c3c3"
             position={percentage2}
             label={name2}
             labelPercentage={labelPercentage(percentage2)}
             extraHeight={20}/>
-          <Tick
+          <Tick compact={compact}
             color="#70f"
             position={percentage1}
             label={name1}
@@ -304,7 +307,7 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
           </>
         }
         {(!(minLabel && maxLabel) || expanded) &&
-          <TraitInfoButton/>
+          <TraitInfoButton expanded={expanded}/>
         }
       </Pressable>
     </Animated.View>

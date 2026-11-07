@@ -31,8 +31,8 @@ import {
   ComposedGesture,
   Gesture,
   GestureDetector,
-  Pressable,
 } from 'react-native-gesture-handler';
+import { Pressable } from '../pressable';
 import { LayoutChangeEvent } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -542,43 +542,43 @@ const Input = ({
   // Animate the GIF container based on text input.
   useEffect(() => {
     if (text.length > 0) {
-      gifWidth.value = withTiming(0);
+      gifWidth.set(withTiming(0));
     } else {
-      gifWidth.value = withTiming(40);
+      gifWidth.set(withTiming(40));
     }
   }, [text, gifWidth]);
 
   // Animate UI elements based on the *actual* recording state.
   useEffect(() => {
     if (isRecording) {
-      inputTranslateX.value = withTiming(-width);
-      cancelTextTranslateX.value = withTiming(0);
-      recordOpacity.value = withTiming(isMobile() ? 0 : 0.3);
+      inputTranslateX.set(withTiming(-width));
+      cancelTextTranslateX.set(withTiming(0));
+      recordOpacity.set(withTiming(isMobile() ? 0 : 0.3));
     } else {
-      inputTranslateX.value = withTiming(0);
-      cancelTextTranslateX.value = withTiming(width);
-      recordOpacity.value = withTiming(1);
-      recordTranslateX.value = withTiming(0);
+      inputTranslateX.set(withTiming(0));
+      cancelTextTranslateX.set(withTiming(width));
+      recordOpacity.set(withTiming(1));
+      recordTranslateX.set(withTiming(0));
     }
   }, [isRecording, inputTranslateX, cancelTextTranslateX, width]);
 
   // Animate arrow suggestion when recording is active.
   useEffect(() => {
     if (isRecording) {
-      arrowTranslateX.value = withRepeat(
+      arrowTranslateX.set(withRepeat(
         withTiming(-10, { duration: 1000 }),
         -1,
         true
-      );
+      ));
 
-      microphoneOpacity.value = withRepeat(
+      microphoneOpacity.set(withRepeat(
         withTiming(0, { duration: 700 }),
         -1,
         true
-      );
+      ));
     } else {
-      arrowTranslateX.value = 0;
-      microphoneOpacity.value = 1;
+      arrowTranslateX.set(0);
+      microphoneOpacity.set(1);
     }
   }, [isRecording, arrowTranslateX]);
 
@@ -648,10 +648,10 @@ const Input = ({
   // Try to begin recording – only mark `isRecording` true once we actually
   // have a recording session running.
   const handleStartRecording = () => {
-    cancelTriggered.value = false;
+    cancelTriggered.set(false);
     // Reset cancellation animation values.
-    micRotation.value = 0;
-    micTranslateY.value = 0;
+    micRotation.set(0);
+    micTranslateY.set(0);
     haptics();
 
     // We are in long-press hold → pending state
@@ -663,7 +663,7 @@ const Input = ({
         dispatchRecording({ type: 'start' });
       } else {
         // Permission denied or other failure – make sure mic snaps back.
-        recordTranslateX.value = withTiming(0);
+        recordTranslateX.set(withTiming(0));
         dispatchRecording({ type: 'error' });
       }
     });
@@ -676,7 +676,7 @@ const Input = ({
     dispatchRecording({ type: 'finish' });
     haptics();
     // Always reset the mic position.
-    recordTranslateX.value = withTiming(0);
+    recordTranslateX.set(withTiming(0));
 
     (async () => {
       // Stop the recorder no matter what – it is safe to call even if it
@@ -692,17 +692,17 @@ const Input = ({
   };
 
   const handleCancelRecording = () => {
-    cancelTriggered.value = true;
+    cancelTriggered.set(true);
     // Animate the red mic in the overlay: rotate and jump, then fall.
-    microphoneOpacity.value = withTiming(1);
-    micRotation.value = withTiming(-180, { duration: 500 });
-    micTranslateY.value = withSequence(
+    microphoneOpacity.set(withTiming(1));
+    micRotation.set(withTiming(-180, { duration: 500 }));
+    micTranslateY.set(withSequence(
       withTiming(   0, { duration: 500 }),
       withTiming(-300, { duration: 500 }),
-    );
+    ));
     haptics();
     // Always snap the mic back.
-    recordTranslateX.value = withTiming(0);
+    recordTranslateX.set(withTiming(0));
     // Stop and discard any recording.
     stopRecording();
     setTimeout(() => dispatchRecording({ type: 'cancel' }), 1000);
@@ -780,11 +780,11 @@ const Input = ({
   // Create a pan gesture to let the user slide the mic leftwards.
   const panGesture = Gesture.Pan()
     .onStart(() => {
-      cancelTriggered.value = false;
+      cancelTriggered.set(false);
     })
     .onChange((event) => {
       if (!cancelTriggered.value) {
-        recordTranslateX.value = Math.min(0, event.translationX);
+        recordTranslateX.set(Math.min(0, event.translationX));
       }
       if (event.translationX < PAN_CANCEL_THRESHOLD && !cancelTriggered.value) {
         runOnJS(handleCancelRecording)();

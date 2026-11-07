@@ -17,7 +17,6 @@ import { AnsweredQuizCard } from './quiz-card';
 import { DefaultFlatList } from './default-flat-list';
 import { Chart } from './chart';
 import { api } from '../api/api';
-import type { ProspectNavigationRef } from './prospect-profile-screen/prospect-profile-screen';
 import { useBackButtonClaim } from '../events/back-button';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProspectParamList } from '../navigation/linking';
@@ -252,12 +251,6 @@ const fetchPersonalityPage = (personId: number, m: number) => async (n: number):
   return [];
 };
 
-const InDepthScreen = (navigationRef: ProspectNavigationRef) => {
-  return (props: NativeStackScreenProps<ProspectParamList, 'In-Depth'>) => <CurredInDepthScreen
-     navigationRef={navigationRef}
-     {...props}
-  />;
-}
 
 const InDepthAnswer = ({
   personId,
@@ -348,16 +341,11 @@ const InDepthItem = ({
 
 const InDepthItemMemo = memo(InDepthItem);
 
-const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScreenProps<ProspectParamList, 'In-Depth'> & {
-  navigationRef: ProspectNavigationRef,
-}) => {
-  if (navigationRef)
-    navigationRef.current = navigation;
-
+const InDepthScreen = ({navigation, route}: NativeStackScreenProps<ProspectParamList, 'In-Depth'>) => {
   useBackButtonClaim({
     layout: 'column',
     transition: 'instant',
-    onPress: () => (navigationRef?.current ?? navigation).goBack(),
+    onPress: () => navigation.goBack(),
   });
 
   // Only `personUuid` lives in the URL. Numeric `personId` (used by the
@@ -376,16 +364,22 @@ const CurredInDepthScreen = ({navigationRef, navigation, route}: NativeStackScre
   const [name, setName] = useState<string>(initialHint.name ?? '');
   const [fetchFailed, setFetchFailed] = useState(false);
 
-  useEffect(() => {
-    if (!personUuid) return;
-    // Re-seed from the (possibly newly populated) hint on every personUuid
-    // change. `useState` initializers only run on first mount, so without
-    // this we'd briefly show the previous prospect's name/id when the same
-    // screen instance is reused with a different uuid.
+  // Re-seed from the (possibly newly populated) hint on every personUuid
+  // change. `useState` initializers only run on first mount, so without
+  // this we'd briefly show the previous prospect's name/id when the same
+  // screen instance is reused with a different uuid.
+  const [seededPersonUuid, setSeededPersonUuid] = useState(personUuid);
+  if (personUuid && seededPersonUuid !== personUuid) {
     const hint = getProspectHint(personUuid) ?? {};
+    setSeededPersonUuid(personUuid);
     setPersonId(hint.personId);
     setName(hint.name ?? '');
     setFetchFailed(false);
+  }
+
+  useEffect(() => {
+    if (!personUuid) return;
+    const hint = getProspectHint(personUuid) ?? {};
 
     // Skip the network round-trip if the hint already has everything we
     // need. The common case is "Prospect Profile -> In-Depth" where the

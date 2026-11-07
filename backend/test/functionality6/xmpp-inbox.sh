@@ -33,56 +33,9 @@ user1id=$(get_id 'user1@example.com')
 user2id=$(get_id 'user2@example.com')
 user3id=$(get_id 'user3@example.com')
 
-query_id () {
-  cat /tmp/duo_query_id
-}
-
-next_query_id () {
-  queryId="q$RANDOM"
-  printf "%s" "$queryId" > /tmp/duo_query_id
-  printf "%s" "$queryId"
-}
-
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  # Construct the JSON payload equivalent to:
-  # <message type='chat' from='${fromUuid}@duolicious.app' to='${toUuid}@duolicious.app'
-  #          id='id1' xmlns='jabber:client'>
-  #   <body>${message}</body>
-  #   <request xmlns='urn:xmpp:receipts'/>
-  # </message>
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 1
-}
-
 get_inbox () {
   local userUuid=$1
   local userToken=$2
-  local queryId=$(next_query_id)
 
   chat_auth "$userUuid" "$userToken"
 
@@ -91,29 +44,17 @@ get_inbox () {
   curl -sX GET http://localhost:3001/pop > /dev/null
   sleep 0.5
 
-  # Construct JSON query equivalent to:
-  # <iq type='set' id='${queryId}'>
-  #   <inbox xmlns='erlang-solutions.com:xmpp:inbox:0' queryid='${queryId}'/>
-  # </iq>
-  read -r -d '' query <<EOF || true
-{
-  "iq": {
-    "@type": "set",
-    "@id": "${queryId}",
-    "inbox": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@queryid": "${queryId}"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$query"
+  curl -X POST http://localhost:3001/send \
+    -H "Content-Type: application/json" \
+    -d '{ "duo_query_inbox": null }'
   sleep 1
 
-  # We now assume the server returns JSON.
   curl -sX GET http://localhost:3001/pop \
-    | sed -E 's/"@stamp": "[0-9TZ:\.-]+"/"@stamp": "redacted"/g'
+    | jq -sS -c '
+      [.[] | .duo_inbox | select(. != null)][0].conversations
+      | map({name, last_message, last_message_read, location})
+      | sort_by(.name)
+    '
 
   sleep 1
 }
@@ -122,16 +63,11 @@ mark_displayed () {
   local fromUuid=$1
   local fromToken=$2
   local toUuid=$3
-  local queryId=$(next_query_id)
 
   chat_auth "$fromUuid" "$fromToken"
 
   sleep 1
 
-  # Construct JSON payload equivalent to:
-  # <message to='${toUuid}@duolicious.app' from='${fromUuid}@duolicious.app'>
-  #   <displayed xmlns='urn:xmpp:chat-markers:0' id='${queryId}'/>
-  # </message>
   read -r -d '' query <<EOF || true
 {
   "message": {
@@ -139,7 +75,7 @@ mark_displayed () {
     "@from": "${fromUuid}@duolicious.app",
     "displayed": {
       "@xmlns": "urn:xmpp:chat-markers:0",
-      "@id": "${queryId}"
+      "@id": "id1"
     }
   }
 }
@@ -147,6 +83,10 @@ EOF
 
   curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$query"
   sleep 1
+}
+
+conversation_with () {
+  jq -c --arg name "$1" '.[] | select(.name == $name)'
 }
 
 
@@ -160,262 +100,24 @@ echo "The inbox is as expected after users message each other"
 #    └────┤ 3 │◄─────┘
 #         └───┘
 send_message "$user2uuid" "$user2token" "$user1uuid" "from user 2 to user 1"
+sleep 1
 send_message "$user2uuid" "$user2token" "$user3uuid" "from user 2 to user 3"
+sleep 1
 
 send_message "$user3uuid" "$user3token" "$user1uuid" "from user 3 to user 1"
+sleep 1
 send_message "$user3uuid" "$user3token" "$user2uuid" "from user 3 to user 2"
+sleep 1
 
-actual_inbox_1=$(get_inbox "$user1uuid" "$user1token"); query_id_1=$(query_id)
-actual_inbox_2=$(get_inbox "$user2uuid" "$user2token"); query_id_2=$(query_id)
-actual_inbox_3=$(get_inbox "$user3uuid" "$user3token"); query_id_3=$(query_id)
+inbox_1=$(get_inbox "$user1uuid" "$user1token")
+inbox_2=$(get_inbox "$user2uuid" "$user2token")
+inbox_3=$(get_inbox "$user3uuid" "$user3token")
 
-# Expected inbox responses have now been converted from XML into JSON
-expected_inbox_1=$(cat << EOF
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user1uuid}@duolicious.app",
-    "@to": "${user1uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "1",
-      "@queryid": "${query_id_1}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user2uuid}@duolicious.app",
-          "@to": "${user1uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 2 to user 1",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "false",
-      "box": "inbox",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user1uuid}@duolicious.app",
-    "@to": "${user1uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "1",
-      "@queryid": "${query_id_1}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user3uuid}@duolicious.app",
-          "@to": "${user1uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 3 to user 1",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "false",
-      "box": "inbox",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "iq": {
-    "@id": "${query_id_1}",
-    "@type": "result",
-    "fin": null
-  }
-}
-EOF
-)
-
-expected_inbox_2=$(cat << EOF
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user2uuid}@duolicious.app",
-    "@to": "${user2uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "0",
-      "@queryid": "${query_id_2}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user2uuid}@duolicious.app",
-          "@to": "${user1uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 2 to user 1",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "true",
-      "box": "chats",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user2uuid}@duolicious.app",
-    "@to": "${user2uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "1",
-      "@queryid": "${query_id_2}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user3uuid}@duolicious.app",
-          "@to": "${user2uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 3 to user 2",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "false",
-      "box": "chats",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "iq": {
-    "@id": "${query_id_2}",
-    "@type": "result",
-    "fin": null
-  }
-}
-EOF
-)
-
-expected_inbox_3=$(cat << EOF
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user3uuid}@duolicious.app",
-    "@to": "${user3uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "0",
-      "@queryid": "${query_id_3}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user3uuid}@duolicious.app",
-          "@to": "${user1uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 3 to user 1",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "true",
-      "box": "chats",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user3uuid}@duolicious.app",
-    "@to": "${user3uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "0",
-      "@queryid": "${query_id_3}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user3uuid}@duolicious.app",
-          "@to": "${user2uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 3 to user 2",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "true",
-      "box": "chats",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "iq": {
-    "@id": "${query_id_3}",
-    "@type": "result",
-    "fin": null
-  }
-}
-EOF
-)
-
-diff -u --color <(echo "$actual_inbox_1") <(echo "$expected_inbox_1")
-diff -u --color <(echo "$actual_inbox_2") <(echo "$expected_inbox_2")
-diff -u --color <(echo "$actual_inbox_3") <(echo "$expected_inbox_3")
+[[ "$(jq length <<< "$inbox_1")" == 2 ]]
+[[ "$(conversation_with user2 <<< "$inbox_1")" == '{"last_message":"from user 2 to user 1","last_message_read":false,"location":"intros","name":"user2"}' ]]
+[[ "$(conversation_with user3 <<< "$inbox_1")" == '{"last_message":"from user 3 to user 1","last_message_read":false,"location":"intros","name":"user3"}' ]]
+[[ "$(conversation_with user3 <<< "$inbox_2")" == '{"last_message":"from user 3 to user 2","last_message_read":false,"location":"chats","name":"user3"}' ]]
+[[ "$(conversation_with user2 <<< "$inbox_3")" == '{"last_message":"from user 3 to user 2","last_message_read":true,"location":"chats","name":"user2"}' ]]
 
 echo "The direction column is forward-filled when users message each other"
 
@@ -438,86 +140,7 @@ echo "Marking a message displayed updates the inbox"
 
 mark_displayed "$user1uuid" "$user1token" "$user2uuid"
 
-actual_inbox_1=$(get_inbox "$user1uuid" "$user1token"); query_id_1=$(query_id)
-expected_inbox_1=$(cat << EOF
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user1uuid}@duolicious.app",
-    "@to": "${user1uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "0",
-      "@queryid": "${query_id_1}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user2uuid}@duolicious.app",
-          "@to": "${user1uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 2 to user 1",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "true",
-      "box": "inbox",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "message": {
-    "@xmlns": "jabber:client",
-    "@from": "${user1uuid}@duolicious.app",
-    "@to": "${user1uuid}@duolicious.app",
-    "@id": "id1",
-    "result": {
-      "@xmlns": "erlang-solutions.com:xmpp:inbox:0",
-      "@unread": "1",
-      "@queryid": "${query_id_1}",
-      "forwarded": {
-        "@xmlns": "urn:xmpp:forward:0",
-        "delay": {
-          "@xmlns": "urn:xmpp:delay",
-          "@stamp": "redacted"
-        },
-        "message": {
-          "@xmlns": "jabber:client",
-          "@from": "${user3uuid}@duolicious.app",
-          "@to": "${user1uuid}@duolicious.app",
-          "@id": "id1",
-          "@type": "chat",
-          "body": "from user 3 to user 1",
-          "request": {
-            "@xmlns": "urn:xmpp:receipts"
-          }
-        }
-      },
-      "read": "false",
-      "box": "inbox",
-      "archive": "false",
-      "mute": "0"
-    }
-  }
-}
-{
-  "iq": {
-    "@id": "${query_id_1}",
-    "@type": "result",
-    "fin": null
-  }
-}
-EOF
-)
+inbox_1=$(get_inbox "$user1uuid" "$user1token")
 
-diff -u --color <(echo "$actual_inbox_1") <(echo "$expected_inbox_1")
+[[ "$(conversation_with user2 <<< "$inbox_1")" == '{"last_message":"from user 2 to user 1","last_message_read":true,"location":"intros","name":"user2"}' ]]
+[[ "$(conversation_with user3 <<< "$inbox_1")" == '{"last_message":"from user 3 to user 1","last_message_read":false,"location":"intros","name":"user3"}' ]]

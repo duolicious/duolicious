@@ -10,12 +10,6 @@ MAX_NOTIFICATION_LENGTH = 128
 CLUB_QUOTA_GOLD = 100
 CLUB_QUOTA_FREE = 50
 
-# How recently someone must have been seen to be treated as "online recently"
-# by search (see `search.sql.feed`). Deliberately shorter than the window over
-# which presence itself is retained: search is ranking on freshness, so it wants
-# a tighter definition than the indicator, which just reports what it knows.
-ONLINE_RECENTLY_SECONDS = 12 * 60 * 60  # 12 hours
-
 # How long a sighting is retained in Redis, and so how far back a subscriber
 # can be told someone was last seen. Retention only: the age reported to
 # clients is measured from the stored sighting time, so changing this can't

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Gesture, GestureDetector, PanGesture } from 'react-native-gesture-handler';
@@ -86,9 +86,11 @@ const Slider = ({
   const latest = useRef({
     values, trackWidth, toFraction, toValue, onValuesChange, onSlidingComplete,
   });
-  latest.current = {
-    values, trackWidth, toFraction, toValue, onValuesChange, onSlidingComplete,
-  };
+  useLayoutEffect(() => {
+    latest.current = {
+      values, trackWidth, toFraction, toValue, onValuesChange, onSlidingComplete,
+    };
+  });
 
   const drag = useRef<{
     index: number | null
@@ -100,6 +102,7 @@ const Slider = ({
     values,
   });
 
+  /* eslint-disable react-hooks/refs */
   const gestures = useMemo(() => [0, 1].map((index) =>
     Gesture.Pan()
       .runOnJS(true)
@@ -132,6 +135,7 @@ const Slider = ({
       })
       .onEnd(() => latest.current.onSlidingComplete?.(drag.current.values)),
   ), [minimumValue, maximumValue]);
+  /* eslint-enable react-hooks/refs */
 
   const onLayout = (event: LayoutChangeEvent) => {
     const width = event.nativeEvent.layout.width - THUMB_SIZE;

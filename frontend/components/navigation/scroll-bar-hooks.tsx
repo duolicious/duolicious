@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  useState,
 } from 'react';
 import {
   LayoutChangeEvent,
@@ -60,7 +61,7 @@ const useScrollbar = (controller: string) => {
     }
   }, []);
 
-  return useRef({
+  const [handlers] = useState(() => ({
     onLayout: (params: LayoutChangeEvent) => {
       if (isMobile()) {
         return;
@@ -167,7 +168,9 @@ const useScrollbar = (controller: string) => {
         observer.current.observe(maybeDiv);
       }
     }
-  }).current;
+  }));
+
+  return handlers;
 };
 
 const useScrollbarStyle = () => {

@@ -1,0 +1,26 @@
+diff --git a/node_modules/expo-font/build/ExpoFontLoader.web.js b/node_modules/expo-font/build/ExpoFontLoader.web.js
+index f5c5f89..a1593f4 100644
+--- a/node_modules/expo-font/build/ExpoFontLoader.web.js
++++ b/node_modules/expo-font/build/ExpoFontLoader.web.js
+@@ -127,7 +127,7 @@ const ExpoFontLoader = {
+         return new FontObserver(fontFamilyName, {
+             // @ts-expect-error: TODO(@kitten): Typings indicate that the polyfill may not support this?
+             display: resource.display,
+-        }).load(resource.testString ?? null, 12000);
++        }).load(resource.testString ?? null, 60000);
+     },
+ };
+ const isServer = process.env.EXPO_OS === 'web' && typeof window === 'undefined';
+diff --git a/node_modules/expo-font/src/ExpoFontLoader.web.ts b/node_modules/expo-font/src/ExpoFontLoader.web.ts
+index 9d5b5db..c755c5e 100644
+--- a/node_modules/expo-font/src/ExpoFontLoader.web.ts
++++ b/node_modules/expo-font/src/ExpoFontLoader.web.ts
+@@ -166,7 +166,7 @@ const ExpoFontLoader: Required<ExpoFontLoaderModule> = {
+     return new FontObserver(fontFamilyName, {
+       // @ts-expect-error: TODO(@kitten): Typings indicate that the polyfill may not support this?
+       display: resource.display,
+-    }).load(resource.testString ?? null, 12000);
++    }).load(resource.testString ?? null, 60000);
+   },
+ };
+ 

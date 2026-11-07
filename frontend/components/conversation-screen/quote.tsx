@@ -269,8 +269,20 @@ const useQuote = (): Quote | null => {
 };
 
 const setQuote = (quote: Quote | null) => {
-  return notify(eventKey, quote);
+  return notify(eventKey, _quotablePortion(quote) ? quote : null);
 };
+
+type TextSelection = { start: number, end: number };
+
+const setQuoteFromSelection = (
+  text: string,
+  attribution: string,
+  { start, end }: TextSelection,
+) => setQuote(
+  start === end
+    ? null
+    : { text: text.slice(Math.min(start, end), Math.max(start, end)), attribution },
+);
 
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -289,8 +301,10 @@ export {
   quoteToMessageMarkdown,
   quoteToPreviewMarkdown,
   setQuote,
+  setQuoteFromSelection,
   stripLeadingQuoteBlock,
   TextBlock,
+  TextSelection,
   TextToken,
   tokenizeInline,
   useQuote,

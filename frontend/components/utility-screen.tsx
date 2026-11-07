@@ -48,8 +48,8 @@ const UtilityScreen = ({
     }
   };
 
-  const title_ = useMemo(getTitle, [serverStatus]);
-  const body_ = useMemo(getBody, [serverStatus]);
+  const title_ = useMemo(() => getTitle(), [serverStatus]);
+  const body_ = useMemo(() => getBody(), [serverStatus]);
 
   if (serverStatus === 'ok') {
     return <></>;

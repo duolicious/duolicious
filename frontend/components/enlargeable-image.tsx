@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef } from 'react';
-import { GestureResponderEvent, Pressable, StyleProp, View, ViewStyle } from 'react-native';
+import { StyleProp, View, ViewStyle } from 'react-native';
+import { Pressable } from './pressable';
 import { PhotoOrSkeleton } from './profile-card';
 import { VerificationBadge } from './verification-badge';
 import * as _ from 'lodash';
@@ -16,7 +17,6 @@ import {
 } from '../events/expanded-photo';
 import type { AlbumPhoto, BorderRadii } from '../events/expanded-photo';
 import { noSelect } from '../styles';
-import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation';
 
 // This component owns the preview's corner rounding (rather than reading it
 // back out of `style`) because the gallery animates the same radii while the
@@ -68,15 +68,7 @@ const EnlargeablePhoto = memo(({
   // it, so the preview gets out of the way for as long as it's up.
   const isExpanded = useIsPhotoExpanded(photoUuid);
 
-  const internalOnPress = useCallback((event: GestureResponderEvent) => {
-    event.stopPropagation();
-
-    if (isOpenInNewTabPress(event)) {
-      return;
-    }
-
-    event.preventDefault();
-
+  const internalOnPress = useCallback(() => {
     if (!navigation) {
       return;
     }
@@ -151,7 +143,7 @@ const EnlargeablePhoto = memo(({
       ref={ref}
       disabled={!photoUuid}
       onPress={internalOnPress}
-      {...(photoUuid ? makeLinkProps(`/gallery/${photoUuid}`) : {})}
+      link={photoUuid ? { href: `/gallery/${photoUuid}` } : undefined}
       style={[
         {
           width: '100%',

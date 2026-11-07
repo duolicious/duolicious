@@ -6,7 +6,6 @@
  * screen, so this works from the prospect navigator too.
  */
 import { useCallback } from 'react';
-import { GestureResponderEvent } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootParamList } from './linking';
@@ -42,9 +41,7 @@ const useNavigationToConversation = (
 ) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
 
-  return useCallback((e: GestureResponderEvent) => {
-    e.preventDefault();
-
+  return useCallback(() => {
     setQuote({ text: quote, attribution: name, card });
 
     navigateToConversation(

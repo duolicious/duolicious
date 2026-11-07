@@ -8,7 +8,7 @@
  * public key in `WEB_PUSH_VAPID_PUBLIC_KEY`; without it, subscription is a no-op.
  */
 import { Platform } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import {
   NOTIFICATION_ICON_URL,
   WEB_PUSH_VAPID_PUBLIC_KEY,
@@ -115,8 +115,7 @@ const refreshWebPushSubscription = async (): Promise<void> => {
 const useWebPushMessageListenerOnWeb = (
   navigate: (screen: string, params: Record<string, unknown>) => void,
 ) => {
-  const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
+  const onNavigate = useEffectEvent(navigate);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !isWebPushSupported()) {
@@ -139,7 +138,7 @@ const useWebPushMessageListenerOnWeb = (
       const params = message.data?.params as Record<string, unknown> | undefined;
 
       if (screen) {
-        navigateRef.current(screen, params ?? {});
+        onNavigate(screen, params ?? {});
       }
     };
 

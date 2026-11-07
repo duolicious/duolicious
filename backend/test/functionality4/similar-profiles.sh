@@ -56,7 +56,8 @@ signed_in_sorts_cached_search_results () {
 
   [[ "$(c GET "/prospect-profile/$target_uuid" | jq 'has("similar_profiles")')" = false ]]
 
-  [[ "$(similar_names "$target_uuid")" = "" ]]
+  echo 'Missing search results are rebuilt rather than leaving similar profiles empty'
+  [[ "$(similar_names "$target_uuid")" = "near middle far" ]]
 
   c GET '/search?n=10&o=0' > /dev/null
 

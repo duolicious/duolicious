@@ -21,4 +21,6 @@ then
   python3 -m pip install -r requirements.txt
 fi
 
-python3 service/cron/__init__.py
+serviceshared/antiabuse/clipnsfw/download-model.sh
+
+exec python3 service/cron/__init__.py

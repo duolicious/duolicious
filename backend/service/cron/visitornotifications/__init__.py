@@ -1,74 +1,47 @@
 from serviceshared.commonsql import (
     Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
 )
-from dataclasses import dataclass
-from serviceshared.database import api_tx
-from service.cron.notificationdispatch import (
-    NotificationKind,
-    send_pending_notifications_forever,
-)
-from service.cron.visitornotifications.sql import (
-    Q_PENDING_VISITOR_NOTIFICATIONS,
-)
+from service.cron.notificationdispatch import NotificationKind
 from service.cron.visitornotifications.template import (
     big_part,
     title_part,
     visitor_emailtemplate,
 )
-import logging
-
-from serviceshared.duoenv.cron import EMAIL_POLL_SECONDS as VISITOR_POLL_SECONDS
-
-logger = logging.getLogger(__name__)
-
-logger.info('Hello from cron module')
-
-@dataclass
-class VisitorNotification:
-    person_uuid: str
-    last_visitor_notification_seconds: int
-    last_visitor_seconds: int
-    name: str
-    email: str
-    visitors_drift_seconds: int
-    visitor_count: int
-    token: str | None
-
-def do_send_notification(row: VisitorNotification) -> bool:
-    return (
-        row.visitors_drift_seconds >= 0 and
-        row.last_visitor_notification_seconds + row.visitors_drift_seconds <
-            row.last_visitor_seconds
-    )
-
-def push_title(row: VisitorNotification) -> str:
-    return title_part(row.visitor_count)
-
-def push_body(row: VisitorNotification) -> str:
-    return big_part(row.visitor_count)
-
-def email_body(row: VisitorNotification) -> str:
-    return visitor_emailtemplate(
-        email=row.email, visitor_count=row.visitor_count)
-
-async def update_last_notification_time(row: VisitorNotification) -> None:
-    params = dict(username=row.person_uuid)
-
-    async with api_tx('read committed') as tx:
-        await tx.execute(Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME, params)
 
 VISITOR_NOTIFICATIONS = NotificationKind(
     name='visitor',
-    query=Q_PENDING_VISITOR_NOTIFICATIONS,
-    row_type=VisitorNotification,
-    poll_seconds=VISITOR_POLL_SECONDS,
-    subject=push_title,
+    unseen_count="""
+        -- How many people visited since the person was last online, so the
+        -- copy can say how many. Capped at 100 (rendered as "99+"), so the
+        -- scan stops early for very popular profiles.
+        SELECT
+            COUNT(*)
+        FROM (
+            SELECT
+                1
+            FROM
+                visited
+            JOIN
+                person AS visitor
+            ON
+                visitor.id = visited.subject_person_id
+            WHERE
+                visited.object_person_id = person.id
+            AND
+                NOT visited.invisible
+            AND
+                visited.updated_at > person.last_online_time
+            AND
+                visitor.activated
+            AND
+                visitor.shadow_banned_at IS NULL
+            LIMIT 100
+        ) AS visitor
+    """,
+    stamp=Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
+    subject=lambda row: title_part(row.unseen_count),
     screen={'screen': 'Home', 'params': {'screen': 'Visitors'}},
-    is_sendable=do_send_notification,
-    push_body=push_body,
-    email_body=email_body,
-    update_last_notification_time=update_last_notification_time,
+    push_body=lambda row: big_part(row.unseen_count),
+    email_body=lambda row: visitor_emailtemplate(
+        person_uuid=row.person_uuid, visitor_count=row.unseen_count),
 )
-
-async def send_visitor_notifications_forever() -> None:
-    await send_pending_notifications_forever(VISITOR_NOTIFICATIONS)

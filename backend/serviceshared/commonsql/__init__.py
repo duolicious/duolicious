@@ -1,4 +1,5 @@
 from serviceshared.gold.sql import has_gold_sql
+from typing import Literal
 
 # Whether a person already exists with this normalized email. Shared so the
 # sign-up OTP flow (`_OTP_CTE`) and the email-info lookup (`Q_EMAIL_INFO`) can
@@ -125,6 +126,53 @@ SET
 WHERE
     uuid = uuid_or_null(%(username)s)
 """
+
+def notification_due_sql(
+    kind: Literal['intro', 'chat', 'visitor'],
+    events: str,
+) -> str:
+    return f"""
+    INSERT INTO notification_due (person_id, kind, event_at, due_at)
+    SELECT
+        person.id,
+        '{kind}'::notification_kind,
+        event.at,
+        GREATEST(
+            event.at + INTERVAL '10 minutes',
+            to_timestamp(person.{kind}_seconds + CASE immediacy.name
+                WHEN 'Daily'        THEN 86400
+                WHEN 'Every 3 days' THEN 259200
+                WHEN 'Weekly'       THEN 604800
+                ELSE                     0
+            END)
+        )
+    FROM (
+        SELECT person_id, MAX(at) AS at
+        FROM ({events}) AS event(person_id, at)
+        GROUP BY person_id
+    ) AS event
+    JOIN person
+    ON person.id = event.person_id
+    JOIN immediacy
+    ON immediacy.id = person.{kind}s_notification
+    WHERE immediacy.name <> 'Never'
+    ORDER BY person.id
+    ON CONFLICT (person_id, kind) DO UPDATE SET
+        event_at = EXCLUDED.event_at,
+        due_at = EXCLUDED.due_at
+    WHERE EXCLUDED.event_at >= notification_due.event_at
+    """
+
+def reschedule_notification_sql(
+    kind: Literal['intro', 'chat', 'visitor'],
+    person_id: str,
+) -> str:
+    return notification_due_sql(kind, f"""
+        SELECT person_id, event_at
+        FROM notification_due
+        WHERE kind = '{kind}' AND person_id = {person_id}
+        FOR UPDATE
+    """)
 
 Q_IS_ALLOWED_CLUB_NAME = """
 WITH similar_banned_club AS (

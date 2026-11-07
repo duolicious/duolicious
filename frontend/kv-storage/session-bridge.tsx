@@ -7,12 +7,12 @@ import { KEYS, Key, storeKv } from './kv-storage';
 // read from kv-storage, fetches their session -- and the rest of the
 // app's stored state, like drafts, theme and seen-hints -- from the old
 // origin via a hidden iframe of the static bridge page
-// (public/assets/session-bridge.html), which posts its entire
+// (web-redirect/assets/session-bridge.html), which posts its entire
 // localStorage back; only keys in the kv-storage allowlist are adopted.
 // Most browsers don't partition the iframe's storage, because the two
 // domains are the same site (registrable domain duolicious.app), but
 // Safari does, so there the iframe finds nothing. For Safari,
-// web.duolicious.app's "moving" modal runs `goToApex`, which hands the
+// web.duolicious.app's redirect page (web-redirect/index.html) hands the
 // session over in a short-lived cookie on the shared domain; the apex
 // deletes it as soon as it has read it. Any duolicious.app subdomain can
 // set that cookie, so the apex ignores it unless it's the only one and
@@ -26,10 +26,8 @@ import { KEYS, Key, storeKv } from './kv-storage';
 // timeout isn't recorded, so transient failures retry on the next load.
 //
 // The whole mechanism is a migration aid: once web.duolicious.app
-// traffic dwindles, delete this module, its call site in app-startup,
-// components/modal/web-app-moving-modal.tsx,
-// public/assets/session-bridge.html, and the _headers carve-out in
-// frontend-publish.yml.
+// traffic dwindles, delete this module and its call site in app-startup,
+// and replace web-redirect/ with a plain 301 to duolicious.app.
 
 const BRIDGE_ORIGIN = 'https://web.duolicious.app';
 const BRIDGE_URL = `${BRIDGE_ORIGIN}/assets/session-bridge`;
@@ -105,19 +103,14 @@ const runBridge = (): Promise<BridgedSession | null> =>
     document.body.appendChild(iframe);
   });
 
-const setHandoffCookie = (value: string, maxAgeSeconds: number) => {
-  document.cookie =
-    `${HANDOFF_COOKIE}=${value}; Domain=duolicious.app; Path=/; ` +
-    `Max-Age=${maxAgeSeconds}; Secure; SameSite=Lax`;
-};
-
 const takeHandedOverSession = (): BridgedSession | null => {
   const cookies = document.cookie
     .split('; ')
     .filter((c) => c.startsWith(`${HANDOFF_COOKIE}=`));
   if (cookies.length === 0) return null;
 
-  setHandoffCookie('', 0);
+  document.cookie =
+    `${HANDOFF_COOKIE}=; Domain=duolicious.app; Path=/; Max-Age=0; Secure`;
   if (cookies.length > 1) return null;
   if (!document.referrer.startsWith(`${BRIDGE_ORIGIN}/`)) return null;
   try {
@@ -150,19 +143,6 @@ const adoptWebSessionOnApex = async (): Promise<void> => {
   }
 };
 
-const goToApex = async (): Promise<void> => {
-  const storage = {
-    session_token: await storeKv('session_token'),
-    person_uuid: await storeKv('person_uuid'),
-  };
-  setHandoffCookie(encodeURIComponent(JSON.stringify(storage)), 300);
-
-  const url = new URL(window.location.href);
-  url.host = 'duolicious.app';
-  window.location.replace(url.href);
-};
-
 export {
   adoptWebSessionOnApex,
-  goToApex,
 };

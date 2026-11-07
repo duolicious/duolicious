@@ -574,6 +574,25 @@ const ProspectDonutPercentage = ({ donutOpacity, matchPercentage }: {
   );
 };
 
+const lgLocations: readonly [number, number, number] = [
+  0.0,
+  0.75,
+  1.0,
+];
+
+const lgStyle: StyleProp<ViewStyle> = {
+  width: '100%',
+  zIndex: 999,
+  paddingTop: 5,
+  paddingBottom: 15,
+};
+
+const dcViewStyle: StyleProp<ViewStyle> = {
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '33.333%',
+};
+
 const Prospects = ({
   topCardIndex,
   prospect1,
@@ -589,13 +608,7 @@ const Prospects = ({
 }) => {
   const { appTheme } = useAppTheme();
 
-  const animatedTranslateY = useRef(new Animated.Value(0)).current;
-
-  const translateY = animatedTranslateY.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-150, 0],
-    extrapolate: 'clamp',
-  });
+  const [animatedTranslateY] = useState(() => new Animated.Value(0));
 
   const lgColors = useMemo<readonly [string, string, string]>(() => [
     `${appTheme.primaryColor}ff`,
@@ -603,20 +616,7 @@ const Prospects = ({
     `${appTheme.primaryColor}00`,
   ], [appTheme.primaryColor]);
 
-  const lgLocations = useRef<readonly [number, number, number]>([
-    0.0,
-    0.75,
-    1.0,
-  ]).current;
-
-  const lgStyle = useRef<StyleProp<ViewStyle>>({
-    width: '100%',
-    zIndex: 999,
-    paddingTop: 5,
-    paddingBottom: 15,
-  }).current;
-
-  const v1Style = useRef<Animated.WithAnimatedValue<StyleProp<ViewStyle>>>({
+  const v1Style = useMemo<Animated.WithAnimatedValue<StyleProp<ViewStyle>>>(() => ({
     marginLeft: 5,
     marginRight: 5,
     flexDirection: 'row',
@@ -624,15 +624,15 @@ const Prospects = ({
     width: '100%',
     maxWidth: 600,
     transform: [
-      { translateY: translateY },
+      {
+        translateY: animatedTranslateY.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-150, 0],
+          extrapolate: 'clamp',
+        }),
+      },
     ],
-  }).current;
-
-  const dcViewStyle = useRef<StyleProp<ViewStyle>>({
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '33.333%',
-  }).current;
+  }), [animatedTranslateY]);
 
   const bestProspects = [
     prospect1,

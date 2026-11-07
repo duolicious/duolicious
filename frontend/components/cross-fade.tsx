@@ -57,15 +57,15 @@ const CrossFade = ({
   style,
 }: CrossFadeProps) => {
   const progress = useSharedValue(0);
-  const mountedAt = useRef(Date.now());
+  const [mountedAt] = useState(() => Date.now());
 
   useEffect(() => {
-    const remaining = Math.max(0, minBackMs - (Date.now() - mountedAt.current));
+    const remaining = Math.max(0, minBackMs - (Date.now() - mountedAt));
 
-    progress.value = withDelay(
+    progress.set(withDelay(
       remaining,
       withTiming(showFront ? 1 : 0, { duration })
-    );
+    ));
   }, [showFront]);
 
   return (
@@ -100,7 +100,7 @@ const FadeTransition = ({
       return;
     }
 
-    progress.value = withTiming(1, { duration });
+    progress.set(withTiming(1, { duration }));
 
     const timeout = setTimeout(onDone, duration);
 
@@ -132,6 +132,7 @@ const CrossFadeText = ({
   const lastChildren = useRef(children);
 
   if (tx.key !== triggerKey) {
+    // eslint-disable-next-line react-hooks/refs
     setTx({ key: triggerKey, outgoing: lastChildren.current });
   }
 

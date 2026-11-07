@@ -1,19 +1,17 @@
 import {
   Animated,
   Keyboard,
-  Linking,
   Platform,
-  Pressable,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { IconButton } from './button/icon-button';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons/faArrowLeft';
 import { descriptionStyle } from './option-styles';
 import {
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -26,9 +24,10 @@ import type { RootParamList, WelcomeParamList } from '../navigation/linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
 import { DefaultText } from './default-text';
+import { LinkText } from './link-text';
 import { DefaultTextInput } from './default-text-input';
 import { ButtonWithCenteredText } from './button/centered-text';
-import { Close } from './button/close';
+import { HeaderWithClose } from './button/close';
 import {
   OptionGroup,
   OptionGroupInputs,
@@ -114,19 +113,15 @@ const ActiveMembers = ({
   color: string,
   minText?: string,
 }) => {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
 
   const [displayText, setDisplayText] = useState(
     activeMembersText(numActiveMembers, minActiveMembers, minText));
 
-  const [nextDisplayText, setNextDisplayText] = useState(displayText);
+  const nextDisplayText =
+    activeMembersText(numActiveMembers, minActiveMembers, minText);
 
   const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    setNextDisplayText(
-      activeMembersText(numActiveMembers, minActiveMembers, minText));
-  }, [numActiveMembers, minActiveMembers]);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -391,12 +386,11 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
               shadowOpacity: 0.5,
               shadowRadius: 10,
               elevation: 3,
-              paddingTop: 20,
+              paddingTop: 10,
               width: '100%',
               overflow: 'hidden',
             }}
           >
-            <Close onPress={dismiss} color="black" />
             <View
               style={{
                 alignSelf: 'center',
@@ -407,14 +401,17 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                 paddingHorizontal: 10,
               }}
             >
-              <DefaultText
-                style={{
-                  textAlign: 'center',
-                  color: '#555',
-                }}
-              >
-                You’re invited to join
-              </DefaultText>
+              <HeaderWithClose onPress={dismiss} color="black">
+                <DefaultText
+                  style={{
+                    marginTop: 10,
+                    textAlign: 'center',
+                    color: '#555',
+                  }}
+                >
+                  You’re invited to join
+                </DefaultText>
+              </HeaderWithClose>
               <DefaultText
                 style={{
                   textAlign: 'center',
@@ -460,31 +457,31 @@ const InviteScreen = ({navigation, route}: NativeStackScreenProps<RootParamList,
                 }}
               >
                 By joining you agree to our {}
-                <DefaultText
+                <LinkText
                   disableTheme
                   style={{
                     fontWeight: '600',
                   }}
-                  onPress={() => Linking.openURL('https://duolicious.app/terms')}
+                  href="https://duolicious.app/terms"
                 >
                   Terms
-                </DefaultText>
+                </LinkText>
                 {}, {}
-                <DefaultText
+                <LinkText
                   disableTheme
                   style={{ fontWeight: '600' }}
-                  onPress={() => Linking.openURL('https://duolicious.app/privacy')}
+                  href="https://duolicious.app/privacy"
                 >
                   Privacy Policy
-                </DefaultText>
+                </LinkText>
                 {} and {}
-                <DefaultText
+                <LinkText
                   disableTheme
                   style={{ fontWeight: '600' }}
-                  onPress={() => Linking.openURL('https://duolicious.app/guidelines')}
+                  href="https://duolicious.app/guidelines"
                 >
                   Community Guidelines
-                </DefaultText>
+                </LinkText>
               </DefaultText>
             </View>
           </View>
@@ -540,29 +537,29 @@ const TermsBlurb = () => (
     }}
   >
     By signing up you agree to our {}
-    <DefaultText
+    <LinkText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL('https://duolicious.app/terms')}
+      href="https://duolicious.app/terms"
     >
       Terms
-    </DefaultText>
+    </LinkText>
     {}, {}
-    <DefaultText
+    <LinkText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL('https://duolicious.app/privacy')}
+      href="https://duolicious.app/privacy"
     >
       Privacy Policy
-    </DefaultText>
+    </LinkText>
     {} and {}
-    <DefaultText
+    <LinkText
       disableTheme
       style={{ fontWeight: '600' }}
-      onPress={() => Linking.openURL('https://duolicious.app/guidelines')}
+      href="https://duolicious.app/guidelines"
     >
       Community Guidelines
-    </DefaultText>
+    </LinkText>
   </DefaultText>
 );
 
@@ -738,7 +735,7 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
           response.status === 409 && serverMessage ? serverMessage :
           response.status === 401 ? 'Sign-in token couldn’t be verified' :
           response.status === 429 ? 'You’re doing that too much' :
-          response.status === 460 ? 'Network blocked. Are you using a VPN?' :
+          response.status === 460 ? 'Turn off your VPN and try again' :
           response.status === 461 ? 'Your account is banned' :
           'We couldn’t connect to Duolicious'
         );
@@ -783,6 +780,7 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
   useEffect(() => {
     const pending = consumePendingWebSignIn();
     if (!pending) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     signInWith(pending.provider, async () => pending.result, pending.context);
   }, []);
 
@@ -806,15 +804,17 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
         }}
       >
         {inModal &&
-          <Pressable
+          <IconButton
+            label="Close"
             onPress={() => showSignUp(false)}
-            style={{ position: 'absolute', top: 0, right: 0, zIndex: 99 }}
+            padding={10}
+            style={{ position: 'absolute', top: 1, right: 0, zIndex: 99 }}
           >
             <Ionicons
-              style={{ margin: 10, fontSize: 30, color: 'white' }}
+              style={{ fontSize: 30, lineHeight: 30, color: 'white' }}
               name="close"
             />
-          </Pressable>
+          </IconButton>
         }
         <LogoHeader />
         {!inModal &&
@@ -967,33 +967,12 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
       setLoginStatus(
         response.status === 400 ? 'We don’t support that email provider' :
         response.status === 429 ? 'You’re doing that too much' :
-        response.status === 460 ? 'Network blocked. Are you using a VPN?' :
+        response.status === 460 ? 'Turn off your VPN and try again' :
         response.status === 461 ? 'Your account is banned' :
         'We couldn’t connect to Duolicious'
       );
     }
   };
-
-  const SuffixButton = useCallback(({suffix}: {suffix: string}) => (
-    <ButtonWithCenteredText
-      onPress={() => !isLoading && submit(suffix)}
-      borderWidth={0}
-      secondary={true}
-      containerStyle={{
-        marginTop: 0,
-        marginBottom: 0,
-        height: undefined,
-      }}
-      backgroundColor="rgb(228, 204, 255)"
-      textStyle={{
-        padding: 10,
-        fontSize: 12,
-        color: '#70f',
-      }}
-    >
-      {suffix}
-    </ButtonWithCenteredText>
-  ), [isLoading, submit]);
 
   // Layout deliberately mirrors `OptionScreen` — back button + bold
   // title + description on top, focused input in the middle, single
@@ -1024,17 +1003,18 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
             paddingBottom: 20,
           }}
         >
-          <Pressable
+          <IconButton
+            label="Back"
             onPress={() => navigation.goBack()}
+            padding={15}
             style={{ position: 'absolute', top: 0, left: 0, zIndex: 99 }}
           >
             <FontAwesomeIcon
-              style={{ margin: 15 }}
               icon={faArrowLeft}
               size={24}
               color="white"
             />
-          </Pressable>
+          </IconButton>
           <DefaultText
             disableTheme
             style={{
@@ -1098,11 +1078,33 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
                 gap: 10,
               }}
             >
-              <SuffixButton suffix="@gmail.com" />
-              <SuffixButton suffix="@proton.me" />
-              <SuffixButton suffix="@yahoo.com" />
-              <SuffixButton suffix="@hotmail.com" />
-              <SuffixButton suffix="@outlook.com" />
+              {[
+                '@gmail.com',
+                '@proton.me',
+                '@yahoo.com',
+                '@hotmail.com',
+                '@outlook.com',
+              ].map((suffix) =>
+                <ButtonWithCenteredText
+                  key={suffix}
+                  onPress={() => !isLoading && submit(suffix)}
+                  borderWidth={0}
+                  secondary={true}
+                  containerStyle={{
+                    marginTop: 0,
+                    marginBottom: 0,
+                    height: undefined,
+                  }}
+                  backgroundColor="rgb(228, 204, 255)"
+                  textStyle={{
+                    padding: 10,
+                    fontSize: 12,
+                    color: '#70f',
+                  }}
+                >
+                  {suffix}
+                </ButtonWithCenteredText>
+              )}
             </View>
           }
         </View>

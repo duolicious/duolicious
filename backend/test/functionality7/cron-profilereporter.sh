@@ -15,7 +15,7 @@ delete_emails
 ../util/create-user.sh user2 0 0
 ../util/create-user.sh reporterbot 0 0
 
-q "update person set roles = '{\"bot\"}' where name = 'reporterbot'"
+q "update person set roles = '{\"bot\", \"mod\"}' where name = 'reporterbot'"
 
 assume_role user1
 jc PATCH /profile-info -d '{ "about": "18. just looking for friends" }'
@@ -39,3 +39,7 @@ sleep 3
 diff -u --color \
   <(_get_emails) \
   ../../test/fixtures/cron-emails-profilereporter
+
+! get_emails | grep -F 'Report:' | grep -F '[underage'
+
+[[ "$(q "select verification_required from person where name = 'user2'")" == f ]]

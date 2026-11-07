@@ -1,10 +1,11 @@
-import { GestureResponderEvent, Pressable, ViewStyle } from 'react-native';
+import { ViewStyle } from 'react-native';
+import { Pressable } from './pressable';
 import { Flag } from 'react-native-feather';
 import { useAppTheme } from '../app-theme/app-theme';
 import { HoverCircle, useHover } from './hover';
 
 const ReportFlag = ({ onPress, style }: {
-  onPress: (event: GestureResponderEvent) => void
+  onPress: () => void
   style?: ViewStyle
 }) => {
   const { appTheme } = useAppTheme();

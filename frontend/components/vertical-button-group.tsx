@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View, ViewStyle } from 'react-native';
+import { Pressable } from './pressable';
 import { DefaultText } from './default-text';
 import { useAppTheme } from '../app-theme/app-theme';
 

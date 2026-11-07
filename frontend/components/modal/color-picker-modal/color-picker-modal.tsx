@@ -8,7 +8,6 @@ import {
   StyleSheet,
   View,
   Animated,
-  Pressable,
 } from 'react-native';
 import {
   listen,
@@ -29,6 +28,9 @@ import {
 import {
   DefaultText,
 } from '../../default-text';
+import {
+  ModalButton,
+} from '../../button/modal';
 import {
   backgroundColors,
 } from '../background-colors';
@@ -97,14 +99,6 @@ const styles = StyleSheet.create({
     gap: 20,
     flexDirection: 'row',
   },
-  defaultText: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  pressable: {
-    height: 40,
-    width: 100,
-  },
 });
 
 
@@ -113,7 +107,7 @@ const ColorPickerModal: React.FC = () => {
   const [isShowing, setIsShowing] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
 
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(opacity, {
@@ -163,58 +157,7 @@ const ColorPickerModal: React.FC = () => {
     hsv.current = hexToHsv(initialBackgroundColor, hsv.current);
 
     hsvColorPickerRef.current?.setHsv(hsv.current);
-  }, [hsvColorPickerRef.current, initialBackgroundColor, shouldShow]);
-
-  const Button = ({onPress, title, color}: {
-    onPress: () => void,
-    title: string,
-    color: string,
-  }) => {
-    const animatedOpacity = useRef(new Animated.Value(1)).current;
-
-    const opacityLo = 0.7;
-    const opacityHi = 1.0;
-
-    const fade = (callback?: () => void) => {
-      animatedOpacity.stopAnimation();
-      animatedOpacity.setValue(opacityLo);
-      callback && callback();
-    };
-
-    const unfade = (callback?: () => void) => {
-      animatedOpacity.stopAnimation();
-      Animated.timing(animatedOpacity, {
-        toValue: opacityHi,
-        duration: 200,
-        useNativeDriver: true,
-      }).start((result) => result.finished && callback && callback());
-    };
-
-    return <Pressable
-      style={styles.pressable}
-      onPressIn={() => fade()}
-      onPressOut={() => unfade()}
-      onPress={onPress}
-    >
-      <Animated.View
-        style={{
-          borderRadius: 5,
-          backgroundColor: color,
-          flexGrow: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          opacity: animatedOpacity,
-        }}
-      >
-        <DefaultText
-          selectable={false}
-          style={styles.defaultText}
-        >
-          {title}
-        </DefaultText>
-      </Animated.View>
-    </Pressable>
-  };
+  }, [initialBackgroundColor, shouldShow]);
 
   if (!(isShowing || shouldShow)) {
     return null;
@@ -251,8 +194,8 @@ const ColorPickerModal: React.FC = () => {
 
       <View style={styles.bottomContainer}>
         <View style={styles.buttonContainer}>
-          <Button color="#999" onPress={cancel} title="Cancel" />
-          <Button color="#70f" onPress={pick} title="Pick" />
+          <ModalButton color="#999" onPress={cancel} title="Cancel" />
+          <ModalButton color="#70f" onPress={pick} title="Pick" />
         </View>
       </View>
     </Animated.View>

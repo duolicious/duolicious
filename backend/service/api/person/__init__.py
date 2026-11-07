@@ -3,7 +3,6 @@ from serviceshared.database import (
     Tx,
     api_tx,
     row_bool,
-    row_halfvec,
     row_int,
     row_vector,
 )
@@ -39,9 +38,10 @@ from service.api.duohash import sha512
 from service.api.person.sql import *
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
+    CLUB_CARD_MEMBERS,
     Q_CLUB_MEMBERS,
+    Q_CLUB_MEMBERS_FIRST_RANK,
     Q_SEARCHER,
-    kv_query_vector,
 )
 from service.api.search import similar_profiles
 from service.api.searchfilters import TWO_WAY_FILTER_KEYS
@@ -50,15 +50,18 @@ from service.api.qanda import _flush_session_answers
 from serviceshared.constants import VISITOR_ONLINE_TIMEOUT_SECONDS
 from service.api.person.visitornotification import notify_of_visit
 from service.api.person.visitorspush import publish_visit
+from service.api.notificationdue import enqueue_notification_due
 from service.api.person.images import load_image, put_image_in_object_store
 from service.api.person.rudecheck import reject_rude_or_banned
 from service.api.person.template import otp_template
 import logging
 import re
 from serviceshared.smtp import aws_smtp
+from serviceshared.unsubscribe import person_uuid_from_token
 from starlette.responses import Response
 from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
+from typing import Literal
 import psycopg
 from serviceshared.antiabuse.antispam.signupemail import (
     get_email_info,
@@ -721,18 +724,23 @@ async def get_prospect_profile(
 
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_SELECT_PROSPECT_PROFILE, params)
-        api_row = await row_tx.fetchone()
-        if not api_row:
-            return '', 404
+        profile = await row_tx.fetchone()
 
-        profile = api_row.get('j')
-        if not isinstance(profile, dict) or not profile:
-            return '', 404
+    if not profile:
+        return '', 404
 
-        # The handle may have been a url_slug; resolve to the real uuid so the
-        # visit events below carry a valid one.
-        prospect_uuid = api_row.get('prospect_uuid')
-        prospect_id = row_int(api_row, 'prospect_id')
+    profile['theme'] = {
+        key: profile.pop(key)
+        for key in ('title_color', 'body_color', 'background_color')
+    }
+
+    # The handle may have been a url_slug; resolve to the real uuid so the
+    # visit events below carry a valid one.
+    prospect_uuid = profile['person_uuid']
+    prospect_id = row_int(profile, 'person_id')
+
+    if profile.pop('is_visible_visit'):
+        enqueue_notification_due(prospect_id, 'visitor')
 
     if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(
@@ -748,8 +756,7 @@ async def get_prospect_profile(
     if s is None:
         return profile
 
-    if s.person_id is not None and s.person_uuid is not None and \
-            prospect_uuid is not None:
+    if s.person_id is not None and s.person_uuid is not None:
         seconds_since_last_online = profile.get('seconds_since_last_online')
         prospect_online = (
             isinstance(seconds_since_last_online, (int, float)) and
@@ -820,8 +827,7 @@ async def get_compare_personalities(
     db_topic = url_topic_to_db_topic[topic]
 
     params = dict(
-        person_id_as_int=s.person_id,
-        person_id_as_str=None,
+        person_id=s.person_id,
         prospect_person_id=prospect_person_id,
         topic=db_topic,
     )
@@ -1175,43 +1181,65 @@ async def post_disconnect_spotify(s: t.SessionInfo) -> None:
         await tx.execute(Q_DISCONNECT_SPOTIFY, params)
 
 async def get_update_notifications(
+    token: str,
     email: str,
     type: str,
     frequency: str,
 ) -> object:
-    params = dict(
-        email=email,
-        frequency=frequency,
-    )
+    person_uuid = person_uuid_from_token(token)
 
+    queries: list[tuple[str, Literal['intro', 'chat', 'visitor']]]
     if type == 'Intros':
-        queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_INTROS_NOTIFICATIONS, 'intro')]
     elif type == 'Chats':
-        queries = [Q_UPDATE_CHATS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_CHATS_NOTIFICATIONS, 'chat')]
     elif type == 'Visitors':
-        queries = [Q_UPDATE_VISITORS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_VISITORS_NOTIFICATIONS, 'visitor')]
     elif type == 'Every':
         queries = [
-            Q_UPDATE_INTROS_NOTIFICATIONS,
-            Q_UPDATE_CHATS_NOTIFICATIONS,
-            Q_UPDATE_VISITORS_NOTIFICATIONS,
+            (Q_UPDATE_INTROS_NOTIFICATIONS, 'intro'),
+            (Q_UPDATE_CHATS_NOTIFICATIONS, 'chat'),
+            (Q_UPDATE_VISITORS_NOTIFICATIONS, 'visitor'),
         ]
     else:
         return 'Invalid type', 400
 
     async with api_tx('READ COMMITTED') as tx:
+        # TODO(#1913): remove the email-only link and the email parameter
+        if person_uuid is None and email:
+            await tx.execute(Q_PERSON_UUID_BY_EMAIL, dict(email=email))
+            row = await tx.fetchone()
+            person_uuid = str(row['uuid']) if row else None
+
+        params = dict(
+            person_uuid=person_uuid,
+            frequency=frequency,
+        )
+
         query_results = []
-        for q in queries:
+        for q, kind in queries:
             query_results.append((await tx.require_one(q, params))['ok'])
+            await tx.execute(reschedule_notification_sql(
+                kind, '(SELECT id FROM person WHERE uuid = %(person_uuid)s)'),
+                params)
 
     if all(query_results):
         return (
             f"✅ "
             f"<b>{type}</b> notification frequency set to "
-            f"<b>{frequency}</b> for "
-            f"<b>{email}</b>")
+            f"<b>{frequency}</b>")
     else:
-        return 'Invalid email address or notification frequency', 400
+        return 'Invalid token or notification frequency', 400
+
+async def post_unsubscribe(token: str) -> object:
+    person_uuid = person_uuid_from_token(token)
+    if person_uuid is None:
+        return 'Invalid token', 400
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(Q_UNSUBSCRIBE, dict(person_uuid=person_uuid))
+
+    return None
 
 async def post_verification_selfie(
     req: t.PostVerificationSelfie,
@@ -1286,6 +1314,15 @@ async def _related_clubs(club_name: str) -> Json:
         row = await tx.require_one(Q_RELATED_CLUBS, dict(club_name=club_name))
         return row['related_clubs']
 
+async def _club_members(tx: Tx, params: psycopg.abc.Params) -> list[Row]:
+    await tx.execute(Q_CLUB_MEMBERS_FIRST_RANK, params)
+    first_rank = await tx.fetchall()
+    if len(first_rank) == CLUB_CARD_MEMBERS:
+        return first_rank
+
+    await tx.execute(Q_CLUB_MEMBERS, params)
+    return await tx.fetchall()
+
 async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
     related_clubs = await _related_clubs(q.name)
 
@@ -1295,9 +1332,8 @@ async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
         searcher = await tx.require_one(
             Q_SEARCHER, dict(searcher_person_id=s.person_id))
 
-        await tx.execute(Q_CLUB_MEMBERS, dict(
+        members = await _club_members(tx, dict(
             searcher_person_id=s.person_id,
-            searcher_kv_vector=kv_query_vector(row_halfvec(searcher, 'kv_vector')),
             searcher_personality=row_vector(searcher, 'personality'),
             searcher_verification_level_id=row_int(
                 searcher, 'verification_level_id'),
@@ -1307,7 +1343,7 @@ async def get_club_card(s: t.SessionInfo, q: t.ClubCardQuery) -> Row:
         return {
             **card,
             'related_clubs': related_clubs,
-            'members': await tx.fetchall(),
+            'members': members,
         }
 
 @AsyncLruCache(maxsize=2048)
@@ -1461,7 +1497,7 @@ async def get_export_data(token: str) -> object:
     # text itself is exported verbatim via the `body` column.
     for row in raw_data['mam_message'] or []:
         row['timestamp'] = datetime.fromtimestamp(
-            timestamp=(row['id'] >> 8) / 1_000_000,
+            (row['id'] >> 8) / 1_000_000,
             tz=timezone.utc,
         ).isoformat()
 

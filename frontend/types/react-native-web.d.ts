@@ -5,5 +5,6 @@ declare module 'react-native' {
     textWrap?: 'wrap' | 'nowrap' | 'balance' | 'pretty' | 'stable';
     whiteSpace?: 'normal' | 'nowrap';
     textOverflow?: 'clip' | 'ellipsis';
+    wordBreak?: 'normal' | 'break-all' | 'break-word' | 'keep-all';
   }
 }

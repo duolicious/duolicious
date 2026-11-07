@@ -9,7 +9,10 @@ import { useAppTheme } from '../../app-theme/app-theme';
 // caller decides whether it should show (the seen-flag lives in
 // `kv-storage/seen-hints/seen-inbox-filter-hint`) and marks it seen via
 // `onDismiss`.
-const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
+const InboxFilterHint = ({ onDismiss, shift }: {
+  onDismiss: () => void,
+  shift: number,
+}) => {
   const { appTheme } = useAppTheme();
   const isFocused = useIsFocused();
 
@@ -23,7 +26,8 @@ const InboxFilterHint = ({ onDismiss }: { onDismiss: () => void }) => {
     <HintBubble
       color={appTheme.brandColor}
       pointerPosition="right"
-      style={{ right: -3, width: 240 }}
+      pointerInset={8 + shift}
+      style={{ right: -3 - shift, width: 240 }}
       onPress={onDismiss}
     >
       {(inkColor) => <>

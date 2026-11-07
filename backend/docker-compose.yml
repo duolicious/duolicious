@@ -36,7 +36,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: api.Dockerfile
+      dockerfile: Dockerfile
+      target: api
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,10 +60,13 @@ services:
       # the real RIPEstat on every dev sign-up.
       DUO_RIPE_URL: http://127.0.0.1:1
 
+      DUO_NOTIFICATION_DUE_FLUSH_SECONDS: '0'
+
       DUO_SMTP_HOST: smtp
       DUO_SMTP_PORT: 1025
       DUO_SMTP_USER: unused-in-dev-env
       DUO_SMTP_PASS: unused-in-dev-env
+      DUO_UNSUBSCRIBE_SECRET: dev-unsubscribe-secret
 
       DUO_REPORT_EMAIL: duolicious@example.com 20 a@example.com 0
 
@@ -131,7 +135,8 @@ services:
   cron:
     build:
       context: .
-      dockerfile: cron.Dockerfile
+      dockerfile: Dockerfile
+      target: cron
     ports:
       - "8082:8080"
     depends_on:
@@ -148,6 +153,7 @@ services:
       DUO_SMTP_PORT: 1025
       DUO_SMTP_USER: unused-in-dev-env
       DUO_SMTP_PASS: unused-in-dev-env
+      DUO_UNSUBSCRIBE_SECRET: dev-unsubscribe-secret
 
       DUO_REPORT_EMAIL: duolicious@example.com 20 a@example.com 0
 
@@ -286,7 +292,8 @@ services:
   firehol:
     build:
       context: .
-      dockerfile: firehol.Dockerfile
+      dockerfile: Dockerfile
+      target: firehol
     ports:
       - "5070:5070"
     volumes:

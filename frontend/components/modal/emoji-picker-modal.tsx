@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { Pressable } from '../pressable';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { listen } from '../../events/events';
 import {
@@ -114,7 +115,7 @@ const EmojiPickerModal: React.FC = () => {
       >
         <Pressable
           onPressIn={close}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
         <Animated.View
           entering={FadeIn.duration(100)}

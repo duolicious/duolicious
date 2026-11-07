@@ -14,7 +14,7 @@ WORKDIR /app
 # patch-package needs the patches/ directory present at install time.
 COPY package.json package-lock.json ./
 COPY patches ./patches
-RUN npm ci && npx patch-package
+RUN npm ci
 
 # Copy the rest of the source. At runtime docker-compose bind-mounts the
 # host source over /app (with an anonymous volume preserving node_modules),

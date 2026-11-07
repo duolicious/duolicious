@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -646,7 +647,7 @@ const MoveableImage = ({
     .Pan()
     .activateAfterLongPress(200)
     .onStart(() => {
-      scale.value = withTiming(1.1, { duration: 50 });
+      scale.set(withTiming(1.1, { duration: 50 }));
       scheduleOnRN(setZIndex, 1);
       scheduleOnRN(hapticsSelection);
     })
@@ -700,16 +701,16 @@ const MoveableImage = ({
           }
 
           if (fileNumber.value !== data.pressed) {
-            translateX.value = withTiming(_slots.value[data.to].origin.x);
-            translateY.value = withTiming(_slots.value[data.to].origin.y);
-            scale.value = withTiming(1);
+            translateX.set(withTiming(_slots.value[data.to].origin.x));
+            translateY.set(withTiming(_slots.value[data.to].origin.y));
+            scale.set(withTiming(1));
             scheduleOnRN(setZIndex, 0)
           }
-          borderRadius.value = withTiming(getBorderRadius(data.to));
+          borderRadius.set(withTiming(getBorderRadius(data.to)));
 
           if (data.pressed === null) {
-            isSlotAssignmentUnfinished.value = true;
-            fileNumber.value = data.to;
+            isSlotAssignmentUnfinished.set(true);
+            fileNumber.set(data.to);
           }
         },
         data
@@ -727,19 +728,19 @@ const MoveableImage = ({
       EV_UPDATED_VERIFICATION,
       { photos: { [`${fileNumber.value}`]: isVerifiedRef.current } });
 
-    isSlotAssignmentUnfinished.value = false;
+    isSlotAssignmentUnfinished.set(false);
   }, [uriState, isVerifiedState]);
 
   useEffect(
-    () => { translateX.value = absolutePosition?.left ?? 0; },
+    () => { translateX.set(absolutePosition?.left ?? 0); },
     [absolutePosition?.left]);
 
   useEffect(
-    () => { translateY.value = absolutePosition?.top ?? 0; },
+    () => { translateY.set(absolutePosition?.top ?? 0); },
     [absolutePosition?.top]);
 
   useEffect(
-    () => { _slots.value = slots; },
+    () => { _slots.set(slots); },
     [slots]);
 
   useImagePickerResult(input, fileNumber);
@@ -765,7 +766,7 @@ const MoveableImage = ({
   }, [uriState]);
 
   useLayoutEffect(() => {
-    borderRadius.value = getBorderRadius(fileNumber.value);
+    borderRadius.set(getBorderRadius(fileNumber.value));
   }, [getBorderRadius]);
 
   const borderRadiusStyle = useAnimatedStyle(() => ({
@@ -803,11 +804,7 @@ const MoveableImage = ({
           {uriState &&
             <ExpoImage
               pointerEvents="none"
-              source={{
-                uri: uriState,
-                height: 450,
-                width: 450,
-              }}
+              source={{ uri: uriState }}
               placeholder={initialBlurhash && { blurhash: initialBlurhash }}
               transition={150}
               style={{
@@ -1017,8 +1014,8 @@ const Images = ({
 
   const relativeSlots = getRelativeSlots(slots, x, y);
 
-  const identityAssignment = useCallback(
-    _.debounce(
+  const identityAssignment = useMemo(
+    () => _.debounce(
       () => {
         for (let i = 1; i <= 7; i++) {
           notify<SlotAssignmentStart>(

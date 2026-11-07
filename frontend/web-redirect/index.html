@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Duolicious</title>
+  <script>
+    var sessionToken = null;
+    var personUuid = null;
+    try {
+      sessionToken = localStorage.getItem('session_token');
+      personUuid = localStorage.getItem('person_uuid');
+    } catch (e) {}
+    if (sessionToken && personUuid) {
+      document.cookie = '__Secure-session_handoff=' +
+        encodeURIComponent(JSON.stringify({
+          session_token: sessionToken,
+          person_uuid: personUuid
+        })) +
+        '; Domain=duolicious.app; Path=/; Max-Age=300; Secure; SameSite=Lax';
+    }
+    location.replace(
+      'https://duolicious.app' + location.pathname + location.search + location.hash
+    );
+  </script>
+</head>
+</html>

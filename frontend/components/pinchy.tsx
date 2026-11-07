@@ -8,9 +8,9 @@ import {
 import {
   ActivityIndicator,
   Image,
-  ImageStyle,
   StyleSheet,
   View,
+  ViewStyle,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
@@ -37,6 +37,7 @@ import {
   focalZoomPosition,
   lockedDragMode,
   pageNavDirection,
+  zoomTransform,
 } from './pinchy-math';
 
 // Double-tap zoom eases in rather than snapping. A pinch or pan writing the
@@ -107,25 +108,21 @@ const FitWithinScreenImage = ({
   cropUri: string | null;
   blurhash: string | null;
   isGif: boolean;
-  animatedStyle: AnimatedStyle<ImageStyle>;
+  animatedStyle: AnimatedStyle<ViewStyle>;
   onUpdateImageSize: (size: { imageWidth: number, imageHeight: number }) => void;
   geometry?: PhotoGeometry;
   viewport: { width: number, height: number };
 }) => {
   const isFetchingSize = useRef(false);
-  const [imageSize, setImageSize] = useState(
-    geometry ?? {width: 0, height: 0},
-  );
+  const [fetchedSize, setFetchedSize] = useState({width: 0, height: 0});
+  const imageSize = geometry ?? fetchedSize;
   const { width: viewportWidth, height: viewportHeight } = viewport;
 
-  // Fit synchronously from the known size, so a photo the caller reports the
-  // dimensions of paints on its first frame - no spinner flash when a new page
-  // mounts.
-  const initialFit = geometry && geometry.width && geometry.height
-    ? fitWithin(geometry, viewportWidth, viewportHeight)
+  const fit = imageSize.width && imageSize.height
+    ? fitWithin(imageSize, viewportWidth, viewportHeight)
     : null;
-  const [imageWidth, setImageWidth] = useState<number | null>(initialFit?.width ?? null);
-  const [imageHeight, setImageHeight] = useState<number | null>(initialFit?.height ?? null);
+  const imageWidth = fit?.width ?? null;
+  const imageHeight = fit?.height ?? null;
 
   // On a slow connection the original can take long enough that a correctly
   // sized but still-empty photo reads as broken; the spinner says it's
@@ -144,38 +141,22 @@ const FitWithinScreenImage = ({
   const showSpinner = spinnerDelayElapsed && !originalLoaded;
 
   useEffect(() => {
-    if (geometry) {
-      setImageSize(geometry);
-      return;
-    }
-
-    if (isFetchingSize.current) {
+    if (geometry || isFetchingSize.current) {
       return;
     }
 
     isFetchingSize.current = true;
     Image.getSize(source.uri, (width, height) => {
-      setImageSize({width, height});
+      setFetchedSize({width, height});
       isFetchingSize.current = false;
     });
   }, [source.uri, geometry?.width, geometry?.height]);
 
   useEffect(() => {
-    if (!imageSize.width || !imageSize.height) return;
+    if (imageWidth === null || imageHeight === null) return;
 
-    const { width: newWidth, height: newHeight } =
-      fitWithin(imageSize, viewportWidth, viewportHeight);
-
-    setImageWidth(newWidth);
-    setImageHeight(newHeight);
-
-    onUpdateImageSize({imageWidth: newWidth, imageHeight: newHeight});
-  }, [
-    imageSize.width,
-    imageSize.height,
-    viewportWidth,
-    viewportHeight
-  ]);
+    onUpdateImageSize({imageWidth, imageHeight});
+  }, [imageWidth, imageHeight]);
 
   const spinner = showSpinner && (
     <View style={styles.spinnerOverlay} pointerEvents="none">
@@ -326,8 +307,8 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
   useEffect(() => {
     runOnUI((vw: number, vh: number) => {
       'worklet';
-      viewportWidthSv.value = vw;
-      viewportHeightSv.value = vh;
+      viewportWidthSv.set(vw);
+      viewportHeightSv.set(vh);
       const newPos = constrainPosition(
         scale.value,
         imageWidth.value,
@@ -337,15 +318,15 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
         positionX.value,
         positionY.value,
       );
-      positionX.value = newPos.x;
-      positionY.value = newPos.y;
+      positionX.set(newPos.x);
+      positionY.set(newPos.y);
     })(viewportWidth, viewportHeight);
   }, [viewportWidth, viewportHeight, scale, positionX, positionY]);
 
   const onUpdateImageSize = useCallback(
     ({ imageWidth: w, imageHeight: h }: { imageWidth: number, imageHeight: number }) => {
-      imageWidth.value = w;
-      imageHeight.value = h;
+      imageWidth.set(w);
+      imageHeight.set(h);
     },
     [imageWidth, imageHeight],
   );
@@ -354,11 +335,11 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
     () => Gesture.Pinch()
       .onStart((e) => {
         'worklet';
-        pinchBaseScale.value = scale.value;
-        pinchBaseX.value = positionX.value;
-        pinchBaseY.value = positionY.value;
-        focalBaseX.value = e.focalX;
-        focalBaseY.value = e.focalY;
+        pinchBaseScale.set(scale.value);
+        pinchBaseX.set(positionX.value);
+        pinchBaseY.set(positionY.value);
+        focalBaseX.set(e.focalX);
+        focalBaseY.set(e.focalY);
       })
       .onUpdate((e) => {
         'worklet';
@@ -383,9 +364,9 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
           target.x,
           target.y,
         );
-        scale.value = newScale;
-        positionX.value = newPos.x;
-        positionY.value = newPos.y;
+        scale.set(newScale);
+        positionX.set(newPos.x);
+        positionY.set(newPos.y);
       }),
     [scale, positionX, positionY],
   );
@@ -416,13 +397,13 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
         // Zoomed in, or a pinch: pan the image. Zoomed out with a single
         // finger: wait for the drag to reveal its direction (dismiss/page).
         const panning = scale.value > 1 + 1e-5 || e.numberOfPointers > 1;
-        dragMode.value = panning ? 'pan' : 'none';
+        dragMode.set(panning ? 'pan' : 'none');
 
-        panBaseX.value = positionX.value;
-        panBaseY.value = positionY.value;
-        dismissBaseX.value = dismiss?.x.value ?? 0;
-        dismissBaseY.value = dismiss?.y.value ?? 0;
-        pageBaseX.value = page?.scrollX.value ?? 0;
+        panBaseX.set(positionX.value);
+        panBaseY.set(positionY.value);
+        dismissBaseX.set(dismiss?.x.value ?? 0);
+        dismissBaseY.set(dismiss?.y.value ?? 0);
+        pageBaseX.set(page?.scrollX.value ?? 0);
       })
       .onUpdate((e) => {
         'worklet';
@@ -438,8 +419,8 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
             e.translationX,
             e.translationY,
           );
-          positionX.value = newPos.x;
-          positionY.value = newPos.y;
+          positionX.set(newPos.x);
+          positionY.set(newPos.y);
           return;
         }
 
@@ -447,30 +428,30 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
 
         // Lock to whichever axis the drag commits to first.
         if (dragMode.value === 'none' && moved > 8) {
-          dragMode.value = lockedDragMode(
+          dragMode.set(lockedDragMode(
             Math.abs(e.translationX) >= Math.abs(e.translationY),
             e.translationX,
             page?.index ?? 0,
             page?.count ?? 0,
             dismiss !== undefined,
             page?.justNavigated.value ?? false,
-          );
+          ));
         }
 
         const mode = dragMode.value;
 
         if (mode === 'page' && page) {
           const max = (page.count - 1) * page.width;
-          page.scrollX.value = Math.min(max, Math.max(0, pageBaseX.value - e.translationX));
+          page.scrollX.set(Math.min(max, Math.max(0, pageBaseX.value - e.translationX)));
         } else if ((mode === 'dismiss' || mode === 'guardedDismiss') && dismiss) {
-          dismiss.x.value = dismissBaseX.value + e.translationX;
-          dismiss.y.value = dismissBaseY.value + e.translationY;
+          dismiss.x.set(dismissBaseX.value + e.translationX);
+          dismiss.y.set(dismissBaseY.value + e.translationY);
         }
       })
       .onEnd((e) => {
         'worklet';
         if (page && dragMode.value !== 'none') {
-          page.justNavigated.value = false;
+          page.justNavigated.set(false);
         }
 
         const endPageDrag = () => {
@@ -483,12 +464,12 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
           );
 
           if (dir !== 0 && onNavigate) {
-            page.justNavigated.value = true;
+            page.justNavigated.set(true);
             runOnJS(onNavigate)(dir);
             return;
           }
 
-          page.scrollX.value = withTiming(page.index * page.width, DISMISS_RETURN);
+          page.scrollX.set(withTiming(page.index * page.width, DISMISS_RETURN));
         };
 
         const endDismissDrag = () => {
@@ -503,8 +484,8 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
             return;
           }
 
-          dismiss.x.value = withTiming(0, DISMISS_RETURN);
-          dismiss.y.value = withTiming(0, DISMISS_RETURN);
+          dismiss.x.set(withTiming(0, DISMISS_RETURN));
+          dismiss.y.set(withTiming(0, DISMISS_RETURN));
         };
 
         if (dragMode.value === 'page') endPageDrag();
@@ -525,24 +506,31 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
         if (!success) return;
         const isZoomed = scale.value > 1 + 1e-5;
         if (isZoomed) {
-          scale.value = withTiming(1, ZOOM_TIMING);
-          positionX.value = withTiming(0, ZOOM_TIMING);
-          positionY.value = withTiming(0, ZOOM_TIMING);
+          scale.set(withTiming(1, ZOOM_TIMING));
+          positionX.set(withTiming(0, ZOOM_TIMING));
+          positionY.set(withTiming(0, ZOOM_TIMING));
         } else {
-          const offsetX = imageWidth.value / 2 - e.x;
-          const offsetY = imageHeight.value / 2 - e.y;
+          const target = focalZoomPosition(
+            scale.value,
+            2,
+            { x: positionX.value, y: positionY.value },
+            { x: e.x, y: e.y },
+            { x: viewportWidthSv.value / 2, y: viewportHeightSv.value / 2 },
+            viewportWidthSv.value,
+            viewportHeightSv.value,
+          );
           const newPos = constrainPosition(
             2,
             imageWidth.value,
             imageHeight.value,
             viewportWidthSv.value,
             viewportHeightSv.value,
-            offsetX,
-            offsetY,
+            target.x,
+            target.y,
           );
-          scale.value = withTiming(2, ZOOM_TIMING);
-          positionX.value = withTiming(newPos.x, ZOOM_TIMING);
-          positionY.value = withTiming(newPos.y, ZOOM_TIMING);
+          scale.set(withTiming(2, ZOOM_TIMING));
+          positionX.set(withTiming(newPos.x, ZOOM_TIMING));
+          positionY.set(withTiming(newPos.y, ZOOM_TIMING));
         }
       }),
     [scale, positionX, positionY],
@@ -569,21 +557,17 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
     [pinch, pan, doubleTap, edgeTap],
   );
 
-  const animatedStyle = useAnimatedStyle<ImageStyle>(() => {
+  const animatedStyle = useAnimatedStyle<ViewStyle>(() => {
     const dismissX = dismiss ? dismiss.x.value : 0;
     const dismissY = dismiss ? dismiss.y.value : 0;
 
     return {
       borderRadius: dragDismissRadius(dismissX, dismissY),
-      // The dismiss drag translates the whole photo in screen space, so it goes
-      // outermost (ahead of the zoom scale, which it must not be multiplied by).
-      transform: [
-        { translateX: dismissX },
-        { translateY: dismissY },
-        { scale: scale.value },
-        { translateX: positionX.value },
-        { translateY: positionY.value },
-      ],
+      transform: zoomTransform(
+        scale.value,
+        dismissX + positionX.value,
+        dismissY + positionY.value,
+      ),
     };
   });
 
@@ -607,7 +591,7 @@ const Pinchy = ({uuid, extraExts, blurhash, geometry, viewport, zoom, dismiss, o
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -620,7 +604,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   spinnerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

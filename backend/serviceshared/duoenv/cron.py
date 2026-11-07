@@ -2,12 +2,9 @@ from serviceshared.duoenv.read import (
     flag_with,
     float_with,
     int_with,
-    required_int,
     str_or_none,
     str_with,
 )
-
-OMP_NUM_THREADS = required_int('OMP_NUM_THREADS')
 
 MAX_RANDOM_START_DELAY = int_with('DUO_CRON_MAX_RANDOM_START_DELAY', 15)
 
@@ -28,8 +25,8 @@ EMAIL_POLL_SECONDS = int_with('DUO_CRON_EMAIL_POLL_SECONDS', 10)
 GARBAGE_RECORDS_POLL_SECONDS = \
     int_with('DUO_CRON_GARBAGE_RECORDS_POLL_SECONDS', 10)
 
-NSFW_PHOTO_RUNNER_POLL_SECONDS = \
-    int_with('DUO_CRON_NSFW_PHOTO_RUNNER_POLL_SECONDS', 1)
+NSFW_V2_PHOTO_RUNNER_POLL_SECONDS = \
+    int_with('DUO_CRON_NSFW_V2_PHOTO_RUNNER_POLL_SECONDS', 10)
 
 PROFILE_REPORTER_POLL_SECONDS = \
     int_with('DUO_CRON_PROFILE_REPORTER_POLL_SECONDS', 10 * 60)

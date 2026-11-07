@@ -1,5 +1,5 @@
 import * as _ from "lodash";
-import { api, japi, ApiResponse } from '../api/api';
+import { api, japi } from '../api/api';
 import { applyAuthenticatedResponse, AuthResult } from '../api/auth';
 import { navigationContainerRef } from '../App';
 import {
@@ -14,6 +14,8 @@ import { X } from "react-native-feather";
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faPalette } from '@fortawesome/free-solid-svg-icons/faPalette'
 import { faMoon } from '@fortawesome/free-solid-svg-icons/faMoon'
+import { faPause } from '@fortawesome/free-solid-svg-icons/faPause'
+import { faUserXmark } from '@fortawesome/free-solid-svg-icons/faUserXmark'
 import { faRulerVertical } from '@fortawesome/free-solid-svg-icons/faRulerVertical'
 import { faRuler } from '@fortawesome/free-solid-svg-icons/faRuler'
 import { faHandsPraying } from '@fortawesome/free-solid-svg-icons/faHandsPraying'
@@ -37,7 +39,8 @@ import { NonNullImageCropperOutput } from '../components/image-cropper';
 import { logout } from '../chat/application-layer';
 import { LOGARITHMIC_SCALE, Scale } from "../scales/scales";
 import { VerificationBadge } from '../components/verification-badge';
-import { patchProfileInfo } from '../events/profile-info';
+import { getProfileInfo, patchProfileInfo, useProfileInfo } from '../events/profile-info';
+import { maybeRequestReview } from '../store-review/store-review';
 import { cancelPaypalSubscription } from '../api/paypal';
 import {
   getSearchFilters,
@@ -50,8 +53,8 @@ import { markSearchResultsStale } from '../events/stale-search-results';
 import { markInboxStale } from '../events/stale-inbox';
 import { markFeedStale } from '../events/stale-feed';
 import { DefaultText } from '../components/default-text';
+import { LinkText } from '../components/link-text';
 import {
-  Linking,
   StyleSheet,
   View,
 } from 'react-native';
@@ -136,13 +139,9 @@ type OptionGroupDate = {
 type OptionGroupPhotos = {
   photos: {
     submit: (position: number, cropperOutput: NonNullImageCropperOutput) => Promise<boolean>
-    submitAll?: () => Promise<ApiResponse>
     delete: (filename: string) => Promise<boolean>
     getUri?: (position: string, resolution: string) => string | null
     getBlurhash?: (position: string) => string | null
-    showProtip?: boolean,
-    validateAtLeastOne?: boolean,
-    firstFileNumber?: number,
   }
 };
 
@@ -243,7 +242,6 @@ type OptionGroupInputs
   | OptionGroupRangeSlider
   | OptionGroupGivenName
   | OptionGroupDate
-  | OptionGroupPhotos
   | OptionGroupTextLong
   | OptionGroupTextShort
   | OptionGroupOtp
@@ -296,10 +294,6 @@ const isOptionGroupGivenName = (x: OptionGroupInputs): x is OptionGroupGivenName
 
 const isOptionGroupDate = (x: OptionGroupInputs): x is OptionGroupDate => {
   return hasExactKeys(x, ['date']);
-}
-
-const isOptionGroupPhotos = (x: OptionGroupInputs): x is OptionGroupPhotos => {
-  return hasExactKeys(x, ['photos']);
 }
 
 const isOptionGroupTextLong = (x: OptionGroupInputs): x is OptionGroupTextLong => {
@@ -505,17 +499,32 @@ const offOn = [
   'On',
 ];
 
-const verificationDescription = `
-To prove you’re real, you can take a selfie while you do three things at once:
+const VerificationDescription = () => (
+  <DefaultText style={{ fontSize: noneFontSize }}>
+    {`To prove you’re real, you can take a selfie while you do three things at once:
 
 \xa0\xa01. Smile 😊
 \xa0\xa02. Give one thumb down 👎
 \xa0\xa03. Touch your eyebrow 🤨
 
-You can use one hand for those last two by touching your eyebrow with your thumb. Using two hands is also fine. Our AI will check your selfie and let you know if you’re verified.
+You can use one hand for those last two by touching your eyebrow with your thumb. Using two hands is also fine. We’ll check your selfie with AI and let you know if you’re verified.
 
 To verify your photos, your face should be in at least one profile pic. But never reveal your verification selfie to anyone, or they can pretend they’re you.
-`.trim();
+
+`}
+    <DefaultText disableTheme style={{ fontSize: 12 }}>
+      By continuing, you agree to us checking your selfie with AI, as described in our {}
+      <LinkText
+        disableTheme
+        href="https://duolicious.app/privacy#verification-selfies"
+        style={{ fontWeight: '700' }}
+      >
+        Privacy Policy
+      </LinkText>
+      .
+    </DefaultText>
+  </DefaultText>
+);
 
 const styles = StyleSheet.create({
   row: {
@@ -540,13 +549,13 @@ const FinishOnboardingDescription = () => (
   <View style={{ gap: 15 }}>
     <DefaultText style={{ color: 'white' }}>
       You’re ready to go! But before we unleash you on the other members, let’s
-      recap our <DefaultText
+      recap our <LinkText
         disableTheme
-        onPress={() => Linking.openURL('https://duolicious.app/guidelines/')}
+        href="https://duolicious.app/guidelines/"
         style={{ fontWeight: '700' }}
       >
         Community Guidelines
-      </DefaultText>. Do:
+      </LinkText>. Do:
     </DefaultText>
 
     <View style={styles.list}>
@@ -598,17 +607,26 @@ const FinishOnboardingDescription = () => (
   </View>
 );
 
-const DeletionDescription = () => (
-  <DefaultText style={descriptionStyle.style} >
-    Are you sure you want to delete your account? {}
-    <DefaultText disableTheme style={{ fontWeight: '700' }}>
-      This will
-      permanently delete your account data and
-      immediately log you out.
-    </DefaultText> {}
-    If you’re sure, type “delete” to confirm.
-  </DefaultText>
-);
+const DeletionDescription = () => {
+  const [signedInUser] = useSignedInUser();
+  const profileInfo = useProfileInfo();
+  const hasStoreSubscription =
+    signedInUser?.hasGold && !profileInfo?.paypal_subscription;
+
+  return (
+    <DefaultText style={descriptionStyle.style} >
+      Are you sure you want to delete your account? {}
+      <DefaultText disableTheme style={{ fontWeight: '700' }}>
+        This will
+        permanently delete your account data and
+        immediately log you out.
+      </DefaultText> {}
+      {hasStoreSubscription &&
+        'It won’t cancel your Gold subscription. '}
+      If you’re sure, type “delete” to confirm.
+    </DefaultText>
+  );
+};
 
 const DeactivationDescription = () => (
   <DefaultText style={descriptionStyle.style} >
@@ -776,10 +794,14 @@ const basicsOptionGroups: OptionGroup<OptionGroupInputs>[] = [
       buttons: {
         values: relationshipStatus,
         submit: async (relationshipStatus: string) => {
+          const wasSingle = getProfileInfo()?.relationship_status === 'Single';
           const ok = (
             await japi('patch', '/profile-info', { relationship_status: relationshipStatus })
           ).ok;
           if (ok) patchProfileInfo({ relationship_status: relationshipStatus });
+          if (ok && wasSingle && ['Seeing someone', 'Engaged', 'Married'].includes(relationshipStatus)) {
+            maybeRequestReview(1000);
+          }
           return ok;
         },
         clear: clearProfileField('relationship_status', 'Unanswered'),
@@ -1217,13 +1239,20 @@ const notificationSettingsOptionGroups: OptionGroup<OptionGroupButtons>[] = [
 const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [
   {
     title: 'Delete My Account',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faUserXmark}
+        size={14}
+        style={{ color }}
+      />
+    ),
     description: DeletionDescription,
     input: {
       textShort: {
         submit: async (input: string) => {
-          await logout();
-
           if ((input ?? '').toLowerCase().trim() !== 'delete') return false;
+
+          await logout();
 
           const response = await japi('delete', '/account');
 
@@ -1248,6 +1277,13 @@ const deletionOptionGroups: OptionGroup<OptionGroupTextShort>[] = [
 const deactivationOptionGroups: OptionGroup<OptionGroupNone>[] = [
   {
     title: 'Deactivate My Account',
+    Icon: ({ color = 'black' }) => (
+      <FontAwesomeIcon
+        icon={faPause}
+        size={14}
+        style={{ color }}
+      />
+    ),
     description: DeactivationDescription,
     input: {
       none: {
@@ -2251,7 +2287,7 @@ const verificationOptionGroups: OptionGroup<OptionGroupInputs>[] = [
     description: 'Get a pretty blue badge by taking a selfie!',
     input: {
       none: {
-        description: verificationDescription,
+        description: VerificationDescription,
         textAlign: 'left',
         submit: async () => {
           showVerificationCamera(true);
@@ -2312,7 +2348,6 @@ export {
   isOptionGroupLocationSelector,
   isOptionGroupNone,
   isOptionGroupOtp,
-  isOptionGroupPhotos,
   isOptionGroupRangeSlider,
   isOptionGroupSlider,
   isOptionGroupTextLong,

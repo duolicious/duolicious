@@ -46,6 +46,8 @@ jc POST /check-otp -d '{ "otp": "000000" }'
 jc PATCH /onboardee-info -d '{ "name": "Jeff" }'
 jc PATCH /onboardee-info -d '{ "date_of_birth": "1997-05-30" }'
 c GET /search-locations?q=Syd
+[[ "$(c GET '/search-locations?q=Bonn' | jq -r '.[0]')" = "Bonn, North Rhine-Westphalia, Germany" ]]
+c GET '/search-locations?q=Manila' | jq -e 'index("Manila, National Capital Region, Philippines") | . != null and . < 2'
 [[ "$(c GET '/reverse-geocode?lat=-33.87&lon=151.21' | jq -r .location)" = "Pyrmont, New South Wales, Australia" ]]
 ! c GET '/reverse-geocode?lat=91&lon=151.21'
 jc PATCH /onboardee-info -d '{ "coordinates": { "lat": -33.87, "lon": 151.21 } }'

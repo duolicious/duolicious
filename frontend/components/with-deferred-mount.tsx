@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 type RandomDelay = {
@@ -33,16 +33,16 @@ const computeDelay = (props: WithDeferredMountProps): number => {
 };
 
 const WithDeferredMount = (props: WithDeferredMountProps) => {
-  const delayRef = useRef<number>(computeDelay(props));
+  const [delay] = useState(() => computeDelay(props));
 
-  const [ready, setReady] = useState(delayRef.current === 0);
+  const [ready, setReady] = useState(delay === 0);
 
   useEffect(() => {
     if (ready) {
       return;
     }
 
-    const id = setTimeout(() => setReady(true), delayRef.current);
+    const id = setTimeout(() => setReady(true), delay);
 
     return () => clearTimeout(id);
   }, [ready]);

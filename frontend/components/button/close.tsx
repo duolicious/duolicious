@@ -1,41 +1,64 @@
-import { Pressable, ViewStyle } from 'react-native';
+import { ReactNode } from 'react';
+import { View, ViewStyle } from 'react-native';
 import { X } from "react-native-feather";
 import { useAppTheme } from '../../app-theme/app-theme';
-import { HoverCircle, useHover } from '../hover';
+import { IconButton } from './icon-button';
+
+const SIZE = 24;
 
 const Close = ({
   onPress,
-  style = { top: 10, right: 10 },
+  style,
   color,
 }: {
   onPress: () => void,
-  style?: ViewStyle | null,
+  style?: ViewStyle,
   color?: string,
 }) => {
   const { appTheme } = useAppTheme();
-  const { hovered, hoverProps } = useHover();
 
   return (
-    <Pressable
+    <IconButton
       onPress={onPress}
-      style={{
-        position: 'absolute',
-        zIndex: 1,
-        ...style,
-      }}
-      {...hoverProps}
+      style={style}
     >
-      <HoverCircle visible={hovered} />
       <X
         stroke={color ?? appTheme.secondaryColor}
         strokeWidth={3}
-        height={24}
-        width={24}
+        height={SIZE}
+        width={SIZE}
       />
-    </Pressable>
+    </IconButton>
+  );
+};
+
+const HeaderWithClose = ({
+  onPress,
+  color,
+  children,
+}: {
+  onPress: () => void,
+  color?: string,
+  children: ReactNode,
+}) => {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        alignSelf: 'stretch',
+      }}
+    >
+      <View style={{ width: SIZE }} />
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        {children}
+      </View>
+      <Close onPress={onPress} color={color} />
+    </View>
   );
 };
 
 export {
   Close,
+  HeaderWithClose,
 };

@@ -9,13 +9,40 @@ _locations_json_file = os.path.join(
         'locations', 'locations.json')
 
 Q_SEARCH_LOCATIONS = """
+WITH city_prefix_match AS (
+    SELECT
+        long_friendly,
+        city
+    FROM
+        location
+    WHERE
+        starts_with(lower(city), lower(%(search_string)s))
+    ORDER BY
+        lower(city)
+    LIMIT 50
+), trigram_match AS (
+    SELECT
+        long_friendly,
+        city
+    FROM
+        location
+    WHERE
+        lower(long_friendly) LIKE lower(%(first_character)s) || '%%'
+    ORDER BY
+        lower(long_friendly) <-> %(search_string)s
+    LIMIT 50
+)
 SELECT
     long_friendly
-FROM
-    location
-WHERE
-    lower(long_friendly) LIKE lower(%(first_character)s) || '%%'
+FROM (
+    SELECT * FROM city_prefix_match
+    UNION
+    SELECT * FROM trigram_match
+) AS candidate
 ORDER BY
+    lower(city) = lower(%(search_string)s) DESC,
+    starts_with(lower(long_friendly), lower(%(search_string)s)) DESC,
+    lower(city) <-> %(search_string)s,
     lower(long_friendly) <-> %(search_string)s
 LIMIT 10
 """

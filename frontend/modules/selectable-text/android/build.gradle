@@ -1,0 +1,16 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'com.facebook.react'
+
+android {
+  namespace 'app.duolicious.selectabletext'
+  compileSdk rootProject.ext.compileSdkVersion
+
+  defaultConfig {
+    minSdk rootProject.ext.minSdkVersion
+  }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+}

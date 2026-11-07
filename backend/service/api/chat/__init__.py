@@ -20,7 +20,6 @@ from service.api.chat.notifications import (
 from service.api.chat.spam import is_spam_message
 from service.api.chat.messagestorage.inbox import (
     fetch_is_hidden,
-    get_inbox,
     get_inbox_entry,
     get_inbox_snapshot,
     mark_displayed,
@@ -36,9 +35,10 @@ from service.api.chat.messagestorage import (
     store_reaction,
 )
 from service.api.chat.messagestorage.reaction import fetch_reaction_target
+from service.api.notificationdue import enqueue_notification_due
 from service.api.chat.session import (
     Session,
-    maybe_get_session_response,
+    handle_auth,
 )
 from service.api.chat.online import (
     maybe_redis_subscribe_online,
@@ -72,7 +72,6 @@ from service.api.chatprotocol.message import (
     TypingMessage,
 )
 from service.api.chatprotocol import (
-    InboxQuery,
     InboxSnapshotQuery,
     MamQuery,
     MarkDisplayed,
@@ -80,7 +79,7 @@ from service.api.chatprotocol import (
     Ping,
     RegisterPushToken,
     RegisterWebPushSubscription,
-    SessionRequest,
+    SaslAuth,
     SubscribeOnline,
     UnsubscribeOnline,
     VisitorsQuery,
@@ -397,6 +396,7 @@ async def _handle_reaction(
         ])
 
     if deliver_to_partner and stored.is_new_visible_reaction:
+        enqueue_notification_due(partner_id, 'chat')
         await send_reaction_notifications(
             from_id=from_id,
             partner_id=partner_id,
@@ -423,10 +423,10 @@ async def process_text(
     if parsed is None:
         return None
 
-    if isinstance(parsed, SessionRequest):
+    if isinstance(parsed, SaslAuth):
         return await redis_publish_many(
                 connection_uuid,
-                await maybe_get_session_response(parsed, session))
+                await handle_auth(parsed, session))
 
     if isinstance(parsed, Ping):
         return await redis_publish_many(connection_uuid, [Pong()])
@@ -473,11 +473,6 @@ async def process_text(
         return await redis_publish_many(
                 connection_uuid,
                 await get_conversation(parsed, from_username))
-
-    if isinstance(parsed, InboxQuery):
-        return await redis_publish_many(
-                connection_uuid,
-                await get_inbox(parsed.query_id, from_username))
 
     if isinstance(parsed, InboxSnapshotQuery):
         return await redis_publish_many(
@@ -704,6 +699,7 @@ async def process_text(
             await redis_publish_many(to_username, [delivery_message])
 
         if not is_shadow_banned and not hidden:
+            enqueue_notification_due(to_id, 'intro' if is_intro else 'chat')
             await send_notifications(
                 from_id=from_id,
                 to_username=to_username,

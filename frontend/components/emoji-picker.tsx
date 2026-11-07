@@ -2,11 +2,12 @@ import { memo, useCallback, useMemo } from 'react';
 import {
   FlatList,
   Platform,
-  Pressable,
   View,
 } from 'react-native';
+import { Pressable } from './pressable';
 import { FlashList } from '@shopify/flash-list';
 import { DefaultText } from './default-text';
+import { SheetScrollView } from './modal/modal-bottom-sheet';
 import { useAppTheme } from '../app-theme/app-theme';
 import {
   EmojiEntry,
@@ -171,6 +172,7 @@ const EmojiGrid = ({
           keyExtractor={(item) => item.key}
           getItemType={(item) => item.type}
           keyboardShouldPersistTaps="handled"
+          renderScrollComponent={SheetScrollView}
         />
       }
     </View>

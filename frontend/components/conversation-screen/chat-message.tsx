@@ -35,6 +35,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import {
   setQuote,
   parseMarkdown,
@@ -401,7 +402,7 @@ const ChatMessage = ({
     const next = reaction?.emoji === emoji ? '' : emoji;
 
     sendReactionAndNotify(mamId, next);
-  }, [mamId, reaction?.emoji]);
+  }, [mamId, reaction?.emoji, setShowReactionBar]);
 
   const clearOwnReaction = useCallback(() => {
     if (!mamId || reaction?.reactionFrom !== 'self') {
@@ -416,7 +417,7 @@ const ChatMessage = ({
 
     measureReactionAnchor();
     setShowReactionBar(true);
-  }, [measureReactionAnchor]);
+  }, [measureReactionAnchor, setShowReactionBar]);
 
   const openEmojiPicker = useCallback(() => {
     setShowReactionBar(false);
@@ -436,7 +437,7 @@ const ChatMessage = ({
         )
       );
     }
-  }, [mamId, measureReactionAnchor]);
+  }, [mamId, measureReactionAnchor, setShowReactionBar]);
 
   const doRenderUrlAsImage = (
     message &&
@@ -475,7 +476,7 @@ const ChatMessage = ({
 
     setShowReactionBar(false);
     setIsTimestampShown(t => !t);
-  }, [setIsTimestampShown]);
+  }, [setIsTimestampShown, setShowReactionBar]);
 
   const setQuoteToThisSpeechBubble = useCallback(() => {
     if (!message) {
@@ -562,9 +563,9 @@ const ChatMessage = ({
 
   useEffect(() => {
     if (message?.status === 'sent') {
-      opacity.value = withTiming(1.0);
+      opacity.set(withTiming(1.0));
     } else {
-      opacity.value = 0.3;
+      opacity.set(0.3);
     }
   }, [message?.status === 'sent']);
 
@@ -791,6 +792,27 @@ const ChatMessage = ({
   );
 };
 
+const Dot = ({
+  phaseOffset,
+  progress,
+  color,
+}: {
+  phaseOffset: number,
+  progress: SharedValue<number>,
+  color: string,
+}) => {
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.5 + 0.5 * Math.sin(2 * Math.PI * (phaseOffset - progress.value))
+  }));
+  return <Animated.View
+    style={[
+      styles.dot,
+      { backgroundColor: color },
+      animatedStyle
+    ]}
+  />;
+};
+
 const TypingIndicator = ({
   personUuid,
   avatarUuid,
@@ -845,19 +867,6 @@ const TypingIndicator = ({
     opacity: opacity.value,
   }));
 
-  const Dot = ({ phaseOffset }: { phaseOffset: number }) => {
-    const animatedStyle = useAnimatedStyle(() => ({
-      opacity: 0.5 + 0.5 * Math.sin(2 * Math.PI * (phaseOffset - progress.value))
-    }));
-    return <Animated.View
-      style={[
-        styles.dot,
-        { backgroundColor: appTheme.speechBubbleOtherUserColor },
-        animatedStyle
-      ]}
-    />;
-  };
-
   return (
     <Animated.View style={[styles.typingIndicatorContainer, animatedContainerStyle]}>
       <View
@@ -883,9 +892,21 @@ const TypingIndicator = ({
             alignItems: 'center',
           }}
         >
-          <Dot phaseOffset={0} />
-          <Dot phaseOffset={0.33} />
-          <Dot phaseOffset={0.66} />
+          <Dot
+            phaseOffset={0}
+            progress={progress}
+            color={appTheme.speechBubbleOtherUserColor}
+          />
+          <Dot
+            phaseOffset={0.33}
+            progress={progress}
+            color={appTheme.speechBubbleOtherUserColor}
+          />
+          <Dot
+            phaseOffset={0.66}
+            progress={progress}
+            color={appTheme.speechBubbleOtherUserColor}
+          />
         </View>
       </View>
     </Animated.View>

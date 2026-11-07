@@ -21,20 +21,25 @@ from service.cron.clubseo import (
 )
 from service.cron.garbagerecords import delete_garbage_records_forever
 from service.cron.spotifyrefresh import refresh_spotify_forever
-from service.cron.messagenotifications import send_notifications_forever
-from service.cron.nsfwphotorunner import predict_nsfw_photos_forever
-from service.cron.visitornotifications import (
-    send_visitor_notifications_forever,
+from service.cron.messagenotifications import (
+    CHAT_NOTIFICATIONS,
+    INTRO_NOTIFICATIONS,
 )
+from service.cron.notificationdispatch import send_pending_notifications_forever
+from service.cron.nsfwphotorunner import predict_nsfw_v2_photos_forever
+from service.cron.visitornotifications import VISITOR_NOTIFICATIONS
 from service.cron.photocleaner import clean_photos_forever
 from service.cron.audiocleaner import clean_audio_forever
 from service.cron.verificationjobrunner import verify_forever
 from service.cron.profilereporter import report_profiles_forever
 import asyncio
+import signal
+import threading
+from contextlib import suppress
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
 from serviceshared.database import db_pool_lifespan, triggers
-from serviceshared.batcher import start_all
+from serviceshared.batcher import drain_all, start_all
 from serviceshared.matching import MODELS
 
 logger = logging.getLogger(__name__)
@@ -49,10 +54,10 @@ class HealthCheckHandler(SimpleHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-async def http_server() -> None:
-    with TCPServer(('0.0.0.0', 8080), HealthCheckHandler) as httpd:
-        logger.info('Serving health check on port 8080...')
-        await asyncio.to_thread(httpd.serve_forever)
+def start_http_server() -> None:
+    httpd = TCPServer(('0.0.0.0', 8080), HealthCheckHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    logger.info('Serving health check on port 8080...')
 
 async def main() -> None:
     triggers.install(MODELS)
@@ -62,8 +67,9 @@ async def main() -> None:
     # enqueue into them begin running.
     async with db_pool_lifespan():
         await start_all()
+        start_http_server()
 
-        await asyncio.gather(
+        jobs = asyncio.gather(
             # Fetched: 0.1k, returned: 2k
             delete_garbage_records_forever(),
 
@@ -72,16 +78,17 @@ async def main() -> None:
 
             clean_audio_forever(),
 
-            predict_nsfw_photos_forever(),
+            predict_nsfw_v2_photos_forever(),
 
             # Should only be enabled when it's likely that the object store
             # contains photos which aren't tracked by the DB
             # check_photos_forever(),
 
-            # Fetched: 9k, returned: 70k
-            send_notifications_forever(),
+            send_pending_notifications_forever(INTRO_NOTIFICATIONS),
 
-            send_visitor_notifications_forever(),
+            send_pending_notifications_forever(CHAT_NOTIFICATIONS),
+
+            send_pending_notifications_forever(VISITOR_NOTIFICATIONS),
 
             verify_forever(),
 
@@ -100,9 +107,13 @@ async def main() -> None:
             refresh_club_seo_forever(),
 
             refresh_spotify_forever(),
-
-            http_server(),
         )
+        asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, jobs.cancel)
+
+        with suppress(asyncio.CancelledError):
+            await jobs
+
+        await drain_all()
 
 if __name__ == '__main__':
     asyncio.run(main())

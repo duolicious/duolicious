@@ -16,22 +16,13 @@ from dataclasses import dataclass
 from typing import TypedDict
 
 from service.api.chatprotocol.jid import LSERVER
-from service.api.chatprotocol.element import (
-    NS_BIND,
-    NS_CLIENT,
-    NS_FRAMING,
-    NS_SASL,
-    NS_SESSION,
-)
+from service.api.chatprotocol.element import NS_CLIENT, NS_SASL
 
 NS_RECEIPTS = 'urn:xmpp:receipts'
 NS_DELAY = 'urn:xmpp:delay'
 NS_FORWARD = 'urn:xmpp:forward:0'
 NS_MAM = 'urn:xmpp:mam:2'
-NS_INBOX = 'erlang-solutions.com:xmpp:inbox:0'
 NS_CHAT_MARKERS = 'urn:xmpp:chat-markers:0'
-NS_STREAMS = 'http://etherx.jabber.org/streams'
-NS_TLS = 'urn:ietf:params:xml:ns:xmpp-tls'
 
 _REGISTRY: dict[str, type['Outbound']] = {}
 
@@ -496,68 +487,6 @@ class MamFin(Outbound):
         }}
 
 
-@_register
-@dataclass(frozen=True)
-class InboxResult(Outbound):
-    owner_username: str
-    msg_id: str
-    inner_from_username: str
-    inner_to_username: str
-    body: str
-    stamp: str
-    unread_count: int
-    box: str
-    query_id: str
-    muted_until: object = 0
-
-    def canonical(self) -> dict:
-        inner = {
-            '@xmlns': NS_CLIENT,
-            '@from': _jid(self.inner_from_username),
-            '@to': _jid(self.inner_to_username),
-            '@id': f'{self.msg_id}',
-            '@type': 'chat',
-            'body': self.body,
-            'request': {'@xmlns': NS_RECEIPTS},
-        }
-        forwarded = {
-            '@xmlns': NS_FORWARD,
-            'delay': {'@xmlns': NS_DELAY, '@stamp': self.stamp},
-            'message': inner,
-        }
-        result = {
-            '@xmlns': NS_INBOX,
-            '@unread': str(self.unread_count),
-            '@queryid': self.query_id,
-            'forwarded': forwarded,
-            'read': 'true' if self.unread_count == 0 else 'false',
-            'box': self.box,
-            'archive': 'false',
-            'mute': str(self.muted_until),
-        }
-        user_jid = _jid(self.owner_username)
-        return {'message': {
-            '@xmlns': NS_CLIENT,
-            '@from': user_jid,
-            '@to': user_jid,
-            '@id': f'{self.msg_id}',
-            'result': result,
-        }}
-
-
-@_register
-@dataclass(frozen=True)
-class InboxFin(Outbound):
-    query_id: str
-
-    def canonical(self) -> dict:
-        return {'iq': {
-            '@id': self.query_id,
-            '@type': 'result',
-            'fin': None,
-        }}
-
-
 @dataclass(frozen=True)
 class InboxConversation(TypedDict):
     """
@@ -594,8 +523,7 @@ class InboxSnapshot(Outbound):
     """
     The response to `duo_query_inbox`: a JSON object of the form
     `{"conversations": [...]}` where each conversation is complete (last
-    message, unread state and person info), replacing the legacy
-    `InboxResult`/`InboxFin` stream.
+    message, unread state and person info).
     """
     payload: InboxSnapshotPayload
 
@@ -623,41 +551,6 @@ class InboxEntry(Outbound):
 
 @_register
 @dataclass(frozen=True)
-class StreamOpenResponse(Outbound):
-    version: str
-    id: str
-    from_: str
-
-    def canonical(self) -> dict:
-        return {'open': {
-            '@xmlns': NS_FRAMING,
-            '@version': self.version,
-            '@id': self.id,
-            '@from': self.from_,
-        }}
-
-
-@_register
-@dataclass(frozen=True)
-class StreamFeatures(Outbound):
-    authenticated: bool
-
-    def canonical(self) -> dict:
-        if self.authenticated:
-            return {'features': {
-                '@xmlns': NS_STREAMS,
-                'session': {'@xmlns': NS_SESSION},
-                'bind': {'@xmlns': NS_BIND},
-            }}
-        return {'features': {
-            '@xmlns': NS_STREAMS,
-            'starttls': {'@xmlns': NS_TLS},
-            'mechanisms': {'@xmlns': NS_SASL, 'mechanism': 'PLAIN'},
-        }}
-
-
-@_register
-@dataclass(frozen=True)
 class AuthSuccess(Outbound):
     def canonical(self) -> dict:
         return {'success': {'@xmlns': NS_SASL}}
@@ -668,26 +561,3 @@ class AuthSuccess(Outbound):
 class AuthFailure(Outbound):
     def canonical(self) -> dict:
         return {'failure': {'@xmlns': NS_SASL, 'not-authorized': None}}
-
-
-@_register
-@dataclass(frozen=True)
-class BindResult(Outbound):
-    iq_id: str
-    jid: str
-
-    def canonical(self) -> dict:
-        return {'iq': {
-            '@type': 'result',
-            '@id': self.iq_id,
-            'bind': {'@xmlns': NS_BIND, 'jid': self.jid},
-        }}
-
-
-@_register
-@dataclass(frozen=True)
-class SessionResult(Outbound):
-    iq_id: str
-
-    def canonical(self) -> dict:
-        return {'iq': {'@type': 'result', '@id': self.iq_id}}

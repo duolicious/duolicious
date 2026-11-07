@@ -18,13 +18,37 @@ import {
   backgroundColors,
 } from './background-colors';
 import { useSkipped } from '../../hide-and-block/hide-and-block';
-import { Close } from '../button/close';
+import { HeaderWithClose } from '../button/close';
 import { useAppTheme } from '../../app-theme/app-theme';
 
 type ReportModalInitialData = {
   name: string
   personUuid: string
   context: string
+};
+
+const ErrorMessage = ({
+  isTooFewChars,
+  isSomethingWrong,
+}: {
+  isTooFewChars: boolean,
+  isSomethingWrong: boolean,
+}) => {
+  if (isTooFewChars) {
+    return (
+      <DefaultText style={{color: "#e91010"}}>
+        Must be at least 5 characters
+      </DefaultText>
+    );
+  } else if (isSomethingWrong) {
+    return (
+      <DefaultText style={{color: "#e91010"}}>
+        Something went wrong
+      </DefaultText>
+    );
+  } else {
+    return <View/>;
+  }
 };
 
 const ReportModal = () => {
@@ -93,24 +117,6 @@ const ReportModal = () => {
     return listen('open-report-modal', openReportModal);
   }, [listen, openReportModal]);
 
-  const ErrorMessage = useCallback(() => {
-    if (isTooFewChars) {
-      return (
-        <DefaultText style={{color: "#e91010"}}>
-          Must be at least 5 characters
-        </DefaultText>
-      );
-    } else if (isSomethingWrong) {
-      return (
-        <DefaultText style={{color: "#e91010"}}>
-          Something went wrong
-        </DefaultText>
-      );
-    } else {
-      return <View/>;
-    }
-  }, [isTooFewChars, isSomethingWrong]);
-
   return (
     <DefaultModal visible={isVisible} transparent={false} onRequestClose={close}>
       <KeyboardDismissingView
@@ -139,23 +145,14 @@ const ReportModal = () => {
             gap: 10,
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <Close
-              onPress={close}
-              style={null}
-            />
-          </View>
-          <Title style={{
-            marginTop: 0,
-            alignSelf: 'center',
-          }}>
-            What would you like to report?
-          </Title>
+          <HeaderWithClose onPress={close}>
+            <Title style={{
+              marginTop: 10,
+              textAlign: 'center',
+            }}>
+              What would you like to report?
+            </Title>
+          </HeaderWithClose>
           <DefaultText
             style={{
               color: 'grey',
@@ -183,7 +180,10 @@ const ReportModal = () => {
                 marginTop: 5,
               }}
             >
-              <ErrorMessage/>
+              <ErrorMessage
+                isTooFewChars={isTooFewChars}
+                isSomethingWrong={isSomethingWrong}
+              />
               <DefaultText style={{color: 'grey', textAlign: 'right'}}>
                 {numChars} of {maxChars}
               </DefaultText>

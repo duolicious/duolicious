@@ -30,7 +30,8 @@
 +      #splash-root.fade-out {
 +        opacity: 0; /* Start fading out */
 +      }
-@@ -34,0 +56,123 @@
+@@ -34,2 +56,139 @@
+     <!-- The root element for your Expo app. -->
 +    <div id="splash-root">
 +      <svg id="mySvg" width="96" height="96" viewBox="0 0 4.2333331 4.2333332">
 +        <g id="myGroup"></g>
@@ -139,18 +140,33 @@
 +        animateLoop();
 +
 +        const splashRoot = document.getElementById('splash-root');
-+        const root = document.getElementById('root');
 +
-+        const observer = new MutationObserver(() => {
++        const hideSplash = () => {
++          splashRoot.classList.add('fade-out'); // Add the fade-out class
++          setTimeout(() => {
++            splashRoot.remove(); // Remove splash-root from DOM after fade-out
++          }, 1000);
++        };
++
++        // #root comes after this script, so look it up once the document is
++        // parsed. The app may already have rendered into it by then.
++        document.addEventListener('DOMContentLoaded', () => {
++          const root = document.getElementById('root');
++
 +          if (root.childNodes.length > 0) {
-+            splashRoot.classList.add('fade-out'); // Add the fade-out class
-+            setTimeout(() => {
-+              splashRoot.remove(); // Remove splash-root from DOM after fade-out
-+            }, 1000);
-+            observer.disconnect(); // Stop observing after splash is removed
++            hideSplash();
++            return;
 +          }
-+        });
 +
-+        observer.observe(root, { childList: true });
++          const observer = new MutationObserver(() => {
++            if (root.childNodes.length > 0) {
++              hideSplash();
++              observer.disconnect(); // Stop observing after splash is removed
++            }
++          });
++
++          observer.observe(root, { childList: true });
++        });
 +      </script>
 +    </div>
+     <div id="root"></div>

@@ -1,7 +1,6 @@
 import {
   Animated,
   Dimensions,
-  GestureResponderEvent,
   ImageBackground,
   View,
   StyleProp,
@@ -264,7 +263,7 @@ const NonInteractiveQuizCard = ({children, ...props}: {
   imageBackgroundStyle?: ViewStyle,
   showAnswerPubliclyCheckBox?: boolean,
   showTutorial?: boolean,
-  onPressReply?: (e: GestureResponderEvent) => void,
+  onPressReply?: () => void,
 }) => {
   const {
     extraChildren,
@@ -645,7 +644,7 @@ const AnsweredQuizCard = ({
   user1: string,
   answer1: boolean | null,
   user2: string,
-  onPressReply?: (e: GestureResponderEvent) => void,
+  onPressReply?: () => void,
 }) => {
   const viewerAnswer = useViewerAnswer(questionNumber);
 

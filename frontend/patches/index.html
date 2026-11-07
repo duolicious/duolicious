@@ -51,7 +51,6 @@
       You need to enable JavaScript to run this app.
     </noscript>
     <!-- The root element for your Expo app. -->
-    <div id="root"></div>
     <div id="splash-root">
       <svg id="mySvg" width="96" height="96" viewBox="0 0 4.2333331 4.2333332">
         <g id="myGroup"></g>
@@ -160,21 +159,36 @@
         animateLoop();
 
         const splashRoot = document.getElementById('splash-root');
-        const root = document.getElementById('root');
 
-        const observer = new MutationObserver(() => {
+        const hideSplash = () => {
+          splashRoot.classList.add('fade-out'); // Add the fade-out class
+          setTimeout(() => {
+            splashRoot.remove(); // Remove splash-root from DOM after fade-out
+          }, 1000);
+        };
+
+        // #root comes after this script, so look it up once the document is
+        // parsed. The app may already have rendered into it by then.
+        document.addEventListener('DOMContentLoaded', () => {
+          const root = document.getElementById('root');
+
           if (root.childNodes.length > 0) {
-            splashRoot.classList.add('fade-out'); // Add the fade-out class
-            setTimeout(() => {
-              splashRoot.remove(); // Remove splash-root from DOM after fade-out
-            }, 1000);
-            observer.disconnect(); // Stop observing after splash is removed
+            hideSplash();
+            return;
           }
-        });
 
-        observer.observe(root, { childList: true });
+          const observer = new MutationObserver(() => {
+            if (root.childNodes.length > 0) {
+              hideSplash();
+              observer.disconnect(); // Stop observing after splash is removed
+            }
+          });
+
+          observer.observe(root, { childList: true });
+        });
       </script>
     </div>
+    <div id="root"></div>
   <script src="/_expo/static/js/web/AppEntry-1154451a662e55fc4314e5442b8c65b5.js" defer></script>
 </body>
 </html>

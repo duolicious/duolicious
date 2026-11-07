@@ -1,0 +1,211 @@
+diff --git a/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js b/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js
+index 84b6896..2a24a63 100644
+--- a/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js
++++ b/node_modules/react-native-reanimated/lib/module/createAnimatedComponent/AnimatedComponent.js
+@@ -298,7 +298,7 @@ export default class AnimatedComponent extends ReanimatedAnimatedComponent {
+   // It is called before the component gets rerendered. This way we can access components' position before it changed
+   // and later on, in componentDidUpdate, calculate translation for layout transition.
+   getSnapshotBeforeUpdate() {
+-    if (IS_WEB && this.props.layout && this._componentDOMRef?.getBoundingClientRect) {
++    if (IS_WEB && this.props.layout && this._componentDOMRef?.getBoundingClientRect && this._componentDOMRef.getClientRects().length > 0) {
+       return this._componentDOMRef.getBoundingClientRect();
+     }
+ 
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js
+index 6b34c1e..60e5ba0 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationParser.js
+@@ -1,6 +1,6 @@
+ 'use strict';
+ 
+-import { WebEasings } from "./Easing.web.js";
++import { WebEasings, maybeGetBezierEasing } from "./Easing.web.js";
+ export function convertAnimationObjectToKeyframes(animationObject) {
+   let keyframe = `@keyframes ${animationObject.name} { `;
+   for (const [timestamp, style] of Object.entries(animationObject.style)) {
+@@ -8,6 +8,11 @@ export function convertAnimationObjectToKeyframes(animationObject) {
+     keyframe += `${step}% { `;
+     for (const [property, values] of Object.entries(style)) {
+       if (property === 'easing') {
++        const bezierEasing = maybeGetBezierEasing(values);
++        if (bezierEasing) {
++          keyframe += `animation-timing-function: ${bezierEasing};`;
++          continue;
++        }
+         let easingName = 'linear';
+         if (values in WebEasings) {
+           easingName = values;
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
+index e7e2f0f..6929dd1 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/animationsManager.js
+@@ -93,9 +93,10 @@ export function startWebLayoutAnimation(props, element, animationType, transitio
+   }
+ }
+ export function tryActivateLayoutTransition(props, element, snapshot) {
+-  if (!props.layout) {
++  if (!props.layout || element.getClientRects().length === 0) {
+     return;
+   }
++  element.style.animationName = '';
+   const rect = element.getBoundingClientRect();
+   if (areDOMRectsEqual(rect, snapshot)) {
+     return;
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
+index 3185240..b36c49d 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/componentUtils.js
+@@ -165,15 +165,22 @@ export function setElementAnimation(element, animationConfig, shouldSavePosition
+       wasCallbackCalled = true;
+     }
+   };
+-  element.onanimationend = () => {
++  const clearEnteringAnimation = event => {
++    if (event.target === element && animationConfig.animationType === LayoutAnimationType.ENTERING) {
++      element.style.animationName = '';
++    }
++  };
++  element.onanimationend = event => {
+     if (shouldSavePosition) {
+       saveSnapshot(element);
+     }
++    clearEnteringAnimation(event);
+     maybeRunCleanup();
+     maybeCallCallback(true);
+     element.removeEventListener('animationcancel', animationCancelHandler);
+   };
+-  const animationCancelHandler = () => {
++  const animationCancelHandler = event => {
++    clearEnteringAnimation(event);
+     maybeRunCleanup();
+     maybeCallCallback(false);
+     element.removeEventListener('animationcancel', animationCancelHandler);
+diff --git a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js
+index 15e9396..fb20df0 100644
+--- a/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js
++++ b/node_modules/react-native-reanimated/lib/module/layoutReanimation/web/createAnimation.js
+@@ -50,6 +50,11 @@ export function createCustomKeyFrameAnimation(keyframeDefinitions, animationType
+     if (value.transform) {
+       value.transform = addPxToTransform(value.transform);
+     }
++    for (const size of ['width', 'height']) {
++      if (typeof value[size] === 'number') {
++        value[size] = `${value[size]}px`;
++      }
++    }
+   }
+   const animationData = {
+     name: '',
+diff --git a/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx b/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
+index fcead1c..31464a7 100644
+--- a/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
++++ b/node_modules/react-native-reanimated/src/createAnimatedComponent/AnimatedComponent.tsx
+@@ -473,7 +473,8 @@ export default class AnimatedComponent
+     if (
+       IS_WEB &&
+       this.props.layout &&
+-      this._componentDOMRef?.getBoundingClientRect
++      this._componentDOMRef?.getBoundingClientRect &&
++      this._componentDOMRef.getClientRects().length > 0
+     ) {
+       return this._componentDOMRef.getBoundingClientRect();
+     }
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts
+index b2449df..fd25281 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationParser.ts
+@@ -3,7 +3,7 @@
+ import type { EasingFunction } from '../../commonTypes';
+ import type { EasingFunctionFactory } from '../../Easing';
+ import type { WebEasingsNames } from './Easing.web';
+-import { WebEasings } from './Easing.web';
++import { WebEasings, maybeGetBezierEasing } from './Easing.web';
+ 
+ export interface ReanimatedWebTransformProperties {
+   translateX?: string;
+@@ -58,6 +58,13 @@ export function convertAnimationObjectToKeyframes(
+ 
+     for (const [property, values] of Object.entries(style)) {
+       if (property === 'easing') {
++        const bezierEasing = maybeGetBezierEasing(values);
++
++        if (bezierEasing) {
++          keyframe += `animation-timing-function: ${bezierEasing};`;
++          continue;
++        }
++
+         let easingName: WebEasingsNames = 'linear';
+ 
+         if (values in WebEasings) {
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
+index c202a25..c8ea246 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/animationsManager.ts
+@@ -220,10 +220,12 @@ export function tryActivateLayoutTransition<
+   element: ReanimatedHTMLElement,
+   snapshot: DOMRect
+ ) {
+-  if (!props.layout) {
++  if (!props.layout || element.getClientRects().length === 0) {
+     return;
+   }
+ 
++  element.style.animationName = '';
++
+   const rect = element.getBoundingClientRect();
+ 
+   if (areDOMRectsEqual(rect, snapshot)) {
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
+index 5de550a..2b22ad1 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/componentUtils.ts
+@@ -250,18 +250,30 @@ export function setElementAnimation(
+     }
+   };
+ 
+-  element.onanimationend = () => {
++  const clearEnteringAnimation = (event: AnimationEvent) => {
++    if (
++      event.target === element &&
++      animationConfig.animationType === LayoutAnimationType.ENTERING
++    ) {
++      element.style.animationName = '';
++    }
++  };
++
++  element.onanimationend = (event) => {
+     if (shouldSavePosition) {
+       saveSnapshot(element);
+     }
+ 
++    clearEnteringAnimation(event);
++
+     maybeRunCleanup();
+     maybeCallCallback(true);
+ 
+     element.removeEventListener('animationcancel', animationCancelHandler);
+   };
+ 
+-  const animationCancelHandler = () => {
++  const animationCancelHandler = (event: AnimationEvent) => {
++    clearEnteringAnimation(event);
+     maybeRunCleanup();
+     maybeCallCallback(false);
+ 
+diff --git a/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts b/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts
+index 95b733b..01ef5c2 100644
+--- a/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts
++++ b/node_modules/react-native-reanimated/src/layoutReanimation/web/createAnimation.ts
+@@ -76,6 +76,12 @@ export function createCustomKeyFrameAnimation(
+     if (value.transform) {
+       value.transform = addPxToTransform(value.transform as TransformType);
+     }
++
++    for (const size of ['width', 'height'] as const) {
++      if (typeof value[size] === 'number') {
++        value[size] = `${value[size]}px`;
++      }
++    }
+   }
+ 
+   const animationData: AnimationData = {

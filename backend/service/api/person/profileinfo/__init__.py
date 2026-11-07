@@ -108,7 +108,7 @@ WITH existing_uuid AS (
         height,
         crop_top,
         crop_left,
-        nsfw_score
+        nsfw_score_v2
     ) VALUES (
         %(person_id)s,
         %(position)s,
@@ -130,7 +130,7 @@ WITH existing_uuid AS (
         height = EXCLUDED.height,
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
-        nsfw_score = EXCLUDED.nsfw_score,
+        nsfw_score_v2 = EXCLUDED.nsfw_score_v2,
         verified = FALSE
 ), updated_person AS (
     UPDATE person
@@ -153,7 +153,7 @@ WITH stored_photo AS (
     UPDATE
         photo
     SET
-        nsfw_score = NULL
+        nsfw_score_v2 = NULL
     WHERE
         uuid = %(uuid)s
     RETURNING
@@ -349,11 +349,17 @@ _PROFILE_FIELDS = {
     'star_sign': _ProfileField(q1=_person_lookup_q('star_sign_id', 'star_sign')),
     'units': _ProfileField(q1=_person_lookup_q('unit_id', 'unit')),
     'chats': _ProfileField(
-        q1=_person_lookup_q('chats_notification', 'immediacy')),
+        q1=_person_lookup_q('chats_notification', 'immediacy'),
+        q2=reschedule_notification_sql('chat', '%(person_id)s'),
+    ),
     'intros': _ProfileField(
-        q1=_person_lookup_q('intros_notification', 'immediacy')),
+        q1=_person_lookup_q('intros_notification', 'immediacy'),
+        q2=reschedule_notification_sql('intro', '%(person_id)s'),
+    ),
     'visitors': _ProfileField(
-        q1=_person_lookup_q('visitors_notification', 'immediacy')),
+        q1=_person_lookup_q('visitors_notification', 'immediacy'),
+        q2=reschedule_notification_sql('visitor', '%(person_id)s'),
+    ),
     'verification_level': _ProfileField(
         q1=_person_lookup_q(
             'privacy_verification_level_id', 'verification_level')),

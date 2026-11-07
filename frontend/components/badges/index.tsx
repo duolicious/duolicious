@@ -134,7 +134,6 @@ const QAndA = ({
 
   useEffect(() => {
     // Ensure we start from startAt each time props change
-    setCount(startAt);
     countRef.current = startAt;
     loopsRef.current = 0;
 

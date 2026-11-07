@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  Pressable,
   ScrollView,
   View,
 } from 'react-native';
+import { Pressable } from './pressable';
 import * as Location from 'expo-location';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLocationDot } from '@fortawesome/free-solid-svg-icons/faLocationDot';
@@ -70,7 +70,7 @@ const ManualEntry = ({ value, onChange, onPressAutomatic, color }: {
   const [items, setItems] = useState<string[] | null | undefined>(null);
   const [displayResults, setDisplayResults] = useState(false);
 
-  const getSuggestions = useCallback(_.debounce(async (q: string) => {
+  const getSuggestions = useMemo(() => _.debounce(async (q: string) => {
     let json;
     try {
       const response = await japi<string[]>(

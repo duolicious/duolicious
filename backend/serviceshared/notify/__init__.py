@@ -55,9 +55,7 @@ async def process_notification_batch(notifications: List[Notification]) -> None:
 _batcher = Batcher[Notification](
     process_fn=process_notification_batch,
     flush_interval=1.0,
-    min_batch_size=1,
     max_batch_size=100,
-    retry=False,
 )
 
 def enqueue_mobile_notification(

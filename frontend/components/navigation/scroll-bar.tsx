@@ -169,6 +169,7 @@ const Scrollbar = () => {
   /**
    * Gesture handler to handle drag events on the thumb.
    */
+  /* eslint-disable react-hooks/refs */
   const panGesture = Gesture.Pan()
     .minDistance(0)
     .onStart(() => {
@@ -196,6 +197,7 @@ const Scrollbar = () => {
     .onFinalize(() => {
       scheduleOnRN(() => setIsDraggingJS(false));
     });
+  /* eslint-enable react-hooks/refs */
 
   /**
    * Animated style for the thumb translateY

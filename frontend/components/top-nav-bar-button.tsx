@@ -1,9 +1,9 @@
 import {
   ActivityIndicator,
-  Pressable,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from './pressable';
 import {
   ComponentProps,
   useCallback,
@@ -45,11 +45,11 @@ const TopNavBarButton = ({
   const { hovered, hoverProps } = useHover();
 
   const onPressIn = useCallback(() => {
-    opacity.value = 0.2;
+    opacity.set(0.2);
   }, []);
 
   const onPressOut = useCallback(() => {
-    opacity.value = withTiming(1, { duration: 500 });
+    opacity.set(withTiming(1, { duration: 500 }));
   }, []);
 
   return (

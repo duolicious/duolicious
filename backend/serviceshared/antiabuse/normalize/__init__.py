@@ -1,42 +1,8 @@
-from confusable_homoglyphs import confusables
+from confusable_homoglyphs import categories, confusables
 import re
 import unicodedata
 from functools import cache
 from typing import Callable
-import spacy
-from spacy.tokens import Token
-
-_spacy_nlp = spacy.load("en_core_web_sm")
-
-
-def remove_modifiers(text: str) -> str:
-    document = _spacy_nlp(text)
-    modifier_pos = {"ADJ", "ADV"}
-    was_last_token_dropped = False
-
-    def do_keep(token: Token) -> bool:
-        nonlocal was_last_token_dropped
-
-        do_drop = (
-                token.pos_ in modifier_pos or
-                token.pos_ == 'PUNCT' and was_last_token_dropped)
-
-        was_last_token_dropped = do_drop
-
-        return not do_drop
-
-    kept_tokens = [token.text for token in document if do_keep(token)]
-
-    # rebuild the sentence
-    cleaned = " ".join(kept_tokens)
-
-    # tidy whitespace around punctuation and collapse doubles
-    cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
-    cleaned = re.sub(r"\s{2,}", " ", cleaned)
-
-    return cleaned.strip()
-
-
 _censored_chars = 'x*#_.-';
 
 
@@ -382,8 +348,7 @@ def _remove_zero_width_characters(s: str) -> str:
 
 def normalize_string(
     s: str,
-    normalizeable_phrases: list[str],
-    do_remove_modifiers: bool = False
+    normalizeable_phrases: list[str]
 ) -> str:
     normalized_input = unicodedata.normalize('NFKD', s)
     normalized_input = ''.join(
@@ -403,11 +368,43 @@ def normalize_string(
     # Remove zero width characters
     normalized_input = _remove_zero_width_characters(normalized_input)
 
-    # Remove adverbs and adjectives
-    if do_remove_modifiers:
-        normalized_input = remove_modifiers(normalized_input)
-
     # Replace slang
     normalized_input = _normalize_spelling(normalized_input, normalizeable_phrases)
 
     return normalized_input
+
+
+_quote_block_pattern = re.compile(r'(?:^[ \t]*>.*(?:\n|$))+', re.MULTILINE)
+
+_attribution_pattern = re.compile(r'^[ \t]*>[ \t]*-.*\S', re.MULTILINE)
+
+_word_pattern = re.compile(r'\w+')
+
+
+def _without_quoted_profiles(s: str) -> str:
+    return _quote_block_pattern.sub(
+        lambda block: '' if _attribution_pattern.search(block[0]) else block[0],
+        s)
+
+
+def _without_mixed_scripts(word: str) -> str:
+    scripts = categories.unique_aliases(word) - {'COMMON'}
+
+    if 'LATIN' in scripts and len(scripts) > 1:
+        return _normalize_homoglyphs(word)
+
+    return word
+
+
+def normalize_chat_message(s: str) -> str:
+    normalized = unicodedata.normalize('NFKC', _without_quoted_profiles(s))
+
+    normalized = _word_pattern.sub(
+        lambda word: _without_mixed_scripts(word[0]),
+        normalized)
+
+    normalized = _repeated_characters_pattern.sub(r'\1\1', normalized)
+
+    return ''.join(
+        f' {c} ' if unicodedata.category(c) == 'So' else c
+        for c in normalized).strip()

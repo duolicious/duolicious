@@ -31,7 +31,8 @@ async def report_profiles_once() -> None:
             await skip_by_uuid(
                 subject_uuid=row['subject_uuid'],
                 object_uuid=row['object_uuid'],
-                reason='Automatically lodged report: Child safety'
+                reason='Automatically lodged report: Child safety',
+                source='profile reporter',
             )
         else:
             logger.info(f"{row['object_uuid']} not reported")

@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native-web/dist/exports/ScrollView/ScrollViewBase.js b/node_modules/react-native-web/dist/exports/ScrollView/ScrollViewBase.js
+index 677b4a3..7cb328b 100644
+--- a/node_modules/react-native-web/dist/exports/ScrollView/ScrollViewBase.js
++++ b/node_modules/react-native-web/dist/exports/ScrollView/ScrollViewBase.js
+@@ -71,6 +71,7 @@ var ScrollViewBase = /*#__PURE__*/React.forwardRef((props, forwardedRef) => {
+   });
+   var scrollTimeout = React.useRef(null);
+   var scrollRef = React.useRef(null);
++  React.useEffect(() => () => clearTimeout(scrollTimeout.current), []);
+   function createPreventableScrollHandler(handler) {
+     return e => {
+       if (scrollEnabled) {

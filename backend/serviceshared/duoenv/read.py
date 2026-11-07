@@ -8,6 +8,13 @@ def required_str(name: str) -> str:
     return value
 
 
+def required_nonblank_str(name: str) -> str:
+    value = required_str(name)
+    if not value.strip():
+        raise RuntimeError(f'The environment variable {name} must not be blank')
+    return value
+
+
 def required_int(name: str) -> int:
     return _parse_int(name, required_str(name))
 

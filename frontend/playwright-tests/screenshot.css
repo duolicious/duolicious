@@ -1,0 +1,3 @@
+div:has(> div > div[style*="border-radius: 99px; touch-action: none"]) {
+  display: none !important;
+}

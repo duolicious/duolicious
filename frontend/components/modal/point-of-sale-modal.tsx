@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { Pressable } from '../pressable';
+import { IconButton } from '../button/icon-button';
 import Animated, {
   SharedValue,
   interpolateColor,
@@ -7,6 +9,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'react-native-feather';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faHeart } from '@fortawesome/free-solid-svg-icons';
@@ -46,6 +49,7 @@ const hidePointOfSale = () => {
 
 const usePointOfSale = () => {
   const [feature, setFeature] = useState<PointOfSaleFeature>('read-receipts');
+  const [openings, setOpenings] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -60,12 +64,13 @@ const usePointOfSale = () => {
 
         if (x !== null) {
           setFeature(x);
+          setOpenings((n) => n + 1);
         }
       }
     );
   }, []);
 
-  return { feature, isVisible };
+  return { feature, openings, isVisible };
 };
 
 const PurchaseButton = ({
@@ -250,14 +255,15 @@ const PlanCard = ({
 const FeatureCarousel = ({
   active,
   setActive,
+  width,
   compact,
 }: {
   active: number
   setActive: (active: number) => void
+  width: number
   compact: boolean
 }) => {
   const ref = useRef<ScrollView>(null);
-  const [width, setWidth] = useState(0);
 
   useLayoutEffect(() => {
     ref.current?.scrollTo({ x: active * width, animated: false });
@@ -268,16 +274,16 @@ const FeatureCarousel = ({
   return (
     <>
       <ScrollView
+        key={width}
         ref={ref}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onLayout={(e) => e.nativeEvent.layout.width && setWidth(e.nativeEvent.layout.width)}
         onScroll={(e) => setActive(Math.round(e.nativeEvent.contentOffset.x / width))}
         style={{ flexGrow: 0 }}
       >
-        {width > 0 && FEATURES.map(({ key, headline, subtitle, Illustration }, i) =>
+        {FEATURES.map(({ key, headline, subtitle, Illustration }, i) =>
           <Pressable
             key={key}
             onPress={() => goTo((i + 1) % FEATURES.length)}
@@ -366,9 +372,11 @@ const FeatureCarousel = ({
 
 const OfferingCard = ({
   feature,
+  width,
   compact,
 }: {
   feature: PointOfSaleFeature
+  width: number
   compact: boolean
 }) => {
   const [offering, setOffering] = useState<Offering | null>();
@@ -433,60 +441,67 @@ const OfferingCard = ({
 
   return (
     <>
-      <FeatureCarousel active={active} setActive={setActive} compact={compact} />
-      <View
-        style={{
-          marginTop: compact ? 34 : 36,
-          height: compact ? 120 : 144,
-          paddingHorizontal: 24,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        {purchasables.map((purchasable) =>
-          <PlanCard
-            key={weeksIn(purchasable.cycle)}
-            purchasable={purchasable}
-            isSelected={purchasable === chosen}
-            compact={compact}
-            onPress={() => setPicked(purchasable)}
-          />
-        )}
-      </View>
-      <View
-        style={{
-          marginTop: compact ? 12 : 18,
-          paddingHorizontal: 24,
-          flexDirection: 'row',
-          gap: 5,
-        }}
-      >
-        <FontAwesomeIcon
-          icon={faHeart}
-          size={12}
-          color={goldColor}
-          style={{ marginTop: 2 }}
+      <ScrollView>
+        <FeatureCarousel
+          active={active}
+          setActive={setActive}
+          width={width}
+          compact={compact}
         />
-        <DefaultText
-          disableTheme
+        <View
           style={{
-            flex: 1,
-            fontSize: 12,
-            lineHeight: compact ? 16 : 17,
-            fontWeight: 500,
-            color: fadedWhite,
+            marginTop: compact ? 34 : 36,
+            height: compact ? 120 : 144,
+            paddingHorizontal: 24,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
           }}
         >
-          <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
-            Gold keeps Duolicious going.
+          {purchasables.map((purchasable) =>
+            <PlanCard
+              key={weeksIn(purchasable.cycle)}
+              purchasable={purchasable}
+              isSelected={purchasable === chosen}
+              compact={compact}
+              onPress={() => setPicked(purchasable)}
+            />
+          )}
+        </View>
+        <View
+          style={{
+            marginTop: compact ? 12 : 18,
+            paddingHorizontal: 24,
+            flexDirection: 'row',
+            gap: 5,
+          }}
+        >
+          <FontAwesomeIcon
+            icon={faHeart}
+            size={12}
+            color={goldColor}
+            style={{ marginTop: 2 }}
+          />
+          <DefaultText
+            disableTheme
+            style={{
+              flex: 1,
+              fontSize: 12,
+              lineHeight: compact ? 16 : 17,
+              fontWeight: 500,
+              color: fadedWhite,
+            }}
+          >
+            <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
+              Gold keeps Duolicious going.
+            </DefaultText>
+            {} It covers the servers, so the core app stays free and open source.
           </DefaultText>
-          {} It covers the servers, so the core app stays free and open source.
-        </DefaultText>
-      </View>
-      <View style={{ flex: 1, minHeight: 16 }} />
+        </View>
+      </ScrollView>
       <View
         style={{
+          paddingTop: 16,
           paddingHorizontal: 16,
           paddingBottom: compact ? 14 : 22,
           gap: 16,
@@ -529,11 +544,17 @@ const OfferingCard = ({
 };
 
 const PointOfSaleModal = () => {
-  const { feature, isVisible } = usePointOfSale();
+  const { feature, openings, isVisible } = usePointOfSale();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isFullScreen = width < 600;
-  const cardHeight = isFullScreen ? height : Math.min(height - 40, 844);
-  const compact = cardHeight < 760;
+  const cardInsets = isFullScreen ? insets : { top: 0, bottom: 0, left: 0, right: 0 };
+  const cardMargin = (inset: number) => isFullScreen ? 0 : 20 + inset;
+  const availableHeight = isFullScreen
+    ? height - insets.bottom
+    : Math.min(height - cardMargin(insets.top) - cardMargin(insets.bottom), 844);
+  const compact = availableHeight < 760;
+  const cardWidth = isFullScreen ? width : 390;
 
   return (
     <DefaultModal
@@ -547,25 +568,30 @@ const PointOfSaleModal = () => {
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: isFullScreen ? 0 : 20,
+          paddingTop: cardMargin(insets.top),
+          paddingBottom: cardMargin(insets.bottom),
+          paddingLeft: cardMargin(insets.left),
+          paddingRight: cardMargin(insets.right),
           ...backgroundColors.dark,
         }}
       >
         <View
           style={{
-            width: '100%',
+            width: cardWidth,
             height: '100%',
-            maxWidth: isFullScreen ? undefined : 390,
             maxHeight: isFullScreen ? undefined : 844,
             borderRadius: isFullScreen ? 0 : 16,
             overflow: 'hidden',
             backgroundColor: brandColor,
+            paddingBottom: cardInsets.bottom,
+            paddingLeft: cardInsets.left,
+            paddingRight: cardInsets.right,
           }}
         >
           <View
             style={{
               height: 44,
-              marginTop: compact ? 20 : 50,
+              marginTop: Math.max(compact ? 20 : 50, cardInsets.top),
               paddingHorizontal: 8,
               flexDirection: 'row',
               alignItems: 'center',
@@ -586,21 +612,16 @@ const PointOfSaleModal = () => {
             >
               Get Gold
             </DefaultText>
-            <Pressable
-              onPress={hidePointOfSale}
-              style={{
-                width: 44,
-                height: 44,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+            <IconButton label="Close" onPress={hidePointOfSale} padding={10}>
               <X stroke="white" strokeWidth={3} width={24} height={24} />
-            </Pressable>
+            </IconButton>
           </View>
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-            <OfferingCard feature={feature} compact={compact} />
-          </ScrollView>
+          <OfferingCard
+            key={openings}
+            feature={feature}
+            width={cardWidth - cardInsets.left - cardInsets.right}
+            compact={compact}
+          />
         </View>
       </View>
     </DefaultModal>

@@ -67,37 +67,6 @@ disconnect_connection () {
   sleep 2
 }
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-  local id=$5
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "${id}",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 3
-}
-
 # Send a <duo_register_push_token token='…'/> for the authenticated session.
 register_push_token () {
   local fromUuid=$1
@@ -147,6 +116,7 @@ q "update duo_session set last_online_time = now() where push_token = 'bob-token
 # Bob messages Alice first so Alice's replies are chats, which dodges the
 # intro-only rate limiting and uniqueness checks on repeated messages.
 send_message "$bobuuid" "$bobtoken" "$aliceuuid" "hi alice" "id-bob-1"
+sleep 3
 
 clear_pushes
 
@@ -157,11 +127,13 @@ echo 'Pushes to a user with no connected clients increment the badge'
 # Authenticating as Alice reused the default connection, closing Bob's, so Bob
 # has no connected clients when these pushes are sent.
 send_message "$aliceuuid" "$alicetoken" "$bobuuid" "reply one" "id-alice-1"
+sleep 3
 
 [[ "$(unseen_count "$bobuuid")" = 1 ]]
 [[ "$(badges_of_pushes_to 'bob-token')" = '[1]' ]]
 
 send_message "$aliceuuid" "$alicetoken" "$bobuuid" "reply two" "id-alice-2"
+sleep 3
 
 [[ "$(unseen_count "$bobuuid")" = 2 ]]
 [[ "$(badges_of_pushes_to 'bob-token')" = '[1,2]' ]]
@@ -181,6 +153,7 @@ echo 'Pushes sent while a client is connected are badge-less and do not incremen
 # Bob stays connected on the named connection while Alice authenticates on the
 # default one.
 send_message "$aliceuuid" "$alicetoken" "$bobuuid" "reply three" "id-alice-3"
+sleep 3
 
 [[ "$(unseen_count "$bobuuid")" = 0 ]]
 [[ "$(badges_of_pushes_to 'bob-token')" = '[1,2,null]' ]]
@@ -192,6 +165,7 @@ echo 'Once the last client disconnects, pushes increment the count again'
 disconnect_connection bob-client
 
 send_message "$aliceuuid" "$alicetoken" "$bobuuid" "reply four" "id-alice-4"
+sleep 3
 
 [[ "$(unseen_count "$bobuuid")" = 1 ]]
 [[ "$(badges_of_pushes_to 'bob-token')" = '[1,2,null,1]' ]]

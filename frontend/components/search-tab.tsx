@@ -28,13 +28,11 @@ import { japi } from '../api/api';
 import { TopNavBarButton } from './top-nav-bar-button';
 import { isMobile } from '../util/util';
 import * as _ from 'lodash';
-import { useJoinedClubs, useSearchClub } from '../club/club';
+import { useSearchClub } from '../club/club';
 import { ClubRow } from './clubs/club-row';
-import { OldClubRow } from './clubs/old-club-row';
-import { clubsRedesign } from '../util/trials';
 import { searchQueue } from '../api/queue';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
-import { useIsWebLoggedOut, useSignedInUser } from '../events/signed-in-user';
+import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { getPublicSearchFilters } from '../events/public-search-filters';
 import { genders } from '../data/option-groups';
@@ -204,10 +202,7 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
   } = useScrollbar('search');
 
   const selectedClub = useSearchClub();
-  const [signedInUser] = useSignedInUser();
-  const isRedesign = clubsRedesign(signedInUser?.personId);
-  const hasJoinedClubs = (useJoinedClubs()?.length ?? 0) > 0;
-  const hasClubRow = isRedesign ? !isPublic : hasJoinedClubs;
+  const hasClubRow = !isPublic;
 
   const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
 
@@ -274,8 +269,8 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     [selectedClub, isPublic]);
 
   const listHeaderComponent = useMemo(
-    () => !hasClubRow ? null : isRedesign ? <ClubRow /> : <OldClubRow />,
-    [hasClubRow, isRedesign]);
+    () => hasClubRow ? <ClubRow /> : null,
+    [hasClubRow]);
 
   const cardWidth = (width ?? 0) / numColumns;
 

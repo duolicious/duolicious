@@ -1,8 +1,14 @@
+import { View } from 'react-native';
 import {
   parseMarkdown,
   quoteToMessageMarkdown,
   quoteToPreviewMarkdown,
+  setQuoteFromSelection,
+  useQuote,
 } from './quote';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { act, create } = require('react-test-renderer');
 
 describe('parseMarkdown', () => {
   test('should return an empty text block for an empty string', () => {
@@ -281,5 +287,32 @@ describe('quoteToMessageMarkdown', () => {
 
   it('returns an empty string when quote is null', () => {
     expect(quoteToMessageMarkdown(null)).toBe('');
+  });
+});
+
+describe('setQuoteFromSelection', () => {
+  const QuoteProbe = () => {
+    const quote = useQuote();
+    return <View testID={quote ? quote.text : 'none'} />;
+  };
+
+  const quoteAfterSelecting = (start: number, end: number): string => {
+    setQuoteFromSelection('Hello\n\n \nWorld', 'Author', { start, end });
+
+    let renderer: ReturnType<typeof create>;
+    act(() => { renderer = create(<QuoteProbe />); });
+    const text = renderer.root.findByType(View).props.testID;
+    act(() => renderer.unmount());
+
+    return text;
+  };
+
+  it('quotes the selected text', () => {
+    expect(quoteAfterSelecting(14, 0)).toBe('Hello\n\n \nWorld');
+  });
+
+  it('quotes nothing for a selection of blank lines', () => {
+    expect(quoteAfterSelecting(0, 5)).toBe('Hello');
+    expect(quoteAfterSelecting(5, 9)).toBe('none');
   });
 });

@@ -1,14 +1,14 @@
 import React from 'react';
 import {
   Animated,
-  Pressable,
   TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable, PressableProps } from './pressable';
 import {
   useCallback,
-  useRef,
+  useState,
 } from 'react';
 import { DefaultText } from './default-text';
 import Svg, { Circle } from "react-native-svg";
@@ -28,7 +28,7 @@ const DonutChart = ({percentage, children, style, onPress, textStyle}: {
   const circumference = 2 * Math.PI * radius;
   const ratio = (percentage || 0) / 100.0;
 
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
   const { hovered, hoverProps } = useHover();
 
   const fadeOut = useCallback(() => {
@@ -46,7 +46,7 @@ const DonutChart = ({percentage, children, style, onPress, textStyle}: {
   }, []);
 
   return (
-    React.createElement(
+    React.createElement<PressableProps>(
       onPress ? Pressable : View,
       {
         style: {

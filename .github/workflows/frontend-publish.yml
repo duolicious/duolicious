@@ -37,7 +37,6 @@ jobs:
 
       - run: |
           npm install
-          npx patch-package
           npx expo export --platform web
 
           if ! patch -p0 < patches/index.html.patch
@@ -53,20 +52,10 @@ jobs:
             exit 1
           fi
 
-          # The session-bridge page must be frameable by duolicious.app --
-          # and only by duolicious.app -- so the apex origin can lift
-          # signed-in sessions out of web.duolicious.app's localStorage
-          # (see frontend/kv-storage/session-bridge.tsx). Everything else keeps
-          # X-Frame-Options: DENY. Cloudflare Pages serves the page at the
-          # extension-less URL and redirects the .html one to it, so only
-          # the extension-less path needs the carve-out.
           cat > dist/_headers <<EOF
             /*
               X-Frame-Options: DENY
               Access-Control-Allow-Origin: ${DUO_API_URL}
-            /assets/session-bridge
-              ! X-Frame-Options
-              Content-Security-Policy: frame-ancestors https://duolicious.app
           EOF
 
           # Cloudflare ignores directories containing the string 'node_modules'.
@@ -86,15 +75,7 @@ jobs:
           DUO_APPLE_WEB_CLIENT_ID: app.duolicious.web
           DUO_APPLE_REDIRECT_URI: https://api.duolicious.app/auth/apple/callback
           DUO_WEB_PUSH_VAPID_PUBLIC_KEY: BJx_Sk1NPo2v0FLbd3QSrJHe0Q5xZxUEJGVvDMUVn4DKDRaTkDeZsfkDN_hxtLYWd2gbqYt0TD_gqVDwmODoO0E
-      - name: Publish to web.duolicious.app
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: a73a8f703a9a1eefac56f84ca6a4c9ac
-          workingDirectory: frontend
-          command: pages deploy dist --project-name=duolicious --branch=${{ github.head_ref || github.ref_name }}
-
-      # The same build also serves duolicious.app: the duolicious-website
+      # The app build serves duolicious.app: the duolicious-website
       # Pages project has the apex domain attached, and publishing the app
       # there is what replaced the old static website (see the website
       # repo's now-retired publish workflow).
@@ -105,3 +86,11 @@ jobs:
           accountId: a73a8f703a9a1eefac56f84ca6a4c9ac
           workingDirectory: frontend
           command: pages deploy dist --project-name=duolicious-website --branch=${{ github.head_ref || github.ref_name }}
+
+      - name: Publish to web.duolicious.app
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: a73a8f703a9a1eefac56f84ca6a4c9ac
+          workingDirectory: frontend
+          command: pages deploy web-redirect --project-name=duolicious --branch=${{ github.head_ref || github.ref_name }}

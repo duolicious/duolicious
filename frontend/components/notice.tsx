@@ -1,9 +1,9 @@
 import {
-  Pressable,
   StyleProp,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable, PressableProps } from './pressable';
 import {
   ReactNode,
   createElement
@@ -19,7 +19,7 @@ const Notice = ({children, onPress, style}: {
   const { appTheme } = useAppTheme();
 
   return (
-    createElement(
+    createElement<PressableProps>(
       onPress ? Pressable : View,
       {
         style: {

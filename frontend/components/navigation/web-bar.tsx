@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
-  Pressable,
   Text,
   View,
   ScrollView,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import { DefaultText } from '../default-text';
 import { CommonActions } from '@react-navigation/native';
 import type { WebBarProps } from './web-navigator';

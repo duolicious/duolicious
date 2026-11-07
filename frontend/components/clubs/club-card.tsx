@@ -1,12 +1,11 @@
-import { ComponentProps, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { ComponentProps, memo, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import Animated from 'react-native-reanimated';
 import { ImageBackground } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -21,6 +20,7 @@ import { useAppTheme } from '../../app-theme/app-theme';
 import { isMobile } from '../../util/util';
 import {
   ClubItem,
+  OpenClubCard,
   RowPosition,
   closeClubs,
   clubQuota,
@@ -32,8 +32,10 @@ import {
   useIsClubMember,
   useJoinedClubs,
 } from '../../club/club';
-import { Avatar, useProfileLink } from '../avatar';
+import { Avatar } from '../avatar';
+import { useProfileLink } from '../../navigation/use-profile-link';
 import { Close } from '../button/close';
+import { IconButton } from '../button/icon-button';
 import { usePressableAnimation } from '../../animation/animation';
 import { Club } from '../club';
 import { DefaultText } from '../default-text';
@@ -41,15 +43,22 @@ import { Skeleton } from '../skeleton';
 import { VerificationBadge } from '../verification-badge';
 import { ButtonWithCenteredText } from '../button/centered-text';
 import { LogoActivityIndicator } from '../logo/logo-activity-indicator';
+import { SheetScrollView } from '../modal/modal-bottom-sheet';
 import { showPointOfSale } from '../modal/point-of-sale-modal';
 import { notifyErrorToast, notifyLinkCopiedToast } from '../toast';
+import { maybeRequestReviewOnReturn } from '../../store-review/store-review';
 
 const MAX_MEMBERS = 25;
+
+const MAX_MOUNTED_CARDS = 2;
+
+const TITLE_LINE_HEIGHT = 34;
 
 const onPressInvite = (clubName: string) => async () => {
   await Clipboard.setStringAsync(
     `${INVITE_URL}/${encodeURIComponent(clubName)}`);
   notifyLinkCopiedToast('Invite Link Copied!');
+  maybeRequestReviewOnReturn();
 };
 
 type ClubMember = {
@@ -72,33 +81,43 @@ type ClubCard = {
   members: ClubMember[],
 };
 
+type FetchedClubCard = ClubCard & { wasMember: boolean };
+
+type ClubCardCache = Map<string, FetchedClubCard>;
+
 const useClubCard = (
   name: string,
   isMember: boolean,
+  cache: ClubCardCache,
 ): ClubCard | 'error' | null => {
-  const [card, setCard] =
-    useState<ClubCard & { wasMember: boolean } | 'error' | null>(null);
+  const [card, setCard] = useState<FetchedClubCard | 'error' | null>(
+    () => cache.get(name) ?? null);
 
-  const isMemberRef = useRef(isMember);
-  isMemberRef.current = isMember;
+  const currentIsMember = useEffectEvent(() => isMember);
 
   useEffect(() => {
     let isCurrent = true;
-    const wasMember = isMemberRef.current;
+    const wasMember = currentIsMember();
 
     (async () => {
       const response = await japi<ClubCard>(
         'get', `/club-card?name=${encodeURIComponent(name)}`);
 
+      const fetched = response.ok && response.json
+        ? { ...response.json, wasMember }
+        : null;
+
+      if (fetched) {
+        cache.set(name, fetched);
+      }
+
       if (isCurrent) {
-        setCard(response.ok && response.json
-          ? { ...response.json, wasMember }
-          : 'error');
+        setCard((current) => fetched ?? current ?? 'error');
       }
     })();
 
     return () => { isCurrent = false; };
-  }, [name]);
+  }, [name, cache]);
 
   return card === null || card === 'error' ? card : {
     ...card,
@@ -121,11 +140,7 @@ const Facepile = memo(({ members }: { members: ClubMember[] }) => {
       {members.map((m, i) =>
         <ImageBackground
           key={m.person_uuid}
-          source={{
-            uri: `${IMAGES_URL}/450-${m.photo_uuid}.jpg`,
-            height: 450,
-            width: 450,
-          }}
+          source={{ uri: `${IMAGES_URL}/450-${m.photo_uuid}.jpg` }}
           placeholder={m.photo_blurhash && { blurhash: m.photo_blurhash }}
           transition={150}
           contentFit="cover"
@@ -285,13 +300,17 @@ const MemberRow = memo(({ member }: { member: ClubMember }) => {
 const ClubCardTitle = ({
   name,
   isScrolled,
+  onBack,
   onClose,
 }: {
   name: string,
   isScrolled: boolean,
+  onBack?: () => void,
   onClose?: () => void,
 }) => {
   const { appTheme } = useAppTheme();
+  const { fontScale } = useWindowDimensions();
+  const iconMarginTop = (TITLE_LINE_HEIGHT * fontScale - 24) / 2;
 
   return (
     <View
@@ -300,39 +319,61 @@ const ClubCardTitle = ({
         { borderBottomColor: isScrolled ? appTheme.inputColor : 'transparent' },
       ]}
     >
+      {onBack &&
+        <IconButton
+          label="Back"
+          onPress={onBack}
+          style={{ marginTop: iconMarginTop }}
+        >
+          <Ionicons
+            name="arrow-back"
+            style={{
+              fontSize: 24,
+              lineHeight: 24,
+              color: appTheme.secondaryColor,
+            }}
+          />
+        </IconButton>
+      }
       <DefaultText
         style={{
           fontFamily: 'TruenoBold',
           fontSize: 28,
-          lineHeight: 34,
-          flexShrink: 1,
+          lineHeight: TITLE_LINE_HEIGHT,
+          flex: 1,
+          wordBreak: 'break-word',
         }}
       >
         {name}
       </DefaultText>
-      {onClose && <Close onPress={onClose} style={{ position: 'relative' }} />}
+      {onClose &&
+        <Close
+          onPress={onClose}
+          style={{ marginTop: iconMarginTop }}
+        />
+      }
     </View>
   );
 };
 
-const ClubCardBody = ({
+const ClubCardContent = ({
   name,
   isOpened,
   rowPosition,
   onPressClub,
-  onScroll,
+  cache,
 }: {
   name: string,
   isOpened: boolean,
   rowPosition: RowPosition,
   onPressClub: (name: string) => void,
-  onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void,
+  cache: ClubCardCache,
 }) => {
   const { appTheme } = useAppTheme();
   const [signedInUser] = useSignedInUser();
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const isMember = useIsClubMember(name);
-  const response = useClubCard(name, isMember);
+  const response = useClubCard(name, isMember, cache);
   const fetched = isOpened ? response : null;
   const card = fetched === 'error' ? null : fetched;
 
@@ -422,7 +463,14 @@ const ClubCardBody = ({
       }
       {countHidden > 0 &&
         <View style={styles.joinPrompt}>
-          <DefaultText style={{ fontWeight: '700', fontSize: 16, textAlign: 'center' }}>
+          <DefaultText
+            style={{
+              fontWeight: '700',
+              fontSize: 16,
+              textAlign: 'center',
+              wordBreak: 'break-word',
+            }}
+          >
             {countHidden.toLocaleString()}
             {countHidden === 1 ? ' more person is in ' : ' more people are in '}
             {name}
@@ -447,26 +495,82 @@ const ClubCardBody = ({
   );
 
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 20 }}
-      onScroll={onScroll}
-      scrollEventThrottle={16}
-    >
+    <>
       {header}
       {members.map((m) => <MemberRow key={m.person_uuid} member={m} />)}
       {footer}
-    </ScrollView>
+    </>
+  );
+};
+
+const scrollOffsets = new WeakMap<OpenClubCard, number>();
+
+const ClubCardBody = ({
+  cards,
+  isOpened,
+  onPressClub,
+  onIsScrolled,
+  cache,
+}: {
+  cards: OpenClubCard[],
+  isOpened: boolean,
+  onPressClub: (name: string) => void,
+  onIsScrolled: (isScrolled: boolean) => void,
+  cache: ClubCardCache,
+}) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const top = cards[cards.length - 1];
+  const [shallowest, setShallowest] = useState(0);
+  const depth = Math.min(
+    Math.max(shallowest, cards.length - MAX_MOUNTED_CARDS),
+    cards.length - 1,
+  );
+  if (depth !== shallowest) {
+    setShallowest(depth);
+  }
+
+  useLayoutEffect(() => {
+    const y = scrollOffsets.get(top) ?? 0;
+    scrollRef.current?.scrollTo({ y, animated: false });
+    onIsScrolled(y > 0);
+  }, [top]);
+
+  return (
+    <SheetScrollView
+      ref={scrollRef}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: 20 }}
+      onScroll={({ nativeEvent }) => {
+        scrollOffsets.set(top, nativeEvent.contentOffset.y);
+        onIsScrolled(nativeEvent.contentOffset.y > 0);
+      }}
+      scrollEventThrottle={16}
+    >
+      {cards.slice(depth).map((card, i) =>
+        <View
+          key={`${depth + i}:${card.name}`}
+          style={{ display: card === top ? 'flex' : 'none' }}
+        >
+          <ClubCardContent
+            name={card.name}
+            isOpened={isOpened}
+            rowPosition={card.rowPosition ?? 'front'}
+            onPressClub={onPressClub}
+            cache={cache}
+          />
+        </View>
+      )}
+    </SheetScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   title: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 10,
     minHeight: 44,
+    paddingTop: 2,
     paddingHorizontal: 20,
     paddingBottom: 6,
     borderBottomWidth: 1,
@@ -513,6 +617,6 @@ const styles = StyleSheet.create({
 
 export {
   ClubCardBody,
+  ClubCardCache,
   ClubCardTitle,
-  onPressInvite,
 };

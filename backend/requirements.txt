@@ -3,12 +3,13 @@ boto3==1.35.99
 python-dateutil==2.9.0.post0
 confusable-homoglyphs
 fastapi
-google-auth
+google-auth[requests]
 httpx
 limits[async-redis]
 nltk
 numpy
 numpy==1.26.4
+onnx
 onnxruntime
 openai
 pgvector
@@ -21,7 +22,7 @@ pytricia
 PyYAML
 redis
 regex
-spacy
+tokenizers
 uvicorn[standard]
 webpush==1.0.6
 websockets

@@ -11,6 +11,7 @@ import {
   StyleSheet,
   View,
   ViewStyle,
+  ViewToken,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import {
@@ -26,6 +27,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -204,10 +206,12 @@ type DefaultFlatListProps<ItemT> =
     | "data"
     | "keyExtractor"
     | "onRefresh"
+    | "onViewableItemsChanged"
     | "refreshing"
     | "renderItem"
   > & {
     renderItem: ListRenderItem<ItemT>,
+    fetchAheadScreens?: number,
     keyExtractor?: (item: ItemT, index: number) => string,
     emptyText?: string,
     errorText?: string,
@@ -440,9 +444,7 @@ const useList = <ItemT, ListType>(ref: Ref<{ refresh: () => Promise<void> }>, pr
   }, [fetchNextPage, onLayoutProp]);
 
   const book = getBookOrDefault(books, dataKey);
-  const items = useMemo(
-    () => bookToItems(getBookOrDefault(books, dataKey)),
-    [books, dataKey]);
+  const items = useMemo(() => bookToItems(book), [books, dataKey]);
 
   const isComplete = isBookComplete(book);
   const isEmpty = isBookEmpty(book);
@@ -516,10 +518,10 @@ const useWebHiddenOnScrollHeader = <ItemT,>(
     const scrollY = _.clamp(
       contentOffset.y, 0, contentSize.height - layoutMeasurement.height);
 
-    headerOffset.value = _.clamp(
+    headerOffset.set(_.clamp(
       headerOffset.value + scrollY - lastScrollY.current,
       0,
-      headerHeight.value);
+      headerHeight.value));
     lastScrollY.current = scrollY;
 
     onScrollProp?.(e);
@@ -532,7 +534,7 @@ const useWebHiddenOnScrollHeader = <ItemT,>(
   const hiddenOnScrollHeader = useMemo(() => (
     <Animated.View
       style={headerStyle}
-      onLayout={(e) => headerHeight.value = e.nativeEvent.layout.height}
+      onLayout={(e) => headerHeight.set(e.nativeEvent.layout.height)}
     >
       {ListHeaderComponent}
     </Animated.View>
@@ -548,6 +550,18 @@ const useWebHiddenOnScrollHeader = <ItemT,>(
     ListHeaderComponent: hiddenOnScrollHeader,
     ListHeaderComponentStyle: { pointerEvents: 'box-none' as const },
   };
+};
+
+const mergeRefs = <T,>(
+  ...refs: (RefCallback<T> | MutableRefObject<T | null> | undefined)[]
+) => (node: T | null) => {
+  refs.forEach((ref) => {
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref) {
+      ref.current = node;
+    }
+  });
 };
 
 const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref: ForwardedRef<{ refresh: () => Promise<void> }>) => {
@@ -570,10 +584,33 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     columnWrapperStyle,
     renderItem,
     keyExtractor: itemKeyExtractor = keyExtractor,
+    fetchAheadScreens,
     ...listProps
   } = props;
 
   const data = useMemo(() => _.chunk(items, numColumns), [items, numColumns]);
+
+  const latest = useRef({ rowCount: 0, fetchAheadScreens: 0, fetchNextPage });
+
+  useLayoutEffect(() => {
+    latest.current = {
+      rowCount: data.length,
+      fetchAheadScreens: fetchAheadScreens ?? 0,
+      fetchNextPage,
+    };
+  }, [data.length, fetchAheadScreens, fetchNextPage]);
+
+  const onViewableItemsChanged = useCallback((
+    { viewableItems }: { viewableItems: ViewToken<ItemT[]>[] }
+  ) => {
+    const { rowCount, fetchAheadScreens, fetchNextPage } = latest.current;
+    const lastVisibleRow = viewableItems.at(-1)?.index ?? -1;
+    const rowsBelow = rowCount - 1 - lastVisibleRow;
+
+    if (rowsBelow < fetchAheadScreens * viewableItems.length) {
+      return fetchNextPage();
+    }
+  }, []);
 
   const renderRow = useCallback(
     ({ item: row, index, separators }: ListRenderItemInfo<ItemT[]>) =>
@@ -596,23 +633,21 @@ const UntypedDefaultFlatList = <ItemT,>(props: DefaultFlatListProps<ItemT>, ref:
     () => [styles.flatList, props.contentContainerStyle],
     [props.contentContainerStyle]);
 
+  const listRef = useMemo(
+    () => mergeRefs(flatList, props.innerRef),
+    [flatList, props.innerRef]);
+
   return (
     <FlatList
-      ref={(node) => {
-        flatList.current = node;
-
-        if (props.innerRef === undefined) {
-          ;
-        } else if (typeof props.innerRef === 'function') {
-          props.innerRef(node);
-        } else {
-          props.innerRef.current = node;
-        }
-      }}
+      ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
-      onEndReachedThreshold={props.onEndReachedThreshold ?? 3}
-      onEndReached={fetchNextPage}
+      {...(fetchAheadScreens === undefined ? {
+        onEndReachedThreshold: props.onEndReachedThreshold ?? 3,
+        onEndReached: fetchNextPage,
+      } : {
+        onViewableItemsChanged,
+      })}
       {...listProps}
       {...slots}
       {...hiddenOnScrollHeader}
@@ -645,19 +680,13 @@ const UntypedDefaultFlashList = <ItemT,>(props: DefaultFlashListProps<ItemT>, re
     ...(props.contentContainerStyle as object | undefined),
   }), [props.contentContainerStyle]);
 
+  const listRef = useMemo(
+    () => mergeRefs(flatList, props.innerRef),
+    [flatList, props.innerRef]);
+
   return (
     <FlashList
-      ref={(node) => {
-        flatList.current = node;
-
-        if (props.innerRef === undefined) {
-          ;
-        } else if (typeof props.innerRef === 'function') {
-          props.innerRef(node);
-        } else {
-          props.innerRef.current = node;
-        }
-      }}
+      ref={listRef}
       refreshing={false}
       onRefresh={props.disableRefresh ? undefined : onRefresh}
       onEndReachedThreshold={props.onEndReachedThreshold ?? 3}

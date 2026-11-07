@@ -11,3 +11,8 @@
 --
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
+
+
+DROP INDEX IF EXISTS idx__visited__updated_at__object__subject;
+
+DROP INDEX IF EXISTS duo_idx__inbox__timestamp__luser__box;

@@ -17,6 +17,18 @@ module.exports = {
         "caughtErrorsIgnorePattern": "^_$"
       }
     ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["react-native", "react-native-gesture-handler"],
+            "importNamePattern": "^(Pressable|Touchable\\w*)$",
+            "message": "Use Pressable from components/pressable. React Native's tap targets lose taps near the top of the screen to iOS's scroll-to-top."
+          }
+        ]
+      }
+    ],
     "react-hooks/exhaustive-deps": "off",
     "react/display-name": "off",
   }

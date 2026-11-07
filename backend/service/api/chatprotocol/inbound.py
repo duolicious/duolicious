@@ -24,35 +24,16 @@ from service.api.chatprotocol.message import (
     TypingMessage,
 )
 from service.api.chatprotocol.element import (
-    NS_BIND,
     NS_CLIENT,
-    NS_FRAMING,
     NS_SASL,
-    NS_SESSION,
     Element,
     element_from_json,
 )
 
 
 @dataclass(frozen=True)
-class StreamOpenReq:
-    version: str
-    to: str
-
-
-@dataclass(frozen=True)
 class SaslAuth:
     payload_b64: str | None
-
-
-@dataclass(frozen=True)
-class IqBind:
-    iq_id: str
-
-
-@dataclass(frozen=True)
-class IqSession:
-    iq_id: str
 
 
 @dataclass(frozen=True)
@@ -89,17 +70,7 @@ class MamQuery:
 
 
 @dataclass(frozen=True)
-class InboxQuery:
-    query_id: str
-
-
-@dataclass(frozen=True)
 class InboxSnapshotQuery:
-    """
-    The modern inbox query (`duo_query_inbox`). Unlike the legacy `InboxQuery`,
-    the response carries complete conversations (person info included), so
-    clients don't have to join the inbox against a separate endpoint.
-    """
     pass
 
 
@@ -118,17 +89,14 @@ class MarkVisitorsChecked:
     when: str | None
 
 
-SessionRequest = StreamOpenReq | SaslAuth | IqBind | IqSession
-
 Inbound = (
-    SessionRequest
+    SaslAuth
     | Ping
     | SubscribeOnline
     | UnsubscribeOnline
     | RegisterPushToken
     | RegisterWebPushSubscription
     | MamQuery
-    | InboxQuery
     | InboxSnapshotQuery
     | MarkDisplayed
     | VisitorsQuery
@@ -245,29 +213,6 @@ def message_from_element(el: Element) -> Message | None:
     return None
 
 
-def _try_session(el: Element) -> SessionRequest | None:
-    if el.tag == 'open' and el.ns == NS_FRAMING:
-        version = el.get('version')
-        to = el.get('to')
-        if version is not None and to is not None:
-            return StreamOpenReq(version=version, to=to)
-        return None
-
-    if el.tag == 'auth' and el.ns == NS_SASL:
-        return SaslAuth(payload_b64=el.text)
-
-    if el.tag == 'iq' and el.ns == NS_CLIENT:
-        iq_id = el.get('id') or 'default'
-        bind = el.find('bind')
-        if bind is not None and bind.ns == NS_BIND:
-            return IqBind(iq_id=iq_id)
-        session = el.find('session')
-        if session is not None and session.ns == NS_SESSION:
-            return IqSession(iq_id=iq_id)
-
-    return None
-
-
 def _try_mam(el: Element) -> MamQuery | None:
     query = el if el.tag == 'query' else el.descendant('query')
     if query is None:
@@ -304,25 +249,6 @@ def _try_mam(el: Element) -> MamQuery | None:
     )
 
 
-def _try_inbox(el: Element) -> InboxQuery | None:
-    inbox: Element | None
-    if el.tag == 'inbox':
-        inbox = el
-    elif el.tag == 'iq':
-        inbox = el.find('inbox')
-    else:
-        inbox = None
-
-    if inbox is None:
-        return None
-
-    query_id = inbox.get('queryid')
-    if not query_id:
-        return None
-
-    return InboxQuery(query_id=query_id)
-
-
 def _try_mark_displayed(el: Element) -> MarkDisplayed | None:
     if el.tag != 'message':
         return None
@@ -337,9 +263,8 @@ def _try_mark_displayed(el: Element) -> MarkDisplayed | None:
 
 
 def _interpret(el: Element) -> Inbound | None:
-    session_request = _try_session(el)
-    if session_request is not None:
-        return session_request
+    if el.tag == 'auth' and el.ns == NS_SASL:
+        return SaslAuth(payload_b64=el.text)
 
     if el.tag == 'duo_ping':
         return Ping()
@@ -373,10 +298,6 @@ def _interpret(el: Element) -> Inbound | None:
     mam = _try_mam(el)
     if mam is not None:
         return mam
-
-    inbox = _try_inbox(el)
-    if inbox is not None:
-        return inbox
 
     mark_displayed = _try_mark_displayed(el)
     if mark_displayed is not None:

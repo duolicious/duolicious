@@ -1,15 +1,16 @@
 import {
-  Pressable,
   ScrollView,
   View,
   StyleSheet,
 } from 'react-native';
+import { IconButton } from './button/icon-button';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   FC,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import { DefaultText } from './default-text';
@@ -588,7 +589,7 @@ const useQAndAFilters = () => {
 
   const clearSearchText = useCallback(() => setSearchText(""), []);
 
-  const _fetchQuestionSearch = useCallback(_.debounce(async (q: string) => {
+  const _fetchQuestionSearch = useMemo(() => _.debounce(async (q: string) => {
     const results = await fetchQuestionSearch(q);
 
     setSearchResults(results);
@@ -709,29 +710,26 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
           alignItems: 'stretch',
         }}
       >
-        <Pressable
+        <IconButton
+          label="Back"
           onPress={() => navigation.goBack()}
+          padding={10}
           style={{
             zIndex: 999,
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            height: '100%',
-            aspectRatio: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginLeft: 10,
+            top: -4,
+            left: 10,
           }}
         >
           <Ionicons
             style={{
               fontSize: 20,
+              lineHeight: 20,
               color: appTheme.secondaryColor,
-              marginBottom: 10,
             }}
             name="arrow-back"
           />
-        </Pressable>
+        </IconButton>
         <DefaultTextInput
           placeholder="Search questions..."
           style={{
@@ -746,29 +744,26 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
           autoFocus={true}
         />
         {searchText !== "" &&
-          <Pressable
+          <IconButton
+            label="Clear search"
             onPress={clearSearchText}
+            padding={10}
             style={{
               zIndex: 999,
               position: 'absolute',
-              bottom: 0,
-              right: 0,
-              height: '100%',
-              aspectRatio: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 10,
+              top: -4,
+              right: 10,
             }}
           >
             <Ionicons
               style={{
                 fontSize: 20,
+                lineHeight: 20,
                 color: appTheme.secondaryColor,
-                marginBottom: 10,
               }}
               name="close"
             />
-          </Pressable>
+          </IconButton>
         }
       </TopNavBar>
       {(isLoading || !data) &&

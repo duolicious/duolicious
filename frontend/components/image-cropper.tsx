@@ -12,12 +12,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import {
-  useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DefaultText } from './default-text';
 import { listen, notify } from '../events/events';
 import { ModalButton } from './button/modal';
@@ -47,32 +48,30 @@ type NonNullImageCropperOutput = Exclude<ImageCropperOutput[number], null>;
 const ImageCropper = () => {
   const [data, setData] = useState<ImageCropperInput>();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const imageSource = useMemo(() => ({uri: data?.base64}), [data?.base64]);
 
   const cropAreaBase = useRef<
     {top: number, left: number, size: number} | null
   >(null);
   const cropArea = useRef({ top: 0, left: 0, size: 0 });
-  const animatedCropArea = useRef({
+  const [animatedCropArea] = useState(() => ({
     top: new Animated.Value(0),
     left: new Animated.Value(0),
     right: new Animated.Value(0),
     bottom: new Animated.Value(0),
     size: new Animated.Value(0),
-  });
+  }));
 
   const setCropArea = (p: {top: number, left: number, size: number}) => {
     cropArea.current = p;
 
-    animatedCropArea.current.top.setValue(p.top);
-    animatedCropArea.current.bottom.setValue(p.top + p.size);
-    animatedCropArea.current.left.setValue(p.left);
-    animatedCropArea.current.right.setValue(p.left + p.size);
-    animatedCropArea.current.size.setValue(p.size);
+    animatedCropArea.top.setValue(p.top);
+    animatedCropArea.bottom.setValue(p.top + p.size);
+    animatedCropArea.left.setValue(p.left);
+    animatedCropArea.right.setValue(p.left + p.size);
+    animatedCropArea.size.setValue(p.size);
   };
-
-  const statusBarHeight = (
-    Platform.OS === 'web' ? 0 : (StatusBar.currentHeight ?? 0));
 
   const computeRenderedImageSize = () => {
     if (!data) {
@@ -81,15 +80,16 @@ const ImageCropper = () => {
 
     const aspectRatio = data.width / data.height;
 
-    // Reduce the available height by the button's height
-    const availableHeight = windowHeight - buttonHeight - statusBarHeight;
+    const availableWidth = windowWidth - insets.left - insets.right;
+    const availableHeight =
+      windowHeight - insets.top - insets.bottom - buttonHeight;
 
     let newWidth: number;
     let newHeight: number;
 
-    if (windowWidth / availableHeight < aspectRatio) {
-      newWidth = windowWidth;
-      newHeight = windowWidth / aspectRatio;
+    if (availableWidth / availableHeight < aspectRatio) {
+      newWidth = availableWidth;
+      newHeight = availableWidth / aspectRatio;
     } else {
       newWidth = availableHeight * aspectRatio;
       newHeight = availableHeight;
@@ -98,11 +98,16 @@ const ImageCropper = () => {
     return { width: newWidth, height: newHeight };
   };
 
-  const renderedImageSize = useRef(computeRenderedImageSize());
-  renderedImageSize.current = computeRenderedImageSize();
+  const renderedImageSize = computeRenderedImageSize();
+  const renderedImageSizeRef = useRef(renderedImageSize);
+  useLayoutEffect(() => {
+    renderedImageSizeRef.current = renderedImageSize;
+  });
 
   const onPanResponderMove = (event: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-    if (!renderedImageSize.current) {
+    const renderedImageSize = renderedImageSizeRef.current;
+
+    if (!renderedImageSize) {
       return;
     }
 
@@ -120,8 +125,8 @@ const ImageCropper = () => {
     // Bounds checking
     newTop = Math.max(0, newTop);
     newLeft = Math.max(0, newLeft);
-    const maxTop = renderedImageSize.current.height - cropAreaBase.current.size;
-    const maxLeft = renderedImageSize.current.width - cropAreaBase.current.size;
+    const maxTop = renderedImageSize.height - cropAreaBase.current.size;
+    const maxLeft = renderedImageSize.width - cropAreaBase.current.size;
     newTop = Math.min(maxTop, newTop);
     newLeft = Math.min(maxLeft, newLeft);
 
@@ -132,36 +137,32 @@ const ImageCropper = () => {
     cropAreaBase.current = null;
   };
 
-  const panResponder = useRef(
+  // eslint-disable-next-line react-hooks/refs
+  const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderMove,
       onPanResponderRelease: onPressEnd,
       onPanResponderTerminate: onPressEnd,
     })
-  ).current;
+  );
 
-  const initCropArea = useCallback(() => {
-    if (!renderedImageSize.current) {
+  const renderedWidth = renderedImageSize?.width;
+  const renderedHeight = renderedImageSize?.height;
+
+  useEffect(() => {
+    if (renderedWidth === undefined || renderedHeight === undefined) {
       return;
     }
 
-    const { width: newWidth, height: newHeight } = renderedImageSize.current;
-
-    const cropSize = Math.min(newWidth, newHeight);
+    const cropSize = Math.min(renderedWidth, renderedHeight);
 
     setCropArea({
-      top: (newHeight - cropSize) / 2,
-      left: (newWidth - cropSize) / 2,
+      top: (renderedHeight - cropSize) / 2,
+      left: (renderedWidth - cropSize) / 2,
       size: cropSize
     });
-  }, [JSON.stringify(renderedImageSize.current)]);
-
-  useEffect(() => {
-    if (!data) return;
-
-    initCropArea();
-  }, [data, initCropArea]);
+  }, [data, renderedWidth, renderedHeight]);
 
   useEffect(() => {
     return listen<ImageCropperInput>(
@@ -192,13 +193,13 @@ const ImageCropper = () => {
       return;
     }
 
-    if (!renderedImageSize.current) {
+    if (!renderedImageSize) {
       return;
     }
 
     const realCropArea = {
-      top: data.height / renderedImageSize.current.height * cropArea.current.top,
-      left: data.width / renderedImageSize.current.width * cropArea.current.left,
+      top: data.height / renderedImageSize.height * cropArea.current.top,
+      left: data.width / renderedImageSize.width * cropArea.current.left,
       size: Math.min(data.height, data.width),
     };
 
@@ -248,11 +249,18 @@ const ImageCropper = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      {
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      },
+    ]}>
       <View style={{
-        marginTop: statusBarHeight,
-        width:  renderedImageSize.current?.width ?? 0,
-        height: renderedImageSize.current?.height ?? 0,
+        width:  renderedImageSize?.width ?? 0,
+        height: renderedImageSize?.height ?? 0,
         backgroundColor: 'black'
       }}>
         <Image
@@ -267,14 +275,14 @@ const ImageCropper = () => {
           top: 0,
           left: 0,
           right: 0,
-          height: animatedCropArea.current.top,
+          height: animatedCropArea.top,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
         }} />
 
         {/* Opaque overlay view - bottom */}
         <Animated.View style={{
           position: 'absolute',
-          top: animatedCropArea.current.bottom,
+          top: animatedCropArea.bottom,
           left: 0,
           right: 0,
           bottom: 0,
@@ -284,20 +292,20 @@ const ImageCropper = () => {
         {/* Opaque overlay view - left */}
         <Animated.View style={{
           position: 'absolute',
-          top: animatedCropArea.current.top,
+          top: animatedCropArea.top,
           left: 0,
-          width: animatedCropArea.current.left,
-          height: animatedCropArea.current.size,
+          width: animatedCropArea.left,
+          height: animatedCropArea.size,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
         }} />
 
         {/* Opaque overlay view - right */}
         <Animated.View style={{
           position: 'absolute',
-          top: animatedCropArea.current.top,
-          left: animatedCropArea.current.right, // This looks wrong but it's right
+          top: animatedCropArea.top,
+          left: animatedCropArea.right, // This looks wrong but it's right
           right: 0,
-          height: animatedCropArea.current.size,
+          height: animatedCropArea.size,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
         }} />
 
@@ -306,10 +314,10 @@ const ImageCropper = () => {
           {...panResponder.panHandlers}
           style={{
             position: 'absolute',
-            top: animatedCropArea.current.top,
-            left: animatedCropArea.current.left,
-            width: animatedCropArea.current.size,
-            height: animatedCropArea.current.size,
+            top: animatedCropArea.top,
+            left: animatedCropArea.left,
+            width: animatedCropArea.size,
+            height: animatedCropArea.size,
             borderWidth: 1,
             borderColor: 'white',
             backgroundColor: 'transparent',

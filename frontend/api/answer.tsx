@@ -10,12 +10,11 @@
 // question. `saveAnswer` and `deleteAnswer` update it optimistically, before
 // their writes land.
 
-import { useLayoutEffect, useState } from 'react';
 import { japi } from './api';
 import { answerWriteQueue } from './queue';
 import { markSearchResultsStale } from '../events/stale-search-results';
 import { markInboxStale } from '../events/stale-inbox';
-import { notify, listen, lastEvent } from '../events/events';
+import { notify, lastEvent, useDerivedEvent } from '../events/events';
 
 type ViewerAnswer = {
   answer: boolean | null
@@ -33,9 +32,11 @@ const viewerAnswerKey = (questionId: number) =>
 // Which questions have store entries, so sign-out can clear them all
 const storedQuestionIds = new Set<number>();
 
+const orUnanswered = (answer: ViewerAnswer | undefined): ViewerAnswer =>
+  answer ?? unansweredViewerAnswer;
+
 const getViewerAnswer = (questionId: number): ViewerAnswer =>
-  lastEvent<ViewerAnswer>(viewerAnswerKey(questionId))
-    ?? unansweredViewerAnswer;
+  orUnanswered(lastEvent<ViewerAnswer>(viewerAnswerKey(questionId)));
 
 // Updates what the viewer sees without writing to the server, e.g. for
 // settings (like publicness) that don't mean anything until there's an answer
@@ -62,22 +63,12 @@ const resetViewerAnswers = () => {
   storedQuestionIds.clear();
 };
 
-const useViewerAnswer = (questionId: number): ViewerAnswer => {
-  const [value, setValue] = useState(() => getViewerAnswer(questionId));
-
-  useLayoutEffect(() => {
-    // Re-read on every (re)subscription: `questionId` may have changed since
-    // the useState initializer ran, and a write may have landed since render
-    setValue(getViewerAnswer(questionId));
-
-    return listen(
-      viewerAnswerKey(questionId),
-      () => setValue(getViewerAnswer(questionId)),
-    );
-  }, [questionId]);
-
-  return value;
-};
+const useViewerAnswer = (questionId: number): ViewerAnswer =>
+  useDerivedEvent<ViewerAnswer, ViewerAnswer>(
+    viewerAnswerKey(questionId),
+    orUnanswered,
+    [],
+  );
 
 const saveAnswer = (
   questionId: number,

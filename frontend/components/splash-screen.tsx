@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Animated } from 'react-native';
 import { Logo16 } from './logo';
 
 const SplashScreen = ({ loading }: { loading: boolean }) => {
   const [isFaded, setIsFaded] = useState(false);
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     if (!loading) {

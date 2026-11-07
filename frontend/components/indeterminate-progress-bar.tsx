@@ -1,5 +1,5 @@
 import {
-  useRef,
+  useState,
   useEffect,
 } from 'react';
 import { View, Animated } from 'react-native';
@@ -7,7 +7,7 @@ import { View, Animated } from 'react-native';
 const IndeterminateProgressBar = (props: { show?: boolean }) => {
   const { show = true } = props;
 
-  const animationValue = useRef(new Animated.Value(0)).current;
+  const [animationValue] = useState(() => new Animated.Value(0));
 
   const interpolatedWidth = animationValue.interpolate({
     inputRange: [0, 1],

@@ -24,26 +24,12 @@ from service.api.chatprotocol.message import (
 from service.api.chatprotocol.outbound import (
     InboxConversation,
     InboxEntry,
-    InboxFin,
-    InboxResult,
     InboxSnapshot,
     Outbound,
     ReadReceipt,
 )
 
 logger = logging.getLogger(__name__)
-
-Q_GET_INBOX = f"""
-SELECT
-    *
-FROM
-    inbox
-WHERE
-    luser = %(username)s
-ORDER BY
-    timestamp
-"""
-
 
 # This query joins the gating rules (which fields a viewer may see, and which
 # box the conversation belongs in) against the viewer's `inbox` rows so one
@@ -367,7 +353,10 @@ WITH update_reactor AS (
         reaction_body = %(reaction_body)s,
         box = 'chats',
         timestamp = %(timestamp)s,
-        unread_count = 0
+        unread_count = 0,
+        -- Reacting counts as replying, so the conversation is no longer an
+        -- intro and mustn't stay hidden.
+        hidden = FALSE
     WHERE
         luser = %(reactor_username)s
     AND
@@ -506,53 +495,6 @@ async def fetch_is_hidden(viewer_username: str, prospect_username: str) -> bool:
             remote_bare_jid=f'{prospect_username}@{LSERVER}',
         ))
         return await tx.fetchone() is not None
-
-
-async def get_inbox(query_id: str, username: str) -> list[Outbound]:
-    """
-    Fetches the user's inbox using the query_id and builds an `InboxResult` for
-    each message, followed by a final `InboxFin`.
-    """
-    async with api_tx('read committed') as tx:
-        await tx.execute(Q_GET_INBOX, dict(username=username))
-        rows = await tx.fetchall()
-
-    messages: list[Outbound] = []
-    for row in rows:
-        try:
-            body = _composed_body(
-                row['body'], row['reaction'], row['reaction_body'])
-            if not body:
-                continue
-
-            owner_username = row['luser']
-            remote_username = row['remote_bare_jid'].split('@', 1)[0]
-
-            if row['direction'] == 'O':
-                from_username, to_username = owner_username, remote_username
-            else:
-                from_username, to_username = remote_username, owner_username
-
-            messages.append(InboxResult(
-                owner_username=owner_username,
-                msg_id=f"{row['msg_id']}",
-                inner_from_username=from_username,
-                inner_to_username=to_username,
-                body=body,
-                stamp=format_timestamp(row['timestamp']),
-                unread_count=row['unread_count'],
-                box=row['box'],
-                query_id=query_id,
-                muted_until=row.get('muted_until', 0),
-            ))
-
-        except Exception as e:
-            logger.error(f'Error processing row: {e}')
-            continue
-
-    messages.append(InboxFin(query_id=query_id))
-
-    return messages
 
 
 # The wire shape itself is defined beside the stanzas that carry it
@@ -840,7 +782,5 @@ async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
 _mark_displayed_batcher = Batcher[MarkDisplayedJob](
     process_fn=_process_mark_displayed_batch,
     flush_interval=0.1,
-    min_batch_size=1,
     max_batch_size=1000,
-    retry=False,
 )

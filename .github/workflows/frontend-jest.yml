@@ -5,15 +5,13 @@ on:
       - main
     paths:
       - frontend/**
+      - Makefile
       - .github/workflows/frontend-jest.yml
   pull_request:
     paths:
       - frontend/**
+      - Makefile
       - .github/workflows/frontend-jest.yml
-
-defaults:
-  run:
-    working-directory: frontend
 
 jobs:
   test:
@@ -25,9 +23,7 @@ jobs:
       with:
         node-version: lts/*
     - name: Install dependencies
-      run: |
-        npm ci
-        npx patch-package
+      working-directory: frontend
+      run: npm ci
     - name: Run Jest tests
-      run: |
-        npm test
+      run: make frontend-test

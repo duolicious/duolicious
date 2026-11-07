@@ -114,6 +114,16 @@ jc POST /leave-club -d '{ "name": "tiny club" }'
 jc POST /leave-club -d '{ "name": "tinier club" }'
 [[ "$(search_names_sorted)" = 'clubby matchy' ]]
 
+echo 'Sharing a club too small to have an embedding still ranks first'
+assume_role matchy
+jc POST /join-club -d '{ "name": "unembedded club" }'
+assume_role searcher
+jc POST /join-club -d '{ "name": "unembedded club" }'
+[[ "$(search_names_in_order)" = 'matchy clubby' ]]
+jc POST /leave-club -d '{ "name": "unembedded club" }'
+assume_role matchy
+jc POST /leave-club -d '{ "name": "unembedded club" }'
+
 echo 'A searcher with no clubs still gets results in clubs mode'
 assume_role matchy
 jc POST /search-filter -d '{ "sort_by": "Similar clubs" }'

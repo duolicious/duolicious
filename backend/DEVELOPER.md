@@ -37,6 +37,7 @@ export DUO_R2_ACCESS_KEY_SECRET=s3-mock-secret-access-key-secret
 export DUO_BOTO_ENDPOINT_URL=http://localhost:9090
 export DUO_SMTP_HOST=localhost
 export DUO_SMTP_PORT=1025
+export DUO_UNSUBSCRIBE_SECRET=dev-unsubscribe-secret
 ./api.main.sh
 ```
 
@@ -61,17 +62,17 @@ Notes:
 ./test/util/with-container.sh ./test/functionality4/status.sh
 ```
 
-- Run a whole suite:
+- Run a whole suite, from the repository root:
 
 ```bash
-./test/util/with-container.sh ./test/functionality.sh 1
+make backend-functionality SUITE=1
 ```
 
 ### Type checking
 
 ```bash
-./mypy.sh           # check core modules
-./mypy.sh path.py   # check a specific file or directory
+make backend-typecheck   # from the repository root
+./mypy.sh path.py        # from backend/: check a specific file or directory
 ```
 
 ## Production deployments
@@ -90,6 +91,8 @@ These environment variables let the `api` container know where your SMTP server 
 * `DUO_SMTP_PASS` - Your SMTP server's password.
 
 The `api` container uses the SMTP server to sent one-time passwords to users who want to sign up or log in.
+
+* `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `api` container uses it to check the one-click unsubscribe and notification-frequency links in notification emails, so it must match the `cron` container's.
 
 These environment variables let the `api` container know where your PostgreSQL database is:
 
@@ -137,6 +140,8 @@ These environment variables let the `cron` container know where your SMTP server
 
 The `cron` container uses the SMTP server to sent message notifications, as well as notifications that a user's account has been deactivated due to inactivity.
 
+* `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `cron` container uses it to sign the one-click unsubscribe and notification-frequency links in notification emails, so it must match the `api` container's.
+
 These environment variables let the `cron` container know where your PostgreSQL database is:
 
 * `DUO_DB_HOST` - Your PostgreSQL database's hostname.
@@ -181,15 +186,16 @@ Install these:
 * jq
 * curl
 * ffmpeg
+* make
 
-Then run this:
+Then run this from the repository root:
 
 ```bash
-# Where ${n} is the test you want to run
-./test/util/with-container.sh ./test/functionality${n}.sh
+# Where ${n} is the suite you want to run
+make backend-functionality SUITE=${n}
 ```
 
-You can also do this in one terminal:
+You can also do this in one terminal, from `backend/`:
 
 ```bash
 docker compose up
@@ -198,8 +204,8 @@ docker compose up
 ...Then run this in another:
 
 ```bash
-# Where ${n} is the test you want to run
-DUO_DB_PORT=5432 ./test/functionality${n}.sh
+# Where ${n} is the suite you want to run
+DUO_DB_PORT=5432 ./test/functionality.sh ${n}
 ```
 
 ## Using pg_stat_statements:

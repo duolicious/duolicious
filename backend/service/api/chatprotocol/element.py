@@ -15,10 +15,7 @@ from dataclasses import dataclass, field
 
 
 # XMPP namespaces referenced by the interpreter.
-NS_FRAMING = 'urn:ietf:params:xml:ns:xmpp-framing'
 NS_SASL = 'urn:ietf:params:xml:ns:xmpp-sasl'
-NS_BIND = 'urn:ietf:params:xml:ns:xmpp-bind'
-NS_SESSION = 'urn:ietf:params:xml:ns:xmpp-session'
 NS_CLIENT = 'jabber:client'
 
 

@@ -6,8 +6,8 @@ import {
 } from './pinchy-math';
 
 // The screen position of an image point, under the model the transform
-// implements: `screen = centre + scale * (imagePoint + position)`, where
-// position is in pre-scale image units and both are measured from the viewport
+// implements: `screen = centre + position + scale * imagePoint`, where
+// position is in screen pixels and both are measured from the viewport
 // centre. This is what `focalZoomPosition` has to keep invariant at the focal.
 const screenOf = (
   imagePoint: { x: number, y: number },
@@ -15,8 +15,8 @@ const screenOf = (
   position: { x: number, y: number },
   viewport: { width: number, height: number },
 ) => ({
-  x: viewport.width / 2 + scale * (imagePoint.x + position.x),
-  y: viewport.height / 2 + scale * (imagePoint.y + position.y),
+  x: viewport.width / 2 + position.x + scale * imagePoint.x,
+  y: viewport.height / 2 + position.y + scale * imagePoint.y,
 });
 
 // Recover which image point currently sits under a screen point.
@@ -26,8 +26,8 @@ const imagePointUnder = (
   position: { x: number, y: number },
   viewport: { width: number, height: number },
 ) => ({
-  x: (screen.x - viewport.width / 2) / scale - position.x,
-  y: (screen.y - viewport.height / 2) / scale - position.y,
+  x: (screen.x - viewport.width / 2 - position.x) / scale,
+  y: (screen.y - viewport.height / 2 - position.y) / scale,
 });
 
 const viewport = { width: 400, height: 800 };
@@ -89,9 +89,8 @@ describe('focalZoomPosition', () => {
       baseScale, baseScale, basePosition, baseFocal, focal, viewport.width, viewport.height,
     );
 
-    // A drag of (40, 30) screen px at scale 2 is (20, 15) image units.
-    expect(position.x).toBeCloseTo(basePosition.x + 40 / baseScale);
-    expect(position.y).toBeCloseTo(basePosition.y + 30 / baseScale);
+    expect(position.x).toBeCloseTo(basePosition.x + 40);
+    expect(position.y).toBeCloseTo(basePosition.y + 30);
   });
 });
 

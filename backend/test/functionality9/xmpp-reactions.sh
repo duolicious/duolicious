@@ -57,36 +57,6 @@ next_query_id () {
   printf "%s" "$_next_query_id"
 }
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "id1",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 2
-}
-
 # Authenticate as the reactor, send a duo_reaction stanza for `mamId`, and return
 # whatever the reactor's own connection received back (the ack or rejection).
 send_reaction () {
@@ -206,6 +176,7 @@ echo "A user can react to the other person's message"
 
 body1="hello from user 1"
 send_message "$user1uuid" "$user1token" "$user2uuid" "$body1"
+sleep 2
 
 # user2 (the recipient) looks up the message's mam_id from their own archive.
 user2_convo=$(get_conversation "$user2uuid" "$user2token" "$user1uuid")
@@ -279,6 +250,7 @@ echo "A user who requires verification cannot react"
 
 body2="hello from user 1 to unverified user 3"
 send_message "$user1uuid" "$user1token" "$user3uuid" "$body2"
+sleep 2
 
 q "update person set verification_required = true where id = ${user3id}"
 sleep 4 # let the 3s verification-required cache expire
@@ -300,6 +272,7 @@ echo "A shadow-banned reactor's reaction is stored only on their own side"
 
 body3="hello from user 1 to user 3"
 send_message "$user1uuid" "$user1token" "$user3uuid" "$body3"
+sleep 2
 
 q "update person set shadow_banned_at = now() where id = ${user3id}"
 sleep 6 # let the 5s shadow-ban cache expire

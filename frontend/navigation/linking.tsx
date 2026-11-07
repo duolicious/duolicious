@@ -34,8 +34,6 @@ type SearchParamList = {
 type ProfileParamList = {
   'Profile Tab': undefined;
   'Profile Option Screen': undefined;
-  'Club Selector': undefined;
-  'Invite Picker': undefined;
 };
 
 type HomeParamList = {
@@ -176,8 +174,6 @@ const profileConfig: PathConfig<ProfileParamList> = {
   screens: {
     'Profile Tab': '',
     'Profile Option Screen': 'settings',
-    'Club Selector': 'clubs',
-    'Invite Picker': 'invites',
   },
 };
 

@@ -95,11 +95,13 @@ const notify = <T = any>(key: string, data?: T) => {
 // an unchanged value isn't free, as React can still render the component once
 // before bailing out. `deps` are the values `derive` closes over.
 const useDerivedEvent = <T, U>(
-  key: string,
+  key: string | undefined,
   derive: (e: T | undefined) => U,
   deps: DependencyList,
 ): U => {
-  const [value, setValue] = useState<U>(() => derive(lastEvent<T>(key)));
+  const read = () => key === undefined ? undefined : lastEvent<T>(key);
+
+  const [value, setValue] = useState<U>(() => derive(read()));
 
   const valueRef = useRef(value);
 
@@ -111,9 +113,9 @@ const useDerivedEvent = <T, U>(
       setValue(next);
     };
 
-    update(lastEvent<T>(key));
+    update(read());
 
-    return listen<T>(key, update);
+    return key === undefined ? undefined : listen<T>(key, update);
   }, [key, ...deps]);
 
   return value;

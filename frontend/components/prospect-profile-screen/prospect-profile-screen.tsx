@@ -1,7 +1,5 @@
 import {
-  GestureResponderEvent,
   Platform,
-  Pressable,
   ScrollView,
   StyleProp,
   StyleSheet,
@@ -9,10 +7,10 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Fragment,
-  MutableRefObject,
   ReactNode,
   memo,
   useCallback,
@@ -147,8 +145,6 @@ const buildAlbum = (
 
 const primaryPhotoBigScreenRadii = { bottomLeft: 12, bottomRight: 12 };
 
-type ProspectNavigation = NativeStackNavigationProp<ProspectParamList>;
-type ProspectNavigationRef = MutableRefObject<ProspectNavigation | undefined>;
 
 type ProspectScreenNavigation = CompositeNavigationProp<
   NativeStackNavigationProp<ProspectParamList>,
@@ -162,16 +158,6 @@ type ProspectScreenProps = CompositeScreenProps<
 const Stack = createNativeStackNavigator();
 
 const ProspectProfileScreen = () => {
-  const navigationRef = useRef<ProspectNavigation | undefined>(undefined);
-
-  const ProspectProfileScreen_ = useMemo(() => {
-    return Content(navigationRef);
-  }, [navigationRef]);
-
-  const InDepthScreen_ = useMemo(() => {
-    return InDepthScreen(navigationRef);
-  }, [navigationRef]);
-
   return (
     <Stack.Navigator
       screenOptions={{
@@ -180,8 +166,8 @@ const ProspectProfileScreen = () => {
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="Prospect Profile" component={ProspectProfileScreen_} />
-      <Stack.Screen name="In-Depth" component={InDepthScreen_} />
+      <Stack.Screen name="Prospect Profile" component={Content} />
+      <Stack.Screen name="In-Depth" component={InDepthScreen} />
     </Stack.Navigator>
   );
 };
@@ -297,11 +283,11 @@ const FloatingProfileInteractionButton = ({
   const { hovered, hoverProps } = useHover();
 
   const fadeOut = useCallback(() => {
-    opacity.value = 0.4;
+    opacity.set(0.4);
   }, []);
 
   const fadeIn = useCallback(() => {
-    opacity.value = withTiming(1, { duration: 50 });
+    opacity.set(withTiming(1, { duration: 50 }));
   }, []);
 
   return (
@@ -495,44 +481,31 @@ const AnonymousSignInCta = ({navigation, name}: {
   );
 };
 
+const seeQAndAButtonChevron =
+  <View
+    style={{
+      position: 'absolute',
+      top: 0,
+      right: 15,
+      height: '100%',
+      justifyContent: 'center',
+    }}
+  >
+    <Ionicons style={{ fontSize: 20, color: 'white' }} name="chevron-forward"/>
+  </View>;
+
 const SeeQAndAButton = ({personUuid, name}: {
   personUuid: string | null | undefined,
   name: string | undefined,
 }) => {
-  const containerStyle = useRef({
-    marginTop: 40,
-    marginLeft: 10,
-    marginRight: 10,
-  }).current;
-  const textStyle = useRef({
-    marginLeft: 35,
-    marginRight: 35,
-  }).current;
-  const iconContainerStyle = useRef<StyleProp<ViewStyle>>({
-    position: 'absolute',
-    top: 0,
-    right: 15,
-    height: '100%',
-    justifyContent: 'center',
-  }).current;
-  const iconStyle = useRef<StyleProp<TextStyle>>({
-    fontSize: 20,
-    color: 'white',
-  }).current;
-  const extraChildren = useRef(
-    <View style={iconContainerStyle}>
-      <Ionicons style={iconStyle} name="chevron-forward"/>
-    </View>
-  ).current;
-
   const onPress = useNavigationToInDepth(personUuid);
 
   return (
     <ButtonWithCenteredText
-      containerStyle={containerStyle}
-      textStyle={textStyle}
+      containerStyle={styles.seeQAndAButtonContainer}
+      textStyle={styles.seeQAndAButtonText}
       onPress={onPress}
-      extraChildren={extraChildren}
+      extraChildren={seeQAndAButtonChevron}
       loading={name === undefined}
       borderColor="rgba(255, 255, 255, 0.2)"
       borderWidth={1}
@@ -618,7 +591,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
 type AllClubsChild =
   | { kind: 'Title', kids: ReactNode, props: { style?: TextStyle } }
   | { kind: 'Club', kids: ReactNode, props: {
-      onPress?: (e: GestureResponderEvent) => boolean | void,
+      onPress?: (view: View) => void,
       key: string,
       name: string,
       isMutual: boolean,
@@ -719,7 +692,7 @@ const AllClubs = ({
               clubName: d.kind === 'Club' ? d.props.name : undefined,
             })
           }
-          style={d.kind === 'Title' ? styles.wFull : null}
+          style={d.kind === 'Title' ? styles.wFull : styles.maxWFull}
           layout={LinearTransition.easing(Easing.bezier(0.25, 1, 0.5, 1))}
           exiting={FadeOut}
         >
@@ -756,7 +729,7 @@ type UserData = {
   has_kids: string | null,
   height_cm: number | null,
   long_distance: string | null,
-  looking_for: string | string[] | null,
+  looking_for: string[],
   gender_preference: string[] | null,
   age_preference: { min_age: number | null, max_age: number | null } | null,
   show_my_looking_for: string | null,
@@ -871,13 +844,6 @@ const hasAnyBasics = (data: UserData | null | undefined): boolean => {
     data.height_cm ||
     data.body_type
   );
-};
-
-const Content = (navigationRef: ProspectNavigationRef) =>  {
-  return (props: ProspectScreenProps) => <CurriedContent
-    navigationRef={navigationRef}
-    {...props}
-  />;
 };
 
 const useProfileBackgroundColor = (data: UserData | undefined): string => {
@@ -1040,6 +1006,7 @@ const ProspectProfile = ({
   showShareAndReport,
   paddingBottom,
   besideSidePanel,
+  onColumnLeft,
 }: {
   handle: string,
   data: FetchedUserData | undefined,
@@ -1047,6 +1014,7 @@ const ProspectProfile = ({
   showShareAndReport: boolean,
   paddingBottom: number,
   besideSidePanel?: boolean,
+  onColumnLeft?: (columnLeft: number) => void,
 }) => {
   const personUuid = data?.person_uuid ?? (isUuid(handle) ? handle : undefined);
   const [roundPrimaryPhoto, setRoundPrimaryPhoto] = useState(false);
@@ -1075,12 +1043,13 @@ const ProspectProfile = ({
   return (
     <ScrollView
       style={{ backgroundColor }}
+      scrollsChildToFocus={false}
       onLayout={(e) =>
         setRoundPrimaryPhoto(e.nativeEvent.layout.width > COLUMN_MAX_WIDTH)}
     >
       <Reanimated.View style={animatedStyle}>
         <HeartBackground>
-          <SidePanelLayout right={besideSidePanel}>
+          <SidePanelLayout right={besideSidePanel} onColumnLeft={onColumnLeft}>
             <View style={{ paddingBottom }}>
               <EnlargeablePhoto
                 photoUuid={firstOrNull(data?.photo_uuids)}
@@ -1149,11 +1118,7 @@ const ProspectProfilePanel = memo(({ handle, data, style }: {
   );
 });
 
-const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps & {
-  navigationRef: ProspectNavigationRef,
-}) => {
-  navigationRef.current = navigation;
-
+const Content = ({navigation, route}: ProspectScreenProps) => {
   const insets = useSafeAreaInsets();
 
   // The route param is a "handle": either a uuid (legacy/shared links) or a
@@ -1181,12 +1146,14 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
       signedInUser.personUuid === handle);
   const isAnonymousViewer = !signedInUser;
 
+  const [columnLeft, setColumnLeft] = useState<number>();
+
   useBackButtonClaim(
     !isAnonymousViewer || Platform.OS === 'web'
       ? {
-        layout: 'column',
+        layout: columnLeft ?? 'pending',
         transition: Platform.OS === 'web' ? 'instant' : 'fade',
-        onPress: () => navigationRef.current?.goBack(),
+        onPress: () => navigation.goBack(),
       }
       : null
   );
@@ -1200,13 +1167,14 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
   const [hideBottomButtonsHint, setHideBottomButtonsHint] = useState(
     () => !!getProspectHint(handle)?.hideBottomButtons,
   );
+  const [hintHandle, setHintHandle] = useState(handle);
+  if (hintHandle !== handle) {
+    setHintHandle(handle);
+    setHideBottomButtonsHint(!!getProspectHint(handle)?.hideBottomButtons);
+  }
   useEffect(() => {
-    const h = getProspectHint(handle);
-    if (h?.hideBottomButtons) {
-      setHideBottomButtonsHint(true);
+    if (getProspectHint(handle)?.hideBottomButtons) {
       setProspectHint(handle, { hideBottomButtons: false });
-    } else {
-      setHideBottomButtonsHint(false);
     }
   }, [handle]);
 
@@ -1287,6 +1255,7 @@ const CurriedContent = ({navigationRef, navigation, route}: ProspectScreenProps 
           paddingBottom={
             showAnonymousSignInCta && Platform.OS === 'web' ? 200 : 100}
           besideSidePanel={showSimilarProfiles}
+          onColumnLeft={setColumnLeft}
         />
         <SidePanelLayout
           style={styles.overlay}
@@ -1736,7 +1705,7 @@ const Body = ({
               marginBottom: 10,
             }}
           >
-            Verification is based on selfies analyzed by our AI. Verified
+            Verification is based on selfies checked by AI. Verified
             photos are most accurate.
           </DefaultText>
         </>}
@@ -1854,12 +1823,24 @@ const Body = ({
 };
 
 const styles = StyleSheet.create({
+  seeQAndAButtonContainer: {
+    marginTop: 40,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  seeQAndAButtonText: {
+    marginLeft: 35,
+    marginRight: 35,
+  },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 999,
   },
   wFull: {
     width: '100%',
+  },
+  maxWFull: {
+    maxWidth: '100%',
   },
   audioPlayerMiddleText: {
     fontWeight: 700,
@@ -1878,4 +1859,4 @@ export {
   resetProspectProfileCache,
   useProspectProfile,
 };
-export type { FetchedUserData, ProspectNavigationRef };
+export type { FetchedUserData };

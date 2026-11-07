@@ -229,7 +229,7 @@ test_reply_rate () {
 
 test_search_cache () {
   setup
-  q "delete from search_cache"
+  flush_redis
 
   # Ensure `user1` is ranked first in search results
   q "
@@ -241,7 +241,8 @@ test_search_cache () {
   where
     email IN ('searcher@example.com', 'user1@example.com')"
 
-  assert_search_names ''            10 1
+  echo 'Missing search results are rebuilt rather than coming back empty'
+  assert_search_names       'user2' 10 1
   assert_search_names 'user1 user2' 10 0
   assert_search_names       'user2' 10 1
 
@@ -251,6 +252,13 @@ test_search_cache () {
   assert_search_names 'user2' 10 1
   assert_search_names 'user1' 10 0
   assert_search_names      '' 10 1
+
+  echo 'A deleted prospect disappears from saved search results'
+  [[ "$(c GET /search | jq -r '[.[].name] | join(" ")')" = user1 ]]
+  assume_role user1
+  c DELETE /account
+  assume_role searcher
+  [[ "$(c GET /search | jq length)" = 0 ]]
 }
 
 test_quiz_search () {
@@ -686,12 +694,15 @@ EOF
     "age": 26,
     "match_percentage": 99,
     "name": "user1",
+    "person_messaged_prospect": false,
     "profile_photo_blurhash": "the-blurhash",
     "profile_photo_uuid": null,
+    "prospect_messaged_person": false,
     "prospect_person_id": null,
     "prospect_uuid": null,
     "url_slug": null,
-    "verification_required_to_view": "basics"
+    "verification_required_to_view": "basics",
+    "verified": false
   }
 ]
 EOF
@@ -790,12 +801,15 @@ EOF
     "age": 26,
     "match_percentage": 99,
     "name": "user1",
+    "person_messaged_prospect": false,
     "profile_photo_blurhash": null,
     "profile_photo_uuid": null,
+    "prospect_messaged_person": false,
     "prospect_person_id": ${user1_id},
     "prospect_uuid": "${user1_uuid}",
     "url_slug": "user1",
-    "verification_required_to_view": null
+    "verification_required_to_view": null,
+    "verified": false
   }
 ]
 EOF

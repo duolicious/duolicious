@@ -69,6 +69,7 @@ class Smtp:
         body: str,
         to_addr: str,
         from_addr: str | None = None,
+        unsubscribe_url: str | None = None,
     ) -> None:
         if self._smtp is None:
             # Lazily reconnect if previous attempt failed.
@@ -83,6 +84,9 @@ class Smtp:
         msg["From"] = f"Duolicious <{_from_addr}>"
         msg["To"] = to_addr
         msg["Subject"] = subject
+        if unsubscribe_url:
+            msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+            msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
         msg.attach(MIMEText(body, "html"))
 
         self._smtp.sendmail(
@@ -98,6 +102,7 @@ class Smtp:
         body: str,
         to_addr: str,
         from_addr: str | None = None,
+        unsubscribe_url: str | None = None,
         retries: int | None = None,
         backoff: int | None = None,
     ) -> None:
@@ -115,6 +120,7 @@ class Smtp:
                         body=body,
                         to_addr=to_addr,
                         from_addr=from_addr,
+                        unsubscribe_url=unsubscribe_url,
                     )
                 return  # Success
             except Exception:

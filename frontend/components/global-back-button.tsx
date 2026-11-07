@@ -43,41 +43,47 @@ const GlobalBackButton = () => {
 
   const hide = useCallback(() => setShown(null), []);
 
-  const targetX = placement?.layout === 'column'
+  const targetX = typeof placement?.layout === 'number'
+    ? placement.layout
+    : placement?.layout === 'column'
     ? Math.max(0, (width - COLUMN_MAX_WIDTH) / 2)
     : 0;
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useLayoutEffect(() => {
     const previous = shown;
 
     if (!placement && !previous) return;
 
     if (!placement && previous?.transition === 'instant') {
-      opacity.value = 0;
+      opacity.set(0);
       setShown(null);
       return;
     }
 
     if (!placement) {
-      opacity.value = withTiming(0, TIMING, (finished) => {
+      opacity.set(withTiming(0, TIMING, (finished) => {
         if (finished) runOnJS(hide)();
-      });
+      }));
       return;
     }
+
+    if (placement.layout === 'pending') return;
 
     setShown(placement);
 
     if (!previous) {
-      translateX.value = targetX;
-      opacity.value = placement.transition === 'fade'
+      translateX.set(targetX);
+      opacity.set(placement.transition === 'fade'
         ? withTiming(1, TIMING)
-        : 1;
+        : 1);
       return;
     }
 
-    opacity.value = withTiming(1, TIMING);
-    translateX.value = withTiming(targetX, TIMING);
+    opacity.set(withTiming(1, TIMING));
+    translateX.set(withTiming(targetX, TIMING));
   }, [placement, targetX]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

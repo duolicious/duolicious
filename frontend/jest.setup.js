@@ -14,6 +14,15 @@ jest.mock('react-native-reanimated', () => {
   const identity = (v) => v;
   const noop = () => {};
 
+  const sharedValue = (initial) => {
+    const sv = {
+      value: initial,
+      get: () => sv.value,
+      set: (v) => { sv.value = typeof v === 'function' ? v(sv.value) : v; },
+    };
+    return sv;
+  };
+
   const createAnimatedComponent = (Component) =>
     React.forwardRef((props, ref) =>
       React.createElement(Component, { ...props, ref }),
@@ -32,11 +41,12 @@ jest.mock('react-native-reanimated', () => {
     __esModule: true,
     default: Animated,
     ...Animated,
-    useSharedValue: (initial) => ({ value: initial }),
+    useSharedValue: sharedValue,
     useDerivedValue: (fn) => ({ value: fn() }),
     useAnimatedStyle: (fn) => fn(),
     useAnimatedRef: () => React.createRef(),
     useAnimatedScrollHandler: () => noop,
+    useEvent: () => noop,
     withTiming: identity,
     withSpring: identity,
     withDelay: (_delay, value) => value,
@@ -49,7 +59,7 @@ jest.mock('react-native-reanimated', () => {
     scrollTo: noop,
     interpolate: identity,
     interpolateColor: identity,
-    makeMutable: (initial) => ({ value: initial }),
+    makeMutable: sharedValue,
     Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
     Easing: new Proxy({}, { get: () => identity }),
   };

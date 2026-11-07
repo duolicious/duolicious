@@ -84,7 +84,11 @@ const OtpInput = (props: Props) => {
     // Update fields such that they only ever have one digit
     const stateCopy_ = copyStateObj(state);
 
-    stateCopy_[i].digit = changedText;
+    const previousDigit = state[i].digit;
+
+    stateCopy_[i].digit = previousDigit && changedText.length === 2
+      ? changedText.replace(previousDigit, '')
+      : changedText;
 
     const inputValues = stateCopy_.map(digitState => digitState.digit);
 

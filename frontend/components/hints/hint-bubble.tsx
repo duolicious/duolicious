@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import {
   Platform,
-  Pressable,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import Animated, {
   Easing,
   FadeIn,
@@ -29,12 +29,14 @@ import { safeBestTextOn } from '../../util/util';
 const HintBubble = ({
   color,
   pointerPosition,
+  pointerInset = 8,
   style,
   onPress,
   children,
 }: {
   color: string,
   pointerPosition: 'left' | 'right',
+  pointerInset?: number,
   style?: ViewStyle,
   onPress: () => void,
   children: (inkColor: string) => React.ReactNode,
@@ -98,8 +100,8 @@ const HintBubble = ({
       <View
         style={{
           ...(pointerPosition === 'left'
-            ? { marginLeft: 8 }
-            : { marginRight: 8 }),
+            ? { marginLeft: pointerInset }
+            : { marginRight: pointerInset }),
           marginBottom: -3,
           zIndex: 2,
         }}

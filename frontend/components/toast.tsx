@@ -37,11 +37,11 @@ const slideOut = (
   duration: number = SLIDE_DURATION,
 ) => {
   'worklet';
-  translateY.value = withTiming(HIDDEN_POSITION, { duration }, (finished) => {
+  translateY.set(withTiming(HIDDEN_POSITION, { duration }, (finished) => {
     if (finished) {
       runOnJS(onDismiss)();
     }
-  });
+  }));
 };
 
 const slideInAndHold = (
@@ -50,7 +50,7 @@ const slideInAndHold = (
   holdDuration: number,
 ) => {
   'worklet';
-  translateY.value = withSequence(
+  translateY.set(withSequence(
     withTiming(0, { duration: SLIDE_DURATION }),
     withDelay(
       holdDuration,
@@ -60,7 +60,7 @@ const slideInAndHold = (
         }
       }),
     ),
-  );
+  ));
 };
 
 const Toast: React.FC = () => {
@@ -68,16 +68,16 @@ const Toast: React.FC = () => {
   const translateY = useSharedValue(HIDDEN_POSITION);
 
   const [toastQueue, setToastQueue] = useState<ToastItem[]>([]);
-  const [currentToast, setCurrentToast] = useState<ToastItem | null>(null);
+  const currentToast = toastQueue[0] ?? null;
 
-  const dismiss = useCallback(() => setCurrentToast(null), []);
+  const dismiss = useCallback(() => setToastQueue((queue) => queue.slice(1)), []);
 
   const swipeUp = useMemo(
     () => Gesture.Pan()
       .onUpdate((e) => {
         'worklet';
         if (e.translationY < 0) {
-          translateY.value = e.translationY;
+          translateY.set(e.translationY);
         }
       })
       .onEnd((e) => {
@@ -96,31 +96,19 @@ const Toast: React.FC = () => {
   }));
 
   useEffect(() => {
-    const head = toastQueue[0];
-    const tail = toastQueue.slice(1);
-
-    if (currentToast === null && head) {
-      // `head` is a component; wrap it so React's setter stores it rather than
-      // invoking it as a state updater.
-      setCurrentToast(() => head);
-      setToastQueue(tail);
-    }
-  }, [toastQueue.length, currentToast]);
-
-  useEffect(() => {
     if (!currentToast) {
       return;
     }
 
-    translateY.value = HIDDEN_POSITION;
+    translateY.set(HIDDEN_POSITION);
     slideInAndHold(translateY, dismiss, currentToast.holdDuration);
-  }, [currentToast === null]);
+  }, [currentToast]);
 
   useEffect(() => {
     const appendToast = (content: React.FC | ToastItem) => {
       const item = typeof content === 'function'
         ? { Content: content, holdDuration: HOLD_DURATION }
-        : content;
+        : { ...content };
       setToastQueue(prevQueue => [...prevQueue, item]);
     };
 

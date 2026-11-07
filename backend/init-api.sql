@@ -63,28 +63,6 @@ AS $$
 $$;
 
 
-CREATE OR REPLACE FUNCTION age_gap_acceptability_odds(
-    a double precision,
-    b double precision
-)
-RETURNS double precision
-LANGUAGE SQL
-IMMUTABLE
-STRICT
-AS $$
-  SELECT exp(-8.0 * d * d)
-  FROM (
-        SELECT
-          1.0 - CASE
-                  WHEN a > b
-                       THEN (b - 13)::float8 / (a - 13)
-                       ELSE (a - 13)::float8 / (b - 13)
-                END
-          AS d
-       ) AS s;
-$$;
-
-
 --------------------------------------------------------------------------------
 -- BLOCKED EMAIL DOMAINS
 --------------------------------------------------------------------------------
@@ -319,7 +297,6 @@ CREATE TABLE IF NOT EXISTS person (
     education TEXT,
     height_cm SMALLINT,
     body_type_id SMALLINT REFERENCES body_type(id) NOT NULL DEFAULT 1,
-    looking_for_id SMALLINT REFERENCES looking_for(id) NOT NULL DEFAULT 1,
     looking_for_ids SMALLINT[] NOT NULL DEFAULT '{1}',
     smoking_id SMALLINT REFERENCES yes_no_optional(id) NOT NULL DEFAULT 1,
     drinking_id SMALLINT REFERENCES frequency(id) NOT NULL DEFAULT 1,
@@ -498,13 +475,13 @@ CREATE TABLE IF NOT EXISTS photo (
     uuid TEXT NOT NULL,
     blurhash TEXT NOT NULL,
     verified BOOLEAN NOT NULL DEFAULT FALSE,
-    nsfw_score FLOAT4,
     extra_exts TEXT[] NOT NULL DEFAULT '{}',
     hash TEXT NOT NULL,
     width INT,
     height INT,
     crop_top INT,
     crop_left INT,
+    nsfw_score_v2 FLOAT4,
     PRIMARY KEY (person_id, position)
 );
 
@@ -514,6 +491,8 @@ CREATE TABLE IF NOT EXISTS undeleted_photo (
 
 CREATE TABLE IF NOT EXISTS banned_photo_hash (
     hash TEXT NOT NULL,
+    photo_uuid TEXT,
+    embedding VECTOR(768),
     PRIMARY KEY (hash)
 );
 
@@ -839,23 +818,19 @@ CREATE TABLE IF NOT EXISTS visited (
     PRIMARY KEY (subject_person_id, object_person_id)
 );
 
---------------------------------------------------------------------------------
--- TABLES TO SPEED UP SEARCHING
---------------------------------------------------------------------------------
+DO $$ BEGIN
+    CREATE TYPE notification_kind AS ENUM ('intro', 'chat', 'visitor');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE UNLOGGED TABLE IF NOT EXISTS search_cache (
-    searcher_person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    position SMALLINT,
-    prospect_person_id INT NOT NULL,
-    prospect_uuid UUID NOT NULL,
-    profile_photo_uuid TEXT,
-    profile_photo_blurhash TEXT,
-    verified BOOLEAN NOT NULL DEFAULT FALSE,
-    name TEXT NOT NULL,
-    age SMALLINT,
-    match_percentage SMALLINT NOT NULL,
-    personality VECTOR(47) NOT NULL,
-    PRIMARY KEY (searcher_person_id, position)
+CREATE TABLE IF NOT EXISTS notification_due (
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    kind notification_kind NOT NULL,
+    event_at TIMESTAMP NOT NULL,
+    due_at TIMESTAMP NOT NULL,
+
+    PRIMARY KEY (person_id, kind)
 );
 
 --------------------------------------------------------------------------------
@@ -897,8 +872,6 @@ CREATE INDEX IF NOT EXISTS idx__person__roles
     ON person
     USING GIN (roles);
 
-CREATE INDEX IF NOT EXISTS idx__search_cache__searcher_person_id__position ON search_cache(searcher_person_id, position);
-
 CREATE INDEX IF NOT EXISTS idx__answer__person_id_public_answer ON answer(person_id, public_, answer);
 -- Lets the feed's 'answered-question' facepiles scan a question's public
 -- yes/no answerers in person_id order
@@ -919,6 +892,7 @@ CREATE INDEX IF NOT EXISTS idx__duo_session__person_id
 
 CREATE INDEX IF NOT EXISTS idx__location__coordinates ON location USING GIST(coordinates);
 CREATE INDEX IF NOT EXISTS idx__location__lower_long_friendly ON location USING GIST(lower(long_friendly) gist_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx__location__lower_city ON location(lower(city) text_pattern_ops);
 
 CREATE INDEX IF NOT EXISTS idx__question__question ON question USING GIST(question gist_trgm_ops);
 
@@ -947,8 +921,8 @@ CREATE INDEX IF NOT EXISTS idx__deleted_photo_admin_token__expires_at
 CREATE INDEX IF NOT EXISTS idx__photo__uuid
     ON photo(uuid);
 
-CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score
-    ON photo(nsfw_score);
+CREATE INDEX IF NOT EXISTS idx__photo__nsfw_score_v2
+    ON photo(nsfw_score_v2);
 
 CREATE INDEX IF NOT EXISTS idx__onboardee__created_at
     ON onboardee(created_at);
@@ -990,13 +964,8 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
 
--- Serves the visitor-notification cron, which sweeps every recent visit rather
--- than looking one person up. Both person ids are in the index so the sweep
--- needn't touch the heap, and invisible visits are excluded because they never
--- reach the visitors tab and so are never notified about.
-CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
-    ON visited(updated_at DESC, object_person_id, subject_person_id)
-    WHERE NOT invisible;
+CREATE INDEX IF NOT EXISTS idx__notification_due__kind__due_at
+    ON notification_due(kind, due_at);
 
 --------------------------------------------------------------------------------
 -- DATA
@@ -1637,28 +1606,6 @@ EXECUTE FUNCTION
     copy_person_to_person_club();
 
 CREATE OR REPLACE FUNCTION
-    sync_looking_for()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.looking_for_ids IS DISTINCT FROM OLD.looking_for_ids THEN
-        NEW.looking_for_id := NEW.looking_for_ids[1];
-    ELSIF NEW.looking_for_id IS DISTINCT FROM OLD.looking_for_id THEN
-        NEW.looking_for_ids := ARRAY[NEW.looking_for_id];
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER
-    trigger_sync_looking_for
-BEFORE UPDATE OF looking_for_id, looking_for_ids ON
-    person
-FOR EACH ROW
-EXECUTE FUNCTION
-    sync_looking_for();
-
-CREATE OR REPLACE FUNCTION
     populate_person_club_defaults()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1863,10 +1810,6 @@ CREATE TABLE IF NOT EXISTS rude_message (
 
     PRIMARY KEY (person_id, created_at)
 );
-
-CREATE INDEX IF NOT EXISTS duo_idx__inbox__timestamp__luser__box
-ON inbox(timestamp, luser, box)
-WHERE unread_count > 0;
 
 CREATE INDEX IF NOT EXISTS duo_idx__mam_message__remote_bare_jid__id
 ON mam_message(remote_bare_jid, id)

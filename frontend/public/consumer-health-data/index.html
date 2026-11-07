@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
+
+  <meta name="theme-color" content="#70f">
+
+  <link rel="icon" href="/favicon.png" type="image/x-icon">
+  <meta name="description" content="How Duolicious handles consumer health data under Washington’s My Health My Data Act, and how to use your rights over it.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Duolicious">
+  <meta property="og:title" content="Duolicious | Washington consumer health data privacy policy">
+  <meta property="og:description" content="How Duolicious handles consumer health data under Washington’s My Health My Data Act, and how to use your rights over it.">
+  <meta property="og:image" content="https://duolicious.app/favicon.png">
+  <meta property="og:url" content="https://duolicious.app/consumer-health-data/">
+  <link rel="canonical" href="https://duolicious.app/consumer-health-data/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Duolicious | Washington consumer health data privacy policy">
+  <meta name="twitter:description" content="How Duolicious handles consumer health data under Washington’s My Health My Data Act, and how to use your rights over it.">
+  <meta name="twitter:image" content="https://duolicious.app/favicon.png">
+
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <title>Duolicious | Washington consumer health data privacy policy</title>
+</head>
+
+<body>
+
+  <div id="header">
+    <div id="header-inset">
+      <a href="/" id="logo">
+        <div class="big-logo">
+          <svg id="mySvg" width="48" height="48" viewBox="0 0 4.2333331 4.2333332">
+            <g id="myGroup"></g>
+          </svg>
+
+          <script>
+            // Existing SVG animation logic remains unchanged
+
+            const logo16RectCoordinates = [
+              { x: 1.5875,     y: 1.5875    },
+              { x: 1.3229166,  y: 1.5875    },
+              { x: 1.0583335,  y: 1.8520836 },
+              { x: 0.79375011, y: 1.5875    },
+              { x: 0.52916676, y: 1.5875    },
+              { x: 0.26458347, y: 1.8520836 },
+              { x: 0.26458347, y: 2.1166666 },
+              { x: 0.52916676, y: 2.3812499 },
+              { x: 0.79375011, y: 2.6458333 },
+              { x: 1.0583335,  y: 2.9104166 },
+              { x: 1.3229166,  y: 2.6458333 },
+              { x: 1.5875,     y: 2.3812499 },
+              { x: 1.8520833,  y: 2.1166666 },
+              { x: 1.8520833,  y: 1.8520836 },
+              { x: 2.1166666,  y: 1.5875    },
+              { x: 2.1166666,  y: 1.3229166 },
+              { x: 2.3812499,  y: 1.0583333 },
+              { x: 2.6458333,  y: 1.0583333 },
+              { x: 2.9104166,  y: 1.3229166 },
+              { x: 3.175,      y: 1.0583333 },
+              { x: 3.4395833,  y: 1.0583333 },
+              { x: 3.7041664,  y: 1.3229166 },
+              { x: 3.7041664,  y: 1.5875    },
+              { x: 3.4395833,  y: 1.8520833 },
+              { x: 3.175,      y: 2.1166666 },
+              { x: 2.9104166,  y: 2.3812499 },
+              { x: 2.6458333,  y: 2.1166666 },
+              { x: 2.3812499,  y: 1.8520833 },
+            ];
+
+            const color = 'white';
+            const rectSize = 0.26458332;
+            const duration = 400;
+            const stagger = 40;
+
+            const svgGroup = document.getElementById('myGroup');
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            const rects = logo16RectCoordinates.map((coord) => {
+              const rect = document.createElementNS(svgNS, 'rect');
+              rect.setAttribute('width', rectSize);
+              rect.setAttribute('height', rectSize);
+              rect.setAttribute('x', coord.x);
+              rect.setAttribute('y', coord.y);
+              rect.setAttribute('fill', color);
+              rect.setAttribute('opacity', 0);
+              svgGroup.appendChild(rect);
+              return rect;
+            });
+
+            function fadeStagger(rectEls, targetOpacity, fadeDuration, fadeStagger) {
+              return new Promise((resolve) => {
+                const startTime = performance.now();
+
+                function frame(now) {
+                  let allDone = true;
+
+                  rectEls.forEach((rect, i) => {
+                    const localDelay = i * fadeStagger;
+                    const localElapsed = now - startTime - localDelay;
+
+                    if (localElapsed < 0) {
+                      allDone = false;
+                    } else if (localElapsed < fadeDuration) {
+                      allDone = false;
+                      const progress = localElapsed / fadeDuration;
+                      const currentOpacity = parseFloat(rect.getAttribute('opacity'));
+                      const newOpacity =
+                        currentOpacity + (targetOpacity - currentOpacity) * progress;
+                      rect.setAttribute('opacity', newOpacity);
+                    } else {
+                      rect.setAttribute('opacity', targetOpacity);
+                    }
+                  });
+
+                  if (!allDone) {
+                    requestAnimationFrame(frame);
+                  } else {
+                    resolve();
+                  }
+                }
+                requestAnimationFrame(frame);
+              });
+            }
+
+            async function animateLoop() {
+              while (true) {
+                await fadeStagger(rects, 1, duration, stagger);
+                await new Promise((r) => setTimeout(r, 5000));
+                await fadeStagger(rects, 0, duration, stagger);
+              }
+            }
+
+            window.addEventListener('load', function() {
+              animateLoop();
+            });
+          </script>
+        </div>
+
+        <span>Duolicious</span>
+      </a>
+
+      <div class="links">
+        <a href="/clubs/">Clubs</a>
+        <a href="/guidelines/">Guidelines</a>
+        <a href="/faq/">FAQ</a>
+        <a href="https://github.com/duolicious">Open Source</a>
+      </div>
+
+      <div id="sign-up-container">
+        <a href="/" class="sign-up">
+          Sign Up
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="content-inset">
+      <h1>Washington Consumer Health Data Privacy Policy</h1>
+
+      <i>Last updated October 25, 2026</i>
+
+      <p>This policy explains how Duolicious handles consumer health data, as defined by Washington’s My Health My Data Act. Consumer health data is personal information that identifies your past, present or future physical or mental health. It includes biometric data, such as face imagery that can identify you. Our <a href="/privacy/">Privacy Policy</a> explains how we handle the rest of your data.</p>
+
+      <h2>Consumer Health Data We Collect</h2>
+      <ol>
+        <li>Biometric data: your verification selfie and the profile photos we compare it with. We use them to check that your selfie shows you and to decide which verification badges you get.</li>
+        <li>Q&amp;A answers about your health, such as whether you’ve lived with a mental illness. We use them to recommend people to you and to let other members filter their searches by them, and other members can see the ones you answer publicly.</li>
+        <li>Health details you add to your profile, such as whether you smoke, drink, use drugs or exercise, or anything about your health in your self-summary. We show them on your profile, and other members can filter their searches by some of them.</li>
+        <li>Health information you include in messages. We deliver it to the people you message. Our automated tools check messages for content that breaks our rules, and we use past messages to train those tools.</li>
+        <li>Health information in reports, when you report someone or someone reports you. We use reports to keep Duolicious safe and enforce our rules.</li>
+      </ol>
+
+      <h2>Where We Get It</h2>
+      <ol>
+        <li>From you, when you take a verification selfie, answer questions, edit your profile or send messages</li>
+        <li>From other members, when they message or report you</li>
+      </ol>
+
+      <h2>Who We Share It With</h2>
+      <ol>
+        <li>Other members, when you show health information on your profile or send it in a message. If you make your profile public, anyone can see your profile.</li>
+        <li>Service providers that process it for us, including cloud hosting providers and AI providers that help us verify selfies and moderate content. They can receive any of the categories above.</li>
+        <li>Authorities, when the law requires it.</li>
+      </ol>
+
+      <p>We don’t sell consumer health data.</p>
+
+      <h2>Your Rights</h2>
+      <p>You can ask us to:</p>
+      <ol>
+        <li>Confirm whether we collect, share or sell your consumer health data, and give you a copy of it, a list of the third parties we’ve shared it with and a way to contact them</li>
+        <li>Stop collecting or sharing it, by withdrawing any consent you’ve given us</li>
+        <li>Delete it</li>
+      </ol>
+
+      <p>To make a request, email support@duolicious.app from the email address on your account. We may ask for more information to confirm it’s you. We’ll respond within 45 days, or let you know within that time if we need up to 45 more days.</p>
+
+      <p>If we turn down your request, you can appeal by replying to our answer. We’ll respond to your appeal in writing within 45 days. If we turn down your appeal, you can complain to the Washington State Attorney General at <a href="https://www.atg.wa.gov/file-complaint">www.atg.wa.gov/file-complaint</a>.</p>
+
+      <p>We won’t discriminate against you for using these rights.</p>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div>
+      <div id="bottom-nav">
+        <div>
+          <span>About</span>
+          <ul>
+            <li><a href="/clubs/">Clubs</a></li>
+            <li><a href="/blog/">Blog</a></li>
+            <li><a href="/faq/">FAQ</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <span>Legal</span>
+          <ul>
+            <li><a href="/guidelines/">Guidelines</a></li>
+            <li><a href="/terms/">Terms</a></li>
+            <li><a href="/privacy/">Privacy</a></li>
+            <li><a href="/consumer-health-data/">Consumer Health Data</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div id="footer-legal">
+        <div class="logo">Duolicious</div>
+
+        <p class="foss">Duolicious is free software licensed under the <a target="_blank" href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPLv3</a>. The source code used to make Duolicious is available <a target="_blank" href="https://github.com/duolicious">here</a>.</p>
+      </div>
+    </div>
+
+    <div id="socials">
+      <ul>
+        <li>
+          <a target="_blank" href="https://twitter.com/duoliciousapp">
+            <img src="/assets/social/twitter-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://www.reddit.com/r/duolicious">
+            <img src="/assets/social/reddit-white.svg" />
+          </a>
+        </li>
+        <li>
+          <a target="_blank" href="https://github.com/duolicious">
+            <img src="/assets/social/github-white.svg" />
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   Platform,
-  Pressable,
   StyleProp,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import Animated, {
   Easing,
   FadeInDown,

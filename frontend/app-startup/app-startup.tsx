@@ -235,7 +235,7 @@ const useAppStartup = (
     await applyStartupNav(true, pendingClub);
   }, [linking]);
 
-  const loadApp = useCallback(async () => {
+  const loadApp = useCallback(() => {
     // The splash screen may hide once the work that doesn't need the network
     // is done; the network-dependent work below can stall indefinitely
     // offline, which is what the `isOffline` arm of the hide condition
@@ -247,13 +247,11 @@ const useAppStartup = (
       .catch((e) => console.warn(e))
       .then(() => setLocalReady(true));
 
-    await Promise.all([
+    return Promise.all([
       localWork,
       restoreSessionAndNavigate(),
       fetchServerStatus().then(setServerStatus),
-    ]);
-
-    setIsLoading(false);
+    ]).then(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {

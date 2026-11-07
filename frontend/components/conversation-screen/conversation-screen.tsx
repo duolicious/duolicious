@@ -2,25 +2,23 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
-  GestureResponderEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Dispatch,
   Fragment,
-  SetStateAction,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -46,13 +44,12 @@ import {
 import { api } from '../../api/api';
 import { TopNavBarButton } from '../top-nav-bar-button';
 import { RotateCcw, Flag, X } from "react-native-feather";
-import { postSkipped } from '../../hide-and-block/hide-and-block';
+import { postSkipped, setSkipped, useSkipped } from '../../hide-and-block/hide-and-block';
 import { delay, isUuid, possessive } from '../../util/util';
-import { isOpenInNewTabPress, makeLinkProps } from '../../util/navigation';
 import { ReportModalInitialData } from '../modal/report-modal';
 import { listen, notify } from '../../events/events';
 import { ImageBackground } from 'expo-image';
-import { maybeRequestReview } from '../../store-review/store-review';
+import { isMutualConversation, maybeRequestReview } from '../../store-review/store-review';
 import { MessageDivider }  from './message-divider';
 import * as _ from 'lodash';
 import { Input } from './input';
@@ -66,7 +63,8 @@ import type { RootParamList } from '../../navigation/linking';
 import { useDraftMessage } from '../../chat/application-layer/hooks/draft-message';
 import { QuoteCard } from './quote';
 import { GifPickedEvent } from '../../components/modal/gif-picker-modal';
-import { useSkipped } from '../../hide-and-block/hide-and-block';
+import { ButtonWithCenteredText } from '../button/centered-text';
+import { SomethingWentWrongToast } from '../toast';
 import { OnlineIndicator } from '../online-indicator';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { useHover } from '../hover';
@@ -123,43 +121,29 @@ const firstMamId = (messageIds: string[] | null): string => {
 };
 
 const Menu = ({
-  navigation,
   name,
   personUuid,
-  isSkipped,
-  setIsSkipped,
   closeFn,
 }: {
-  navigation: NativeStackNavigationProp<RootParamList>,
   name: string | undefined,
   personUuid: string,
-  isSkipped: boolean | undefined,
-  setIsSkipped: Dispatch<SetStateAction<boolean | undefined>>,
   closeFn: () => void,
 }) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const { appTheme } = useAppTheme();
+  const { isSkipped, isLoading: isSkipLoading } = useSkipped(personUuid);
 
-  const isLoading = (
-    isSkipped === undefined ||
-    name === undefined);
+  const isLoading = isSkipLoading || name === undefined;
 
   const onPressSkip = useCallback(async () => {
-    if (isSkipped === undefined) {
-      return;
-    }
-
     setIsUpdating(true);
-    const nextHiddenState = !isSkipped;
-    if (await postSkipped(personUuid, nextHiddenState)) {
-      setIsSkipped(nextHiddenState);
-      setIsUpdating(false);
+    if (await postSkipped(personUuid, !isSkipped)) {
       closeFn();
-      if (nextHiddenState) {
-        navigation.popToTop();
-      }
+    } else {
+      notify<React.FC>('toast', SomethingWentWrongToast);
     }
-  }, [navigation, isSkipped, setIsSkipped, closeFn, personUuid]);
+    setIsUpdating(false);
+  }, [isSkipped, closeFn, personUuid]);
 
   const onPressReport = useCallback(async () => {
     if (name === undefined) {
@@ -261,8 +245,9 @@ const Menu = ({
           </DefaultText>
           <DefaultText style={subLabelStyle}>
             {isSkipped ?
-              'Moves the conversation out of your archive' :
-              'Ends the conversation and moves it to your archive'
+              'Unblocks them and moves the conversation out of your archive' :
+              'Blocks them from seeing your profile or messaging you, and ' +
+              'moves the conversation to your archive'
             }
           </DefaultText>
         </View>
@@ -283,8 +268,8 @@ const Menu = ({
               Report
             </DefaultText>
             <DefaultText style={subLabelStyle}>
-              Ends the conversation, moves it to your archive, and notifies
-              moderators
+              Blocks them, moves the conversation to your archive, and
+              notifies moderators
             </DefaultText>
           </View>
         </Pressable>
@@ -320,8 +305,6 @@ const ConversationScreenNavBar = ({
   photoBlurhash,
   name,
   isOnline,
-  isSkipped,
-  setIsSkipped,
 }: {
   navigation: NativeStackNavigationProp<RootParamList>,
   handle: string,
@@ -332,8 +315,6 @@ const ConversationScreenNavBar = ({
   photoBlurhash: string | null | undefined,
   name: string | undefined,
   isOnline: boolean,
-  isSkipped: boolean | undefined,
-  setIsSkipped: Dispatch<SetStateAction<boolean | undefined>>,
 }) => {
   const { appTheme } = useAppTheme();
   const [showMenu, setShowMenu] = useState(false);
@@ -342,13 +323,7 @@ const ConversationScreenNavBar = ({
   // Profile links prefer the username (url_slug), falling back to the handle.
   const profileHandle = urlSlug || handle;
 
-  const onPressName = useCallback((e: GestureResponderEvent) => {
-    if (isOpenInNewTabPress(e)) {
-      return;
-    }
-
-    e.preventDefault();
-
+  const onPressName = useCallback(() => {
     if (isAvailableUser) {
       // The user is already in this conversation, so the prospect's bottom
       // "send intro" buttons would be redundant.
@@ -381,7 +356,7 @@ const ConversationScreenNavBar = ({
       />
       <Pressable
         onPress={onPressName}
-        {...(isAvailableUser ? makeLinkProps(`/${profileHandle}`) : {})}
+        link={isAvailableUser ? { href: `/${profileHandle}` } : undefined}
         {...nameHoverProps}
         style={{
           justifyContent: 'center',
@@ -399,11 +374,7 @@ const ConversationScreenNavBar = ({
           }}
         >
           <ImageBackground
-            source={photoUuid && {
-              uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-              height: 30,
-              width: 30,
-            }}
+            source={photoUuid && { uri: `${IMAGES_URL}/450-${photoUuid}.jpg` }}
             placeholder={photoBlurhash && { blurhash: photoBlurhash }}
             transition={150}
             style={{
@@ -465,11 +436,8 @@ const ConversationScreenNavBar = ({
       }
       {showMenu && personUuid &&
         <Menu
-          navigation={navigation}
           name={name}
           personUuid={personUuid}
-          isSkipped={isSkipped}
-          setIsSkipped={setIsSkipped}
           closeFn={() => setShowMenu(false)}
         />
       }
@@ -527,10 +495,20 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     initialHint.photoBlurhash);
   const [isAvailableUser, setIsAvailableUser] = useState<boolean>(
     initialHint.isAvailableUser ?? true);
-  const [isSkipped, setIsSkipped] = useState<boolean | undefined>();
   // The prospect's url_slug, resolved from /conversation-prospect; used to link
   // to their profile by username rather than uuid.
   const [urlSlug, setUrlSlug] = useState<string | null>(null);
+  const [justSkipped, setJustSkipped] =
+    useState<'skipped' | 'reported' | null>(null);
+
+  // If the user navigates to the conversation screen via a deep link, but the
+  // conversation screen was already open on a conversation with a different
+  // person, then the screen should be cleared.
+  const [messagesPersonUuid, setMessagesPersonUuid] = useState(personUuid);
+  if (messagesPersonUuid !== personUuid) {
+    setMessagesPersonUuid(personUuid);
+    setMessageIds(null);
+  }
 
   const markUnavailable = useCallback(() => {
     setIsAvailableUser(false);
@@ -549,7 +527,9 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     setPhotoUuid(hint.photoUuid);
     setPhotoBlurhash(hint.photoBlurhash);
     setIsAvailableUser(hint.isAvailableUser);
-    setIsSkipped(j.is_skipped ?? false);
+    if (j.person_uuid) {
+      setSkipped(j.person_uuid, { isSkipped: !!j.is_skipped, networkState: 'settled' });
+    }
     setUrlSlug(j.url_slug ?? null);
     setPersonUuid(j.person_uuid ?? hintedPersonUuid(handle));
     setProspectHint(handle, hint);
@@ -558,6 +538,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
   const profile = useProspectProfile(
     showProfilePanel ? handle : undefined, { preferCache: true });
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     // Re-seed from the (possibly newly populated) hint on every handle
     // change. `useState` initializers only run on first mount, so when the
@@ -565,11 +546,11 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     // the previous prospect's name and photo until the API resolves.
     const hint = getProspectHint(handle) ?? {};
     setPersonUuid(hintedPersonUuid(handle));
+    setJustSkipped(null);
     setName(hint.name);
     setPhotoUuid(hint.photoUuid);
     setPhotoBlurhash(hint.photoBlurhash);
     setIsAvailableUser(hint.isAvailableUser ?? true);
-    setIsSkipped(undefined);
     setUrlSlug(null);
 
     let cancelled = false;
@@ -588,6 +569,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     })();
     return () => { cancelled = true; };
   }, [handle]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Surface the other person's name in the browser tab. App.tsx's
   // `documentTitle.formatter` reads `options.title` from the focused screen
@@ -615,15 +597,24 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
 
-    if (messageIds && messageIds.length > 45) {
+    saveDraft('');
+  }, [personUuid, saveDraft]);
+
+  useEffect(() => navigation.addListener('beforeRemove', () => {
+    const messages = (messageIds ?? []).flatMap((id) => {
+      const m = getMessage(id);
+      return m?.status === 'sent' && m.message.type !== 'typing'
+        ? [m.message]
+        : [];
+    });
+
+    if (isMutualConversation(messages)) {
       maybeRequestReview(1000);
     }
+  }), [navigation, messageIds]);
 
-    saveDraft('');
-  }, [personUuid, messageIds, saveDraft]);
-
-  const sendTypingMessage = useCallback(
-    _.debounce(
+  const sendTypingMessage = useMemo(
+    () => _.debounce(
       () => personUuid && sendMessageAndNotify(personUuid, { type: 'typing' }),
       1000,
       {
@@ -723,9 +714,9 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     }
   }, [maybeLoadNextPage]);
 
-  const markLastMessageRead = useCallback(async () => {
-    const lastMessageId = _.last(messageIds);
+  const lastMessageId = _.last(messageIds);
 
+  const markLastMessageRead = useCallback(async () => {
     if (!lastMessageId) {
       return;
     }
@@ -750,33 +741,58 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     if (personUuid) {
       await markDisplayed(personUuid, lastMessage.message.id, null);
     }
-  }, [_.last(messageIds), personUuid]);
+  }, [lastMessageId, personUuid]);
 
-  useSkipped(personUuid, () => navigation.popToTop());
+  const onPostSkip = useCallback((wasReported: boolean) => {
+    if (showInboxPanel) {
+      setJustSkipped(wasReported ? 'reported' : 'skipped');
+    } else {
+      navigation.popToTop();
+    }
+  }, [showInboxPanel, navigation]);
+
+  const { isSkipped, isPosting } = useSkipped(personUuid, onPostSkip);
+
+  const skippedNotice = isSkipped && justSkipped;
+  const SkippedIcon = skippedNotice === 'reported' ? Flag : X;
+
+  const undoSkipButton = (
+    <ButtonWithCenteredText
+      secondary={true}
+      borderColor={appTheme.secondaryColor}
+      loading={isPosting}
+      containerStyle={styles.undoSkipButton}
+      onPress={async () => {
+        if (personUuid && !await postSkipped(personUuid, false)) {
+          notify<React.FC>('toast', SomethingWentWrongToast);
+        }
+      }}
+    >
+      Undo skip
+    </ButtonWithCenteredText>
+  );
 
   // Fetch the first page of messages when the conversation is first opened
   // while online
-  const fetchFirstPage = useCallback(async (personUuid: string) => {
-    const fetchedMessageIds = await fetchConversationAndNotify(personUuid);
-
-    if (fetchedMessageIds === 'timeout') {
-      return;
-    }
-
-    setMessageIds((messageIds) => {
-      const lastIdOfPage = _.last(fetchedMessageIds);
-
-      if (
-        messageIds === null ||
-        lastIdOfPage && !messageIds.includes(lastIdOfPage)
-      ) {
-        return fetchedMessageIds;
-      } else {
-        return messageIds;
+  const fetchFirstPage = useCallback((personUuid: string) =>
+    fetchConversationAndNotify(personUuid).then((fetchedMessageIds) => {
+      if (fetchedMessageIds === 'timeout') {
+        return;
       }
-    });
 
-  }, []);
+      setMessageIds((messageIds) => {
+        const lastIdOfPage = _.last(fetchedMessageIds);
+
+        if (
+          messageIds === null ||
+          lastIdOfPage && !messageIds.includes(lastIdOfPage)
+        ) {
+          return fetchedMessageIds;
+        } else {
+          return messageIds;
+        }
+      });
+    }), []);
 
   useEffect(() => {
     const onChangeAppState = (state: AppStateStatus) => {
@@ -795,13 +811,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
       true,
     );
   }, []);
-
-  useEffect(() => {
-    // If the user navigates to the conversation screen via a deep link, but the
-    // conversation screen was already open on a conversation with a different
-    // person, then the screen should be cleared.
-    setMessageIds(null);
-  }, [personUuid]);
 
   useEffect(() => {
     if (isActive && isOnline && personUuid) {
@@ -844,6 +853,18 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     );
   }, [personUuid, isFocused]);
 
+  const noticeStyle: TextStyle = {
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    textAlign: 'center',
+    padding: 5,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: appTheme.interactiveBorderColor,
+    fontFamily: 'Trueno',
+  };
+
   if (Platform.OS === 'web') {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
@@ -876,7 +897,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           <InboxPanel openPersonUuid={personUuid} />
         </SidePanelCard>
       }
-      right={showProfilePanel && !profile.notFound &&
+      right={showProfilePanel && !profile.notFound && !skippedNotice &&
         <ProspectProfilePanel
           handle={handle}
           data={profile.data}
@@ -901,8 +922,6 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
           photoBlurhash={photoBlurhash}
           name={name}
           isOnline={isOnline}
-          isSkipped={isSkipped}
-          setIsSkipped={setIsSkipped}
         />
         {messageIds === null &&
           <View style={{flexGrow: 1, justifyContent: 'center', alignItems: 'center'}}>
@@ -944,11 +963,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
             {messageIds.length === 0 &&
               <>
                 <ImageBackground
-                  source={photoUuid && {
-                    uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-                    height: 450,
-                    width: 450,
-                  }}
+                  source={photoUuid && { uri: `${IMAGES_URL}/450-${photoUuid}.jpg` }}
                   placeholder={photoBlurhash && { blurhash: photoBlurhash }}
                   transition={150}
                   style={{
@@ -1038,7 +1053,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
             </View>
           </ScrollView>
         }
-        {isAvailableUser && draft !== null &&
+        {isAvailableUser && !isSkipped && draft !== null &&
           <Input
             initialValue={draft}
             onPressSend={onPressSend}
@@ -1048,20 +1063,58 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
             onFocus={onFocus}
           />
         }
-        {!isAvailableUser &&
-          <DefaultText
-            style={{
-              maxWidth: 600,
-              width: '100%',
-              alignSelf: 'center',
-              textAlign: 'center',
-              padding: 5,
-              paddingTop: 10,
-              paddingBottom: 10,
-              backgroundColor: appTheme.interactiveBorderColor,
-              fontFamily: 'Trueno',
-            }}
+        {isAvailableUser && isSkipped &&
+          <View
+            style={[
+              styles.skippedBar,
+              { backgroundColor: appTheme.interactiveBorderColor },
+            ]}
           >
+            <DefaultText style={styles.skippedBarText}>
+              You skipped {name ?? 'this person'}, so you can’t message each
+              other.
+            </DefaultText>
+            {undoSkipButton}
+          </View>
+        }
+        {skippedNotice &&
+          <View
+            style={[
+              styles.skippedNoticeOverlay,
+              styles.besidePanels,
+              { backgroundColor: appTheme.primaryColor },
+            ]}
+          >
+            <TopNavBar containerStyle={styles.navBar}>
+              <TopNavBarButton
+                onPress={() => navigation.goBack()}
+                iconName="arrow-back"
+                position="left"
+                secondary={true}
+              />
+            </TopNavBar>
+            <View style={styles.skippedNotice}>
+              <SkippedIcon
+                stroke={appTheme.brandColor}
+                strokeWidth={3}
+                height={48}
+                width={48}
+              />
+              <DefaultText style={styles.skippedNoticeTitle}>
+                You {skippedNotice} {name ?? 'them'}
+              </DefaultText>
+              <DefaultText style={{ textAlign: 'center', color: appTheme.hintColor }}>
+                {skippedNotice === 'reported' &&
+                  'Thanks for telling us. Our moderators will look into it. '}
+                {name ?? 'They'} can’t see your profile or message you. Your
+                conversation with them is now in your archive.
+              </DefaultText>
+              {skippedNotice === 'skipped' && undoSkipButton}
+            </View>
+          </View>
+        }
+        {!isAvailableUser &&
+          <DefaultText style={noticeStyle}>
             This person isn’t available right now. This often means their account
             is inactive or was deleted.
           </DefaultText>
@@ -1089,6 +1142,39 @@ const styles = StyleSheet.create({
   },
   sidePanel: {
     flex: 1,
+  },
+  skippedNoticeOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+  },
+  skippedNotice: {
+    flex: 1,
+    maxWidth: 400,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    paddingBottom: 100,
+  },
+  skippedNoticeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  skippedBar: {
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingHorizontal: 20,
+  },
+  skippedBarText: {
+    fontFamily: 'Trueno',
+    textAlign: 'center',
+  },
+  undoSkipButton: {
+    width: 160,
+    height: 40,
   },
 });
 

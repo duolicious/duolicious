@@ -7,13 +7,10 @@ This guide helps you get the Duolicious frontend running locally fast, run tests
 ## Quickstart
 
 ```bash
-# 1) Install dependencies
+# 1) Install dependencies (also applies the repo's patches)
 npm install
 
-# 2) Apply repo patches (required after install)
-npx patch-package
-
-# 3) Run the app (pick one)
+# 2) Run the app (pick one)
 npm run web        # Web (recommended for first-time contributors)
 npm run android    # Android (emulator or device required)
 npm run ios        # iOS (macOS + Xcode required)
@@ -32,6 +29,7 @@ Optional: if you hit OpenSSL errors on some Node setups or file watch limits on 
   - iOS: macOS with Xcode installed
 - For end‑to‑end tests: Playwright browsers
   - Install once: `npx playwright install --with-deps`
+- For end‑to‑end tests: `make`, to start the backend
 
 You do not need to install the Expo CLI globally; commands are run via npm scripts or `npx`.
 
@@ -110,7 +108,15 @@ First‑time setup:
 ```bash
 npx playwright install --with-deps
 ```
-Run tests and capture traces:
+The tests drive the app against the real backend. From the repository root, this starts a fresh copy of the backend's test stack, with its rate limits switched off, waits for its API to be healthy, then runs the tests:
+```bash
+make e2e-backend frontend-e2e
+```
+`PROJECTS` picks the Playwright projects, e.g. `make e2e-backend frontend-e2e PROJECTS='desktop phone'`. To run Playwright yourself, as in the commands below, start the stack with `make e2e-backend` and wait until http://localhost:5000/health responds.
+
+The `seed` project fills the database with a fixed cast of members (it needs `psql` on your `PATH`), and `screens.spec.ts` and `onboarding.spec.ts` compare each screen against the PNGs in `playwright-tests/*-snapshots/`, on desktop and phone layouts. Screenshots render differently between machines, so the committed PNGs come from CI: when a screen changes on purpose, download the failed job's `playwright-report-…` artifact and copy each `test-results/**/<name>-actual.png` over the matching snapshot. New screens write their first PNG into `playwright-tests/*-snapshots/` in the same artifact.
+
+From `frontend/`, run tests and capture traces:
 ```bash
 npx playwright test --trace on
 ```
@@ -122,11 +128,6 @@ Record a new test:
 ```bash
 npx playwright codegen http://localhost:8081
 ```
-Update screenshots for a specific spec (example):
-```bash
-npx playwright test --update-snapshots playwright-tests/onboarding.spec.ts
-```
-
 GitHub Actions will run Jest, Playwright, type checks, and ESLint on pull requests. Aim for green checks locally before opening a PR.
 
 ---
@@ -140,10 +141,6 @@ GitHub Actions will run Jest, Playwright, type checks, and ESLint on pull reques
 - Linux file watcher limits (large projects):
   ```bash
   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-  ```
-- After `npm install`, always run:
-  ```bash
-  npx patch-package
   ```
 - Expo cache hiccups (rare):
   ```bash

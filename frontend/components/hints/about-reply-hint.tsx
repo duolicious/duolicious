@@ -32,11 +32,9 @@ const AboutReplyHint = ({ color }: { color: string }) => {
     }
   }, [Boolean(quote)]);
 
-  useEffect(() => {
-    if (!isFocused) {
-      setVisible(false);
-    }
-  }, [isFocused]);
+  if (!isFocused && visible) {
+    setVisible(false);
+  }
 
   // ...or by tapping the hint to dismiss it.
   const dismiss = useCallback(() => {

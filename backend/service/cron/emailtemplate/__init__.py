@@ -1,9 +1,11 @@
 from urllib.parse import urlencode
 
-def frequency_url(email: str, type: str, frequency: str) -> str:
+from serviceshared.unsubscribe import person_token
+
+def frequency_url(person_uuid: str, type: str, frequency: str) -> str:
     base_url = 'https://api.duolicious.app/update-notifications'
     params = {
-        'email': email,
+        'token': person_token(person_uuid),
         'type': type,
         'frequency': frequency
     }
@@ -11,7 +13,7 @@ def frequency_url(email: str, type: str, frequency: str) -> str:
     return f'{base_url}?{encoded_params}'
 
 def notification_emailtemplate(
-    email: str,
+    person_uuid: str,
     subject: str,
     big: str,
     little: str,
@@ -72,32 +74,32 @@ def notification_emailtemplate(
                             <div>
                                 <p>Getting too many notifications? You can put a cap on how often you get them:</p>
                                 <span>Chats:
-                                    <a href="{frequency_url(email, 'Chats', 'Immediately')}"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
-                                    <a href="{frequency_url(email, 'Chats', 'Daily')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
-                                    <a href="{frequency_url(email, 'Chats', 'Every 3 days')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
-                                    <a href="{frequency_url(email, 'Chats', 'Weekly')}"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
-                                    <a href="{frequency_url(email, 'Chats', 'Never')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
+                                    <a href="{frequency_url(person_uuid, 'Chats', 'Immediately')}"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
+                                    <a href="{frequency_url(person_uuid, 'Chats', 'Daily')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
+                                    <a href="{frequency_url(person_uuid, 'Chats', 'Every 3 days')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
+                                    <a href="{frequency_url(person_uuid, 'Chats', 'Weekly')}"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
+                                    <a href="{frequency_url(person_uuid, 'Chats', 'Never')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
                                 </span>
                                 <br/>
                                 <br/>
                                 <span>Intros:
-                                    <a href="{frequency_url(email, 'Intros', 'Immediately')}"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
-                                    <a href="{frequency_url(email, 'Intros', 'Daily')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
-                                    <a href="{frequency_url(email, 'Intros', 'Every 3 days')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
-                                    <a href="{frequency_url(email, 'Intros', 'Weekly')}"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
-                                    <a href="{frequency_url(email, 'Intros', 'Never')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
+                                    <a href="{frequency_url(person_uuid, 'Intros', 'Immediately')}"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
+                                    <a href="{frequency_url(person_uuid, 'Intros', 'Daily')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
+                                    <a href="{frequency_url(person_uuid, 'Intros', 'Every 3 days')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
+                                    <a href="{frequency_url(person_uuid, 'Intros', 'Weekly')}"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
+                                    <a href="{frequency_url(person_uuid, 'Intros', 'Never')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
                                 </span>
                                 <br/>
                                 <br/>
                                 <span>Visitors:
-                                    <a href="{frequency_url(email, 'Visitors', 'Immediately')}"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
-                                    <a href="{frequency_url(email, 'Visitors', 'Daily')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
-                                    <a href="{frequency_url(email, 'Visitors', 'Every 3 days')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
-                                    <a href="{frequency_url(email, 'Visitors', 'Weekly')}"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
-                                    <a href="{frequency_url(email, 'Visitors', 'Never')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
+                                    <a href="{frequency_url(person_uuid, 'Visitors', 'Immediately')}"  style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Immediately</a> |
+                                    <a href="{frequency_url(person_uuid, 'Visitors', 'Daily')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Daily</a> |
+                                    <a href="{frequency_url(person_uuid, 'Visitors', 'Every 3 days')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Every 3 days</a> |
+                                    <a href="{frequency_url(person_uuid, 'Visitors', 'Weekly')}"       style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Weekly</a> |
+                                    <a href="{frequency_url(person_uuid, 'Visitors', 'Never')}"        style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Never</a>
                                 </span>
                                 <p>
-                                    <a href="{frequency_url(email, 'Every', 'Never')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Unsubscribe all</a>
+                                    <a href="{frequency_url(person_uuid, 'Every', 'Never')}" style="font-weight: 400; color: #bbb; padding: 3px; text-decoration: none;">Unsubscribe all</a>
                                 </p>
                             </div>
                         </td>

@@ -1,5 +1,18 @@
 from serviceshared.gold.sql import has_gold_sql
 
+BOT_ACCOUNT_SQL = """
+SELECT
+    uuid
+FROM
+    person
+WHERE
+    roles @> ARRAY['bot']
+ORDER BY
+    roles
+LIMIT
+    1
+"""
+
 Q_LAST_MESSAGES = """
 WITH last_messages AS (
     SELECT
@@ -214,7 +227,7 @@ WITH subject_person_id AS (
         person
     WHERE
         uuid = uuid_or_null(%(object_uuid)s::TEXT)
-), bot_report AS (
+), verification_report AS (
     SELECT
         (
             reporter.sign_up_time < now() - interval '1 month'
@@ -228,7 +241,7 @@ WITH subject_person_id AS (
     WHERE
         reporter.uuid = uuid_or_null(%(subject_uuid)s::TEXT)
     AND
-        %(is_bot_report)s
+        %(requires_verification)s
 ), q1 AS (
     INSERT INTO skipped (
         subject_person_id,
@@ -242,30 +255,22 @@ WITH subject_person_id AS (
         %(report_reason)s
     ) ON CONFLICT DO NOTHING
 ), q2 AS (
-    DELETE FROM search_cache
-    WHERE
-        searcher_person_id = (SELECT id FROM subject_person_id) AND
-        prospect_person_id = (SELECT id FROM object_person_id)
-    OR
-        searcher_person_id = (SELECT id FROM object_person_id) AND
-        prospect_person_id = (SELECT id FROM subject_person_id)
-), q3 AS (
     UPDATE
         person
     SET
         verification_required = TRUE
     FROM
-        bot_report
+        verification_report
     WHERE
-        bot_report.is_trustworthy
+        verification_report.is_trustworthy
     AND
         person.uuid = uuid_or_null(%(object_uuid)s::TEXT)
     RETURNING
         1
 )
 SELECT EXISTS (
-    SELECT * FROM q3
-) AS is_automoded_bot
+    SELECT * FROM q2
+) AS is_automoded
 """
 
 Q_TRUSTWORTHY_REPORTS = f"""

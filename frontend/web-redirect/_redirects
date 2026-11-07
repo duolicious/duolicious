@@ -1,0 +1,8 @@
+/blog/* https://duolicious.app/blog/:splat 301
+/club/* https://duolicious.app/club/:splat 301
+/clubs/* https://duolicious.app/clubs/:splat 301
+/faq/* https://duolicious.app/faq/:splat 301
+/guidelines/* https://duolicious.app/guidelines/:splat 301
+/privacy/* https://duolicious.app/privacy/:splat 301
+/safety/* https://duolicious.app/ 301
+/terms/* https://duolicious.app/terms/:splat 301

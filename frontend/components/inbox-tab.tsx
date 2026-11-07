@@ -1,6 +1,9 @@
 import {
   ActivityIndicator,
+  FlatList,
   ListRenderItemInfo,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   StyleSheet,
   View,
   ViewStyle,
@@ -12,6 +15,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -213,6 +217,44 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
     }
   })();
 
+  const listRef = useRef<FlatList<InboxListItem> | null>(null);
+  const unhiddenOffset = useRef(0);
+  const pendingOffset = useRef<number | null>(null);
+
+  const setListRef = useCallback((node: FlatList<InboxListItem> | null) => {
+    listRef.current = node;
+    scrollbar?.observeListRef(node);
+  }, [scrollbar]);
+
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!showHidden) {
+        unhiddenOffset.current = event.nativeEvent.contentOffset.y;
+      }
+      scrollbar?.onScroll(event);
+    },
+    [showHidden, scrollbar],
+  );
+
+  const onContentSizeChange = useCallback((width: number, height: number) => {
+    if (pendingOffset.current !== null) {
+      listRef.current?.scrollToOffset({
+        offset: pendingOffset.current,
+        animated: false,
+      });
+      pendingOffset.current = null;
+    }
+    scrollbar?.onContentSizeChange(width, height);
+  }, [scrollbar]);
+
+  useLayoutEffect(() => {
+    pendingOffset.current = showHidden ? 0 : unhiddenOffset.current;
+    listRef.current?.scrollToOffset({
+      offset: pendingOffset.current,
+      animated: false,
+    });
+  }, [showHidden]);
+
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<InboxListItem>) =>
       typeof item === 'string'
@@ -232,7 +274,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
   return (
     <View style={styles.flatListContainer} onLayout={scrollbar?.onLayout}>
       <Animated.FlatList<InboxListItem>
-        ref={scrollbar?.observeListRef}
+        ref={setListRef}
         data={listData}
         ListHeaderComponent={<>{
           showHidden &&
@@ -286,8 +328,8 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
         </>}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        onContentSizeChange={scrollbar?.onContentSizeChange}
-        onScroll={scrollbar?.onScroll}
+        onContentSizeChange={onContentSizeChange}
+        onScroll={onScroll}
         showsVerticalScrollIndicator={scrollbar?.showsVerticalScrollIndicator}
         contentContainerStyle={styles.flatList}
       />
@@ -295,7 +337,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
   );
 };
 
-const InboxTitle = () => {
+const InboxTitle = ({ showConnecting }: { showConnecting: boolean }) => {
   const { appTheme } = useAppTheme();
   const { showArchive, showHidden } = useInboxSettings();
   const [isOnline, setIsOnline] = useState(false);
@@ -318,13 +360,13 @@ const InboxTitle = () => {
       >
         {showHidden ? 'Hidden intros' : 'Inbox' + (showArchive ? ' (Archive)' : '')}
       </DefaultText>
-      {!isOnline &&
+      {showConnecting && !isOnline &&
         <ActivityIndicator
           size="small"
           color={appTheme.brandColor}
           style={{
             position: 'absolute',
-            right: -40,
+            left: -40,
             top: 3,
           }}
         />
@@ -333,7 +375,13 @@ const InboxTitle = () => {
   );
 };
 
-const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
+const InboxNavBarButtons = ({
+  style,
+  filterHintShift = 0,
+}: {
+  style: ViewStyle,
+  filterHintShift?: number,
+}) => {
   const {
     sectionIndex,
     showArchive,
@@ -407,7 +455,10 @@ const InboxNavBarButtons = ({ style }: { style: ViewStyle }) => {
             loading={isRefreshingInbox}
           />
           {!isFilterHintDismissed &&
-            <InboxFilterHint onDismiss={dismissFilterHint} />
+            <InboxFilterHint
+              onDismiss={dismissFilterHint}
+              shift={filterHintShift}
+            />
           }
         </Animated.View>
       }
@@ -431,7 +482,7 @@ const InboxTab = () => {
     <View style={styles.safeAreaView}>
       <TopNavBar>
         {showHidden && <HiddenIntrosBackButton position="left" />}
-        <InboxTitle />
+        <InboxTitle showConnecting={true} />
         <InboxNavBarButtons style={styles.navBarButtons} />
       </TopNavBar>
       <InboxList scrollbar={scrollbar} />
@@ -447,9 +498,9 @@ const InboxPanel = memo(({ openPersonUuid }: { openPersonUuid?: string }) => {
       <View style={styles.panelHeader}>
         <View style={styles.panelTitle}>
           {showHidden && <HiddenIntrosBackButton position={null} />}
-          <InboxTitle />
+          <InboxTitle showConnecting={false} />
         </View>
-        <InboxNavBarButtons style={styles.panelButtons} />
+        <InboxNavBarButtons style={styles.panelButtons} filterHintShift={116} />
       </View>
       <InboxList openPersonUuid={openPersonUuid} />
     </>
@@ -510,6 +561,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingLeft: 20,
     paddingRight: 10,
+    zIndex: 1,
   },
   panelTitle: {
     height: '100%',

@@ -301,6 +301,7 @@ async def post_skip_by_uuid(
         subject_uuid=string(s.person_uuid, 'person_uuid'),
         object_uuid=prospect_uuid,
         reason=req.report_reason or '',
+        source='member report',
     )
     return None
 
@@ -479,21 +480,15 @@ async def post_disconnect_spotify(
 @app.get('/update-notifications')
 async def get_update_notifications(request: Request) -> object:
     return await person.get_update_notifications(
+        token=request.query_params.get('token', ''),
         email=request.query_params.get('email', ''),
         type=request.query_params.get('type', ''),
         frequency=request.query_params.get('frequency', ''),
     )
 
-@app.get('/feed')
-async def get_feed(
-    request: Request,
-    s: t.SessionInfo = Depends(session()),
-) -> object:
-    valid_datetime = t.ValidDatetime.model_validate(
-        {'datetime': request.query_params.get('before')}
-    )
-
-    return await search.get_feed(s=s, before=valid_datetime.datetime)
+@app.post('/unsubscribe')
+async def post_unsubscribe(token: str) -> object:
+    return await person.post_unsubscribe(token)
 
 @app.get('/feed-v2')
 async def get_feed_v2(

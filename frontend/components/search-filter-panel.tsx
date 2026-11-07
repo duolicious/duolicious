@@ -1,5 +1,7 @@
 import { ReactNode, useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from './pressable';
+import { IconButton } from './button/icon-button';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as _ from 'lodash';
 import { DefaultText } from './default-text';
@@ -347,16 +349,21 @@ const QAndAFilters = () => {
           style={styles.searchInput}
         />
         {searchText !== '' &&
-          <Pressable
-            aria-label="Clear search"
+          <IconButton
+            label="Clear search"
             onPress={clearSearchText}
+            padding={8}
             style={styles.clearSearch}
           >
             <Ionicons
-              style={{ fontSize: 20, color: appTheme.secondaryColor }}
+              style={{
+                fontSize: 20,
+                lineHeight: 20,
+                color: appTheme.secondaryColor,
+              }}
               name="close"
             />
-          </Pressable>
+          </IconButton>
         }
       </View>
       {isLoading &&
@@ -448,43 +455,52 @@ const SearchFilterPanel = () => {
       }
       {!isBasics &&
         <View style={styles.drilledHeading}>
-          <Pressable aria-label="Back" onPress={back} style={styles.back}>
+          <IconButton label="Back" onPress={back} padding={10}>
             <Ionicons
-              style={{ fontSize: 24, color: appTheme.secondaryColor }}
+              style={{
+                fontSize: 24,
+                lineHeight: 24,
+                color: appTheme.secondaryColor,
+              }}
               name="arrow-back"
             />
-          </Pressable>
+          </IconButton>
           <DefaultText style={styles.drilledTitle}>{title}</DefaultText>
         </View>
       }
-      <ScrollView
-        key={title}
-        style={isBasics ? styles.fitScroll : styles.fullScroll}
-        contentContainerStyle={
-          isBasics ?
-            undefined :
-            [
-              styles.drilledContent,
-              { borderTopColor: appTheme.interactiveBorderColor },
-            ]
-        }
-      >
-        {!data &&
-          <LogoActivityIndicator
-            style={styles.loading}
-            size="large"
-            color={appTheme.brandColor}
-          />
-        }
-        {data &&
-          <PanelBody
-            title={title}
-            data={data}
-            isSignedOut={isSignedOut}
-            open={open}
-          />
-        }
-      </ScrollView>
+      {[undefined, ...path].map((levelTitle, i) =>
+        <ScrollView
+          key={levelTitle ?? ''}
+          style={[
+            levelTitle === undefined ? styles.fitScroll : styles.fullScroll,
+            i < path.length && styles.hidden,
+          ]}
+          contentContainerStyle={
+            levelTitle === undefined ?
+              undefined :
+              [
+                styles.drilledContent,
+                { borderTopColor: appTheme.interactiveBorderColor },
+              ]
+          }
+        >
+          {!data &&
+            <LogoActivityIndicator
+              style={styles.loading}
+              size="large"
+              color={appTheme.brandColor}
+            />
+          }
+          {data &&
+            <PanelBody
+              title={levelTitle}
+              data={data}
+              isSignedOut={isSignedOut}
+              open={open}
+            />
+          }
+        </ScrollView>
+      )}
       <View
         style={[
           styles.footer,
@@ -565,6 +581,9 @@ const styles = StyleSheet.create({
   fullScroll: {
     flex: 1,
   },
+  hidden: {
+    display: 'none',
+  },
   loading: {
     margin: 20,
   },
@@ -578,12 +597,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingLeft: 4,
     paddingRight: 16,
-  },
-  back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   drilledTitle: {
     flex: 1,
@@ -663,11 +676,7 @@ const styles = StyleSheet.create({
   clearSearch: {
     position: 'absolute',
     right: 4,
-    top: 4,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    top: 5,
   },
   qAndALoading: {
     marginTop: 40,

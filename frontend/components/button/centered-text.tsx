@@ -1,9 +1,9 @@
 import {
-  Pressable,
   TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from '../pressable';
 import {
   ReactNode,
   RefObject,

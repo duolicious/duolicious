@@ -2,8 +2,12 @@
   "extends": "./expo/tsconfig.base",
   "compilerOptions": {
     "jsx": "react-jsx",
+    "types": ["jest", "node"],
+    "strict": false,
+    "noUncheckedSideEffectImports": false,
     "strictNullChecks": true,
     "noImplicitAny": true,
     "esModuleInterop": true
-  }
+  },
+  "exclude": ["node_modules", "playwright-report", "test-results"]
 }

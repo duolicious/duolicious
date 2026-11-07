@@ -1,17 +1,12 @@
 import {
-  useCallback,
-} from 'react';
-import {
-  GestureResponderEvent,
-  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
+import { Pressable } from './pressable';
 import { DefaultText } from './default-text';
 import {
   IMAGES_URL,
 } from '../env/env';
-import { isOpenInNewTabPress, makeLinkProps } from '../util/navigation'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { X } from "react-native-feather";
 import { ImageBackground } from "expo-image";
@@ -19,56 +14,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome'
 import { faLock } from '@fortawesome/free-solid-svg-icons/faLock'
 import { OnlineIndicator } from './online-indicator';
 import { useAppTheme } from '../app-theme/app-theme';
-import {
-  CompositeNavigationProp,
-  StackActions,
-  useNavigation,
-} from '@react-navigation/native';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { HomeParamList, RootParamList } from '../navigation/linking';
-import { setProspectHint } from '../navigation/prospect-cache';
-
-const useProfileLink = (
-  personUuid: string,
-  urlSlug: string | null,
-  photoBlurhash: string | null,
-  verificationRequired: 'basics' | 'photos' | null,
-) => {
-  const navigation = useNavigation<CompositeNavigationProp<
-    BottomTabNavigationProp<HomeParamList>,
-    NativeStackNavigationProp<RootParamList>
-  >>();
-
-  // The profile URL prefers the username (url_slug); the uuid is the fallback
-  // for not-yet-backfilled users and shared links.
-  const handle = urlSlug || personUuid;
-
-  const onPress = useCallback((e: GestureResponderEvent) => {
-    if (isOpenInNewTabPress(e)) {
-      return;
-    }
-
-    e.preventDefault();
-
-    if (verificationRequired) {
-      return navigation.navigate('Profile');
-    } else if (personUuid) {
-      setProspectHint(handle, { photoBlurhash });
-      return navigation.dispatch(StackActions.push(
-        'Prospect Profile Screen',
-        {
-          screen: 'Prospect Profile',
-          params: { personUuid: handle },
-        }
-      ));
-    }
-  }, [navigation, personUuid, handle, photoBlurhash, verificationRequired]);
-
-  return verificationRequired
-    ? { onPress }
-    : { onPress, ...makeLinkProps(`/${handle}`) };
-};
+import { useProfileLink } from '../navigation/use-profile-link';
 
 const Avatar = ({
   percentage,
@@ -103,12 +49,10 @@ const Avatar = ({
   const imageStyle = [styles.imageStyle, { margin: Math.round(size / 22) }];
   const badgeSize = Math.max(22, size / 3);
 
-  return (
-    <Pressable
-      style={{ width: size, height: size }}
-      disabled={!isLinkToProfile}
-      {...(isLinkToProfile ? profileLink : {})}
-    >
+  const style = { width: size, height: size };
+
+  const content = (
+    <>
       {!Boolean(photoUuid || photoBlurhash) &&
         <View
           style={[
@@ -129,11 +73,7 @@ const Avatar = ({
       }
       {Boolean(photoUuid || photoBlurhash) &&
         <ImageBackground
-          source={photoUuid ? {
-            uri: `${IMAGES_URL}/450-${photoUuid}.jpg`,
-            height: 450,
-            width: 450,
-          } : undefined}
+          source={photoUuid ? { uri: `${IMAGES_URL}/450-${photoUuid}.jpg` } : undefined}
           placeholder={photoBlurhash && { blurhash: photoBlurhash }}
           transition={!photoUuid ? { duration: 0, effect: null } : 150}
           style={imageStyle}
@@ -144,7 +84,7 @@ const Avatar = ({
           {verificationRequired &&
             <View
               style={{
-                ...StyleSheet.absoluteFillObject,
+                ...StyleSheet.absoluteFill,
                 zIndex: 999,
                 backgroundColor: `${appTheme.primaryColor}B3`,
               }}
@@ -194,7 +134,7 @@ const Avatar = ({
           {verificationRequired &&
             <View
               style={{
-                ...StyleSheet.absoluteFillObject,
+                ...StyleSheet.absoluteFill,
                 zIndex: 999,
                 backgroundColor: `${appTheme.primaryColor}B3`,
               }}
@@ -227,7 +167,7 @@ const Avatar = ({
       {verificationRequired &&
         <View
           style={{
-            ...StyleSheet.absoluteFillObject,
+            ...StyleSheet.absoluteFill,
             justifyContent: 'center',
             alignItems: 'center',
             gap: 5,
@@ -252,8 +192,12 @@ const Avatar = ({
           }
         </View>
       }
-    </Pressable>
-  )
+    </>
+  );
+
+  return isLinkToProfile
+    ? <Pressable style={style} {...profileLink}>{content}</Pressable>
+    : <View style={style}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
@@ -270,5 +214,4 @@ const styles = StyleSheet.create({
 
 export {
   Avatar,
-  useProfileLink,
 };

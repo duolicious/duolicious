@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Pressable } from '../pressable';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLock } from '@fortawesome/free-solid-svg-icons/faLock';
 import { DefaultText } from '../default-text';

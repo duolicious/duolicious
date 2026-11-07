@@ -13,10 +13,7 @@ so the live-push and snapshot paths share one source of truth.
 """
 from service.api.chatprotocol.element import Element
 from service.api.chatprotocol.inbound import (
-    InboxQuery,
     InboxSnapshotQuery,
-    IqBind,
-    IqSession,
     MamQuery,
     MarkDisplayed,
     MarkVisitorsChecked,
@@ -24,8 +21,6 @@ from service.api.chatprotocol.inbound import (
     RegisterPushToken,
     RegisterWebPushSubscription,
     SaslAuth,
-    SessionRequest,
-    StreamOpenReq,
     SubscribeOnline,
     UnsubscribeOnline,
     VisitorsQuery,

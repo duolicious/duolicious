@@ -23,37 +23,6 @@ q "delete from mam_message"
 q "delete from inbox"
 q "delete from intro_hash"
 
-send_message () {
-  local fromUuid=$1
-  local fromToken=$2
-  local toUuid=$3
-  local message=$4
-  local id=${5:-id1}
-
-  chat_auth "$fromUuid" "$fromToken"
-
-  sleep 1
-
-  read -r -d '' payload <<EOF || true
-{
-  "message": {
-    "@type": "chat",
-    "@from": "${fromUuid}@duolicious.app",
-    "@to": "${toUuid}@duolicious.app",
-    "@id": "${id}",
-    "@xmlns": "jabber:client",
-    "body": "${message}",
-    "request": {
-      "@xmlns": "urn:xmpp:receipts"
-    }
-  }
-}
-EOF
-
-  curl -X POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
-  sleep 1
-}
-
 # Send a <duo_register_push_token token='…'/> for the authenticated session. An
 # empty token clears it.
 register_push_token () {
@@ -163,7 +132,9 @@ q "insert into duo_session
 clear_pushes
 
 send_message "$webauuid" "$webatoken" "$webbuuid" "hello webb" "id-web"
+sleep 1
 send_message "$webauuid" "$webatoken" "$webcuuid" "hello webc" "id-mobile"
+sleep 1
 
 sleep 3 # MongooseIM takes some time to flush messages to the DB
 
@@ -186,6 +157,7 @@ echo 'A registered mobile device receives a real-time push notification'
 unset SESSION_TOKEN
 ../util/create-user.sh sendr 0 0
 ../util/create-user.sh recvr 0 0
+../util/create-user.sh sendr2 0 0
 
 q "update person set intros_notification = 1, intro_seconds = 0
    where email in ('sendr@example.com', 'recvr@example.com')"
@@ -206,9 +178,32 @@ sendrid=$(get_id 'sendr@example.com')
 clear_pushes
 
 send_message "$sendruuid" "$sendrtoken" "$recvruuid" "hello recvr" "id-happy"
+sleep 1
 
 sleep 3
 
 [[ "$(q "select count(*) from messaged where subject_person_id = $sendrid and object_person_id = $recvrid")" = 1 ]]
 [[ "$(q "select count(*) from person where uuid::text = '$recvruuid' and intro_seconds > 0")" = 1 ]]
 [[ "$(count_pushes_to 'recvr-token')" = 1 ]]
+
+
+
+echo 'A daily intro inside its window is checked once the window ends'
+
+q "update person
+   set intros_notification = 2,
+       intro_seconds = extract(epoch from now() - interval '1 hour')::int
+   where id = $recvrid"
+
+assume_role sendr2 ; sendr2token=$SESSION_TOKEN
+sendr2uuid=$(get_uuid 'sendr2@example.com')
+
+clear_pushes
+
+send_message "$sendr2uuid" "$sendr2token" "$recvruuid" "hello again" "id-daily"
+sleep 2
+
+[[ "$(count_pushes_to 'recvr-token')" = 0 ]]
+[[ "$(q "select round(extract(epoch from due_at - now()) / 3600)
+         from notification_due
+         where person_id = $recvrid and kind = 'intro'")" = 23 ]]
