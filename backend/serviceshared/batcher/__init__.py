@@ -96,7 +96,7 @@ class Batcher(Generic[T]):
 
         while len(batch) < self._max_batch_size:
             remaining = start + self._flush_interval - time.time()
-            if remaining <= 0 and batch:
+            if remaining <= 0 and batch and self._queue.empty():
                 break
 
             timeout = remaining if remaining >= 0 else None

@@ -137,7 +137,7 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher.enqueue(1, callback=lambda: downstream.enqueue(2))
         await drain_all()
 
-        self.process_fn.assert_has_calls([call([1]), call([2])])
+        self.process_fn.assert_called_once_with([1, 2])
 
     async def test_drain_all_skips_flush_interval(self) -> None:
         self.batcher = Batcher(
@@ -152,6 +152,22 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(drain_all(), 1)
 
         self.process_fn.assert_called_once_with([1, 2])
+
+    async def test_drain_all_batches_a_backlog(self) -> None:
+        self.batcher = Batcher(
+            process_fn=self.process_fn,
+            flush_interval=60.0,
+            max_batch_size=2,
+        )
+        self.batcher.start()
+
+        for item in range(5):
+            self.batcher.enqueue(item)
+        await drain_all()
+
+        self.assertEqual(
+            self.process_fn.call_args_list,
+            [call([0, 1]), call([2, 3]), call([4])])
 
     async def test_drain_all_waits_for_tracked_tasks(self) -> None:
         async def send() -> None:
