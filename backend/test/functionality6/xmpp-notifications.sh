@@ -200,7 +200,7 @@ sendr2uuid=$(get_uuid 'sendr2@example.com')
 
 clear_pushes
 
-send_message "$sendr2uuid" "$sendr2token" "$recvruuid" "hello recvr" "id-daily"
+send_message "$sendr2uuid" "$sendr2token" "$recvruuid" "hello again" "id-daily"
 sleep 2
 
 [[ "$(count_pushes_to 'recvr-token')" = 0 ]]
