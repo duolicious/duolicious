@@ -207,6 +207,12 @@ EOF
   ] | .[0]'
 }
 
+message_checks_for () {
+  q "select count(*) from notification_due
+     where kind = 'intro'
+     and person_id = (select id from person where uuid::text = '$1')"
+}
+
 snapshot_fields () {
   local connectionId=$1
   local personUuid=$2
@@ -238,6 +244,7 @@ received=$(curl -sX GET "http://localhost:3001/pop?id=recipient")
 [[ "$(entry_fields "$received")" == "intros|true|true" ]]
 [[ "$(snapshot_fields recipient "$senderuuid")" == "intros|true|true" ]]
 [[ "$(count_pushes_to 'recipient-token')" -eq 0 ]]
+[[ "$(message_checks_for "$recipientuuid")" -eq 0 ]]
 
 
 
@@ -251,6 +258,7 @@ received=$(curl -sX GET "http://localhost:3001/pop?id=recipient")
 [[ "$(q "select unread_count from inbox
          where luser = '${recipientuuid}'
          and remote_bare_jid = '${senderuuid}@duolicious.app'")" -eq 0 ]]
+[[ "$(message_checks_for "$recipientuuid")" -eq 0 ]]
 
 
 
@@ -261,6 +269,7 @@ send_message_as polite "$politeuuid" "$recipientuuid" "Your answer about road tr
 received=$(curl -sX GET "http://localhost:3001/pop?id=recipient")
 [[ "$(entry_fields "$received")" == "intros|false|false" ]]
 [[ "$(count_pushes_to 'recipient-token')" -eq 1 ]]
+[[ "$(message_checks_for "$recipientuuid")" -eq 1 ]]
 
 
 

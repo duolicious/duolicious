@@ -749,10 +749,14 @@ WITH prospect_base AS (
     ON CONFLICT (subject_person_id, object_person_id) DO UPDATE SET
         updated_at = now(),
         invisible = EXCLUDED.invisible
+    RETURNING
+        invisible
 )
 SELECT
     prospect.id AS person_id,
     prospect.uuid AS person_uuid,
+    EXISTS (SELECT 1 FROM updated_visited WHERE NOT invisible)
+        AS is_visible_visit,
     photos.photo_uuids,
     photos.photo_extra_exts,
     photos.photo_blurhashes,

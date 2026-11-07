@@ -50,6 +50,7 @@ from service.api.qanda import _flush_session_answers
 from serviceshared.constants import VISITOR_ONLINE_TIMEOUT_SECONDS
 from service.api.person.visitornotification import notify_of_visit
 from service.api.person.visitorspush import publish_visit
+from service.api.notificationdue import enqueue_notification_due
 from service.api.person.images import load_image, put_image_in_object_store
 from service.api.person.rudecheck import reject_rude_or_banned
 from service.api.person.template import otp_template
@@ -60,6 +61,7 @@ from serviceshared.unsubscribe import person_uuid_from_token
 from starlette.responses import Response
 from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
+from typing import Literal
 import psycopg
 from serviceshared.antiabuse.antispam.signupemail import (
     get_email_info,
@@ -737,6 +739,9 @@ async def get_prospect_profile(
     prospect_uuid = profile['person_uuid']
     prospect_id = row_int(profile, 'person_id')
 
+    if profile.pop('is_visible_visit'):
+        enqueue_notification_due(prospect_id, 'visitor')
+
     if q.similar_profiles is not False:
         profile['similar_profiles'] = await similar_profiles(
             viewer_person_id=s.person_id if s is not None else None,
@@ -1183,17 +1188,18 @@ async def get_update_notifications(
 ) -> object:
     person_uuid = person_uuid_from_token(token)
 
+    queries: list[tuple[str, Literal['intro', 'chat', 'visitor']]]
     if type == 'Intros':
-        queries = [Q_UPDATE_INTROS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_INTROS_NOTIFICATIONS, 'intro')]
     elif type == 'Chats':
-        queries = [Q_UPDATE_CHATS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_CHATS_NOTIFICATIONS, 'chat')]
     elif type == 'Visitors':
-        queries = [Q_UPDATE_VISITORS_NOTIFICATIONS]
+        queries = [(Q_UPDATE_VISITORS_NOTIFICATIONS, 'visitor')]
     elif type == 'Every':
         queries = [
-            Q_UPDATE_INTROS_NOTIFICATIONS,
-            Q_UPDATE_CHATS_NOTIFICATIONS,
-            Q_UPDATE_VISITORS_NOTIFICATIONS,
+            (Q_UPDATE_INTROS_NOTIFICATIONS, 'intro'),
+            (Q_UPDATE_CHATS_NOTIFICATIONS, 'chat'),
+            (Q_UPDATE_VISITORS_NOTIFICATIONS, 'visitor'),
         ]
     else:
         return 'Invalid type', 400
@@ -1211,8 +1217,11 @@ async def get_update_notifications(
         )
 
         query_results = []
-        for q in queries:
+        for q, kind in queries:
             query_results.append((await tx.require_one(q, params))['ok'])
+            await tx.execute(reschedule_notification_sql(
+                kind, '(SELECT id FROM person WHERE uuid = %(person_uuid)s)'),
+                params)
 
     if all(query_results):
         return (
