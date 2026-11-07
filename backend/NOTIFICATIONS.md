@@ -15,13 +15,14 @@ Otherwise, the user is notified once **all** of these hold:
 - the user hasn't been online in the last 10 minutes (if they're online they'd
   see the message themselves),
 - the message arrived after the user was last online,
-- they haven't already been notified about it, and
-- the message is less than 10 days old.
+- they haven't already been notified about it.
 
 Each user also chooses, separately for intros, chats and visitors, how often
 they're willing to be notified: immediately, daily, every 3 days, weekly, or
 never. A notification only goes out once that much time has elapsed since the
-last one for that type — and "never" means none at all.
+last one for that type — and "never" means none at all. Anything that arrives
+sooner waits until then rather than being dropped, as long as the user still
+hasn't been online.
 
 ## Visitors
 
@@ -121,6 +122,37 @@ Immediate notifications are pushed the instant a qualifying message arrives or
 the profile is visited. Everything else — every other frequency, the email
 fallback, and anyone an immediate push couldn't reach — is handled by a periodic
 check that applies all the rules above.
+
+## How the periodic check finds who to notify
+
+Delivering a message or reaction, or a visible profile visit, queues a
+notification for the recipient in `notification_due`. There's one row per person
+and kind (`intro`, `chat` or `visitor`), holding the time of the newest event and
+the time the notification is due: ten minutes after the event, or later if the
+user's frequency setting holds it back. A newer event replaces both times, and
+changing the frequency setting recomputes the due time.
+
+Each API worker holds these events for five minutes and then writes them in one
+transaction, so several messages in a row cost one write. The event's time is
+taken when it happens, so the wait doesn't delay the notification. A worker
+writes whatever it still holds when it shuts down.
+
+Each poll claims the rows that have come due and checks that the user is still
+activated, hasn't been online since the event, hasn't already been notified
+about it, hasn't switched that kind to "never", and still has something unread
+(for visitors, someone to count). Rows that fail are removed and the rest are
+sent.
+
+A sent row is removed in the same transaction that records the notification
+time, and only if no newer event has replaced it. If the cron stops between
+sending and recording, a later poll sends the notification again rather than
+losing it.
+
+Intros and chats are queued and sent separately, each with its own frequency
+setting and its own headline.
+
+So a poll's cost grows with the number of notifications that have come due, not
+with all recent activity.
 
 ## The app-icon badge
 

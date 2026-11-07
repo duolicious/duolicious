@@ -21,11 +21,13 @@ from service.cron.clubseo import (
 )
 from service.cron.garbagerecords import delete_garbage_records_forever
 from service.cron.spotifyrefresh import refresh_spotify_forever
-from service.cron.messagenotifications import send_notifications_forever
-from service.cron.nsfwphotorunner import predict_nsfw_v2_photos_forever
-from service.cron.visitornotifications import (
-    send_visitor_notifications_forever,
+from service.cron.messagenotifications import (
+    CHAT_NOTIFICATIONS,
+    INTRO_NOTIFICATIONS,
 )
+from service.cron.notificationdispatch import send_pending_notifications_forever
+from service.cron.nsfwphotorunner import predict_nsfw_v2_photos_forever
+from service.cron.visitornotifications import VISITOR_NOTIFICATIONS
 from service.cron.photocleaner import clean_photos_forever
 from service.cron.audiocleaner import clean_audio_forever
 from service.cron.verificationjobrunner import verify_forever
@@ -83,10 +85,11 @@ async def main() -> None:
             # contains photos which aren't tracked by the DB
             # check_photos_forever(),
 
-            # Fetched: 9k, returned: 70k
-            send_notifications_forever(),
+            send_pending_notifications_forever(INTRO_NOTIFICATIONS),
 
-            send_visitor_notifications_forever(),
+            send_pending_notifications_forever(CHAT_NOTIFICATIONS),
+
+            send_pending_notifications_forever(VISITOR_NOTIFICATIONS),
 
             verify_forever(),
 

@@ -48,6 +48,21 @@ db_now () {
   q "select (extract(epoch from now() + interval '${interval}') * ${conversion_factor})::bigint"
 }
 
+schedule_checks () {
+  q "insert into notification_due (person_id, kind, event_at, due_at)
+     select person_id, kind::notification_kind, max(event_at), now()
+     from (
+       select person.id, case box when 'inbox' then 'intro' else 'chat' end,
+         to_timestamp(inbox.timestamp / 1000000.0)
+       from inbox join person on person.uuid::text = inbox.luser
+       union all
+       select object_person_id, 'visitor', updated_at from visited
+     ) as event (person_id, kind, event_at)
+     group by person_id, kind
+     on conflict (person_id, kind) do update
+       set event_at = excluded.event_at, due_at = now()"
+}
+
 visit_sql () {
   local visitor_uuid=$1
   local visited_uuid=$2
@@ -108,6 +123,7 @@ test_happy_path_intros () {
     ('$user2id', '', '', 'inbox', ${time_interval}, 0, '', 'I')
   "
 
+  schedule_checks
   sleep 2
 
   [[ "$(q " \
@@ -137,6 +153,7 @@ test_happy_path_chats () {
     ('$user2id', '', '', 'chats', ${time_interval}, 0, '', 'I')
   "
 
+  schedule_checks
   sleep 2
 
   [[ "$(q " \
@@ -207,6 +224,7 @@ test_happy_path_chat_not_deferred_by_intro () {
   "
   [[ "$(q "select count(*) from inbox")" = 2 ]]
 
+  schedule_checks
   sleep 2
 
   # Cron service should still send chat notification
@@ -222,50 +240,6 @@ test_happy_path_chat_not_deferred_by_intro () {
   diff \
     <(get_emails) \
     ../../test/fixtures/cron-emails-happy-path-chat-not-deffered-by-intro
-}
-
-test_sad_sent_9_minutes_ago () {
-  setup
-
-  local time_interval=$(db_now as-microseconds '- 9 minutes')
-
-  [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
-  is_inbox_empty
-
-  q "
-  insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
-  values
-    ('$user1id', '', '', 'chats', ${time_interval}, 42, '', 'I'),
-    ('$user2id', '', '', 'inbox', ${time_interval}, 43, '', 'I')
-  "
-  [[ "$(q "select count(*) from inbox")" = 2 ]]
-
-  sleep 2
-
-  [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
-  is_inbox_empty
-}
-
-test_sad_sent_11_days_ago () {
-  setup
-
-  local time_interval=$(db_now as-microseconds '- 11 days')
-
-  [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
-  is_inbox_empty
-
-  q "
-  insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
-  values
-    ('$user1id', '', '', 'chats', ${time_interval}, 42, '', 'I'),
-    ('$user2id', '', '', 'inbox', ${time_interval}, 43, '', 'I')
-  "
-  [[ "$(q "select count(*) from inbox")" = 2 ]]
-
-  sleep 2
-
-  [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
-  is_inbox_empty
 }
 
 test_sad_only_read_messages () {
@@ -284,6 +258,7 @@ test_sad_only_read_messages () {
   "
   [[ "$(q "select count(*) from inbox")" = 2 ]]
 
+  schedule_checks
   sleep 2
 
   [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
@@ -308,6 +283,7 @@ test_sad_still_online_at_poll_time () {
   "
   [[ "$(q "select count(*) from inbox")" = 2 ]]
 
+  schedule_checks
   sleep 2
 
   [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
@@ -333,6 +309,7 @@ test_sad_still_online_after_message_time () {
   "
   [[ "$(q "select count(*) from inbox")" = 2 ]]
 
+  schedule_checks
   sleep 2
 
   [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
@@ -344,15 +321,15 @@ test_sad_already_notified_for_particular_message () {
   setup
 
   local t1=$(db_now as-microseconds '-  5 minutes') # 1st message to user1
-  local t2=$(db_now as-seconds      '-  7 minutes') # 1st notification to user1
+  local t2=$(db_now as-seconds      '-  3 minutes') # 1st notification to user1
   local t3=$(db_now as-microseconds '- 11 minutes') # 1st message to user2
   local t4=$(db_now as-microseconds '- 13 minutes') # 1st message to user3
 
   [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
   is_inbox_empty
 
-  q "update person set intro_seconds = $t2 where uuid::text = '$user1id'"
-  [[ "$(q "select count(*) from person where uuid::text = '$user1id' and chat_seconds = 0 and intro_seconds = $t2")" = 1 ]]
+  q "update person set chat_seconds = $t2 where uuid::text = '$user1id'"
+  [[ "$(q "select count(*) from person where uuid::text = '$user1id' and chat_seconds = $t2 and intro_seconds = 0")" = 1 ]]
 
   q "
   insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
@@ -363,6 +340,7 @@ test_sad_already_notified_for_particular_message () {
   "
   [[ "$(q "select count(*) from inbox")" = 3 ]]
 
+  schedule_checks
   sleep 2
 
   [[ "$(q " \
@@ -370,8 +348,8 @@ test_sad_already_notified_for_particular_message () {
     from person \
     where \
     uuid::text = '$user1id' and \
-    chat_seconds = 0 and \
-    intro_seconds = $t2")" = 1 ]]
+    chat_seconds = $t2 and \
+    intro_seconds = 0")" = 1 ]]
 
   [[ "$(q " \
     select count(*) \
@@ -384,97 +362,6 @@ test_sad_already_notified_for_particular_message () {
   diff \
     <(get_emails) \
     ../../test/fixtures/cron-emails-sad-already-notified-for-particular-message
-}
-
-test_sad_already_notified_for_other_intro_in_drift_period () {
-  setup
-
-  # Default drift period for intros (i.e. inbox messages) is 1 day = 86400 s.
-  local t1=$(db_now as-seconds      '- 40 minutes') # last notification
-  local t2=$(db_now as-microseconds '- 30 minutes') # last message
-
-  # Insert last notification
-  q "update person set intro_seconds = $t1 where uuid::text = '$user1id'"
-  local rows=$(
-    q "select count(*)
-    from person
-    where uuid::text = '$user1id'
-    and chat_seconds = 0
-    and intro_seconds = $t1"
-  )
-  [[ "$rows" = 1 ]]
-
-  # Insert last message
-  q "
-  insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
-  values
-    ('$user1id', '', '', 'inbox', ${t2}, 42, '', 'I'),
-    ('$user2id', '', '', 'inbox', ${t2},  0, '', 'I')
-  "
-  [[ "$(q "select count(*) from inbox")" = 2 ]]
-
-  sleep 2
-
-  # Cron service should prevent 2nd intros notification from being sent
-  local rows=$(
-    q "select count(*)
-    from person
-    where uuid::text = '$user1id'
-    and chat_seconds = 0
-    and intro_seconds = $t1"
-  )
-  [[ "$rows" = 1 ]]
-
-  is_inbox_empty
-}
-
-# The user has already received an intro in the past day and a chat in the past
-# 10 minutes. They were notified about both of these. Then the user gets another
-# chat within this same 10 minute window. The user should not be notified about
-# this chat during this time.
-test_sad_intro_within_day_and_chat_within_past_10_minutes () {
-  setup
-
-  # Default drift period for intros (i.e. inbox messages) is 1 day = 86400 s.
-  local t1=$(db_now as-microseconds '- 13 hours             ') # last intro
-  local t2=$(db_now as-seconds      '- 13 minutes + 1 second') # last intro notification
-  local t3=$(db_now as-seconds      '-  5 minutes           ') # last chat notification
-  local t4=$(db_now as-microseconds '-  3 minutes           ') # last chat
-
-  # Insert last notification
-  q "update person set intro_seconds = $t2, chat_seconds = $t3 where uuid::text = '$user1id'"
-  local rows=$(
-    q "select count(*)
-    from person
-    where uuid::text = '$user1id'
-    and intro_seconds = $t2
-    and chat_seconds = $t3"
-  )
-  [[ "$rows" = 1 ]]
-
-  # Insert intro and chat
-  q "
-  insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
-  values
-    ('$user1id', 'sender2', '', 'inbox', ${t1}, 42, '', 'I'),
-    ('$user1id', 'sender1', '', 'chats', ${t4}, 43, '', 'I')
-  "
-  [[ "$(q "select count(*) from inbox")" = 2 ]]
-
-  sleep 2
-
-  # Cron service should not send any notifications and duo_last_notification
-  # should remain unchanged
-  local rows=$(
-    q "select count(*)
-    from person
-    where uuid::text = '$user1id'
-    and intro_seconds = $t2
-    and chat_seconds = $t3"
-  )
-  [[ "$rows" = 1 ]]
-
-  is_inbox_empty
 }
 
 test_sad_not_activated () {
@@ -493,6 +380,7 @@ test_sad_not_activated () {
     ('$user2id', '', '', 'inbox', ${time_interval}, 0, '', 'I')
   "
 
+  schedule_checks
   sleep 2
 
   [[ "$(q "select count(*) from person where intro_seconds > 0 or chat_seconds > 0")" = 0 ]]
@@ -558,6 +446,7 @@ test_web_client_also_emailed () {
     ('$user2id', '', '', 'inbox', ${time_interval}, 43, '', 'I')
   "
 
+  schedule_checks
   sleep 2
 
   echo 0 > ../../test/input/disable-mobile-notifications
@@ -594,6 +483,7 @@ test_no_sessions_emailed () {
 
   q "insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction) values ('$user1id', '', '', 'inbox', ${time_interval}, 42, '', 'I')"
 
+  schedule_checks
   sleep 2
 
   # The notification was recorded and delivered as an email, with no push.
@@ -635,6 +525,7 @@ test_low_active_users_notified_via_email () {
     ('$user2id', '', '', 'inbox', ${time_interval}, 43, '', 'I')
   "
 
+  schedule_checks
   sleep 2
 
   echo 0 > ../../test/input/disable-mobile-notifications
@@ -669,6 +560,7 @@ test_inactive_over_8_days_pushed_and_emailed () {
 
   q "insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction) values ('$user1id', '', '', 'inbox', ${time_interval}, 42, '', 'I')"
 
+  schedule_checks
   sleep 4
 
   # The notification was recorded ...
@@ -699,6 +591,7 @@ test_recently_active_mobile_user_pushed () {
 
   q "insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction) values ('$user1id', '', '', 'inbox', ${time_interval}, 42, '', 'I')"
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where uuid::text = '$user1id' and intro_seconds > 0")" = 1 ]]
@@ -734,6 +627,7 @@ test_pushed_to_each_signed_in_device () {
 
   q "insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction) values ('$user1id', '', '', 'inbox', ${time_interval}, 42, '', 'I')"
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where uuid::text = '$user1id' and intro_seconds > 0")" = 1 ]]
@@ -748,58 +642,35 @@ test_pushed_to_each_signed_in_device () {
   [[ "$(badges_of_pushes_to 'token_dev_b')" = '[1]' ]]
 }
 
-# One notification covers the whole inbox. When a chat is due while an unread
-# intro is still inside its own (weekly) frequency cap, the notification names
-# both kinds and resets both clocks, rather than leaving the intro to a second
-# notification later on. Keeping the two together is what stops the cron being
-# noisy: the user hears about everything unread at once, and the intro's cap
-# then runs from the moment they were told.
-test_chat_notification_also_covers_a_capped_intro () {
+test_intro_and_chat_are_separate () {
   setup
 
   echo 0 > ../../test/input/disable-mobile-notifications
   clear_pushes
 
-  give_user1_a_phone 'token_capped_intro'
-
-  # Both messages must land after the user was last online.
-  q "update person set last_online_time = now() - interval '60 minutes'
-     where uuid = '$user1id'"
-
-  # Weekly intros, immediate chats.
-  q "update person set intros_notification = 4, chats_notification = 1
-     where uuid = '$user1id'"
-
-  # An intro notification 40 minutes ago leaves the intro below well inside the
-  # weekly cap, so the intro alone would send nothing.
-  local last_intro_notification=$(db_now as-seconds '- 40 minutes')
-  q "update person set intro_seconds = $last_intro_notification
-     where uuid::text = '$user1id'"
+  give_user1_a_phone 'token_intro_and_chat'
 
   q "
   insert into inbox (luser, remote_bare_jid, msg_id, box, timestamp, unread_count, body, direction)
   values
-    ('$user1id', 'sender1', '', 'inbox', $(db_now as-microseconds '- 30 minutes'), 42, '', 'I'),
-    ('$user1id', 'sender2', '', 'chats', $(db_now as-microseconds '- 20 minutes'), 43, '', 'I')
+    ('$user1id', 'sender1', '', 'inbox', $(db_now as-microseconds '- 12 minutes'), 42, '', 'I'),
+    ('$user1id', 'sender2', '', 'chats', $(db_now as-microseconds '- 11 minutes'), 43, '', 'I')
   "
 
+  schedule_checks
   sleep 4
 
-  # A single notification, naming both the chat and the capped intro.
-  [[ "$(pushes_to 'token_capped_intro')" = '[{"title":"You have a new message 😍","body":"You have new messages in your chats and intros!","screen":"Inbox"}]' ]]
+  [[ "$(pushes_to 'token_intro_and_chat' | jq -c 'sort_by(.body)')" = '[{"title":"You have a new message 😍","body":"You have a new message in your chats!","screen":"Inbox"},{"title":"You have a new message 😍","body":"You have a new message in your intros!","screen":"Inbox"}]' ]]
+  [[ "$(badges_of_pushes_to 'token_intro_and_chat' | jq -c 'sort')" = '[1,2]' ]]
 
-  # Both clocks were reset, so neither kind sends a follow-up ...
   [[ "$(q " \
     select count(*) \
     from person \
     where \
     uuid::text = '$user1id' and \
-    intro_seconds > $last_intro_notification and \
+    intro_seconds > 0 and \
     chat_seconds > 0")" = 1 ]]
-
-  # ... on this poll or any later one.
-  sleep 4
-  [[ "$(count_pushes_to 'token_capped_intro')" = 1 ]]
+  [[ "$(q "select count(*) from notification_due")" = 0 ]]
 }
 
 # A visit is worth notifying about all on its own, even when the inbox is
@@ -819,6 +690,7 @@ test_happy_path_visitors () {
 
   insert_visit "$user2id" "$user1id" '11 minutes'
 
+  schedule_checks
   sleep 4
 
   # Only the visitor notification was recorded; there were no messages.
@@ -834,8 +706,10 @@ test_happy_path_visitors () {
   [[ "$(pushes_to 'token_visitors')" = '[{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
 
   # The visit is announced once; the next poll finds nothing new to say.
+  schedule_checks
   sleep 4
   [[ "$(count_pushes_to 'token_visitors')" = 1 ]]
+  [[ "$(q "select count(*) from notification_due")" = 0 ]]
 }
 
 # When more than one person visited since the user was last online, the
@@ -851,6 +725,7 @@ test_happy_path_multiple_visitors () {
   q "$(visit_sql "$user2id" "$user1id" '11 minutes');
      $(visit_sql "$user3id" "$user1id" '12 minutes')"
 
+  schedule_checks
   sleep 4
 
   [[ "$(pushes_to 'token_multi')" = '[{"title":"2 people visited your profile 👀","body":"2 people visited your profile!","screen":"Visitors"}]' ]]
@@ -873,6 +748,7 @@ test_happy_path_visitor_and_intro_are_separate () {
   "
   insert_visit "$user2id" "$user1id" '11 minutes'
 
+  schedule_checks
   sleep 4
 
   [[ "$(q " \
@@ -901,6 +777,7 @@ test_sad_invisible_visit () {
 
   insert_visit "$user2id" "$user1id" '11 minutes' true
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
@@ -922,6 +799,7 @@ test_sad_shadow_banned_visitor () {
 
   insert_visit "$user2id" "$user1id" '11 minutes'
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
@@ -941,28 +819,11 @@ test_sad_visitors_notification_never () {
 
   insert_visit "$user2id" "$user1id" '11 minutes'
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
   [[ "$(count_pushes_to 'token_never')" = 0 ]]
-}
-
-# Like messages, a visit is left alone for ten minutes: the user may still be
-# looking at their visitors tab.
-test_sad_visited_9_minutes_ago () {
-  setup
-
-  echo 0 > ../../test/input/disable-mobile-notifications
-  clear_pushes
-
-  give_user1_a_phone 'token_too_recent'
-
-  insert_visit "$user2id" "$user1id" '9 minutes'
-
-  sleep 4
-
-  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
-  [[ "$(count_pushes_to 'token_too_recent')" = 0 ]]
 }
 
 # A user who was online after the visit has already seen it in their visitors
@@ -978,6 +839,7 @@ test_sad_online_after_visit () {
 
   insert_visit "$user2id" "$user1id" '30 minutes'
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
@@ -995,6 +857,7 @@ test_visitors_emailed_when_no_phone () {
 
   insert_visit "$user2id" "$user1id" '11 minutes'
 
+  schedule_checks
   sleep 4
 
   [[ "$(q "select count(*) from person where uuid::text = '$user1id' and visitor_seconds > 0")" = 1 ]]
@@ -1009,7 +872,7 @@ test_happy_path_chats
 test_one_click_unsubscribe
 test_happy_path_chat_not_deferred_by_intro
 
-test_chat_notification_also_covers_a_capped_intro
+test_intro_and_chat_are_separate
 
 test_happy_path_visitors
 test_happy_path_multiple_visitors
@@ -1017,23 +880,17 @@ test_happy_path_visitor_and_intro_are_separate
 test_sad_invisible_visit
 test_sad_shadow_banned_visitor
 test_sad_visitors_notification_never
-test_sad_visited_9_minutes_ago
 test_sad_online_after_visit
 test_visitors_emailed_when_no_phone
 
 test_recently_active_mobile_user_pushed
 test_pushed_to_each_signed_in_device
 
-test_sad_sent_9_minutes_ago
-test_sad_sent_11_days_ago
 test_sad_only_read_messages
 test_sad_still_online_at_poll_time
 test_sad_still_online_after_message_time
 
 test_sad_already_notified_for_particular_message
-test_sad_already_notified_for_other_intro_in_drift_period
-
-test_sad_intro_within_day_and_chat_within_past_10_minutes
 
 test_sad_not_activated
 

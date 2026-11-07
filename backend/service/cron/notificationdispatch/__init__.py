@@ -1,5 +1,6 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from serviceshared.database import api_tx
 from service.cron.cronutil import (
     DISABLE_MOBILE_NOTIFICATIONS_FILE,
@@ -7,10 +8,15 @@ from service.cron.cronutil import (
     disable_mobile_notifications,
     log_stacktrace,
 )
+from service.cron.notificationdispatch.sql import (
+    Q_DELETE_SENT_NOTIFICATION,
+    due_notifications_sql,
+)
 from serviceshared.batcher import track
+from serviceshared.duoenv.cron import EMAIL_POLL_SECONDS
 from serviceshared.smtp import make_aws_smtp
 from serviceshared.unsubscribe import unsubscribe_url
-from typing import Generic, Protocol, TypeVar
+from typing import Literal
 from serviceshared.unseennotificationcount import increment_unseen_notification_count
 from serviceshared.util import Json
 import asyncio
@@ -20,33 +26,31 @@ import random
 
 logger = logging.getLogger(__name__)
 
-class NotificationRow(Protocol):
+@dataclass
+class Notification:
+    person_id: int
     person_uuid: str
+    event_at: datetime
+    name: str
     email: str
+    unseen_count: int
     token: str | None
 
-N = TypeVar('N', bound=NotificationRow)
-
 @dataclass(frozen=True)
-class NotificationKind(Generic[N]):
-    name: str
-    query: str
-    row_type: type[N]
-    poll_seconds: int
-    subject: Callable[[N], str]
+class NotificationKind:
+    name: Literal['intro', 'chat', 'visitor']
+    unseen_count: str
+    stamp: str
+    subject: Callable[[Notification], str]
     screen: Json
-    is_sendable: Callable[[N], bool]
-    push_body: Callable[[N], str]
-    email_body: Callable[[N], str]
-    update_last_notification_time: Callable[[N], Awaitable[None]]
+    push_body: Callable[[Notification], str]
+    email_body: Callable[[Notification], str]
 
-def do_send_email_notification(kind: NotificationKind[N], row: N) -> bool:
-    is_example = row.email.lower().endswith('@example.com')
+def do_send_email_notification(row: Notification) -> bool:
+    return not row.email.lower().endswith('@example.com')
 
-    return kind.is_sendable(row) and not is_example
-
-async def send_email_notification(kind: NotificationKind[N], row: N) -> None:
-    if not do_send_email_notification(kind, row):
+async def send_email_notification(kind: NotificationKind, row: Notification) -> None:
+    if not do_send_email_notification(row):
         logger.info('Email notification failed because it ends with @example.com')
         return
 
@@ -66,8 +70,8 @@ async def send_email_notification(kind: NotificationKind[N], row: N) -> None:
     await asyncio.to_thread(send)
 
 def send_mobile_notification(
-    kind: NotificationKind[N],
-    row: N,
+    kind: NotificationKind,
+    row: Notification,
     badge: int | None,
 ) -> None:
     if disable_mobile_notifications():
@@ -84,23 +88,16 @@ def send_mobile_notification(
             badge=badge,
         )
 
-async def compute_badges(
-    kind: NotificationKind[N],
-    rows: list[N],
-) -> dict[str, int | None]:
+async def compute_badges(rows: list[Notification]) -> dict[str, int | None]:
     """
-    A pending-notifications query fans a person out into one row per push
-    token, but the unseen-notification count (the app-icon badge) must
-    increment once per person, not once per device, so every device shows the
-    same badge. The conditions here mirror the ones under which
-    `maybe_send_notification` sends a push rather than an email or nothing.
+    A due-notifications query fans a person out into one row per push token,
+    but the unseen-notification count (the app-icon badge) must increment once
+    per person, not once per device, so every device shows the same badge.
     """
     badges: dict[str, int | None] = {}
 
     for row in rows:
         if not row.token:
-            continue
-        if not kind.is_sendable(row):
             continue
         if row.person_uuid in badges:
             continue
@@ -111,8 +108,8 @@ async def compute_badges(
     return badges
 
 async def send_notification(
-    kind: NotificationKind[N],
-    row: N,
+    kind: NotificationKind,
+    row: Notification,
     badge: int | None,
 ) -> None:
     if not row.token:
@@ -122,41 +119,45 @@ async def send_notification(
     logger.info(f'Sending {kind.name} mobile notification: {row}')
     send_mobile_notification(kind, row, badge=badge)
 
+async def update_last_notification_time(
+    kind: NotificationKind,
+    row: Notification,
+) -> None:
+    async with api_tx('read committed') as tx:
+        await tx.execute(kind.stamp, dict(username=row.person_uuid))
+        await tx.execute(Q_DELETE_SENT_NOTIFICATION, dict(
+            person_id=row.person_id,
+            kind=kind.name,
+            event_at=row.event_at,
+        ))
+
 async def send_and_record_notification(
-    kind: NotificationKind[N],
-    row: N,
+    kind: NotificationKind,
+    row: Notification,
     badge: int | None,
 ) -> None:
     await send_notification(kind, row, badge)
-    await kind.update_last_notification_time(row)
+    await update_last_notification_time(kind, row)
 
-async def maybe_send_notification(
-    kind: NotificationKind[N],
-    row: N,
-    badge: int | None,
-) -> None:
-    if not kind.is_sendable(row):
-        return
-
-    await asyncio.shield(track(asyncio.create_task(
-        send_and_record_notification(kind, row, badge))))
-
-async def send_pending_notifications_once(kind: NotificationKind[N]) -> None:
+async def send_pending_notifications_once(kind: NotificationKind) -> None:
     async with api_tx('read committed') as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
-        cur = await tx.execute(kind.query)
+        await tx.execute('SET LOCAL jit = off')
+        cur = await tx.execute(due_notifications_sql(kind.name, kind.unseen_count))
         rows = await cur.fetchall()
 
-    parsed = [kind.row_type(**j) for j in rows]
+    parsed = [Notification(**j) for j in rows]
 
-    badges = await compute_badges(kind, parsed)
+    badges = await compute_badges(parsed)
 
     for row in parsed:
-        await maybe_send_notification(kind, row, badges.get(row.person_uuid))
+        await asyncio.shield(track(asyncio.create_task(
+            send_and_record_notification(
+                kind, row, badges.get(row.person_uuid)))))
 
-async def send_pending_notifications_forever(kind: NotificationKind[N]) -> None:
+async def send_pending_notifications_forever(kind: NotificationKind) -> None:
     await asyncio.sleep(random.randint(0, MAX_RANDOM_START_DELAY))
     while True:
         await log_stacktrace(
             lambda: send_pending_notifications_once(kind))
-        await asyncio.sleep(kind.poll_seconds)
+        await asyncio.sleep(EMAIL_POLL_SECONDS)

@@ -993,14 +993,6 @@ CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
 CREATE INDEX IF NOT EXISTS idx__notification_due__kind__due_at
     ON notification_due(kind, due_at);
 
--- Serves the visitor-notification cron, which sweeps every recent visit rather
--- than looking one person up. Both person ids are in the index so the sweep
--- needn't touch the heap, and invisible visits are excluded because they never
--- reach the visitors tab and so are never notified about.
-CREATE INDEX IF NOT EXISTS idx__visited__updated_at__object__subject
-    ON visited(updated_at DESC, object_person_id, subject_person_id)
-    WHERE NOT invisible;
-
 --------------------------------------------------------------------------------
 -- DATA
 --------------------------------------------------------------------------------
@@ -1844,10 +1836,6 @@ CREATE TABLE IF NOT EXISTS rude_message (
 
     PRIMARY KEY (person_id, created_at)
 );
-
-CREATE INDEX IF NOT EXISTS duo_idx__inbox__timestamp__luser__box
-ON inbox(timestamp, luser, box)
-WHERE unread_count > 0;
 
 CREATE INDEX IF NOT EXISTS duo_idx__mam_message__remote_bare_jid__id
 ON mam_message(remote_bare_jid, id)
