@@ -19,18 +19,13 @@ class NotificationDue:
 
 
 async def _process_batch(batch: list[NotificationDue]) -> None:
-    try:
-        async with api_tx('read committed') as tx:
-            for kind in sorted({n.kind for n in batch}):
-                due = [n for n in batch if n.kind == kind]
-                await tx.execute(notification_due_sql(kind, _EVENTS), dict(
-                    person_ids=[n.person_id for n in due],
-                    event_ats=[n.event_at for n in due],
-                ))
-    except Exception:
-        for n in batch:
-            _batcher.enqueue(n)
-        raise
+    async with api_tx('read committed') as tx:
+        for kind in sorted({n.kind for n in batch}):
+            due = [n for n in batch if n.kind == kind]
+            await tx.execute(notification_due_sql(kind, _EVENTS), dict(
+                person_ids=[n.person_id for n in due],
+                event_ats=[n.event_at for n in due],
+            ))
 
 
 _batcher = Batcher[NotificationDue](
