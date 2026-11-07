@@ -13,30 +13,6 @@
 -- from this file: init-api.sql already carries the change for fresh databases.
 
 
-ALTER TABLE photo
-    DROP COLUMN IF EXISTS nsfw_score;
-
 DROP INDEX IF EXISTS idx__visited__updated_at__object__subject;
 
 DROP INDEX IF EXISTS duo_idx__inbox__timestamp__luser__box;
-
-DO $$
-BEGIN
-    IF to_regclass('notification_due') IS NOT NULL THEN
-        RETURN;
-    END IF;
-
-    CREATE TYPE notification_kind AS ENUM ('intro', 'chat', 'visitor');
-
-    CREATE TABLE notification_due (
-        person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-        kind notification_kind NOT NULL,
-        event_at TIMESTAMP NOT NULL,
-        due_at TIMESTAMP NOT NULL,
-
-        PRIMARY KEY (person_id, kind)
-    );
-
-    CREATE INDEX idx__notification_due__kind__due_at
-        ON notification_due(kind, due_at);
-END $$;
