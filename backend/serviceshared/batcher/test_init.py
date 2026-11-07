@@ -139,6 +139,20 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
 
         self.process_fn.assert_has_calls([call([1]), call([2])])
 
+    async def test_drain_all_skips_flush_interval(self) -> None:
+        self.batcher = Batcher(
+            process_fn=self.process_fn,
+            flush_interval=60.0,
+        )
+        self.batcher.start()
+
+        self.batcher.enqueue(1)
+        self.batcher.enqueue(2)
+        await asyncio.sleep(0.05)
+        await asyncio.wait_for(drain_all(), 1)
+
+        self.process_fn.assert_called_once_with([1, 2])
+
     async def test_drain_all_waits_for_tracked_tasks(self) -> None:
         async def send() -> None:
             await asyncio.sleep(0.2)

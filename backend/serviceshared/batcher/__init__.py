@@ -32,6 +32,9 @@ def track(task: asyncio.Task[None]) -> asyncio.Task[None]:
 
 
 async def drain_all() -> None:
+    for batcher in _batchers:
+        batcher.set_flush_interval(0)
+
     while _tracked or any(b._task and b._pending for b in _batchers):
         await asyncio.sleep(0.01)
 
@@ -52,7 +55,7 @@ class Batcher(Generic[T]):
         flush_interval: float,
         max_batch_size: int = 100,
     ):
-        self._queue: asyncio.Queue[BatchItem[T]] = asyncio.Queue()
+        self._queue: asyncio.Queue[BatchItem[T] | None] = asyncio.Queue()
         self._process_fn = process_fn
         self._flush_interval = flush_interval
         self._max_batch_size = max_batch_size
@@ -77,6 +80,8 @@ class Batcher(Generic[T]):
 
     def set_flush_interval(self, flush_interval: float) -> None:
         self._flush_interval = flush_interval
+        if self._task:
+            self._queue.put_nowait(None)
 
     async def _wait_for_next_batch(self) -> list[BatchItem[T]] | None:
         # The flush window is anchored at the start of the wait, not at the
@@ -87,10 +92,10 @@ class Batcher(Generic[T]):
         # batch wait a full `flush_interval`, adding latency callers rely on not
         # being there (e.g. push-token registration).
         batch: list[BatchItem[T]] = []
-        deadline = time.time() + self._flush_interval
+        start = time.time()
 
         while len(batch) < self._max_batch_size:
-            remaining = deadline - time.time()
+            remaining = start + self._flush_interval - time.time()
             if remaining <= 0 and batch:
                 break
 
@@ -104,7 +109,8 @@ class Batcher(Generic[T]):
             except asyncio.TimeoutError:
                 continue
 
-            batch.append(batch_item)
+            if batch_item is not None:
+                batch.append(batch_item)
 
         return batch or None
 
