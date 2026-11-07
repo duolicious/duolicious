@@ -934,8 +934,7 @@ async def post_deactivate(s: t.SessionInfo) -> None:
         row_tx = await tx.execute(Q_POST_DEACTIVATE, params)
         rows = await row_tx.fetchall()
 
-    for row in rows:
-        await sessioncache.delete_session(row['session_token_hash'])
+    await sign_out(row['session_token_hash'] for row in rows)
 
 
 async def get_search_filters(s: t.SessionInfo) -> object:
