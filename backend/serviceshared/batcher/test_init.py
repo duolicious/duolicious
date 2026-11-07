@@ -178,5 +178,24 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         await self.assertEventually(
             lambda: self.process_fn.assert_called_once_with([1]))
 
+    async def test_drain_processes_pending_items(self) -> None:
+        self.batcher = Batcher(
+            process_fn=self.process_fn,
+            flush_interval=60,
+            min_batch_size=1,
+            max_batch_size=10,
+            retry=False
+        )
+        self.batcher.start()
+
+        self.batcher.enqueue(1)
+        self.batcher.enqueue(2)
+        await asyncio.sleep(0.1)
+        self.process_fn.assert_not_called()
+
+        await self.batcher.drain()
+
+        self.process_fn.assert_called_once_with([1, 2])
+
 if __name__ == '__main__':
     unittest.main()

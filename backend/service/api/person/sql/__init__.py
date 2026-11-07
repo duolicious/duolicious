@@ -10,7 +10,6 @@ from serviceshared.gold.sql import club_quota_sql, has_gold_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     computed_flair_sql,
-    notification_due_sql,
     Q_IS_ALLOWED_CLUB_NAME,
     Q_IS_REGISTERED_BY_NORMALIZED_EMAIL,
 )
@@ -751,18 +750,13 @@ WITH prospect_base AS (
         updated_at = now(),
         invisible = EXCLUDED.invisible
     RETURNING
-        object_person_id,
         invisible
-), visitor_notification_due AS (
-    {notification_due_sql('visitor', '''
-        SELECT object_person_id, NOW()
-        FROM updated_visited
-        WHERE NOT invisible
-    ''')}
 )
 SELECT
     prospect.id AS person_id,
     prospect.uuid AS person_uuid,
+    EXISTS (SELECT 1 FROM updated_visited WHERE NOT invisible)
+        AS is_visible_visit,
     photos.photo_uuids,
     photos.photo_extra_exts,
     photos.photo_blurhashes,

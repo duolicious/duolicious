@@ -60,6 +60,8 @@ services:
       # the real RIPEstat on every dev sign-up.
       DUO_RIPE_URL: http://127.0.0.1:1
 
+      DUO_NOTIFICATION_DUE_FLUSH_SECONDS: '0'
+
       DUO_SMTP_HOST: smtp
       DUO_SMTP_PORT: 1025
       DUO_SMTP_USER: unused-in-dev-env
