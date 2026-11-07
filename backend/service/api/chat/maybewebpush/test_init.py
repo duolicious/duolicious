@@ -50,10 +50,8 @@ class TestRegisterWebPushSubscription(unittest.TestCase):
     def _drain(self) -> list[SessionColumnWrite]:
         drained = []
         while not _batcher._queue.empty():
-            batch_item = _batcher._queue.get_nowait()
-            if batch_item is not None:
-                drained.append(batch_item.item)
-        return drained
+            drained.append(_batcher._queue.get_nowait())
+        return [batch_item.item for batch_item in drained if batch_item]
 
     def _queued(self) -> list[SessionColumnWrite]:
         return self._drain()

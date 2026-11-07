@@ -39,7 +39,7 @@ def disable_mobile_notifications() -> bool:
 async def log_stacktrace(fun: Callable[[], Awaitable[object]]) -> None:
     try:
         await fun()
-    except:
+    except Exception:
         logger.exception(f'{fun.__qualname__} failed')
 
 async def delete_images_from_object_store(
