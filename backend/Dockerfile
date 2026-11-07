@@ -64,7 +64,7 @@ COPY \
   --exclude=vm \
   . /app
 
-CMD /app/api.main.sh
+CMD ["/app/api.main.sh"]
 
 
 FROM base AS cron
@@ -83,7 +83,7 @@ COPY \
   --exclude=vm \
   . /app
 
-CMD /app/cron.main.sh
+CMD ["/app/cron.main.sh"]
 
 
 # The server only needs `pytricia` and the standard library, but the shared

@@ -24,6 +24,11 @@ async def start_all() -> None:
         batcher.start()
 
 
+async def drain_all() -> None:
+    for batcher in _batchers:
+        await batcher.drain()
+
+
 @dataclass
 class BatchItem(Generic[T]):
     item: T
@@ -39,12 +44,13 @@ class Batcher(Generic[T]):
         max_batch_size: int = 100,
         retry: bool = False
     ):
-        self._queue: asyncio.Queue[BatchItem[T]] = asyncio.Queue()
+        self._queue: asyncio.Queue[BatchItem[T] | None] = asyncio.Queue()
         self._process_fn = process_fn
         self._flush_interval = flush_interval
         self._min_batch_size = min_batch_size
         self._max_batch_size = max_batch_size
         self._retry = retry
+        self._draining = False
         self._task: asyncio.Task[None] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         _batchers.append(self)
@@ -89,6 +95,10 @@ class Batcher(Generic[T]):
             except asyncio.TimeoutError:
                 continue
 
+            if batch_item is None:
+                self._draining = True
+                break
+
             batch.append(batch_item)
 
         return batch or None
@@ -120,7 +130,7 @@ class Batcher(Generic[T]):
             await self._run_callback(bi.callback)
 
     async def _process_batches_forever(self) -> None:
-        while True:
+        while not self._draining:
             batch = await self._wait_for_next_batch()
             if batch is not None:
                 await self._process_batch(batch)
@@ -132,6 +142,7 @@ class Batcher(Generic[T]):
         # the one it first bound to, so reusing the import-time queue breaks any
         # start() on a fresh loop (e.g. every IsolatedAsyncioTestCase case).
         self._queue = asyncio.Queue()
+        self._draining = False
         self._loop = asyncio.get_running_loop()
         self._task = self._loop.create_task(self._process_batches_forever())
 
@@ -139,3 +150,11 @@ class Batcher(Generic[T]):
         if self._task is not None:
             self._task.cancel()
             self._task = None
+
+    async def drain(self) -> None:
+        if self._task is None:
+            return
+
+        self._queue.put_nowait(None)
+        await self._task
+        self._task = None
