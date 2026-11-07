@@ -19,7 +19,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import {
-  ComposedGesture,
+  LegacyComposedGesture,
   Gesture,
   GestureDetector,
 } from 'react-native-gesture-handler';
@@ -49,7 +49,7 @@ const TOP_GAP = 50;
 const isWeb = Platform.OS === 'web';
 
 const SheetScroll = createContext<{
-  gesture: ComposedGesture
+  gesture: LegacyComposedGesture
   scrollY: SharedValue<number>
 } | null>(null);
 

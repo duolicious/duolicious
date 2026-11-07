@@ -28,7 +28,7 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import {
-  ComposedGesture,
+  LegacyComposedGesture,
   Gesture,
   GestureDetector,
 } from 'react-native-gesture-handler';
@@ -391,7 +391,7 @@ const IconBar = ({
   handleSendPress,
 }: {
   showHint: boolean;
-  finalGesture: ComposedGesture;
+  finalGesture: LegacyComposedGesture;
   animatedRecordingStyle: AnimatedStyle<ViewStyle>;
   textHasContent: boolean;
   handleSendPress: () => void;
