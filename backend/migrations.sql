@@ -16,6 +16,10 @@
 ALTER TABLE photo
     DROP COLUMN IF EXISTS nsfw_score;
 
+DROP INDEX IF EXISTS idx__visited__updated_at__object__subject;
+
+DROP INDEX IF EXISTS duo_idx__inbox__timestamp__luser__box;
+
 DO $$
 BEGIN
     IF to_regclass('notification_due') IS NOT NULL THEN
