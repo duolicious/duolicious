@@ -42,9 +42,7 @@ async def process_batch(last_notifications: Iterable[LastNotification]) -> None:
 _batcher = Batcher[LastNotification](
     process_fn=process_batch,
     flush_interval=1.0,
-    min_batch_size=1,
     max_batch_size=1000,
-    retry=False,
 )
 
 

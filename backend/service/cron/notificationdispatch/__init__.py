@@ -7,6 +7,7 @@ from service.cron.cronutil import (
     disable_mobile_notifications,
     log_stacktrace,
 )
+from serviceshared.batcher import track
 from serviceshared.smtp import make_aws_smtp
 from serviceshared.unsubscribe import unsubscribe_url
 from typing import Generic, Protocol, TypeVar
@@ -121,6 +122,14 @@ async def send_notification(
     logger.info(f'Sending {kind.name} mobile notification: {row}')
     send_mobile_notification(kind, row, badge=badge)
 
+async def send_and_record_notification(
+    kind: NotificationKind[N],
+    row: N,
+    badge: int | None,
+) -> None:
+    await send_notification(kind, row, badge)
+    await kind.update_last_notification_time(row)
+
 async def maybe_send_notification(
     kind: NotificationKind[N],
     row: N,
@@ -129,8 +138,8 @@ async def maybe_send_notification(
     if not kind.is_sendable(row):
         return
 
-    await send_notification(kind, row, badge)
-    await kind.update_last_notification_time(row)
+    await asyncio.shield(track(asyncio.create_task(
+        send_and_record_notification(kind, row, badge))))
 
 async def send_pending_notifications_once(kind: NotificationKind[N]) -> None:
     async with api_tx('read committed') as tx:

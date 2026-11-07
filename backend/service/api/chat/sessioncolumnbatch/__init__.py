@@ -55,7 +55,5 @@ def make_session_column_batcher(
     return Batcher[SessionColumnWrite](
         process_fn=process_batch,
         flush_interval=1.0,
-        min_batch_size=1,
         max_batch_size=100,
-        retry=False,
     )

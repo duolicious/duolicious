@@ -32,7 +32,7 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
         _batcher.set_flush_interval(1e-2)
         _batcher.start()
         # Let the consumer spin up and go idle (its flush window elapses), so
-        # the first notification below flushes on its own.
+        # the notifications below flush at once.
         await asyncio.sleep(1e-1)
 
     async def asyncTearDown(self) -> None:
@@ -44,9 +44,8 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
         factory, client = _mock_async_client({'data': [{'status': 'ok'}]})
         with patch('serviceshared.notify.make_http_client', factory), \
                 patch('serviceshared.notify.NOTIFICATION_API_URL', 'http://localhost'):
-            # Enqueued back-to-back: the first flushes on its own (the consumer
-            # was idle, so its window had already elapsed), then the next two
-            # are batched together in the following window.
+            # Enqueued back-to-back while the consumer is idle, so its window
+            # has already elapsed and all three flush together at once.
             enqueue_mobile_notification(
                 token='my-token',
                 title='My title',
@@ -68,47 +67,24 @@ class TestSendMobileNotification(unittest.IsolatedAsyncioTestCase):
             # Wait for notifications to be sent
             await asyncio.sleep(2e-1)
 
-        expected_data_call_1 = json.dumps(
+        expected_data = json.dumps(
             [
                 {
                     "to": "my-token",
                     "title": "My title",
-                    "body": "My body 1",
+                    "body": f"My body {n}",
                     "sound": "default",
                     "priority": "high",
-                },
+                }
+                for n in (1, 2, 3)
             ]
         ).encode('utf-8')
 
-        expected_data_call_2 = json.dumps(
-            [
-                {
-                    "to": "my-token",
-                    "title": "My title",
-                    "body": "My body 2",
-                    "sound": "default",
-                    "priority": "high",
-                },
-                {
-                    "to": "my-token",
-                    "title": "My title",
-                    "body": "My body 3",
-                    "sound": "default",
-                    "priority": "high",
-                },
-            ]
-        ).encode('utf-8')
-
-        self.assertEqual(len(client.post.call_args_list), 2)
+        self.assertEqual(len(client.post.call_args_list), 1)
 
         call = client.post.call_args_list[0]
         self.assertEqual(call.args[0], 'http://localhost')
-        self.assertEqual(call.kwargs['content'], expected_data_call_1)
-        self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
-
-        call = client.post.call_args_list[1]
-        self.assertEqual(call.args[0], 'http://localhost')
-        self.assertEqual(call.kwargs['content'], expected_data_call_2)
+        self.assertEqual(call.kwargs['content'], expected_data)
         self.assertEqual(call.kwargs['headers']['Content-type'], 'application/json')
 
 
