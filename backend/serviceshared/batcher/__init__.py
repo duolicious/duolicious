@@ -25,9 +25,10 @@ async def start_all() -> None:
         batcher.start()
 
 
-def track(task: asyncio.Task[None]) -> None:
+def track(task: asyncio.Task[None]) -> asyncio.Task[None]:
     _tracked.add(task)
     task.add_done_callback(_tracked.discard)
+    return task
 
 
 async def drain_all() -> None:
