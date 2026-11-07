@@ -779,6 +779,7 @@ const QandQFilterScreen = ({navigation}: NativeStackScreenProps<SearchFilterPara
       }
       {!isLoading && data &&
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingTop: 0,
             paddingLeft: 10,

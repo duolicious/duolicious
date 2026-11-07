@@ -1668,6 +1668,7 @@ const OptionScreen = ({navigation, route}: NativeStackScreenProps<ParamListBase>
                 }}
                 bounces={false}
                 overScrollMode="never"
+                keyboardShouldPersistTaps="handled"
               >
                 <View style={{height: 20}}/>
                 <InputElement
