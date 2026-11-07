@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 from unittest.mock import patch, AsyncMock, MagicMock
 from service.cron.messagenotifications import (
     MESSAGE_NOTIFICATIONS,
@@ -6,8 +7,10 @@ from service.cron.messagenotifications import (
 )
 from service.cron.notificationdispatch import (
     compute_badges,
+    maybe_send_notification,
     send_notification,
 )
+from serviceshared.batcher import drain_all
 import asyncio
 
 def make_person_notification(**overrides: str | int | bool | None) -> PersonNotification:
@@ -63,6 +66,31 @@ class TestSendNotification(unittest.TestCase):
         mock_send_mobile_notification.assert_not_called()
         mock_send_email_notification.assert_called_once_with(
                 MESSAGE_NOTIFICATIONS, row)
+
+
+class TestMaybeSendNotification(unittest.TestCase):
+
+    @patch(
+        'service.cron.notificationdispatch.send_notification',
+        new=lambda *_: asyncio.sleep(0.1),
+    )
+    def test_records_a_send_that_shutdown_cancels(self) -> None:
+        record = AsyncMock()
+        kind = replace(
+                MESSAGE_NOTIFICATIONS,
+                update_last_notification_time=record)
+        row = make_person_notification(last_chat_notification_seconds=0)
+
+        async def cancel_mid_send() -> None:
+            job = asyncio.create_task(
+                    maybe_send_notification(kind, row, badge=None))
+            await asyncio.sleep(0.05)
+            job.cancel()
+            await drain_all()
+
+        asyncio.run(cancel_mid_send())
+
+        record.assert_awaited_once_with(row)
 
 
 class TestComputeBadges(unittest.TestCase):

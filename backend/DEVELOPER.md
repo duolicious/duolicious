@@ -92,7 +92,7 @@ These environment variables let the `api` container know where your SMTP server 
 
 The `api` container uses the SMTP server to sent one-time passwords to users who want to sign up or log in.
 
-* `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `api` container uses it to check the one-click unsubscribe links in notification emails, so it must match the `cron` container's.
+* `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `api` container uses it to check the one-click unsubscribe and notification-frequency links in notification emails, so it must match the `cron` container's.
 
 These environment variables let the `api` container know where your PostgreSQL database is:
 
@@ -148,7 +148,7 @@ These environment variables let the `cron` container know where your SMTP server
 
 The `cron` container uses the SMTP server to sent message notifications, as well as notifications that a user's account has been deactivated due to inactivity.
 
-* `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `cron` container uses it to sign the one-click unsubscribe links in notification emails, so it must match the `api` container's.
+* `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `cron` container uses it to sign the one-click unsubscribe and notification-frequency links in notification emails, so it must match the `api` container's.
 
 These environment variables let the `cron` container know where your PostgreSQL database is:
 

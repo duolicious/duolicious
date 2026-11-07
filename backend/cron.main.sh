@@ -23,4 +23,4 @@ fi
 
 serviceshared/antiabuse/clipnsfw/download-model.sh
 
-python3 service/cron/__init__.py
+exec python3 service/cron/__init__.py

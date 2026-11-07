@@ -398,7 +398,5 @@ async def update_online_forever(
 _batcher = Batcher[UpdateLastJob](
     process_fn=process_batch,
     flush_interval=1.0,
-    min_batch_size=1,
     max_batch_size=1000,
-    retry=False,
 )

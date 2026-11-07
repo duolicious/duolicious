@@ -277,11 +277,17 @@ _PROFILE_FIELDS = {
     'star_sign': _ProfileField(q1=_person_lookup_q('star_sign_id', 'star_sign')),
     'units': _ProfileField(q1=_person_lookup_q('unit_id', 'unit')),
     'chats': _ProfileField(
-        q1=_person_lookup_q('chats_notification', 'immediacy')),
+        q1=_person_lookup_q('chats_notification', 'immediacy'),
+        q2=reschedule_notification_sql('chat', '%(person_id)s'),
+    ),
     'intros': _ProfileField(
-        q1=_person_lookup_q('intros_notification', 'immediacy')),
+        q1=_person_lookup_q('intros_notification', 'immediacy'),
+        q2=reschedule_notification_sql('intro', '%(person_id)s'),
+    ),
     'visitors': _ProfileField(
-        q1=_person_lookup_q('visitors_notification', 'immediacy')),
+        q1=_person_lookup_q('visitors_notification', 'immediacy'),
+        q2=reschedule_notification_sql('visitor', '%(person_id)s'),
+    ),
     'verification_level': _ProfileField(
         q1=_person_lookup_q(
             'privacy_verification_level_id', 'verification_level')),

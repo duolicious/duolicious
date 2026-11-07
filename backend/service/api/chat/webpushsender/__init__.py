@@ -41,14 +41,13 @@ from webpush import (
     WebPushMessage,
     WebPushSubscription,
 )
+from serviceshared.batcher import track
 from serviceshared.httpxclient import make_http_client
 from serviceshared.util import Json, log
 
 from serviceshared.duoenv.api import VAPID_PRIVATE_KEY, VAPID_SUBJECT
 
 WEB_PUSH_TTL_SECONDS = 60
-
-_tasks: set[asyncio.Task] = set()
 
 
 def _load_web_push() -> WebPush | None:
@@ -192,6 +191,4 @@ def enqueue_web_push(
         log(f'Web push encoding failed: {e}')
         return
 
-    task = asyncio.create_task(_send(endpoint, message, on_gone))
-    _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
+    track(asyncio.create_task(_send(endpoint, message, on_gone)))

@@ -789,7 +789,5 @@ async def _process_mark_displayed_batch(batch: list[MarkDisplayedJob]) -> None:
 _mark_displayed_batcher = Batcher[MarkDisplayedJob](
     process_fn=_process_mark_displayed_batch,
     flush_interval=0.1,
-    min_batch_size=1,
     max_batch_size=1000,
-    retry=False,
 )

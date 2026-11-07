@@ -409,7 +409,7 @@ async def real_verification_response(
             max_tokens=500,
             timeout=45,
         )).choices[0].message.content
-    except:
+    except Exception:
         logger.exception('Verification completion failed')
 
     return None

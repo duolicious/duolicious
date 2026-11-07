@@ -82,7 +82,7 @@ def notification_body(row: PersonNotification) -> str:
 
 def email_body(row: PersonNotification) -> str:
     return emailtemplate(
-        email=row.email,
+        person_uuid=row.person_uuid,
         has_intro=row.has_intro,
         has_chat=row.has_chat,
     )

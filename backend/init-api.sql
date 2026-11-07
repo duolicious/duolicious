@@ -833,6 +833,21 @@ CREATE TABLE IF NOT EXISTS visited (
     PRIMARY KEY (subject_person_id, object_person_id)
 );
 
+DO $$ BEGIN
+    CREATE TYPE notification_kind AS ENUM ('intro', 'chat', 'visitor');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+CREATE TABLE IF NOT EXISTS notification_due (
+    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    kind notification_kind NOT NULL,
+    event_at TIMESTAMP NOT NULL,
+    due_at TIMESTAMP NOT NULL,
+
+    PRIMARY KEY (person_id, kind)
+);
+
 --------------------------------------------------------------------------------
 -- INDEXES
 --------------------------------------------------------------------------------
@@ -974,6 +989,9 @@ CREATE INDEX IF NOT EXISTS idx__visited__object_person_id__updated_at
 
 CREATE INDEX IF NOT EXISTS idx__visited__subject_person_id__updated_at
     ON visited(subject_person_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx__notification_due__kind__due_at
+    ON notification_due(kind, due_at);
 
 -- Serves the visitor-notification cron, which sweeps every recent visit rather
 -- than looking one person up. Both person ids are in the index so the sweep

@@ -35,6 +35,7 @@ from service.api.chat.messagestorage import (
     store_reaction,
 )
 from service.api.chat.messagestorage.reaction import fetch_reaction_target
+from service.api.notificationdue import enqueue_notification_due
 from service.api.chat.session import (
     Session,
     handle_auth,
@@ -396,6 +397,7 @@ async def _handle_reaction(
         ])
 
     if deliver_to_partner and stored.is_new_visible_reaction:
+        enqueue_notification_due(partner_id, 'chat')
         await send_reaction_notifications(
             from_id=from_id,
             partner_id=partner_id,
@@ -698,6 +700,7 @@ async def process_text(
             await redis_publish_many(to_username, [delivery_message])
 
         if not is_shadow_banned and not hidden:
+            enqueue_notification_due(to_id, 'intro' if is_intro else 'chat')
             await send_notifications(
                 from_id=from_id,
                 to_username=to_username,
