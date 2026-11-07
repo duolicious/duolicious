@@ -344,7 +344,5 @@ async def _flush_session_answers(
 _yes_no_count_batcher = Batcher[YesNoCountJob](
     process_fn=_process_yes_no_count_batch,
     flush_interval=1.0,
-    min_batch_size=1,
     max_batch_size=1000,
-    retry=False,
 )

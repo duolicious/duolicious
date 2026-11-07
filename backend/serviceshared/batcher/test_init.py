@@ -34,9 +34,7 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher = Batcher(
             process_fn=self.process_fn,
             flush_interval=0.1,
-            min_batch_size=1,
             max_batch_size=10,
-            retry=False
         )
         self.batcher.start()
 
@@ -52,9 +50,7 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher = Batcher(
             process_fn=self.process_fn,
             flush_interval=0.2,
-            min_batch_size=1,
             max_batch_size=10,
-            retry=False
         )
         self.batcher.start()
 
@@ -72,9 +68,7 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher = Batcher(
             process_fn=self.process_fn,
             flush_interval=0.2,
-            min_batch_size=1,
             max_batch_size=10,
-            retry=False
         )
         self.batcher.start()
 
@@ -99,9 +93,7 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher = Batcher(
             process_fn=self.process_fn,
             flush_interval=10.0,  # Long flush interval so we rely on batch size
-            min_batch_size=1,
             max_batch_size=3,
-            retry=False
         )
         self.batcher.start()
 
@@ -114,39 +106,11 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         await self.assertEventually(
             lambda: self.process_fn.assert_called_once_with([1, 2, 3]))
 
-    async def test_retry_on_failure(self) -> None:
-        # Mock the process_fn to raise an exception on the first call
-        def failing_process(batch: object) -> None:
-            if not hasattr(failing_process, 'called'):
-                setattr(failing_process, 'called', True)
-                raise Exception("Simulated failure")
-            self.process_fn(batch)
-
-        process_fn = MagicMock(side_effect=failing_process)
-
-        self.batcher = Batcher(
-            process_fn=process_fn,
-            flush_interval=0.1,
-            min_batch_size=1,
-            max_batch_size=10,
-            retry=True
-        )
-        self.batcher.start()
-
-        # Enqueue an item
-        self.batcher.enqueue(1)
-
-        # Check that the batch was retried and processed successfully
-        await self.assertEventually(
-            lambda: self.process_fn.assert_called_once_with([1]))
-
     async def test_no_items_enqueued_during_flush_interval(self) -> None:
         self.batcher = Batcher(
             process_fn=self.process_fn,
             flush_interval=0.1,
-            min_batch_size=1,
             max_batch_size=10,
-            retry=False
         )
         self.batcher.start()
 
@@ -165,9 +129,7 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         self.batcher = Batcher(
             process_fn=process_fn,
             flush_interval=0.1,
-            min_batch_size=0,  # Allow processing of empty batches if it happens
             max_batch_size=10,
-            retry=False
         )
         self.batcher.start()
 
@@ -181,14 +143,14 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
     async def test_drain_all_follows_chained_enqueues(self) -> None:
         downstream: Batcher[int] = Batcher(
             process_fn=self.process_fn,
-            flush_interval=0.5,
+            flush_interval=0.1,
         )
 
         def forward(batch: list[int]) -> None:
             for item in batch:
                 downstream.enqueue(item)
 
-        self.batcher = Batcher(process_fn=forward, flush_interval=0.5)
+        self.batcher = Batcher(process_fn=forward, flush_interval=0.1)
         downstream.start()
         self.batcher.start()
 

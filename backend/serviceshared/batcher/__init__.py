@@ -17,7 +17,7 @@ Callback = Callable[[], None] | Callable[[], Awaitable[None]] | None
 # application entrypoints (the FastAPI lifespan and the cron `main()`) call
 # `start_all()` once their loop is running.
 _batchers: list["Batcher"] = []
-_tasks: set[asyncio.Task[None]] = set()
+_tracked: set[asyncio.Task[None]] = set()
 
 
 async def start_all() -> None:
@@ -26,12 +26,12 @@ async def start_all() -> None:
 
 
 def track(task: asyncio.Task[None]) -> None:
-    _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
+    _tracked.add(task)
+    task.add_done_callback(_tracked.discard)
 
 
 async def drain_all() -> None:
-    while _tasks or any(b._task and b._pending for b in _batchers):
+    while _tracked or any(b._task and b._pending for b in _batchers):
         await asyncio.sleep(0.01)
 
     for batcher in _batchers:
@@ -49,16 +49,12 @@ class Batcher(Generic[T]):
         self,
         process_fn: ProcessFn,
         flush_interval: float,
-        min_batch_size: int = 1,
         max_batch_size: int = 100,
-        retry: bool = False
     ):
         self._queue: asyncio.Queue[BatchItem[T]] = asyncio.Queue()
         self._process_fn = process_fn
         self._flush_interval = flush_interval
-        self._min_batch_size = min_batch_size
         self._max_batch_size = max_batch_size
-        self._retry = retry
         self._pending = 0
         self._task: asyncio.Task[None] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -94,7 +90,7 @@ class Batcher(Generic[T]):
 
         while len(batch) < self._max_batch_size:
             remaining = deadline - time.time()
-            if remaining <= 0 and len(batch) >= self._min_batch_size:
+            if remaining <= 0 and batch:
                 break
 
             timeout = remaining if remaining >= 0 else None
@@ -129,9 +125,6 @@ class Batcher(Generic[T]):
                 await result
         except Exception:
             logger.exception('Processing batch failed')
-            if self._retry:
-                for bi in batch:
-                    self._put(bi)
             return
 
         for bi in batch:
