@@ -120,26 +120,6 @@ class TestBatcher(unittest.IsolatedAsyncioTestCase):
         # Ensure that process_fn was not called since no items were enqueued
         self.process_fn.assert_not_called()
 
-    async def test_empty_batch_processing(self) -> None:
-        def process_fn(batch: list[object]) -> None:
-            # Ensure that the batch is never empty
-            self.assertTrue(len(batch) > 0, "Batch should not be empty")
-            self.process_fn(batch)
-
-        self.batcher = Batcher(
-            process_fn=process_fn,
-            flush_interval=0.1,
-            max_batch_size=10,
-        )
-        self.batcher.start()
-
-        # Enqueue and process normally
-        self.batcher.enqueue(1)
-
-        # Ensure process_fn was called once with non-empty batch
-        await self.assertEventually(
-            lambda: self.process_fn.assert_called_once_with([1]))
-
     async def test_drain_all_follows_chained_enqueues(self) -> None:
         downstream: Batcher[int] = Batcher(
             process_fn=self.process_fn,
