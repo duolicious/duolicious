@@ -123,7 +123,6 @@ from service.api.ratelimit import (
     client_ip,
 )
 import json
-from service.api.trials import sent_messages_in_chats
 from serviceshared.antiabuse.antirude.chat import is_rude
 from service.api.chat.verification import (
     verification_required,
@@ -709,11 +708,6 @@ async def process_text(
                 immediate_data=immediate_data,
                 has_subscribers=to_has_subscribers,
             )
-
-        if is_intro and sent_messages_in_chats(from_id):
-            await _publish_inbox_entry(
-                viewer_username=from_username,
-                prospect_username=to_username)
 
         await redis_publish_many(connection_uuid, [response])
 

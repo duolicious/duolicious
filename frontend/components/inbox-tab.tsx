@@ -41,8 +41,6 @@ import { InboxFilterHint } from './hints/inbox-filter-hint';
 import { useFocusEffect } from '@react-navigation/native';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
-import { useSignedInUser } from '../events/signed-in-user';
-import { sentMessagesInChats } from '../util/trials';
 
 const INBOX_PANEL_HEADER_HEIGHT = 48;
 
@@ -127,11 +125,10 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
   scrollbar?: ReturnType<typeof useScrollbar>
 }) => {
   const { appTheme } = useAppTheme();
-  const [signedInUser] = useSignedInUser();
 
   const {
     conversations,
-    numAboveDivider,
+    numIntrosWithinFilters,
     sectionIndex,
     sortByIndex,
     showArchive,
@@ -158,19 +155,13 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
       return null;
     }
 
-    if (numAboveDivider === null) {
+    // Non-null exactly when the visible section is intros with search filters
+    // applied, and marks where the sorted list's "outside" region begins.
+    if (numIntrosWithinFilters === null) {
       return conversations;
     }
 
-    if (sectionIndex === 1) {
-      return [
-        ...conversations.slice(0, numAboveDivider),
-        { dividerKey: 'divider-sent', label: 'Intros you sent' },
-        ...conversations.slice(numAboveDivider),
-      ];
-    }
-
-    const numWithin = numAboveDivider;
+    const numWithin = numIntrosWithinFilters;
     const numOutside = conversations.length - numWithin;
 
     const items: InboxListItem[] = [];
@@ -192,7 +183,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
     }
 
     return items;
-  }, [conversations, numAboveDivider, sectionIndex]);
+  }, [conversations, numIntrosWithinFilters]);
 
   const emptyText = (() => {
     if (showHidden)
@@ -201,11 +192,6 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
       return (
         'This is where you’ll see messages from people who’ve reached out ' +
         'to you first – Once you reply, they’ll move to your Chats\xa0💬'
-      );
-    if (!showArchive && sectionIndex === 1 && sentMessagesInChats(signedInUser?.personId))
-      return (
-        'This is where you’ll see your conversations – Messages you send ' +
-        'appear here straight away, even before anyone replies\xa0💬'
       );
     if (!showArchive && sectionIndex === 1)
       return (
@@ -331,10 +317,10 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
         }
         ListFooterComponent={<>
           {!showArchive && !showHidden && sectionIndex === 0 && numHidden > 0 && <>
-            {numAboveDivider !== null &&
+            {numIntrosWithinFilters !== null &&
               <InboxDivider label={`Hidden (${numHidden})`} />
             }
-            <HiddenIntrosItem count={numAboveDivider === null ? numHidden : null} />
+            <HiddenIntrosItem count={numIntrosWithinFilters === null ? numHidden : null} />
           </>}
           {listData.length > 0 &&
             <DefaultText style={styles.endText}>{endText}</DefaultText>

@@ -49,7 +49,6 @@ const intro = (
   isVerified: false,
   location: 'intros',
   hidden,
-  awaitingReply: false,
   matchesSearchFilters: true,
 });
 
