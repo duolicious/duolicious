@@ -30,8 +30,8 @@ Visits are notified about under exactly the rules above, reading the newest
 visit a person received in place of the newest message they were sent. Visits
 that don't appear in the user's visitors tab are skipped, because a notification
 the user can't act on is worse than none: visits made while browsing invisibly,
-and visits by somebody the tab hides from the user, such as somebody deactivated,
-shadow banned or who skipped them.
+and visits by somebody the tab hides from the user, such as somebody who is
+deactivated or shadow banned, or who skipped them.
 
 The periodic notification states how many people visited since the user was
 last online, capped at "99+". A single visitor is still "someone": the periodic
