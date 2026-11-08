@@ -258,8 +258,7 @@ def computed_flair_sql(person: str) -> str:
 """
 
 # Whether the visitors tab of the person whose id is `checker_id` shows the
-# person aliased `prospect`. Shared so the tab (`_VISITED_PASS_3`) and the
-# periodic visitor notification can never disagree on who counts as a visitor.
+# person aliased `prospect`.
 def visitors_tab_shows_sql(prospect: str, checker_id: str) -> str:
     return f"""
         {prospect}.activated
