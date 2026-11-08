@@ -17,7 +17,7 @@ curl -sf http://localhost:5000/health && echo API OK
 1. Start infra-only services in Docker:
 
 ```bash
-docker compose up -d postgres s3mock smtp redis status pgadmin
+docker compose up -d postgres s3mock smtp redis status
 ```
 
 2. In one terminal, run the API:

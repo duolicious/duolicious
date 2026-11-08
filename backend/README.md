@@ -39,7 +39,6 @@ make backend-functionality SUITE=1
 - MailHog (test email UI): [http://localhost:8025](http://localhost:8025)
 - Postgres (host port): `localhost:5432`
 - Status page: [http://localhost:8080](http://localhost:8080)
-- PgAdmin: [http://localhost:8090](http://localhost:8090)
 
 ## Local development
 

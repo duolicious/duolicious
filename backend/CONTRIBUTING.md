@@ -21,7 +21,6 @@ curl -sf http://localhost:5000/health && echo API OK
 ```
 
 - MailHog UI for emails: [http://localhost:8025](http://localhost:8025)
-- PgAdmin: [http://localhost:8090](http://localhost:8090)
 
 ## Repository layout
 
