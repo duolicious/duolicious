@@ -4,9 +4,8 @@
  *
  * It exists so notifications survive a backgrounded tab: the browser throttles
  * a background tab's JS (so the in-page chat WebSocket can't raise a
- * notification promptly), but the push service still wakes this worker. The
- * server only sends a push to online users, so this worker's job is just to
- * render it -- suppressing it when a tab is focused, since the user is already
+ * notification promptly), but the push service still wakes this worker. This
+ * worker's job is just to render a push -- suppressing it when a tab is focused, since the user is already
  * looking at the app -- and to route a click to the right conversation. When no
  * tab is open, a click stashes the route in `pendingNotificationClick` and a
  * freshly opened page pulls it once it posts `client-ready`, since that page has
