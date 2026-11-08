@@ -4,8 +4,8 @@ Requirements: Docker (with Compose), jq, curl, ffmpeg, zstd
 
 ```bash
 # 1) Clone and start the full dev stack
-git clone https://github.com/duolicious/duolicious-backend
-cd duolicious-backend
+git clone https://github.com/duolicious/duolicious
+cd duolicious/backend
 docker compose up -d
 
 # 2) Wait for the API to be healthy
