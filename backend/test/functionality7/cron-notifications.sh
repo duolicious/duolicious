@@ -830,6 +830,121 @@ test_sad_visitor_skipped_you () {
   [[ "$(count_pushes_to 'token_skipped_you')" = 0 ]]
 }
 
+# The visitors tab hides somebody the user skipped, so their visit isn't
+# notified about either.
+test_sad_you_skipped_visitor () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_you_skipped'
+
+  q "insert into skipped (subject_person_id, object_person_id)
+     select
+       (select id from person where uuid::text = '$user1id'),
+       (select id from person where uuid::text = '$user2id')"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_you_skipped')" = 0 ]]
+}
+
+# A user who shows skipped people sees a skipped visitor in their visitors tab,
+# so the visit is notified about.
+test_skipped_visitor_notified_with_show_skipped () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_show_skipped'
+
+  q "insert into skipped (subject_person_id, object_person_id)
+     select
+       (select id from person where uuid::text = '$user1id'),
+       (select id from person where uuid::text = '$user2id')"
+  q "update search_preference set show_skipped = true
+     where person_id = (select id from person where uuid::text = '$user1id')"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(count_pushes_to 'token_show_skipped')" = 1 ]]
+}
+
+# The visitors tab hides a visitor who hides from strangers, so their visit
+# isn't notified about.
+test_sad_visitor_hides_from_strangers () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_hides'
+
+  q "update person set hide_me_from_strangers = true where uuid = '$user2id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_hides')" = 0 ]]
+}
+
+# A visitor who hides from strangers but messaged the user isn't a stranger to
+# them, so the visit is notified about.
+test_visitor_who_hides_from_strangers_but_messaged_you () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_hides_but_messaged'
+
+  q "update person set hide_me_from_strangers = true where uuid = '$user2id'"
+  q "insert into messaged (subject_person_id, object_person_id)
+     select
+       (select id from person where uuid::text = '$user2id'),
+       (select id from person where uuid::text = '$user1id')"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(count_pushes_to 'token_hides_but_messaged')" = 1 ]]
+}
+
+# The visitors tab hides a visitor who must verify and hasn't, so their visit
+# isn't notified about.
+test_sad_visitor_required_to_verify () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_unverified'
+
+  q "update person set verification_required = true where uuid = '$user2id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_unverified')" = 0 ]]
+}
+
 # "Never" means no visitor notifications at all.
 test_sad_visitors_notification_never () {
   setup
@@ -904,6 +1019,11 @@ test_happy_path_visitor_and_intro_are_separate
 test_sad_invisible_visit
 test_sad_shadow_banned_visitor
 test_sad_visitor_skipped_you
+test_sad_you_skipped_visitor
+test_skipped_visitor_notified_with_show_skipped
+test_sad_visitor_hides_from_strangers
+test_visitor_who_hides_from_strangers_but_messaged_you
+test_sad_visitor_required_to_verify
 test_sad_visitors_notification_never
 test_sad_online_after_visit
 test_visitors_emailed_when_no_phone
