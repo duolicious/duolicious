@@ -53,6 +53,7 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
     expose_headers=['X-Duolicious-Worker', 'X-Duolicious-Commit'],
+    max_age=7200,
 )
 app.add_middleware(MaxBodySizeMiddleware, max_size=constants.MAX_CONTENT_LENGTH)
 app.add_middleware(WorkerHeadersMiddleware)
