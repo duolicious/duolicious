@@ -830,6 +830,67 @@ test_sad_visitor_skipped_you () {
   [[ "$(count_pushes_to 'token_skipped_you')" = 0 ]]
 }
 
+# "Never" means no visitor notifications at all.
+test_sad_visitors_notification_never () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_never'
+
+  q "update person set visitors_notification = 5 where uuid = '$user1id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_never')" = 0 ]]
+}
+
+# A user who was online after the visit has already seen it in their visitors
+# tab.
+test_sad_online_after_visit () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  # The helper leaves user1 last online twenty minutes ago, after the visit.
+  give_user1_a_phone 'token_seen_it'
+
+  insert_visit "$user2id" "$user1id" '30 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_seen_it')" = 0 ]]
+}
+
+# A user with no push device is emailed about their visitors instead, and the
+# email points at the visitors page.
+test_visitors_emailed_when_no_phone () {
+  setup
+
+  q "delete from duo_session
+     where person_id = (select id from person where uuid::text = '$user1id')"
+  q "update person set last_online_time = now() - interval '20 minutes' where uuid = '$user1id'"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where uuid::text = '$user1id' and visitor_seconds > 0")" = 1 ]]
+  [[ "$(count_emails_to 'user1@duolicious.app')" = 1 ]]
+
+  get_emails | grep -q 'Someone visited your profile!'
+  get_emails | grep -q 'get.duolicious.app/visitors'
+}
+
 # The visitors tab hides somebody the user skipped, so their visit isn't
 # notified about either.
 test_sad_you_skipped_visitor () {
@@ -945,67 +1006,6 @@ test_sad_visitor_required_to_verify () {
   [[ "$(count_pushes_to 'token_unverified')" = 0 ]]
 }
 
-# "Never" means no visitor notifications at all.
-test_sad_visitors_notification_never () {
-  setup
-
-  echo 0 > ../../test/input/disable-mobile-notifications
-  clear_pushes
-
-  give_user1_a_phone 'token_never'
-
-  q "update person set visitors_notification = 5 where uuid = '$user1id'"
-
-  insert_visit "$user2id" "$user1id" '11 minutes'
-
-  schedule_checks
-  sleep 4
-
-  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
-  [[ "$(count_pushes_to 'token_never')" = 0 ]]
-}
-
-# A user who was online after the visit has already seen it in their visitors
-# tab.
-test_sad_online_after_visit () {
-  setup
-
-  echo 0 > ../../test/input/disable-mobile-notifications
-  clear_pushes
-
-  # The helper leaves user1 last online twenty minutes ago, after the visit.
-  give_user1_a_phone 'token_seen_it'
-
-  insert_visit "$user2id" "$user1id" '30 minutes'
-
-  schedule_checks
-  sleep 4
-
-  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
-  [[ "$(count_pushes_to 'token_seen_it')" = 0 ]]
-}
-
-# A user with no push device is emailed about their visitors instead, and the
-# email points at the visitors page.
-test_visitors_emailed_when_no_phone () {
-  setup
-
-  q "delete from duo_session
-     where person_id = (select id from person where uuid::text = '$user1id')"
-  q "update person set last_online_time = now() - interval '20 minutes' where uuid = '$user1id'"
-
-  insert_visit "$user2id" "$user1id" '11 minutes'
-
-  schedule_checks
-  sleep 4
-
-  [[ "$(q "select count(*) from person where uuid::text = '$user1id' and visitor_seconds > 0")" = 1 ]]
-  [[ "$(count_emails_to 'user1@duolicious.app')" = 1 ]]
-
-  get_emails | grep -q 'Someone visited your profile!'
-  get_emails | grep -q 'get.duolicious.app/visitors'
-}
-
 test_happy_path_intros
 test_happy_path_chats
 test_one_click_unsubscribe
@@ -1019,14 +1019,14 @@ test_happy_path_visitor_and_intro_are_separate
 test_sad_invisible_visit
 test_sad_shadow_banned_visitor
 test_sad_visitor_skipped_you
+test_sad_visitors_notification_never
+test_sad_online_after_visit
+test_visitors_emailed_when_no_phone
 test_sad_you_skipped_visitor
 test_skipped_visitor_notified_with_show_skipped
 test_sad_visitor_hides_from_strangers
 test_visitor_who_hides_from_strangers_but_messaged_you
 test_sad_visitor_required_to_verify
-test_sad_visitors_notification_never
-test_sad_online_after_visit
-test_visitors_emailed_when_no_phone
 
 test_recently_active_mobile_user_pushed
 test_pushed_to_each_signed_in_device
