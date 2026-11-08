@@ -211,7 +211,7 @@ DUO_DB_PORT=5432 ./test/functionality.sh ${n}
 ## Using pg_stat_statements:
 
 ```
-~/duolicious-backend % sudo docker exec -it $(sudo docker ps | grep duolicious-backend-postgres | cut -d ' ' -f 1) psql -U postgres -d duo_api
+~/duolicious/backend % sudo docker exec -it $(sudo docker ps | grep backend-postgres | cut -d ' ' -f 1) psql -U postgres -d duo_api
 [sudo] password for user:
 psql (15.3 (Debian 15.3-1.pgdg120+1))
 Type "help" for help.
