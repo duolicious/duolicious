@@ -1,3 +1,5 @@
+from serviceshared.commonsql import visitors_tab_shows_sql
+
 _CHECKER = """
 checker AS (
     SELECT
@@ -12,7 +14,7 @@ checker AS (
 )
 """
 
-_VISITED_PASS_3 = """
+_VISITED_PASS_3 = f"""
 visited_pass_3 AS (
     SELECT
         direction.kind AS direction_kind,
@@ -132,77 +134,12 @@ visited_pass_3 AS (
     ON
         TRUE
     WHERE
-        prospect.activated
-    AND
-        prospect.shadow_banned_at IS NULL
-    AND
-        prospect.id <> %(person_id)s
-    AND
-        -- The prospect did not skip the checker
-        NOT EXISTS (
-            SELECT
-                1
-            FROM
-                skipped
-            WHERE
-                subject_person_id = prospect.id
-            AND
-                object_person_id = %(person_id)s
-        )
-    AND
-        -- The checker did not skip the prospect, or wishes to view skipped prospects
-        (
-            NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    skipped
-                WHERE
-                    subject_person_id = %(person_id)s
-                AND
-                    object_person_id = prospect.id
-            )
-        OR
-            EXISTS (
-                SELECT
-                    1
-                FROM
-                    search_preference
-                WHERE
-                    person_id = %(person_id)s
-                AND
-                    show_skipped
-            )
-        )
-    AND
-        -- The prospect wants to be shown to strangers or isn't a stranger
-        (
-            EXISTS (
-                SELECT
-                    subject_person_id
-                FROM
-                    messaged
-                WHERE
-                    subject_person_id = prospect.id
-                AND
-                    object_person_id = %(person_id)s
-            )
-        OR
-            NOT prospect.hide_me_from_strangers
-        OR
-            prospect.public_profile
-        )
+        {visitors_tab_shows_sql('prospect', '%(person_id)s')}
     AND
         (
             direction.kind = 'you_visited'
         OR
             NOT visited_pass_2.invisible
-        )
-    AND
-        (
-            NOT prospect.verification_required
-        OR
-            prospect.verification_level_id > 1
         )
 )
 """

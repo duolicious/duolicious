@@ -806,6 +806,30 @@ test_sad_shadow_banned_visitor () {
   [[ "$(count_pushes_to 'token_shadow_banned')" = 0 ]]
 }
 
+# The visitors tab hides somebody who skipped the user, so their visit isn't
+# notified about either.
+test_sad_visitor_skipped_you () {
+  setup
+
+  echo 0 > ../../test/input/disable-mobile-notifications
+  clear_pushes
+
+  give_user1_a_phone 'token_skipped_you'
+
+  q "insert into skipped (subject_person_id, object_person_id)
+     select
+       (select id from person where uuid::text = '$user2id'),
+       (select id from person where uuid::text = '$user1id')"
+
+  insert_visit "$user2id" "$user1id" '11 minutes'
+
+  schedule_checks
+  sleep 4
+
+  [[ "$(q "select count(*) from person where visitor_seconds > 0")" = 0 ]]
+  [[ "$(count_pushes_to 'token_skipped_you')" = 0 ]]
+}
+
 # "Never" means no visitor notifications at all.
 test_sad_visitors_notification_never () {
   setup
@@ -879,6 +903,7 @@ test_happy_path_multiple_visitors
 test_happy_path_visitor_and_intro_are_separate
 test_sad_invisible_visit
 test_sad_shadow_banned_visitor
+test_sad_visitor_skipped_you
 test_sad_visitors_notification_never
 test_sad_online_after_visit
 test_visitors_emailed_when_no_phone
