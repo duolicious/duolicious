@@ -221,11 +221,26 @@ WHERE
 """
 
 
-def feed_v2_query(same_country_only: bool) -> str:
+def feed_v2_query(same_country_only: bool, message_count_filter: bool) -> str:
     same_country = """
     AND
         prospect.location_country = searcher.searcher_country
     """ if same_country_only else ''
+
+    message_count = """
+    -- Decrease users' odds of appearing in the feed if they're already getting
+    -- lots of messages
+    AND random() < (
+        SELECT
+            1.0 / (1.0 + count(*)::real) ^ 0.5
+        FROM
+            messaged
+        WHERE
+            object_person_id = prospect.id
+        AND
+            created_at > now() - interval '1 day'
+    )
+    """ if message_count_filter else ''
 
     return f"""
 WITH searcher AS (
@@ -548,18 +563,7 @@ WITH searcher AS (
                     show_messaged
             )
         )
-    -- Decrease users' odds of appearing in the feed if they're already getting
-    -- lots of messages
-    AND random() < (
-        SELECT
-            1.0 / (1.0 + count(*)::real) ^ 0.5
-        FROM
-            messaged
-        WHERE
-            object_person_id = prospect.id
-        AND
-            created_at > now() - interval '1 day'
-    )
+    {message_count}
     -- The prospect's gender is one the searcher prefers
     AND EXISTS (
         SELECT

@@ -13,6 +13,7 @@ from service.api.redisclient import make_redis_client
 from collections.abc import Sequence
 from typing import Literal
 from service.api.searchfilters import Q_SEARCH_PARAMETERS
+from service.api.trials import no_message_count_filter_in_feed
 from service.api.search.sql import (
     Q_APPLY_CLUB_PREFERENCE,
     Q_CACHED_SEARCH,
@@ -297,7 +298,11 @@ async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
         )
 
         await tx.execute(
-            feed_v2_query(same_country_only=same_country_only),
+            feed_v2_query(
+                same_country_only=same_country_only,
+                message_count_filter=not no_message_count_filter_in_feed(
+                    person_id),
+            ),
             dict(searcher_person_id=person_id, before=before),
         )
         rows = await tx.fetchall()
