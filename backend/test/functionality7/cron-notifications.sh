@@ -876,7 +876,7 @@ test_skipped_visitor_notified_with_show_skipped () {
   schedule_checks
   sleep 4
 
-  [[ "$(count_pushes_to 'token_show_skipped')" = 1 ]]
+  [[ "$(pushes_to 'token_show_skipped')" = '[{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
 }
 
 # The visitors tab hides a visitor who hides from strangers, so their visit
@@ -921,7 +921,7 @@ test_visitor_who_hides_from_strangers_but_messaged_you () {
   schedule_checks
   sleep 4
 
-  [[ "$(count_pushes_to 'token_hides_but_messaged')" = 1 ]]
+  [[ "$(pushes_to 'token_hides_but_messaged')" = '[{"title":"Someone visited your profile 👀","body":"Someone visited your profile!","screen":"Visitors"}]' ]]
 }
 
 # The visitors tab hides a visitor who must verify and hasn't, so their visit
