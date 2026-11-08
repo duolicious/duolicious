@@ -257,8 +257,6 @@ def computed_flair_sql(person: str) -> str:
         e IS NOT NULL
 """
 
-# Whether the visitors tab of the person whose id is `checker_id` shows the
-# person aliased `prospect`.
 def visitors_tab_shows_sql(prospect: str, checker_id: str) -> str:
     return f"""
         {prospect}.activated
