@@ -3,7 +3,7 @@ import { registerPushToken } from '../chat/application-layer';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useEffect } from 'react';
-import { requestAndRegisterWebPush } from './web-push';
+import { refreshWebPushSubscription } from './web-push';
 import { delay } from '../util/util';
 
 type MaybeToken = { token: string | null } | null;
@@ -16,7 +16,7 @@ const refreshWebPushOnWeb = async (): Promise<MaybeToken> => {
     return { token: null };
   }
 
-  await requestAndRegisterWebPush();
+  await refreshWebPushSubscription();
 
   return { token: null };
 };

@@ -39,6 +39,7 @@ const signInPage = async (page: Page, seed: Seed, theme: string) => {
     seen_search_filters_hint: seen,
     seen_inbox_filter_hint: seen,
     seen_reply_hint: seen,
+    seen_notification_offer: seen,
   });
 
   return session;

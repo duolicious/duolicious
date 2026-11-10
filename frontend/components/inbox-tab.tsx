@@ -38,7 +38,8 @@ import { consumeStaleInbox } from '../events/stale-inbox';
 import { flushSearchFilterWrites } from '../events/search-filters';
 import { seenInboxFilterHint } from '../kv-storage/seen-hints/seen-inbox-filter-hint';
 import { InboxFilterHint } from './hints/inbox-filter-hint';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { offerNotificationsOnce } from './modal/notification-offer-modal';
 import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useAppTheme } from '../app-theme/app-theme';
 
@@ -477,6 +478,19 @@ const InboxNavBarButtons = ({
 const InboxTab = () => {
   const scrollbar = useScrollbar('inbox');
   const { showHidden } = useInboxSettings();
+  const stats = useInboxStats();
+  const isFocused = useIsFocused();
+  const isInboxEmpty =
+    stats !== null && stats.numChatsAndIntros + stats.numArchive === 0;
+
+  useEffect(() => {
+    if (isFocused && isInboxEmpty) {
+      offerNotificationsOnce({
+        title: 'Know when someone messages you',
+        message: 'Intros can arrive at any time.',
+      });
+    }
+  }, [isFocused, isInboxEmpty]);
 
   return (
     <View style={styles.safeAreaView}>

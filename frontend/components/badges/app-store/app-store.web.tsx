@@ -1,3 +1,5 @@
+import { APP_STORE_URL, PLAY_STORE_URL } from '../../../constants/constants';
+
 const appStoreBadge = require('../../../assets/app-store-badges/download-on-the-app-store.png');
 
 const AppStoreBadges = () => {
@@ -11,7 +13,7 @@ const AppStoreBadges = () => {
       {!/android/i.test(window.navigator.userAgent) &&
         <a
           target="_blank"
-          href="https://apps.apple.com/us/app/duolicious-dating-app/id6499066647"
+          href={APP_STORE_URL}
           style={{
             flex: 1,
           }}
@@ -29,7 +31,7 @@ const AppStoreBadges = () => {
       {!/iphone|ipod/i.test(window.navigator.userAgent) &&
         <a
           target="_blank"
-          href="https://play.google.com/store/apps/details?id=app.duolicious&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1"
+          href={`${PLAY_STORE_URL}&pcampaignid=pcampaignidMKT-Other-global-all-co-prtnr-py-PartBadge-Mar2515-1`}
           style={{
             flex: 1,
             display: 'block',
