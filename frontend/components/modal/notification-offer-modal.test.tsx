@@ -18,12 +18,17 @@ jest.mock('../../events/signed-in-user', () => ({
 }));
 
 let mockIsMobile = false;
+let mockIsStandalone = false;
 let mockCanAskForWebPush = false;
 
 jest.mock('../../util/util', () => ({
   ...jest.requireActual('../../util/util'),
-  isMobile: () => mockIsMobile,
+  isMobileWeb: () => mockIsMobile,
 }));
+
+Object.defineProperty(window, 'matchMedia', {
+  value: () => ({ matches: mockIsStandalone }),
+});
 
 jest.mock('../../notifications/web-push', () => ({
   canAskForWebPush: () => mockCanAskForWebPush,
@@ -46,6 +51,7 @@ describe('offerNotificationsOnce', () => {
   beforeEach(() => {
     for (const key of Object.keys(mockKv)) delete mockKv[key];
     mockIsMobile = false;
+    mockIsStandalone = false;
     mockCanAskForWebPush = false;
   });
 
@@ -60,6 +66,17 @@ describe('offerNotificationsOnce', () => {
     mockIsMobile = true;
     jest.replaceProperty(Platform, 'OS', 'web');
 
+    expect(await countOffers(3)).toBe(1);
+  });
+
+  it('offers a phone’s installed web app only while the browser can still ask', async () => {
+    mockIsMobile = true;
+    mockIsStandalone = true;
+    jest.replaceProperty(Platform, 'OS', 'web');
+
+    expect(await countOffers(1)).toBe(0);
+
+    mockCanAskForWebPush = true;
     expect(await countOffers(3)).toBe(1);
   });
 
