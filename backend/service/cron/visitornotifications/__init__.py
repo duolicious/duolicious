@@ -1,5 +1,6 @@
 from serviceshared.commonsql import (
     Q_UPSERT_LAST_VISITOR_NOTIFICATION_TIME,
+    visitors_tab_shows_sql,
 )
 from service.cron.notificationdispatch import NotificationKind
 from service.cron.visitornotifications.template import (
@@ -10,7 +11,7 @@ from service.cron.visitornotifications.template import (
 
 VISITOR_NOTIFICATIONS = NotificationKind(
     name='visitor',
-    unseen_count="""
+    unseen_count=f"""
         -- How many people visited since the person was last online, so the
         -- copy can say how many. Capped at 100 (rendered as "99+"), so the
         -- scan stops early for very popular profiles.
@@ -32,9 +33,7 @@ VISITOR_NOTIFICATIONS = NotificationKind(
             AND
                 visited.updated_at > person.last_online_time
             AND
-                visitor.activated
-            AND
-                visitor.shadow_banned_at IS NULL
+                {visitors_tab_shows_sql('visitor', 'person.id')}
             LIMIT 100
         ) AS visitor
     """,

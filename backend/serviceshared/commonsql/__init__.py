@@ -329,3 +329,73 @@ WITH existing_uuid AS (
 )
 SELECT 1
 """
+
+def visitors_tab_shows_sql(prospect: str, checker_id: str) -> str:
+    return f"""
+        {prospect}.activated
+    AND
+        {prospect}.shadow_banned_at IS NULL
+    AND
+        {prospect}.id <> {checker_id}
+    AND
+        -- The prospect did not skip the checker
+        NOT EXISTS (
+            SELECT
+                1
+            FROM
+                skipped
+            WHERE
+                subject_person_id = {prospect}.id
+            AND
+                object_person_id = {checker_id}
+        )
+    AND
+        -- The checker did not skip the prospect, or wishes to view skipped prospects
+        (
+            NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    skipped
+                WHERE
+                    subject_person_id = {checker_id}
+                AND
+                    object_person_id = {prospect}.id
+            )
+        OR
+            EXISTS (
+                SELECT
+                    1
+                FROM
+                    search_preference
+                WHERE
+                    person_id = {checker_id}
+                AND
+                    show_skipped
+            )
+        )
+    AND
+        -- The prospect wants to be shown to strangers or isn't a stranger
+        (
+            EXISTS (
+                SELECT
+                    subject_person_id
+                FROM
+                    messaged
+                WHERE
+                    subject_person_id = {prospect}.id
+                AND
+                    object_person_id = {checker_id}
+            )
+        OR
+            NOT {prospect}.hide_me_from_strangers
+        OR
+            {prospect}.public_profile
+        )
+    AND
+        (
+            NOT {prospect}.verification_required
+        OR
+            {prospect}.verification_level_id > 1
+        )
+"""

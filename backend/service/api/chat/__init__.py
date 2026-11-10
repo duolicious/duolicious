@@ -123,7 +123,6 @@ from service.api.ratelimit import (
     client_ip,
 )
 import json
-from service.api.trials import sent_messages_in_chats
 from serviceshared.antiabuse.antirude.chat import is_rude
 from service.api.chat.verification import (
     verification_required,
@@ -703,17 +702,13 @@ async def process_text(
             enqueue_notification_due(to_id, 'intro' if is_intro else 'chat')
             await send_notifications(
                 from_id=from_id,
+                to_id=to_id,
                 to_username=to_username,
                 message=maybe_message.body,
                 is_intro=is_intro,
                 immediate_data=immediate_data,
                 has_subscribers=to_has_subscribers,
             )
-
-        if is_intro and sent_messages_in_chats(from_id):
-            await _publish_inbox_entry(
-                viewer_username=from_username,
-                prospect_username=to_username)
 
         await redis_publish_many(connection_uuid, [response])
 

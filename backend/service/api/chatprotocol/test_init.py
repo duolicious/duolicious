@@ -84,7 +84,6 @@ _INBOX_CONVERSATION: InboxConversation = {
     'is_available': True,
     'location': 'intros',
     'hidden': False,
-    'awaiting_reply': False,
     'matches_search_filters': True,
     'last_message': 'hi',
     'last_message_read': False,

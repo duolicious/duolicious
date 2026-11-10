@@ -1,30 +1,37 @@
 import unittest
 
-from service.api.trials import sent_messages_in_chats
+from service.api.trials import (
+    distance_sort_by_default,
+    no_message_count_filter_in_feed,
+    web_push_when_offline,
+)
 
 
-class TestSentMessagesInChats(unittest.TestCase):
+class TestTrials(unittest.TestCase):
     def test_arms(self) -> None:
         for person_id, expected in [
-            (4, False),
-            (389200, False),
-            (390248, False),
-            (390249, False),
-            (390250, True),
-            (390251, False),
-            (390252, True),
-            (390253, False),
-            (391398, True),
-            (391399, False),
-            (391400, True),
-            (391548, True),
-            (391549, False),
-            (391550, False),
-            (391551, False),
-            (391552, False),
+            (4, (False, False, False)),
+            (398992, (False, False, False)),
+            (398999, (False, False, False)),
+            (399000, (True, True, True)),
+            (399001, (False, True, True)),
+            (399002, (True, False, True)),
+            (399003, (False, False, True)),
+            (399004, (True, True, False)),
+            (399005, (False, True, False)),
+            (399006, (True, False, False)),
+            (399007, (False, False, False)),
+            (399008, (True, True, True)),
         ]:
             with self.subTest(person_id=person_id):
-                self.assertEqual(sent_messages_in_chats(person_id), expected)
+                self.assertEqual(
+                    (
+                        distance_sort_by_default(person_id),
+                        no_message_count_filter_in_feed(person_id),
+                        web_push_when_offline(person_id),
+                    ),
+                    expected,
+                )
 
 
 if __name__ == '__main__':
