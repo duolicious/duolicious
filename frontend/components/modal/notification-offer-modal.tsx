@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform } from 'react-native';
 import { ChoiceModal } from './choice-modal';
 import { listen, notify } from '../../events/events';
-import { isMobile } from '../../util/util';
+import { isMobileWeb } from '../../util/util';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../../constants/constants';
 import {
   canAskForWebPush,
@@ -18,8 +18,13 @@ type NotificationOffer = {
 const OFFER_EVENT = 'notification-offer';
 const ANSWERED_EVENT = 'notification-offer-answered';
 
+const offersApp = (): boolean =>
+  Platform.OS === 'web' &&
+  isMobileWeb() &&
+  !window.matchMedia('(display-mode: standalone)').matches;
+
 const canOfferNotifications = (): boolean =>
-  Platform.OS === 'web' && (isMobile() || canAskForWebPush());
+  Platform.OS === 'web' && (offersApp() || canAskForWebPush());
 
 const showNotificationOffer = (offer: NotificationOffer) => {
   if (canOfferNotifications()) {
@@ -72,12 +77,12 @@ const NotificationOfferModal = () => {
   const accept = useCallback(async () => {
     setVisible(false);
 
-    await (isMobile() ? openAppStore() : requestAndRegisterWebPush());
+    await (offersApp() ? openAppStore() : requestAndRegisterWebPush());
 
     notify(ANSWERED_EVENT);
   }, []);
 
-  const phone = isMobile();
+  const phone = offersApp();
 
   return (
     <ChoiceModal
