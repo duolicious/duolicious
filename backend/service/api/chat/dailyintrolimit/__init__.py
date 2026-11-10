@@ -42,9 +42,9 @@ WITH daily_intro AS (
         )
     LIMIT
         {max(t.daily_intros for t in TIER_BY_VERIFICATION_LEVEL_ID.values())}
-), recent_manual_report_count AS (
+), recent_manual_report AS (
     SELECT
-        count(*)
+        1
     FROM
         skipped
     WHERE
@@ -63,28 +63,23 @@ WITH daily_intro AS (
         AND
             person.roles @> ARRAY['bot']
     )
-), recent_rude_message_count AS (
+), recent_rude_message AS (
     SELECT
-        count(*)
+        1
     FROM
         rude_message
     WHERE
         person_id = %(from_id)s
     AND
         created_at > now() - interval '1 day'
-), daily_intro_count AS (
-    SELECT COUNT(*) AS x FROM daily_intro
 )
 SELECT
-    person.verification_level_id,
-    daily_intro_count.x AS daily_intro_count,
-    recent_manual_report_count.count AS recent_manual_report_count,
-    recent_rude_message_count.count AS recent_rude_message_count
+    verification_level_id,
+    (SELECT count(*) FROM daily_intro) AS daily_intro_count,
+    (SELECT count(*) FROM recent_manual_report) AS recent_manual_report_count,
+    (SELECT count(*) FROM recent_rude_message) AS recent_rude_message_count
 FROM
-    person,
-    daily_intro_count,
-    recent_manual_report_count,
-    recent_rude_message_count
+    person
 WHERE
     id = %(from_id)s
 """
@@ -106,15 +101,15 @@ def intro_limit_block(sender: Sender, stanza_id: str) -> MessageBlocked | None:
         sender.recent_rude_message_count // 2
     )
 
-    daily_intros = tier.daily_intros // 2 ** halvings
+    allowance = tier.daily_intros // 2 ** halvings
 
-    if sender.daily_intro_count < daily_intros:
+    if sender.daily_intro_count < allowance:
         return None
 
     return MessageBlocked(
         stanza_id=stanza_id,
         reason='rate-limited-1day',
-        subreason=tier.subreason if daily_intros else None,
+        subreason=tier.subreason if allowance else None,
     )
 
 

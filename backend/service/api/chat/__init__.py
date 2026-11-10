@@ -589,9 +589,10 @@ async def process_text(
             MessageBlocked(stanza_id=stanza_id, reason='spam')
         ])
 
-    intro_limit_block = await fetch_intro_limit_block(
-            from_id=from_id,
-            stanza_id=stanza_id) if is_intro else None
+    intro_limit_block = (
+        await fetch_intro_limit_block(from_id=from_id, stanza_id=stanza_id)
+        if is_intro else None
+    )
 
     if intro_limit_block is not None:
         return await redis_publish_many(connection_uuid, [intro_limit_block])
