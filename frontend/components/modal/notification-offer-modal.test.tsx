@@ -13,8 +13,10 @@ jest.mock('../../kv-storage/kv-storage', () => ({
   },
 }));
 
+let mockPersonId = 399000;
+
 jest.mock('../../events/signed-in-user', () => ({
-  getSignedInUser: () => ({ personUuid: 'me' }),
+  getSignedInUser: () => ({ personUuid: 'me', personId: mockPersonId }),
 }));
 
 let mockIsMobile = false;
@@ -50,6 +52,7 @@ const countOffers = async (attempts: number) => {
 describe('offerNotificationsOnce', () => {
   beforeEach(() => {
     for (const key of Object.keys(mockKv)) delete mockKv[key];
+    mockPersonId = 399000;
     mockIsMobile = false;
     mockIsStandalone = false;
     mockCanAskForWebPush = false;
@@ -77,6 +80,15 @@ describe('offerNotificationsOnce', () => {
     expect(await countOffers(1)).toBe(0);
 
     mockCanAskForWebPush = true;
+    expect(await countOffers(3)).toBe(1);
+  });
+
+  it('offers the app inside a phone’s installed web app outside the web push trial', async () => {
+    mockPersonId = 399004;
+    mockIsMobile = true;
+    mockIsStandalone = true;
+    jest.replaceProperty(Platform, 'OS', 'web');
+
     expect(await countOffers(3)).toBe(1);
   });
 
