@@ -70,6 +70,7 @@ const ChoiceModal = ({
           <ButtonWithCenteredText
             onPress={onPressPrimary}
             backgroundColor={appTheme.brandColor}
+            containerStyle={{ marginTop: 10, marginBottom: 0 }}
             textStyle={{ color: appTheme.primaryColor, fontWeight: '700' }}
           >
             {primaryLabel}
@@ -77,6 +78,7 @@ const ChoiceModal = ({
           <ButtonWithCenteredText
             onPress={onPressSecondary}
             secondary={true}
+            containerStyle={{ marginTop: 0, marginBottom: 0 }}
             textStyle={{ fontWeight: '700' }}
           >
             {secondaryLabel}

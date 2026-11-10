@@ -38,6 +38,8 @@ import {
   onReceiveMessageAndNotify,
   sendMessageAndNotify,
 } from '../../chat/application-layer/hooks/message'
+import { useConversation } from '../../chat/application-layer/hooks/conversation';
+import { offerNotificationsOnce } from '../modal/notification-offer-modal';
 import {
   IMAGES_URL,
 } from '../../env/env';
@@ -587,6 +589,13 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
   const listRef = useRef<ScrollView>(null);
 
+  const offerNotificationsAfterSending = useCallback(() => {
+    offerNotificationsOnce({
+      title: name ? `Know when ${name} replies` : 'Know when they reply',
+      message: `${name ?? 'They'} might reply while you’re away.`,
+    });
+  }, [name]);
+
   const onPressSend = useCallback((messageBody: string, card?: QuoteCard): void => {
     if (!personUuid) return;
 
@@ -598,7 +607,9 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
 
     saveDraft('');
-  }, [personUuid, saveDraft]);
+
+    offerNotificationsAfterSending();
+  }, [personUuid, saveDraft, offerNotificationsAfterSending]);
 
   useEffect(() => navigation.addListener('beforeRemove', () => {
     const messages = (messageIds ?? []).flatMap((id) => {
@@ -637,6 +648,26 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
   const isScreenFocused = useIsFocused();
 
+  const conversation = useConversation(personUuid ?? '');
+  const visibleConversationName =
+    conversation && !conversation.hidden ? conversation.name : null;
+
+  const hasReceivedMessage = (messageIds ?? []).some((id) => {
+    const message = getMessage(id)?.message;
+    return message !== undefined &&
+      message.type !== 'typing' &&
+      !message.fromCurrentUser;
+  });
+
+  useEffect(() => {
+    if (isScreenFocused && hasReceivedMessage && visibleConversationName) {
+      offerNotificationsOnce({
+        title: `Don’t miss ${possessive(visibleConversationName)} next message`,
+        message: `${visibleConversationName} might message you again while you’re away.`,
+      });
+    }
+  }, [isScreenFocused, hasReceivedMessage, visibleConversationName]);
+
   useEffect(() => {
     if (!isScreenFocused) return;
 
@@ -653,7 +684,9 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     );
 
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
-  }, [personUuid]);
+
+    offerNotificationsAfterSending();
+  }, [personUuid, offerNotificationsAfterSending]);
 
   const onFocus = useCallback(async () => {
     if (listRef.current && (messageIds ?? []).length !== 0) {
