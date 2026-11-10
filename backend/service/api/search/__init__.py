@@ -300,11 +300,8 @@ async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:
         await tx.execute(
             feed_v2_query(
                 same_country_only=same_country_only,
-                hide_by=(
-                    'next-candidate-message-count'
-                    if no_message_count_filter_in_feed(person_id)
-                    else 'own-message-count'
-                ),
+                message_count_filter=not no_message_count_filter_in_feed(
+                    person_id),
             ),
             dict(searcher_person_id=person_id, before=before),
         )
