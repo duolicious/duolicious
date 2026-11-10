@@ -44,9 +44,10 @@ assert_delivered () {
       and .duo_message_delivered["@id"] == "'"$id"'")' > /dev/null
 }
 
-# Assert that the popped output (read from stdin) contains a rate-limit block for
-# the id999 stanza. An empty `subreason` asserts the block carries no subreason.
-assert_rate_limited () {
+# Assert that the popped output (read from stdin) contains a daily intro limit
+# block for the id999 stanza. An empty `subreason` asserts the block carries no
+# subreason.
+assert_intro_limit_reached () {
   local subreason=$1
 
   if [[ -n "$subreason" ]]; then
@@ -62,7 +63,7 @@ assert_rate_limited () {
   fi
 }
 
-test_rate_limit () {
+test_daily_intro_limit () {
   local max_intros_per_day=$1
   local verification_level_id=$2
   local expected_subreason=$3
@@ -192,9 +193,9 @@ test_rate_limit () {
 
   sleep 1 # Wait for testing service to receive messages
 
-  curl -sX GET http://localhost:3001/pop | assert_rate_limited "$expected_subreason"
+  curl -sX GET http://localhost:3001/pop | assert_intro_limit_reached "$expected_subreason"
 
-  echo Rate limiting resets after 1 day
+  echo The daily intro limit resets after 1 day
 
   q "
   update
@@ -217,7 +218,7 @@ test_rate_limit () {
 
 # Send some reports about sender 1
 # Send no reports about sender 2
-test_rate_limit \
+test_daily_intro_limit \
   16 \
   1 \
   'unverified-basics' \
@@ -228,7 +229,7 @@ test_rate_limit \
 
 # Send no reports about sender 1
 # Send some reports about sender 2
-test_rate_limit \
+test_daily_intro_limit \
   32 \
   1 \
   'unverified-basics' \
@@ -238,19 +239,19 @@ test_rate_limit \
   3
 
 # Test base limit
-test_rate_limit \
+test_daily_intro_limit \
   32 \
   1 \
   'unverified-basics'
 
 # Test base limit
-test_rate_limit \
+test_daily_intro_limit \
   64 \
   2 \
   'unverified-photos'
 
 # Test base limit
-test_rate_limit \
+test_daily_intro_limit \
   128 \
   3 \
   ''

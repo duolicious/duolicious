@@ -47,8 +47,8 @@ from service.api.chat.online import (
     update_online_once,
     update_online_forever,
 )
-from service.api.chat.ratelimit import (
-    maybe_fetch_rate_limit,
+from service.api.chat.dailyintrolimit import (
+    fetch_intro_limit_block,
 )
 from service.api.chat.chatutil import (
     fetch_is_skipped,
@@ -589,13 +589,12 @@ async def process_text(
             MessageBlocked(stanza_id=stanza_id, reason='spam')
         ])
 
-    if is_intro:
-        maybe_rate_limit = await maybe_fetch_rate_limit(
-                from_id=from_id,
-                stanza_id=stanza_id)
+    intro_limit_block = await fetch_intro_limit_block(
+            from_id=from_id,
+            stanza_id=stanza_id) if is_intro else None
 
-        if maybe_rate_limit:
-            return await redis_publish_many(connection_uuid, maybe_rate_limit)
+    if intro_limit_block is not None:
+        return await redis_publish_many(connection_uuid, [intro_limit_block])
 
     used_count = await intro_use_count(maybe_message) if is_intro else 0
     if is_intro and used_count > 0:
