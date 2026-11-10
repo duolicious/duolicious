@@ -326,7 +326,7 @@ async def post_check_otp(
         pending_club_name=s.pending_club_name,
     )
 
-    async with api_tx() as tx:
+    async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_MAYBE_DELETE_ONBOARDEE, params)
         await tx.execute(Q_MAYBE_SIGN_IN, params)
         row = await tx.fetchone()
@@ -334,18 +334,21 @@ async def post_check_otp(
         if not row:
             return 'Invalid OTP', 401
 
-        clubs = await _handle_pending_club(
-            tx, s.person_id, s.pending_club_name)
-
         await tx.execute(Q_UPDATE_LAST, dict(person_uuid=row['person_uuid']))
 
         if row['person_id'] is not None:
-            await _flush_session_answers(
-                tx, s.session_token_hash, row['person_id'])
             await tx.execute(Q_PROMOTE_PENDING_SOCIAL_IDENTITY, dict(
                 session_token_hash=s.session_token_hash,
                 person_id=row['person_id'],
             ))
+
+    async with api_tx() as tx:
+        clubs = await _handle_pending_club(
+            tx, s.person_id, s.pending_club_name)
+
+        if row['person_id'] is not None:
+            await _flush_session_answers(
+                tx, s.session_token_hash, row['person_id'])
 
     await sessioncache.delete_session(s.session_token_hash)
 
@@ -414,14 +417,12 @@ async def _sign_in_with_social(
             await get_email_info(email, normalized)).domain_ok:
         return 'We don’t support that email provider', 409
 
-    # The gate does external HTTP; never hold a transaction open across it. The
-    # first transaction above is read-only, so all writes stay atomic in the
-    # second one below.
+    # The gate does external HTTP; never hold a transaction open across it.
     gate = await _gate_signup(remote_addr, is_signup=person_id is None)
     if gate.error:
         return gate.error
 
-    async with api_tx() as tx:
+    async with api_tx('READ COMMITTED') as tx:
         if email_match and not needs_otp:
             await tx.execute(Q_INSERT_SOCIAL_IDENTITY, dict(
                 provider=provider,
@@ -464,11 +465,12 @@ async def _sign_in_with_social(
                 name=None,
             )
 
-        clubs = await _handle_pending_club(
-            tx, person_id, req.pending_club_name)
-
         if profile.get('person_uuid'):
             await tx.execute(Q_UPDATE_LAST, dict(person_uuid=profile['person_uuid']))
+
+    async with api_tx() as tx:
+        clubs = await _handle_pending_club(
+            tx, person_id, req.pending_club_name)
 
     await enforce_session_limit(person_id, session_token_hash)
 
