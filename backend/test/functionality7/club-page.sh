@@ -142,10 +142,7 @@ related_clubs_are_ranked_by_embedding_similarity () {
   for i in $(seq 1 52); do
     assume_role "knitter$i"
     jc POST /join-club -d '{ "name": "knitting" }'
-  done
-  for i in $(seq 1 51); do
-    assume_role "knitter$i"
-    jc POST /join-club -d '{ "name": "crochet" }'
+    [[ $i == 52 ]] || jc POST /join-club -d '{ "name": "crochet" }'
   done
 
   # Wait for the stats cron (all 52 joins), the embeddings cron, and the
@@ -167,7 +164,6 @@ related_clubs_are_ranked_by_embedding_similarity () {
   [[ "$(jq -r '.related_clubs[0] | has("overlap")' <<< "$result")" == "false" ]]
 
   q "insert into club (name, count_members) values ('weaving', 900)"
-  assume_role knitter52
   [[ "$(c GET '/search-clubs?q=' | jq -c '[.[].name]')" == '["crochet","weaving"]' ]]
 }
 
