@@ -240,7 +240,7 @@ def feed_v2_query(same_country_only: bool, message_count_filter: bool) -> str:
         AND
             created_at > now() - interval '1 day'
     )
-    """ if message_count_filter else ''
+    """ if message_count_filter else 'AND random() < 0.5'
 
     return f"""
 WITH searcher AS (
@@ -688,7 +688,7 @@ WITH searcher AS (
         )
 
         OR
-            {has_gold_sql('prospect.id')}
+            (SELECT {has_gold_sql('prospect.id')})
     )
     -- Exclude the searcher from their own feed results
     AND
