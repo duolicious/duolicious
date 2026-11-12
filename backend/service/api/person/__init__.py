@@ -42,11 +42,8 @@ from service.api.search.sql.search import (
     Q_CLUB_MEMBERS,
     Q_CLUB_MEMBERS_FIRST_RANK,
     Q_SEARCHER,
-    SORT_DISTANCE,
-    SORT_MATCH_PERCENTAGE,
 )
 from service.api.search import similar_profiles
-from service.api.trials import distance_sort_by_default
 from service.api.searchfilters import TWO_WAY_FILTER_KEYS
 from serviceshared.commonsql import *
 from service.api.qanda import _flush_session_answers
@@ -196,10 +193,6 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         max_age=bounds.max_age,
         distance=distance_preference(candidates, is_joining_club=is_joining_club),
         same_country_only=same_country_only and not is_joining_club,
-        sort_by=(
-            SORT_DISTANCE
-            if distance_sort_by_default(person_id)
-            else SORT_MATCH_PERCENTAGE),
     ))
 
 
