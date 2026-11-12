@@ -15,6 +15,7 @@ from serviceshared.database import (
 )
 from serviceshared.kvmatching.encoder import searcher_vector
 from service.api.duotypes import SortBy
+from service.api.trials import messages_received_sort_until_answered
 from service.api.searchfilters import (
     ProspectFilters,
     SearchParam,
@@ -349,7 +350,20 @@ def _mutual_club_count(sort_by: SortBy, prefs: Row) -> _Sort:
     return '0', {}
 
 
-_RANKED_PROSPECT_IDS = """), do_promote_verified AS (
+def _ranked_prospect_ids(by_messages_received: bool) -> str:
+    messages_received = """(
+        SELECT
+            count(*)
+        FROM
+            messaged
+        WHERE
+            object_person_id = prospect_person_id
+        AND
+            created_at > now() - interval '30 days'
+    ) DESC,
+    """ if by_messages_received else ''
+
+    return f"""), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
@@ -375,6 +389,7 @@ ORDER BY
             has_photo
     END DESC,
 
+    {messages_received}
     mutual_club_count DESC,
     sort_distance
 LIMIT
@@ -418,9 +433,10 @@ def build_uncached_search(
     prefs: Row,
     ignore_sort_preference: bool,
 ) -> tuple[str, dict[str, SearchParam]]:
+    searcher_count_answers = row_int(prefs, 'searcher_count_answers')
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
-        searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
+        searcher_count_answers=searcher_count_answers,
     )
 
     club_preference = row_str_or_none(prefs, 'club_preference')
@@ -469,7 +485,9 @@ WITH nearest AS (
         {mutual_club_count} AS mutual_club_count
     FROM
         nearest
-{_RANKED_PROSPECT_IDS}"""
+{_ranked_prospect_ids(
+    searcher_count_answers == 0
+    and messages_received_sort_until_answered(searcher_person_id))}"""
 
     return sql, params
 

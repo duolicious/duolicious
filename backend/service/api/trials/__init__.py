@@ -5,7 +5,7 @@ def _treated(person_id: int, bit: int) -> bool:
     return person_id >= _FIRST_PERSON_ID and (person_id >> bit) % 2 == 0
 
 
-def distance_sort_by_default(person_id: int) -> bool:
+def messages_received_sort_until_answered(person_id: int) -> bool:
     return _treated(person_id, bit=0)
 
 

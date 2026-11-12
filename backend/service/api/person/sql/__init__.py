@@ -459,8 +459,7 @@ SET
     min_age = %(min_age)s,
     max_age = %(max_age)s,
     distance = %(distance)s::NUMERIC::SMALLINT,
-    same_country_only = %(same_country_only)s,
-    sort_by_id = (SELECT id FROM sort_by WHERE name = %(sort_by)s)
+    same_country_only = %(same_country_only)s
 WHERE
     person_id = %(person_id)s
 """

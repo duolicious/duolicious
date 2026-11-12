@@ -1,7 +1,7 @@
 import unittest
 
 from service.api.trials import (
-    distance_sort_by_default,
+    messages_received_sort_until_answered,
     no_message_count_filter_in_feed,
     web_push_when_offline,
 )
@@ -26,7 +26,7 @@ class TestTrials(unittest.TestCase):
             with self.subTest(person_id=person_id):
                 self.assertEqual(
                     (
-                        distance_sort_by_default(person_id),
+                        messages_received_sort_until_answered(person_id),
                         no_message_count_filter_in_feed(person_id),
                         web_push_when_offline(person_id),
                     ),
