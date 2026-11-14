@@ -1,0 +1,10 @@
+maxminddb
+numpy
+onnx>=1.17
+onnxruntime
+psycopg[binary]>=3.2
+pydantic
+scikit-learn
+tokenizers
+torch>=2.6
+transformers>=4.40
