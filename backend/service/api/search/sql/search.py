@@ -15,7 +15,6 @@ from serviceshared.database import (
 )
 from serviceshared.kvmatching.encoder import searcher_vector
 from service.api.duotypes import SortBy
-from service.api.trials import messages_received_sort_until_answered
 from service.api.searchfilters import (
     ProspectFilters,
     SearchParam,
@@ -485,9 +484,7 @@ WITH nearest AS (
         {mutual_club_count} AS mutual_club_count
     FROM
         nearest
-{_ranked_prospect_ids(
-    searcher_count_answers == 0
-    and messages_received_sort_until_answered(searcher_person_id))}"""
+{_ranked_prospect_ids(searcher_count_answers == 0)}"""
 
     return sql, params
 

@@ -15,7 +15,6 @@ from service.api.chat.maybewebpush import (
 from service.api.chat.upsertlastnotification import upsert_last_notification
 from serviceshared.unseennotificationcount import increment_unseen_notification_count
 from serviceshared.util import truncate_text, Json
-from service.api.trials import web_push_when_offline
 
 _Q_SENDER_CARD = """
 {prefix}SELECT
@@ -62,7 +61,6 @@ Q_WEB_PUSH_DATA = _Q_SENDER_CARD.format(prefix='', gate='')
 
 async def send_notifications(
     from_id: int,
-    to_id: int,
     to_username: str,
     message: str,
     is_intro: bool,
@@ -97,7 +95,7 @@ async def send_notifications(
             online=online,
         )
 
-    if online or immediate_data is not None and web_push_when_offline(to_id):
+    if online or immediate_data is not None:
         await _send_web_push(
             to_username=to_username,
             title=title,
@@ -121,7 +119,6 @@ async def send_reaction_notifications(
 
     await send_notifications(
         from_id=from_id,
-        to_id=partner_id,
         to_username=partner_username,
         message=target_body,
         is_intro=False,
