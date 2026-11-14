@@ -2350,7 +2350,8 @@ WITH deleted_token AS (
     RETURNING
         photo.uuid,
         photo.hash,
-        photo.person_id
+        photo.person_id,
+        photo.clip_embedding
 ), deleted_person_event AS (
     UPDATE
         person
@@ -2380,11 +2381,11 @@ WITH deleted_token AS (
 ), inserted_banned_photo_hash AS (
     INSERT INTO banned_photo_hash (
         hash,
-        photo_uuid
+        embedding
     )
     SELECT
         hash,
-        uuid
+        clip_embedding
     FROM
         deleted_photo
     WHERE
