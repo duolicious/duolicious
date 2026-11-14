@@ -440,11 +440,11 @@ test_verification_loss_photo_removed () {
 }
 
 test_verification_required () {
-  [[ "$(q "select COUNT(*) from person where verification_required")" -eq 0 ]]
+  [[ "$(q "select COUNT(*) from person where required_verification_level_id = 2")" -eq 0 ]]
   test_set location "London, England, United Kingdom"
-  [[ "$(q "select COUNT(*) from person where verification_required")" -eq 1 ]]
+  [[ "$(q "select COUNT(*) from person where required_verification_level_id = 2")" -eq 1 ]]
   test_set location "New York, New York, United States"
-  [[ "$(q "select COUNT(*) from person where verification_required")" -eq 1 ]]
+  [[ "$(q "select COUNT(*) from person where required_verification_level_id = 2")" -eq 1 ]]
 }
 
 test_coordinates () {

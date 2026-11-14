@@ -289,6 +289,7 @@ CREATE TABLE IF NOT EXISTS person (
     verified_gender BOOLEAN NOT NULL DEFAULT FALSE,
     verified_ethnicity BOOLEAN NOT NULL DEFAULT FALSE,
     verification_required BOOLEAN NOT NULL DEFAULT FALSE,
+    required_verification_level_id SMALLINT REFERENCES verification_level(id) NOT NULL DEFAULT 1,
 
     -- Basics
     orientation_id SMALLINT REFERENCES orientation(id) NOT NULL DEFAULT 1,
@@ -1632,6 +1633,39 @@ BEFORE INSERT ON
     person_club
 FOR EACH ROW EXECUTE FUNCTION
     populate_person_club_defaults();
+
+CREATE OR REPLACE FUNCTION
+    sync_verification_required()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' AND NEW.verification_required THEN
+        NEW.required_verification_level_id :=
+            GREATEST(NEW.required_verification_level_id, 2);
+    ELSIF TG_OP = 'UPDATE'
+    AND NEW.required_verification_level_id
+        IS NOT DISTINCT FROM OLD.required_verification_level_id
+    AND NEW.verification_required IS DISTINCT FROM OLD.verification_required
+    THEN
+        NEW.required_verification_level_id := CASE
+            WHEN NEW.verification_required
+            THEN GREATEST(OLD.required_verification_level_id, 2)
+            ELSE 1
+        END;
+    END IF;
+
+    NEW.verification_required := NEW.required_verification_level_id > 1;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER
+    trigger_sync_verification_required
+BEFORE INSERT OR UPDATE OF verification_required, required_verification_level_id ON
+    person
+FOR EACH ROW
+EXECUTE FUNCTION
+    sync_verification_required();
 
 -- Marks a club dirty on join, leave/cascaded deletion, or activation
 -- flip. Answer edits and joins/leaves that don't change `activated` are

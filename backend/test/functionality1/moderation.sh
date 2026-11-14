@@ -425,7 +425,7 @@ setup_verified_reporter () {
 }
 
 accused_requires_verification () {
-  q "select verification_required from person where id = ${accused_id}"
+  q "select required_verification_level_id = 2 from person where id = ${accused_id}"
 }
 
 bot_report_requires_verification () {
