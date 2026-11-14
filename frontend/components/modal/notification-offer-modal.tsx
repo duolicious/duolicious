@@ -9,8 +9,6 @@ import {
   requestAndRegisterWebPush,
 } from '../../notifications/web-push';
 import { seenNotificationOffer } from '../../kv-storage/seen-hints/seen-notification-offer';
-import { getSignedInUser } from '../../events/signed-in-user';
-import { webPushWhenOffline } from '../../trials/trials';
 
 type NotificationOffer = {
   title: string
@@ -20,31 +18,13 @@ type NotificationOffer = {
 const OFFER_EVENT = 'notification-offer';
 const ANSWERED_EVENT = 'notification-offer-answered';
 
-const isInWebPushTrial = (): boolean => {
-  const personId = getSignedInUser()?.personId;
-  return personId !== undefined && webPushWhenOffline(personId);
-};
-
 const offersApp = (): boolean =>
   Platform.OS === 'web' &&
   isMobileWeb() &&
-  !(isInWebPushTrial() && window.matchMedia('(display-mode: standalone)').matches);
+  !window.matchMedia('(display-mode: standalone)').matches;
 
 const canOfferNotifications = (): boolean =>
   Platform.OS === 'web' && (offersApp() || canAskForWebPush());
-
-const howToBeNotified = (): string => {
-  if (offersApp()) {
-    return 'Get the Duolicious app to be notified on your phone.';
-  }
-
-  if (isInWebPushTrial()) {
-    return 'Turn on notifications to hear about it, even when Duolicious isn’t open.';
-  }
-
-  return 'Turn on notifications and keep Duolicious open in a tab to hear ' +
-    'about it while you’re using other tabs or apps.';
-};
 
 const showNotificationOffer = (offer: NotificationOffer) => {
   if (canOfferNotifications()) {
@@ -108,7 +88,12 @@ const NotificationOfferModal = () => {
     <ChoiceModal
       visible={visible}
       title={offer?.title ?? ''}
-      message={`${offer?.message ?? ''} ${howToBeNotified()}`}
+      message={
+        `${offer?.message ?? ''} ` +
+        (phone
+          ? 'Get the Duolicious app to be notified on your phone.'
+          : 'Turn on notifications to hear about it, even when Duolicious isn’t open.')
+      }
       primaryLabel={phone ? 'Get the app' : 'Turn on notifications'}
       onPressPrimary={accept}
       secondaryLabel="Not now"

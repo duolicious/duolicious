@@ -702,7 +702,6 @@ async def process_text(
             enqueue_notification_due(to_id, 'intro' if is_intro else 'chat')
             await send_notifications(
                 from_id=from_id,
-                to_id=to_id,
                 to_username=to_username,
                 message=maybe_message.body,
                 is_intro=is_intro,
