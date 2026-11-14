@@ -131,6 +131,7 @@ WITH existing_uuid AS (
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
         nsfw_score_v2 = EXCLUDED.nsfw_score_v2,
+        clip_embedding = NULL,
         verified = FALSE
 ), updated_person AS (
     UPDATE person
