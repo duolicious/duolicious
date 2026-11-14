@@ -262,6 +262,7 @@ const ProfileTab_ = ({navigation}: ProfileTabScreenProps) => {
       {data &&
         <ScrollView
           ref={observeListRef}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingLeft: 10,
             paddingRight: 10,
