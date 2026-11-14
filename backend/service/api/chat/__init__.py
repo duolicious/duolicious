@@ -125,7 +125,7 @@ from service.api.ratelimit import (
 import json
 from serviceshared.antiabuse.antirude.chat import is_rude
 from service.api.chat.verification import (
-    verification_required,
+    missing_verification_level,
 )
 
 Q_HAS_MESSAGE = """
@@ -279,21 +279,27 @@ async def fetch_is_trusted_account(from_id: int) -> bool:
 async def _chat_interaction_blocked(
     from_id: int,
     to_id: int,
-) -> tuple[bool, str | None]:
+) -> tuple[bool, str | None, str | None]:
     """
     Whether `from_id` may not currently interact with `to_id` (whether sending a
-    message or reacting to one), as `(blocked, reason)`. `reason` is the
-    client-facing `MessageBlocked` reason (None for a generic block) and is only
-    meaningful when `blocked` is True. Each caller renders its own stanza
-    (`MessageBlocked` or `ReactionBlocked`); only the gating rules are shared.
+    message or reacting to one), as `(blocked, reason, subreason)`. `reason`
+    and `subreason` are the client-facing `MessageBlocked` ones (None for a
+    generic block) and are only meaningful when `blocked` is True. Each caller
+    renders its own stanza (`MessageBlocked` or `ReactionBlocked`); only the
+    gating rules are shared.
     """
-    if await verification_required(person_id=from_id):
-        return True, 'age-verification'
+    missing_level = await missing_verification_level(person_id=from_id)
+    if missing_level is not None:
+        return (
+            True,
+            'age-verification',
+            'unverified-photos' if missing_level == 3 else None,
+        )
 
     if await fetch_is_skipped(from_id=from_id, to_id=to_id):
-        return True, None
+        return True, None, None
 
-    return False, None
+    return False, None, None
 
 
 async def _publish_inbox_entry(
@@ -341,7 +347,7 @@ async def _handle_reaction(
     if partner_id is None:
         return await reject()
 
-    is_blocked, _ = await _chat_interaction_blocked(
+    is_blocked, _, _ = await _chat_interaction_blocked(
         from_id=from_id,
         to_id=partner_id,
     )
@@ -552,13 +558,17 @@ async def process_text(
     # so their conversation history persists when they navigate back to it.
     is_shadow_banned = await fetch_is_shadow_banned(from_id)
 
-    is_blocked, block_reason = await _chat_interaction_blocked(
+    is_blocked, block_reason, block_subreason = await _chat_interaction_blocked(
         from_id=from_id,
         to_id=to_id,
     )
     if is_blocked:
         return await redis_publish_many(connection_uuid, [
-            MessageBlocked(stanza_id=stanza_id, reason=block_reason)
+            MessageBlocked(
+                stanza_id=stanza_id,
+                reason=block_reason,
+                subreason=block_subreason,
+            )
         ])
 
     if isinstance(maybe_message, TypingMessage):
@@ -702,7 +712,6 @@ async def process_text(
             enqueue_notification_due(to_id, 'intro' if is_intro else 'chat')
             await send_notifications(
                 from_id=from_id,
-                to_id=to_id,
                 to_username=to_username,
                 message=maybe_message.body,
                 is_intro=is_intro,

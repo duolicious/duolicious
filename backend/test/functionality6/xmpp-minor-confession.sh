@@ -40,7 +40,7 @@ get_emails | grep -qxF 'Automatically lodged report: Child safety (chat)'
 get_emails | grep -qxF -- '- other person: how old are you?'
 get_emails | grep -qxF -- '- accused (flagged message): im 15 lol, i lied about my age'
 
-[[ "$(q "select verification_required from person where name = 'user1'")" == f ]]
+[[ "$(q "select required_verification_level_id from person where name = 'user1'")" == 1 ]]
 
 echo 'A member who was already reported is reported again'
 

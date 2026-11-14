@@ -123,11 +123,9 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                 AND
                     member.privacy_verification_level_id <=
                         searcher.verification_level_id
-                AND (
-                        member.verification_level_id > 1
-                    OR
-                        NOT member.verification_required
-                )
+                AND
+                    member.verification_level_id >=
+                        member.required_verification_level_id
             ))
             ORDER BY
                 -- The event's subject leads, so the frontend can seat their
@@ -221,26 +219,11 @@ WHERE
 """
 
 
-def feed_v2_query(same_country_only: bool, message_count_filter: bool) -> str:
+def feed_v2_query(same_country_only: bool) -> str:
     same_country = """
     AND
         prospect.location_country = searcher.searcher_country
     """ if same_country_only else ''
-
-    message_count = """
-    -- Decrease users' odds of appearing in the feed if they're already getting
-    -- lots of messages
-    AND random() < (
-        SELECT
-            1.0 / (1.0 + count(*)::real) ^ 0.5
-        FROM
-            messaged
-        WHERE
-            object_person_id = prospect.id
-        AND
-            created_at > now() - interval '1 day'
-    )
-    """ if message_count_filter else 'AND random() < 0.5'
 
     return f"""
 WITH searcher AS (
@@ -563,7 +546,18 @@ WITH searcher AS (
                     show_messaged
             )
         )
-    {message_count}
+    -- Decrease users' odds of appearing in the feed if they're already getting
+    -- lots of messages
+    AND random() < (
+        SELECT
+            1.0 / (1.0 + count(*)::real) ^ 0.5
+        FROM
+            messaged
+        WHERE
+            object_person_id = prospect.id
+        AND
+            created_at > now() - interval '1 day'
+    )
     -- The prospect's gender is one the searcher prefers
     AND EXISTS (
         SELECT
@@ -650,11 +644,9 @@ WITH searcher AS (
             reported
     ) < 2
     -- Exclude users who aren't verified but are required to be
-    AND (
-            prospect.verification_level_id > 1
-        OR
-            NOT prospect.verification_required
-    )
+    AND
+        prospect.verification_level_id >=
+            prospect.required_verification_level_id
     -- Exclude users who don't seem human. A user seems human if:
     --   * They're verified; or
     --   * Their account is more than a week old; or
