@@ -29,8 +29,10 @@ BEGIN
     END IF;
 
     ALTER TABLE person
-        ADD COLUMN IF NOT EXISTS required_verification_level_id SMALLINT
-            REFERENCES verification_level(id) NOT NULL DEFAULT 1;
+        ADD COLUMN required_verification_level_id SMALLINT NOT NULL DEFAULT 1,
+        ADD CONSTRAINT person_required_verification_level_id_fkey
+            FOREIGN KEY (required_verification_level_id)
+            REFERENCES verification_level(id) NOT VALID;
 
     CREATE OR REPLACE FUNCTION
         sync_verification_required()
