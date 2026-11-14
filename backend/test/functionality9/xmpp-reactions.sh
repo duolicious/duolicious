@@ -252,7 +252,7 @@ body2="hello from user 1 to unverified user 3"
 send_message "$user1uuid" "$user1token" "$user3uuid" "$body2"
 sleep 2
 
-q "update person set verification_required = true where id = ${user3id}"
+q "update person set required_verification_level_id = 2 where id = ${user3id}"
 sleep 4 # let the 3s verification-required cache expire
 
 user3_convo=$(get_conversation "$user3uuid" "$user3token" "$user1uuid")
@@ -264,7 +264,7 @@ echo "$rejection" | grep -q duo_reaction_blocked \
 [[ "$(q "select count(*) from mam_message where reaction is not null")" -eq 0 ]] \
   || { echo "Expected no reaction to be stored for a verification-required reaction"; exit 1; }
 
-q "update person set verification_required = false where id = ${user3id}"
+q "update person set required_verification_level_id = 1 where id = ${user3id}"
 sleep 4 # let the 3s verification-required cache expire
 
 

@@ -1,8 +1,9 @@
 /**
- * Web Push opt-in for the web app. On authentication `requestAndRegisterWebPush`
- * asks for notification permission (the first time) and registers the browser's
- * push subscription with the backend, re-registering on every reconnect so a
- * rotated endpoint stays current. `useWebPushMessageListenerOnWeb` bridges the
+ * Web Push opt-in for the web app. `requestAndRegisterWebPush` asks for
+ * notification permission from a click on the notification offer and registers
+ * the browser's push subscription with the backend. On every reconnect
+ * `refreshWebPushSubscription` re-registers it without prompting, so a rotated
+ * endpoint stays current. `useWebPushMessageListenerOnWeb` bridges the
  * service worker back to the app: a `notification-click` routes to a screen, a
  * `resubscribe-web-push` re-subscribes without prompting. Requires the VAPID
  * public key in `WEB_PUSH_VAPID_PUBLIC_KEY`; without it, subscription is a no-op.
@@ -73,6 +74,11 @@ const subscribeAndRegister = async (): Promise<boolean> => {
     return false;
   }
 };
+
+const canAskForWebPush = (): boolean =>
+  isWebPushSupported() &&
+  !!WEB_PUSH_VAPID_PUBLIC_KEY &&
+  Notification.permission === 'default';
 
 const requestAndRegisterWebPush = async (): Promise<void> => {
   if (!isWebPushSupported()) {
@@ -156,6 +162,8 @@ const useWebPushMessageListenerOnWeb = (
 };
 
 export {
+  canAskForWebPush,
+  refreshWebPushSubscription,
   requestAndRegisterWebPush,
   useWebPushMessageListenerOnWeb,
 };

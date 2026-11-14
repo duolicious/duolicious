@@ -147,8 +147,9 @@ def _q_patch_location(location: str) -> str:
         coordinates
             = location.coordinates,
 
-        verification_required
-            = location.verification_required OR person.verification_required,
+        required_verification_level_id = GREATEST(
+            person.required_verification_level_id,
+            CASE WHEN location.verification_required THEN 2 ELSE 1 END),
 
         location_short_friendly
             = location.short_friendly,

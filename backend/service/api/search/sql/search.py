@@ -110,11 +110,7 @@ _SEARCHER_DIDNT_MESSAGE_PROSPECT = sql_fragment("""
 
 _VERIFICATION_SATISFIED = sql_fragment("""
     -- Exclude users who should be verified but aren't
-    (
-        prospect.verification_level_id > 1
-    OR
-        NOT prospect.verification_required
-    )
+    prospect.verification_level_id >= prospect.required_verification_level_id
 """)
 
 _REPLY_RATE_PRIOR_REPLIES = 0.5
@@ -349,7 +345,20 @@ def _mutual_club_count(sort_by: SortBy, prefs: Row) -> _Sort:
     return '0', {}
 
 
-_RANKED_PROSPECT_IDS = """), do_promote_verified AS (
+def _ranked_prospect_ids(by_messages_received: bool) -> str:
+    messages_received = """(
+        SELECT
+            count(*)
+        FROM
+            messaged
+        WHERE
+            object_person_id = prospect_person_id
+        AND
+            created_at > now() - interval '30 days'
+    ) DESC,
+    """ if by_messages_received else ''
+
+    return f"""), do_promote_verified AS (
     SELECT
         count(*) >= 250 AS x
     FROM
@@ -375,6 +384,7 @@ ORDER BY
             has_photo
     END DESC,
 
+    {messages_received}
     mutual_club_count DESC,
     sort_distance
 LIMIT
@@ -418,9 +428,10 @@ def build_uncached_search(
     prefs: Row,
     ignore_sort_preference: bool,
 ) -> tuple[str, dict[str, SearchParam]]:
+    searcher_count_answers = row_int(prefs, 'searcher_count_answers')
     params: dict[str, SearchParam] = dict(
         searcher_person_id=searcher_person_id,
-        searcher_count_answers=row_int(prefs, 'searcher_count_answers'),
+        searcher_count_answers=searcher_count_answers,
     )
 
     club_preference = row_str_or_none(prefs, 'club_preference')
@@ -469,7 +480,7 @@ WITH nearest AS (
         {mutual_club_count} AS mutual_club_count
     FROM
         nearest
-{_RANKED_PROSPECT_IDS}"""
+{_ranked_prospect_ids(searcher_count_answers == 0)}"""
 
     return sql, params
 

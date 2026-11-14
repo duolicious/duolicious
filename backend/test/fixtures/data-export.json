@@ -2257,6 +2257,7 @@
         "visitors_notification_name": "Weekly",
         "count_intros_sent_with_reply": 0,
         "privacy_verification_level_id": 1,
+        "required_verification_level_id": 1,
         "privacy_verification_level_name": "No verification",
         "count_intros_received_with_reply": 0
       }

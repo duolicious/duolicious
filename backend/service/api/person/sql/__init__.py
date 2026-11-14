@@ -459,8 +459,7 @@ SET
     min_age = %(min_age)s,
     max_age = %(max_age)s,
     distance = %(distance)s::NUMERIC::SMALLINT,
-    same_country_only = %(same_country_only)s,
-    sort_by_id = (SELECT id FROM sort_by WHERE name = %(sort_by)s)
+    same_country_only = %(same_country_only)s
 WHERE
     person_id = %(person_id)s
 """
@@ -493,7 +492,7 @@ WITH onboardee_location AS (
         has_profile_picture_id,
         unit_id,
         intros_notification,
-        verification_required,
+        required_verification_level_id,
         location_short_friendly,
         location_long_friendly,
         location_country
@@ -519,7 +518,7 @@ WITH onboardee_location AS (
             )
         ) AS unit_id,
         2 AS intros_notification,
-        verification_required,
+        CASE WHEN verification_required THEN 2 ELSE 1 END,
         short_friendly,
         long_friendly,
         country

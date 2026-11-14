@@ -38,6 +38,8 @@ import {
   onReceiveMessageAndNotify,
   sendMessageAndNotify,
 } from '../../chat/application-layer/hooks/message'
+import { useConversation } from '../../chat/application-layer/hooks/conversation';
+import { offerNotificationsOnce } from '../modal/notification-offer-modal';
 import {
   IMAGES_URL,
 } from '../../env/env';
@@ -458,6 +460,37 @@ const useOpenedFromInboxOrUrl = (routeKey: string): boolean =>
 const hintedPersonUuid = (handle: string): string | undefined =>
   isUuid(handle) ? handle : getProspectHint(handle)?.personUuid;
 
+const offerNotificationsAfterSending = (name: string | undefined) =>
+  offerNotificationsOnce({
+    title: name ? `Know when ${name} replies` : 'Know when they reply',
+    message: `${name ?? 'They'} might reply while you’re away.`,
+  });
+
+const useOfferNotificationsOnReceivedMessage = (
+  personUuid: string | undefined,
+  messageIds: string[] | null,
+) => {
+  const isFocused = useIsFocused();
+  const conversation = useConversation(personUuid ?? '');
+  const name = conversation && !conversation.hidden ? conversation.name : null;
+
+  const hasReceivedMessage = (messageIds ?? []).some((id) => {
+    const message = getMessage(id)?.message;
+    return message !== undefined &&
+      message.type !== 'typing' &&
+      !message.fromCurrentUser;
+  });
+
+  useEffect(() => {
+    if (isFocused && hasReceivedMessage && name) {
+      offerNotificationsOnce({
+        title: `Don’t miss ${possessive(name)} next message`,
+        message: `${name} might message you again while you’re away.`,
+      });
+    }
+  }, [isFocused, hasReceivedMessage, name]);
+};
+
 const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootParamList, 'Conversation Screen'>) => {
   const { appTheme } = useAppTheme();
   const openedFromInboxOrUrl = useOpenedFromInboxOrUrl(route.key);
@@ -598,7 +631,9 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
 
     saveDraft('');
-  }, [personUuid, saveDraft]);
+
+    offerNotificationsAfterSending(name);
+  }, [personUuid, saveDraft, name]);
 
   useEffect(() => navigation.addListener('beforeRemove', () => {
     const messages = (messageIds ?? []).flatMap((id) => {
@@ -637,6 +672,8 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
 
   const isScreenFocused = useIsFocused();
 
+  useOfferNotificationsOnReceivedMessage(personUuid, messageIds);
+
   useEffect(() => {
     if (!isScreenFocused) return;
 
@@ -653,7 +690,9 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
     );
 
     setMessageIds(messageIds => [...(messageIds ?? []), messageId]);
-  }, [personUuid]);
+
+    offerNotificationsAfterSending(name);
+  }, [personUuid, name]);
 
   const onFocus = useCallback(async () => {
     if (listRef.current && (messageIds ?? []).length !== 0) {

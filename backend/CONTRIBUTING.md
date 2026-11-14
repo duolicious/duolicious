@@ -8,8 +8,8 @@ Thanks for your interest in improving Duolicious! This guide will help you get s
 2. Clone and start the dev stack:
 
 ```bash
-git clone https://github.com/duolicious/duolicious-backend
-cd duolicious-backend
+git clone https://github.com/duolicious/duolicious
+cd duolicious/backend
 docker compose up -d
 ```
 
@@ -21,7 +21,6 @@ curl -sf http://localhost:5000/health && echo API OK
 ```
 
 - MailHog UI for emails: [http://localhost:8025](http://localhost:8025)
-- PgAdmin: [http://localhost:8090](http://localhost:8090)
 
 ## Repository layout
 
@@ -74,6 +73,6 @@ make backend-typecheck   # from the repository root
 
 ### Good first issues
 
-Looking for a place to start? Check the [good first issue](https://github.com/duolicious/duolicious-backend/labels/good%20first%20issue) label.
+Looking for a place to start? Check the [good first issue](https://github.com/duolicious/duolicious/labels/good%20first%20issue) label.
 
 If you get stuck, open a draft PR early and ask for guidance—happy to help. 

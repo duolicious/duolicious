@@ -1,17 +1,19 @@
 --- dist/index.html
 +++ patches/index.html
-@@ -4,0 +5,2 @@
+@@ -4,0 +5,4 @@
 +    <meta name="description" content="Free dating online. Zero ads. Free matching. Free messaging. Over 2000 match questions from anime to life goals. Fall in love and find a relationship at Duolicious." />
 +    <link rel="preconnect" href="https://web.duolicious.app" />
-@@ -6 +8 @@
++    <link rel="manifest" href="/manifest.json" />
++    <link rel="apple-touch-icon" href="/icon-192.png" />
+@@ -6 +10 @@
 -    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 +    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no" />
-@@ -13 +15 @@
+@@ -13 +17 @@
 -        height: 100%;
 +        height: 100dvh;
-@@ -17,0 +20 @@
+@@ -17,0 +22 @@
 +        margin: 0;
-@@ -24,0 +28,18 @@
+@@ -24,0 +30,18 @@
 +      #splash-root {
 +        z-index: 9999;
 +        position: absolute;
@@ -30,7 +32,7 @@
 +      #splash-root.fade-out {
 +        opacity: 0; /* Start fading out */
 +      }
-@@ -34,2 +56,139 @@
+@@ -34,2 +58,139 @@
      <!-- The root element for your Expo app. -->
 +    <div id="splash-root">
 +      <svg id="mySvg" width="96" height="96" viewBox="0 0 4.2333331 4.2333332">

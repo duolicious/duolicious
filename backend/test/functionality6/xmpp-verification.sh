@@ -24,7 +24,7 @@ q "delete from intro_hash"
 ../util/create-user.sh user3 0 0
 ../util/create-user.sh user4 0 0
 
-q "update person set verification_required = (name IN ('user1', 'user2'))"
+q "update person set required_verification_level_id = 2 where name IN ('user1', 'user2')"
 q "update person set verification_level_id = 2 where name = 'user2'"
 
 assume_role user1 ; user1token=$SESSION_TOKEN
@@ -162,6 +162,56 @@ expected=$(cat << EOF
 {
   "duo_message_delivered": {
     "@id": "id3"
+  }
+}
+EOF
+)
+
+diff -u --color --ignore-trailing-space \
+  <(curl -sX GET http://localhost:3001/pop | jq -r 'del(.duo_message_delivered."@stamp", .duo_message_delivered."@mam_id")') \
+  <(jq -r <<< "$expected")
+
+
+
+
+
+echo "user 2 requires photo verification but only has basics verified"
+
+q "update person set required_verification_level_id = 3 where name = 'user2'"
+sleep 4
+
+chat_auth "$user2uuid" "$user2token"
+
+sleep 1
+
+curl -sX GET http://localhost:3001/pop > /dev/null
+
+read -r -d '' payload <<EOF || true
+{
+  "message": {
+    "@type": "chat",
+    "@from": "${user2uuid}@duolicious.app",
+    "@to": "${user4uuid}@duolicious.app",
+    "@id": "id4",
+    "@xmlns": "jabber:client",
+    "body": "this message should require photo verification",
+    "request": {
+      "@xmlns": "urn:xmpp:receipts"
+    }
+  }
+}
+EOF
+
+curl -sX POST http://localhost:3001/send -H "Content-Type: application/json" -d "$payload"
+
+sleep 1
+
+expected=$(cat << EOF
+{
+  "duo_message_blocked": {
+    "@id": "id4",
+    "@reason": "age-verification",
+    "@subreason": "unverified-photos"
   }
 }
 EOF

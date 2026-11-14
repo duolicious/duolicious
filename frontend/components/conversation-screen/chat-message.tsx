@@ -242,6 +242,7 @@ const MessageStatusComponent = ({
     'rate-limited-1day-unverified-basics',
     'rate-limited-1day-unverified-photos',
     'age-verification',
+    'age-verification-photos',
   ];
 
   const isPressable = verificationStatuses.includes(messageStatus);
@@ -273,6 +274,7 @@ const MessageStatusComponent = ({
     'spam': `We think that might be spam. Try sending ${name} a different message.`,
     'offensive': `Intros can’t be too rude. Try sending ${name} a different message.`,
     'age-verification': `Verification is required to chat.` + verificationMessageText,
+    'age-verification-photos': `Photo verification is required to chat.` + verificationMessageText,
     'blocked': name + ' is unavailable right now. Try messaging someone else!',
     'not unique': `That intro’s been used ${usedCount === 1 ? 'once before' : `${formatCount(usedCount)} times`} on Duolicious. Send ${name} a unique message instead!`,
     'too long': 'That message is too big! 😩',

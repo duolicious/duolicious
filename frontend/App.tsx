@@ -41,6 +41,7 @@ import { TooltipListener } from './components/tooltip';
 import { VerificationCameraModal } from './components/verification-camera';
 import { PointOfSaleModal } from './components/modal/point-of-sale-modal';
 import { DateOfBirthConfirmationModal } from './components/modal/date-of-birth-confirmation-modal';
+import { NotificationOfferModal } from './components/modal/notification-offer-modal';
 import { SignUpModal } from './components/modal/sign-up-modal';
 import { ClubHosts } from './components/clubs/hosts';
 import { VideoHost } from './components/video-surface';
@@ -190,6 +191,7 @@ const App = () => {
             <SignUpModal/>
             <VerificationCameraModal/>
             <DateOfBirthConfirmationModal/>
+            <NotificationOfferModal/>
             </KeyboardProvider>
           </GestureHandlerRootView>
         }

@@ -18,6 +18,7 @@ const KEYS = [
   'prospect_profiles',
   'public_search_filters',
   'seen_inbox_filter_hint',
+  'seen_notification_offer',
   'seen_reply_hint',
   'seen_search_filters_hint',
   'session_token',

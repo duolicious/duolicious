@@ -5,18 +5,25 @@ create the schema on a fresh database, apply migrations, and load the domain
 and club seed data.
 """
 
+import asyncio
 import logging
 import re
 from pathlib import Path
+
+import psycopg
 
 from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_NAME,
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
-from serviceshared.database import api_tx
+from serviceshared.database import api_tx, row_int, row_int_or_none
 
 logger = logging.getLogger(__name__)
+
+_MIGRATION_LOCK_TIMEOUT_MS = 2000
+_MIGRATION_ATTEMPTS = 10
+_MIGRATION_RETRY_SECONDS = 3
 
 _init_sql_file = (
     Path(__file__).parent.parent.parent / 'init-api.sql')
@@ -53,6 +60,69 @@ def _read_sql(path: Path) -> str:
     return sql
 
 
+async def backfill_required_verification_level_id() -> None:
+    async with api_tx('READ COMMITTED') as tx:
+        old_column = await tx.require_one("""
+        SELECT count(*) AS count
+        FROM pg_attribute
+        WHERE attrelid = 'person'::regclass
+        AND attname = 'verification_required'
+        AND NOT attisdropped
+        """)
+
+    if row_int(old_column, 'count') == 0:
+        logger.info('`verification_required` already dropped')
+        return
+
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        row = await tx.require_one("""
+        SELECT min(id) AS min_id, max(id) AS max_id
+        FROM person
+        WHERE verification_required
+        AND required_verification_level_id = 1
+        """)
+
+    if row_int_or_none(row, 'max_id') is None:
+        logger.info('`required_verification_level_id` already backfilled')
+        return
+
+    batch_size = 1000
+    logger.info('Backfilling `required_verification_level_id`')
+    for start in range(row_int(row, 'min_id'), row_int(row, 'max_id') + 1, batch_size):
+        async with api_tx('READ COMMITTED') as tx:
+            await tx.execute("""
+            UPDATE person
+            SET required_verification_level_id = 2
+            WHERE id >= %(start)s
+            AND id < %(end)s
+            AND verification_required
+            AND required_verification_level_id = 1
+            """, dict(start=start, end=start + batch_size))
+    logger.info('Done backfilling `required_verification_level_id`')
+
+async def try_migrations(migrations_sql: str) -> None:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        await tx.execute(
+            f'SET LOCAL lock_timeout = {_MIGRATION_LOCK_TIMEOUT_MS}')
+        await tx.execute(migrations_sql)
+
+
+async def run_migrations(migrations_sql: str) -> None:
+    for _ in range(_MIGRATION_ATTEMPTS - 1):
+        try:
+            return await try_migrations(migrations_sql)
+        except (
+            psycopg.errors.LockNotAvailable,
+            psycopg.errors.DeadlockDetected,
+        ):
+            logger.warning('Migrations could not get a lock; retrying')
+            await asyncio.sleep(_MIGRATION_RETRY_SECONDS)
+
+    await try_migrations(migrations_sql)
+
+
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
@@ -80,9 +150,9 @@ async def init_db() -> None:
 
     await maybe_run_init()
 
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
-        await tx.execute(migrations_sql_file)
+    await run_migrations(migrations_sql_file)
+
+    await backfill_required_verification_level_id()
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)

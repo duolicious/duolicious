@@ -17,7 +17,7 @@ curl -sf http://localhost:5000/health && echo API OK
 1. Start infra-only services in Docker:
 
 ```bash
-docker compose up -d postgres s3mock smtp redis status pgadmin
+docker compose up -d postgres s3mock smtp redis status
 ```
 
 2. In one terminal, run the API:
@@ -37,6 +37,7 @@ export DUO_R2_ACCESS_KEY_SECRET=s3-mock-secret-access-key-secret
 export DUO_BOTO_ENDPOINT_URL=http://localhost:9090
 export DUO_SMTP_HOST=localhost
 export DUO_SMTP_PORT=1025
+export DUO_REDIS_HOST=localhost
 export DUO_UNSUBSCRIBE_SECRET=dev-unsubscribe-secret
 ./api.main.sh
 ```
@@ -46,7 +47,7 @@ no separate chat process is needed.
 
 Notes:
 - OTPs are `000000` for `@example.com` emails in `dev`.
-- Redis must be reachable at `redis://redis:6379`. The default Docker Compose `redis` service exposes this.
+- Redis must be reachable at `localhost:6379`. The Docker Compose `redis` service publishes this port.
 
 ### Seed data and test helpers
 
@@ -175,7 +176,10 @@ These env vars get passed to the `boto3` library, so they're compatible with AWS
 
 #### Redis
 
-The `api` container requires a Redis instance accessible via `redis://redis:6379`. This address is currently hardcoded, [here](https://github.com/duolicious/duolicious-backend/blob/bb9d811df24fb06ee496e763a1b401f44aa4dd2e/service/application/decorators.py#L78).
+The `api` container requires a Redis server. These environment variables let it know where your Redis server is:
+
+* `DUO_REDIS_HOST` - Your Redis server's hostname. Defaults to `redis`.
+* `DUO_REDIS_PORT` - Your Redis server's port. Defaults to `6379`.
 
 ### Proxies
 

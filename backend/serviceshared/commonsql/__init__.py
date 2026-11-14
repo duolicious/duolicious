@@ -393,9 +393,6 @@ def visitors_tab_shows_sql(prospect: str, checker_id: str) -> str:
             {prospect}.public_profile
         )
     AND
-        (
-            NOT {prospect}.verification_required
-        OR
-            {prospect}.verification_level_id > 1
-        )
+        {prospect}.verification_level_id >=
+            {prospect}.required_verification_level_id
 """

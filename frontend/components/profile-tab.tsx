@@ -32,6 +32,10 @@ import {
 import type { ProfileParamList, RootParamList } from '../navigation/linking';
 import { navigationContainerRef } from '../App';
 import { ButtonForOption, ButtonForOptionProps } from './button/option';
+import {
+  showNotificationOffer,
+  useCanOfferNotifications,
+} from './modal/notification-offer-modal';
 import { RestorePurchasesButton } from './restore-purchases-button';
 import { restorePurchases } from '../purchases/purchases';
 import { DuoliciousTopNavBar } from './top-nav-bar';
@@ -541,6 +545,14 @@ const OptionButton = (props: ButtonForOptionProps) => {
   />;
 };
 
+const PushNotificationsIcon = ({ color = 'black' }: { color?: string }) =>
+  <Ionicons style={{ fontSize: 16, color }} name="notifications" />;
+
+const offerPushNotifications = () => showNotificationOffer({
+  title: 'Know when someone messages you',
+  message: 'Messages can arrive at any time.',
+});
+
 const Options = ({ navigation, data }: {
   navigation: ProfileTabScreenProps['navigation'],
   data: ProfileInfo,
@@ -592,6 +604,7 @@ const Options = ({ navigation, data }: {
   const _basicsOptionGroups = basicsOptionGroups.map(withCurrent);
   const _generalSettingsOptionGroups = generalSettingsOptionGroups.map(withCurrent);
   const _notificationSettingsOptionGroups = notificationSettingsOptionGroups.map(withCurrent);
+  const canOfferNotifications = useCanOfferNotifications();
   const _privacySettingsOptionGroups = privacySettingsOptionGroups.map(withCurrent);
   const _themePickerOptionGroups = themePickerOptionGroups.map(withCurrent);
 
@@ -785,6 +798,14 @@ const Options = ({ navigation, data }: {
             optionGroups={_notificationSettingsOptionGroups.slice(i)}
           />
         )
+      }
+      {canOfferNotifications &&
+        <ButtonForOption
+          onPress={offerPushNotifications}
+          label="Push Notifications"
+          setting="Off"
+          icon={PushNotificationsIcon}
+        />
       }
       <Title>Privacy Settings</Title>
       {

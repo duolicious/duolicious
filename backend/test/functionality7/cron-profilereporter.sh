@@ -42,4 +42,4 @@ diff -u --color \
 
 ! get_emails | grep -F 'Report:' | grep -F '[underage'
 
-[[ "$(q "select verification_required from person where name = 'user2'")" == f ]]
+[[ "$(q "select required_verification_level_id from person where name = 'user2'")" == 1 ]]
