@@ -17,7 +17,7 @@ from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_SECONDS,
     LAST_ONLINE_NOW_SECONDS,
 )
-from serviceshared.database import api_tx, row_int, row_int_or_none
+from serviceshared.database import api_tx
 
 logger = logging.getLogger(__name__)
 
@@ -59,47 +59,6 @@ def _read_sql(path: Path) -> str:
 
     return sql
 
-
-async def backfill_required_verification_level_id() -> None:
-    async with api_tx('READ COMMITTED') as tx:
-        old_column = await tx.require_one("""
-        SELECT count(*) AS count
-        FROM pg_attribute
-        WHERE attrelid = 'person'::regclass
-        AND attname = 'verification_required'
-        AND NOT attisdropped
-        """)
-
-    if row_int(old_column, 'count') == 0:
-        logger.info('`verification_required` already dropped')
-        return
-
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
-        row = await tx.require_one("""
-        SELECT min(id) AS min_id, max(id) AS max_id
-        FROM person
-        WHERE verification_required
-        AND required_verification_level_id = 1
-        """)
-
-    if row_int_or_none(row, 'max_id') is None:
-        logger.info('`required_verification_level_id` already backfilled')
-        return
-
-    batch_size = 1000
-    logger.info('Backfilling `required_verification_level_id`')
-    for start in range(row_int(row, 'min_id'), row_int(row, 'max_id') + 1, batch_size):
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute("""
-            UPDATE person
-            SET required_verification_level_id = 2
-            WHERE id >= %(start)s
-            AND id < %(end)s
-            AND verification_required
-            AND required_verification_level_id = 1
-            """, dict(start=start, end=start + batch_size))
-    logger.info('Done backfilling `required_verification_level_id`')
 
 async def try_migrations(migrations_sql: str) -> None:
     async with api_tx('READ COMMITTED') as tx:
@@ -151,8 +110,6 @@ async def init_db() -> None:
     await maybe_run_init()
 
     await run_migrations(migrations_sql_file)
-
-    await backfill_required_verification_level_id()
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)
