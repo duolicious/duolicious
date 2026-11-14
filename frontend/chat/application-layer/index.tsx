@@ -109,6 +109,7 @@ type MessageStatus =
   | 'server-error'
   | 'spam'
   | 'age-verification'
+  | 'age-verification-photos'
   | 'blocked'
   | 'not unique'
   | 'too long'
@@ -658,7 +659,12 @@ const sendMessage = async (
         { status: 'spam' },
       () => doc.duo_message_blocked?.['@id'] === id &&
         doc.duo_message_blocked?.['@reason'] === 'age-verification' &&
+        !doc.duo_message_blocked?.['@subreason'] &&
         { status: 'age-verification' },
+      () => doc.duo_message_blocked?.['@id'] === id &&
+        doc.duo_message_blocked?.['@reason'] === 'age-verification' &&
+        doc.duo_message_blocked?.['@subreason'] === 'unverified-photos' &&
+        { status: 'age-verification-photos' },
       () =>
         // Fallback for any blocked case not caught above.
         doc.duo_message_blocked?.['@id'] === id &&

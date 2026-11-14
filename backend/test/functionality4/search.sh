@@ -361,7 +361,7 @@ test_verification_required () {
 
   q "
   update person
-  set verification_required = TRUE
+  set required_verification_level_id = 2
   where name in ('user1', 'user2')"
 
   q "
@@ -370,6 +370,13 @@ test_verification_required () {
   where name = 'user2'"
 
   assert_search_names 'user2' 10 0
+
+  q "
+  update person
+  set required_verification_level_id = 3
+  where name = 'user2'"
+
+  assert_search_names '' 10 0
 }
 
 test_photos_promoted () {

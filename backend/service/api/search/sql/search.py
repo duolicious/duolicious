@@ -110,11 +110,7 @@ _SEARCHER_DIDNT_MESSAGE_PROSPECT = sql_fragment("""
 
 _VERIFICATION_SATISFIED = sql_fragment("""
     -- Exclude users who should be verified but aren't
-    (
-        prospect.verification_level_id > 1
-    OR
-        NOT prospect.verification_required
-    )
+    prospect.verification_level_id >= prospect.required_verification_level_id
 """)
 
 _REPLY_RATE_PRIOR_REPLIES = 0.5

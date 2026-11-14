@@ -56,11 +56,8 @@ AND
     prospect.activated
 AND
     prospect.shadow_banned_at IS NULL
-AND ( -- Exclude users who should be verified but aren't
-        prospect.verification_level_id > 1
-    OR
-        NOT prospect.verification_required
-)
+AND -- Exclude users who should be verified but aren't
+    prospect.verification_level_id >= prospect.required_verification_level_id
 AND
     prospect.last_online_time > now() - interval '7 days'
 AND
