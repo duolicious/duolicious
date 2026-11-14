@@ -626,10 +626,11 @@ wait_for_audio_creation_by_uuid () {
 
 # Authenticate to the XMPP websocket test server using UUID and token.
 # Posts config, then a SASL PLAIN auth stanza encoded in base64.
-# Example: chat_auth "$userUuid" "$userToken"
+# Example: chat_auth "$userUuid" "$userToken" [relay connection id]
 chat_auth () {
   local fromUuid=$1
   local fromToken=$2
+  local connectionId=${3:-default}
 
   local auth64=$(printf '\0%s\0%s' "$fromUuid" "$fromToken" | base64 -w 0);
 
@@ -644,14 +645,14 @@ chat_auth () {
 EOF
 
   # Set up the connection
-  curl -X POST http://localhost:3001/config \
+  curl -X POST "http://localhost:3001/config?id=${connectionId}" \
     -H "Content-Type: application/json" \
     -d '{ "server": "ws://api:5000/chat" }'
 
   sleep 0.2
 
   # Authentication
-  curl -X POST http://localhost:3001/send \
+  curl -X POST "http://localhost:3001/send?id=${connectionId}" \
     -H "Content-Type: application/json" \
     -d "$authJson"
 }

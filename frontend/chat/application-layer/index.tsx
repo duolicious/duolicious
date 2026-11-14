@@ -492,9 +492,15 @@ const authenticate = async () => {
     }
   };
 
-  const status = await send({ data });
+  const status = await send({
+    data,
+    responseDetector: (doc: any): 'success' | 'failure' | null => // eslint-disable-line @typescript-eslint/no-explicit-any
+      doc?.success !== undefined ? 'success' :
+      doc?.failure !== undefined ? 'failure' :
+      null,
+  });
 
-  if (status === 'timeout') {
+  if (status !== 'success') {
     return;
   }
 
