@@ -55,6 +55,19 @@ def _read_sql(path: Path) -> str:
 
 async def backfill_required_verification_level_id() -> None:
     async with api_tx('READ COMMITTED') as tx:
+        old_column = await tx.require_one("""
+        SELECT count(*) AS count
+        FROM pg_attribute
+        WHERE attrelid = 'person'::regclass
+        AND attname = 'verification_required'
+        AND NOT attisdropped
+        """)
+
+    if row_int(old_column, 'count') == 0:
+        logger.info('`verification_required` already dropped')
+        return
+
+    async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         row = await tx.require_one("""
         SELECT min(id) AS min_id, max(id) AS max_id
