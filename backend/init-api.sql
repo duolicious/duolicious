@@ -384,6 +384,15 @@ CREATE TABLE IF NOT EXISTS unmoderated_person (
     PRIMARY KEY (person_id, trait)
 );
 
+CREATE TABLE IF NOT EXISTS high_risk_score (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    hours SMALLINT NOT NULL,
+    score FLOAT4 NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (person_id, hours)
+);
+
 CREATE TABLE IF NOT EXISTS onboardee (
     email TEXT NOT NULL,
 
