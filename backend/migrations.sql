@@ -16,3 +16,15 @@
 DROP INDEX IF EXISTS idx__visited__updated_at__object__subject;
 
 DROP INDEX IF EXISTS duo_idx__inbox__timestamp__luser__box;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'photo'::regclass
+        AND attname = 'clip_embedding'
+        AND NOT attisdropped
+    ) THEN
+        ALTER TABLE photo ADD COLUMN clip_embedding VECTOR(768);
+    END IF;
+END $$;

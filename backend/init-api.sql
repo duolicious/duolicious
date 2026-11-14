@@ -482,6 +482,7 @@ CREATE TABLE IF NOT EXISTS photo (
     crop_top INT,
     crop_left INT,
     nsfw_score_v2 FLOAT4,
+    clip_embedding VECTOR(768),
     PRIMARY KEY (person_id, position)
 );
 

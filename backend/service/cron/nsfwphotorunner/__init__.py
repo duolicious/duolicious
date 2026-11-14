@@ -5,6 +5,7 @@ from service.cron.cronutil import (
     download_450_images,
     log_stacktrace,
 )
+from pgvector import Vector
 import asyncio
 import random
 import logging
@@ -30,15 +31,19 @@ async def predict_nsfw_v2_photos_once() -> None:
         if image_data
     }
 
-    scores = dict(zip(
+    predictions = dict(zip(
         present,
         await asyncio.to_thread(predict_clip_nsfw, list(present.values())),
     ))
 
-    params_seq = [
-        dict(uuid=uuid, nsfw_score_v2=scores.get(uuid, -1.0))
-        for uuid in uuids
-    ]
+    params_seq = []
+    for uuid in uuids:
+        score, embedding = predictions.get(uuid, (-1.0, None))
+        params_seq.append(dict(
+            uuid=uuid,
+            nsfw_score_v2=score,
+            clip_embedding=None if embedding is None else Vector(embedding),
+        ))
 
     async with api_tx() as tx:
         await tx.executemany(Q_SET_NSFW_SCORE_V2, params_seq)
