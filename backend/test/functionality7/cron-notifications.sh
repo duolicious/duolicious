@@ -995,7 +995,7 @@ test_sad_visitor_required_to_verify () {
 
   give_user1_a_phone 'token_unverified'
 
-  q "update person set verification_required = true where uuid = '$user2id'"
+  q "update person set required_verification_level_id = 2 where uuid = '$user2id'"
 
   insert_visit "$user2id" "$user1id" '11 minutes'
 

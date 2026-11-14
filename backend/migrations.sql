@@ -19,49 +19,18 @@ DROP INDEX IF EXISTS duo_idx__inbox__timestamp__luser__box;
 
 DO $$
 BEGIN
-    IF EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_attribute
         WHERE attrelid = 'person'::regclass
-        AND attname = 'required_verification_level_id'
+        AND attname = 'verification_required'
         AND NOT attisdropped
     ) THEN
         RETURN;
     END IF;
 
-    ALTER TABLE person
-        ADD COLUMN required_verification_level_id SMALLINT NOT NULL DEFAULT 1,
-        ADD CONSTRAINT person_required_verification_level_id_fkey
-            FOREIGN KEY (required_verification_level_id)
-            REFERENCES verification_level(id) NOT VALID;
+    DROP TRIGGER trigger_sync_verification_required ON person;
 
-    CREATE OR REPLACE FUNCTION
-        sync_verification_required()
-    RETURNS TRIGGER AS $fn$
-    BEGIN
-        IF TG_OP = 'INSERT'
-        OR NEW.required_verification_level_id
-            IS NOT DISTINCT FROM OLD.required_verification_level_id
-        THEN
-            NEW.required_verification_level_id := CASE
-                WHEN NEW.verification_required
-                THEN GREATEST(NEW.required_verification_level_id, 2)
-                WHEN TG_OP = 'INSERT'
-                THEN NEW.required_verification_level_id
-                ELSE 1
-            END;
-        END IF;
+    DROP FUNCTION sync_verification_required();
 
-        NEW.verification_required := NEW.required_verification_level_id > 1;
-
-        RETURN NEW;
-    END;
-    $fn$ LANGUAGE plpgsql;
-
-    CREATE OR REPLACE TRIGGER
-        trigger_sync_verification_required
-    BEFORE INSERT OR UPDATE OF verification_required, required_verification_level_id ON
-        person
-    FOR EACH ROW
-    EXECUTE FUNCTION
-        sync_verification_required();
+    ALTER TABLE person DROP COLUMN verification_required;
 END $$;
