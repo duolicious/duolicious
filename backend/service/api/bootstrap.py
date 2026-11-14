@@ -5,9 +5,12 @@ create the schema on a fresh database, apply migrations, and load the domain
 and club seed data.
 """
 
+import asyncio
 import logging
 import re
 from pathlib import Path
+
+import psycopg
 
 from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_NAME,
@@ -17,6 +20,10 @@ from serviceshared.constants import (
 from serviceshared.database import api_tx, row_int, row_int_or_none
 
 logger = logging.getLogger(__name__)
+
+_MIGRATION_LOCK_TIMEOUT_MS = 2000
+_MIGRATION_ATTEMPTS = 10
+_MIGRATION_RETRY_SECONDS = 3
 
 _init_sql_file = (
     Path(__file__).parent.parent.parent / 'init-api.sql')
@@ -94,6 +101,25 @@ async def backfill_required_verification_level_id() -> None:
             """, dict(start=start, end=start + batch_size))
     logger.info('Done backfilling `required_verification_level_id`')
 
+async def try_migrations(migrations_sql: str) -> None:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        await tx.execute(
+            f'SET LOCAL lock_timeout = {_MIGRATION_LOCK_TIMEOUT_MS}')
+        await tx.execute(migrations_sql)
+
+
+async def run_migrations(migrations_sql: str) -> None:
+    for _ in range(_MIGRATION_ATTEMPTS - 1):
+        try:
+            return await try_migrations(migrations_sql)
+        except psycopg.errors.LockNotAvailable:
+            logger.warning('Migrations timed out waiting for a lock; retrying')
+            await asyncio.sleep(_MIGRATION_RETRY_SECONDS)
+
+    await try_migrations(migrations_sql)
+
+
 async def maybe_run_init() -> None:
     async with api_tx() as tx:
         row = await tx.require_one("SELECT to_regclass('person')")
@@ -121,9 +147,7 @@ async def init_db() -> None:
 
     await maybe_run_init()
 
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
-        await tx.execute(migrations_sql_file)
+    await run_migrations(migrations_sql_file)
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)
