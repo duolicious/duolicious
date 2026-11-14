@@ -13,7 +13,8 @@ Q_SET_NSFW_SCORE_V2 = """
 UPDATE
     photo
 SET
-    nsfw_score_v2 = %(nsfw_score_v2)s
+    nsfw_score_v2 = %(nsfw_score_v2)s,
+    clip_embedding = %(clip_embedding)s
 WHERE
     uuid = %(uuid)s
 """

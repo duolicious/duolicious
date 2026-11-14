@@ -80,8 +80,11 @@ check_conditions() {
   local condition3="$(q "select count(*) from photo where position = 3 and abs(nsfw_score_v2 + 1.000) < 0.01")"
   local condition4="$(q "select count(*) from photo where position = 4 and abs(nsfw_score_v2 + 1.000) < 0.01")"
 
+  local condition5="$(q "select count(*) from photo where position in (1, 2) and vector_dims(clip_embedding) = 768")"
+  local condition6="$(q "select count(*) from photo where position in (3, 4) and clip_embedding is null")"
+
   [[ "$condition1" = 1 && "$condition2" = 1 && "$condition3" = 1 &&
-     "$condition4" = 1 ]]
+     "$condition4" = 1 && "$condition5" = 2 && "$condition6" = 2 ]]
 }
 
 check_rescored() {

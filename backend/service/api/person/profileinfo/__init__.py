@@ -396,6 +396,7 @@ async def _patch_photo(person_id: int, base64_file: t.Base64File) -> object:
         extra_exts=['gif'] if is_gif else [],
         hash=base64_file.md5_hash,
         nsfw_score_v2=-1,
+        clip_embedding=None,
         duration_seconds=None,
         **photo_geometry_params(geometry),
     )

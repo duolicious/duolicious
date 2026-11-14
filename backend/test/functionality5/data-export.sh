@@ -29,14 +29,6 @@ quietly_assume_role () {
   q "update person set club_vector_computed_at = to_timestamp(0) where name = '$1'"
 }
 
-# Wait for images to be given nsfw scores, rather than racing the runner
-wait_for_nsfw_scores () {
-  while [[ "$(q "select count(*) from photo where nsfw_score_v2 is null")" != 0 ]]
-  do
-    sleep 0.1
-  done
-}
-
 update_snapshot () {
   q "delete from person"
 

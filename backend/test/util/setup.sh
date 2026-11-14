@@ -569,6 +569,14 @@ wait_for_creation_by_uuid () {
   return 1
 }
 
+# Wait for images to be given nsfw scores, rather than racing the runner
+wait_for_nsfw_scores () {
+  while [[ "$(q "select count(*) from photo where nsfw_score_v2 is null")" != 0 ]]
+  do
+    sleep 0.1
+  done
+}
+
 # Ensure that an audio file for a UUID is downloadable from the mock S3 server.
 # Example: assert_audios_downloadable_by_uuid "$audio_uuid"
 assert_audios_downloadable_by_uuid () {

@@ -288,6 +288,7 @@ WITH existing_uuid AS (
         crop_top,
         crop_left,
         nsfw_score_v2,
+        clip_embedding,
         duration_seconds
     ) VALUES (
         %(person_id)s,
@@ -301,6 +302,7 @@ WITH existing_uuid AS (
         %(crop_top)s,
         %(crop_left)s,
         %(nsfw_score_v2)s,
+        %(clip_embedding)s,
         %(duration_seconds)s
     ) ON CONFLICT (person_id, position) DO UPDATE SET
         uuid = EXCLUDED.uuid,
@@ -312,6 +314,7 @@ WITH existing_uuid AS (
         crop_top = EXCLUDED.crop_top,
         crop_left = EXCLUDED.crop_left,
         nsfw_score_v2 = EXCLUDED.nsfw_score_v2,
+        clip_embedding = EXCLUDED.clip_embedding,
         duration_seconds = EXCLUDED.duration_seconds,
         verified = FALSE
 ), updated_person AS (

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import boto3
+from pgvector import Vector
 from PIL import Image
 
 from service.cron.cronutil import MAX_RANDOM_START_DELAY, log_stacktrace
@@ -143,13 +144,19 @@ def file_md5(path: Path) -> str:
         return hashlib.file_digest(file, 'md5').hexdigest()
 
 
-def score_frames(work: Path) -> float:
+def score_frames(work: Path) -> tuple[float, Vector | None]:
     from serviceshared.antiabuse.clipnsfw.predict import predict_clip_nsfw
 
-    return max(predict_clip_nsfw([
+    predictions = predict_clip_nsfw([
         io.BytesIO(path.read_bytes())
         for path in [work / 'poster.png', *sorted(work.glob('still-*.png'))]
-    ]))
+    ])
+    poster_embedding = predictions[0][1]
+
+    return (
+        max(score for score, _ in predictions),
+        None if poster_embedding is None else Vector(poster_embedding),
+    )
 
 
 async def publish_video(job: Job, work: Path, cpu: int) -> None:
@@ -220,7 +227,8 @@ async def publish_video(job: Job, work: Path, cpu: int) -> None:
     if len(video) > 10_000_000:
         raise Exception(f'The transcoded video is {len(video)} bytes')
 
-    nsfw_score_v2 = await asyncio.to_thread(score_frames, work)
+    nsfw_score_v2, clip_embedding = await asyncio.to_thread(
+        score_frames, work)
 
     if nsfw_score_v2 > 0.95:
         raise Rejection(V_RULES)
@@ -249,6 +257,7 @@ async def publish_video(job: Job, work: Path, cpu: int) -> None:
         extra_exts=['mp4'],
         hash=md5,
         nsfw_score_v2=nsfw_score_v2,
+        clip_embedding=clip_embedding,
         duration_seconds=max(1, round(output.format.duration or duration)),
         **photo_geometry_params(geometry),
     )
