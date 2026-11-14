@@ -113,8 +113,11 @@ async def run_migrations(migrations_sql: str) -> None:
     for _ in range(_MIGRATION_ATTEMPTS - 1):
         try:
             return await try_migrations(migrations_sql)
-        except psycopg.errors.LockNotAvailable:
-            logger.warning('Migrations timed out waiting for a lock; retrying')
+        except (
+            psycopg.errors.LockNotAvailable,
+            psycopg.errors.DeadlockDetected,
+        ):
+            logger.warning('Migrations could not get a lock; retrying')
             await asyncio.sleep(_MIGRATION_RETRY_SECONDS)
 
     await try_migrations(migrations_sql)
@@ -149,6 +152,8 @@ async def init_db() -> None:
 
     await run_migrations(migrations_sql_file)
 
+    await backfill_required_verification_level_id()
+
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)
 
@@ -158,5 +163,3 @@ async def init_db() -> None:
     async with api_tx('READ COMMITTED') as tx:
         await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
         await tx.execute(banned_club_file)
-
-    await backfill_required_verification_level_id()

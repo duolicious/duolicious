@@ -38,17 +38,15 @@ BEGIN
         sync_verification_required()
     RETURNS TRIGGER AS $fn$
     BEGIN
-        IF TG_OP = 'INSERT' AND NEW.verification_required THEN
-            NEW.required_verification_level_id :=
-                GREATEST(NEW.required_verification_level_id, 2);
-        ELSIF TG_OP = 'UPDATE'
-        AND NEW.required_verification_level_id
+        IF TG_OP = 'INSERT'
+        OR NEW.required_verification_level_id
             IS NOT DISTINCT FROM OLD.required_verification_level_id
-        AND NEW.verification_required IS DISTINCT FROM OLD.verification_required
         THEN
             NEW.required_verification_level_id := CASE
                 WHEN NEW.verification_required
-                THEN GREATEST(OLD.required_verification_level_id, 2)
+                THEN GREATEST(NEW.required_verification_level_id, 2)
+                WHEN TG_OP = 'INSERT'
+                THEN NEW.required_verification_level_id
                 ELSE 1
             END;
         END IF;
