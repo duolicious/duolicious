@@ -13,6 +13,9 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "setupFiles": [
+      "react-native-gesture-handler/jestSetup.js"
+    ],
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
     ],
@@ -71,7 +74,7 @@
     "react-native": "0.86.3",
     "react-native-dropdown-picker": "^5.4.4",
     "react-native-feather": "^1.1.2",
-    "react-native-gesture-handler": "~2.32.0",
+    "react-native-gesture-handler": "~3.4.0",
     "react-native-get-random-values": "^1.11.0",
     "react-native-keyboard-controller": "1.21.9",
     "react-native-purchases": "^10.15.0",
@@ -105,6 +108,9 @@
       "android": {
         "buildFromSource": ["expo-image"]
       }
+    },
+    "install": {
+      "exclude": ["react-native-gesture-handler"]
     }
   },
   "private": true
