@@ -44,6 +44,7 @@ ENV PYTHONDONTWRITEBYTECODE=true
 ENV PYTHONPATH=/app
 ENV OPENBLAS_NUM_THREADS=1
 ENV OMP_NUM_THREADS=1
+ENV DUO_FFMPEG_USER=nobody
 
 WORKDIR /app
 
@@ -68,6 +69,11 @@ CMD ["/app/api.main.sh"]
 
 
 FROM base AS cron
+
+RUN : \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY \
   serviceshared/antiabuse/clipnsfw/download-model.sh \

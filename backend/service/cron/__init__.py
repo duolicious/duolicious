@@ -31,6 +31,7 @@ from service.cron.visitornotifications import VISITOR_NOTIFICATIONS
 from service.cron.photocleaner import clean_photos_forever
 from service.cron.audiocleaner import clean_audio_forever
 from service.cron.verificationjobrunner import verify_forever
+from service.cron.videotranscoder import transcode_videos_forever
 from service.cron.profilereporter import report_profiles_forever
 import asyncio
 import signal
@@ -91,6 +92,8 @@ async def main() -> None:
             send_pending_notifications_forever(VISITOR_NOTIFICATIONS),
 
             verify_forever(),
+
+            transcode_videos_forever(),
 
             report_profiles_forever(),
 

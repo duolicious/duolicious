@@ -20,17 +20,22 @@ import { Pinchy } from './pinchy';
 import type { PinchyDismiss, PinchyPage, PinchyZoom } from './pinchy';
 import { dragDismissRadius, dragDistance, zoomTransform } from './pinchy-math';
 import { FillImage } from './fill-image';
+import { useVideoMuted } from './looping-video';
+import { useSharedVideo } from './shared-video';
+import { VideoSurface } from './video-surface';
 import {
   hasGifExtraExt,
   lerp,
   photoContainFrame,
   photoExpandFrame,
   photoUri,
+  videoUri,
 } from '../util/photos';
 import type { PhotoExpandFrame, Rect } from '../util/photos';
 import {
   ZERO_BORDER_RADII,
   getExpandedPhoto,
+  markExpandedPhotoClosing,
   setExpandedPhoto,
 } from '../events/expanded-photo';
 import type { AlbumPhoto, ExpandedPhoto, ExpandedPhotoMorph } from '../events/expanded-photo';
@@ -73,6 +78,8 @@ const ExpandingPhoto = ({
   dismiss,
   scrollX,
   openedX,
+  phase,
+  covered,
   onCovered,
 }: {
   photoUuid: string,
@@ -87,9 +94,15 @@ const ExpandingPhoto = ({
   // the pager during a swipe.
   scrollX: SharedValue<number>,
   openedX: number,
+  phase: Phase,
+  covered: boolean,
   onCovered: () => void,
 }) => {
   const { from, geometry, borderRadius } = morph;
+
+  const video = videoUri(photoUuid, photoExtraExts);
+  const muted = useVideoMuted();
+  const player = useSharedVideo(video, phase !== 'open', phase !== 'open' && !muted);
 
   const isGif = hasGifExtraExt(photoExtraExts);
 
@@ -169,7 +182,9 @@ const ExpandingPhoto = ({
   }
 
   return (
-    <Reanimated.View style={[styles.clip, clipStyle]}>
+    <Reanimated.View
+      style={[styles.clip, clipStyle, video && !covered ? styles.hidden : null]}
+    >
       {/*
         The square rendition the preview was already showing: in cache, so it
         paints on the first frame and holds the photo's place while the
@@ -179,11 +194,18 @@ const ExpandingPhoto = ({
         <FillImage
           uri={photoUri(photoUuid, 900)}
           blurhash={photoBlurhash}
-          onLoad={onCovered}
+          onLoad={video ? undefined : onCovered}
         />
       </Reanimated.View>
       <Reanimated.View style={[styles.image, imageStyle]}>
         <FillImage uri={photoUri(photoUuid, 'original')} />
+        {player &&
+          <VideoSurface
+            player={player}
+            contentFit="contain"
+            onPlaying={onCovered}
+          />
+        }
       </Reanimated.View>
     </Reanimated.View>
   );
@@ -439,7 +461,10 @@ const GalleryScreen = ({
   // but don't hang the animation on one that never arrives.
   useEffect(() => {
     if (!morph) return;
-    const timeout = setTimeout(onCovered, 250);
+    const timeout = setTimeout(
+      onCovered,
+      videoUri(photoUuid, album[openedIndex].extraExts) ? 1000 : 250,
+    );
     return () => clearTimeout(timeout);
   }, [morph, onCovered]);
 
@@ -501,6 +526,7 @@ const GalleryScreen = ({
     // `finish` runs even if the timing is interrupted: better to cut the
     // animation short than to leave the navigation permanently prevented.
     if (morphOnClose) {
+      markExpandedPhotoClosing();
       setPhase('closing');
       progress.set(withTiming(
         0,
@@ -605,6 +631,8 @@ const GalleryScreen = ({
             dismiss={dismiss}
             scrollX={scrollX}
             openedX={openedIndex * width}
+            phase={phase}
+            covered={isCovering}
             onCovered={onCovered}
           />
         }
@@ -633,6 +661,8 @@ const GalleryScreen = ({
                   }
                   viewport={container}
                   backgroundColor={i === index ? 'transparent' : 'black'}
+                  isActive={i === index}
+                  underMorph={morph !== null && i === openedIndex && onOpenedPhoto}
                 />
               </View>
             ))}
@@ -682,6 +712,9 @@ const styles = StyleSheet.create({
   clip: {
     position: 'absolute',
     overflow: 'hidden',
+  },
+  hidden: {
+    opacity: 0,
   },
   image: {
     position: 'absolute',

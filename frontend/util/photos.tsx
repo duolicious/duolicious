@@ -47,6 +47,19 @@ function photoUri(
     : `${IMAGES_URL}/${resolution}-${photoUuid}.jpg`;
 }
 
+const videoUri = (
+  photoUuid: string | undefined | null,
+  extraExts: string[] | undefined | null,
+): string | null =>
+  photoUuid && (extraExts ?? []).some((ext) => ext.toLowerCase() === 'mp4')
+    ? `${IMAGES_URL}/${photoUuid}.mp4`
+    : null;
+
+const videoLabel = (durationSeconds: number | null | undefined): string =>
+  durationSeconds
+    ? `${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')}`
+    : 'Video';
+
 // How `900-{uuid}.jpg` was cut out of `original-{uuid}.jpg`, as reported by the
 // API. In the original's pixels, after EXIF rotation. Null for photos the
 // server hasn't recorded a geometry for.
@@ -186,6 +199,8 @@ export {
   photoExpandFrame,
   photoUri,
   supportedExtraExt,
+  videoLabel,
+  videoUri,
 };
 
 export type {

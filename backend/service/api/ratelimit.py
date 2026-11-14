@@ -153,6 +153,8 @@ verify_rate_limit = "8 per day"
 # per-account.
 export_data_rate_limit = "3 per day"
 
+video_upload_rate_limit = "10 per day"
+
 # Per-IP cap on /chat websocket connection attempts. A healthy client holds
 # one connection, so this is generous even for NAT-shared addresses, but it
 # stops a flapping client from reconnecting once a second indefinitely.
