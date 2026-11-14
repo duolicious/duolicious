@@ -2741,7 +2741,7 @@ SELECT json_build_object(
 
     'photo', (
         SELECT
-            json_agg(row_to_json(t))
+            json_agg(to_jsonb(t) - 'clip_embedding')
         FROM (
             SELECT
                 *,
