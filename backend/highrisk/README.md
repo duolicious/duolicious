@@ -11,9 +11,9 @@ at sign-up and again 1, 3 and 6 hours later, then stops. Each score goes in
 `high_risk_score`. A score at or above the verification threshold sets the
 person's `required_verification_level_id` to 3, so they can't message anyone
 or appear to anyone until they've verified their photos. A score at or above
-the shadow-ban threshold shadow-bans them instead. Each time the decision
-gets stricter, the moderators get a report email, as they do for member
-reports.
+the shadow-ban threshold shadow-bans them instead, unless they have Gold,
+in which case they must verify their photos. Each time the decision gets
+stricter, the moderators get a report email, as they do for member reports.
 
 People who have already verified their photos or been shadow-banned aren't
 scored. Scoring waits until the NSFW runner has scored each of the person's

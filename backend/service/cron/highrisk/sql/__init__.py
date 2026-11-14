@@ -1,4 +1,5 @@
 from serviceshared.antiabuse.sql import BOT_ACCOUNT_SQL
+from serviceshared.gold.sql import has_gold_sql
 
 Q_SELECT_NEW_PEOPLE = f"""
 WITH bot_account AS ({BOT_ACCOUNT_SQL})
@@ -6,6 +7,7 @@ SELECT
     bot_account.uuid AS bot_uuid,
     person.id AS person_id,
     person.uuid AS person_uuid,
+    {has_gold_sql('person.id')} AS has_gold,
     extract(EPOCH FROM now() - person.sign_up_time)::FLOAT8 / 3600
         AS hours_since_sign_up,
     (

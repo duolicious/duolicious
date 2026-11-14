@@ -47,15 +47,16 @@ class NewPerson(BaseModel):
     bot_uuid: UUID
     person_id: int
     person_uuid: UUID
+    has_gold: bool
     hours_since_sign_up: float
     previous_score: float | None
     previous_hours: list[int]
 
 
-def action(risk: float | None) -> Action | None:
+def action(risk: float | None, has_gold: bool) -> Action | None:
     if risk is None:
         return None
-    if risk >= HIGH_RISK_SHADOW_BAN_THRESHOLD:
+    if risk >= HIGH_RISK_SHADOW_BAN_THRESHOLD and not has_gold:
         return 'shadow ban'
     if risk >= HIGH_RISK_VERIFY_THRESHOLD:
         return 'photo verification'
@@ -137,9 +138,9 @@ async def check_high_risk_once() -> None:
 
     for person, hours in due:
         risk = risks[person.person_id, hours]
-        act = action(risk)
+        act = action(risk, person.has_gold)
         escalates = _SEVERITY.index(act) > _SEVERITY.index(
-            action(person.previous_score))
+            action(person.previous_score, person.has_gold))
         is_shadow_banned = False
 
         async with api_tx() as tx:
