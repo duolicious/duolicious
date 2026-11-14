@@ -34,3 +34,15 @@ BEGIN
 
     ALTER TABLE person DROP COLUMN verification_required;
 END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'photo'::regclass
+        AND attname = 'clip_embedding'
+        AND NOT attisdropped
+    ) THEN
+        ALTER TABLE photo ADD COLUMN clip_embedding VECTOR(768);
+    END IF;
+END $$;
