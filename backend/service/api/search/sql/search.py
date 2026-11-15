@@ -423,6 +423,46 @@ def search_only_filters(prefs: Row) -> ProspectFilters:
     return ProspectFilters(clauses=clauses, params=params)
 
 
+def _search_where(prefs: Row) -> tuple[str, dict[str, SearchParam]]:
+    clauses: list[str] = []
+    params: dict[str, SearchParam] = {}
+
+    for filters in [
+        search_only_filters(prefs),
+        two_way_filters(prefs),
+        prospect_filters(prefs),
+    ]:
+        clauses.extend(filters.clauses)
+        params.update(filters.params)
+
+    return and_clauses(clauses), params
+
+
+def build_prospect_count(
+    searcher_person_id: int,
+    prefs: Row,
+    limit: int,
+) -> tuple[str, dict[str, SearchParam]]:
+    where, params = _search_where(prefs)
+
+    sql = f"""
+SELECT
+    count(*) AS candidates
+FROM (
+    SELECT
+        1
+    FROM
+        person AS prospect
+    WHERE
+        {where}
+    LIMIT
+        {limit}
+) AS candidate
+"""
+
+    return sql, params | dict(searcher_person_id=searcher_person_id)
+
+
 def build_uncached_search(
     searcher_person_id: int,
     prefs: Row,
@@ -443,20 +483,8 @@ def build_uncached_search(
     sort_expression, sort_params = _sort(sort_by, prefs)
     params.update(sort_params)
 
-    search_only = search_only_filters(prefs)
-    params.update(search_only.params)
-
-    reverse = two_way_filters(prefs)
-    params.update(reverse.params)
-
-    filters = prospect_filters(prefs)
-    params.update(filters.params)
-
-    where = and_clauses([
-        *search_only.clauses,
-        *reverse.clauses,
-        *filters.clauses,
-    ])
+    where, where_params = _search_where(prefs)
+    params.update(where_params)
 
     mutual_club_count, mutual_club_params = _mutual_club_count(sort_by, prefs)
     params.update(mutual_club_params)

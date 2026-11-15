@@ -18,7 +18,8 @@ from service.api.person.clubsuggestions import (
     suggested_clubs,
 )
 from service.api.person.bestdistance import (
-    CANDIDATE_LIMIT,
+    CONTROL_TARGET,
+    TREATED_TARGET,
     best_country_and_distance,
     distance_preference,
 )
@@ -42,9 +43,10 @@ from service.api.search.sql.search import (
     Q_CLUB_MEMBERS,
     Q_CLUB_MEMBERS_FIRST_RANK,
     Q_SEARCHER,
+    build_prospect_count,
 )
 from service.api.search import similar_profiles
-from service.api.searchfilters import TWO_WAY_FILTER_KEYS
+from service.api.searchfilters import Q_SEARCH_PARAMETERS, TWO_WAY_FILTER_KEYS
 from serviceshared.commonsql import *
 from service.api.qanda import _flush_session_answers
 from serviceshared.constants import VISITOR_ONLINE_TIMEOUT_SECONDS
@@ -166,20 +168,40 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         'age',
     )
     bounds = best_age(age)
+    is_treated = person_id % 2 == 0
+    target = TREATED_TARGET if is_treated else CONTROL_TARGET
+    prefs = await tx.require_one(
+        Q_SEARCH_PARAMETERS,
+        params=dict(searcher_person_id=person_id),
+    )
 
-    async def count_within(distance_km: float, same_country_only: bool) -> int:
+    async def count_visible(distance_km: float, same_country_only: bool) -> int:
+        query, params = build_prospect_count(
+            searcher_person_id=person_id,
+            prefs=prefs | dict(
+                distance_meters=round(distance_km * 1000),
+                same_country_only=same_country_only,
+                min_age=bounds.min_age,
+                max_age=bounds.max_age,
+            ),
+            limit=target.limit,
+        )
+        return row_int(await tx.require_one(query, params=params), 'candidates')
+
+    async def count_nearby(distance_km: float, same_country_only: bool) -> int:
         counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
             person_id=person_id,
             distance_metres=distance_km * 1000,
             same_country_only=same_country_only,
             min_age=0 if bounds.min_age is None else bounds.min_age,
             max_age=999 if bounds.max_age is None else bounds.max_age,
-            candidate_limit=CANDIDATE_LIMIT,
+            candidate_limit=target.limit,
         ))
         return row_int(counted, 'candidates')
 
     same_country_only, candidates = await best_country_and_distance(
-        count_within
+        count_visible if is_treated else count_nearby,
+        target,
     )
 
     is_joining_club = row_bool(
@@ -191,7 +213,11 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         person_id=person_id,
         min_age=bounds.min_age,
         max_age=bounds.max_age,
-        distance=distance_preference(candidates, is_joining_club=is_joining_club),
+        distance=distance_preference(
+            candidates,
+            target,
+            is_joining_club=is_joining_club,
+        ),
         same_country_only=same_country_only and not is_joining_club,
     ))
 
