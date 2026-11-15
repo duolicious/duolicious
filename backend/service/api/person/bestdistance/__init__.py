@@ -31,6 +31,9 @@ class Candidates:
     count: int
 
 
+NO_CANDIDATES = Candidates(0.0, 0)
+
+
 def _closeness(candidates: Candidates, target: Target) -> tuple[int, float]:
     return abs(candidates.count - target.candidates), candidates.distance_km
 
@@ -40,7 +43,7 @@ async def _nearest_pair_search(
     target: Target,
 ) -> Candidates:
     points = [
-        Candidates(0.0, 0),
+        NO_CANDIDATES,
         Candidates(_SEARCH_CEILING_KM, _UNREACHABLE_CANDIDATES),
     ]
     midpoint = points[-1]
@@ -59,7 +62,7 @@ async def _binary_search(
     count_within: Callable[[float], Awaitable[int]],
     target: Target,
 ) -> Candidates:
-    below = Candidates(0.0, 0)
+    below = NO_CANDIDATES
     above = Candidates(_SEARCH_CEILING_KM, _UNREACHABLE_CANDIDATES)
     tried: list[Candidates] = []
 
@@ -74,7 +77,7 @@ async def _binary_search(
 
     return min(
         (p for p in (below, above) if p in tried),
-        key=lambda p: _closeness(p, target),
+        key=lambda p: (p.count < target.minimum, _closeness(p, target)),
     )
 
 

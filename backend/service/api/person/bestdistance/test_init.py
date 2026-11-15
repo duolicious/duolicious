@@ -5,6 +5,7 @@ from service.api.person.bestdistance import (
     TREATED_TARGET,
     Candidates,
     Target,
+    best_country_and_distance,
     best_distance,
     distance_preference,
 )
@@ -26,6 +27,29 @@ class TestBestDistance(unittest.TestCase):
                         count_within,
                         Target(candidates=1000, is_treated=is_treated),
                     )),
+                    expected,
+                )
+
+    def test_treated_skips_distance_below_minimum(self) -> None:
+        async def count_within(distance_km: float) -> int:
+            return 100 if distance_km < 400 else 1000
+
+        self.assertEqual(
+            asyncio.run(best_distance(count_within, TREATED_TARGET)),
+            Candidates(625.0, 1000),
+        )
+
+    def test_falls_back_to_any_country(self) -> None:
+        async def count_within(distance_km: float, same_country_only: bool) -> int:
+            return 0 if same_country_only else round(distance_km)
+
+        for target, expected in [
+            (CONTROL_TARGET, (False, Candidates(937.5, 938))),
+            (TREATED_TARGET, (False, Candidates(625.0, 625))),
+        ]:
+            with self.subTest(target=target):
+                self.assertEqual(
+                    asyncio.run(best_country_and_distance(count_within, target)),
                     expected,
                 )
 
