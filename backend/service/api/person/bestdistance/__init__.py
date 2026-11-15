@@ -10,7 +10,7 @@ _MAX_PREFERENCE_KM = 8000
 @dataclass(frozen=True)
 class Target:
     candidates: int
-    nearest_tried: bool
+    is_treated: bool
 
     @property
     def limit(self) -> int:
@@ -21,8 +21,8 @@ class Target:
         return self.candidates // 2
 
 
-CONTROL_TARGET = Target(candidates=1000, nearest_tried=False)
-TREATED_TARGET = Target(candidates=500, nearest_tried=True)
+CONTROL_TARGET = Target(candidates=1000, is_treated=False)
+TREATED_TARGET = Target(candidates=500, is_treated=True)
 
 
 @dataclass(frozen=True)
@@ -31,28 +31,59 @@ class Candidates:
     count: int
 
 
-async def best_distance(
+def _closeness(candidates: Candidates, target: Target) -> tuple[int, float]:
+    return abs(candidates.count - target.candidates), candidates.distance_km
+
+
+async def _nearest_pair_search(
     count_within: Callable[[float], Awaitable[int]],
     target: Target,
 ) -> Candidates:
-    def closeness(candidates: Candidates) -> tuple[int, float]:
-        return abs(candidates.count - target.candidates), candidates.distance_km
-
     points = [
         Candidates(0.0, 0),
         Candidates(_SEARCH_CEILING_KM, _UNREACHABLE_CANDIDATES),
     ]
-    tried: list[Candidates] = []
+    midpoint = points[-1]
 
     for _ in range(_ITERATIONS):
-        nearest = sorted(points, key=closeness)[:2]
+        nearest = sorted(points, key=lambda p: _closeness(p, target))[:2]
 
         distance_km = sum(p.distance_km for p in nearest) / 2
         midpoint = Candidates(distance_km, await count_within(distance_km))
-        tried.append(midpoint)
         points = nearest + [midpoint]
 
-    return min(tried, key=closeness) if target.nearest_tried else tried[-1]
+    return midpoint
+
+
+async def _binary_search(
+    count_within: Callable[[float], Awaitable[int]],
+    target: Target,
+) -> Candidates:
+    below = Candidates(0.0, 0)
+    above = Candidates(_SEARCH_CEILING_KM, _UNREACHABLE_CANDIDATES)
+    tried: list[Candidates] = []
+
+    for _ in range(_ITERATIONS):
+        distance_km = (below.distance_km + above.distance_km) / 2
+        midpoint = Candidates(distance_km, await count_within(distance_km))
+        tried.append(midpoint)
+        if midpoint.count < target.candidates:
+            below = midpoint
+        else:
+            above = midpoint
+
+    return min(
+        (p for p in (below, above) if p in tried),
+        key=lambda p: _closeness(p, target),
+    )
+
+
+async def best_distance(
+    count_within: Callable[[float], Awaitable[int]],
+    target: Target,
+) -> Candidates:
+    search = _binary_search if target.is_treated else _nearest_pair_search
+    return await search(count_within, target)
 
 
 async def best_country_and_distance(
@@ -75,6 +106,8 @@ def distance_preference(
     is_joining_club: bool,
 ) -> float | None:
     if candidates.count < target.minimum:
+        return None
+    if candidates.distance_km > _MAX_PREFERENCE_KM and target.is_treated:
         return None
     if candidates.distance_km > _MAX_PREFERENCE_KM:
         return _MAX_PREFERENCE_KM
