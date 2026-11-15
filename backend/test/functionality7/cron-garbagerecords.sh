@@ -27,9 +27,9 @@ q "update duo_session set session_expiry = now() - interval '1 second'"
 
 ! c POST /check-session-token || exit 1
 
-assert_eventually 0 q "select count(*) from duo_session where person_id is null"
 assert_eventually 0 q "select count(*) from duo_session where signed_in"
 
 [[ "$(q "select count(*) from duo_session where person_id = $user1id and ip_address is not null")" = "$num_sessions" ]]
+[[ "$(q "select count(*) from duo_session where person_id is null")" = 1 ]]
 
 ! c POST /check-session-token || exit 1

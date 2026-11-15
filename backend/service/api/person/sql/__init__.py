@@ -292,8 +292,7 @@ SELECT
 FROM
     otp
 RETURNING
-    otp,
-    person_id
+    otp
 """
 
 Q_UPDATE_OTP = f"""

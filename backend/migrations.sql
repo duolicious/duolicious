@@ -51,9 +51,4 @@ CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry__signed_in
     ON duo_session(session_expiry)
     WHERE signed_in;
 
-CREATE INDEX IF NOT EXISTS idx__duo_session__person_id__session_expiry
-    ON duo_session(person_id, session_expiry);
-
 DROP INDEX IF EXISTS idx__duo_session__session_expiry;
-
-DROP INDEX IF EXISTS idx__duo_session__person_id;
