@@ -886,10 +886,11 @@ CREATE INDEX IF NOT EXISTS idx__answer__person_id_question_id_inc_answer
 
 CREATE INDEX IF NOT EXISTS idx__duo_session__email
     ON duo_session(email);
-CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry
-    ON duo_session(session_expiry);
-CREATE INDEX IF NOT EXISTS idx__duo_session__person_id
-    ON duo_session(person_id);
+CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry__signed_in
+    ON duo_session(session_expiry)
+    WHERE signed_in;
+CREATE INDEX IF NOT EXISTS idx__duo_session__person_id__session_expiry
+    ON duo_session(person_id, session_expiry);
 
 CREATE INDEX IF NOT EXISTS idx__location__coordinates ON location USING GIST(coordinates);
 CREATE INDEX IF NOT EXISTS idx__location__lower_long_friendly ON location USING GIST(lower(long_friendly) gist_trgm_ops);

@@ -292,7 +292,8 @@ SELECT
 FROM
     otp
 RETURNING
-    otp
+    otp,
+    person_id
 """
 
 Q_UPDATE_OTP = f"""
@@ -340,7 +341,8 @@ WITH valid_session AS (
     UPDATE
         duo_session
     SET
-        signed_in = TRUE
+        signed_in = TRUE,
+        otp_expiry = NOW()
     WHERE
         {_Q_OTP_SIGN_IN_CONDITION}
     RETURNING
@@ -1201,18 +1203,22 @@ WITH updated_person AS (
         id = %(person_id)s
     RETURNING
         id
-), deleted_duo_session AS (
-    DELETE FROM
+), signed_out_duo_session AS (
+    UPDATE
         duo_session
+    SET
+        signed_in = FALSE
     WHERE
         person_id = %(person_id)s
+    AND
+        signed_in
     RETURNING
         session_token_hash
 )
 SELECT
     session_token_hash
 FROM
-    deleted_duo_session
+    signed_out_duo_session
 """
 
 Q_GET_PROFILE_INFO = f"""
@@ -2304,6 +2310,8 @@ WITH deleted_token AS (
         duo_session
     ON
         duo_session.person_id = this_banned_person.person_id
+    AND
+        duo_session.session_expiry > NOW()
 ), banned_person_insertion AS (
     INSERT INTO banned_person (
         normalized_email,

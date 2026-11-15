@@ -44,6 +44,8 @@ MAX_ONLINE_SUBSCRIPTIONS = 500
 # signed out on each new sign-in.
 MAX_SIGNED_IN_SESSIONS = 100
 
+MAX_SIGNED_OUT_SESSIONS = 100
+
 # Refreshing someone's 'answered-question' feed event on every public answer
 # would rewrite their (heavily indexed) person row once per swipe while they
 # play Q&A, and flood the feed with Q&A answers. Refreshing at most this often

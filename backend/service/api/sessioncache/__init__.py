@@ -16,19 +16,19 @@ The cache is keyed by `session_token_hash` and stores only the fields
 mutations that change them invalidate the entry explicitly via
 `delete_session()`:
 
-  * sign-out                  -> session deleted        (post_sign_out)
+  * sign-out                  -> `signed_in` flips FALSE (post_sign_out)
   * OTP sign-in               -> `signed_in` flips TRUE (post_check_otp)
   * finish onboarding         -> `person_id` is set     (post_finish_onboarding)
   * search-preference update  -> `pending_club_name`    (get_search)
                                  cleared
   * account deletion / ban    -> sessions cascade-deleted (delete_or_ban_account)
-  * account deactivation      -> sessions deleted        (post_deactivate)
+  * account deactivation      -> sessions signed out     (post_deactivate)
 
-Person-level deletions (account deletion, admin bans, deactivation) remove
-sessions by `person_id`, which would otherwise leave the cache — keyed by
-token hash — with no key to evict. They handle this by reading the
-affected `session_token_hash`es before the delete and evicting every one, so a
-person's *other* devices are covered too, not just the calling session.
+Person-level changes (account deletion, admin bans, deactivation) remove or
+sign out sessions by `person_id`, which would otherwise leave the cache —
+keyed by token hash — with no key to evict. They handle this by reading the
+affected `session_token_hash`es and evicting every one, so a person's *other*
+devices are covered too, not just the calling session.
 
 `SESSION_CACHE_TTL_SECONDS` is then the backstop for the one case explicit
 invalidation can't cover: the read-then-recache race. A request that misses

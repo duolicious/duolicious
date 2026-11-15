@@ -1,15 +1,51 @@
 from typing import Iterable
 
-from serviceshared.constants import MAX_SIGNED_IN_SESSIONS
+from serviceshared.constants import (
+    MAX_SIGNED_IN_SESSIONS,
+    MAX_SIGNED_OUT_SESSIONS,
+)
 from serviceshared.database import Row, Tx, api_tx
 from service.api import sessioncache
 
 
 Q_SIGN_OUT_SESSIONS = """
+UPDATE
+    duo_session
+SET
+    signed_in = FALSE
+WHERE
+    session_token_hash = ANY(%(session_token_hashes)s)
+"""
+
+Q_DELETE_OVER_LIMIT_SIGNED_OUT_SESSIONS = """
 DELETE FROM
     duo_session
 WHERE
-    session_token_hash = ANY(%(session_token_hashes)s)
+    session_token_hash IN (
+        SELECT
+            session_token_hash
+        FROM
+            duo_session
+        WHERE
+            person_id = %(person_id)s
+        AND
+            NOT signed_in
+        ORDER BY
+            session_expiry DESC
+        OFFSET
+            %(keep)s
+    )
+AND
+    NOT signed_in
+AND
+    session_expiry > (
+        SELECT
+            MIN(session_expiry)
+        FROM
+            duo_session
+        WHERE
+            person_id = %(person_id)s
+    )
 """
 
 Q_OVER_LIMIT_SESSIONS = """
@@ -44,12 +80,21 @@ async def sign_out(session_token_hashes: Iterable[str]) -> None:
         await sessioncache.delete_session(session_token_hash)
 
 
+async def delete_over_limit_signed_out_sessions(person_id: int | None) -> None:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute(Q_DELETE_OVER_LIMIT_SIGNED_OUT_SESSIONS, dict(
+            person_id=person_id,
+            keep=MAX_SIGNED_OUT_SESSIONS,
+        ))
+
+
 async def enforce_session_limit(
     person_id: int | None,
     current_session_token_hash: str,
 ) -> None:
     """Sign out the person's least-recently-active sessions beyond
-    `MAX_SIGNED_IN_SESSIONS`, always keeping the current one."""
+    `MAX_SIGNED_IN_SESSIONS`, always keeping the current one, then delete
+    their signed-out sessions beyond `MAX_SIGNED_OUT_SESSIONS`."""
     if person_id is None:
         return
 
@@ -64,3 +109,5 @@ async def enforce_session_limit(
         over_limit: list[Row] = await over_limit_tx.fetchall()
 
     await sign_out(row['session_token_hash'] for row in over_limit)
+
+    await delete_over_limit_signed_out_sessions(person_id)

@@ -27,6 +27,8 @@ WITH q1 AS (
         duo_session
     WHERE
         session_expiry < NOW()
+    AND
+        person_id IS NULL
     RETURNING
         1
 ), q5 AS (
@@ -101,6 +103,19 @@ WITH q1 AS (
         expires_at < NOW()
     RETURNING
         person_id
+), q13 AS (
+    UPDATE
+        duo_session
+    SET
+        signed_in = FALSE
+    WHERE
+        session_expiry < NOW()
+    AND
+        person_id IS NOT NULL
+    AND
+        signed_in
+    RETURNING
+        1
 )
 SELECT
     SUM(n) AS count,
@@ -116,6 +131,7 @@ FROM (
     SELECT 1 AS n FROM q7 UNION ALL
     SELECT 1 AS n FROM q8 UNION ALL
     SELECT 1 AS n FROM q11 UNION ALL
-    SELECT 1 AS n FROM q12
+    SELECT 1 AS n FROM q12 UNION ALL
+    SELECT 1 AS n FROM q13
 ) AS t(n)
 """

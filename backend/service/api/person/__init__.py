@@ -77,7 +77,11 @@ from service.api.search.rediscache import redis_cache
 from datetime import datetime, timezone
 from urllib.parse import quote
 from service.api.person.duophoto import CropSize
-from service.api.auth.session import sign_out, enforce_session_limit
+from service.api.auth.session import (
+    delete_over_limit_signed_out_sessions,
+    enforce_session_limit,
+    sign_out,
+)
 from service.api.auth.social import (
     SocialAuthError,
     verify_apple_identity_token,
@@ -325,6 +329,8 @@ async def post_request_otp(
         # caller which guardrail tripped.
         return 'Banned', 461
 
+    await delete_over_limit_signed_out_sessions(rows[0]['person_id'])
+
     await _send_otp(req.email, otp)
 
     return dict(session_token=session_token)
@@ -471,6 +477,9 @@ async def _sign_in_with_social(
     gate = await _gate_signup(remote_addr, is_signup=person_id is None)
     if gate.error:
         return gate.error
+
+    if needs_otp:
+        await delete_over_limit_signed_out_sessions(person_id)
 
     async with api_tx() as tx:
         if email_match and not needs_otp:
