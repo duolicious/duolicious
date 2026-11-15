@@ -26,9 +26,10 @@ seed_sessions () {
      from generate_series(1, $num_signed_in) g"
 
   q "insert into duo_session
-       (session_token_hash, person_id, email, last_online_time)
+       (session_token_hash, person_id, email, last_online_time, signed_in_at)
      select 'out-' || g, $user1id, 'user1@example.com',
-            now() - (g || ' seconds')::interval
+            now() - (g || ' seconds')::interval,
+            case when g > 10 then now() end
      from generate_series(1, 20) g"
 }
 
@@ -37,12 +38,15 @@ seed_sessions 90
 assume_role user1
 
 # Signing in trims the person to MAX_SESSIONS (current session + 99 others),
-# deleting the least-recently-active signed-out sessions first.
+# deleting never-signed-in sessions first, then the least-recently-active
+# signed-out ones.
 [[ "$(q "select count(*) from duo_session where person_id = $user1id")" = 100 ]]
 [[ "$(q "select count(*) from duo_session where person_id = $user1id and signed_in")" = 91 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'seed-90'")" = 1 ]]
-[[ "$(q "select count(*) from duo_session where session_token_hash = 'out-9'")" = 1 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'out-10'")" = 0 ]]
+[[ "$(q "select count(*) from duo_session where session_token_hash = 'out-11'")" = 1 ]]
+[[ "$(q "select count(*) from duo_session where session_token_hash = 'out-19'")" = 1 ]]
+[[ "$(q "select count(*) from duo_session where session_token_hash = 'out-20'")" = 0 ]]
 
 seed_sessions 150
 

@@ -29,6 +29,7 @@ WHERE
             session_token_hash <> %(current_session_token_hash)s
         ORDER BY
             signed_in DESC,
+            signed_in_at IS NOT NULL DESC,
             last_online_time DESC,
             session_expiry DESC
         OFFSET
@@ -57,8 +58,8 @@ async def enforce_session_limit(
     current_session_token_hash: str,
 ) -> None:
     """Delete the person's sessions beyond `MAX_SESSIONS`, always keeping the
-    current one: signed-out sessions go first, then the least-recently-active
-    signed-in ones."""
+    current one: sessions that were never signed in go first, then signed-out
+    ones, then the least-recently-active signed-in ones."""
     if person_id is None:
         return
 

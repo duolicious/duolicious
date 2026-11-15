@@ -41,7 +41,7 @@ LAST_ONLINE_DEFAULT_SECONDS = 30 * 24 * 60 * 60
 MAX_ONLINE_SUBSCRIPTIONS = 500
 
 # Most sessions kept per person; on each new sign-in the rest are deleted,
-# signed-out ones first.
+# never-signed-in ones first, then signed-out ones.
 MAX_SESSIONS = 100
 
 # Refreshing someone's 'answered-question' feed event on every public answer

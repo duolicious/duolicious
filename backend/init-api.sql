@@ -415,6 +415,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
     otp TEXT,
     ip_address inet,
     signed_in BOOLEAN NOT NULL DEFAULT FALSE,
+    signed_in_at TIMESTAMP,
     session_expiry TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '6 months'),
     otp_expiry TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes'),
     pending_social_provider TEXT,

@@ -47,6 +47,18 @@ BEGIN
     END IF;
 END $$;
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'duo_session'::regclass
+        AND attname = 'signed_in_at'
+        AND NOT attisdropped
+    ) THEN
+        ALTER TABLE duo_session ADD COLUMN signed_in_at TIMESTAMP;
+    END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry__signed_in
     ON duo_session(session_expiry)
     WHERE signed_in;

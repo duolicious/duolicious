@@ -341,6 +341,7 @@ WITH valid_session AS (
         duo_session
     SET
         signed_in = TRUE,
+        signed_in_at = COALESCE(signed_in_at, NOW()),
         otp_expiry = NOW()
     WHERE
         {_Q_OTP_SIGN_IN_CONDITION}
@@ -3027,6 +3028,7 @@ INSERT INTO duo_session (
     ref,
     ip_address,
     signed_in,
+    signed_in_at,
     pending_social_provider,
     pending_social_sub,
     asns
@@ -3038,6 +3040,7 @@ INSERT INTO duo_session (
     %(ref)s,
     %(ip_address)s,
     %(signed_in)s,
+    CASE WHEN %(signed_in)s THEN NOW() END,
     %(pending_social_provider)s,
     %(pending_social_sub)s,
     %(asns)s::bigint[]
