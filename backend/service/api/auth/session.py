@@ -1,33 +1,44 @@
 from typing import Iterable
 
-from serviceshared.constants import MAX_SIGNED_IN_SESSIONS
+from serviceshared.constants import MAX_SESSIONS
 from serviceshared.database import Row, Tx, api_tx
 from service.api import sessioncache
 
 
 Q_SIGN_OUT_SESSIONS = """
-DELETE FROM
+UPDATE
     duo_session
+SET
+    signed_in = FALSE
 WHERE
     session_token_hash = ANY(%(session_token_hashes)s)
 """
 
-Q_OVER_LIMIT_SESSIONS = """
-SELECT
-    session_token_hash
-FROM
+Q_DELETE_OVER_LIMIT_SESSIONS = """
+DELETE FROM
     duo_session
 WHERE
-    person_id = %(person_id)s
+    session_token_hash IN (
+        SELECT
+            session_token_hash
+        FROM
+            duo_session
+        WHERE
+            person_id = %(person_id)s
+        AND
+            session_token_hash <> %(current_session_token_hash)s
+        ORDER BY
+            signed_in DESC,
+            signed_in_at IS NOT NULL DESC,
+            last_online_time DESC,
+            session_expiry DESC
+        OFFSET
+            %(keep)s
+    )
 AND
-    signed_in
-AND
-    session_token_hash <> %(current_session_token_hash)s
-ORDER BY
-    last_online_time DESC,
-    session_expiry DESC
-OFFSET
-    %(keep)s
+    otp_expiry < NOW()
+RETURNING
+    session_token_hash
 """
 
 
@@ -48,19 +59,22 @@ async def enforce_session_limit(
     person_id: int | None,
     current_session_token_hash: str,
 ) -> None:
-    """Sign out the person's least-recently-active sessions beyond
-    `MAX_SIGNED_IN_SESSIONS`, always keeping the current one."""
+    """Delete the person's sessions beyond `MAX_SESSIONS`, always keeping the
+    current one and any whose one-time code has yet to expire: sessions that
+    were never signed in go first, then signed-out ones, then the
+    least-recently-active signed-in ones."""
     if person_id is None:
         return
 
     async with api_tx('READ COMMITTED') as tx:
-        over_limit_tx = await tx.execute(Q_OVER_LIMIT_SESSIONS, dict(
+        over_limit_tx = await tx.execute(Q_DELETE_OVER_LIMIT_SESSIONS, dict(
             person_id=person_id,
             current_session_token_hash=current_session_token_hash,
             # The current session is excluded above and always kept, so keep
-            # it plus the (MAX - 1) most-recently-active others.
-            keep=MAX_SIGNED_IN_SESSIONS - 1,
+            # it plus the (MAX - 1) others that rank first.
+            keep=MAX_SESSIONS - 1,
         ))
         over_limit: list[Row] = await over_limit_tx.fetchall()
 
-    await sign_out(row['session_token_hash'] for row in over_limit)
+    for row in over_limit:
+        await sessioncache.delete_session(row['session_token_hash'])

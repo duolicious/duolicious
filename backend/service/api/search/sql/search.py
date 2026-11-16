@@ -49,6 +49,8 @@ WITH set_pending_club_name_to_null AS (
         pending_club_name = NULL
     WHERE
         person_id = %(person_id)s
+    AND
+        pending_club_name IS NOT NULL
 )
 UPDATE
     search_preference
@@ -392,9 +394,10 @@ LIMIT
 """
 
 
-def _from_clause(club_preference: str | None) -> str:
+def _search_from(prefs: Row) -> tuple[str, dict[str, SearchParam]]:
+    club_preference = row_str_or_none(prefs, 'club_preference')
     if club_preference is None:
-        return "        person AS prospect"
+        return "        person AS prospect", {}
     return """        person AS prospect
     JOIN
         person_club
@@ -403,7 +406,7 @@ def _from_clause(club_preference: str | None) -> str:
     AND
         person_club.club_name = %(club_preference)s
     AND
-        person_club.activated"""
+        person_club.activated""", dict(club_preference=club_preference)
 
 
 def search_only_filters(prefs: Row) -> ProspectFilters:
@@ -423,6 +426,46 @@ def search_only_filters(prefs: Row) -> ProspectFilters:
     return ProspectFilters(clauses=clauses, params=params)
 
 
+def _search_from_where(prefs: Row) -> tuple[str, dict[str, SearchParam]]:
+    clauses: list[str] = []
+    from_clause, params = _search_from(prefs)
+
+    for filters in [
+        search_only_filters(prefs),
+        two_way_filters(prefs),
+        prospect_filters(prefs),
+    ]:
+        clauses.extend(filters.clauses)
+        params.update(filters.params)
+
+    return f"""    FROM
+{from_clause}
+    WHERE
+        {and_clauses(clauses)}""", params
+
+
+def build_prospect_count(
+    searcher_person_id: int,
+    prefs: Row,
+    limit: int,
+) -> tuple[str, dict[str, SearchParam]]:
+    from_where, params = _search_from_where(prefs)
+
+    sql = f"""
+SELECT
+    count(*) AS candidates
+FROM (
+    SELECT
+        1
+{from_where}
+    LIMIT
+        {limit}
+) AS candidate
+"""
+
+    return sql, params | dict(searcher_person_id=searcher_person_id)
+
+
 def build_uncached_search(
     searcher_person_id: int,
     prefs: Row,
@@ -434,29 +477,13 @@ def build_uncached_search(
         searcher_count_answers=searcher_count_answers,
     )
 
-    club_preference = row_str_or_none(prefs, 'club_preference')
-    if club_preference is not None:
-        params['club_preference'] = club_preference
-
     sort_by = (SORT_MATCH_PERCENTAGE if ignore_sort_preference
                else _saved_sort_by(prefs))
     sort_expression, sort_params = _sort(sort_by, prefs)
     params.update(sort_params)
 
-    search_only = search_only_filters(prefs)
-    params.update(search_only.params)
-
-    reverse = two_way_filters(prefs)
-    params.update(reverse.params)
-
-    filters = prospect_filters(prefs)
-    params.update(filters.params)
-
-    where = and_clauses([
-        *search_only.clauses,
-        *reverse.clauses,
-        *filters.clauses,
-    ])
+    from_where, from_where_params = _search_from_where(prefs)
+    params.update(from_where_params)
 
     mutual_club_count, mutual_club_params = _mutual_club_count(sort_by, prefs)
     params.update(mutual_club_params)
@@ -464,10 +491,7 @@ def build_uncached_search(
     sql = f"""
 WITH nearest AS (
 {_prospect_select(sort_expression)}
-    FROM
-{_from_clause(club_preference)}
-    WHERE
-        {where}
+{from_where}
 
     ORDER BY
         sort_distance

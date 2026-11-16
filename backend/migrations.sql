@@ -13,39 +13,23 @@
 -- from this file: init-api.sql already carries the change for fresh databases.
 
 
-DROP INDEX IF EXISTS idx__visited__updated_at__object__subject;
-
-DROP INDEX IF EXISTS duo_idx__inbox__timestamp__luser__box;
-
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_attribute
-        WHERE attrelid = 'person'::regclass
-        AND attname = 'verification_required'
+        WHERE attrelid = 'duo_session'::regclass
+        AND attname = 'signed_in_at'
         AND NOT attisdropped
     ) THEN
-        RETURN;
-    END IF;
-
-    DROP TRIGGER trigger_sync_verification_required ON person;
-
-    DROP FUNCTION sync_verification_required();
-
-    ALTER TABLE person DROP COLUMN verification_required;
-END $$;
-
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_attribute
-        WHERE attrelid = 'photo'::regclass
-        AND attname = 'clip_embedding'
-        AND NOT attisdropped
-    ) THEN
-        ALTER TABLE photo ADD COLUMN clip_embedding VECTOR(768);
+        ALTER TABLE duo_session ADD COLUMN signed_in_at TIMESTAMP;
     END IF;
 END $$;
+
+CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry__signed_in
+    ON duo_session(session_expiry)
+    WHERE signed_in;
+
+DROP INDEX IF EXISTS idx__duo_session__session_expiry;
 
 CREATE TABLE IF NOT EXISTS video_job (
     uuid TEXT PRIMARY KEY,

@@ -23,10 +23,14 @@ WITH q1 AS (
     RETURNING
         1
 ), q4 AS (
-    DELETE FROM
+    UPDATE
         duo_session
+    SET
+        signed_in = FALSE
     WHERE
         session_expiry < NOW()
+    AND
+        signed_in
     RETURNING
         1
 ), q5 AS (
