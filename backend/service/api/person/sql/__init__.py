@@ -388,60 +388,6 @@ WHERE
     id = %(person_id)s
 """
 
-Q_COUNT_NEARBY_CANDIDATES = """
-SELECT
-    count(*) AS candidates
-FROM (
-    SELECT
-        1
-    FROM
-        person AS prospect
-    JOIN
-        person AS subject
-    ON
-        subject.id = %(person_id)s
-    JOIN
-        search_preference AS subject_preference
-    ON
-        subject_preference.person_id = subject.id
-    WHERE
-        prospect.activated
-    AND
-        (
-            NOT %(same_country_only)s
-        OR
-            prospect.location_country = subject.location_country
-        )
-    AND
-        prospect.gender_id = ANY(subject_preference.gender_ids)
-    AND
-        EXISTS (
-            SELECT 1
-            FROM search_preference AS prospect_preference
-            WHERE
-                prospect_preference.person_id = prospect.id
-            AND
-                subject.gender_id = ANY(prospect_preference.gender_ids)
-        )
-    AND
-        ST_DWithin(
-            prospect.coordinates,
-            subject.coordinates,
-            %(distance_metres)s
-        )
-    AND
-        prospect.date_of_birth <= (
-            CURRENT_DATE - INTERVAL '1 year' * %(min_age)s
-        )
-    AND
-        prospect.date_of_birth > (
-            CURRENT_DATE - INTERVAL '1 year' * (%(max_age)s + 1)
-        )
-    LIMIT
-        %(candidate_limit)s
-) AS candidate
-"""
-
 Q_IS_JOINING_CLUB = """
 SELECT
     EXISTS (
