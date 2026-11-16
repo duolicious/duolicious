@@ -49,6 +49,8 @@ WITH set_pending_club_name_to_null AS (
         pending_club_name = NULL
     WHERE
         person_id = %(person_id)s
+    AND
+        pending_club_name IS NOT NULL
 )
 UPDATE
     search_preference

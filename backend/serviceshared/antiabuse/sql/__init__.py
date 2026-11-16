@@ -124,6 +124,8 @@ SELECT
             LEFT JOIN LATERAL unnest(duo_session.asns) AS asn ON TRUE
             WHERE person_id = p.id
             AND ip_address IS NOT NULL
+            AND session_expiry > NOW()
+            AND signed_in_at IS NOT NULL
             GROUP BY ip_address
         ) AS ip_asns
     ) AS ip_addresses,

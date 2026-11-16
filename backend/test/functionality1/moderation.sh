@@ -152,16 +152,15 @@ photo_token_expiry () {
   ! c GET "/admin/delete-photo/$(deleted_photo_token)"
 }
 
+report_mentions () {
+  [[ "$(get_emails | grep -c -F "$1")" -gt 0 ]] && echo yes || echo no
+}
+
 # Only the person who should have been banned is deleted
 specific_person_is_banned () {
   setup 0 true
 
   assume_role 'reporter@gmail.com'
-
-  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "my target" }'
-  jc POST "/skip/by-uuid/${bystander_uuid}" -d '{ "report_reason": "collateral damage" }'
-
-  [[ "$(q "select count(*) from person")" -eq 3 ]]
 
   q "
     insert into duo_session (
@@ -174,6 +173,15 @@ specific_person_is_banned () {
         '203.0.113.8', now() - interval '7 months', now() - interval '1 day'),
       ('signed-out', ${accused_id}, 'accuse.d+1@gmail.com',
         '203.0.113.9', now(), now() + interval '1 day')"
+
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "my target" }'
+  jc POST "/skip/by-uuid/${bystander_uuid}" -d '{ "report_reason": "collateral damage" }'
+
+  assert_eventually yes report_mentions '203.0.113.9'
+  [[ "$(report_mentions '203.0.113.7')" == no ]]
+  [[ "$(report_mentions '203.0.113.8')" == no ]]
+
+  [[ "$(q "select count(*) from person")" -eq 3 ]]
 
   c GET "/admin/ban/$(ban_token)"
 
