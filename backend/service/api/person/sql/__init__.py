@@ -341,7 +341,7 @@ WITH valid_session AS (
         duo_session
     SET
         signed_in = TRUE,
-        signed_in_at = COALESCE(signed_in_at, NOW()),
+        signed_in_at = NOW(),
         otp_expiry = NOW()
     WHERE
         {_Q_OTP_SIGN_IN_CONDITION}
