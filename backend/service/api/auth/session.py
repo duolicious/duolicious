@@ -35,6 +35,8 @@ WHERE
         OFFSET
             %(keep)s
     )
+AND
+    otp_expiry < NOW()
 RETURNING
     session_token_hash
 """
@@ -58,8 +60,9 @@ async def enforce_session_limit(
     current_session_token_hash: str,
 ) -> None:
     """Delete the person's sessions beyond `MAX_SESSIONS`, always keeping the
-    current one: sessions that were never signed in go first, then signed-out
-    ones, then the least-recently-active signed-in ones."""
+    current one and any whose one-time code has yet to expire: sessions that
+    were never signed in go first, then signed-out ones, then the
+    least-recently-active signed-in ones."""
     if person_id is None:
         return
 

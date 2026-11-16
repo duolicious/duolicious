@@ -20,33 +20,42 @@ seed_sessions () {
   q "delete from duo_session where person_id = $user1id"
 
   q "insert into duo_session
-       (session_token_hash, person_id, email, signed_in, last_online_time)
+       (session_token_hash, person_id, email, signed_in, last_online_time,
+        otp_expiry)
      select 'seed-' || g, $user1id, 'user1@example.com', true,
-            now() - (g || ' minutes')::interval
+            now() - (g || ' minutes')::interval, now()
      from generate_series(1, $num_signed_in) g"
 
   q "insert into duo_session
-       (session_token_hash, person_id, email, last_online_time, signed_in_at)
+       (session_token_hash, person_id, email, last_online_time, signed_in_at,
+        otp_expiry)
      select 'out-' || g, $user1id, 'user1@example.com',
             now() - (g || ' seconds')::interval,
-            case when g > 10 then now() end
+            case when g > 10 then now() end, now()
      from generate_series(1, 20) g"
 }
 
 seed_sessions 90
 
+other_device_token=$(
+  jc POST /request-otp -d '{ "email": "user1@example.com" }' \
+    | jq -r '.session_token'
+)
+
 assume_role user1
 
 # Signing in trims the person to MAX_SESSIONS (current session + 99 others),
 # deleting never-signed-in sessions first, then the least-recently-active
-# signed-out ones.
-[[ "$(q "select count(*) from duo_session where person_id = $user1id")" = 100 ]]
+# signed-out ones. The other device's session is kept while its code is valid.
+[[ "$(q "select count(*) from duo_session where person_id = $user1id")" = 101 ]]
 [[ "$(q "select count(*) from duo_session where person_id = $user1id and signed_in")" = 91 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'seed-90'")" = 1 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'out-10'")" = 0 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'out-11'")" = 1 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'out-19'")" = 1 ]]
 [[ "$(q "select count(*) from duo_session where session_token_hash = 'out-20'")" = 0 ]]
+
+SESSION_TOKEN="$other_device_token" jc POST /check-otp -d '{ "otp": "000000" }' > /dev/null
 
 seed_sessions 150
 

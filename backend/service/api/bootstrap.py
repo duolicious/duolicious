@@ -75,6 +75,7 @@ async def backfill_signed_in_at() -> None:
                 WHERE signed_in
                 AND signed_in_at IS NULL
                 LIMIT %(batch_size)s
+                FOR UPDATE SKIP LOCKED
             )
             """, dict(batch_size=_BACKFILL_BATCH_SIZE))
             updated = tx.rowcount
