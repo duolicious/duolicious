@@ -40,9 +40,9 @@ LAST_ONLINE_DEFAULT_SECONDS = 30 * 24 * 60 * 60
 # logged-out web viewers may subscribe to public profiles) can consume.
 MAX_ONLINE_SUBSCRIPTIONS = 500
 
-# Most devices a person may stay signed in on at once; older sessions are
-# signed out on each new sign-in.
-MAX_SIGNED_IN_SESSIONS = 100
+# Most sessions kept per person; on each new sign-in the rest are deleted,
+# never-signed-in ones first, then signed-out ones.
+MAX_SESSIONS = 100
 
 # Refreshing someone's 'answered-question' feed event on every public answer
 # would rewrite their (heavily indexed) person row once per swipe while they

@@ -340,7 +340,9 @@ WITH valid_session AS (
     UPDATE
         duo_session
     SET
-        signed_in = TRUE
+        signed_in = TRUE,
+        signed_in_at = NOW(),
+        otp_expiry = NOW()
     WHERE
         {_Q_OTP_SIGN_IN_CONDITION}
     RETURNING
@@ -1147,18 +1149,22 @@ WITH updated_person AS (
         id = %(person_id)s
     RETURNING
         id
-), deleted_duo_session AS (
-    DELETE FROM
+), signed_out_duo_session AS (
+    UPDATE
         duo_session
+    SET
+        signed_in = FALSE
     WHERE
         person_id = %(person_id)s
+    AND
+        signed_in
     RETURNING
         session_token_hash
 )
 SELECT
     session_token_hash
 FROM
-    deleted_duo_session
+    signed_out_duo_session
 """
 
 Q_GET_PROFILE_INFO = f"""
@@ -2250,6 +2256,10 @@ WITH deleted_token AS (
         duo_session
     ON
         duo_session.person_id = this_banned_person.person_id
+    AND
+        duo_session.session_expiry > NOW()
+    AND
+        duo_session.signed_in_at IS NOT NULL
 ), banned_person_insertion AS (
     INSERT INTO banned_person (
         normalized_email,
@@ -2966,6 +2976,7 @@ INSERT INTO duo_session (
     ref,
     ip_address,
     signed_in,
+    signed_in_at,
     pending_social_provider,
     pending_social_sub,
     asns
@@ -2977,6 +2988,7 @@ INSERT INTO duo_session (
     %(ref)s,
     %(ip_address)s,
     %(signed_in)s,
+    CASE WHEN %(signed_in)s THEN NOW() END,
     %(pending_social_provider)s,
     %(pending_social_sub)s,
     %(asns)s::bigint[]

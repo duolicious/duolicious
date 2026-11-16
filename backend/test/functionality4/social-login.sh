@@ -57,6 +57,7 @@ SESSION_TOKEN=$(jq -r .session_token <<< "$response")
 # load that extension. Matches the pattern used in `revenuecat.sh`.
 session_token_hash=$(printf '%s' "$SESSION_TOKEN" | sha512sum | cut -d' ' -f1)
 [[ "$(q "select signed_in from duo_session where session_token_hash = '$session_token_hash'")" = t ]]
+[[ "$(q "select signed_in_at is not null from duo_session where session_token_hash = '$session_token_hash'")" = t ]]
 [[ "$(q "select pending_social_provider from duo_session where pending_social_provider is not null")" = google ]]
 [[ "$(q "select pending_social_sub      from duo_session where pending_social_sub is not null")"      = google-sub-1 ]]
 

@@ -415,6 +415,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
     otp TEXT,
     ip_address inet,
     signed_in BOOLEAN NOT NULL DEFAULT FALSE,
+    signed_in_at TIMESTAMP,
     session_expiry TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '6 months'),
     otp_expiry TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes'),
     pending_social_provider TEXT,
@@ -886,8 +887,9 @@ CREATE INDEX IF NOT EXISTS idx__answer__person_id_question_id_inc_answer
 
 CREATE INDEX IF NOT EXISTS idx__duo_session__email
     ON duo_session(email);
-CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry
-    ON duo_session(session_expiry);
+CREATE INDEX IF NOT EXISTS idx__duo_session__session_expiry__signed_in
+    ON duo_session(session_expiry)
+    WHERE signed_in;
 CREATE INDEX IF NOT EXISTS idx__duo_session__person_id
     ON duo_session(person_id);
 

@@ -24,7 +24,8 @@ token_b="$SESSION_TOKEN"
 
 c POST /deactivate
 
-[[ "$(q "select count(*) from duo_session")" -eq 0 ]]
+[[ "$(q "select count(*) from duo_session where signed_in")" -eq 0 ]]
+[[ "$(q "select count(*) from duo_session where ip_address is not null")" -eq 3 ]]
 [[ "$(q "select count(*) from person where activated")" -eq 0 ]]
 
 SESSION_TOKEN="$token_b"
