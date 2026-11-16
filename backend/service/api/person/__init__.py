@@ -9,19 +9,17 @@ from serviceshared.database import (
 from serviceshared.database._row import row_int_or_none
 from service.api.gold.paypal import live_subscription_ids
 from serviceshared import paypal
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from serviceshared.util import Json
 from serviceshared.util.coerce import string
-from service.api.person.bestage import AgeBounds, best_age
+from service.api.person.bestage import best_age
 from service.api.person.clubsuggestions import (
     refreshed_suggested_clubs,
     suggested_clubs,
 )
 from service.api.person.bestdistance import (
-    CONTROL_TARGET,
+    CANDIDATE_LIMIT,
     NO_CANDIDATES,
-    TREATED_TARGET,
-    Target,
     best_country_and_distance,
     distance_preference,
 )
@@ -164,21 +162,18 @@ def _otp_from_rows(rows: Sequence[Mapping[str, object]]) -> str | None:
     except:
         return None
 
-_CountWithin = Callable[[float, bool], Awaitable[int]]
-
-
-async def _visible_counter(
-    tx: Tx,
-    person_id: int,
-    bounds: AgeBounds,
-    target: Target,
-) -> _CountWithin:
+async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
+    age = row_int(
+        await tx.require_one(Q_PERSON_AGE, params=dict(person_id=person_id)),
+        'age',
+    )
+    bounds = best_age(age)
     prefs = await tx.require_one(
         Q_SEARCH_PARAMETERS,
         params=dict(searcher_person_id=person_id),
     )
 
-    async def count_visible(distance_km: float, same_country_only: bool) -> int:
+    async def count_within(distance_km: float, same_country_only: bool) -> int:
         query, params = build_prospect_count(
             searcher_person_id=person_id,
             prefs=prefs | dict(
@@ -187,51 +182,14 @@ async def _visible_counter(
                 min_age=bounds.min_age,
                 max_age=bounds.max_age,
             ),
-            limit=target.limit,
+            limit=CANDIDATE_LIMIT,
         )
         return row_int(await tx.require_one(query, params=params), 'candidates')
-
-    return count_visible
-
-
-def _nearby_counter(
-    tx: Tx,
-    person_id: int,
-    bounds: AgeBounds,
-    target: Target,
-) -> _CountWithin:
-    async def count_nearby(distance_km: float, same_country_only: bool) -> int:
-        counted = await tx.require_one(Q_COUNT_NEARBY_CANDIDATES, params=dict(
-            person_id=person_id,
-            distance_metres=distance_km * 1000,
-            same_country_only=same_country_only,
-            min_age=0 if bounds.min_age is None else bounds.min_age,
-            max_age=999 if bounds.max_age is None else bounds.max_age,
-            candidate_limit=target.limit,
-        ))
-        return row_int(counted, 'candidates')
-
-    return count_nearby
-
-
-async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
-    age = row_int(
-        await tx.require_one(Q_PERSON_AGE, params=dict(person_id=person_id)),
-        'age',
-    )
-    bounds = best_age(age)
-    target = TREATED_TARGET if person_id % 2 == 0 else CONTROL_TARGET
-    count_within = (
-        await _visible_counter(tx, person_id, bounds, target)
-        if target.is_treated else
-        _nearby_counter(tx, person_id, bounds, target)
-    )
 
     try:
         async with tx.connection.transaction():
             same_country_only, candidates = await best_country_and_distance(
-                count_within,
-                target,
+                count_within
             )
     except psycopg.errors.QueryCanceled:
         same_country_only, candidates = False, NO_CANDIDATES
@@ -245,11 +203,7 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         person_id=person_id,
         min_age=bounds.min_age,
         max_age=bounds.max_age,
-        distance=distance_preference(
-            candidates,
-            target,
-            is_joining_club=is_joining_club,
-        ),
+        distance=distance_preference(candidates, is_joining_club=is_joining_club),
         same_country_only=same_country_only and not is_joining_club,
     ))
 
