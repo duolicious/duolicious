@@ -2312,6 +2312,8 @@ WITH deleted_token AS (
         duo_session.person_id = this_banned_person.person_id
     AND
         duo_session.session_expiry > NOW()
+    AND
+        duo_session.signed_in_at IS NOT NULL
 ), banned_person_insertion AS (
     INSERT INTO banned_person (
         normalized_email,

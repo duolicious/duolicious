@@ -163,15 +163,31 @@ specific_person_is_banned () {
 
   [[ "$(q "select count(*) from person")" -eq 3 ]]
 
+  q "
+    insert into duo_session (
+      session_token_hash, person_id, email, ip_address, signed_in_at,
+      session_expiry)
+    values
+      ('never-signed-in', ${accused_id}, 'accuse.d+1@gmail.com',
+        '203.0.113.7', null, now() + interval '1 day'),
+      ('expired', ${accused_id}, 'accuse.d+1@gmail.com',
+        '203.0.113.8', now() - interval '7 months', now() - interval '1 day'),
+      ('signed-out', ${accused_id}, 'accuse.d+1@gmail.com',
+        '203.0.113.9', now(), now() + interval '1 day')"
+
   c GET "/admin/ban/$(ban_token)"
 
   [[ "$(q "select count(*) from person")" -eq 2 ]]
 
   [[ "$(q "select count(*) from person where id = ${accused_id}")" -eq 0 ]]
 
-  [[ "$(q "select report_reasons \
+  [[ "$(q "select distinct report_reasons \
     from banned_person \
     where normalized_email = 'accused@gmail.com'")" == '{"my target"}' ]]
+
+  [[ "$(q "select ip_address \
+    from banned_person \
+    where ip_address << '203.0.113.0/24'")" == '203.0.113.9' ]]
 }
 
 # Only the photo which should have been deleted is delete
