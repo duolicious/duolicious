@@ -1,4 +1,4 @@
-import { ComponentType, ReactNode } from 'react';
+import { ComponentType, ReactNode, useState } from 'react';
 import { TextStyle, View } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -33,6 +33,9 @@ const featureCta = (feature: Feature) => feature.cta;
 const allPerksCta = () => `Get all ${FEATURES.length} with Gold`;
 
 const otherFeatures = (active: number) => FEATURES.filter((_, i) => i !== active);
+
+const activeFirst = (active: number) =>
+  [active, ...FEATURES.map((_, i) => i).filter((i) => i !== active)];
 
 const Headline = ({
   lines,
@@ -193,8 +196,10 @@ const OtherPerks = ({
     )}
   </Grid>;
 
-const Checklist = ({ active, setActive, compact }: PerksProps) =>
-  <>
+const Checklist = ({ active, setActive, compact }: PerksProps) => {
+  const [order] = useState(() => activeFirst(active));
+
+  return <>
     <Art feature={FEATURES[active]} small marginTop={compact ? 16 : 8} />
     <Headline lines={FEATURES[active].headline} size={28} marginTop={12} />
     {!compact &&
@@ -229,11 +234,11 @@ const Checklist = ({ active, setActive, compact }: PerksProps) =>
         {} INCLUDED WITH GOLD
       </DefaultText>
       <Grid marginTop={6} columnGap={8}>
-        {FEATURES.map(({ key, name }, i) =>
+        {order.map((i) =>
           <Perk
-            key={key}
+            key={FEATURES[i].key}
             iconColor={goldColor}
-            label={name}
+            label={FEATURES[i].name}
             height={28}
             gap={8}
             textStyle={{
@@ -248,8 +253,9 @@ const Checklist = ({ active, setActive, compact }: PerksProps) =>
       </Grid>
     </View>
   </>;
+};
 
-const FullList = ({ compact }: PerksProps) =>
+const FullList = ({ active, compact }: PerksProps) =>
   <>
     <Headline
       lines={['ALL OF THIS', 'COMES WITH GOLD']}
@@ -266,7 +272,7 @@ const FullList = ({ compact }: PerksProps) =>
         rowGap: compact ? 14 : 6,
       }}
     >
-      {FEATURES.map(({ key, name, description, icon }) =>
+      {[FEATURES[active], ...otherFeatures(active)].map(({ key, name, description, icon }) =>
         <View
           key={key}
           style={{
@@ -329,7 +335,7 @@ const Simple = ({ active, compact }: PerksProps) => {
         <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
           Gold includes {FEATURES[active].name.toLowerCase()},
         </DefaultText>
-        {} plus {others.slice(0, -1).join(', ')} and {others.at(-1)}.
+        {} plus {others.slice(0, -1).join(', ')} and {others.at(-1)}
       </DefaultText>
     </>
   );
