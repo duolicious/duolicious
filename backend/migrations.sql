@@ -13,3 +13,37 @@
 -- from this file: init-api.sql already carries the change for fresh databases.
 
 ALTER TABLE banned_photo_hash DROP COLUMN IF EXISTS photo_uuid;
+
+ALTER TABLE duo_session ADD COLUMN IF NOT EXISTS web_visitor_id UUID;
+
+CREATE TABLE IF NOT EXISTS experiment (
+    name TEXT PRIMARY KEY,
+    variants TEXT[] NOT NULL CHECK (cardinality(variants) >= 2),
+    started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    ended_at TIMESTAMP,
+    winner TEXT CHECK (winner = ANY(variants))
+);
+
+CREATE TABLE IF NOT EXISTS web_visitor (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ref TEXT,
+    network inet,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS web_visitor_variant (
+    web_visitor_id UUID NOT NULL REFERENCES web_visitor(id) ON DELETE CASCADE,
+    experiment_name TEXT NOT NULL REFERENCES experiment(name) ON DELETE CASCADE,
+    variant TEXT NOT NULL,
+    assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (web_visitor_id, experiment_name)
+);
+
+CREATE INDEX IF NOT EXISTS web_visitor_variant__experiment_name__idx
+    ON web_visitor_variant (experiment_name);
+
+CREATE TABLE IF NOT EXISTS web_visitor_sign_up (
+    web_visitor_id UUID PRIMARY KEY REFERENCES web_visitor(id) ON DELETE CASCADE,
+    signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
