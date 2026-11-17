@@ -81,9 +81,9 @@ expect_hidden "$prospect_id"
 q "delete from skipped"
 
 echo 'A shadow-banned prospect stays visible, as on their profile'
-q "update person set shadow_banned_at = now() where id = $prospect_id"
+q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where id = $prospect_id"
 expect_visible "$prospect_id"
-q "update person set shadow_banned_at = null where id = $prospect_id"
+q "update person set shadow_banned_at = null, shadow_banned_by = null where id = $prospect_id"
 
 echo 'The viewer can compare themself while hidden from strangers'
 q "update person set hide_me_from_strangers = true where id = $viewer_id"

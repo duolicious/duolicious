@@ -274,7 +274,7 @@ body3="hello from user 1 to user 3"
 send_message "$user1uuid" "$user1token" "$user3uuid" "$body3"
 sleep 2
 
-q "update person set shadow_banned_at = now() where id = ${user3id}"
+q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where id = ${user3id}"
 sleep 6 # let the 5s shadow-ban cache expire
 
 user3_convo=$(get_conversation "$user3uuid" "$user3token" "$user1uuid")

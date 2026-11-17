@@ -6,6 +6,7 @@ fastapi
 google-auth[requests]
 httpx
 limits[async-redis]
+maxminddb
 nltk
 numpy
 numpy==1.26.4
