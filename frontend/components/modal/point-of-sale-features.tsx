@@ -2,10 +2,10 @@ import { DimensionValue, TextStyle, View, ViewStyle } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBrush,
   faCheckDouble,
-  faEyeSlash,
+  faGhost,
   faMoon,
+  faPalette,
   faPencil,
   faUserGroup,
 } from '@fortawesome/free-solid-svg-icons';
@@ -259,7 +259,7 @@ const ProfileTheme = () =>
       <Bar width="70%" color={themeColors[1]} marginTop={5} />
       <Bar width="80%" color={themeColors[1]} marginTop={5} />
     </View>
-    <Badge icon={faBrush} left={196} top={-4} />
+    <Badge icon={faPalette} left={196} top={-4} />
     {themeColors.map((color, i) =>
       <View
         key={color}
@@ -403,10 +403,10 @@ const FEATURES = [
   },
   {
     key: 'profile-theme',
-    name: 'Profile colors',
-    description: 'Choose the colors visitors see.',
-    verb: 'COME',
-    icon: faBrush,
+    name: 'Profile theme',
+    description: 'Customize how your profile appears to others.',
+    verb: 'COMES',
+    icon: faPalette,
     headline: ['YOUR PROFILE,', 'YOUR COLORS'],
     subtitle: 'Choose the colors other members see when they visit your profile.',
     cta: 'Pick my colors',
@@ -414,10 +414,10 @@ const FEATURES = [
   },
   {
     key: 'privacy',
-    name: 'Privacy controls',
+    name: 'Privacy settings',
     description: 'Browse invisibly and hide from strangers.',
     verb: 'COME',
-    icon: faEyeSlash,
+    icon: faGhost,
     headline: ['LURK IN', 'PEACE'],
     subtitle: 'Browse invisibly, hide from strangers, and keep your age or location to yourself.',
     cta: 'Let me lurk in peace',
@@ -425,7 +425,7 @@ const FEATURES = [
   },
   {
     key: 'display-name',
-    name: 'Name changes',
+    name: 'Display name changes',
     description: 'Change the name on your profile.',
     verb: 'COME',
     icon: faPencil,
