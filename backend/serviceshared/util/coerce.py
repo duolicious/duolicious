@@ -26,12 +26,6 @@ def number(value: object, field_name: str | None = None) -> int | float:
     return value
 
 
-def number_or_zero(value: object) -> int | float:
-    if value is None:
-        return 0
-    return number(value)
-
-
 def string(value: object, field_name: str | None = None) -> str:
     if not isinstance(value, str):
         raise RuntimeError(_message('a string', field_name))
@@ -79,12 +73,6 @@ def mapping(value: object, field_name: str | None = None) -> Mapping[str, object
     return value
 
 
-def mapping_or_empty(value: object) -> Mapping[str, object]:
-    if value is None:
-        return {}
-    return mapping(value)
-
-
 def mapping_sequence(
     value: object,
     field_name: str | None = None,
@@ -100,15 +88,3 @@ def mapping_sequence_or_empty(value: object) -> Sequence[Mapping[str, object]]:
     if value is None:
         return []
     return mapping_sequence(value)
-
-
-def sequence(value: object, field_name: str | None = None) -> Sequence[object]:
-    if not isinstance(value, list):
-        raise RuntimeError(_message('sequence', field_name))
-    return value
-
-
-def sequence_or_empty(value: object) -> Sequence[object]:
-    if value is None:
-        return []
-    return sequence(value)

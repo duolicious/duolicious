@@ -20,29 +20,6 @@ MAX_SUGGESTED_CLUBS = 12
 
 MAX_SEARCH_FILTER_ANSWERS = 20
 
-# How often the user should be nagged to donate, in days. The frequency
-# increases as funds run out.
-_Q_DONATION_NAG_FREQUENCY = """
-SELECT
-    make_interval(
-        days => greatest(2, estimated_end_date::date - NOW()::date) / 2
-    )
-FROM
-    funding
-"""
-
-_Q_DO_SHOW_DONATION_NAG = f"""
-(
-        {{table}}.sign_up_time < NOW() - ({_Q_DONATION_NAG_FREQUENCY})
-    AND
-        {{table}}.count_answers >= 25
-) AS do_show_donation_nag
-"""
-
-_Q_ESTIMATED_END_DATE = """
-(SELECT iso8601_utc(estimated_end_date) FROM funding) AS estimated_end_date
-"""
-
 def _prospect_has_messaged_viewer_sql(prospect_id: str) -> str:
     return f"""EXISTS (
         SELECT 1 FROM messaged
@@ -370,8 +347,6 @@ SELECT
     person_uuid,
     has_gold,
     (SELECT name FROM unit WHERE id = existing_person.unit_id) AS units,
-    {_Q_DO_SHOW_DONATION_NAG.format(table='existing_person')},
-    {_Q_ESTIMATED_END_DATE},
     existing_person.name AS name
 FROM
     valid_session
@@ -549,8 +524,6 @@ SELECT
     new_person.uuid AS person_uuid,
     new_person.url_slug,
     (SELECT name FROM unit WHERE unit.id = new_person.unit_id) AS units,
-    false AS do_show_donation_nag,
-    {_Q_ESTIMATED_END_DATE},
     new_person.name AS name
 FROM
     new_person
@@ -960,8 +933,6 @@ Q_CHECK_SESSION_TOKEN = f"""
 SELECT
     name,
     {has_gold_sql('person.id')} AS has_gold,
-    {_Q_DO_SHOW_DONATION_NAG.format(table='person')},
-    {_Q_ESTIMATED_END_DATE},
     (SELECT name FROM unit WHERE unit.id = person.unit_id) AS units
 FROM
     person
@@ -2465,15 +2436,6 @@ SELECT
     ) AS num_active_users
 """
 
-Q_PERSON_ID_TO_UUID = """
-SELECT
-    uuid::text
-FROM
-    person
-WHERE
-    id = %(person_id)s
-"""
-
 Q_ADMIN_TOKEN_TO_UUID = """
 SELECT
     person.uuid::text AS person_uuid
@@ -3040,8 +3002,6 @@ SELECT
     existing_person.person_uuid,
     existing_person.has_gold,
     (SELECT name FROM unit WHERE id = existing_person.unit_id) AS units,
-    {_Q_DO_SHOW_DONATION_NAG.format(table='existing_person')},
-    {_Q_ESTIMATED_END_DATE},
     existing_person.name AS name
 FROM
     existing_person

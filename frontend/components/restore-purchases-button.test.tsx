@@ -95,7 +95,6 @@ describe('pressing Restore Purchases in the mobile apps', () => {
       units: 'Metric',
       sessionToken: 'token',
       pendingClub: null,
-      estimatedEndDate: new Date(),
       name: null,
       hasGold: false,
     });

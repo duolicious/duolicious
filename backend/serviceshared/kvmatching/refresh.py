@@ -189,17 +189,6 @@ async def _write_vector(tx: Tx, s: Spec, person_id: int, person: Row,
     ))
 
 
-async def build_vectors(tx: Tx, person_id: int) -> None:
-    """Recompute this person's cached sums and vector from scratch, reading
-    every answer they have: the backfill's unit of work."""
-    s = spec()
-    person = await _person_row(tx, person_id)
-    if person is None:
-        return
-    qpre = await _build_qpre(tx, s, person_id, person)
-    await _write_vector(tx, s, person_id, person, qpre)
-
-
 async def refresh(
     tx: Tx,
     person_id: int,

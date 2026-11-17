@@ -7,7 +7,6 @@ source ../util/setup.sh
 
 set -xe
 
-date_in_20_days=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)")
 
 q "delete from duo_session"
 q "delete from person"
@@ -15,7 +14,6 @@ q "delete from onboardee"
 q "delete from ref_sign_up_count"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
-q "update funding set estimated_end_date = '$date_in_20_days'"
 
 ! jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "" }' || exit 1
 
@@ -74,9 +72,7 @@ response=$(c POST /finish-onboarding)
 [[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
 [[ "$(q "select ref || ' ' || count || ' ' || (hour = date_trunc('hour', hour)) from ref_sign_up_count")" = "reddit 1 true" ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
-[[ "$(jq -r .do_show_donation_nag <<< "$response")" = false ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]
-[[ "$(jq -r '.estimated_end_date' <<< "$response")" = "$date_in_20_days" ]]
 
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 0 ]]
 

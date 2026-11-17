@@ -53,7 +53,6 @@ type CheckSessionTokenResponse = {
   person_uuid?: string;
   pending_club?: ClubItem | null;
   units?: string;
-  estimated_end_date?: string;
   name?: string | null;
   has_gold?: boolean;
 };
@@ -225,7 +224,6 @@ const useAppStartup = (
       units: json.units === 'Imperial' ? 'Imperial' : 'Metric',
       sessionToken: existingSessionToken,
       pendingClub: pendingClub,
-      estimatedEndDate: new Date(json.estimated_end_date ?? NaN),
       name: json.name ?? null,
       hasGold: json.has_gold ?? false,
     });
