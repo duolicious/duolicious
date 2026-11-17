@@ -266,6 +266,7 @@ async def post_request_otp(
         normalized_email=normalized,
         pending_club_name=req.pending_club_name,
         ref=req.ref,
+        web_visitor_id=req.web_visitor_id,
         is_dev=DUO_ENV == 'dev',
         session_token_hash=session_token_hash,
         ip_address=remote_addr,
@@ -455,6 +456,7 @@ async def _sign_in_with_social(
             email=email,
             pending_club_name=req.pending_club_name,
             ref=req.ref,
+            web_visitor_id=req.web_visitor_id,
             ip_address=remote_addr,
             signed_in=not needs_otp,
             pending_social_provider=provider if pending else None,
@@ -715,6 +717,10 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
         await tx.execute(Q_INSERT_PERSON_REF, dict(
             session_token_hash=s.session_token_hash,
             person_id=person_id,
+        ))
+
+        await tx.execute(Q_INSERT_WEB_VISITOR_SIGN_UP, dict(
+            session_token_hash=s.session_token_hash,
         ))
 
         clubs = await _handle_pending_club(

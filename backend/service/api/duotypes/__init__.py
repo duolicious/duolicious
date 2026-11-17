@@ -25,6 +25,7 @@ from pydantic import (
 )
 from datetime import datetime, date
 from decimal import Decimal
+from uuid import UUID
 from dateutil.relativedelta import relativedelta
 from PIL import Image
 from pillow_heif import register_heif_opener
@@ -400,6 +401,12 @@ class SignInRequest(BaseModel):
         min_length=1,
         max_length=CLUB_MAX_LEN,
     )
+    ref: SignUpRef = None
+    web_visitor_id: UUID | None = None
+
+
+class PostWebVisitor(BaseModel):
+    web_visitor_id: UUID | None = None
     ref: SignUpRef = None
 
 

@@ -31,6 +31,7 @@ import { computeStartupNavigationState } from '../navigation/startup';
 import { createLinking, focusedConversationHandle } from '../navigation/linking';
 import { resetUserScopedClientState } from '../navigation/reset-client-state';
 import { hasPendingWebSignIn } from '../api/social-auth';
+import { recordWebVisit } from '../api/web-visitor';
 import { adoptWebSessionOnApex } from '../kv-storage/session-bridge';
 import { showSignUp } from '../components/modal/sign-up-modal';
 import { loadAnonymousAnswers } from '../events/anonymous-answers';
@@ -153,6 +154,8 @@ const useAppStartup = (
       isAuthenticated: boolean,
       pendingClub: ClubItem | null = null,
     ) => {
+      if (!isAuthenticated) recordWebVisit();
+
       const result = await computeStartupNavigationState({
         linking,
         isAuthenticated,
