@@ -1,5 +1,6 @@
 import * as _ from "lodash";
 import { api, japi } from '../api/api';
+import { webVisitorId } from '../api/experiments';
 import { applyAuthenticatedResponse, AuthResult } from '../api/auth';
 import { navigationContainerRef } from '../App';
 import {
@@ -1437,7 +1438,7 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           if (typeof existingSessionToken !== 'string') return false;
 
           const response = await onboardingQueue.addTask(
-            async () => await japi('post', '/finish-onboarding')
+            async () => await japi('post', '/finish-onboarding', { web_visitor_id: webVisitorId })
           );
 
           if (response.ok) {
