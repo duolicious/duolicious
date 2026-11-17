@@ -739,9 +739,6 @@ CREATE TABLE IF NOT EXISTS banned_person (
 CREATE TABLE IF NOT EXISTS funding (
     id SMALLINT PRIMARY KEY,
 
-    estimated_end_date TIMESTAMP NOT NULL,
-    cost_per_month_usd FLOAT NOT NULL,
-
     token_hash_revenuecat TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT id CHECK (id = 1)
@@ -1520,8 +1517,8 @@ WHERE
     )
 ON CONFLICT DO NOTHING;
 
-INSERT INTO funding (id, estimated_end_date, cost_per_month_usd)
-VALUES (1, now() + interval '1 year', 360.0)
+INSERT INTO funding (id)
+VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
 --------------------------------------------------------------------------------
