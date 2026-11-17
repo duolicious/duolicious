@@ -19,6 +19,8 @@ setup () {
   q "delete from banned_person_admin_token"
   q "delete from deleted_photo_admin_token"
   q "delete from banned_photo_hash"
+  q "delete from network_activity_delta"
+  q "delete from network_activity"
 
   ../util/create-user.sh 'reporter@gmail.com' 0 0
   assume_role 'reporter@gmail.com'
@@ -327,6 +329,16 @@ accused_is_shadow_banned () {
   q "select shadow_banned_at is not null from person where id = ${accused_id}"
 }
 
+network_shadow_bans () {
+  q "
+    select round(sum(shadow_bans)) from (
+      select shadow_bans from network_activity
+      union all
+      select shadow_bans from network_activity_delta
+    ) as counted
+  "
+}
+
 # Two trustworthy bot reports automatically shadow ban a non-gold user
 automod_shadow_bans_after_two_bot_reports () {
   setup_trustworthy_reporters
@@ -335,11 +347,13 @@ automod_shadow_bans_after_two_bot_reports () {
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "this is a scammer" }'
   [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
 
   # A second one from another trustworthy reporter trips the automod
   assume_role 'reporter2@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
   [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
 }
 
 # Gold users are never automatically shadow banned

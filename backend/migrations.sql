@@ -12,3 +12,17 @@
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
 
+CREATE TABLE IF NOT EXISTS network_activity (
+    network CIDR PRIMARY KEY,
+    sign_ups FLOAT4 NOT NULL DEFAULT 0,
+    shadow_bans FLOAT4 NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS network_activity_delta (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    network CIDR NOT NULL,
+    sign_ups SMALLINT NOT NULL DEFAULT 0,
+    shadow_bans SMALLINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

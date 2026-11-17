@@ -384,6 +384,21 @@ CREATE TABLE IF NOT EXISTS unmoderated_person (
     PRIMARY KEY (person_id, trait)
 );
 
+CREATE TABLE IF NOT EXISTS network_activity (
+    network CIDR PRIMARY KEY,
+    sign_ups FLOAT4 NOT NULL DEFAULT 0,
+    shadow_bans FLOAT4 NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS network_activity_delta (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    network CIDR NOT NULL,
+    sign_ups SMALLINT NOT NULL DEFAULT 0,
+    shadow_bans SMALLINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS onboardee (
     email TEXT NOT NULL,
 

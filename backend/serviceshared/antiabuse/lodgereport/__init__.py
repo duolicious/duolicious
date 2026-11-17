@@ -11,7 +11,7 @@ from serviceshared.antiabuse.sql import (
     Q_MAKE_REPORT,
     Q_INSERT_SKIPPED,
     Q_TRUSTWORTHY_REPORTS,
-    Q_SHADOW_BAN,
+    Q_SHADOW_BAN_BY_REPORT,
 )
 from serviceshared.antiabuse.lodgereport.constants import (
     PRIMARY_REPORT_EMAIL,
@@ -336,7 +336,7 @@ async def skip_by_uuid(
             )
 
             if is_shadow_banned:
-                await tx.execute(Q_SHADOW_BAN, params=params)
+                await tx.execute(Q_SHADOW_BAN_BY_REPORT, params=params)
 
     if reason:
         await lodge_report(

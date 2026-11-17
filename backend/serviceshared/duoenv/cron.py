@@ -69,3 +69,6 @@ CLUB_VECTOR_WRITE_RETRY_SECONDS = \
 # When set, skip the OpenAI call and use this string. Lets the tests
 # exercise the cron without an API key.
 CLUB_SEO_MOCK_DESCRIPTION = str_or_none('DUO_CRON_CLUB_SEO_MOCK_DESCRIPTION')
+
+NETWORK_ACTIVITY_POLL_SECONDS = \
+    int_with('DUO_CRON_NETWORK_ACTIVITY_POLL_SECONDS', 60)
