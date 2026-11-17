@@ -795,7 +795,7 @@ test_sad_shadow_banned_visitor () {
 
   give_user1_a_phone 'token_shadow_banned'
 
-  q "update person set shadow_banned_at = now() where uuid = '$user2id'"
+  q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where uuid = '$user2id'"
 
   insert_visit "$user2id" "$user1id" '11 minutes'
 

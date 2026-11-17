@@ -45,7 +45,7 @@ excludes_deactivated_and_shadow_banned () {
   setup
 
   q "update person set activated = false where email = 'user1@example.com'"
-  q "update person set shadow_banned_at = now() where email = 'user2@example.com'"
+  q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where email = 'user2@example.com'"
 
   j_assert_length "$(public_search)" 1
 }

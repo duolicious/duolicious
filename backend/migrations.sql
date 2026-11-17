@@ -26,3 +26,25 @@ EXCEPTION
 END $$;
 
 ALTER TABLE person ADD COLUMN IF NOT EXISTS shadow_banned_by shadow_ban_source;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'person_shadow_ban_has_source'
+    ) THEN
+        UPDATE person
+        SET shadow_banned_by = 'human'
+        WHERE shadow_banned_at IS NOT NULL AND shadow_banned_by IS NULL;
+
+        ALTER TABLE person ADD CONSTRAINT person_shadow_ban_has_source
+            CHECK ((shadow_banned_at IS NULL) = (shadow_banned_by IS NULL));
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS high_risk_score (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    hours SMALLINT NOT NULL,
+    score FLOAT4 NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (person_id, hours)
+);

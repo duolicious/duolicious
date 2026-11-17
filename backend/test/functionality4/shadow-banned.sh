@@ -40,11 +40,11 @@ setup () {
 }
 
 ban () {
-  q "update person set shadow_banned_at = now() where name = '$1'"
+  q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where name = '$1'"
 }
 
 unban () {
-  q "update person set shadow_banned_at = null where name = '$1'"
+  q "update person set shadow_banned_at = null, shadow_banned_by = null where name = '$1'"
 }
 
 search_names () {

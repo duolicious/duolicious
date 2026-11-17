@@ -20,6 +20,7 @@ from service.cron.clubseo import (
     refresh_club_top_answers_forever,
 )
 from service.cron.garbagerecords import delete_garbage_records_forever
+from service.cron.highrisk import check_high_risk_forever
 from service.cron.spotifyrefresh import refresh_spotify_forever
 from service.cron.messagenotifications import (
     CHAT_NOTIFICATIONS,
@@ -79,6 +80,8 @@ async def main() -> None:
             clean_audio_forever(),
 
             predict_nsfw_v2_photos_forever(),
+
+            check_high_risk_forever(),
 
             # Should only be enabled when it's likely that the object store
             # contains photos which aren't tracked by the DB

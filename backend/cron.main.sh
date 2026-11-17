@@ -22,5 +22,6 @@ then
 fi
 
 serviceshared/antiabuse/clipnsfw/download-model.sh
+serviceshared/antiabuse/highrisk/download-dbip.sh
 
 exec python3 service/cron/__init__.py

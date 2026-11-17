@@ -411,7 +411,7 @@ echo "A shadow-banned reactor only updates their own side"
 body2="message from user 2 to user 3"
 send_message_as user2 "$user2uuid" "$user3uuid" "$body2"
 
-q "update person set shadow_banned_at = now() where id = ${user3id}"
+q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where id = ${user3id}"
 sleep 6 # let the 5s shadow-ban cache expire
 
 chat_auth_as user3 "$user3uuid" "$user3token"

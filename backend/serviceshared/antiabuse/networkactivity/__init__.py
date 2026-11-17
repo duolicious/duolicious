@@ -47,3 +47,38 @@ ON CONFLICT (network) DO UPDATE SET
         + network_activity.shadow_bans * {_DECAY_SINCE_UPDATE},
     updated_at = now()
 """
+
+
+NETWORK_EVENT = f"""
+network_event AS (
+    SELECT DISTINCT
+        {network_sql('duo_session.ip_address')} AS network,
+        person.id AS person_id,
+        event.kind,
+        event.at
+    FROM
+        person
+    JOIN
+        duo_session
+    ON
+        duo_session.person_id = person.id
+    CROSS JOIN LATERAL (
+        VALUES
+            ('sign up', person.sign_up_time),
+            ('shadow ban', person.shadow_banned_at)
+    ) AS event(kind, at)
+    WHERE
+        duo_session.ip_address IS NOT NULL
+    AND
+        duo_session.signed_in_at < event.at
+    AND NOT (
+        event.kind = 'shadow ban'
+        AND person.shadow_banned_by = 'model'
+    )
+)
+"""
+
+
+def replayed_sql(kind: Literal['sign up', 'shadow ban'], until: str) -> str:
+    return f"""coalesce(sum({decay_sql('network_event.at', until)})
+        FILTER (WHERE network_event.kind = '{kind}'), 0)"""

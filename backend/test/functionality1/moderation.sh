@@ -380,7 +380,7 @@ automod_ignores_untrustworthy_reporters () {
      set sign_up_time = now()
      where email = 'reporter@gmail.com'"
   q "update person
-     set shadow_banned_at = now()
+     set shadow_banned_at = now(), shadow_banned_by = 'human'
      where email = 'reporter2@gmail.com'"
 
   assume_role 'reporter@gmail.com'
