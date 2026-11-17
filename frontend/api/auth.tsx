@@ -21,7 +21,6 @@ type AuthenticatedResponse = {
   units: string;
   clubs: ClubItem[];
   pending_club: ClubItem | null;
-  estimated_end_date: string;
   name: string | null;
   has_gold: boolean;
   session_token?: string;
@@ -61,7 +60,6 @@ export const applyAuthenticatedResponse = async (
     units: json.units === 'Imperial' ? 'Imperial' : 'Metric',
     sessionToken: existingSessionToken,
     pendingClub: pendingClub,
-    estimatedEndDate: new Date(json.estimated_end_date),
     name: json.name,
     hasGold: json.has_gold,
   });

@@ -20,8 +20,6 @@ DOT_VARIATIONS_GROUP = (
     r'\s*(?:\.|;|:|,)\s*'
 )
 
-EXTRANEOUS_SPACES = re.compile(r'\s+')
-
 # A set of TLDs we consider "common" and always safe to unify
 COMMON_TLDS = {'com', 'net', 'org', 'gg', 'co', 'io'}
 

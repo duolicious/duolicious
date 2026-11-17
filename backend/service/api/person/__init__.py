@@ -475,7 +475,6 @@ async def _sign_in_with_social(
                 person_uuid=None,
                 has_gold=False,
                 units=None,
-                estimated_end_date=None,
                 name=None,
             )
 

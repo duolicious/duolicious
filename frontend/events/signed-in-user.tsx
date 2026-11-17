@@ -10,7 +10,6 @@ type SignedInUser = {
   units: 'Metric' | 'Imperial'
   sessionToken: string
   pendingClub: ClubItem | null
-  estimatedEndDate: Date
   name: string | null
   hasGold: boolean
 };

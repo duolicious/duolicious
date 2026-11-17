@@ -19,15 +19,12 @@ set -xe
 NONCE="test-nonce-0000000000000000"
 
 reset_db () {
-  local future
-  future=$(q "select iso8601_utc((now() + interval '20 days')::timestamp)")
   q "delete from duo_session"
   q "delete from social_identity"
   q "delete from person"
   q "delete from onboardee"
   q "delete from ref_sign_up_count"
   q "delete from banned_person"
-  q "update funding set estimated_end_date = '$future'"
 }
 
 # ---------------------------------------------------------------------------
