@@ -18,10 +18,8 @@ from service.api.person.clubsuggestions import (
     suggested_clubs,
 )
 from service.api.person.bestdistance import (
-    CONTROL_TARGET,
+    CANDIDATE_LIMIT,
     NO_CANDIDATES,
-    TREATED_TARGET,
-    candidate_limit,
     best_country_and_distance,
     distance_preference,
 )
@@ -170,7 +168,6 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         'age',
     )
     bounds = best_age(age)
-    target = TREATED_TARGET if person_id % 2 == 0 else CONTROL_TARGET
     prefs = await tx.require_one(
         Q_SEARCH_PARAMETERS,
         params=dict(searcher_person_id=person_id),
@@ -185,15 +182,14 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
                 min_age=bounds.min_age,
                 max_age=bounds.max_age,
             ),
-            limit=candidate_limit(target),
+            limit=CANDIDATE_LIMIT,
         )
         return row_int(await tx.require_one(query, params=params), 'candidates')
 
     try:
         async with tx.connection.transaction():
             same_country_only, candidates = await best_country_and_distance(
-                count_within,
-                target,
+                count_within
             )
     except psycopg.errors.QueryCanceled:
         same_country_only, candidates = False, NO_CANDIDATES
@@ -207,11 +203,7 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         person_id=person_id,
         min_age=bounds.min_age,
         max_age=bounds.max_age,
-        distance=distance_preference(
-            candidates,
-            target,
-            is_joining_club=is_joining_club,
-        ),
+        distance=distance_preference(candidates, is_joining_club=is_joining_club),
         same_country_only=same_country_only and not is_joining_club,
     ))
 
