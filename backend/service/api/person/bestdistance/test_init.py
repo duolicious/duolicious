@@ -17,7 +17,7 @@ class TestBestDistance(unittest.TestCase):
 
         for target, expected in [
             (CONTROL_TARGET, Candidates(625.0, 531)),
-            (TREATED_TARGET, Candidates(1250.0, 1062)),
+            (TREATED_TARGET, Candidates(312.5, 266)),
         ]:
             with self.subTest(target=target):
                 self.assertEqual(
@@ -36,11 +36,11 @@ class TestBestDistance(unittest.TestCase):
 
     def test_falls_back_to_any_country(self) -> None:
         async def count_within(distance_km: float, same_country_only: bool) -> int:
-            return 0 if same_country_only else round(distance_km)
+            return 0 if same_country_only else round(distance_km * 2)
 
         self.assertEqual(
             asyncio.run(best_country_and_distance(count_within, TREATED_TARGET)),
-            (False, Candidates(937.5, 938)),
+            (False, Candidates(156.25, 312)),
         )
 
     def test_has_no_limit_past_max(self) -> None:

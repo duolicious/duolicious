@@ -21,7 +21,6 @@ from service.api.person.bestdistance import (
     CONTROL_TARGET,
     NO_CANDIDATES,
     TREATED_TARGET,
-    candidate_limit,
     best_country_and_distance,
     distance_preference,
 )
@@ -185,7 +184,7 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
                 min_age=bounds.min_age,
                 max_age=bounds.max_age,
             ),
-            limit=candidate_limit(target),
+            limit=target.limit,
         )
         return row_int(await tx.require_one(query, params=params), 'candidates')
 
