@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 CONTROL_TARGET = 500
-TREATED_TARGET = 1000
+TREATED_TARGET = CONTROL_TARGET // 2
 
 _ITERATIONS = 5
 _SEARCH_CEILING_KM = 10000.0
