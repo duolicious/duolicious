@@ -28,7 +28,6 @@ const signedInUser = (hasGold: boolean): SignedInUser => ({
   units: 'Metric',
   sessionToken: 'token',
   pendingClub: null,
-  estimatedEndDate: new Date(),
   name: null,
   hasGold,
 });
