@@ -20,3 +20,8 @@ ALTER TABLE location DROP COLUMN IF EXISTS subdivision;
 
 ALTER TABLE funding DROP COLUMN IF EXISTS estimated_end_date;
 ALTER TABLE funding DROP COLUMN IF EXISTS cost_per_month_usd;
+
+ALTER TABLE person DROP COLUMN IF EXISTS tiny_id;
+ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
+
+DROP TABLE IF EXISTS presence_histogram;
