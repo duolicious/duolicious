@@ -18,3 +18,11 @@ CREATE TABLE IF NOT EXISTS network_activity (
     shadow_bans FLOAT4 NOT NULL DEFAULT 0,
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+DO $$ BEGIN
+    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+ALTER TABLE person ADD COLUMN IF NOT EXISTS shadow_banned_by shadow_ban_source;

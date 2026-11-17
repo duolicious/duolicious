@@ -340,7 +340,9 @@ async def skip_by_uuid(
             )
 
             if is_shadow_banned:
-                cur = await tx.execute(Q_SHADOW_BAN, params=params)
+                cur = await tx.execute(
+                    Q_SHADOW_BAN,
+                    params=dict(object_uuid=object_uuid, shadow_banned_by='human'))
                 banned_ids = [row['id'] for row in await cur.fetchall()]
 
     await count_network_activity('shadow_bans', banned_ids)
