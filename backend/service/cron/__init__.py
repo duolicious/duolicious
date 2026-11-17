@@ -26,7 +26,6 @@ from service.cron.messagenotifications import (
     INTRO_NOTIFICATIONS,
 )
 from service.cron.notificationdispatch import send_pending_notifications_forever
-from service.cron.networkactivity import fold_network_activity_forever
 from service.cron.nsfwphotorunner import predict_nsfw_v2_photos_forever
 from service.cron.visitornotifications import VISITOR_NOTIFICATIONS
 from service.cron.photocleaner import clean_photos_forever
@@ -100,8 +99,6 @@ async def main() -> None:
             refresh_club_top_answers_forever(),
 
             fold_club_count_deltas_forever(),
-
-            fold_network_activity_forever(),
 
             refresh_club_embeddings_forever(),
 

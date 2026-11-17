@@ -19,7 +19,6 @@ setup () {
   q "delete from banned_person_admin_token"
   q "delete from deleted_photo_admin_token"
   q "delete from banned_photo_hash"
-  q "delete from network_activity_delta"
   q "delete from network_activity"
 
   ../util/create-user.sh 'reporter@gmail.com' 0 0
@@ -330,13 +329,7 @@ accused_is_shadow_banned () {
 }
 
 network_shadow_bans () {
-  q "
-    select round(sum(shadow_bans)) from (
-      select shadow_bans from network_activity
-      union all
-      select shadow_bans from network_activity_delta
-    ) as counted
-  "
+  q "select round(sum(shadow_bans)) from network_activity"
 }
 
 # Two trustworthy bot reports automatically shadow ban a non-gold user

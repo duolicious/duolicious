@@ -6,7 +6,6 @@ from serviceshared.constants import (
     MIN_CLUB_PAGE_MEMBERS,
 )
 from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
-from serviceshared.antiabuse.networkactivity import count_network_activity_sql
 from serviceshared.gold.sql import club_quota_sql, has_gold_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
@@ -489,9 +488,6 @@ WITH onboardee_location AS (
     SET person_id = new_person.id
     FROM new_person
     WHERE duo_session.email = new_person.email
-    RETURNING duo_session.ip_address, duo_session.signed_in_at
-), counted_sign_up AS (
-    {count_network_activity_sql('sign_ups', 'updated_session')}
 ), inserted_search_preference AS (
     INSERT INTO search_preference (
         person_id,

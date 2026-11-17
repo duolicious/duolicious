@@ -19,59 +19,25 @@ def decay_sql(since: str, until: str) -> str:
 _DECAY_SINCE_UPDATE = decay_sql('network_activity.updated_at', 'now()')
 
 
-def count_network_activity_sql(
-    column: Literal['sign_ups', 'shadow_bans'],
-    sessions: str,
-) -> str:
+def count_sql(column: Literal['sign_ups', 'shadow_bans']) -> str:
     return f"""
-    INSERT INTO network_activity_delta (
-        network,
-        {column}
-    )
-    SELECT DISTINCT
-        {network_sql(f'{sessions}.ip_address')},
-        1
-    FROM
-        {sessions}
-    WHERE
-        {sessions}.ip_address IS NOT NULL
-    AND
-        {sessions}.signed_in_at IS NOT NULL
-"""
-
-
-_DECAY_SINCE_DELTA = decay_sql('consumed.created_at', 'now()')
-
-Q_FOLD_NETWORK_ACTIVITY = f"""
-WITH consumed AS (
-    DELETE FROM
-        network_activity_delta
-    RETURNING
-        network,
-        sign_ups,
-        shadow_bans,
-        created_at
-), folded AS (
-    SELECT
-        consumed.network,
-        sum(consumed.sign_ups * {_DECAY_SINCE_DELTA}) AS sign_ups,
-        sum(consumed.shadow_bans * {_DECAY_SINCE_DELTA}) AS shadow_bans
-    FROM
-        consumed
-    GROUP BY
-        consumed.network
-)
 INSERT INTO network_activity (
     network,
-    sign_ups,
-    shadow_bans
+    {column}
 )
-SELECT
-    network,
-    sign_ups,
-    shadow_bans
+SELECT DISTINCT
+    {network_sql('ip_address')},
+    1
 FROM
-    folded
+    duo_session
+WHERE
+    person_id = ANY(%(person_ids)s::INT[])
+AND
+    ip_address IS NOT NULL
+AND
+    signed_in_at IS NOT NULL
+ORDER BY
+    1
 ON CONFLICT (network) DO UPDATE SET
     sign_ups =
         EXCLUDED.sign_ups
@@ -117,12 +83,7 @@ def replayed_sql(kind: Literal['sign up', 'shadow ban'], until: str) -> str:
 _IS_UNSEEDED = 'NOT EXISTS (SELECT 1 FROM network_activity)'
 
 Q_SEED_NETWORK_ACTIVITY = f"""
-WITH discarded AS (
-    DELETE FROM
-        network_activity_delta
-    WHERE
-        {_IS_UNSEEDED}
-), {NETWORK_EVENT}
+WITH {NETWORK_EVENT}
 INSERT INTO network_activity (
     network,
     sign_ups,

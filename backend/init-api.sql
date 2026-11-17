@@ -391,14 +391,6 @@ CREATE TABLE IF NOT EXISTS network_activity (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS network_activity_delta (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    network CIDR NOT NULL,
-    sign_ups SMALLINT NOT NULL DEFAULT 0,
-    shadow_bans SMALLINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS onboardee (
     email TEXT NOT NULL,
 

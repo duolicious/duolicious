@@ -7,20 +7,6 @@ source ../util/setup.sh
 
 set -ex
 
-folded () {
-  [[ "$(q "select count(*) from network_activity_delta")" = 0 ]]
-}
-
-wait_for_fold () {
-  for _ in $(seq 60)
-  do
-    folded && return
-    sleep 1
-  done
-
-  false
-}
-
 network_activity () {
   q "
     select network, round(sign_ups::numeric, 2), round(shadow_bans::numeric, 2)
@@ -30,13 +16,10 @@ network_activity () {
 }
 
 q "delete from person"
-wait_for_fold
 q "delete from network_activity"
 
 ../util/create-user.sh user1 0 0
 ../util/create-user.sh user2 0 0
-
-wait_for_fold
 
 [[ "$(q "select round(sum(sign_ups)) from network_activity")" = 2 ]]
 

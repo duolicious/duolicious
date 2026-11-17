@@ -38,6 +38,9 @@ from serviceshared.spotify.sql import (
 )
 from service.api.duohash import sha512
 from service.api.person.sql import *
+from serviceshared.antiabuse.networkactivity.count import (
+    count_network_activity,
+)
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
@@ -726,6 +729,8 @@ async def post_finish_onboarding(s: t.SessionInfo) -> object:
             s.session_token_hash,
             person_id,
         )
+
+    await count_network_activity('sign_ups', [person_id])
 
     await sessioncache.delete_session(s.session_token_hash)
 

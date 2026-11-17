@@ -1,4 +1,3 @@
-from serviceshared.antiabuse.networkactivity import count_network_activity_sql
 from serviceshared.gold.sql import has_gold_sql
 
 BOT_ACCOUNT_SQL = """
@@ -331,21 +330,4 @@ AND
     shadow_banned_at IS NULL
 RETURNING
     id
-"""
-
-Q_SHADOW_BAN_BY_REPORT = f"""
-WITH shadow_banned AS (
-    {Q_SHADOW_BAN}
-), shadow_banned_session AS (
-    SELECT
-        duo_session.ip_address,
-        duo_session.signed_in_at
-    FROM
-        shadow_banned
-    JOIN
-        duo_session
-    ON
-        duo_session.person_id = shadow_banned.id
-)
-{count_network_activity_sql('shadow_bans', 'shadow_banned_session')}
 """
