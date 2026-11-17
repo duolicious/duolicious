@@ -145,13 +145,6 @@ type OptionGroupPhotos = {
   }
 };
 
-type OptionGroupTextLong = {
-  textLong: {
-    submit: (input: string) => Promise<boolean>
-    invalidMsg?: string
-  }
-};
-
 type OptionGroupTextShort = {
   textShort: {
     submit: (input: string) => Promise<boolean>
@@ -242,7 +235,6 @@ type OptionGroupInputs
   | OptionGroupRangeSlider
   | OptionGroupGivenName
   | OptionGroupDate
-  | OptionGroupTextLong
   | OptionGroupTextShort
   | OptionGroupOtp
   | OptionGroupCheckChips
@@ -294,10 +286,6 @@ const isOptionGroupGivenName = (x: OptionGroupInputs): x is OptionGroupGivenName
 
 const isOptionGroupDate = (x: OptionGroupInputs): x is OptionGroupDate => {
   return hasExactKeys(x, ['date']);
-}
-
-const isOptionGroupTextLong = (x: OptionGroupInputs): x is OptionGroupTextLong => {
-  return hasExactKeys(x, ['textLong']);
 }
 
 const isOptionGroupTextShort = (x: OptionGroupInputs): x is OptionGroupTextShort => {
@@ -2327,7 +2315,6 @@ export {
   OptionGroupPhotos,
   OptionGroupRangeSlider,
   OptionGroupSlider,
-  OptionGroupTextLong,
   OptionGroupTextShort,
   OptionGroupThemePicker,
   OptionGroupVerificationChecker,
@@ -2350,7 +2337,6 @@ export {
   isOptionGroupOtp,
   isOptionGroupRangeSlider,
   isOptionGroupSlider,
-  isOptionGroupTextLong,
   isOptionGroupTextShort,
   isOptionGroupThemePicker,
   isOptionGroupVerificationChecker,

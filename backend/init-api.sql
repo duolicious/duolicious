@@ -146,7 +146,6 @@ CREATE TABLE IF NOT EXISTS location (
     short_friendly TEXT NOT NULL,
     long_friendly TEXT NOT NULL,
     city TEXT NOT NULL,
-    subdivision TEXT NOT NULL,
     country TEXT NOT NULL,
     coordinates GEOGRAPHY(Point, 4326) NOT NULL,
     verification_required BOOLEAN NOT NULL DEFAULT FALSE,
@@ -878,8 +877,6 @@ CREATE INDEX IF NOT EXISTS
 
 CREATE INDEX IF NOT EXISTS idx__person__sign_up_time
     ON person(sign_up_time);
-CREATE INDEX IF NOT EXISTS idx__person__tiny_id
-    ON person(tiny_id);
 CREATE INDEX IF NOT EXISTS idx__person__email
     ON person(email);
 CREATE INDEX IF NOT EXISTS idx__person__uuid
@@ -1838,14 +1835,6 @@ CREATE TABLE IF NOT EXISTS rude_message (
 CREATE INDEX IF NOT EXISTS duo_idx__mam_message__remote_bare_jid__id
 ON mam_message(remote_bare_jid, id)
 WHERE direction = 'I';
-
-CREATE INDEX IF NOT EXISTS
-    idx__inbox__luser__timestamp
-    ON inbox(luser, timestamp);
-
-CREATE INDEX IF NOT EXISTS
-    idx__inbox__luser__box
-    ON inbox(luser, box);
 
 CREATE INDEX IF NOT EXISTS idx__person__last_online_time
     ON person(last_online_time);

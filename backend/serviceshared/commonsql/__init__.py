@@ -73,8 +73,7 @@ CLUB_VECTOR_ASSIGNMENT = """
             WHERE person_club.person_id = person.id
         ),
         array_full(64, 0)::VECTOR(64)
-    ),
-    club_vector_computed_at = NOW()
+    )
 """
 
 

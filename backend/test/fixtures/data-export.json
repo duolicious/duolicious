@@ -2319,8 +2319,7 @@
     ],
     "skipped": null,
     "messaged": null,
-    "mam_message": null,
-    "presence_histogram": null
+    "mam_message": null
   },
   "search_filters": {
     "answer": [],

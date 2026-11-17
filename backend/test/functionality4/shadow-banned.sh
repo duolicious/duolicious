@@ -43,10 +43,6 @@ ban () {
   q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where name = '$1'"
 }
 
-unban () {
-  q "update person set shadow_banned_at = null, shadow_banned_by = null where name = '$1'"
-}
-
 search_names () {
   c GET "/search?n=10&o=0" | jq -r '[.[].name] | sort | join(" ")'
 }

@@ -9,7 +9,6 @@ import {
   PanResponder,
   StyleSheet,
   View,
-  ViewStyle,
 } from 'react-native';
 import {
   LinearGradient,
@@ -20,12 +19,10 @@ import {
 } from './util';
 
 type HuePickerProps = {
-  borderRadius: number;
   barWidth: number;
   barHeight: number;
   sliderSize: number;
   onDragMove?: () => void;
-  containerStyle?: ViewStyle;
 }
 
 type HuePickerRef = {
@@ -38,12 +35,10 @@ const HuePicker = forwardRef<
   HuePickerProps
 >((props, ref) => {
   const {
-    borderRadius,
     barWidth,
     barHeight,
     sliderSize,
     onDragMove,
-    containerStyle = {}
   } = props;
 
   const hueColors: readonly [string, string, ...string[]] = [
@@ -111,7 +106,6 @@ const HuePicker = forwardRef<
   return (
     <View style={[
       styles.container,
-      containerStyle,
       {
         paddingTop: sliderSize / 2,
         paddingBottom: sliderSize / 2,
@@ -119,7 +113,7 @@ const HuePicker = forwardRef<
     ]}>
       <LinearGradient
         colors={hueColors}
-        style={{ borderRadius, width: barWidth, height: barHeight }}
+        style={{ width: barWidth, height: barHeight }}
       />
       <Animated.View
         {...panResponder.panHandlers}

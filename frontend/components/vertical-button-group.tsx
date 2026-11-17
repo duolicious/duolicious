@@ -67,12 +67,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
   },
-  baseIndicator: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    backgroundColor: '#70f',
-  },
   button: {
     height: 40,
     justifyContent: 'center',

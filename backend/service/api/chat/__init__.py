@@ -816,7 +816,6 @@ async def process_websocket_messages(websocket: WebSocket) -> None:
                     update_online_forever(
                         redis_client=REDIS_WORKER_CLIENT,
                         session=session,
-                        online=True
                     )
                 )
 

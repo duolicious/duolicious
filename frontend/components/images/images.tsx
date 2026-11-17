@@ -355,7 +355,6 @@ const postAssignments = (photoAssignments: HttpPostAssignments) => {
 
 const addImage = async (
   fileNumber: SharedValue<number>,
-  showProtip: boolean,
 ) => {
   if (getIsImageLoading(fileNumber)) {
     return;
@@ -424,7 +423,6 @@ const addImage = async (
         width,
         outputEventName: EV_IMAGE_CROPPER_OUTPUT,
         fileNumber: fileNumber.value,
-        showProtip: showProtip,
       }
     );
   }
@@ -553,12 +551,10 @@ const MoveableImage = ({
   input,
   initialFileNumber,
   absolutePosition,
-  slots = [],
-  moveable = true,
-  showProtip = true,
+  slots,
 }: {
   input: OptionGroupPhotos
-  slots?: Slots,
+  slots: Slots,
   initialFileNumber: number
   absolutePosition?: {
     height: number,
@@ -566,8 +562,6 @@ const MoveableImage = ({
     left: number,
     top: number,
   },
-  moveable?: boolean,
-  showProtip?: boolean,
 }) => {
   const initialUri =
     input.photos.getUri ?
@@ -637,7 +631,7 @@ const MoveableImage = ({
   };
 
   const addImageOnStart =
-    () => addImage(fileNumber, showProtip);
+    () => addImage(fileNumber);
 
   const removeImageOnTap =
     () => removeImage(input, fileNumber);
@@ -669,7 +663,7 @@ const MoveableImage = ({
       scheduleOnRN(addImageOnStart);
     })
 
-  const composedGesture = uriState && moveable
+  const composedGesture = uriState
     ? Gesture.Exclusive(pan, tap)
     : tap;
 

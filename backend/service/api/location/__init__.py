@@ -67,7 +67,6 @@ async def init_db() -> None:
                 short_friendly,
                 long_friendly,
                 city,
-                subdivision,
                 country,
                 coordinates,
                 verification_required
@@ -75,7 +74,6 @@ async def init_db() -> None:
                 %(short_friendly)s,
                 %(long_friendly)s,
                 %(city)s,
-                %(subdivision)s,
                 %(country)s,
                 ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326),
                 %(verification_required)s

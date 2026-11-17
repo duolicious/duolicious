@@ -106,20 +106,14 @@ SELECT
         ELSE trait.max_label
     END                               AS trait_max_label,
     trait.description                 AS trait_description,
-    person_trait.name                 AS person_name,
-    person_trait.tiny_id              AS person_id,
     ROUND(100 * person_trait.ratio)   AS person_percentage,
     prospect_trait.name               AS prospect_name,
-    ROUND(100 * prospect_trait.ratio) AS prospect_percentage,
-    COALESCE(prospect_trait.ratio, 0) AS position
+    ROUND(100 * prospect_trait.ratio) AS prospect_percentage
 FROM
     trait
 LEFT JOIN
     (
         SELECT
-            id,
-            tiny_id,
-            name,
             (trait_ratio(presence_score, absence_score, 5000)).*
         FROM
             person
@@ -150,7 +144,7 @@ WHERE
 AND
     EXISTS (SELECT 1 FROM visible_prospect)
 ORDER BY
-    position DESC,
+    COALESCE(prospect_trait.ratio, 0) DESC,
     trait_name ASC
 """
 
@@ -522,7 +516,6 @@ WITH onboardee_location AS (
 SELECT
     new_person.id AS person_id,
     new_person.uuid AS person_uuid,
-    new_person.url_slug,
     (SELECT name FROM unit WHERE unit.id = new_person.unit_id) AS units,
     new_person.name AS name
 FROM
@@ -714,10 +707,6 @@ SELECT
             subject_person_id = %(person_id)s AND
             object_person_id  = prospect.id
     ) AS is_skipped,
-    -- Ads have been removed; this is kept as a constant so existing native
-    -- clients (which validate this field) keep working without the DB spending
-    -- time computing it.
-    FALSE AS advertiser_friendly,
     prospect.seconds_since_last_online,
     prospect.seconds_since_sign_up,
     prospect.gets_reply_percentage,
@@ -956,15 +945,10 @@ AND
 Q_ANSWER_COMPARISON = f"""
 WITH {_VISIBLE_PROSPECT_CTE}, prospect_name AS(
     SELECT name FROM person WHERE id = %(prospect_person_id)s
-), person_name AS(
-    SELECT name FROM person WHERE id = %(person_id)s
 )
 SELECT
-    prospect_answer.person_id AS prospect_person_id,
     (SELECT name FROM prospect_name) AS prospect_name,
     prospect_answer.answer AS prospect_answer,
-    person_answer.person_id AS person_id,
-    (SELECT name FROM person_name) AS person_name,
     person_answer.answer AS person_answer,
     person_answer.public_ AS person_public_,
     question.id AS question_id,
@@ -2775,15 +2759,6 @@ SELECT json_build_object(
             json_agg(row_to_json(mam_message))
         FROM
             mam_message
-        WHERE
-            person_id = %(person_id)s
-    ),
-
-    'presence_histogram', (
-        SELECT
-            json_agg(row_to_json(presence_histogram))
-        FROM
-            presence_histogram
         WHERE
             person_id = %(person_id)s
     )

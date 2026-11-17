@@ -4,7 +4,6 @@ import {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   ScrollView,
   View,
   ViewStyle,
@@ -58,7 +57,6 @@ import {
   OptionGroupOtp,
   OptionGroupRangeSlider,
   OptionGroupSlider,
-  OptionGroupTextLong,
   OptionGroupTextShort,
   OptionGroupThemePicker,
   OptionGroupVerificationChecker,
@@ -72,7 +70,6 @@ import {
   isOptionGroupOtp,
   isOptionGroupRangeSlider,
   isOptionGroupSlider,
-  isOptionGroupTextLong,
   isOptionGroupTextShort,
   isOptionGroupThemePicker,
   isOptionGroupVerificationChecker,
@@ -80,7 +77,6 @@ import {
 } from '../data/option-groups';
 import { getProfileInfo } from '../events/profile-info';
 import { descriptionStyle, noneFontSize } from './option-styles';
-import { DefaultLongTextInput } from './default-long-text-input';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckChip as CheckChip_, CheckChips as CheckChips_ } from './check-chip';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons/faArrowLeft'
@@ -566,57 +562,6 @@ const LocationSelector = forwardRef((props: InputProps<OptionGroupLocationSelect
         >
           Continue
         </ButtonWithCenteredText>
-      }
-    </>
-  );
-});
-
-const TextLong = forwardRef((props: InputProps<OptionGroupTextLong>, ref) => {
-  const [isInvalid, setIsInvalid] = useState(false);
-
-  const inputValueRef = useRef<string>('');
-
-  const onChangeInputValue = useCallback((value: string) => {
-    inputValueRef.current = value;
-  }, []);
-
-  const submit = useCallback(async () => {
-    setIsInvalid(false);
-    props.setIsLoading(true);
-
-    const ok = await props.input.textLong.submit(inputValueRef?.current);
-    setIsInvalid(!ok);
-    ok && props.onSubmitSuccess();
-
-    props.setIsLoading(false);
-  }, []);
-
-  useImperativeHandle(ref, () => ({ submit }), []);
-
-  return (
-    <>
-      <DefaultLongTextInput
-        style={{
-          marginLeft: 20,
-          marginRight: 20,
-          ...(Platform.OS === 'ios' ? {height: 200} : {})
-        }}
-        autoFocus={Platform.OS !== 'ios'}
-        onChangeText={onChangeInputValue}
-        onSubmitEditing={isMobile() ? undefined : () => submit()}
-        numberOfLines={8}
-      />
-      {props.input?.textLong?.invalidMsg &&
-        <DefaultText
-          style={{
-            marginTop: 5,
-            textAlign: 'center',
-            color: 'white',
-            opacity: isInvalid ? 1 : 0,
-          }}
-        >
-          {props.input?.textLong?.invalidMsg}
-        </DefaultText>
       }
     </>
   );
@@ -1326,8 +1271,6 @@ const InputElement = forwardRef((props: InputProps<OptionGroupInputs>, ref: Forw
     return <DatePicker {...{ref, ...props, input: props.input}}/>;
   } else if (isOptionGroupLocationSelector(props.input)) {
     return <LocationSelector {...{ref, ...props, input: props.input}}/>;
-  } else if (isOptionGroupTextLong(props.input)) {
-    return <TextLong {...{ref, ...props, input: props.input}}/>;
   } else if (isOptionGroupTextShort(props.input)) {
     return <TextShort {...{ref, ...props, input: props.input}}/>;
   } else if (isOptionGroupCheckChips(props.input)) {

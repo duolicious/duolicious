@@ -42,14 +42,6 @@ jobs:
       - name: Run functionality tests
         run: make backend-functionality SUITE=${{ matrix.suite }}
         env:
-          DUO_EMAIL_KEY: 'not-a-real-key'
-          DUO_EMAIL_URL: 'https://example.com'
-
-          DUO_R2_BUCKET_NAME: s3-mock-bucket
-          DUO_R2_ACCT_ID: unused-in-dev-env
-          DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
-          DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
-
           # Empty outside suite 2, which the compose file reads as unset.
           DUO_CRON_PHOTO_CLEANER_DRY_RUN: ${{ matrix.cron_cleaner_dry_run }}
           DUO_CRON_AUDIO_CLEANER_DRY_RUN: ${{ matrix.cron_cleaner_dry_run }}
@@ -63,11 +55,3 @@ jobs:
 
       - name: Run unit tests
         run: make backend-unit
-        env:
-          DUO_EMAIL_KEY: 'not-a-real-key'
-          DUO_EMAIL_URL: 'https://example.com'
-
-          DUO_R2_BUCKET_NAME: s3-mock-bucket
-          DUO_R2_ACCT_ID: unused-in-dev-env
-          DUO_R2_ACCESS_KEY_ID: s3-mock-access-key-id
-          DUO_R2_ACCESS_KEY_SECRET: s3-mock-secret-access-key-secret
