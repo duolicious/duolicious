@@ -425,7 +425,7 @@ const FEATURES = [
   },
   {
     key: 'display-name',
-    name: 'Display name changes',
+    name: 'Name changes',
     description: 'Change the name on your profile.',
     verb: 'COME',
     icon: faPencil,
