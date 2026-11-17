@@ -7,7 +7,7 @@ source ../util/setup.sh
 
 set -xe
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 q "delete from person"
 q "delete from banned_person"
@@ -47,7 +47,7 @@ echo A potential spam message is blocked
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "You should join discord.gg/spaghetti"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user1id and \
@@ -67,7 +67,7 @@ echo A benign message is allowed
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "damn I want to volunteer to walk puppies"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user1id and \
@@ -85,7 +85,7 @@ echo Potential spam messages are allowed during established conversations
 
 send_message "$user2uuid" "$user2token" "$user1uuid" "You should join discord.gg/spaghetti"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user2id and \
@@ -105,7 +105,7 @@ q "update person set sign_up_time = now() - interval '7 days' where uuid = '$use
 
 send_message "$user3uuid" "$user3token" "$user2uuid" "You should also join discord.gg/spaghetti"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user3id and \

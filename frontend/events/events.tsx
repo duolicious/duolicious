@@ -126,6 +126,5 @@ export {
   listen,
   nextEvent,
   notify,
-  unlisten,
   useDerivedEvent,
 };

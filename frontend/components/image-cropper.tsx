@@ -31,7 +31,6 @@ type ImageCropperInput = {
   width: number
   outputEventName: string
   fileNumber: number
-  showProtip?: boolean
 };
 
 type ImageCropperOutput = {
@@ -329,14 +328,12 @@ const ImageCropper = () => {
           <ModalButton color="#999" onPress={onCancelPress} title="Cancel" />
           <ModalButton color="#70f" onPress={onCropPress} title="Crop" />
         </View>
-        {(data?.showProtip ?? true) &&
-          <DefaultText style={styles.protip}>
-            <DefaultText style={styles.boldProtip} disableTheme={true}>
-              Pro tip: {}
-            </DefaultText>
-            Visitors to your profile can see the uncropped pic too
+        <DefaultText style={styles.protip}>
+          <DefaultText style={styles.boldProtip} disableTheme={true}>
+            Pro tip: {}
           </DefaultText>
-        }
+          Visitors to your profile can see the uncropped pic too
+        </DefaultText>
       </View>
     </View>
   );
@@ -356,14 +353,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'black',
-  },
-  pressable: {
-    height: 40,
-    width: 100,
-  },
-  defaultText: {
-    color: 'white',
-    fontWeight: '700',
   },
   bottomContainer: {
     height: buttonHeight,

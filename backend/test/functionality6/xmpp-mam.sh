@@ -7,7 +7,7 @@ source ../util/setup.sh
 
 set -xe
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 q "delete from person"
 q "delete from banned_person"
@@ -87,13 +87,6 @@ EOF
   done
 
   sleep 1
-}
-
-# Extract the stanza id from a JSON object.
-# Assumes the JSON object represents a stanza (e.g. a <result> element converted by xmltodict).
-get_stanza_id () {
-  # If the JSON object has a "result" key with an "@id" attribute, output it.
-  jq -s -r 'if .message.result and .message.result["@id"] then .message.result["@id"] else empty end'
 }
 
 # Extract the stanza id from the first element of a JSON array.

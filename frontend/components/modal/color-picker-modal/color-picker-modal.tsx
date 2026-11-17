@@ -49,17 +49,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...backgroundColors.dark,
   },
-  container: {
-    borderColor: '#555',
-    padding: 28,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  cell: {
-    width: 14,
-    height: 14,
-  },
   oldNewText: {
     color: 'white',
     textAlign: 'center',
@@ -80,9 +69,6 @@ const styles = StyleSheet.create({
   container2: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  text: {
-    marginTop: 20,
   },
   bottomContainer: {
     height: 50,

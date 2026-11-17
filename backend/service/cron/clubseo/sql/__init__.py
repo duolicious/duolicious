@@ -147,12 +147,6 @@ WITH target AS MATERIALIZED (
         HAVING COUNT(*) >= {MIN_CLUB_CELL_SIZE}
     ) b
     GROUP BY club_name
-), median_age_j AS MATERIALIZED (
-    SELECT
-        club_name,
-        ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY DATE_PART('year', AGE(date_of_birth))))::int AS median_age
-    FROM members
-    GROUP BY club_name
 ), personality_vec AS MATERIALIZED (
     -- pgvector's AVG aggregates element-wise; members with few answers have
     -- shorter (answer-count-weighted) vectors and so contribute less.
@@ -185,7 +179,6 @@ WITH target AS MATERIALIZED (
         json_build_object(
             'name',         t.name,
             'member_count', t.count_members,
-            'median_age',   maj.median_age,
             'demographics', json_build_object(
                 'gender',              COALESCE(gj.j,  '[]'::json),
                 'orientation',         COALESCE(oj.j,  '[]'::json),
@@ -217,7 +210,6 @@ WITH target AS MATERIALIZED (
     LEFT JOIN exercise_j            exj ON exj.club_name = t.name
     LEFT JOIN has_kids_j            hkj ON hkj.club_name = t.name
     LEFT JOIN wants_kids_j          wkj ON wkj.club_name = t.name
-    LEFT JOIN median_age_j          maj ON maj.club_name = t.name
     LEFT JOIN personality_j         pj  ON pj.club_name  = t.name
 ), upserted AS (
     INSERT INTO club_stats (club_name, stats_json, computed_at)

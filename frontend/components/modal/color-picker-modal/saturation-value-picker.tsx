@@ -9,7 +9,6 @@ import {
   View,
   PanResponder,
   StyleSheet,
-  ViewStyle,
 } from 'react-native';
 import {
   LinearGradient,
@@ -29,10 +28,8 @@ type SaturationValuePickerRef = {
 };
 
 type SaturationValuePickerProps = {
-  borderRadius: number;
   size: number;
   sliderSize: number;
-  containerStyle?: ViewStyle;
   onDragMove?: () => void;
 }
 
@@ -41,10 +38,8 @@ const SaturationValuePicker = forwardRef<
   SaturationValuePickerProps
 >((props, ref) => {
   const {
-    borderRadius,
     size,
     sliderSize,
-    containerStyle = {},
     onDragMove,
   } = props;
 
@@ -167,7 +162,6 @@ const SaturationValuePicker = forwardRef<
     <View
       style={[
         styles.container,
-        containerStyle,
         {
           height: size + sliderSize,
           width: size + sliderSize,
@@ -176,7 +170,7 @@ const SaturationValuePicker = forwardRef<
     >
       <Animated.View style={{ backgroundColor }}>
         <LinearGradient
-          style={[{ borderRadius }, styles.linearGradient]}
+          style={styles.linearGradient}
           colors={['rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 0)']}
           start={[0, 0.5]}
           end={[1, 0.5]}

@@ -13,7 +13,7 @@ source ../util/setup.sh
 
 set -xe
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 q "delete from person"
 q "delete from banned_person"
@@ -136,7 +136,7 @@ sleep 1
 send_message "$webauuid" "$webatoken" "$webcuuid" "hello webc" "id-mobile"
 sleep 1
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 # Both intros were delivered and stored ...
 [[ "$(q "select count(*) from messaged where subject_person_id = $webaid and object_person_id = $webbid")" = 1 ]]

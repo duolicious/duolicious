@@ -7,10 +7,8 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
-  StyleProp,
   StyleSheet,
   View,
-  ViewStyle,
   ViewToken,
 } from 'react-native';
 import { LogoActivityIndicator } from './logo/logo-activity-indicator';
@@ -216,7 +214,6 @@ type DefaultFlatListProps<ItemT> =
     emptyText?: string,
     errorText?: string,
     endText?: string,
-    endTextStyle?: StyleProp<ViewStyle>,
     fetchPage: (pageNumber: number) => Promise<ItemT[] | FetchPageError | null>,
     hideListHeaderComponentWhenEmpty?: boolean,
     hideListHeaderComponentWhenLoading?: boolean,
@@ -231,7 +228,6 @@ type DefaultFlashListProps<ItemT> =
       emptyText?: string,
       errorText?: string,
       endText?: string,
-      endTextStyle?: StyleProp<ViewStyle>,
       fetchPage: (pageNumber: number) => Promise<ItemT[] | FetchPageError | null>,
       hideListHeaderComponentWhenEmpty?: boolean,
       hideListHeaderComponentWhenLoading?: boolean,

@@ -913,15 +913,6 @@ const styles = StyleSheet.create({
     height: undefined,
     flex: 1,
   },
-  gifContainer: {
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderRadius: 5,
-    borderWidth: 3,
-    borderColor: 'black',
-  },
   gifText: {
     fontSize: 16,
     fontWeight: 900,

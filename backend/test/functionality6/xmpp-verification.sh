@@ -9,7 +9,7 @@ snd1=$(rand_sound)
 
 set -xe
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 q "delete from person"
 q "delete from banned_person"

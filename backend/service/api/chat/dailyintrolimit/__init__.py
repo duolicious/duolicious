@@ -63,21 +63,11 @@ WITH daily_intro AS (
         AND
             person.roles @> ARRAY['bot']
     )
-), recent_rude_message AS (
-    SELECT
-        1
-    FROM
-        rude_message
-    WHERE
-        person_id = %(from_id)s
-    AND
-        created_at > now() - interval '1 day'
 )
 SELECT
     verification_level_id,
     (SELECT count(*) FROM daily_intro) AS daily_intro_count,
-    (SELECT count(*) FROM recent_manual_report) AS recent_manual_report_count,
-    (SELECT count(*) FROM recent_rude_message) AS recent_rude_message_count
+    (SELECT count(*) FROM recent_manual_report) AS recent_manual_report_count
 FROM
     person
 WHERE
@@ -90,18 +80,12 @@ class Sender:
     verification_level_id: int
     daily_intro_count: int
     recent_manual_report_count: int
-    recent_rude_message_count: int
 
 
 def intro_limit_block(sender: Sender, stanza_id: str) -> MessageBlocked | None:
     tier = TIER_BY_VERIFICATION_LEVEL_ID[sender.verification_level_id]
 
-    halvings = (
-        sender.recent_manual_report_count +
-        sender.recent_rude_message_count // 2
-    )
-
-    allowance = tier.daily_intros // 2 ** halvings
+    allowance = tier.daily_intros // 2 ** sender.recent_manual_report_count
 
     if sender.daily_intro_count < allowance:
         return None

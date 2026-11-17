@@ -39,15 +39,7 @@ async def put_audio_in_object_store(
         Body=audio_file_bytes,
     )
 
-def transcode_and_trim_audio(
-    input_audio: io.BytesIO,
-    max_duration_or_none: int | None = None
-) -> io.BytesIO:
-    max_duration = (
-            constants.MAX_AUDIO_SECONDS
-            if max_duration_or_none is None
-            else max_duration_or_none)
-
+def transcode_and_trim_audio(input_audio: io.BytesIO) -> io.BytesIO:
     # Ensure input audio is not empty
     if input_audio.getbuffer().nbytes == 0:
         raise ValueError("Input audio buffer is empty.")
@@ -72,7 +64,7 @@ def transcode_and_trim_audio(
         ffmpeg_cmd = [
             'ffmpeg',
             '-i',   str(temp_input_file_path),  # Read from temporary input file
-            '-t',   str(max_duration),          # Set max_duration
+            '-t',   str(constants.MAX_AUDIO_SECONDS),
             '-c:a', 'aac',                      # Use AAC codec
             '-b:a', '128k',                     # Bitrate
             '-ar',  '44100',                    # Sample rate

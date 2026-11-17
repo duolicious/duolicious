@@ -1,11 +1,5 @@
 -r requirements.txt
 mypy
 types-Pillow
-types-Pygments
-types-colorama
 types-PyYAML
-types-pyOpenSSL
 types-regex
-types-requests
-types-ujson
-xmltodict

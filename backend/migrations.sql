@@ -13,3 +13,7 @@
 -- from this file: init-api.sql already carries the change for fresh databases.
 
 ALTER TABLE banned_photo_hash DROP COLUMN IF EXISTS photo_uuid;
+
+DROP INDEX IF EXISTS idx__person__tiny_id;
+
+ALTER TABLE location DROP COLUMN IF EXISTS subdivision;
