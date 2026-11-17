@@ -321,8 +321,7 @@ Q_SHADOW_BAN = f"""
 UPDATE
     person
 SET
-    shadow_banned_at = now(),
-    shadow_banned_by = %(shadow_banned_by)s
+    shadow_banned_at = now()
 WHERE
     uuid = uuid_or_null(%(object_uuid)s::TEXT)
 AND
