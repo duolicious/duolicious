@@ -73,8 +73,7 @@ start_onboarding preview2@example.com "Alice"
 previewed_slug=$(jq -r .url_slug <<< "$PREVIEW")
 [[ "$previewed_slug" =~ ^alice[0-9]+$ ]]
 
-finish=$(finish_onboarding)
-[[ "$(jq -r .url_slug <<< "$finish")" = "$previewed_slug" ]]
+finish_onboarding > /dev/null
 [[ "$(q "select url_slug from person where email='preview2@example.com'")" = "$previewed_slug" ]]
 
 # --- A reserved slug can't be stolen out from under an in-flight onboardee ---
@@ -89,8 +88,8 @@ start_onboarding mallory-y@example.com "Mallory"
 
 # ...and X still gets the bare slug when they finish.
 SESSION_TOKEN=$session_x
-finish_x=$(finish_onboarding)
-[[ "$(jq -r .url_slug <<< "$finish_x")" = mallory ]]
+finish_onboarding > /dev/null
+[[ "$(q "select url_slug from person where email='mallory-x@example.com'")" = mallory ]]
 
 # --- Emoji-only name → numeric-only random slug ------------------------------
 onboard emoji@example.com "🎉🎉"

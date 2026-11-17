@@ -340,8 +340,7 @@ async def get_compare_answers(
 async def delete_account(
     s: t.SessionInfo = Depends(session()),
 ) -> object:
-    await person.delete_or_ban_account(s=s)
-    return None
+    return await person.delete_or_ban_account(s=s)
 
 @app.post('/deactivate')
 async def post_deactivate(
