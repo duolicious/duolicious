@@ -40,7 +40,6 @@ import { OptionScreen } from './option-screen';
 import { StatusBarSpacer } from './status-bar-spacer';
 import { japi } from '../api/api';
 import { signUpRef } from '../api/sign-up-ref';
-import { storedWebVisitorId } from '../api/web-visitor';
 import {
   consumePendingWebSignIn,
   signInWithApple,
@@ -725,7 +724,6 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
           ...result.body,
           ...(clubName && { pending_club_name: clubName }),
           ref,
-          web_visitor_id: await storedWebVisitorId(),
         },
         { timeout: 9999 * 1000, maxRetries: 0 },
       );
@@ -947,7 +945,6 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
         ...(clubName_ && { pending_club_name: clubName_ }),
         ...(anonymousAnswers.length && { answers: anonymousAnswers }),
         ref: signUpRef,
-        web_visitor_id: await storedWebVisitorId(),
       },
       { timeout: 9999 * 1000 },
     );

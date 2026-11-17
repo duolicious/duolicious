@@ -402,12 +402,19 @@ class SignInRequest(BaseModel):
         max_length=CLUB_MAX_LEN,
     )
     ref: SignUpRef = None
+
+
+ExperimentLabel = Annotated[str, StringConstraints(pattern=r'^[a-z0-9-]{1,64}$')]
+
+
+class PostFinishOnboarding(BaseModel):
     web_visitor_id: UUID | None = None
 
 
-class PostWebVisitor(BaseModel):
-    web_visitor_id: UUID | None = None
-    ref: SignUpRef = None
+class PostExperimentExposure(BaseModel):
+    web_visitor_id: UUID
+    experiment: ExperimentLabel
+    variant: ExperimentLabel
 
 
 class PostRequestOtp(SignInRequest):
