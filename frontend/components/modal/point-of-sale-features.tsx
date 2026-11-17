@@ -371,7 +371,7 @@ const FEATURES = [
   {
     key: 'read-receipts',
     name: 'Read receipts',
-    description: 'See when your messages are read.',
+    description: 'See when your messages are read',
     verb: 'COME',
     icon: faCheckDouble,
     headline: ['HAVE THEY', 'SEEN IT?'],
@@ -382,7 +382,7 @@ const FEATURES = [
   {
     key: 'clubs',
     name: '100 clubs',
-    description: 'Double the usual limit of 50.',
+    description: 'Double the usual limit of 50',
     verb: 'COME',
     icon: faUserGroup,
     headline: ['50 CLUBS', 'ISN’T ENOUGH'],
@@ -393,7 +393,7 @@ const FEATURES = [
   {
     key: 'dark-mode',
     name: 'Dark mode',
-    description: 'Easy on the eyes after midnight.',
+    description: 'Easy on the eyes after midnight',
     verb: 'COMES',
     icon: faMoon,
     headline: ['SCROLL AT 3AM', 'IN DARK MODE'],
@@ -403,9 +403,9 @@ const FEATURES = [
   },
   {
     key: 'profile-theme',
-    name: 'Profile theme',
-    description: 'Customize how your profile appears to others.',
-    verb: 'COMES',
+    name: 'Profile themes',
+    description: 'Customize how your profile appears to others',
+    verb: 'COME',
     icon: faPalette,
     headline: ['YOUR PROFILE,', 'YOUR COLORS'],
     subtitle: 'Choose the colors other members see when they visit your profile.',
@@ -415,7 +415,7 @@ const FEATURES = [
   {
     key: 'privacy',
     name: 'Privacy settings',
-    description: 'Browse invisibly and hide from strangers.',
+    description: 'Browse invisibly and hide from strangers',
     verb: 'COME',
     icon: faGhost,
     headline: ['LURK IN', 'PEACE'],
@@ -426,7 +426,7 @@ const FEATURES = [
   {
     key: 'display-name',
     name: 'Name changes',
-    description: 'Change the name on your profile.',
+    description: 'Change the name on your profile',
     verb: 'COME',
     icon: faPencil,
     headline: ['NEW NAME,', 'SAME YOU'],

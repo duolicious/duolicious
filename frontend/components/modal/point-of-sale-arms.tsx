@@ -335,7 +335,7 @@ const Simple = ({ active, compact }: PerksProps) => {
         <DefaultText disableTheme style={{ fontWeight: 700, color: 'white' }}>
           Gold includes {FEATURES[active].name.toLowerCase()},
         </DefaultText>
-        {} plus {others.slice(0, -1).join(', ')} and {others.at(-1)}.
+        {} plus {others.slice(0, -1).join(', ')} and {others.at(-1)}
       </DefaultText>
     </>
   );
