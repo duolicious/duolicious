@@ -155,8 +155,8 @@ test_data_export_hides_the_flag () {
 
   # Sanity check: the export succeeded and contains the user's own data...
   echo "$export_json" | grep -q 'user1@example.com' || exit 1
-  # ...but it never reveals the shadow_banned_at column.
-  ! echo "$export_json" | grep -q shadow_banned_at || exit 1
+  # ...but it never reveals the shadow_banned_at or shadow_banned_by columns.
+  ! echo "$export_json" | grep -q shadow_banned || exit 1
 }
 
 test_search_hides_banned_from_others

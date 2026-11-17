@@ -96,6 +96,12 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 
 --------------------------------------------------------------------------------
 -- BANNED CLUBS
@@ -353,6 +359,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- Shadow banned accounts behave normally for the account holder but appear
     -- not to exist from every other user's perspective
     shadow_banned_at TIMESTAMP,
+    shadow_banned_by shadow_ban_source,
 
     -- Events
     last_event_time TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -382,6 +389,13 @@ CREATE TABLE IF NOT EXISTS unmoderated_person (
     trait TEXT NOT NULL,
 
     PRIMARY KEY (person_id, trait)
+);
+
+CREATE TABLE IF NOT EXISTS network_activity (
+    network CIDR PRIMARY KEY,
+    sign_ups FLOAT4 NOT NULL DEFAULT 0,
+    shadow_bans FLOAT4 NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS onboardee (

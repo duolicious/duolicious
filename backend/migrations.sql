@@ -12,3 +12,17 @@
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
 
+CREATE TABLE IF NOT EXISTS network_activity (
+    network CIDR PRIMARY KEY,
+    sign_ups FLOAT4 NOT NULL DEFAULT 0,
+    shadow_bans FLOAT4 NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+DO $$ BEGIN
+    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+ALTER TABLE person ADD COLUMN IF NOT EXISTS shadow_banned_by shadow_ban_source;

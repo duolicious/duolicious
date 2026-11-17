@@ -2574,9 +2574,9 @@ Q_EXPORT_API_DATA = """
 SELECT json_build_object(
     'person', (
         SELECT
-            -- `shadow_banned_at` is stripped: a shadow-banned user's own export
-            -- must not reveal the ban.
-            json_agg(to_jsonb(t) - 'shadow_banned_at')
+            -- `shadow_banned_at` and `shadow_banned_by` are stripped: a
+            -- shadow-banned user's own export must not reveal the ban.
+            json_agg(to_jsonb(t) - 'shadow_banned_at' - 'shadow_banned_by')
         FROM (
             SELECT
                 person.*,

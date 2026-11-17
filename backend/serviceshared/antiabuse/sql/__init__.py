@@ -326,4 +326,8 @@ WHERE
     uuid = uuid_or_null(%(object_uuid)s::TEXT)
 AND
     NOT {has_gold_sql('person.id')}
+AND
+    shadow_banned_at IS NULL
+RETURNING
+    id
 """
