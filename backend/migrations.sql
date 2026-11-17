@@ -12,15 +12,6 @@
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
 
-ALTER TABLE banned_photo_hash DROP COLUMN IF EXISTS photo_uuid;
-
-DROP INDEX IF EXISTS idx__person__tiny_id;
-
-ALTER TABLE location DROP COLUMN IF EXISTS subdivision;
-
-ALTER TABLE funding DROP COLUMN IF EXISTS estimated_end_date;
-ALTER TABLE funding DROP COLUMN IF EXISTS cost_per_month_usd;
-
 ALTER TABLE person DROP COLUMN IF EXISTS tiny_id;
 ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
 
