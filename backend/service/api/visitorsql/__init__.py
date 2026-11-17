@@ -46,11 +46,6 @@ visited_pass_3 AS (
 
         prospect.verification_level_id > 1 AS is_verified,
 
-        -- Ads have been removed; this is kept as a constant so existing native
-        -- clients (which validate this field) keep working without the DB
-        -- spending time computing it.
-        FALSE AS advertiser_friendly,
-
         CLAMP(
             0,
             99,

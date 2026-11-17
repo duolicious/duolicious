@@ -1,7 +1,7 @@
 """The "Similar clubs" model: a person's club vector is the normalized sum of
 their clubs' embeddings, recomputed whole (`Q_REFRESH_CLUB_VECTOR`) because
 membership counts are tiny. The embeddings themselves are recomputed by the
-clubembeddings cron, which sweeps everyone by `club_vector_computed_at`."""
+clubembeddings cron."""
 from collections.abc import Sequence
 
 from serviceshared.commonsql import Q_REFRESH_CLUB_VECTOR

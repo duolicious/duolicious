@@ -32,7 +32,7 @@ Two principles shape the tree:
 - `service/` – the deployable services
 - `service/api/` – the HTTP + chat WebSocket service, plus its private modules (e.g. `person`, `search`, `qanda`, `duotypes`); single-consumer modules nest further (e.g. `service/api/person/duophoto`, `service/api/search/rediscache`, `service/api/chat/webpushsender`)
 - `serviceshared/` – everything shared by more than one service, directly or transitively: `antiabuse`, `notify`, `smtp`, `constants`, `batcher`, ..., plus `database` (pools, transaction helpers, row coercion), `duoenv` (environment/config values read at startup), and `util` (generic helpers)
-- `test/` – functionality (shell) and performance tests plus mocks; unit tests live next to the modules they test as `test_*.py`
+- `test/` – functionality (shell) tests plus mocks; unit tests live next to the modules they test as `test_*.py`
 - `questions/`, `locations/` – seed data loaded into the database at init time
 
 ## Local development
@@ -69,7 +69,7 @@ make backend-typecheck   # from the repository root
 2. Make your change with tests where sensible
 3. Ensure `make backend-typecheck` passes
 4. Add/update docs if behavior changes
-5. Open a PR using the template below
+5. Open a PR
 
 ### Good first issues
 

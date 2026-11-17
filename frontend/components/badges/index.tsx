@@ -115,26 +115,25 @@ const Gold = ({
   );
 };
 
+const Q_AND_A_INTERVAL_MS = 400;
+const Q_AND_A_PAUSE_MS = 3000;
+const Q_AND_A_NUM_LOOPS = 3;
+
 const QAndA = ({
-  intervalMs = 400,  // time between each step
-  step = 50,         // increment amount
-  startAt = 0,
+  step = 50,
   target = 100,
-  pauseMs = 3000,    // pause at target before looping
   color1 = "#004467",
   color2 = "#45ddc0",
-  numLoops = Infinity,
 }) => {
   const { viewRef, props } = useTooltip(`Answered ${target} Q&A`);
 
-  const [count, setCount] = useState(startAt);
+  const [count, setCount] = useState(0);
   const timerRef = useRef<NodeJS.Timeout>(null);
-  const countRef = useRef(startAt);
+  const countRef = useRef(0);
   const loopsRef = useRef(0);
 
   useEffect(() => {
-    // Ensure we start from startAt each time props change
-    countRef.current = startAt;
+    countRef.current = 0;
     loopsRef.current = 0;
 
     const schedule = (delay: number, fn: () => void) => {
@@ -154,31 +153,30 @@ const QAndA = ({
           loopsRef.current += 1;
         }
 
-        if (Number.isFinite(numLoops) && loopsRef.current >= numLoops) {
+        if (loopsRef.current >= Q_AND_A_NUM_LOOPS) {
           return; // stop at target; do not schedule further ticks
         }
 
-        // Pause at target, then reset to startAt and continue
-        schedule(pauseMs, () => {
-          setCount(startAt);
-          countRef.current = startAt;
-          schedule(intervalMs, tick);
+        schedule(Q_AND_A_PAUSE_MS, () => {
+          setCount(0);
+          countRef.current = 0;
+          schedule(Q_AND_A_INTERVAL_MS, tick);
         });
       } else {
         // Normal increment
         setCount(next);
         countRef.current = next;
-        schedule(intervalMs, tick);
+        schedule(Q_AND_A_INTERVAL_MS, tick);
       }
     };
 
     // Kick off the loop after the first interval
-    schedule(intervalMs, tick);
+    schedule(Q_AND_A_INTERVAL_MS, tick);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [startAt, step, target, intervalMs, pauseMs, numLoops]);
+  }, [step, target]);
 
   return (
     <View
@@ -217,13 +215,13 @@ const QAndA = ({
 };
 
 const QAndA200  = () =>
-  <QAndA numLoops={3} target={200}  step={100} />
+  <QAndA target={200}  step={100} />
 
 const QAndA500  = () =>
-  <QAndA numLoops={3} target={500}  step={250} color2="orange" />
+  <QAndA target={500}  step={250} color2="orange" />
 
 const QAndA1000 = () =>
-  <QAndA numLoops={3} target={1000} step={500} color2="black" color1="white" />
+  <QAndA target={1000} step={500} color2="black" color1="white" />
 
 const OneWeek = () => {
   const { viewRef, props } = useTooltip(`Member for a week`);
@@ -278,42 +276,22 @@ const OneMonth = () => {
   );
 }
 
-const OneYear = ({
-  orientation = 'pointy',
-}) => {
+const OneYear = () => {
   const { viewRef, props } = useTooltip(`Member for a year`);
 
   const SQRT3 = Math.sqrt(3);
 
-  // Flat-top hex viewBox is 2 : √3; Pointy-top is √3 : 2
-  let viewBox, points;
-  if (orientation === 'pointy') {
-    // width = √3, height = 2
-    viewBox = `0 0 ${SQRT3} 2`;
-    points = [
-      [SQRT3 / 2, 0],
-      [SQRT3, 0.5],
-      [SQRT3, 1.5],
-      [SQRT3 / 2, 2],
-      [0, 1.5],
-      [0, 0.5],
-    ]
-      .map(([x, y]) => `${x},${y}`)
-      .join(' ');
-  } else {
-    // flat-top (default): width = 2, height = √3
-    viewBox = `0 0 2 ${SQRT3}`;
-    points = [
-      [0.5, 0],
-      [1.5, 0],
-      [2, SQRT3 / 2],
-      [1.5, SQRT3],
-      [0.5, SQRT3],
-      [0, SQRT3 / 2],
-    ]
-      .map(([x, y]) => `${x},${y}`)
-      .join(' ');
-  }
+  const viewBox = `0 0 ${SQRT3} 2`;
+  const points = [
+    [SQRT3 / 2, 0],
+    [SQRT3, 0.5],
+    [SQRT3, 1.5],
+    [SQRT3 / 2, 2],
+    [0, 1.5],
+    [0, 0.5],
+  ]
+    .map(([x, y]) => `${x},${y}`)
+    .join(' ');
 
   return (
     <View

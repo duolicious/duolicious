@@ -28,7 +28,6 @@ response=$(
 expected=$(jq -r . << EOF
 {
   "about": "",
-  "advertiser_friendly": false,
   "age": 26,
   "age_preference": {
     "max_age": 30,
@@ -149,7 +148,6 @@ response=$(
 expected=$(jq -r . << EOF
 {
   "about": "",
-  "advertiser_friendly": false,
   "age": 26,
   "age_preference": {
     "max_age": 30,

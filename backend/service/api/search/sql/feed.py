@@ -298,12 +298,7 @@ WITH searcher AS (
             ) / 2
         )::SMALLINT AS match_percentage,
         flair,
-        {has_gold_sql('prospect.id')} AS has_gold,
         sign_up_time,
-        -- Ads have been removed; this is kept as a constant so existing native
-        -- clients (which validate this field) keep working without the DB
-        -- spending time computing it.
-        FALSE AS advertiser_friendly,
         count_answers,
         about,
         (
@@ -712,8 +707,7 @@ WITH searcher AS (
         ({computed_flair_sql('person_data')}) AS flair,
         age,
         gender,
-        location,
-        advertiser_friendly
+        location
     FROM
         person_data
 )
@@ -733,8 +727,7 @@ SELECT
         'flair', flair,
         'age', age,
         'gender', gender,
-        'location', location,
-        'advertiser_friendly', advertiser_friendly
+        'location', location
     )
     || mapped_last_event_data
     || COALESCE(joined_club_data.j, '{{}}'::jsonb)

@@ -213,7 +213,6 @@ test_json_format () {
       "width": 100
     },
     "added_photo_uuid": "redacted_nonnull_value",
-    "advertiser_friendly": false,
     "age": 26,
     "flair": [
       "gold"
@@ -235,7 +234,6 @@ test_json_format () {
   },
   {
     "added_audio_uuid": "redacted_nonnull_value",
-    "advertiser_friendly": false,
     "age": 26,
     "flair": [
       "gold",
@@ -258,7 +256,6 @@ test_json_format () {
   },
   {
     "added_text": "You just lost the game",
-    "advertiser_friendly": false,
     "age": 26,
     "background_color": "#aaaaaa",
     "body_color": "#000000",
@@ -282,7 +279,6 @@ test_json_format () {
   },
   {
     "added_text": "Bio for the feed",
-    "advertiser_friendly": false,
     "age": 26,
     "background_color": "#aaaaaa",
     "body_color": "#000000",
@@ -314,7 +310,6 @@ test_json_format () {
       "width": 100
     },
     "added_photo_uuid": "redacted_nonnull_value",
-    "advertiser_friendly": false,
     "age": 26,
     "flair": [
       "gold"
@@ -344,7 +339,6 @@ test_json_format () {
       "width": 100
     },
     "added_photo_uuid": "redacted_nonnull_value",
-    "advertiser_friendly": false,
     "age": 26,
     "flair": [
       "gold"
@@ -374,7 +368,6 @@ test_json_format () {
       "width": 100
     },
     "added_photo_uuid": "redacted_nonnull_value",
-    "advertiser_friendly": false,
     "age": 26,
     "flair": [
       "gold"
@@ -471,7 +464,6 @@ expected_joined_club_item () {
     --argjson count_sample_members "$count_sample_members" \
     '
     {
-      "advertiser_friendly": false,
       "age": 26,
       "club_count_members": $count_members,
       "club_sample_members": [
@@ -719,7 +711,6 @@ expected_answered_question_item () {
       ];
 
     {
-      "advertiser_friendly": false,
       "age": 26,
       "answered_question_id": $question_id,
       "question_text": $question_text,

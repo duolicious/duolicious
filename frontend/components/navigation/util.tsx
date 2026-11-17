@@ -7,17 +7,15 @@ import { isMobile } from '../../util/util';
 import { DefaultText } from '../default-text';
 import { useNumVisitors } from '../../chat/application-layer/hooks/visitors';
 
-const NumberBadge = ({ num, left, borderColor, backgroundColor, color, cap = 99 }: {
+const NumberBadge = ({ num, left, borderColor, backgroundColor, color }: {
   num: number
   left: number
   borderColor: string
   backgroundColor: string
   color: string
-  cap?: number
 }) => {
-  const cappedNum = Math.min(num, cap);
-  const isCapped = cap > cap;
-  const maybePlus = isCapped ? '+' : '';
+  const cappedNum = Math.min(num, 99);
+  const maybePlus = num > 99 ? '+' : '';
 
   if (num <= 0) {
     return null;

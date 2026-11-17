@@ -370,13 +370,12 @@ async def update_came_online_if_first_client(
 async def update_online_forever(
     redis_client: redis.Redis,
     session: Session,
-    online: bool
 ) -> None:
     try:
         await update_online_once(
             redis_client=redis_client,
             session=session,
-            online=online,
+            online=True,
             do_update_last_event=True,
         )
 
@@ -386,7 +385,7 @@ async def update_online_forever(
             await update_online_once(
                 redis_client=redis_client,
                 session=session,
-                online=online,
+                online=True,
             )
     except asyncio.exceptions.CancelledError:
         pass

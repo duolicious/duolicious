@@ -273,7 +273,6 @@ const markVisitorsChecked = (session: Session) => chat(session, [
 export type { Seed };
 
 export {
-  CLUB,
   SEED_FILE,
   api,
   blake,

@@ -5,6 +5,5 @@ __pycache__
 venv/
 
 test/input
-test/output
 
 node_modules

@@ -14,6 +14,10 @@
 
 ALTER TABLE banned_photo_hash DROP COLUMN IF EXISTS photo_uuid;
 
+DROP INDEX IF EXISTS idx__person__tiny_id;
+
+ALTER TABLE location DROP COLUMN IF EXISTS subdivision;
+
 ALTER TABLE funding DROP COLUMN IF EXISTS estimated_end_date;
 ALTER TABLE funding DROP COLUMN IF EXISTS cost_per_month_usd;
 

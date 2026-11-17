@@ -8,7 +8,6 @@ def sender(**overrides: int) -> Sender:
         verification_level_id=1,
         daily_intro_count=0,
         recent_manual_report_count=0,
-        recent_rude_message_count=0,
     ) | overrides))
 
 
@@ -61,24 +60,11 @@ class TestIntroLimitBlock(unittest.TestCase):
             8, block('unverified-basics'),
             verification_level_id=1, recent_manual_report_count=2)
 
-    def test_every_two_rude_messages_halve_the_limit(self) -> None:
-        self.assert_limit(
-            64, block(),
-            verification_level_id=3, recent_rude_message_count=3)
-
-    def test_reports_and_rude_messages_combine(self) -> None:
-        self.assert_limit(
-            8, block('unverified-photos'),
-            verification_level_id=2,
-            recent_manual_report_count=1,
-            recent_rude_message_count=4)
-
     def test_no_verification_subreason_when_the_limit_is_zero(self) -> None:
         for overrides in [
             dict(verification_level_id=1, recent_manual_report_count=6),
             dict(verification_level_id=2, recent_manual_report_count=7),
             dict(verification_level_id=3, recent_manual_report_count=8),
-            dict(verification_level_id=2, recent_rude_message_count=14),
         ]:
             self.assertEqual(intro_limit_block(sender(**overrides), 'id'), block())
 

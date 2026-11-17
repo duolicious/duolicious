@@ -1842,14 +1842,6 @@ const styles = StyleSheet.create({
   maxWFull: {
     maxWidth: '100%',
   },
-  audioPlayerMiddleText: {
-    fontWeight: 700,
-    flex: 3,
-    ...(Platform.OS === 'web' ? {
-      wordBreak: 'break-all',
-    } : {}),
-    textAlign: 'center',
-  },
 });
 
 export {

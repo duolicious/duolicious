@@ -7,7 +7,6 @@ import {
 import {
   StyleSheet,
   View,
-  ViewStyle,
 } from 'react-native';
 import {
   HuePicker,
@@ -22,16 +21,6 @@ import {
 } from './util';
 
 type HsvColorPickerProps = {
-  containerStyle?: ViewStyle;
-  huePickerContainerStyle?: ViewStyle;
-  huePickerBorderRadius?: number;
-  huePickerBarWidth?: number;
-  huePickerBarHeight?: number;
-  huePickerSliderSize?: number;
-  satValPickerContainerStyle?: ViewStyle;
-  satValPickerBorderRadius?: number;
-  satValPickerSize?: number;
-  satValPickerSliderSize?: number;
   onDragMove?: () => void;
 }
 
@@ -70,21 +59,17 @@ const HsvColorPicker = forwardRef<
   useImperativeHandle(ref, () => ({ getHsv, setHsv }), [getHsv, setHsv]);
 
   return (
-    <View style={[styles.container, props.containerStyle]}>
+    <View style={styles.container}>
       <SaturationValuePicker
-        containerStyle={props.satValPickerContainerStyle}
-        borderRadius={props.satValPickerBorderRadius ?? 0}
-        size={props.satValPickerSize ?? 200}
-        sliderSize={props.satValPickerSliderSize ?? 24}
+        size={200}
+        sliderSize={24}
         onDragMove={props.onDragMove}
         ref={saturationValuePickerRef}
       />
       <HuePicker
-        containerStyle={props.huePickerContainerStyle}
-        borderRadius={props.huePickerBorderRadius ?? 0}
-        barWidth={props.huePickerBarWidth ?? 12}
-        barHeight={props.huePickerBarHeight ?? 200}
-        sliderSize={props.huePickerSliderSize ?? 24}
+        barWidth={12}
+        barHeight={200}
+        sliderSize={24}
         onDragMove={onHuePickerDragMove}
         ref={huePickerRef}
       />

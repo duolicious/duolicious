@@ -147,7 +147,7 @@ These environment variables let the `cron` container know where your SMTP server
 * `DUO_SMTP_USER` - Your SMTP server's username.
 * `DUO_SMTP_PASS` - Your SMTP server's password.
 
-The `cron` container uses the SMTP server to sent message notifications, as well as notifications that a user's account has been deactivated due to inactivity.
+The `cron` container uses the SMTP server to send message notifications.
 
 * `DUO_UNSUBSCRIBE_SECRET` - A long random string. The `cron` container uses it to sign the one-click unsubscribe and notification-frequency links in notification emails, so it must match the `api` container's.
 
@@ -190,8 +190,9 @@ If there's no proxy, `X-Forwarded-For` headers can be spoofed by users. This
 will allow malicious users to partially bypass rate limits and bans.
 
 Whether `X-Forwarded-For` is used or not should probably be configurable in
-Duolicious, but it's currently not. Although hardcoding the solution isn't too
-hard: Simply remove the use of `werkzeug.middleware.proxy_fix.ProxyFix`.
+Duolicious, but it's currently not. To stop trusting it, make `client_ip` in
+`service/api/ratelimit.py` return the socket peer, and remove
+`--proxy-headers --forwarded-allow-ips '*'` from `api.main.sh`.
 
 ## Running the tests
 
@@ -249,14 +250,11 @@ docker compose up postgres
 
 Terminal B:
 ```bash
-pg_dump -h ${DB_HOST} -U postgres -d duo_chat -f /tmp/duo_chat.sql
 pg_dump -h ${DB_HOST} -U postgres -d duo_api  -f /tmp/duo_api.sql
 
 PGPASSWORD=password psql -U postgres -h localhost -p 5432 -c 'create database duo_api;'
-PGPASSWORD=password psql -U postgres -h localhost -p 5432 -c 'create database duo_chat;'
 
 PGPASSWORD=password psql -U postgres -d duo_api  -h localhost -p 5432 < /tmp/duo_api.sql
-PGPASSWORD=password psql -U postgres -d duo_chat -h localhost -p 5432 < /tmp/duo_chat.sql
 ```
 
 Terminal A:

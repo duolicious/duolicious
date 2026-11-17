@@ -7,7 +7,7 @@ source ../util/setup.sh
 
 set -xe
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 q "delete from person"
 q "delete from banned_person"
@@ -109,7 +109,7 @@ q "insert into skipped values ($user2id, $user1id, false, 'testing blocking')"
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "hello user 2"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user1id and \
@@ -134,7 +134,7 @@ echo User 1 can message user 2
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "hello user 2"
 
-sleep 4 # MongooseIM takes some time to flush messages to the DB
+sleep 4
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user1id and \
@@ -164,7 +164,7 @@ echo "A second message without a reply stays in user 2's intros"
 
 send_message "$user1uuid" "$user1token" "$user2uuid" "hello once more" "id1b"
 
-sleep 4 # MongooseIM takes some time to flush messages to the DB
+sleep 4
 
 curl -sX GET http://localhost:3001/pop \
   | assert_any 'has("duo_message_delivered") and .duo_message_delivered["@id"] == "id1b"'
@@ -228,7 +228,7 @@ echo Unoriginal intros are rejected
 
 send_message "$user1uuid" "$user1token" "$user3uuid" "hello user 2" "id2"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 curl -sX GET http://localhost:3001/pop \
   | assert_any 'has("duo_message_not_unique")
@@ -261,7 +261,7 @@ q "update duo_session set push_token = 'user-3-token', last_online_time = now()
 
 send_message "$user1uuid" "$user1token" "$user3uuid" "hello user 3" "id3"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 [[ "$(q "select count(*) from messaged where \
     subject_person_id = $user1id and \
@@ -289,7 +289,7 @@ echo "User 3 can send user 1 an unoriginal message now that they're chatting"
 
 send_message "$user3uuid" "$user3token" "$user1uuid" "hello user 2" "id3"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 curl -sX GET http://localhost:3001/pop \
   | assert_any 'has("duo_message_delivered") and .duo_message_delivered["@id"] == "id3"'
@@ -329,7 +329,7 @@ q "update person set intro_seconds = 0, chat_seconds = 0"
 
 send_message "$user3uuid" "$user3token" "$user1uuid" "message will be sent with no notification" "id3"
 
-sleep 3 # MongooseIM takes some time to flush messages to the DB
+sleep 3
 
 curl -sX GET http://localhost:3001/pop \
   | assert_any 'has("duo_message_delivered") and .duo_message_delivered["@id"] == "id3"'
