@@ -23,6 +23,7 @@ const KEYS = [
   'seen_search_filters_hint',
   'session_token',
   'web_session_bridge_answered',
+  'web_visitor_id',
 ] as const;
 
 type Key = typeof KEYS[number];

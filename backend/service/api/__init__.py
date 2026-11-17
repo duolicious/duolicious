@@ -24,6 +24,7 @@ from service.api import person
 from service.api.person import profileinfo
 from service.api import qanda
 from service.api import search
+from service.api import webvisitor
 from serviceshared.antiabuse.lodgereport import skip_by_uuid
 from service.api.auth import apple_oauth, discord_oauth, spotify_oauth
 from service.api.gold import paypal, revenuecat
@@ -60,6 +61,13 @@ async def post_request_otp(
 ) -> object:
     await check_otp_send_limits(request, req.email)
     return await person.post_request_otp(req, client_ip(request))
+
+@app.post('/web-visitor')
+async def post_web_visitor(
+    request: Request,
+    req: t.PostWebVisitor,
+) -> object:
+    return await webvisitor.post_web_visitor(req, client_ip(request))
 
 @app.post('/resend-otp')
 async def post_resend_otp(
