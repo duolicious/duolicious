@@ -246,7 +246,6 @@ CREATE TABLE IF NOT EXISTS person (
     id SERIAL,
 
     id_salt INT DEFAULT FLOOR(RANDOM() * 1000000),
-    tiny_id TEXT GENERATED ALWAYS AS (base62_encode(id::BIGINT * 1000000 + id_salt)) STORED,
 
     uuid UUID NOT NULL DEFAULT uuid_generate_v4(),
 
@@ -270,7 +269,6 @@ CREATE TABLE IF NOT EXISTS person (
     -- to avoid that.
     personality VECTOR(47) NOT NULL DEFAULT array_full(47, 0),
     club_vector VECTOR(64) NOT NULL DEFAULT array_full(64, 0),
-    club_vector_computed_at TIMESTAMP NOT NULL DEFAULT to_timestamp(0),
 
     kv_vector HALFVEC(132) NOT NULL DEFAULT array_full(132, 0),
     kv_who_pre INT[],
@@ -1822,17 +1820,6 @@ CREATE TABLE IF NOT EXISTS inbox (
     reaction_body TEXT,
     hidden BOOLEAN                   NOT NULL DEFAULT FALSE,
     PRIMARY KEY(luser, remote_bare_jid)
-);
-
--- TODO: Drop this table
-CREATE TABLE IF NOT EXISTS presence_histogram (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    dow SMALLINT NOT NULL, -- 0=Sun .. 6=Sat
-    hour SMALLINT NOT NULL, -- 0 .. 23 (UTC)
-    score FLOAT4 NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-
-    PRIMARY KEY (person_id, dow, hour)
 );
 
 CREATE INDEX IF NOT EXISTS
