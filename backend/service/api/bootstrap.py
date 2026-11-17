@@ -12,7 +12,6 @@ from pathlib import Path
 
 import psycopg
 
-from serviceshared.antiabuse.networkactivity import Q_SEED_NETWORK_ACTIVITY
 from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_NAME,
     LAST_ONLINE_DEFAULT_SECONDS,
@@ -59,12 +58,6 @@ def _read_sql(path: Path) -> str:
         raise RuntimeError(f'{path.name}: unresolved placeholders: {unresolved}')
 
     return sql
-
-
-async def seed_network_activity() -> None:
-    async with api_tx('READ COMMITTED') as tx:
-        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
-        await tx.execute(Q_SEED_NETWORK_ACTIVITY)
 
 
 async def try_migrations(migrations_sql: str) -> None:
@@ -117,8 +110,6 @@ async def init_db() -> None:
     await maybe_run_init()
 
     await run_migrations(migrations_sql_file)
-
-    await seed_network_activity()
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)
