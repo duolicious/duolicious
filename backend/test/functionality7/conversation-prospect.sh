@@ -139,12 +139,12 @@ shadow_banned_prospect_returns_404 () {
 
   user2_uuid=$(q "select uuid from person where name = 'user2'")
 
-  q "update person set shadow_banned_at = now() where name = 'user2'"
+  q "update person set shadow_banned_at = now(), shadow_banned_by = 'human' where name = 'user2'"
 
   assume_role user1
   ! c GET "/conversation-prospect/${user2_uuid}" || exit 1
 
-  q "update person set shadow_banned_at = null where name = 'user2'"
+  q "update person set shadow_banned_at = null, shadow_banned_by = null where name = 'user2'"
   c GET "/conversation-prospect/${user2_uuid}" > /dev/null
 }
 

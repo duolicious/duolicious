@@ -71,6 +71,10 @@ network_event AS (
         duo_session.ip_address IS NOT NULL
     AND
         duo_session.signed_in_at < event.at
+    AND NOT (
+        event.kind = 'shadow ban'
+        AND person.shadow_banned_by = 'model'
+    )
 )
 """
 
@@ -78,26 +82,3 @@ network_event AS (
 def replayed_sql(kind: Literal['sign up', 'shadow ban'], until: str) -> str:
     return f"""coalesce(sum({decay_sql('network_event.at', until)})
         FILTER (WHERE network_event.kind = '{kind}'), 0)"""
-
-
-_IS_UNSEEDED = 'NOT EXISTS (SELECT 1 FROM network_activity)'
-
-Q_SEED_NETWORK_ACTIVITY = f"""
-WITH {NETWORK_EVENT}
-INSERT INTO network_activity (
-    network,
-    sign_ups,
-    shadow_bans
-)
-SELECT
-    network_event.network,
-    {replayed_sql('sign up', 'now()')},
-    {replayed_sql('shadow ban', 'now()')}
-FROM
-    network_event
-WHERE
-    {_IS_UNSEEDED}
-GROUP BY
-    network_event.network
-ON CONFLICT (network) DO NOTHING
-"""

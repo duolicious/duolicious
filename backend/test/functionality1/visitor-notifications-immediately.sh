@@ -219,7 +219,7 @@ test_sad_shadow_banned_viewer () {
   give_prospect_a_phone
   put_prospect_offline
 
-  q "update person set shadow_banned_at = now()
+  q "update person set shadow_banned_at = now(), shadow_banned_by = 'human'
      where uuid::text = '$viewer_uuid'"
 
   visit_as_viewer

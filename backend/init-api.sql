@@ -381,7 +381,9 @@ CREATE TABLE IF NOT EXISTS person (
 
     -- Primary keys and constraints
     UNIQUE (email),
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    CONSTRAINT person_shadow_ban_has_source
+        CHECK ((shadow_banned_at IS NULL) = (shadow_banned_by IS NULL))
 );
 
 CREATE TABLE IF NOT EXISTS unmoderated_person (
@@ -389,6 +391,15 @@ CREATE TABLE IF NOT EXISTS unmoderated_person (
     trait TEXT NOT NULL,
 
     PRIMARY KEY (person_id, trait)
+);
+
+CREATE TABLE IF NOT EXISTS high_risk_score (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    hours SMALLINT NOT NULL,
+    score FLOAT4 NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (person_id, hours)
 );
 
 CREATE TABLE IF NOT EXISTS network_activity (

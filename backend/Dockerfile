@@ -61,6 +61,9 @@ ENV DUO_COMMIT_HASH=$DUO_COMMIT_HASH
 
 COPY \
   --exclude=serviceshared/antiabuse/clipnsfw \
+  --exclude=serviceshared/antiabuse/highrisk/dbip-* \
+  --exclude=serviceshared/antiabuse/highrisk/encoder.onnx \
+  --exclude=serviceshared/antiabuse/highrisk/model.npz \
   --exclude=test \
   --exclude=vm \
   . /app
@@ -83,7 +86,14 @@ COPY \
 RUN /app/serviceshared/antiabuse/clipnsfw/download-model.sh
 
 COPY \
+  serviceshared/antiabuse/highrisk/download-dbip.sh \
+  /app/serviceshared/antiabuse/highrisk/
+
+RUN /app/serviceshared/antiabuse/highrisk/download-dbip.sh
+
+COPY \
   --exclude=serviceshared/antiabuse/clipnsfw/model.* \
+  --exclude=serviceshared/antiabuse/highrisk/dbip-* \
   --exclude=serviceshared/antiabuse/minorconfession \
   --exclude=test \
   --exclude=vm \
