@@ -12,6 +12,7 @@ from pathlib import Path
 
 import psycopg
 
+from serviceshared.antiabuse.networkactivity import Q_SEED_NETWORK_ACTIVITY
 from serviceshared.constants import (
     LAST_ONLINE_DEFAULT_NAME,
     LAST_ONLINE_DEFAULT_SECONDS,
@@ -24,7 +25,6 @@ logger = logging.getLogger(__name__)
 _MIGRATION_LOCK_TIMEOUT_MS = 2000
 _MIGRATION_ATTEMPTS = 10
 _MIGRATION_RETRY_SECONDS = 3
-_BACKFILL_BATCH_SIZE = 1000
 
 _init_sql_file = (
     Path(__file__).parent.parent.parent / 'init-api.sql')
@@ -61,24 +61,10 @@ def _read_sql(path: Path) -> str:
     return sql
 
 
-async def backfill_signed_in_at() -> None:
-    updated = _BACKFILL_BATCH_SIZE
-    while updated == _BACKFILL_BATCH_SIZE:
-        async with api_tx('READ COMMITTED') as tx:
-            await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
-            await tx.execute("""
-            UPDATE duo_session
-            SET signed_in_at = session_expiry - INTERVAL '6 months'
-            WHERE session_token_hash IN (
-                SELECT session_token_hash
-                FROM duo_session
-                WHERE signed_in
-                AND signed_in_at IS NULL
-                LIMIT %(batch_size)s
-                FOR UPDATE SKIP LOCKED
-            )
-            """, dict(batch_size=_BACKFILL_BATCH_SIZE))
-            updated = tx.rowcount
+async def seed_network_activity() -> None:
+    async with api_tx('READ COMMITTED') as tx:
+        await tx.execute('SET LOCAL statement_timeout = 300000') # 5 minutes
+        await tx.execute(Q_SEED_NETWORK_ACTIVITY)
 
 
 async def try_migrations(migrations_sql: str) -> None:
@@ -132,7 +118,7 @@ async def init_db() -> None:
 
     await run_migrations(migrations_sql_file)
 
-    await backfill_signed_in_at()
+    await seed_network_activity()
 
     async with api_tx() as tx:
         await tx.execute(email_domains_bad_file)

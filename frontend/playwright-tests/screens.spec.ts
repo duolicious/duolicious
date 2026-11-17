@@ -117,6 +117,66 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
+const PAYWALL_ARMS = [
+  'checklist',
+  'full-list',
+  'feature-first',
+  'membership-card',
+  'perk-card',
+  'plain',
+];
+
+const PAYWALL_PLANS = [
+  { id: 'week', price: '2.99', currency: 'USD', cycle: { unit: 'week', units: 1 }, trial: null },
+  { id: 'month', price: '7.99', currency: 'USD', cycle: { unit: 'month', units: 1 }, trial: null },
+  { id: 'quarter', price: '17.99', currency: 'USD', cycle: { unit: 'month', units: 3 }, trial: null },
+];
+
+const PAYWALL_VIEWPORTS = {
+  desktop: {
+    large: { width: 1280, height: 900 },
+    small: { width: 1280, height: 720 },
+  },
+  phone: {
+    large: { width: 390, height: 844 },
+    small: { width: 375, height: 667 },
+  },
+};
+
+test('paywall trial arms', async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+
+  const seed = readSeed();
+  const viewports = PAYWALL_VIEWPORTS[testInfo.project.name === 'desktop' ? 'desktop' : 'phone'];
+  let personId = 0;
+
+  await page.route((url) => url.pathname === '/check-session-token', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...await response.json(), person_id: personId, has_gold: false },
+    });
+  });
+  await page.route(
+    (url) => url.pathname === '/paypal/plans',
+    (route) => route.fulfill({ json: PAYWALL_PLANS }),
+  );
+
+  await signInPage(page, seed, 'light');
+
+  for (const [arm, name] of PAYWALL_ARMS.entries()) {
+    personId = arm;
+
+    for (const [size, viewport] of Object.entries(viewports)) {
+      await page.setViewportSize(viewport);
+      await page.goto(`/chat/${seed.uuids.emery}`);
+      await tap(page, 'Seen or not?');
+      await shown(page, 'Subscription renews automatically');
+      await snap(page, `paywall-${name}-${size}`);
+    }
+  }
+});
+
 test('back button anchored to the profile photo', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
 

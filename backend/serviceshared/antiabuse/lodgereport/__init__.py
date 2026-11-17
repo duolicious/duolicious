@@ -13,6 +13,9 @@ from serviceshared.antiabuse.sql import (
     Q_TRUSTWORTHY_REPORTS,
     Q_SHADOW_BAN,
 )
+from serviceshared.antiabuse.networkactivity.count import (
+    count_network_activity,
+)
 from serviceshared.antiabuse.lodgereport.constants import (
     PRIMARY_REPORT_EMAIL,
     REPORT_EMAILS,
@@ -308,6 +311,7 @@ async def skip_by_uuid(
     )
 
     is_shadow_banned = False
+    banned_ids: list[int] = []
 
     async with api_tx() as tx:
         is_automoded = row_bool(
@@ -336,7 +340,10 @@ async def skip_by_uuid(
             )
 
             if is_shadow_banned:
-                await tx.execute(Q_SHADOW_BAN, params=params)
+                cur = await tx.execute(Q_SHADOW_BAN, params=params)
+                banned_ids = [row['id'] for row in await cur.fetchall()]
+
+    await count_network_activity('shadow_bans', banned_ids)
 
     if reason:
         await lodge_report(
