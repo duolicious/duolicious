@@ -1,4 +1,5 @@
 from serviceshared.database import (
+    Tx,
     api_tx,
     row_bool,
     row_int,
@@ -299,16 +300,12 @@ def _should_shadow_ban(
     return bot_report_count >= SHADOW_BAN_REPORT_THRESHOLD
 
 
-async def shadow_ban_by_human(object_uuid: str) -> bool:
-    async with api_tx('READ COMMITTED') as tx:
-        cur = await tx.execute(
-            Q_SHADOW_BAN,
-            params=dict(object_uuid=object_uuid, shadow_banned_by='human'))
-        banned_ids = [row['id'] for row in await cur.fetchall()]
+async def shadow_ban_by_human(tx: Tx, object_uuid: str) -> list[int]:
+    cur = await tx.execute(
+        Q_SHADOW_BAN,
+        params=dict(object_uuid=object_uuid, shadow_banned_by='human'))
 
-    await count_network_activity('shadow_bans', banned_ids)
-
-    return bool(banned_ids)
+    return [row['id'] for row in await cur.fetchall()]
 
 
 async def skip_by_uuid(
@@ -331,6 +328,7 @@ async def skip_by_uuid(
     )
 
     is_shadow_banned = False
+    banned_ids: list[int] = []
 
     async with api_tx() as tx:
         is_automoded = row_bool(
@@ -358,8 +356,10 @@ async def skip_by_uuid(
                 ),
             )
 
-    if is_shadow_banned:
-        await shadow_ban_by_human(object_uuid)
+        if is_shadow_banned:
+            banned_ids = await shadow_ban_by_human(tx, object_uuid)
+
+    await count_network_activity('shadow_bans', banned_ids)
 
     if reason:
         await lodge_report(

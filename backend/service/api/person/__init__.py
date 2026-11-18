@@ -1469,10 +1469,14 @@ async def get_admin_shadow_ban(token: UUID) -> object:
         row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
         row = await row_tx.fetchone()
 
-    if row is None:
-        return 'Invalid token', 401
+        if row is None:
+            return 'Invalid token', 401
 
-    if not await shadow_ban_by_human(row['person_uuid']):
+        banned_ids = await shadow_ban_by_human(tx, row['person_uuid'])
+
+    await count_network_activity('shadow_bans', banned_ids)
+
+    if not banned_ids:
         return 'Shadow ban failed; User already shadow-banned or has Gold', 409
 
     return f'Shadow-banned {row["person_uuid"]}'
