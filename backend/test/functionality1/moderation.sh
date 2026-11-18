@@ -360,6 +360,8 @@ automod_shadow_bans_after_two_bot_reports () {
 shadow_ban_link_shadow_bans_the_accused () {
   setup
 
+  set_gold false "id = ${accused_id}"
+
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
 
@@ -372,7 +374,7 @@ shadow_ban_link_shadow_bans_the_accused () {
   [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
   [[ "$(network_shadow_bans)" == 1 ]]
 
-  ! c GET "/admin/shadow-ban/$(ban_token)"
+  ! c GET "/admin/shadow-ban/$(ban_token)" || exit 1
   [[ "$(network_shadow_bans)" == 1 ]]
 
   c GET "/admin/ban/$(ban_token)"
@@ -387,7 +389,7 @@ shadow_ban_link_spares_gold_users () {
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
 
-  ! c GET "/admin/shadow-ban/$(ban_token)"
+  ! c GET "/admin/shadow-ban/$(ban_token)" || exit 1
   [[ "$(accused_is_shadow_banned)" == f ]]
   [[ "$(network_shadow_bans)" == 0 ]]
 }
@@ -395,12 +397,14 @@ shadow_ban_link_spares_gold_users () {
 shadow_ban_link_expires () {
   setup
 
+  set_gold false "id = ${accused_id}"
+
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
 
   q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
-  ! c GET "/admin/shadow-ban-link/$(ban_token)"
-  ! c GET "/admin/shadow-ban/$(ban_token)"
+  ! c GET "/admin/shadow-ban-link/$(ban_token)" || exit 1
+  ! c GET "/admin/shadow-ban/$(ban_token)" || exit 1
   [[ "$(accused_is_shadow_banned)" == f ]]
 }
 
