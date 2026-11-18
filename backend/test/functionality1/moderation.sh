@@ -357,6 +357,53 @@ automod_shadow_bans_after_two_bot_reports () {
   [[ "$(network_shadow_bans)" == 1 ]]
 }
 
+shadow_ban_link_shadow_bans_the_accused () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  c GET "/admin/shadow-ban-link/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+
+  c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  ! c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  c GET "/admin/ban/$(ban_token)"
+  [[ "$(q "select count(*) from person where id = ${accused_id}")" == 0 ]]
+}
+
+shadow_ban_link_spares_gold_users () {
+  setup
+
+  set_gold true "id = ${accused_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  ! c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+}
+
+shadow_ban_link_expires () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
+  ! c GET "/admin/shadow-ban-link/$(ban_token)"
+  ! c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+}
+
 # Gold users are never automatically shadow banned
 automod_spares_gold_users () {
   setup_trustworthy_reporters
@@ -501,6 +548,9 @@ other_reports_do_not_require_verification
 unverified_reporters_do_not_require_verification
 automod_shadow_bans_after_two_bot_reports
 automod_spares_gold_users
+shadow_ban_link_shadow_bans_the_accused
+shadow_ban_link_spares_gold_users
+shadow_ban_link_expires
 automod_ignores_untrustworthy_reporters
 automod_ignores_non_bot_reports
 automod_ignores_reporters_with_short_bio
