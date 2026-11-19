@@ -142,17 +142,17 @@ def report_template(
 <br/>
 <br/>
 
-<p><b>Ban ACCUSED user for one month:</b></p>
-<a href="https://api.duolicious.app/admin/ban-link/{accused_token}">
-         https://api.duolicious.app/admin/ban-link/{accused_token}
+<p><b>Shadow-ban REPORTING user:</b></p>
+<a href="https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}">
+         https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}
 </a>
 
 <br/>
 <br/>
 
-<p><b>Shadow-ban REPORTING user:</b></p>
-<a href="https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}">
-         https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}
+<p><b>Ban ACCUSED user for one month:</b></p>
+<a href="https://api.duolicious.app/admin/ban-link/{accused_token}">
+         https://api.duolicious.app/admin/ban-link/{accused_token}
 </a>
 
 <br/>

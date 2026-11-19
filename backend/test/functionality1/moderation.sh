@@ -429,9 +429,8 @@ shadow_ban_link_expires () {
   [[ "$(accused_is_shadow_banned)" == f ]]
 }
 
-accused_required_levels () {
-  q "select required_verification_level_id || ' ' || automod_verification_level_id
-     from person where id = ${accused_id}"
+accused_required_level () {
+  q "select required_verification_level_id from person where id = ${accused_id}"
 }
 
 mark_safe_link_undoes_the_high_risk_models_actions () {
@@ -441,19 +440,19 @@ mark_safe_link_undoes_the_high_risk_models_actions () {
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
 
   q "update person
-     set required_verification_level_id = 2,
-         automod_verification_level_id = 3,
+     set required_verification_level_id = 3,
+         pre_automod_verification_level_id = 2,
          shadow_banned_at = now(),
          shadow_banned_by = 'model'
      where id = ${accused_id}"
 
   c GET "/admin/mark-safe-link/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == t ]]
-  [[ "$(accused_required_levels)" == '2 3' ]]
+  [[ "$(accused_required_level)" == 3 ]]
 
   c GET "/admin/mark-safe/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == f ]]
-  [[ "$(accused_required_levels)" == '2 1' ]]
+  [[ "$(accused_required_level)" == 2 ]]
   [[ "$(q "select marked_safe_at is not null from person where id = ${accused_id}")" == t ]]
 
   ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
@@ -473,12 +472,12 @@ mark_safe_link_undoes_report_automod () {
   assume_role 'reporter2@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
   [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
-  [[ "$(accused_required_levels)" == '1 2' ]]
+  [[ "$(accused_required_level)" == 2 ]]
   [[ "$(network_shadow_bans)" == 1 ]]
 
   c GET "/admin/mark-safe/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == f ]]
-  [[ "$(accused_required_levels)" == '1 1' ]]
+  [[ "$(accused_required_level)" == 1 ]]
   [[ "$(network_shadow_bans)" == 0 ]]
 
   q "delete from skipped where object_person_id = ${accused_id}"
@@ -487,7 +486,7 @@ mark_safe_link_undoes_report_automod () {
   assume_role 'reporter2@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "still a bot" }'
   [[ "$(accused_is_shadow_banned)" == f ]]
-  [[ "$(accused_required_levels)" == '1 1' ]]
+  [[ "$(accused_required_level)" == 1 ]]
 }
 
 mark_safe_link_lifts_human_shadow_bans () {
@@ -623,7 +622,7 @@ setup_verified_reporter () {
 }
 
 accused_requires_verification () {
-  q "select automod_verification_level_id = 2 from person where id = ${accused_id}"
+  q "select required_verification_level_id = 2 from person where id = ${accused_id}"
 }
 
 bot_report_requires_verification () {

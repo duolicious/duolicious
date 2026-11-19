@@ -19,19 +19,4 @@ DROP TABLE IF EXISTS presence_histogram;
 
 ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
 
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM pg_attribute
-        WHERE attrelid = 'person'::regclass
-        AND attname = 'automod_verification_level_id'
-        AND NOT attisdropped
-    ) THEN
-        RETURN;
-    END IF;
-
-    ALTER TABLE person
-        ADD COLUMN automod_verification_level_id SMALLINT NOT NULL DEFAULT 1,
-        ADD CONSTRAINT person_automod_verification_level_id_fkey
-            FOREIGN KEY (automod_verification_level_id)
-            REFERENCES verification_level(id) NOT VALID;
-END $$;
+ALTER TABLE person ADD COLUMN IF NOT EXISTS pre_automod_verification_level_id SMALLINT;

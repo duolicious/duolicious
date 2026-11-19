@@ -3,19 +3,13 @@ from serviceshared.database import api_tx, row_int
 
 _Q_MISSING_VERIFICATION_LEVEL = """
 SELECT
-    GREATEST(
-        required_verification_level_id,
-        automod_verification_level_id
-    ) AS required_verification_level_id
+    required_verification_level_id
 FROM
     person
 WHERE
     id = %(person_id)s
 AND
-    verification_level_id < GREATEST(
-        required_verification_level_id,
-        automod_verification_level_id
-    )
+    verification_level_id < required_verification_level_id
 """
 
 

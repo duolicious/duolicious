@@ -57,10 +57,7 @@ AND
 AND
     prospect.shadow_banned_at IS NULL
 AND -- Exclude users who should be verified but aren't
-    prospect.verification_level_id >= GREATEST(
-        prospect.required_verification_level_id,
-        prospect.automod_verification_level_id
-    )
+    prospect.verification_level_id >= prospect.required_verification_level_id
 AND
     prospect.last_online_time > now() - interval '7 days'
 AND

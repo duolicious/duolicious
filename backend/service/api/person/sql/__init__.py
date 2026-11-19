@@ -2419,7 +2419,26 @@ WITH unmoderated AS (
         marked_safe_at = now(),
         shadow_banned_at = NULL,
         shadow_banned_by = NULL,
-        automod_verification_level_id = 1
+        pre_automod_verification_level_id = NULL,
+        required_verification_level_id = GREATEST(
+            COALESCE(
+                pre_automod_verification_level_id,
+                required_verification_level_id
+            ),
+            CASE
+                WHEN EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        location
+                    WHERE
+                        location.long_friendly = person.location_long_friendly
+                    AND
+                        location.verification_required
+                ) THEN 2
+                ELSE 1
+            END
+        )
     WHERE
         uuid = %(person_uuid)s
     AND
@@ -2562,7 +2581,7 @@ SELECT json_build_object(
                 - 'shadow_banned_at'
                 - 'shadow_banned_by'
                 - 'marked_safe_at'
-                - 'automod_verification_level_id')
+                - 'pre_automod_verification_level_id')
         FROM (
             SELECT
                 person.*,

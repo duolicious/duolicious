@@ -319,8 +319,6 @@ def visitors_tab_shows_sql(prospect: str, checker_id: str) -> str:
             {prospect}.public_profile
         )
     AND
-        {prospect}.verification_level_id >= GREATEST(
-            {prospect}.required_verification_level_id,
-            {prospect}.automod_verification_level_id
-        )
+        {prospect}.verification_level_id >=
+            {prospect}.required_verification_level_id
 """
