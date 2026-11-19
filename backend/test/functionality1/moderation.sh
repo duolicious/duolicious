@@ -381,6 +381,27 @@ shadow_ban_link_shadow_bans_the_accused () {
   [[ "$(q "select count(*) from person where id = ${accused_id}")" == 0 ]]
 }
 
+shadow_ban_link_shadow_bans_the_reporter () {
+  setup
+
+  local reporter_id
+  reporter_id=$(q "select id from person where email = 'reporter@gmail.com'")
+
+  set_gold false "id = ${reporter_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  local token
+  token=$(q "select token from banned_person_admin_token where person_id = ${reporter_id}")
+
+  c GET "/admin/shadow-ban-link/${token}"
+  c GET "/admin/shadow-ban/${token}"
+  [[ "$(q "select shadow_banned_by from person where id = ${reporter_id}")" == human ]]
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+}
+
 shadow_ban_link_spares_gold_users () {
   setup
 
@@ -553,6 +574,7 @@ unverified_reporters_do_not_require_verification
 automod_shadow_bans_after_two_bot_reports
 automod_spares_gold_users
 shadow_ban_link_shadow_bans_the_accused
+shadow_ban_link_shadow_bans_the_reporter
 shadow_ban_link_spares_gold_users
 shadow_ban_link_expires
 automod_ignores_untrustworthy_reporters

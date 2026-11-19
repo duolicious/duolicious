@@ -150,6 +150,14 @@ def report_template(
 <br/>
 <br/>
 
+<p><b>Shadow-ban REPORTING user:</b></p>
+<a href="https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}">
+         https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}
+</a>
+
+<br/>
+<br/>
+
 <p><b>Shadow-ban ACCUSED user:</b></p>
 <a href="https://api.duolicious.app/admin/shadow-ban-link/{accused_token}">
          https://api.duolicious.app/admin/shadow-ban-link/{accused_token}
