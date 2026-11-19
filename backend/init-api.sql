@@ -97,7 +97,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model', 'reports');
+    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

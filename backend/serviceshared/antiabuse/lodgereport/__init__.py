@@ -316,14 +316,10 @@ def _should_shadow_ban(
     return bot_report_count >= SHADOW_BAN_REPORT_THRESHOLD
 
 
-async def shadow_ban(
-    tx: Tx,
-    object_uuid: str,
-    shadow_banned_by: Literal['human', 'reports'],
-) -> list[int]:
+async def shadow_ban_by_human(tx: Tx, object_uuid: str) -> list[int]:
     cur = await tx.execute(
         Q_SHADOW_BAN,
-        params=dict(object_uuid=object_uuid, shadow_banned_by=shadow_banned_by))
+        params=dict(object_uuid=object_uuid, shadow_banned_by='human'))
 
     return [row['id'] for row in await cur.fetchall()]
 
@@ -377,7 +373,7 @@ async def skip_by_uuid(
             )
 
         if is_shadow_banned:
-            banned_ids = await shadow_ban(tx, object_uuid, 'reports')
+            banned_ids = await shadow_ban_by_human(tx, object_uuid)
 
     await count_network_activity('shadow_bans', banned_ids)
 

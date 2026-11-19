@@ -347,7 +347,7 @@ automod_shadow_bans_after_two_bot_reports () {
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
   [[ "$(accused_is_shadow_banned)" == t ]]
   [[ "$(network_shadow_bans)" == 1 ]]
-  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == reports ]]
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
 
   local banned_at
   banned_at=$(q "select shadow_banned_at from person where id = ${accused_id}")
@@ -472,7 +472,7 @@ mark_safe_link_undoes_report_automod () {
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "this is a scammer" }'
   assume_role 'reporter2@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
-  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == reports ]]
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
   [[ "$(accused_required_levels)" == '1 2' ]]
   [[ "$(network_shadow_bans)" == 1 ]]
 

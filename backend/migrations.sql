@@ -17,8 +17,6 @@ ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
 
 DROP TABLE IF EXISTS presence_histogram;
 
-ALTER TYPE shadow_ban_source ADD VALUE IF NOT EXISTS 'reports';
-
 ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
 
 DO $$ BEGIN

@@ -41,7 +41,7 @@ from service.api.person.sql import *
 from serviceshared.antiabuse.networkactivity.count import (
     count_network_activity,
 )
-from serviceshared.antiabuse.lodgereport import shadow_ban
+from serviceshared.antiabuse.lodgereport import shadow_ban_by_human
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
@@ -1475,7 +1475,7 @@ async def get_admin_shadow_ban(token: UUID) -> object:
         if row is None:
             return 'Invalid token', 401
 
-        banned_ids = await shadow_ban(tx, row['person_uuid'], 'human')
+        banned_ids = await shadow_ban_by_human(tx, row['person_uuid'])
 
     await count_network_activity('shadow_bans', banned_ids)
 
