@@ -2417,14 +2417,8 @@ WITH unmoderated AS (
         person
     SET
         marked_safe_at = now(),
-        shadow_banned_at = CASE
-            WHEN shadow_banned_by IN ('model', 'reports') THEN NULL
-            ELSE shadow_banned_at
-        END,
-        shadow_banned_by = CASE
-            WHEN shadow_banned_by IN ('model', 'reports') THEN NULL
-            ELSE shadow_banned_by
-        END,
+        shadow_banned_at = NULL,
+        shadow_banned_by = NULL,
         automod_verification_level_id = 1
     WHERE
         uuid = %(person_uuid)s
@@ -2434,16 +2428,16 @@ WITH unmoderated AS (
         person.id,
         OLD.shadow_banned_at,
         OLD.shadow_banned_by
-), report_shadow_ban AS (
+), counted_shadow_ban AS (
     SELECT
         id,
         shadow_banned_at
     FROM
         unmoderated
     WHERE
-        shadow_banned_by = 'reports'
+        shadow_banned_by <> 'model'
 ), uncounted AS (
-    {uncount_shadow_ban_sql('report_shadow_ban')}
+    {uncount_shadow_ban_sql('counted_shadow_ban')}
 )
 SELECT
     EXISTS (SELECT 1 FROM unmoderated) AS is_marked_safe

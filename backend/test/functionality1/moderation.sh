@@ -490,19 +490,21 @@ mark_safe_link_undoes_report_automod () {
   [[ "$(accused_required_levels)" == '1 1' ]]
 }
 
-mark_safe_link_keeps_human_shadow_bans () {
+mark_safe_link_lifts_human_shadow_bans () {
   setup
+
+  set_gold false "id = ${accused_id}"
 
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
 
-  q "update person
-     set shadow_banned_at = now(),
-         shadow_banned_by = 'human'
-     where id = ${accused_id}"
+  c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
 
   c GET "/admin/mark-safe/$(ban_token)"
-  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
 }
 
 mark_safe_link_expires () {
@@ -667,7 +669,7 @@ shadow_ban_link_spares_gold_users
 shadow_ban_link_expires
 mark_safe_link_undoes_the_high_risk_models_actions
 mark_safe_link_undoes_report_automod
-mark_safe_link_keeps_human_shadow_bans
+mark_safe_link_lifts_human_shadow_bans
 mark_safe_link_expires
 automod_ignores_untrustworthy_reporters
 automod_ignores_non_bot_reports
