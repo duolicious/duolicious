@@ -19,7 +19,7 @@ from service.cron.highrisk.sql import (
 )
 from serviceshared.antiabuse.sql import Q_SHADOW_BAN
 
-Params = dict[str, int | float | str | None]
+Params = dict[str, int | float | str]
 
 PERSON = NewPerson(
     bot_uuid=UUID(int=1),
@@ -31,16 +31,11 @@ PERSON = NewPerson(
     previous_hours=[])
 
 
-def stored(
-    risk: float,
-    hours: int = 0,
-    previous_level: int | None = None,
-) -> tuple[str, Params]:
+def stored(risk: float, hours: int = 0) -> tuple[str, Params]:
     return Q_INSERT_SCORE, dict(
         person_id=PERSON.person_id,
         hours=hours,
-        score=risk,
-        previous_required_verification_level_id=previous_level)
+        score=risk)
 
 
 class _DefaultSettings(unittest.TestCase):
@@ -144,14 +139,6 @@ class TestCheck(unittest.TestCase):
                 executed.append((query, params))
                 return Cursor()
 
-            async def require_one(
-                self,
-                query: str,
-                params: Params,
-            ) -> dict[str, int]:
-                executed.append((query, params))
-                return dict(previous_required_verification_level_id=2)
-
         @asynccontextmanager
         async def api_tx(isolation: str) -> AsyncIterator[Tx]:
             yield Tx()
@@ -182,8 +169,7 @@ class TestCheck(unittest.TestCase):
             is_automoded=is_automoded,
             is_shadow_banned=is_shadow_banned,
             underage_source=None,
-            messages=None,
-            can_mark_safe=True)
+            messages=None)
 
     def test_nobody_due(self) -> None:
         executed, lodged = self.check(0.9995, person=PERSON.model_copy(
@@ -216,7 +202,7 @@ class TestCheck(unittest.TestCase):
 
         self.assertEqual(executed, [
             (Q_REQUIRE_PHOTO_VERIFICATION, dict(person_id=PERSON.person_id)),
-            stored(0.96, previous_level=2),
+            stored(0.96),
         ])
         self.assert_reported(lodged, is_automoded=True, is_shadow_banned=False)
 

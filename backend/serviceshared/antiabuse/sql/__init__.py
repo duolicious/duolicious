@@ -310,6 +310,16 @@ SELECT
                 WHERE
                     messaged.subject_person_id = reporter.id
             ) >= %(min_people_messaged)s
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                marked_safe
+            WHERE
+                marked_safe.person_id = object.id
+            AND
+                marked_safe.created_at >= skipped.created_at
+        )
     ) AS trustworthy_report_reasons
 FROM
     person AS object

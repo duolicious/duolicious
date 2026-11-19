@@ -347,7 +347,7 @@ automod_shadow_bans_after_two_bot_reports () {
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
   [[ "$(accused_is_shadow_banned)" == t ]]
   [[ "$(network_shadow_bans)" == 1 ]]
-  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == reports ]]
 
   local banned_at
   banned_at=$(q "select shadow_banned_at from person where id = ${accused_id}")
@@ -444,9 +444,6 @@ mark_safe_link_undoes_the_high_risk_models_actions () {
          shadow_banned_at = now(),
          shadow_banned_by = 'model'
      where id = ${accused_id}"
-  q "insert into high_risk_score
-     (person_id, hours, score, previous_required_verification_level_id)
-     values (${accused_id}, 0, 0.97, 2), (${accused_id}, 1, 0.9995, null)"
 
   c GET "/admin/mark-safe-link/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == t ]]
@@ -454,30 +451,61 @@ mark_safe_link_undoes_the_high_risk_models_actions () {
 
   c GET "/admin/mark-safe/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == f ]]
-  [[ "$(accused_required_level)" == 2 ]]
-  [[ "$(q "select count(*) from high_risk_marked_safe where person_id = ${accused_id}")" == 1 ]]
-  [[ "$(network_shadow_bans)" == 0 ]]
+  [[ "$(accused_required_level)" == 1 ]]
+  [[ "$(q "select count(*) from marked_safe where person_id = ${accused_id}")" == 1 ]]
 
   ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
 }
 
-mark_safe_link_keeps_other_moderation () {
+mark_safe_link_undoes_report_automod () {
+  setup_trustworthy_reporters
+
+  set_gold false "id = ${accused_id}"
+
+  q "update person
+     set verification_level_id = 3
+     where email in ('reporter@gmail.com', 'reporter2@gmail.com')"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "this is a scammer" }'
+  assume_role 'reporter2@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == reports ]]
+  [[ "$(accused_required_level)" == 2 ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  c GET "/admin/mark-safe/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 1 ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+
+  q "delete from skipped
+     where subject_person_id = (select id from person where email = 'reporter@gmail.com')"
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "scammer again" }'
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 2 ]]
+
+  q "delete from skipped
+     where subject_person_id = (select id from person where email = 'reporter2@gmail.com')"
+  assume_role 'reporter2@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "still a bot" }'
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == reports ]]
+}
+
+mark_safe_link_keeps_human_shadow_bans () {
   setup
 
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
 
   q "update person
-     set required_verification_level_id = 2,
-         shadow_banned_at = now(),
+     set shadow_banned_at = now(),
          shadow_banned_by = 'human'
      where id = ${accused_id}"
-  q "insert into high_risk_score (person_id, hours, score)
-     values (${accused_id}, 0, 0.5)"
 
   c GET "/admin/mark-safe/$(ban_token)"
   [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
-  [[ "$(accused_required_level)" == 2 ]]
 }
 
 mark_safe_link_expires () {
@@ -489,7 +517,7 @@ mark_safe_link_expires () {
   q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
   ! c GET "/admin/mark-safe-link/$(ban_token)" || exit 1
   ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
-  [[ "$(q "select count(*) from high_risk_marked_safe")" == 0 ]]
+  [[ "$(q "select count(*) from marked_safe")" == 0 ]]
 }
 
 # Gold users are never automatically shadow banned
@@ -641,7 +669,8 @@ shadow_ban_link_shadow_bans_the_reporter
 shadow_ban_link_spares_gold_users
 shadow_ban_link_expires
 mark_safe_link_undoes_the_high_risk_models_actions
-mark_safe_link_keeps_other_moderation
+mark_safe_link_undoes_report_automod
+mark_safe_link_keeps_human_shadow_bans
 mark_safe_link_expires
 automod_ignores_untrustworthy_reporters
 automod_ignores_non_bot_reports

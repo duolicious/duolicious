@@ -42,9 +42,9 @@ AND NOT EXISTS (
     SELECT
         1
     FROM
-        high_risk_marked_safe
+        marked_safe
     WHERE
-        high_risk_marked_safe.person_id = person.id
+        marked_safe.person_id = person.id
 )
 AND NOT EXISTS (
     SELECT
@@ -62,13 +62,11 @@ Q_INSERT_SCORE = """
 INSERT INTO high_risk_score (
     person_id,
     hours,
-    score,
-    previous_required_verification_level_id
+    score
 ) VALUES (
     %(person_id)s,
     %(hours)s,
-    %(score)s,
-    %(previous_required_verification_level_id)s
+    %(score)s
 ) ON CONFLICT DO NOTHING
 """
 
@@ -79,7 +77,4 @@ SET
     required_verification_level_id = 3
 WHERE
     id = %(person_id)s
-RETURNING
-    OLD.required_verification_level_id
-        AS previous_required_verification_level_id
 """

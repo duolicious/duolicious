@@ -7,6 +7,7 @@ from serviceshared.constants import (
 )
 from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
 from serviceshared.gold.sql import club_quota_sql, has_gold_sql
+from serviceshared.antiabuse.networkactivity import uncount_shadow_ban_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     computed_flair_sql,
@@ -2410,9 +2411,9 @@ AND
     banned_person_admin_token.expires_at > NOW()
 """
 
-Q_MARK_SAFE_FROM_HIGH_RISK_MODEL = """
+Q_MARK_SAFE = f"""
 WITH marked AS (
-    INSERT INTO high_risk_marked_safe (
+    INSERT INTO marked_safe (
         person_id
     )
     SELECT
@@ -2424,30 +2425,55 @@ WITH marked AS (
     ON CONFLICT DO NOTHING
     RETURNING
         person_id
-)
-UPDATE
-    person
-SET
-    shadow_banned_at = CASE
-        WHEN shadow_banned_by = 'model' THEN NULL
-        ELSE shadow_banned_at
-    END,
-    shadow_banned_by = NULLIF(shadow_banned_by, 'model'),
-    required_verification_level_id = LEAST(
-        required_verification_level_id,
-        (
-            SELECT
-                min(previous_required_verification_level_id)
-            FROM
-                high_risk_score
-            WHERE
-                high_risk_score.person_id = person.id
+), unmoderated AS (
+    UPDATE
+        person
+    SET
+        shadow_banned_at = CASE
+            WHEN shadow_banned_by IN ('model', 'reports') THEN NULL
+            ELSE shadow_banned_at
+        END,
+        shadow_banned_by = CASE
+            WHEN shadow_banned_by IN ('model', 'reports') THEN NULL
+            ELSE shadow_banned_by
+        END,
+        required_verification_level_id = LEAST(
+            required_verification_level_id,
+            CASE
+                WHEN EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        location
+                    WHERE
+                        location.long_friendly = person.location_long_friendly
+                    AND
+                        location.verification_required
+                ) THEN 2
+                ELSE 1
+            END
         )
-    )
-FROM
-    marked
-WHERE
-    person.id = marked.person_id
+    FROM
+        marked
+    WHERE
+        person.id = marked.person_id
+    RETURNING
+        person.id,
+        OLD.shadow_banned_at,
+        OLD.shadow_banned_by
+), report_shadow_ban AS (
+    SELECT
+        id,
+        shadow_banned_at
+    FROM
+        unmoderated
+    WHERE
+        shadow_banned_by = 'reports'
+), uncounted AS (
+    {uncount_shadow_ban_sql('report_shadow_ban')}
+)
+SELECT
+    EXISTS (SELECT 1 FROM unmoderated) AS is_marked_safe
 """
 
 Q_DELETE_VERIFICATION_JOB = """

@@ -41,7 +41,7 @@ from service.api.person.sql import *
 from serviceshared.antiabuse.networkactivity.count import (
     count_network_activity,
 )
-from serviceshared.antiabuse.lodgereport import shadow_ban_by_human
+from serviceshared.antiabuse.lodgereport import shadow_ban
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
@@ -1475,7 +1475,7 @@ async def get_admin_shadow_ban(token: UUID) -> object:
         if row is None:
             return 'Invalid token', 401
 
-        banned_ids = await shadow_ban_by_human(tx, row['person_uuid'])
+        banned_ids = await shadow_ban(tx, row['person_uuid'], 'human')
 
     await count_network_activity('shadow_bans', banned_ids)
 
@@ -1492,15 +1492,15 @@ async def get_admin_mark_safe(token: UUID) -> object:
         if row is None:
             return 'Invalid token', 401
 
-        cur = await tx.execute(
-            Q_MARK_SAFE_FROM_HIGH_RISK_MODEL,
-            dict(person_uuid=row['person_uuid']))
-        is_marked_safe = cur.rowcount > 0
+        is_marked_safe = row_bool(
+            await tx.require_one(
+                Q_MARK_SAFE, dict(person_uuid=row['person_uuid'])),
+            'is_marked_safe')
 
     if not is_marked_safe:
         return 'User already marked as safe', 409
 
-    return f'Marked {row["person_uuid"]} as safe from the high-risk model'
+    return f'Marked {row["person_uuid"]} as safe and undid automod'
 
 async def get_admin_delete_photo_link(token: str) -> object:
     params = dict(token=token)

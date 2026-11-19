@@ -84,7 +84,6 @@ def report_template(
     report_obj: Sequence[Mapping[str, object]],
     reason: str,
     last_messages: list[dict[str, object]],
-    can_mark_safe: bool,
 ) -> str:
     reporter_token = row_str(report_obj[0], 'token')
     accused_token = row_str(report_obj[1], 'token')
@@ -103,16 +102,6 @@ def report_template(
     safe_last_messages = html.escape(last_messages_str)
 
     accused_img_html = _photo_links_to_html(accused_photo_links)
-
-    mark_safe_html = f"""
-<br/>
-<br/>
-
-<p><b>Mark ACCUSED user as safe from the high-risk model:</b></p>
-<a href="https://api.duolicious.app/admin/mark-safe-link/{accused_token}">
-         https://api.duolicious.app/admin/mark-safe-link/{accused_token}
-</a>
-""" if can_mark_safe else ''
 
     return f"""
 <!DOCTYPE html>
@@ -173,7 +162,15 @@ def report_template(
 <a href="https://api.duolicious.app/admin/shadow-ban-link/{accused_token}">
          https://api.duolicious.app/admin/shadow-ban-link/{accused_token}
 </a>
-{mark_safe_html}
+
+<br/>
+<br/>
+
+<p><b>Mark ACCUSED user as safe and undo automod:</b></p>
+<a href="https://api.duolicious.app/admin/mark-safe-link/{accused_token}">
+         https://api.duolicious.app/admin/mark-safe-link/{accused_token}
+</a>
+
 </body>
 </html>
 """
@@ -220,7 +217,6 @@ def _send_report_email(
     is_automoded: bool,
     is_shadow_banned: bool,
     underage_source: ReportSource | None,
-    can_mark_safe: bool,
 ) -> None:
     report_email = _sample_email_addresses(REPORT_EMAILS)
 
@@ -236,7 +232,6 @@ def _send_report_email(
                 report_obj=report_obj,
                 reason=reason,
                 last_messages=last_messages,
-                can_mark_safe=can_mark_safe,
             ),
             to_addr=report_email,
             from_addr=PRIMARY_REPORT_EMAIL,
@@ -253,7 +248,6 @@ async def lodge_report(
     is_shadow_banned: bool,
     underage_source: ReportSource | None,
     messages: list[dict[str, object]] | None,
-    can_mark_safe: bool = False,
 ) -> None:
     params = dict(
         subject_uuid=subject_uuid,
@@ -277,7 +271,6 @@ async def lodge_report(
             is_automoded=is_automoded,
             is_shadow_banned=is_shadow_banned,
             underage_source=underage_source,
-            can_mark_safe=can_mark_safe,
         )
     ).start()
 
@@ -323,10 +316,14 @@ def _should_shadow_ban(
     return bot_report_count >= SHADOW_BAN_REPORT_THRESHOLD
 
 
-async def shadow_ban_by_human(tx: Tx, object_uuid: str) -> list[int]:
+async def shadow_ban(
+    tx: Tx,
+    object_uuid: str,
+    shadow_banned_by: Literal['human', 'reports'],
+) -> list[int]:
     cur = await tx.execute(
         Q_SHADOW_BAN,
-        params=dict(object_uuid=object_uuid, shadow_banned_by='human'))
+        params=dict(object_uuid=object_uuid, shadow_banned_by=shadow_banned_by))
 
     return [row['id'] for row in await cur.fetchall()]
 
@@ -380,7 +377,7 @@ async def skip_by_uuid(
             )
 
         if is_shadow_banned:
-            banned_ids = await shadow_ban_by_human(tx, object_uuid)
+            banned_ids = await shadow_ban(tx, object_uuid, 'reports')
 
     await count_network_activity('shadow_bans', banned_ids)
 

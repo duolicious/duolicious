@@ -97,7 +97,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model');
+    CREATE TYPE shadow_ban_source AS ENUM ('human', 'model', 'reports');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -395,12 +395,11 @@ CREATE TABLE IF NOT EXISTS high_risk_score (
     hours SMALLINT NOT NULL,
     score FLOAT4 NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    previous_required_verification_level_id SMALLINT,
 
     PRIMARY KEY (person_id, hours)
 );
 
-CREATE TABLE IF NOT EXISTS high_risk_marked_safe (
+CREATE TABLE IF NOT EXISTS marked_safe (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

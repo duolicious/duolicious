@@ -17,10 +17,9 @@ ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
 
 DROP TABLE IF EXISTS presence_histogram;
 
-ALTER TABLE high_risk_score
-    ADD COLUMN IF NOT EXISTS previous_required_verification_level_id SMALLINT;
+ALTER TYPE shadow_ban_source ADD VALUE IF NOT EXISTS 'reports';
 
-CREATE TABLE IF NOT EXISTS high_risk_marked_safe (
+CREATE TABLE IF NOT EXISTS marked_safe (
     person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
