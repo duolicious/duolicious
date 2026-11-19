@@ -2406,6 +2406,8 @@ ON
     banned_person_admin_token.person_id = person.id
 WHERE
     banned_person_admin_token.token = %(token)s
+AND
+    banned_person_admin_token.expires_at > NOW()
 """
 
 Q_DELETE_VERIFICATION_JOB = """

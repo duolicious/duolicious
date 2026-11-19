@@ -357,6 +357,78 @@ automod_shadow_bans_after_two_bot_reports () {
   [[ "$(network_shadow_bans)" == 1 ]]
 }
 
+shadow_ban_link_shadow_bans_the_accused () {
+  setup
+
+  set_gold false "id = ${accused_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  c GET "/admin/shadow-ban-link/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+
+  c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  ! c GET "/admin/shadow-ban/$(ban_token)" || exit 1
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  c GET "/admin/ban/$(ban_token)"
+  [[ "$(q "select count(*) from person where id = ${accused_id}")" == 0 ]]
+}
+
+shadow_ban_link_shadow_bans_the_reporter () {
+  setup
+
+  local reporter_id
+  reporter_id=$(q "select id from person where email = 'reporter@gmail.com'")
+
+  set_gold false "id = ${reporter_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  local token
+  token=$(q "select token from banned_person_admin_token where person_id = ${reporter_id}")
+
+  c GET "/admin/shadow-ban-link/${token}"
+  c GET "/admin/shadow-ban/${token}"
+  [[ "$(q "select shadow_banned_by from person where id = ${reporter_id}")" == human ]]
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+}
+
+shadow_ban_link_spares_gold_users () {
+  setup
+
+  set_gold true "id = ${accused_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  ! c GET "/admin/shadow-ban/$(ban_token)" || exit 1
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+}
+
+shadow_ban_link_expires () {
+  setup
+
+  set_gold false "id = ${accused_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
+  ! c GET "/admin/shadow-ban-link/$(ban_token)" || exit 1
+  ! c GET "/admin/shadow-ban/$(ban_token)" || exit 1
+  [[ "$(accused_is_shadow_banned)" == f ]]
+}
+
 # Gold users are never automatically shadow banned
 automod_spares_gold_users () {
   setup_trustworthy_reporters
@@ -501,6 +573,10 @@ other_reports_do_not_require_verification
 unverified_reporters_do_not_require_verification
 automod_shadow_bans_after_two_bot_reports
 automod_spares_gold_users
+shadow_ban_link_shadow_bans_the_accused
+shadow_ban_link_shadow_bans_the_reporter
+shadow_ban_link_spares_gold_users
+shadow_ban_link_expires
 automod_ignores_untrustworthy_reporters
 automod_ignores_non_bot_reports
 automod_ignores_reporters_with_short_bio

@@ -41,6 +41,7 @@ from service.api.person.sql import *
 from serviceshared.antiabuse.networkactivity.count import (
     count_network_activity,
 )
+from serviceshared.antiabuse.lodgereport import shadow_ban_by_human
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
@@ -68,6 +69,7 @@ from starlette.responses import Response
 from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
 from typing import Literal
+from uuid import UUID
 import psycopg
 from serviceshared.antiabuse.antispam.signupemail import (
     get_email_info,
@@ -1450,6 +1452,34 @@ async def get_admin_ban(token: str) -> object:
         return f'Banned {rows}'
     else:
         return 'Ban failed; User already banned or token invalid', 401
+
+async def get_admin_shadow_ban_link(token: UUID) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
+        row = await row_tx.fetchone()
+
+    if row is None:
+        return 'Invalid token', 401
+
+    link = f'https://api.duolicious.app/admin/shadow-ban/{token}'
+    return f'<a href="{link}">Click to confirm. Token: {token}</a>'
+
+async def get_admin_shadow_ban(token: UUID) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
+        row = await row_tx.fetchone()
+
+        if row is None:
+            return 'Invalid token', 401
+
+        banned_ids = await shadow_ban_by_human(tx, row['person_uuid'])
+
+    await count_network_activity('shadow_bans', banned_ids)
+
+    if not banned_ids:
+        return 'Shadow ban failed; User already shadow-banned or has Gold', 409
+
+    return f'Shadow-banned {row["person_uuid"]}'
 
 async def get_admin_delete_photo_link(token: str) -> object:
     params = dict(token=token)
