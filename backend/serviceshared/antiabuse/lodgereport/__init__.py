@@ -330,7 +330,7 @@ async def skip_by_uuid(
     is_shadow_banned = False
     banned_ids: list[int] = []
 
-    async with api_tx() as tx:
+    async with api_tx('READ COMMITTED') as tx:
         is_automoded = row_bool(
             await tx.require_one(Q_INSERT_SKIPPED, params=params),
             'is_automoded',
