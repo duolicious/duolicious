@@ -42,6 +42,14 @@ AND NOT EXISTS (
     SELECT
         1
     FROM
+        high_risk_marked_safe
+    WHERE
+        high_risk_marked_safe.person_id = person.id
+)
+AND NOT EXISTS (
+    SELECT
+        1
+    FROM
         photo
     WHERE
         photo.person_id = person.id
@@ -54,11 +62,13 @@ Q_INSERT_SCORE = """
 INSERT INTO high_risk_score (
     person_id,
     hours,
-    score
+    score,
+    previous_required_verification_level_id
 ) VALUES (
     %(person_id)s,
     %(hours)s,
-    %(score)s
+    %(score)s,
+    %(previous_required_verification_level_id)s
 ) ON CONFLICT DO NOTHING
 """
 
@@ -69,4 +79,7 @@ SET
     required_verification_level_id = 3
 WHERE
     id = %(person_id)s
+RETURNING
+    OLD.required_verification_level_id
+        AS previous_required_verification_level_id
 """

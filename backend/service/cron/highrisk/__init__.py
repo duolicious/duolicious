@@ -17,7 +17,7 @@ from serviceshared.antiabuse.highrisk.sql import (
 )
 from serviceshared.antiabuse.lodgereport import lodge_report
 from serviceshared.antiabuse.sql import Q_SHADOW_BAN
-from serviceshared.database import api_tx
+from serviceshared.database import api_tx, row_int
 from service.cron.cronutil import MAX_RANDOM_START_DELAY, log_stacktrace
 from service.cron.highrisk.sql import (
     Q_INSERT_SCORE,
@@ -133,11 +133,14 @@ async def check(person: NewPerson) -> None:
     is_stricter = escalates(risk, person.previous_score, person.has_gold)
     acts = is_stricter and not DRY_RUN
     is_shadow_banned = False
+    previous_level = None
 
     async with api_tx('read committed') as tx:
         if acts and act == 'photo verification':
-            await tx.execute(Q_REQUIRE_PHOTO_VERIFICATION, dict(
-                person_id=person.person_id))
+            previous_level = row_int(
+                await tx.require_one(Q_REQUIRE_PHOTO_VERIFICATION, dict(
+                    person_id=person.person_id)),
+                'previous_required_verification_level_id')
 
         if acts and act == 'shadow ban':
             cur = await tx.execute(Q_SHADOW_BAN, dict(
@@ -148,7 +151,8 @@ async def check(person: NewPerson) -> None:
         await tx.execute(Q_INSERT_SCORE, dict(
             person_id=person.person_id,
             hours=hours,
-            score=risk))
+            score=risk,
+            previous_required_verification_level_id=previous_level))
 
     was_banned_already = acts and act == 'shadow ban' and not is_shadow_banned
 
@@ -164,6 +168,7 @@ async def check(person: NewPerson) -> None:
         is_shadow_banned=is_shadow_banned,
         underage_source=None,
         messages=None,
+        can_mark_safe=True,
     )
 
 

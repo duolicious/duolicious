@@ -429,6 +429,69 @@ shadow_ban_link_expires () {
   [[ "$(accused_is_shadow_banned)" == f ]]
 }
 
+accused_required_level () {
+  q "select required_verification_level_id from person where id = ${accused_id}"
+}
+
+mark_safe_link_undoes_the_high_risk_models_actions () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update person
+     set required_verification_level_id = 3,
+         shadow_banned_at = now(),
+         shadow_banned_by = 'model'
+     where id = ${accused_id}"
+  q "insert into high_risk_score
+     (person_id, hours, score, previous_required_verification_level_id)
+     values (${accused_id}, 0, 0.97, 2), (${accused_id}, 1, 0.9995, null)"
+
+  c GET "/admin/mark-safe-link/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(accused_required_level)" == 3 ]]
+
+  c GET "/admin/mark-safe/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 2 ]]
+  [[ "$(q "select count(*) from high_risk_marked_safe where person_id = ${accused_id}")" == 1 ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+
+  ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
+}
+
+mark_safe_link_keeps_other_moderation () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update person
+     set required_verification_level_id = 2,
+         shadow_banned_at = now(),
+         shadow_banned_by = 'human'
+     where id = ${accused_id}"
+  q "insert into high_risk_score (person_id, hours, score)
+     values (${accused_id}, 0, 0.5)"
+
+  c GET "/admin/mark-safe/$(ban_token)"
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
+  [[ "$(accused_required_level)" == 2 ]]
+}
+
+mark_safe_link_expires () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
+  ! c GET "/admin/mark-safe-link/$(ban_token)" || exit 1
+  ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
+  [[ "$(q "select count(*) from high_risk_marked_safe")" == 0 ]]
+}
+
 # Gold users are never automatically shadow banned
 automod_spares_gold_users () {
   setup_trustworthy_reporters
@@ -577,6 +640,9 @@ shadow_ban_link_shadow_bans_the_accused
 shadow_ban_link_shadow_bans_the_reporter
 shadow_ban_link_spares_gold_users
 shadow_ban_link_expires
+mark_safe_link_undoes_the_high_risk_models_actions
+mark_safe_link_keeps_other_moderation
+mark_safe_link_expires
 automod_ignores_untrustworthy_reporters
 automod_ignores_non_bot_reports
 automod_ignores_reporters_with_short_bio

@@ -395,8 +395,14 @@ CREATE TABLE IF NOT EXISTS high_risk_score (
     hours SMALLINT NOT NULL,
     score FLOAT4 NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    previous_required_verification_level_id SMALLINT,
 
     PRIMARY KEY (person_id, hours)
+);
+
+CREATE TABLE IF NOT EXISTS high_risk_marked_safe (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS network_activity (

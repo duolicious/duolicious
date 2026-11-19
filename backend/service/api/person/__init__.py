@@ -1453,7 +1453,10 @@ async def get_admin_ban(token: str) -> object:
     else:
         return 'Ban failed; User already banned or token invalid', 401
 
-async def get_admin_shadow_ban_link(token: UUID) -> object:
+async def get_admin_confirmation_link(
+    token: UUID,
+    action: Literal['shadow-ban', 'mark-safe'],
+) -> object:
     async with api_tx('READ COMMITTED') as tx:
         row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
         row = await row_tx.fetchone()
@@ -1461,7 +1464,7 @@ async def get_admin_shadow_ban_link(token: UUID) -> object:
     if row is None:
         return 'Invalid token', 401
 
-    link = f'https://api.duolicious.app/admin/shadow-ban/{token}'
+    link = f'https://api.duolicious.app/admin/{action}/{token}'
     return f'<a href="{link}">Click to confirm. Token: {token}</a>'
 
 async def get_admin_shadow_ban(token: UUID) -> object:
@@ -1480,6 +1483,24 @@ async def get_admin_shadow_ban(token: UUID) -> object:
         return 'Shadow ban failed; User already shadow-banned or has Gold', 409
 
     return f'Shadow-banned {row["person_uuid"]}'
+
+async def get_admin_mark_safe(token: UUID) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
+        row = await row_tx.fetchone()
+
+        if row is None:
+            return 'Invalid token', 401
+
+        cur = await tx.execute(
+            Q_MARK_SAFE_FROM_HIGH_RISK_MODEL,
+            dict(person_uuid=row['person_uuid']))
+        is_marked_safe = cur.rowcount > 0
+
+    if not is_marked_safe:
+        return 'User already marked as safe', 409
+
+    return f'Marked {row["person_uuid"]} as safe from the high-risk model'
 
 async def get_admin_delete_photo_link(token: str) -> object:
     params = dict(token=token)

@@ -2410,6 +2410,46 @@ AND
     banned_person_admin_token.expires_at > NOW()
 """
 
+Q_MARK_SAFE_FROM_HIGH_RISK_MODEL = """
+WITH marked AS (
+    INSERT INTO high_risk_marked_safe (
+        person_id
+    )
+    SELECT
+        id
+    FROM
+        person
+    WHERE
+        uuid = %(person_uuid)s
+    ON CONFLICT DO NOTHING
+    RETURNING
+        person_id
+)
+UPDATE
+    person
+SET
+    shadow_banned_at = CASE
+        WHEN shadow_banned_by = 'model' THEN NULL
+        ELSE shadow_banned_at
+    END,
+    shadow_banned_by = NULLIF(shadow_banned_by, 'model'),
+    required_verification_level_id = LEAST(
+        required_verification_level_id,
+        (
+            SELECT
+                min(previous_required_verification_level_id)
+            FROM
+                high_risk_score
+            WHERE
+                high_risk_score.person_id = person.id
+        )
+    )
+FROM
+    marked
+WHERE
+    person.id = marked.person_id
+"""
+
 Q_DELETE_VERIFICATION_JOB = """
 WITH deleted_job AS (
     DELETE FROM

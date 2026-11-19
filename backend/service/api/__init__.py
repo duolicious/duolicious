@@ -547,13 +547,25 @@ async def get_admin_ban(
 async def get_admin_shadow_ban_link(
     token: UUID,
 ) -> object:
-    return await person.get_admin_shadow_ban_link(token)
+    return await person.get_admin_confirmation_link(token, 'shadow-ban')
 
 @app.get('/admin/shadow-ban/{token}')
 async def get_admin_shadow_ban(
     token: UUID,
 ) -> object:
     return await person.get_admin_shadow_ban(token)
+
+@app.get('/admin/mark-safe-link/{token}')
+async def get_admin_mark_safe_link(
+    token: UUID,
+) -> object:
+    return await person.get_admin_confirmation_link(token, 'mark-safe')
+
+@app.get('/admin/mark-safe/{token}')
+async def get_admin_mark_safe(
+    token: UUID,
+) -> object:
+    return await person.get_admin_mark_safe(token)
 
 @app.get('/admin/delete-photo-link/{token}')
 async def get_admin_delete_photo_link(

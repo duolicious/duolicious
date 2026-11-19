@@ -16,3 +16,11 @@ ALTER TABLE person DROP COLUMN IF EXISTS tiny_id;
 ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
 
 DROP TABLE IF EXISTS presence_histogram;
+
+ALTER TABLE high_risk_score
+    ADD COLUMN IF NOT EXISTS previous_required_verification_level_id SMALLINT;
+
+CREATE TABLE IF NOT EXISTS high_risk_marked_safe (
+    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
