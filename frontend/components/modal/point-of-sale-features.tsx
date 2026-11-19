@@ -2,10 +2,10 @@ import { DimensionValue, TextStyle, View, ViewStyle } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBrush,
   faCheckDouble,
-  faEyeSlash,
+  faGhost,
   faMoon,
+  faPalette,
   faPencil,
   faUserGroup,
 } from '@fortawesome/free-solid-svg-icons';
@@ -259,7 +259,7 @@ const ProfileTheme = () =>
       <Bar width="70%" color={themeColors[1]} marginTop={5} />
       <Bar width="80%" color={themeColors[1]} marginTop={5} />
     </View>
-    <Badge icon={faBrush} left={196} top={-4} />
+    <Badge icon={faPalette} left={196} top={-4} />
     {themeColors.map((color, i) =>
       <View
         key={color}
@@ -371,7 +371,7 @@ const FEATURES = [
   {
     key: 'read-receipts',
     name: 'Read receipts',
-    description: 'See when your messages are read.',
+    description: 'See when your messages are read',
     verb: 'COME',
     icon: faCheckDouble,
     headline: ['HAVE THEY', 'SEEN IT?'],
@@ -382,7 +382,7 @@ const FEATURES = [
   {
     key: 'clubs',
     name: '100 clubs',
-    description: 'Double the usual limit of 50.',
+    description: 'Double the usual limit of 50',
     verb: 'COME',
     icon: faUserGroup,
     headline: ['50 CLUBS', 'ISN’T ENOUGH'],
@@ -393,7 +393,7 @@ const FEATURES = [
   {
     key: 'dark-mode',
     name: 'Dark mode',
-    description: 'Easy on the eyes after midnight.',
+    description: 'Easy on the eyes after midnight',
     verb: 'COMES',
     icon: faMoon,
     headline: ['SCROLL AT 3AM', 'IN DARK MODE'],
@@ -403,10 +403,10 @@ const FEATURES = [
   },
   {
     key: 'profile-theme',
-    name: 'Profile colors',
-    description: 'Choose the colors visitors see.',
+    name: 'Profile themes',
+    description: 'Customize how your profile appears to others',
     verb: 'COME',
-    icon: faBrush,
+    icon: faPalette,
     headline: ['YOUR PROFILE,', 'YOUR COLORS'],
     subtitle: 'Choose the colors other members see when they visit your profile.',
     cta: 'Pick my colors',
@@ -414,10 +414,10 @@ const FEATURES = [
   },
   {
     key: 'privacy',
-    name: 'Privacy controls',
-    description: 'Browse invisibly and hide from strangers.',
+    name: 'Privacy settings',
+    description: 'Browse invisibly and hide from strangers',
     verb: 'COME',
-    icon: faEyeSlash,
+    icon: faGhost,
     headline: ['LURK IN', 'PEACE'],
     subtitle: 'Browse invisibly, hide from strangers, and keep your age or location to yourself.',
     cta: 'Let me lurk in peace',
@@ -426,7 +426,7 @@ const FEATURES = [
   {
     key: 'display-name',
     name: 'Name changes',
-    description: 'Change the name on your profile.',
+    description: 'Change the name on your profile',
     verb: 'COME',
     icon: faPencil,
     headline: ['NEW NAME,', 'SAME YOU'],

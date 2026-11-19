@@ -7,6 +7,7 @@ from serviceshared.constants import (
 )
 from service.api.search.sql.search import SORT_MATCH_PERCENTAGE
 from serviceshared.gold.sql import club_quota_sql, has_gold_sql
+from serviceshared.antiabuse.networkactivity import uncount_shadow_ban_sql
 from serviceshared.commonsql import (
     PHOTO_GEOMETRY,
     computed_flair_sql,
@@ -2431,6 +2432,59 @@ ON
     banned_person_admin_token.person_id = person.id
 WHERE
     banned_person_admin_token.token = %(token)s
+AND
+    banned_person_admin_token.expires_at > NOW()
+"""
+
+Q_MARK_SAFE = f"""
+WITH unmoderated AS (
+    UPDATE
+        person
+    SET
+        marked_safe_at = now(),
+        shadow_banned_at = NULL,
+        shadow_banned_by = NULL,
+        pre_automod_verification_level_id = NULL,
+        required_verification_level_id = GREATEST(
+            COALESCE(
+                pre_automod_verification_level_id,
+                required_verification_level_id
+            ),
+            CASE
+                WHEN EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        location
+                    WHERE
+                        location.long_friendly = person.location_long_friendly
+                    AND
+                        location.verification_required
+                ) THEN 2
+                ELSE 1
+            END
+        )
+    WHERE
+        uuid = %(person_uuid)s
+    AND
+        marked_safe_at IS NULL
+    RETURNING
+        person.id,
+        OLD.shadow_banned_at,
+        OLD.shadow_banned_by
+), counted_shadow_ban AS (
+    SELECT
+        id,
+        shadow_banned_at
+    FROM
+        unmoderated
+    WHERE
+        shadow_banned_by <> 'model'
+), uncounted AS (
+    {uncount_shadow_ban_sql('counted_shadow_ban')}
+)
+SELECT
+    EXISTS (SELECT 1 FROM unmoderated) AS is_marked_safe
 """
 
 Q_DELETE_VERIFICATION_JOB = """
@@ -2545,9 +2599,14 @@ Q_EXPORT_API_DATA = """
 SELECT json_build_object(
     'person', (
         SELECT
-            -- `shadow_banned_at` and `shadow_banned_by` are stripped: a
-            -- shadow-banned user's own export must not reveal the ban.
-            json_agg(to_jsonb(t) - 'shadow_banned_at' - 'shadow_banned_by')
+            -- Moderation columns are stripped: a user's own export must not
+            -- reveal moderation.
+            json_agg(
+                to_jsonb(t)
+                - 'shadow_banned_at'
+                - 'shadow_banned_by'
+                - 'marked_safe_at'
+                - 'pre_automod_verification_level_id')
         FROM (
             SELECT
                 person.*,

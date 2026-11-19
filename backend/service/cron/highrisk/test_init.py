@@ -125,14 +125,14 @@ class TestCheck(unittest.TestCase):
         self,
         risk: float | None,
         dry_run: bool = False,
-        shadow_banned_rows: int = 1,
+        updated_rows: int = 1,
         person: NewPerson = PERSON,
     ) -> tuple[list[tuple[str, Params]], AsyncMock]:
         executed: list[tuple[str, Params]] = []
         lodged = AsyncMock()
 
         class Cursor:
-            rowcount = shadow_banned_rows
+            rowcount = updated_rows
 
         class Tx:
             async def execute(self, query: str, params: Params) -> Cursor:
@@ -218,9 +218,15 @@ class TestCheck(unittest.TestCase):
         self.assert_reported(lodged, is_automoded=True, is_shadow_banned=True)
 
     def test_person_someone_else_shadow_banned_first(self) -> None:
-        executed, lodged = self.check(0.9995, shadow_banned_rows=0)
+        executed, lodged = self.check(0.9995, updated_rows=0)
 
         self.assertEqual(executed[-1], stored(0.9995))
+        lodged.assert_not_awaited()
+
+    def test_person_marked_safe_before_verification(self) -> None:
+        executed, lodged = self.check(0.96, updated_rows=0)
+
+        self.assertEqual(executed[-1], stored(0.96))
         lodged.assert_not_awaited()
 
     def test_decision_no_stricter_than_before(self) -> None:

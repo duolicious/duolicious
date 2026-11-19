@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS person (
     verified_gender BOOLEAN NOT NULL DEFAULT FALSE,
     verified_ethnicity BOOLEAN NOT NULL DEFAULT FALSE,
     required_verification_level_id SMALLINT REFERENCES verification_level(id) NOT NULL DEFAULT 1,
+    pre_automod_verification_level_id SMALLINT,
 
     -- Basics
     orientation_id SMALLINT REFERENCES orientation(id) NOT NULL DEFAULT 1,
@@ -357,6 +358,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- not to exist from every other user's perspective
     shadow_banned_at TIMESTAMP,
     shadow_banned_by shadow_ban_source,
+    marked_safe_at TIMESTAMP,
 
     -- Events
     last_event_time TIMESTAMP NOT NULL DEFAULT NOW(),

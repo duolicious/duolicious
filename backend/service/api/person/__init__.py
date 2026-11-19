@@ -18,9 +18,8 @@ from service.api.person.clubsuggestions import (
     suggested_clubs,
 )
 from service.api.person.bestdistance import (
-    CONTROL_TARGET,
+    CANDIDATE_LIMIT,
     NO_CANDIDATES,
-    TREATED_TARGET,
     best_country_and_distance,
     distance_preference,
 )
@@ -41,6 +40,7 @@ from service.api.person.sql import *
 from serviceshared.antiabuse.networkactivity.count import (
     count_network_activity,
 )
+from serviceshared.antiabuse.lodgereport import shadow_ban_by_human
 from service.api.search.sql import Q_SET_SEARCH_PREFERENCE_CLUB
 from service.api.search.sql.search import (
     CLUB_CARD_MEMBERS,
@@ -68,6 +68,7 @@ from starlette.responses import Response
 from starlette.concurrency import run_in_threadpool
 from dataclasses import dataclass
 from typing import Literal
+from uuid import UUID
 import psycopg
 from serviceshared.antiabuse.antispam.signupemail import (
     get_email_info,
@@ -172,7 +173,6 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         'age',
     )
     bounds = best_age(age)
-    target = TREATED_TARGET if person_id % 2 == 0 else CONTROL_TARGET
     prefs = await tx.require_one(
         Q_SEARCH_PARAMETERS,
         params=dict(searcher_person_id=person_id),
@@ -187,15 +187,14 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
                 min_age=bounds.min_age,
                 max_age=bounds.max_age,
             ),
-            limit=target.limit,
+            limit=CANDIDATE_LIMIT,
         )
         return row_int(await tx.require_one(query, params=params), 'candidates')
 
     try:
         async with tx.connection.transaction():
             same_country_only, candidates = await best_country_and_distance(
-                count_within,
-                target,
+                count_within
             )
     except psycopg.errors.QueryCanceled:
         same_country_only, candidates = False, NO_CANDIDATES
@@ -209,11 +208,7 @@ async def _update_best_search_preferences(tx: Tx, person_id: int) -> None:
         person_id=person_id,
         min_age=bounds.min_age,
         max_age=bounds.max_age,
-        distance=distance_preference(
-            candidates,
-            target,
-            is_joining_club=is_joining_club,
-        ),
+        distance=distance_preference(candidates, is_joining_club=is_joining_club),
         same_country_only=same_country_only and not is_joining_club,
     ))
 
@@ -1450,6 +1445,55 @@ async def get_admin_ban(token: str) -> object:
         return f'Banned {rows}'
     else:
         return 'Ban failed; User already banned or token invalid', 401
+
+async def get_admin_confirmation_link(
+    token: UUID,
+    action: Literal['shadow-ban', 'mark-safe'],
+) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
+        row = await row_tx.fetchone()
+
+    if row is None:
+        return 'Invalid token', 401
+
+    link = f'https://api.duolicious.app/admin/{action}/{token}'
+    return f'<a href="{link}">Click to confirm. Token: {token}</a>'
+
+async def get_admin_shadow_ban(token: UUID) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
+        row = await row_tx.fetchone()
+
+        if row is None:
+            return 'Invalid token', 401
+
+        banned_ids = await shadow_ban_by_human(tx, row['person_uuid'])
+
+    await count_network_activity('shadow_bans', banned_ids)
+
+    if not banned_ids:
+        return 'Shadow ban failed; User already shadow-banned or has Gold', 409
+
+    return f'Shadow-banned {row["person_uuid"]}'
+
+async def get_admin_mark_safe(token: UUID) -> object:
+    async with api_tx('READ COMMITTED') as tx:
+        row_tx = await tx.execute(Q_ADMIN_TOKEN_TO_UUID, dict(token=token))
+        row = await row_tx.fetchone()
+
+        if row is None:
+            return 'Invalid token', 401
+
+        is_marked_safe = row_bool(
+            await tx.require_one(
+                Q_MARK_SAFE, dict(person_uuid=row['person_uuid'])),
+            'is_marked_safe')
+
+    if not is_marked_safe:
+        return 'User already marked as safe', 409
+
+    return f'Marked {row["person_uuid"]} as safe'
 
 async def get_admin_delete_photo_link(token: str) -> object:
     params = dict(token=token)

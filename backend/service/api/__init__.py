@@ -11,6 +11,7 @@ in `service.api.bootstrap`.
 import json
 import time
 from typing import Annotated
+from uuid import UUID
 from urllib.parse import parse_qsl
 
 from fastapi import Body, Depends, Path as FastApiPath, Query, WebSocket
@@ -564,6 +565,30 @@ async def get_admin_ban(
     token: str,
 ) -> object:
     return await person.get_admin_ban(token)
+
+@app.get('/admin/shadow-ban-link/{token}')
+async def get_admin_shadow_ban_link(
+    token: UUID,
+) -> object:
+    return await person.get_admin_confirmation_link(token, 'shadow-ban')
+
+@app.get('/admin/shadow-ban/{token}')
+async def get_admin_shadow_ban(
+    token: UUID,
+) -> object:
+    return await person.get_admin_shadow_ban(token)
+
+@app.get('/admin/mark-safe-link/{token}')
+async def get_admin_mark_safe_link(
+    token: UUID,
+) -> object:
+    return await person.get_admin_confirmation_link(token, 'mark-safe')
+
+@app.get('/admin/mark-safe/{token}')
+async def get_admin_mark_safe(
+    token: UUID,
+) -> object:
+    return await person.get_admin_mark_safe(token)
 
 @app.get('/admin/delete-photo-link/{token}')
 async def get_admin_delete_photo_link(

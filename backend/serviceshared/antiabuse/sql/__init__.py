@@ -268,6 +268,10 @@ WITH subject_person_id AS (
     UPDATE
         person
     SET
+        pre_automod_verification_level_id = COALESCE(
+            person.pre_automod_verification_level_id,
+            person.required_verification_level_id
+        ),
         required_verification_level_id =
             GREATEST(person.required_verification_level_id, 2)
     FROM
@@ -276,6 +280,8 @@ WITH subject_person_id AS (
         verification_report.is_trustworthy
     AND
         person.uuid = uuid_or_null(%(object_uuid)s::TEXT)
+    AND
+        person.marked_safe_at IS NULL
     RETURNING
         1
 )
@@ -318,6 +324,8 @@ SELECT
                 WHERE
                     messaged.subject_person_id = reporter.id
             ) >= %(min_people_messaged)s
+        AND
+            object.marked_safe_at IS NULL
     ) AS trustworthy_report_reasons
 FROM
     person AS object
@@ -337,6 +345,8 @@ AND
     NOT {has_gold_sql('person.id')}
 AND
     shadow_banned_at IS NULL
+AND
+    (%(shadow_banned_by)s::shadow_ban_source <> 'model' OR marked_safe_at IS NULL)
 RETURNING
     id
 """
