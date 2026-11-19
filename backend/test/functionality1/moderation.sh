@@ -51,7 +51,7 @@ tear_down () {
 }
 
 ban_token () {
-  q "select token from banned_person_admin_token where person_id = ${accused_id}"
+  q "select token from banned_person_admin_token where person_id = ${accused_id} limit 1"
 }
 
 deleted_photo_token () {

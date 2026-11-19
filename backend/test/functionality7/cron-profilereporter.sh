@@ -30,7 +30,8 @@ _get_emails() {
     | grep -vF 'uuid:' \
     | grep -vF 'token:' \
     | grep -vF '/admin/ban-link/' \
-    | grep -vF '/admin/shadow-ban-link/'
+    | grep -vF '/admin/shadow-ban-link/' \
+    | grep -vF '/admin/mark-safe-link/'
 }
 
 # A report should only take a second to be sent, though we wait some extra time
