@@ -260,8 +260,8 @@ WITH subject_person_id AS (
     UPDATE
         person
     SET
-        required_verification_level_id =
-            GREATEST(person.required_verification_level_id, 2)
+        automod_verification_level_id =
+            GREATEST(person.automod_verification_level_id, 2)
     FROM
         verification_report
     WHERE

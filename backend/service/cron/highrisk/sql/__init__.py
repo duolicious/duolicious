@@ -68,7 +68,7 @@ Q_REQUIRE_PHOTO_VERIFICATION = """
 UPDATE
     person
 SET
-    required_verification_level_id = 3
+    automod_verification_level_id = 3
 WHERE
     id = %(person_id)s
 """

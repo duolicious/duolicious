@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS person (
     verified_gender BOOLEAN NOT NULL DEFAULT FALSE,
     verified_ethnicity BOOLEAN NOT NULL DEFAULT FALSE,
     required_verification_level_id SMALLINT REFERENCES verification_level(id) NOT NULL DEFAULT 1,
+    automod_verification_level_id SMALLINT REFERENCES verification_level(id) NOT NULL DEFAULT 1,
 
     -- Basics
     orientation_id SMALLINT REFERENCES orientation(id) NOT NULL DEFAULT 1,

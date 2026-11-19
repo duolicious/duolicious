@@ -2425,22 +2425,7 @@ WITH unmoderated AS (
             WHEN shadow_banned_by IN ('model', 'reports') THEN NULL
             ELSE shadow_banned_by
         END,
-        required_verification_level_id = LEAST(
-            required_verification_level_id,
-            CASE
-                WHEN EXISTS (
-                    SELECT
-                        1
-                    FROM
-                        location
-                    WHERE
-                        location.long_friendly = person.location_long_friendly
-                    AND
-                        location.verification_required
-                ) THEN 2
-                ELSE 1
-            END
-        )
+        automod_verification_level_id = 1
     WHERE
         uuid = %(person_uuid)s
     AND
@@ -2576,13 +2561,14 @@ Q_EXPORT_API_DATA = """
 SELECT json_build_object(
     'person', (
         SELECT
-            -- `shadow_banned_at`, `shadow_banned_by` and `marked_safe_at` are
-            -- stripped: a user's own export must not reveal moderation.
+            -- Moderation columns are stripped: a user's own export must not
+            -- reveal moderation.
             json_agg(
                 to_jsonb(t)
                 - 'shadow_banned_at'
                 - 'shadow_banned_by'
-                - 'marked_safe_at')
+                - 'marked_safe_at'
+                - 'automod_verification_level_id')
         FROM (
             SELECT
                 person.*,

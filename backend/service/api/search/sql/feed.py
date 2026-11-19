@@ -124,8 +124,10 @@ def _facepile(pool: str, member_condition: str = 'TRUE') -> str:
                     member.privacy_verification_level_id <=
                         searcher.verification_level_id
                 AND
-                    member.verification_level_id >=
-                        member.required_verification_level_id
+                    member.verification_level_id >= GREATEST(
+                        member.required_verification_level_id,
+                        member.automod_verification_level_id
+                    )
             ))
             ORDER BY
                 -- The event's subject leads, so the frontend can seat their
@@ -640,8 +642,10 @@ WITH searcher AS (
     ) < 2
     -- Exclude users who aren't verified but are required to be
     AND
-        prospect.verification_level_id >=
-            prospect.required_verification_level_id
+        prospect.verification_level_id >= GREATEST(
+            prospect.required_verification_level_id,
+            prospect.automod_verification_level_id
+        )
     -- Exclude users who don't seem human. A user seems human if:
     --   * They're verified; or
     --   * Their account is more than a week old; or
