@@ -142,14 +142,6 @@ def report_template(
 <br/>
 <br/>
 
-<p><b>Ban ACCUSED user for one month:</b></p>
-<a href="https://api.duolicious.app/admin/ban-link/{accused_token}">
-         https://api.duolicious.app/admin/ban-link/{accused_token}
-</a>
-
-<br/>
-<br/>
-
 <p><b>Shadow-ban REPORTING user:</b></p>
 <a href="https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}">
          https://api.duolicious.app/admin/shadow-ban-link/{reporter_token}
@@ -158,9 +150,25 @@ def report_template(
 <br/>
 <br/>
 
+<p><b>Ban ACCUSED user for one month:</b></p>
+<a href="https://api.duolicious.app/admin/ban-link/{accused_token}">
+         https://api.duolicious.app/admin/ban-link/{accused_token}
+</a>
+
+<br/>
+<br/>
+
 <p><b>Shadow-ban ACCUSED user:</b></p>
 <a href="https://api.duolicious.app/admin/shadow-ban-link/{accused_token}">
          https://api.duolicious.app/admin/shadow-ban-link/{accused_token}
+</a>
+
+<br/>
+<br/>
+
+<p><b>Mark ACCUSED user as safe: lift any shadow ban, undo automod and stop future automod:</b></p>
+<a href="https://api.duolicious.app/admin/mark-safe-link/{accused_token}">
+         https://api.duolicious.app/admin/mark-safe-link/{accused_token}
 </a>
 
 </body>

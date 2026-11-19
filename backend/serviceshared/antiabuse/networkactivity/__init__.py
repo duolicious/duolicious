@@ -49,6 +49,38 @@ ON CONFLICT (network) DO UPDATE SET
 """
 
 
+
+def uncount_shadow_ban_sql(unbanned: str) -> str:
+    return f"""
+UPDATE
+    network_activity
+SET
+    sign_ups = network_activity.sign_ups * {_DECAY_SINCE_UPDATE},
+    shadow_bans = GREATEST(
+        0,
+        network_activity.shadow_bans * {_DECAY_SINCE_UPDATE}
+        - {decay_sql('unbanned_network.shadow_banned_at', 'now()')}
+    ),
+    updated_at = now()
+FROM (
+    SELECT DISTINCT
+        {network_sql('duo_session.ip_address')} AS network,
+        {unbanned}.shadow_banned_at
+    FROM
+        {unbanned}
+    JOIN
+        duo_session
+    ON
+        duo_session.person_id = {unbanned}.id
+    WHERE
+        duo_session.ip_address IS NOT NULL
+    AND
+        duo_session.signed_in_at < {unbanned}.shadow_banned_at
+) AS unbanned_network
+WHERE
+    network_activity.network = unbanned_network.network
+"""
+
 NETWORK_EVENT = f"""
 network_event AS (
     SELECT DISTINCT

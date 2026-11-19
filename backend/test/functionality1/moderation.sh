@@ -51,7 +51,7 @@ tear_down () {
 }
 
 ban_token () {
-  q "select token from banned_person_admin_token where person_id = ${accused_id}"
+  q "select token from banned_person_admin_token where person_id = ${accused_id} limit 1"
 }
 
 deleted_photo_token () {
@@ -429,6 +429,95 @@ shadow_ban_link_expires () {
   [[ "$(accused_is_shadow_banned)" == f ]]
 }
 
+accused_required_level () {
+  q "select required_verification_level_id from person where id = ${accused_id}"
+}
+
+mark_safe_link_undoes_the_high_risk_models_actions () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update person
+     set required_verification_level_id = 3,
+         pre_automod_verification_level_id = 2,
+         shadow_banned_at = now(),
+         shadow_banned_by = 'model'
+     where id = ${accused_id}"
+
+  c GET "/admin/mark-safe-link/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(accused_required_level)" == 3 ]]
+
+  c GET "/admin/mark-safe/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 2 ]]
+  [[ "$(q "select marked_safe_at is not null from person where id = ${accused_id}")" == t ]]
+
+  ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
+}
+
+mark_safe_link_undoes_report_automod () {
+  setup_trustworthy_reporters
+
+  set_gold false "id = ${accused_id}"
+
+  q "update person
+     set verification_level_id = 3
+     where email in ('reporter@gmail.com', 'reporter2@gmail.com')"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "this is a scammer" }'
+  assume_role 'reporter2@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "obviously a bot" }'
+  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == human ]]
+  [[ "$(accused_required_level)" == 2 ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  c GET "/admin/mark-safe/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 1 ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+
+  q "delete from skipped where object_person_id = ${accused_id}"
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "scammer again" }'
+  assume_role 'reporter2@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "still a bot" }'
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 1 ]]
+}
+
+mark_safe_link_lifts_human_shadow_bans () {
+  setup
+
+  set_gold false "id = ${accused_id}"
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  c GET "/admin/shadow-ban/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == t ]]
+  [[ "$(network_shadow_bans)" == 1 ]]
+
+  c GET "/admin/mark-safe/$(ban_token)"
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
+}
+
+mark_safe_link_expires () {
+  setup
+
+  assume_role 'reporter@gmail.com'
+  jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "n/a" }'
+
+  q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
+  ! c GET "/admin/mark-safe-link/$(ban_token)" || exit 1
+  ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
+  [[ "$(q "select count(*) from person where marked_safe_at is not null")" == 0 ]]
+}
+
 # Gold users are never automatically shadow banned
 automod_spares_gold_users () {
   setup_trustworthy_reporters
@@ -577,6 +666,10 @@ shadow_ban_link_shadow_bans_the_accused
 shadow_ban_link_shadow_bans_the_reporter
 shadow_ban_link_spares_gold_users
 shadow_ban_link_expires
+mark_safe_link_undoes_the_high_risk_models_actions
+mark_safe_link_undoes_report_automod
+mark_safe_link_lifts_human_shadow_bans
+mark_safe_link_expires
 automod_ignores_untrustworthy_reporters
 automod_ignores_non_bot_reports
 automod_ignores_reporters_with_short_bio

@@ -38,6 +38,8 @@ AND
     person.verification_level_id < 3
 AND
     person.shadow_banned_at IS NULL
+AND
+    person.marked_safe_at IS NULL
 AND NOT EXISTS (
     SELECT
         1
@@ -66,7 +68,13 @@ Q_REQUIRE_PHOTO_VERIFICATION = """
 UPDATE
     person
 SET
+    pre_automod_verification_level_id = COALESCE(
+        pre_automod_verification_level_id,
+        required_verification_level_id
+    ),
     required_verification_level_id = 3
 WHERE
     id = %(person_id)s
+AND
+    marked_safe_at IS NULL
 """

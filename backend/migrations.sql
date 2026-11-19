@@ -16,3 +16,7 @@ ALTER TABLE person DROP COLUMN IF EXISTS tiny_id;
 ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
 
 DROP TABLE IF EXISTS presence_histogram;
+
+ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
+
+ALTER TABLE person ADD COLUMN IF NOT EXISTS pre_automod_verification_level_id SMALLINT;
