@@ -357,6 +357,7 @@ CREATE TABLE IF NOT EXISTS person (
     -- not to exist from every other user's perspective
     shadow_banned_at TIMESTAMP,
     shadow_banned_by shadow_ban_source,
+    marked_safe_at TIMESTAMP,
 
     -- Events
     last_event_time TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -397,11 +398,6 @@ CREATE TABLE IF NOT EXISTS high_risk_score (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (person_id, hours)
-);
-
-CREATE TABLE IF NOT EXISTS marked_safe (
-    person_id INT PRIMARY KEY REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS network_activity (

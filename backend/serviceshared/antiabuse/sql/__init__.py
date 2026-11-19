@@ -268,14 +268,8 @@ WITH subject_person_id AS (
         verification_report.is_trustworthy
     AND
         person.uuid = uuid_or_null(%(object_uuid)s::TEXT)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            marked_safe
-        WHERE
-            marked_safe.person_id = person.id
-    )
+    AND
+        person.marked_safe_at IS NULL
     RETURNING
         1
 )
@@ -318,14 +312,8 @@ SELECT
                 WHERE
                     messaged.subject_person_id = reporter.id
             ) >= %(min_people_messaged)s
-        AND NOT EXISTS (
-            SELECT
-                1
-            FROM
-                marked_safe
-            WHERE
-                marked_safe.person_id = object.id
-        )
+        AND
+            object.marked_safe_at IS NULL
     ) AS trustworthy_report_reasons
 FROM
     person AS object

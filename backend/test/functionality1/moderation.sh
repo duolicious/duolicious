@@ -452,7 +452,7 @@ mark_safe_link_undoes_the_high_risk_models_actions () {
   c GET "/admin/mark-safe/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == f ]]
   [[ "$(accused_required_level)" == 1 ]]
-  [[ "$(q "select count(*) from marked_safe where person_id = ${accused_id}")" == 1 ]]
+  [[ "$(q "select marked_safe_at is not null from person where id = ${accused_id}")" == t ]]
 
   ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
 }
@@ -512,7 +512,7 @@ mark_safe_link_expires () {
   q "update banned_person_admin_token set expires_at = NOW() - interval '1 day'"
   ! c GET "/admin/mark-safe-link/$(ban_token)" || exit 1
   ! c GET "/admin/mark-safe/$(ban_token)" || exit 1
-  [[ "$(q "select count(*) from marked_safe")" == 0 ]]
+  [[ "$(q "select count(*) from person where marked_safe_at is not null")" == 0 ]]
 }
 
 # Gold users are never automatically shadow banned

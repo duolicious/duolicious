@@ -38,14 +38,8 @@ AND
     person.verification_level_id < 3
 AND
     person.shadow_banned_at IS NULL
-AND NOT EXISTS (
-    SELECT
-        1
-    FROM
-        marked_safe
-    WHERE
-        marked_safe.person_id = person.id
-)
+AND
+    person.marked_safe_at IS NULL
 AND NOT EXISTS (
     SELECT
         1

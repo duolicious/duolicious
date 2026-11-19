@@ -2412,23 +2412,11 @@ AND
 """
 
 Q_MARK_SAFE = f"""
-WITH marked AS (
-    INSERT INTO marked_safe (
-        person_id
-    )
-    SELECT
-        id
-    FROM
-        person
-    WHERE
-        uuid = %(person_uuid)s
-    ON CONFLICT DO NOTHING
-    RETURNING
-        person_id
-), unmoderated AS (
+WITH unmoderated AS (
     UPDATE
         person
     SET
+        marked_safe_at = now(),
         shadow_banned_at = CASE
             WHEN shadow_banned_by IN ('model', 'reports') THEN NULL
             ELSE shadow_banned_at
@@ -2453,10 +2441,10 @@ WITH marked AS (
                 ELSE 1
             END
         )
-    FROM
-        marked
     WHERE
-        person.id = marked.person_id
+        uuid = %(person_uuid)s
+    AND
+        marked_safe_at IS NULL
     RETURNING
         person.id,
         OLD.shadow_banned_at,
@@ -2588,9 +2576,13 @@ Q_EXPORT_API_DATA = """
 SELECT json_build_object(
     'person', (
         SELECT
-            -- `shadow_banned_at` and `shadow_banned_by` are stripped: a
-            -- shadow-banned user's own export must not reveal the ban.
-            json_agg(to_jsonb(t) - 'shadow_banned_at' - 'shadow_banned_by')
+            -- `shadow_banned_at`, `shadow_banned_by` and `marked_safe_at` are
+            -- stripped: a user's own export must not reveal moderation.
+            json_agg(
+                to_jsonb(t)
+                - 'shadow_banned_at'
+                - 'shadow_banned_by'
+                - 'marked_safe_at')
         FROM (
             SELECT
                 person.*,
