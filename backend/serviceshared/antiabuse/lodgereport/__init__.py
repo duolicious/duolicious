@@ -166,7 +166,7 @@ def report_template(
 <br/>
 <br/>
 
-<p><b>Mark ACCUSED user as safe and undo automod:</b></p>
+<p><b>Mark ACCUSED user as safe: lift any shadow ban, undo automod and stop future automod:</b></p>
 <a href="https://api.duolicious.app/admin/mark-safe-link/{accused_token}">
          https://api.duolicious.app/admin/mark-safe-link/{accused_token}
 </a>

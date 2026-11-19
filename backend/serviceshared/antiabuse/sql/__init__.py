@@ -337,6 +337,8 @@ AND
     NOT {has_gold_sql('person.id')}
 AND
     shadow_banned_at IS NULL
+AND
+    (%(shadow_banned_by)s::shadow_ban_source <> 'model' OR marked_safe_at IS NULL)
 RETURNING
     id
 """

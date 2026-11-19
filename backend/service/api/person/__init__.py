@@ -1500,7 +1500,7 @@ async def get_admin_mark_safe(token: UUID) -> object:
     if not is_marked_safe:
         return 'User already marked as safe', 409
 
-    return f'Marked {row["person_uuid"]} as safe and undid automod'
+    return f'Marked {row["person_uuid"]} as safe'
 
 async def get_admin_delete_photo_link(token: str) -> object:
     params = dict(token=token)

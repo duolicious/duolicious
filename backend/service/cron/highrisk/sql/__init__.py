@@ -75,4 +75,6 @@ SET
     required_verification_level_id = 3
 WHERE
     id = %(person_id)s
+AND
+    marked_safe_at IS NULL
 """

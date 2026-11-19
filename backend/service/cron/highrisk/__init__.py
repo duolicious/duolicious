@@ -132,27 +132,26 @@ async def check(person: NewPerson) -> None:
     act = action(risk, person.has_gold)
     is_stricter = escalates(risk, person.previous_score, person.has_gold)
     acts = is_stricter and not DRY_RUN
-    is_shadow_banned = False
+    is_acted = False
 
     async with api_tx('read committed') as tx:
         if acts and act == 'photo verification':
-            await tx.execute(Q_REQUIRE_PHOTO_VERIFICATION, dict(
+            cur = await tx.execute(Q_REQUIRE_PHOTO_VERIFICATION, dict(
                 person_id=person.person_id))
+            is_acted = cur.rowcount > 0
 
         if acts and act == 'shadow ban':
             cur = await tx.execute(Q_SHADOW_BAN, dict(
                 object_uuid=str(person.person_uuid),
                 shadow_banned_by='model'))
-            is_shadow_banned = cur.rowcount > 0
+            is_acted = cur.rowcount > 0
 
         await tx.execute(Q_INSERT_SCORE, dict(
             person_id=person.person_id,
             hours=hours,
             score=risk))
 
-    was_banned_already = acts and act == 'shadow ban' and not is_shadow_banned
-
-    if act is None or not is_stricter or was_banned_already:
+    if act is None or not is_stricter or (acts and not is_acted):
         return
 
     logger.info(f'{person.person_uuid} high risk: {act} ({risk:.3f})')
@@ -161,7 +160,7 @@ async def check(person: NewPerson) -> None:
         object_uuid=str(person.person_uuid),
         reason=reason(hours, risk, act),
         is_automoded=not DRY_RUN,
-        is_shadow_banned=is_shadow_banned,
+        is_shadow_banned=is_acted and act == 'shadow ban',
         underage_source=None,
         messages=None,
     )
