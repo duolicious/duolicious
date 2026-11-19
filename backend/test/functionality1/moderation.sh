@@ -479,18 +479,13 @@ mark_safe_link_undoes_report_automod () {
   [[ "$(accused_required_level)" == 1 ]]
   [[ "$(network_shadow_bans)" == 0 ]]
 
-  q "delete from skipped
-     where subject_person_id = (select id from person where email = 'reporter@gmail.com')"
+  q "delete from skipped where object_person_id = ${accused_id}"
   assume_role 'reporter@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "scammer again" }'
-  [[ "$(accused_is_shadow_banned)" == f ]]
-  [[ "$(accused_required_level)" == 2 ]]
-
-  q "delete from skipped
-     where subject_person_id = (select id from person where email = 'reporter2@gmail.com')"
   assume_role 'reporter2@gmail.com'
   jc POST "/skip/by-uuid/${accused_uuid}" -d '{ "report_reason": "still a bot" }'
-  [[ "$(q "select shadow_banned_by from person where id = ${accused_id}")" == reports ]]
+  [[ "$(accused_is_shadow_banned)" == f ]]
+  [[ "$(accused_required_level)" == 1 ]]
 }
 
 mark_safe_link_keeps_human_shadow_bans () {

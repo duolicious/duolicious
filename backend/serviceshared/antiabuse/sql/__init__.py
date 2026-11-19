@@ -268,6 +268,14 @@ WITH subject_person_id AS (
         verification_report.is_trustworthy
     AND
         person.uuid = uuid_or_null(%(object_uuid)s::TEXT)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            marked_safe
+        WHERE
+            marked_safe.person_id = person.id
+    )
     RETURNING
         1
 )
@@ -317,8 +325,6 @@ SELECT
                 marked_safe
             WHERE
                 marked_safe.person_id = object.id
-            AND
-                marked_safe.created_at >= skipped.created_at
         )
     ) AS trustworthy_report_reasons
 FROM
