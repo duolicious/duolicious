@@ -130,6 +130,7 @@ class TestCheck(unittest.TestCase):
     ) -> tuple[list[tuple[str, Params]], AsyncMock]:
         executed: list[tuple[str, Params]] = []
         lodged = AsyncMock()
+        self.counted = AsyncMock()
 
         class Cursor:
             rowcount = updated_rows
@@ -150,6 +151,7 @@ class TestCheck(unittest.TestCase):
             DRY_RUN=dry_run,
             score=AsyncMock(return_value=risk),
             lodge_report=lodged,
+            count_network_activity=self.counted,
             api_tx=api_tx,
         ):
             asyncio.run(check(person))
@@ -196,6 +198,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(executed, [stored(0.9995)])
         self.assert_reported(
             lodged, is_automoded=False, is_shadow_banned=False)
+        self.counted.assert_not_awaited()
 
     def test_requires_photo_verification(self) -> None:
         executed, lodged = self.check(0.96)
@@ -216,12 +219,15 @@ class TestCheck(unittest.TestCase):
             stored(0.9995),
         ])
         self.assert_reported(lodged, is_automoded=True, is_shadow_banned=True)
+        self.counted.assert_awaited_once_with(
+            'shadow_bans', [PERSON.person_id])
 
     def test_person_someone_else_shadow_banned_first(self) -> None:
         executed, lodged = self.check(0.9995, updated_rows=0)
 
         self.assertEqual(executed[-1], stored(0.9995))
         lodged.assert_not_awaited()
+        self.counted.assert_not_awaited()
 
     def test_person_marked_safe_before_verification(self) -> None:
         executed, lodged = self.check(0.96, updated_rows=0)
