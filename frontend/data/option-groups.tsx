@@ -1276,6 +1276,8 @@ const deactivationOptionGroups: OptionGroup<OptionGroupNone>[] = [
     input: {
       none: {
         submit: async () => {
+          await logout();
+
           const ok = (await japi('post', '/deactivate')).ok
           if (ok) {
             await sessionPersonUuid(null);
