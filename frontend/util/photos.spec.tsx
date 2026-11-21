@@ -4,6 +4,8 @@ import {
   photoExpandFrame,
   photoUri,
   supportedExtraExt,
+  videoLabel,
+  videoUri,
 } from './photos';
 import type { PhotoGeometry, Rect } from './photos';
 import { IMAGES_URL } from '../env/env';
@@ -67,6 +69,35 @@ describe('photoUri', () => {
   it('falls back to the jpg still for unsupported extra exts', () => {
     expect(photoUri(uuid, 450, ['mp4']))
       .toBe(`${IMAGES_URL}/450-${uuid}.jpg`);
+  });
+});
+
+describe('videoUri', () => {
+  const uuid = 'some-uuid';
+
+  it('returns the mp4 when the photo has one', () => {
+    expect(videoUri(uuid, ['mp4'])).toBe(`${IMAGES_URL}/${uuid}.mp4`);
+    expect(videoUri(uuid, ['MP4'])).toBe(`${IMAGES_URL}/${uuid}.mp4`);
+  });
+
+  it('returns null for photos without one', () => {
+    expect(videoUri(uuid, [])).toBe(null);
+    expect(videoUri(uuid, ['gif'])).toBe(null);
+    expect(videoUri(uuid, null)).toBe(null);
+    expect(videoUri(null, ['mp4'])).toBe(null);
+  });
+});
+
+describe('videoLabel', () => {
+  it('shows the duration as minutes and seconds', () => {
+    expect(videoLabel(8)).toBe('0:08');
+    expect(videoLabel(30)).toBe('0:30');
+    expect(videoLabel(75)).toBe('1:15');
+  });
+
+  it('says "Video" when the duration is unknown', () => {
+    expect(videoLabel(null)).toBe('Video');
+    expect(videoLabel(undefined)).toBe('Video');
   });
 });
 
