@@ -445,6 +445,13 @@ mark_safe_link_undoes_the_high_risk_models_actions () {
          shadow_banned_at = now(),
          shadow_banned_by = 'model'
      where id = ${accused_id}"
+  q "insert into network_activity (network, shadow_bans)
+     select distinct network(set_masklen(ip_address,
+       case family(ip_address) when 4 then 24 else 64 end)), 1
+     from duo_session
+     where person_id = ${accused_id} and ip_address is not null
+     on conflict (network) do update set shadow_bans = 1"
+  [[ "$(network_shadow_bans)" == 1 ]]
 
   c GET "/admin/mark-safe-link/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == t ]]
@@ -453,6 +460,7 @@ mark_safe_link_undoes_the_high_risk_models_actions () {
   c GET "/admin/mark-safe/$(ban_token)"
   [[ "$(accused_is_shadow_banned)" == f ]]
   [[ "$(accused_required_level)" == 2 ]]
+  [[ "$(network_shadow_bans)" == 0 ]]
   [[ "$(q "select marked_safe_at is not null from person where id = ${accused_id}")" == t ]]
 
   ! c GET "/admin/mark-safe/$(ban_token)" || exit 1

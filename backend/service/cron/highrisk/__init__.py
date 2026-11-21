@@ -16,6 +16,9 @@ from serviceshared.antiabuse.highrisk.sql import (
     Q_SESSIONS,
 )
 from serviceshared.antiabuse.lodgereport import lodge_report
+from serviceshared.antiabuse.networkactivity.count import (
+    count_network_activity,
+)
 from serviceshared.antiabuse.sql import Q_SHADOW_BAN
 from serviceshared.database import api_tx
 from service.cron.cronutil import MAX_RANDOM_START_DELAY, log_stacktrace
@@ -150,6 +153,9 @@ async def check(person: NewPerson) -> None:
             person_id=person.person_id,
             hours=hours,
             score=risk))
+
+    if is_acted and act == 'shadow ban':
+        await count_network_activity('shadow_bans', [person.person_id])
 
     if act is None or not is_stricter or (acts and not is_acted):
         return
