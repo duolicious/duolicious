@@ -12,17 +12,6 @@
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
 
-ALTER TABLE person DROP COLUMN IF EXISTS tiny_id;
-ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
-
-DROP TABLE IF EXISTS presence_histogram;
-
-ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
-
-ALTER TABLE person ADD COLUMN IF NOT EXISTS pre_automod_verification_level_id SMALLINT;
-
-ALTER TABLE inbox ADD COLUMN IF NOT EXISTS intro_score REAL;
-
 CREATE TABLE IF NOT EXISTS experiment_exposure (
     web_visitor_id UUID NOT NULL,
     experiment TEXT NOT NULL,
