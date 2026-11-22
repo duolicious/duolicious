@@ -435,14 +435,13 @@ def fit(data: Data, rows: npt.NDArray[np.int64]) -> Net:
 
 
 def predict(net: Net, data: Data, rows: npt.NDArray[np.int64]) -> npt.NDArray[np.float32]:
+    scores = np.zeros(len(data.label), np.float32)
     order = rows[np.argsort([len(data.bodies[i]) for i in rows])]
-    scores = dict[int, float]()
     with torch.inference_mode(), torch.autocast('cuda'):
         for k in range(0, len(order), 256):
             b = order[k:k + 256]
-            scores.update(zip(
-                b.tolist(), to_score(net(*batch(data, b)).float()).tolist()))
-    return np.array([scores[i] for i in rows.tolist()], np.float32)
+            scores[b] = to_score(net(*batch(data, b)).float()).cpu().numpy()
+    return scores[rows]
 
 
 def sort_quality(
