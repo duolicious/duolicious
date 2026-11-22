@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { japi } from './api';
 
@@ -26,28 +25,33 @@ const hash = (s: string): number => {
 
 const reported = new Set<string>();
 
-const useExperimentVariant = <const V extends readonly [string, ...string[]]>(
+const experimentVariant = <const V extends readonly [string, ...string[]]>(
   experiment: string,
   variants: V,
 ): V[number] => {
-  const variant = webVisitorId === undefined
-    ? variants[0]
-    : variants[hash(`${webVisitorId}:${experiment}`) % variants.length];
+  if (webVisitorId === undefined) return variants[0];
 
-  useEffect(() => {
-    if (webVisitorId === undefined || reported.has(experiment)) return;
+  const variant = variants[hash(`${webVisitorId}:${experiment}`) % variants.length];
+
+  if (!reported.has(experiment)) {
     reported.add(experiment);
     japi('post', '/experiment-exposure', {
       web_visitor_id: webVisitorId,
       experiment,
       variant,
     });
-  }, [experiment, variant]);
+  }
 
   return variant;
 };
 
+const publicSearchExperimentParams = (): string =>
+  experimentVariant('public-search-gender-ratio', ['control', 'one-to-one']) === 'one-to-one'
+    ? '&balance_genders=true'
+    : '';
+
 export {
   webVisitorId,
-  useExperimentVariant,
+  experimentVariant,
+  publicSearchExperimentParams,
 };

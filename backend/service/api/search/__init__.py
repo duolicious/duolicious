@@ -179,7 +179,12 @@ async def get_public_search(q: t.PublicSearchQuery) -> object:
     if q.answers is not None:
         return await _get_public_search_with_answers(q, q.answers.root, gender)
 
-    public_search = await _get_public_search(gender, q.min_age, q.max_age)
+    public_search = await _get_public_search(
+        gender,
+        q.min_age,
+        q.max_age,
+        q.balance_genders,
+    )
     if not isinstance(public_search, list):
         raise RuntimeError('public search cache returned a non-list value')
     return public_search[q.o:q.o + q.n]
@@ -213,7 +218,7 @@ async def _get_public_search_with_answers(
     gender: list[str] | None,
 ) -> object:
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
+        await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS[q.balance_genders], dict(
             searcher_personality=await _searcher_personality(tx, answers),
             gender=gender,
             min_age=q.min_age,
@@ -271,9 +276,10 @@ async def _get_public_search(
     gender: list[str] | None,
     min_age: int | None,
     max_age: int | None,
+    balance_genders: bool,
 ) -> Sequence[object]:
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_PUBLIC_SEARCH, dict(
+        await tx.execute(Q_PUBLIC_SEARCH[balance_genders], dict(
             gender=gender,
             min_age=min_age,
             max_age=max_age,

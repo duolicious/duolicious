@@ -9,22 +9,12 @@ const load = (OS = 'web') => {
   const japi = jest.fn(async () => ({}));
   jest.doMock('./api', () => ({ japi }));
 
-  const React = require('react');
-  const { View } = require('react-native');
-  const { act, create } = require('react-test-renderer');
   const experiments = require('./experiments');
 
-  const render = (experiment: string, variants: readonly string[]): string => {
-    let variant = '';
-    const Probe = () => {
-      variant = experiments.useExperimentVariant(experiment, variants);
-      return React.createElement(View);
-    };
-    act(() => { create(React.createElement(Probe)); });
-    return variant;
-  };
+  const variantOf = (experiment: string, variants: readonly [string, ...string[]]): string =>
+    experiments.experimentVariant(experiment, variants);
 
-  return { ...experiments, japi, render };
+  return { ...experiments, japi, variantOf };
 };
 
 const store = new Map<string, string>();
@@ -42,12 +32,12 @@ beforeEach(() => localStorage.clear());
 
 test('a visitor keeps their ID and variants across page loads', () => {
   const first = load();
-  const variant = first.render('hero-copy', ['control', 'short']);
+  const variant = first.variantOf('hero-copy', ['control', 'short']);
   const second = load();
 
   expect(first.webVisitorId).toMatch(/^[0-9a-f-]{36}$/);
   expect(second.webVisitorId).toBe(first.webVisitorId);
-  expect(second.render('hero-copy', ['control', 'short'])).toBe(variant);
+  expect(second.variantOf('hero-copy', ['control', 'short'])).toBe(variant);
 });
 
 test('visitors are split evenly and independently between experiments', () => {
@@ -55,9 +45,9 @@ test('visitors are split evenly and independently between experiments', () => {
   let sameGroup = 0;
   for (let i = 0; i < 200; i++) {
     localStorage.setItem('web_visitor_id', `visitor-${i}`);
-    const { render } = load();
-    const heroCopy = render('hero-copy', ['control', 'short']);
-    const cta = render('cta', ['control', 'short']);
+    const { variantOf } = load();
+    const heroCopy = variantOf('hero-copy', ['control', 'short']);
+    const cta = variantOf('cta', ['control', 'short']);
     short += heroCopy === 'short' ? 1 : 0;
     sameGroup += heroCopy === cta ? 1 : 0;
   }
@@ -68,9 +58,9 @@ test('visitors are split evenly and independently between experiments', () => {
 });
 
 test('an exposure is reported once per page load', () => {
-  const { render, japi, webVisitorId } = load();
-  const variant = render('hero-copy', ['control', 'short']);
-  render('hero-copy', ['control', 'short']);
+  const { variantOf, japi, webVisitorId } = load();
+  const variant = variantOf('hero-copy', ['control', 'short']);
+  variantOf('hero-copy', ['control', 'short']);
 
   expect(japi.mock.calls).toEqual([['post', '/experiment-exposure', {
     web_visitor_id: webVisitorId,
@@ -80,9 +70,9 @@ test('an exposure is reported once per page load', () => {
 });
 
 test('native apps always get the control and report nothing', () => {
-  const { render, japi, webVisitorId } = load('ios');
+  const { variantOf, japi, webVisitorId } = load('ios');
 
   expect(webVisitorId).toBeUndefined();
-  expect(render('hero-copy', ['control', 'short'])).toBe('control');
+  expect(variantOf('hero-copy', ['control', 'short'])).toBe('control');
   expect(japi).not.toHaveBeenCalled();
 });
