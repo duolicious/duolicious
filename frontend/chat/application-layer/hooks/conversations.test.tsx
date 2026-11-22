@@ -20,7 +20,7 @@ jest.mock('../../../notifications/notifications', () => ({
 import { Platform } from 'react-native';
 import {
   computeConversationIds,
-  getSortOrders,
+  getSortOptions,
   sortConversations,
 } from './conversations';
 import { Conversation, Inbox } from '../index';
@@ -119,7 +119,7 @@ describe('sortConversations', () => {
   });
 });
 
-describe('getSortOrders', () => {
+describe('getSortOptions', () => {
   const signIn = (personId: number) => setSignedInUser({
     personId,
     personUuid: '',
@@ -130,6 +130,11 @@ describe('getSortOrders', () => {
     hasGold: false,
   });
 
+  const untreated = [
+    { order: 'match', label: 'Best Matches First' },
+    { order: 'latest', label: 'Latest First' },
+  ];
+
   afterEach(() => {
     jest.restoreAllMocks();
     setSignedInUser(undefined);
@@ -139,28 +144,35 @@ describe('getSortOrders', () => {
     jest.replaceProperty(Platform, 'OS', 'web');
 
     signIn(402444);
-    expect(getSortOrders()).toEqual(['intro', 'match', 'latest']);
+    expect(getSortOptions()).toEqual([
+      { order: 'intro', label: 'Top Intros' },
+      { order: 'match', label: 'Top Matches' },
+      { order: 'latest', label: 'Newest' },
+    ]);
 
     signIn(402442);
-    expect(getSortOrders()).toEqual(['intro', 'latest']);
+    expect(getSortOptions()).toEqual([
+      { order: 'intro', label: 'Top Intros' },
+      { order: 'latest', label: 'Newest' },
+    ]);
 
     signIn(402441);
-    expect(getSortOrders()).toEqual(['match', 'latest']);
+    expect(getSortOptions()).toEqual(untreated);
 
     signIn(402443);
-    expect(getSortOrders()).toEqual(['match', 'latest']);
+    expect(getSortOptions()).toEqual(untreated);
   });
 
   it('keeps the intro order from earlier accounts', () => {
     jest.replaceProperty(Platform, 'OS', 'web');
 
     signIn(402440);
-    expect(getSortOrders()).toEqual(['match', 'latest']);
+    expect(getSortOptions()).toEqual(untreated);
   });
 
   it('keeps the intro order from native apps', () => {
     signIn(402444);
-    expect(getSortOrders()).toEqual(['match', 'latest']);
+    expect(getSortOptions()).toEqual(untreated);
   });
 });
 
