@@ -61,6 +61,13 @@ async def post_request_otp(
     await check_otp_send_limits(request, req.email)
     return await person.post_request_otp(req, client_ip(request))
 
+@app.post('/experiment-exposure')
+async def post_experiment_exposure(
+    request: Request,
+    req: t.PostExperimentExposure,
+) -> None:
+    await person.post_experiment_exposure(req, client_ip(request))
+
 @app.post('/resend-otp')
 async def post_resend_otp(
     request: Request,
@@ -206,9 +213,10 @@ async def patch_onboardee_info(
 
 @app.post('/finish-onboarding')
 async def post_finish_onboarding(
+    req: t.PostFinishOnboarding = t.PostFinishOnboarding(),
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
 ) -> object:
-    return await person.post_finish_onboarding(s)
+    return await person.post_finish_onboarding(s, req)
 
 @app.get('/next-questions')
 async def get_next_questions(

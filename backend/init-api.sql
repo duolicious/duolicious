@@ -470,6 +470,21 @@ CREATE TABLE IF NOT EXISTS social_identity (
 CREATE INDEX IF NOT EXISTS social_identity__person_id__idx
     ON social_identity (person_id);
 
+CREATE TABLE IF NOT EXISTS experiment_exposure (
+    web_visitor_id UUID NOT NULL,
+    experiment TEXT NOT NULL,
+    variant TEXT NOT NULL,
+    ip_address inet,
+    exposed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (web_visitor_id, experiment)
+);
+
+CREATE TABLE IF NOT EXISTS web_visitor_sign_up (
+    web_visitor_id UUID PRIMARY KEY,
+    signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS person_ref (
     person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
     ref TEXT NOT NULL,

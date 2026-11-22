@@ -25,6 +25,7 @@ from pydantic import (
 )
 from datetime import datetime, date
 from decimal import Decimal
+from uuid import UUID
 from dateutil.relativedelta import relativedelta
 from PIL import Image
 from pillow_heif import register_heif_opener
@@ -401,6 +402,19 @@ class SignInRequest(BaseModel):
         max_length=CLUB_MAX_LEN,
     )
     ref: SignUpRef = None
+
+
+ExperimentLabel = Annotated[str, StringConstraints(pattern=r'^[a-z0-9-]{1,64}$')]
+
+
+class PostFinishOnboarding(BaseModel):
+    web_visitor_id: UUID | None = None
+
+
+class PostExperimentExposure(BaseModel):
+    web_visitor_id: UUID
+    experiment: ExperimentLabel
+    variant: ExperimentLabel
 
 
 class PostRequestOtp(SignInRequest):
