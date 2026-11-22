@@ -50,6 +50,12 @@ const ChatsItemMemo = memo(ChatsItem);
 
 const hideHiddenIntros = () => setInboxSettings({ showHidden: false });
 
+const SORT_LABELS = {
+  intro: 'Top Intros',
+  match: 'Top Matches',
+  latest: 'Newest',
+};
+
 const HiddenIntrosBackButton = ({ position }: { position: 'left' | null }) => (
   <TopNavBarButton
     onPress={hideHiddenIntros}
@@ -131,6 +137,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
     conversations,
     numIntrosWithinFilters,
     sectionIndex,
+    sortOrders,
     sortByIndex,
     showArchive,
     showHidden,
@@ -298,9 +305,9 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
               }}
             />
             <ButtonGroup
-              buttons={['Best Matches First', 'Latest First']}
+              buttons={sortOrders.map((order) => SORT_LABELS[order])}
               selectedIndex={sortByIndex}
-              onPress={(sortByIndex) => setInboxSettings({ sortByIndex })}
+              onPress={(i) => setInboxSettings({ sortBy: sortOrders[i] })}
               secondary={true}
               disabled={sectionIndex === 1}
               containerStyle={{

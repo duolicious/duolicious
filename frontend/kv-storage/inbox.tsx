@@ -1,7 +1,7 @@
 import { storeKv } from './kv-storage';
 
 const inboxNumber = async (
-  key: 'inbox_order' | 'inbox_section' | 'inbox_apply_search_filters',
+  key: 'inbox_section' | 'inbox_apply_search_filters',
   value?: number
 ) => {
   const loaded = await storeKv(
@@ -21,8 +21,18 @@ const inboxNumber = async (
   return loadedInt;
 };
 
-const inboxOrder = async (value?: number) => {
-  return await inboxNumber('inbox_order', value);
+const INBOX_ORDERS = ['intro', 'match', 'latest'] as const;
+
+type InboxOrder = typeof INBOX_ORDERS[number];
+
+const inboxOrder = async (value?: InboxOrder): Promise<InboxOrder | null> => {
+  const loaded = await storeKv('inbox_order', value);
+
+  if (loaded === '1') {
+    return 'latest';
+  }
+
+  return INBOX_ORDERS.find((order) => order === loaded) ?? null;
 };
 
 const inboxSection = async (value?: number) => {
@@ -36,6 +46,7 @@ const inboxApplySearchFilters = async (value?: number) => {
 };
 
 export {
+  InboxOrder,
   inboxApplySearchFilters,
   inboxOrder,
   inboxSection,

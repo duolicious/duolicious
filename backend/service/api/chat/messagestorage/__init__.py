@@ -40,6 +40,7 @@ def store_message(
     timestamp_microseconds: int | None = None,
     deliver_to_recipient: bool = True,
     hidden: bool = False,
+    intro_score: float | None = None,
 ) -> None:
     if timestamp_microseconds is None:
         timestamp_microseconds = now_microseconds()
@@ -71,6 +72,7 @@ def store_message(
             timestamp=timestamp_microseconds,
             deliver_to_recipient=deliver_to_recipient,
             hidden=hidden,
+            intro_score=intro_score,
         ),
         messaged_job=SetMessagedJob(
             from_id=from_id,
