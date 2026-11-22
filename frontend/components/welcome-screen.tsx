@@ -724,6 +724,7 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
           ...result.body,
           ...(clubName && { pending_club_name: clubName }),
           ref,
+          platform: Platform.OS,
         },
         { timeout: 9999 * 1000, maxRetries: 0 },
       );
@@ -945,6 +946,7 @@ const EmailScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParamLi
         ...(clubName_ && { pending_club_name: clubName_ }),
         ...(anonymousAnswers.length && { answers: anonymousAnswers }),
         ref: signUpRef,
+        platform: Platform.OS,
       },
       { timeout: 9999 * 1000 },
     );

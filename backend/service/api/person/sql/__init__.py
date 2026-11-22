@@ -235,6 +235,7 @@ INSERT INTO duo_session (
     email,
     pending_club_name,
     ref,
+    platform,
     otp,
     ip_address,
     answers,
@@ -257,6 +258,7 @@ SELECT
     %(email)s,
     %(pending_club_name)s,
     %(ref)s,
+    %(platform)s,
     otp,
     %(ip_address)s,
     %(answers)s::jsonb,
@@ -2961,6 +2963,7 @@ INSERT INTO duo_session (
     email,
     pending_club_name,
     ref,
+    platform,
     ip_address,
     signed_in,
     signed_in_at,
@@ -2973,6 +2976,7 @@ INSERT INTO duo_session (
     %(email)s,
     %(pending_club_name)s,
     %(ref)s,
+    %(platform)s,
     %(ip_address)s,
     %(signed_in)s,
     CASE WHEN %(signed_in)s THEN NOW() END,
@@ -3040,15 +3044,23 @@ ON CONFLICT (ref, hour) DO UPDATE SET
     count = ref_sign_up_count.count + 1
 """
 
-Q_INSERT_PERSON_SIGN_UP_PLATFORM = """
-WITH inserted_person_sign_up_platform AS (
-    INSERT INTO person_sign_up_platform (person_id, platform)
-    VALUES (%(person_id)s, %(platform)s)
-)
+Q_INSERT_PLATFORM_SIGN_UP_COUNT = """
 INSERT INTO platform_sign_up_count (platform, person_id_mod_64, day, count)
-SELECT %(platform)s, id %% 64, sign_up_time::DATE, 1
-FROM person
-WHERE id = %(person_id)s
+SELECT
+    duo_session.platform,
+    person.id %% 64,
+    person.sign_up_time::DATE,
+    1
+FROM
+    duo_session
+JOIN
+    person
+ON
+    person.id = %(person_id)s
+WHERE
+    duo_session.session_token_hash = %(session_token_hash)s
+AND
+    duo_session.platform IS NOT NULL
 ON CONFLICT (platform, person_id_mod_64, day) DO UPDATE SET
     count = platform_sign_up_count.count + 1
 """

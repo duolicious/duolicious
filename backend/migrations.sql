@@ -23,12 +23,7 @@ ALTER TABLE person ADD COLUMN IF NOT EXISTS pre_automod_verification_level_id SM
 
 ALTER TABLE inbox ADD COLUMN IF NOT EXISTS intro_score REAL;
 
-CREATE TABLE IF NOT EXISTS person_sign_up_platform (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    platform TEXT NOT NULL,
-
-    PRIMARY KEY (person_id)
-);
+ALTER TABLE duo_session ADD COLUMN IF NOT EXISTS platform TEXT;
 
 CREATE TABLE IF NOT EXISTS platform_sign_up_count (
     platform TEXT NOT NULL,

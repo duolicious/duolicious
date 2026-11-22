@@ -261,6 +261,7 @@ async def post_request_otp(
         normalized_email=normalized,
         pending_club_name=req.pending_club_name,
         ref=req.ref,
+        platform=req.platform,
         is_dev=DUO_ENV == 'dev',
         session_token_hash=session_token_hash,
         ip_address=remote_addr,
@@ -450,6 +451,7 @@ async def _sign_in_with_social(
             email=email,
             pending_club_name=req.pending_club_name,
             ref=req.ref,
+            platform=req.platform,
             ip_address=remote_addr,
             signed_in=not needs_otp,
             pending_social_provider=provider if pending else None,
@@ -676,10 +678,7 @@ async def patch_onboardee_info(req: t.PatchOnboardeeInfo, s: t.SessionInfo) -> o
 
     return None
 
-async def post_finish_onboarding(
-    req: t.PostFinishOnboarding | None,
-    s: t.SessionInfo,
-) -> object:
+async def post_finish_onboarding(s: t.SessionInfo) -> object:
     async with api_tx() as tx:
         await tx.execute('SET LOCAL statement_timeout = 15000') # 15 seconds
 
@@ -715,11 +714,10 @@ async def post_finish_onboarding(
             person_id=person_id,
         ))
 
-        if req:
-            await tx.execute(Q_INSERT_PERSON_SIGN_UP_PLATFORM, dict(
-                person_id=person_id,
-                platform=req.platform,
-            ))
+        await tx.execute(Q_INSERT_PLATFORM_SIGN_UP_COUNT, dict(
+            session_token_hash=s.session_token_hash,
+            person_id=person_id,
+        ))
 
         clubs = await _handle_pending_club(
             tx,

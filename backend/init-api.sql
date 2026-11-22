@@ -436,6 +436,7 @@ CREATE TABLE IF NOT EXISTS duo_session (
     email TEXT NOT NULL,
     pending_club_name TEXT,
     ref TEXT,
+    platform TEXT,
     otp TEXT,
     ip_address inet,
     signed_in BOOLEAN NOT NULL DEFAULT FALSE,
@@ -483,13 +484,6 @@ CREATE TABLE IF NOT EXISTS ref_sign_up_count (
     count INT NOT NULL,
 
     PRIMARY KEY (ref, hour)
-);
-
-CREATE TABLE IF NOT EXISTS person_sign_up_platform (
-    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    platform TEXT NOT NULL,
-
-    PRIMARY KEY (person_id)
 );
 
 CREATE TABLE IF NOT EXISTS platform_sign_up_count (

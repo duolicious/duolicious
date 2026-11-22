@@ -12,16 +12,19 @@ q "delete from duo_session"
 q "delete from person"
 q "delete from onboardee"
 q "delete from ref_sign_up_count"
+q "delete from platform_sign_up_count"
 q "delete from undeleted_photo"
 q "update question set count_yes = 0, count_no = 0"
 
 ! jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "" }' || exit 1
+! jc POST /request-otp -d '{ "email": "MAIL@example.com", "platform": "windows" }' || exit 1
 
-response=$(jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "reddit" }')
+response=$(jc POST /request-otp -d '{ "email": "MAIL@example.com", "ref": "reddit", "platform": "web" }')
 
 SESSION_TOKEN=$(echo "$response" | jq -r '.session_token')
 
 [[ "$(q "select ref from duo_session")" = reddit ]]
+[[ "$(q "select platform from duo_session")" = web ]]
 
 otp_expiry1=$(q "SELECT otp_expiry FROM duo_session order by otp_expiry desc limit 1")
 [[ -n "$otp_expiry1" ]]
@@ -68,11 +71,10 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 1 ]]
 
 ! c GET /next-questions || exit 1
-response=$(jc POST /finish-onboarding -d '{ "platform": "web" }')
-[[ "$(q "select platform from person_sign_up_platform join person on person.id = person_id where email = 'mail@example.com'")" = web ]]
-[[ "$(q "select platform || ' ' || count || ' ' || (day = (select sign_up_time::date from person)) || ' ' || (person_id_mod_64 = (select id % 64 from person)) from platform_sign_up_count")" = "web 1 true true" ]]
+response=$(c POST /finish-onboarding)
 [[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
 [[ "$(q "select ref || ' ' || count || ' ' || (hour = date_trunc('hour', hour)) from ref_sign_up_count")" = "reddit 1 true" ]]
+[[ "$(q "select platform || ' ' || count || ' ' || (day = (select sign_up_time::date from person)) || ' ' || (person_id_mod_64 = (select id % 64 from person)) from platform_sign_up_count")" = "web 1 true true" ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]
 [[ "$(jq -r .name <<< "$response")" = Jeff ]]
 
@@ -124,3 +126,4 @@ sleep 2
 c DELETE /account
 [[ "$(q "select count(*) from person_ref")" -eq 0 ]]
 [[ "$(q "select ref || ' ' || count from ref_sign_up_count")" = "reddit 1" ]]
+[[ "$(q "select platform || ' ' || count from platform_sign_up_count")" = "web 1" ]]

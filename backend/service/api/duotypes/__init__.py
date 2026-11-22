@@ -128,6 +128,8 @@ SignUpRef = Annotated[str | None, Field(min_length=1, max_length=256)]
 
 RedirectTarget = Literal['web', 'apex', 'app']
 
+Platform = Literal['web', 'ios', 'android']
+
 _club_name_adapter = TypeAdapter(ClubName)
 
 
@@ -401,6 +403,7 @@ class SignInRequest(BaseModel):
         max_length=CLUB_MAX_LEN,
     )
     ref: SignUpRef = None
+    platform: Platform | None = None
 
 
 class PostRequestOtp(SignInRequest):
@@ -465,10 +468,6 @@ class SocialClaims(BaseModel):
     @field_validator('email', mode='before')
     def validate_email(cls, value: object) -> object:
         return _normalize_email_input(value)
-
-
-class PostFinishOnboarding(BaseModel):
-    platform: Literal['web', 'ios', 'android']
 
 
 class PatchOnboardeeInfo(BaseModel):
