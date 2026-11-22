@@ -135,11 +135,17 @@ describe('getSortOrders', () => {
     setSignedInUser(undefined);
   });
 
-  it('offers the intro order to new web users with an even id', () => {
+  it('splits new web users into three groups by id', () => {
     jest.replaceProperty(Platform, 'OS', 'web');
 
-    signIn(402442);
+    signIn(402444);
     expect(getSortOrders()).toEqual(['intro', 'match', 'latest']);
+
+    signIn(402442);
+    expect(getSortOrders()).toEqual(['intro', 'latest']);
+
+    signIn(402441);
+    expect(getSortOrders()).toEqual(['match', 'latest']);
 
     signIn(402443);
     expect(getSortOrders()).toEqual(['match', 'latest']);
@@ -153,7 +159,7 @@ describe('getSortOrders', () => {
   });
 
   it('keeps the intro order from native apps', () => {
-    signIn(402442);
+    signIn(402444);
     expect(getSortOrders()).toEqual(['match', 'latest']);
   });
 });

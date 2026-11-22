@@ -49,15 +49,18 @@ const getSection = (
 
 const LAST_PERSON_ID_BEFORE_INTRO_TEST = 402440;
 
+const INTRO_TEST_ORDERS: InboxOrder[][] = [
+  ['intro', 'match', 'latest'],
+  ['match', 'latest'],
+  ['intro', 'latest'],
+  ['match', 'latest'],
+];
+
 const getSortOrders = (): InboxOrder[] => {
   const personId = getSignedInUser()?.personId ?? 1;
 
-  return (
-    Platform.OS === 'web' &&
-    personId > LAST_PERSON_ID_BEFORE_INTRO_TEST &&
-    personId % 2 === 0
-  )
-    ? ['intro', 'match', 'latest']
+  return Platform.OS === 'web' && personId > LAST_PERSON_ID_BEFORE_INTRO_TEST
+    ? INTRO_TEST_ORDERS[personId % INTRO_TEST_ORDERS.length]
     : ['match', 'latest'];
 };
 
