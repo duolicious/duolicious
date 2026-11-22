@@ -103,10 +103,6 @@ network_event AS (
         duo_session.ip_address IS NOT NULL
     AND
         duo_session.signed_in_at < event.at
-    AND NOT (
-        event.kind = 'shadow ban'
-        AND person.shadow_banned_by = 'model'
-    )
 )
 """
 

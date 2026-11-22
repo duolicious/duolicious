@@ -100,7 +100,10 @@ snapshot_conversations () {
   jq -sS -r '
     [.[] | .duo_inbox | select(. != null)][0]
     | .conversations
-    | map(del(.url_slug) | .last_message_timestamp = "redacted")
+    | map(
+        del(.url_slug)
+        | .last_message_timestamp = "redacted"
+        | .intro_score |= (. != null))
   '
 }
 
@@ -122,6 +125,7 @@ actual_entry=$(jq -sS -r '
   [.[] | .duo_inbox_entry | select(. != null)][0]
   | del(.url_slug)
   | .last_message_timestamp = "redacted"
+  | .intro_score |= (. != null)
 ' <<< "$received_1")
 
 expected_entry=$(cat << EOF
@@ -135,6 +139,7 @@ expected_entry=$(cat << EOF
   "last_message_timestamp": "redacted",
   "location": "intros",
   "hidden": false,
+  "intro_score": true,
   "match_percentage": 50,
   "matches_search_filters": true,
   "name": "user2",
@@ -231,6 +236,7 @@ actual_entry=$(jq -sS -r '
   [.[] | .duo_inbox_entry | select(. != null)][0]
   | del(.url_slug)
   | .last_message_timestamp = "redacted"
+  | .intro_score |= (. != null)
 ' <<< "$received_2")
 
 expected_entry=$(cat << EOF
@@ -244,6 +250,7 @@ expected_entry=$(cat << EOF
   "last_message_timestamp": "redacted",
   "location": "chats",
   "hidden": false,
+  "intro_score": false,
   "match_percentage": 50,
   "matches_search_filters": true,
   "name": "user1",
@@ -268,6 +275,7 @@ expected_snapshot=$(cat << EOF
     "last_message_timestamp": "redacted",
     "location": "chats",
     "hidden": false,
+    "intro_score": true,
     "match_percentage": 50,
     "matches_search_filters": true,
     "name": "user2",
@@ -298,6 +306,7 @@ expected_snapshot=$(cat << EOF
     "last_message_timestamp": "redacted",
     "location": "archive",
     "hidden": false,
+    "intro_score": true,
     "match_percentage": null,
     "matches_search_filters": true,
     "name": null,
@@ -339,6 +348,7 @@ expected_snapshot=$(cat << EOF
     "last_message_timestamp": "redacted",
     "location": "archive",
     "hidden": false,
+    "intro_score": true,
     "match_percentage": 50,
     "matches_search_filters": true,
     "name": "user2",

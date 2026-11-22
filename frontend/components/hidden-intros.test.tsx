@@ -49,6 +49,7 @@ const intro = (
   isVerified: false,
   location: 'intros',
   hidden,
+  introScore: null,
   matchesSearchFilters: true,
 });
 

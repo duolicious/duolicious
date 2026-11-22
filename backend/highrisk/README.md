@@ -26,9 +26,9 @@ The network's inputs, as known at the time of each score, are:
   between the IP address and the profile's location, counts of messages,
   skips, reports and visits, and who the person messages and visits;
 * running counts, kept in `network_activity`, of recent sign-ups and recent
-  shadow bans after members' reports on the person's networks (the /24 for
-  IPv4, the /64 for IPv6). They fade to 37% after 30 days. The job's own
-  decisions don't add to them.
+  shadow bans on the person's networks (the /24 for IPv4, the /64 for IPv6),
+  including the job's own. They fade to 37% after 30 days. Marking a person
+  as safe takes their shadow ban back off.
 
 It runs in numpy, from the weights in `model.npz`.
 

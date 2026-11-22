@@ -506,6 +506,7 @@ class InboxConversation(TypedDict):
     is_available: bool
     location: str
     hidden: bool
+    intro_score: float | None
     matches_search_filters: bool
     last_message: str
     last_message_read: bool

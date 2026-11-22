@@ -2470,18 +2470,9 @@ WITH unmoderated AS (
         marked_safe_at IS NULL
     RETURNING
         person.id,
-        OLD.shadow_banned_at,
-        OLD.shadow_banned_by
-), counted_shadow_ban AS (
-    SELECT
-        id,
-        shadow_banned_at
-    FROM
-        unmoderated
-    WHERE
-        shadow_banned_by <> 'model'
+        OLD.shadow_banned_at
 ), uncounted AS (
-    {uncount_shadow_ban_sql('counted_shadow_ban')}
+    {uncount_shadow_ban_sql('unmoderated')}
 )
 SELECT
     EXISTS (SELECT 1 FROM unmoderated) AS is_marked_safe

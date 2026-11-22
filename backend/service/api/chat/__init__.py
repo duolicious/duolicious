@@ -124,6 +124,7 @@ from service.api.ratelimit import (
 )
 import json
 from serviceshared.antiabuse.antirude.chat import is_rude
+from serviceshared.introscore import Q_PEOPLE, Person, score
 from service.api.chat.verification import (
     missing_verification_level,
 )
@@ -265,6 +266,14 @@ async def fetch_is_intro(from_id: int, to_id: int) -> bool:
         row = await tx.fetchone()
 
     return not bool(row)
+
+async def fetch_intro_score(from_id: int, to_id: int, body: str) -> float:
+    async with api_tx('read committed') as tx:
+        await tx.execute(Q_PEOPLE, dict(person_ids=[from_id, to_id]))
+        people = {row['id']: Person(**row) for row in await tx.fetchall()}
+
+    return await asyncio.to_thread(
+        score, body, people[from_id], people[to_id], datetime.now(timezone.utc))
 
 @AsyncLruCache(ttl=5)  # 5 seconds
 async def fetch_is_trusted_account(from_id: int) -> bool:
@@ -629,6 +638,11 @@ async def process_text(
             prospect_username=from_username) or
         await asyncio.to_thread(is_rude, maybe_message.body))
 
+    intro_score = (
+        await fetch_intro_score(from_id, to_id, maybe_message.body)
+        if is_intro and not hidden
+        else None)
+
     async def store_audio_and_notify() -> None:
         if \
                 isinstance(maybe_message, AudioMessage) and \
@@ -731,6 +745,7 @@ async def process_text(
         is_intro=is_intro,
         deliver_to_recipient=not is_shadow_banned,
         hidden=hidden,
+        intro_score=intro_score,
         callback=store_audio_and_notify,
         timestamp_microseconds=sent_at_microseconds)
     return None
