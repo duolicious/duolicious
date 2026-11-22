@@ -165,6 +165,7 @@ type Conversation = {
   isVerified: boolean
   location: 'chats' | 'intros' | 'archive' | 'nowhere'
   hidden: boolean
+  introScore: number | null
   matchesSearchFilters: boolean
 };
 
@@ -327,6 +328,7 @@ const conversationFromWire = (
     isVerified: !!c.is_verified,
     location: locations.includes(c.location) ? c.location : 'archive',
     hidden: !!c.hidden,
+    introScore: c.intro_score ?? null,
     matchesSearchFilters: !!(c.matches_search_filters ?? true),
   };
 
@@ -358,6 +360,7 @@ const setInboxSent = (recipientPersonUuid: string, message: string) => {
     location: 'archive',
     photoBlurhash: '',
     isVerified: false,
+    introScore: null,
     matchesSearchFilters: true,
     ...chatsConversation,
     ...introsConversation,

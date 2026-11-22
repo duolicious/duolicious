@@ -69,7 +69,8 @@ WITH viewer AS (
         reaction_body,
         COALESCE(unread_count, 0) AS unread_count,
         timestamp,
-        hidden
+        hidden,
+        intro_score
     FROM
         inbox
     WHERE
@@ -84,6 +85,7 @@ WITH viewer AS (
         entry.unread_count,
         entry.timestamp,
         entry.hidden,
+        entry.intro_score,
         prospect.url_slug AS url_slug,
         prospect.name AS name,
         COALESCE(prospect.verification_level_id > 1, FALSE) AS verified,
@@ -223,6 +225,7 @@ SELECT
     is_available,
     location,
     hidden,
+    intro_score,
     body AS last_message,
     reaction,
     reaction_body,
@@ -309,7 +312,8 @@ WITH upsert_sender AS (
         direction,
         timestamp,
         unread_count,
-        hidden
+        hidden,
+        intro_score
     )
     SELECT
         %(to_username)s,
@@ -322,7 +326,8 @@ WITH upsert_sender AS (
         'I'::mam_direction,
         %(timestamp)s,
         CASE WHEN %(hidden)s::BOOLEAN THEN 0 ELSE 1 END,
-        %(hidden)s::BOOLEAN
+        %(hidden)s::BOOLEAN,
+        %(intro_score)s::REAL
     WHERE
         %(deliver_to_recipient)s::BOOLEAN
     ON CONFLICT (luser, remote_bare_jid)
@@ -337,6 +342,7 @@ WITH upsert_sender AS (
             ELSE COALESCE(inbox.unread_count, 0) + 1
         END,
         hidden = inbox.hidden OR EXCLUDED.hidden,
+        intro_score = COALESCE(inbox.intro_score, EXCLUDED.intro_score),
         reaction = NULL,
         reaction_target_mam_id = NULL,
         reaction_body = NULL
@@ -467,6 +473,7 @@ class UpsertConversationJob:
     timestamp: int
     deliver_to_recipient: bool = True
     hidden: bool = False
+    intro_score: float | None = None
 
 
 @dataclass(frozen=True)
@@ -512,6 +519,7 @@ def _conversation_from_row(row: Row) -> InboxConversation:
         is_available=row['is_available'],
         location=row['location'],
         hidden=row['hidden'],
+        intro_score=row['intro_score'],
         matches_search_filters=row['matches_search_filters'],
         last_message=_composed_body(
             row['last_message'], row['reaction'], row['reaction_body']),
@@ -695,6 +703,7 @@ async def process_upsert_conversation_batch(tx: Tx, batch: list[UpsertConversati
             timestamp=job.timestamp,
             deliver_to_recipient=job.deliver_to_recipient,
             hidden=job.hidden,
+            intro_score=job.intro_score,
         )
         for job in batch
     ]

@@ -1,0 +1,8 @@
+numpy
+onnx
+onnxruntime
+psycopg[binary]
+pydantic
+tokenizers
+torch
+transformers

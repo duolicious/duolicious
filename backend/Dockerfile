@@ -89,6 +89,7 @@ COPY \
   --exclude=serviceshared/antiabuse/clipnsfw/model.* \
   --exclude=serviceshared/antiabuse/highrisk/dbip-* \
   --exclude=serviceshared/antiabuse/minorconfession \
+  --exclude=serviceshared/introscore \
   --exclude=test \
   --exclude=vm \
   . /app

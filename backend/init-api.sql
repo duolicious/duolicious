@@ -1795,6 +1795,7 @@ CREATE TABLE IF NOT EXISTS inbox (
     reaction_target_mam_id BIGINT,
     reaction_body TEXT,
     hidden BOOLEAN                   NOT NULL DEFAULT FALSE,
+    intro_score REAL,
     PRIMARY KEY(luser, remote_bare_jid)
 );
 

@@ -17,11 +17,14 @@ jest.mock('../../../notifications/notifications', () => ({
   getAndRegisterPushToken: jest.fn(),
 }));
 
+import { Platform } from 'react-native';
 import {
   computeConversationIds,
+  getSortOrders,
   sortConversations,
 } from './conversations';
 import { Conversation, Inbox } from '../index';
+import { setSignedInUser } from '../../../events/signed-in-user';
 
 const conversation = (
   personUuid: string,
@@ -29,6 +32,7 @@ const conversation = (
   lastMessageTimestamp: Date,
   matchesSearchFilters: boolean,
   hidden = false,
+  introScore: number | null = null,
 ): Conversation => ({
   personUuid,
   urlSlug: null,
@@ -43,6 +47,7 @@ const conversation = (
   isVerified: false,
   location: 'intros',
   hidden,
+  introScore,
   matchesSearchFilters,
 });
 
@@ -86,12 +91,63 @@ describe('sortConversations', () => {
       ['match50new', 'match90old', 'match10filtered', 'match99filtered']);
   });
 
+  it('puts the best-scored intros first and unscored ones last', () => {
+    const scored = (name: string, score: number | null, match: number) =>
+      conversation(name, match, new Date(1000), name !== 'filtered', false, score);
+
+    const scoredIntros = [
+      scored('unscored50', null, 50),
+      scored('low', 0.1, 99),
+      scored('filtered', 0.99, 99),
+      scored('high', 0.9, 10),
+      scored('unscored90', null, 90),
+    ];
+
+    expect(ids(sortConversations(scoredIntros, 'intros', 'intro', false)))
+      .toEqual(['filtered', 'high', 'low', 'unscored90', 'unscored50']);
+
+    expect(ids(sortConversations(scoredIntros, 'intros', 'intro', true)))
+      .toEqual(['high', 'low', 'unscored90', 'unscored50', 'filtered']);
+  });
+
   it('never sinks chats or archived conversations', () => {
     expect(ids(sortConversations(intros, 'chats', 'latest', true))).toEqual(
       ids(sortConversations(intros, 'chats', 'latest', false)));
 
     expect(ids(sortConversations(intros, 'archive', 'latest', true))).toEqual(
       ids(sortConversations(intros, 'archive', 'latest', false)));
+  });
+});
+
+describe('getSortOrders', () => {
+  const signIn = (personId: number) => setSignedInUser({
+    personId,
+    personUuid: '',
+    units: 'Metric',
+    sessionToken: '',
+    pendingClub: null,
+    name: null,
+    hasGold: false,
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    setSignedInUser(undefined);
+  });
+
+  it('offers the intro order to web users with an even id', () => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+
+    signIn(2);
+    expect(getSortOrders()).toEqual(['intro', 'match', 'latest']);
+
+    signIn(3);
+    expect(getSortOrders()).toEqual(['match', 'latest']);
+  });
+
+  it('keeps the intro order from native apps', () => {
+    signIn(2);
+    expect(getSortOrders()).toEqual(['match', 'latest']);
   });
 });
 

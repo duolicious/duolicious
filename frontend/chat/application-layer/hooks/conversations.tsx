@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { compareArrays } from '../../../util/util';
 import { Inbox, Conversation, getInbox } from '../index';
 import {
@@ -7,7 +8,9 @@ import {
   notify,
   useDerivedEvent,
 } from '../../../events/events';
+import { getSignedInUser } from '../../../events/signed-in-user';
 import {
+  InboxOrder,
   inboxApplySearchFilters,
   inboxOrder,
   inboxSection,
@@ -44,13 +47,10 @@ const getSection = (
   }
 };
 
-const getSortBy = (sortByIndex: number) => {
-  if (sortByIndex === 0) {
-    return 'match';
-  } else {
-    return 'latest'
-  }
-};
+const getSortOrders = (): InboxOrder[] =>
+  Platform.OS === 'web' && (getSignedInUser()?.personId ?? 1) % 2 === 0
+    ? ['intro', 'match', 'latest']
+    : ['match', 'latest'];
 
 /**
  * React hook that returns the list of `personUuid`s for the conversations
@@ -82,7 +82,7 @@ const getSectionConversations = (
 const sortConversations = (
   conversations: Conversation[],
   section: Section,
-  sortBy: 'latest' | 'match',
+  sortBy: InboxOrder,
   applySearchFilters: boolean,
 ): Conversation[] => {
   if (conversations.length === 0) return conversations;
@@ -104,6 +104,11 @@ const sortConversations = (
       ], [
         +a.lastMessageTimestamp,
       ]);
+    } else if (section === 'intros' && sortBy === 'intro') {
+      return compareArrays(
+        [filterRank(b), b.introScore ?? -1, b.matchPercentage, +b.lastMessageTimestamp],
+        [filterRank(a), a.introScore ?? -1, a.matchPercentage, +a.lastMessageTimestamp],
+      );
     } else if (section === 'intros' && sortBy === 'match') {
       return compareArrays(
         [filterRank(b), b.matchPercentage, +b.lastMessageTimestamp],
@@ -126,7 +131,7 @@ type ConversationIds = {
 const computeConversationIds = (
   inbox: Inbox | null,
   section: Section,
-  sortBy: 'latest' | 'match',
+  sortBy: InboxOrder,
   applySearchFilters: boolean,
 ): ConversationIds | null => {
   if (inbox === null) {
@@ -152,7 +157,7 @@ const computeConversationIds = (
 
 type InboxSettings = {
   sectionIndex: number
-  sortByIndex: number
+  sortBy: InboxOrder | null
   showArchive: boolean
   showHidden: boolean
   applySearchFilters: boolean
@@ -162,7 +167,7 @@ const EV_INBOX_SETTINGS = 'inbox-settings';
 
 const defaultInboxSettings: InboxSettings = {
   sectionIndex: 0,
-  sortByIndex: 0,
+  sortBy: null,
   showArchive: false,
   showHidden: false,
   applySearchFilters: false,
@@ -180,14 +185,14 @@ const loadInboxSettings = async () => {
   if (hasLoadedInboxSettings) return;
   hasLoadedInboxSettings = true;
 
-  const [sortByIndex, sectionIndex, applySearchFilters] = await Promise.all([
+  const [sortBy, sectionIndex, applySearchFilters] = await Promise.all([
     inboxOrder(),
     inboxSection(),
     inboxApplySearchFilters(),
   ]);
 
   updateInboxSettings({
-    sortByIndex,
+    sortBy,
     sectionIndex,
     applySearchFilters: !!applySearchFilters,
   });
@@ -201,7 +206,7 @@ const resetInboxSettings = () => {
 const setInboxSettings = (patch: Partial<InboxSettings>) => {
   updateInboxSettings(patch);
   if (patch.sectionIndex !== undefined) inboxSection(patch.sectionIndex);
-  if (patch.sortByIndex !== undefined) inboxOrder(patch.sortByIndex);
+  if (patch.sortBy) inboxOrder(patch.sortBy);
   if (patch.applySearchFilters !== undefined) {
     inboxApplySearchFilters(patch.applySearchFilters ? 1 : 0);
   }
@@ -214,6 +219,8 @@ const useInboxSettings = (): InboxSettings => {
 };
 
 type ConversationsState = InboxSettings & {
+  sortOrders: InboxOrder[]
+  sortByIndex: number
   conversations: string[] | null
   numIntrosWithinFilters: number | null
   numHidden: number
@@ -225,13 +232,17 @@ const withComputedConversations = (
 ): ConversationsState => {
   const section = getSection(
     settings.sectionIndex, settings.showArchive, settings.showHidden);
-  const sortBy = getSortBy(settings.sortByIndex);
+  const sortOrders = getSortOrders();
+  const sortByIndex = Math.max(
+    0, sortOrders.findIndex((order) => order === settings.sortBy));
 
   const computed = computeConversationIds(
-    inbox, section, sortBy, settings.applySearchFilters);
+    inbox, section, sortOrders[sortByIndex], settings.applySearchFilters);
 
   return {
     ...settings,
+    sortOrders,
+    sortByIndex,
     conversations: computed?.ids ?? null,
     numIntrosWithinFilters: computed?.numIntrosWithinFilters ?? null,
     numHidden: getSectionConversations(inbox, 'hidden').length,
@@ -262,6 +273,7 @@ const useConversations = (): ConversationsState => {
 export {
   MIN_INTROS_TO_APPLY_SEARCH_FILTERS,
   computeConversationIds,
+  getSortOrders,
   resetInboxSettings,
   setInboxSettings,
   sortConversations,
