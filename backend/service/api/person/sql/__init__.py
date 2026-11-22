@@ -3053,6 +3053,18 @@ AND
 ON CONFLICT (provider, provider_sub) DO NOTHING
 """
 
+Q_INSERT_WEB_VISITOR_SIGN_UP = """
+INSERT INTO web_visitor_sign_up (web_visitor_id)
+VALUES (%(web_visitor_id)s)
+ON CONFLICT DO NOTHING
+"""
+
+Q_INSERT_EXPERIMENT_EXPOSURE = """
+INSERT INTO experiment_exposure (web_visitor_id, experiment, variant, ip_address)
+VALUES (%(web_visitor_id)s, %(experiment)s, %(variant)s, %(ip_address)s)
+ON CONFLICT DO NOTHING
+"""
+
 Q_INSERT_PERSON_REF = """
 WITH session_ref AS (
     SELECT ref

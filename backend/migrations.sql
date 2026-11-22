@@ -12,10 +12,20 @@
 -- Once a migration has run on production, it is generally fine to delete it
 -- from this file: init-api.sql already carries the change for fresh databases.
 
-ALTER TABLE person DROP COLUMN IF EXISTS tiny_id;
-ALTER TABLE person DROP COLUMN IF EXISTS club_vector_computed_at;
+CREATE TABLE IF NOT EXISTS experiment_exposure (
+    web_visitor_id UUID NOT NULL,
+    experiment TEXT NOT NULL,
+    variant TEXT NOT NULL,
+    ip_address inet,
+    exposed_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-DROP TABLE IF EXISTS presence_histogram;
+    PRIMARY KEY (web_visitor_id, experiment)
+);
+
+CREATE TABLE IF NOT EXISTS web_visitor_sign_up (
+    web_visitor_id UUID PRIMARY KEY,
+    signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
 
 ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
 
