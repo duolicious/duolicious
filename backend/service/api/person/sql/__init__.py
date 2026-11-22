@@ -3029,8 +3029,8 @@ ON CONFLICT DO NOTHING
 """
 
 Q_INSERT_EXPERIMENT_EXPOSURE = """
-INSERT INTO experiment_exposure (web_visitor_id, experiment, variant)
-VALUES (%(web_visitor_id)s, %(experiment)s, %(variant)s)
+INSERT INTO experiment_exposure (web_visitor_id, experiment, variant, ip_address)
+VALUES (%(web_visitor_id)s, %(experiment)s, %(variant)s, %(ip_address)s)
 ON CONFLICT DO NOTHING
 """
 

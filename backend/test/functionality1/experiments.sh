@@ -27,6 +27,7 @@ exposure "$visitor" hero-copy short-headline
 exposure "$visitor" hero-copy short-headline
 exposure "$visitor" cta control
 [[ "$(q "select string_agg(experiment || ' ' || variant, ',' order by experiment) from experiment_exposure")" = "cta control,hero-copy short-headline" ]]
+[[ "$(q "select count(*) from experiment_exposure where ip_address is null")" -eq 0 ]]
 
 ! exposure not-a-uuid hero-copy control || exit 1
 ! exposure "$visitor" 'Hero Copy' control || exit 1

@@ -367,9 +367,15 @@ async def post_check_otp(
         **clubs,
     )
 
-async def post_experiment_exposure(req: t.PostExperimentExposure) -> None:
+async def post_experiment_exposure(
+    req: t.PostExperimentExposure,
+    remote_addr: str | None,
+) -> None:
     async with api_tx() as tx:
-        await tx.execute(Q_INSERT_EXPERIMENT_EXPOSURE, req.model_dump())
+        await tx.execute(Q_INSERT_EXPERIMENT_EXPOSURE, dict(
+            **req.model_dump(),
+            ip_address=remote_addr,
+        ))
 
 async def post_sign_out(s: t.SessionInfo) -> None:
     await sign_out([s.session_token_hash])

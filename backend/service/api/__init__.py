@@ -62,8 +62,11 @@ async def post_request_otp(
     return await person.post_request_otp(req, client_ip(request))
 
 @app.post('/experiment-exposure')
-async def post_experiment_exposure(req: t.PostExperimentExposure) -> None:
-    await person.post_experiment_exposure(req)
+async def post_experiment_exposure(
+    request: Request,
+    req: t.PostExperimentExposure,
+) -> None:
+    await person.post_experiment_exposure(req, client_ip(request))
 
 @app.post('/resend-otp')
 async def post_resend_otp(

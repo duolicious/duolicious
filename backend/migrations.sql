@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS experiment_exposure (
     web_visitor_id UUID NOT NULL,
     experiment TEXT NOT NULL,
     variant TEXT NOT NULL,
+    ip_address inet,
     exposed_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (web_visitor_id, experiment)
