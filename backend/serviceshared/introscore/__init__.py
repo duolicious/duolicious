@@ -1,11 +1,9 @@
 import math
 from datetime import date, datetime
-from functools import cache
 from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
-import onnxruntime as ort
 from pydantic import BaseModel
 from tokenizers import Tokenizer
 
@@ -58,6 +56,9 @@ TOKENIZER = Tokenizer.from_file(
     str(_DIR.parent / 'antiabuse/antirude/chat/tokenizer.json'))
 TOKENIZER.enable_truncation(max_length=MAX_TOKENS)
 
+_SESSION = onnx_session(str(MODEL))
+
+
 class Person(BaseModel):
     id: int
     date_of_birth: date
@@ -106,11 +107,6 @@ def inputs(
     )
 
 
-@cache
-def _session() -> ort.InferenceSession:
-    return onnx_session(str(MODEL))
-
-
 def score(
     body: str,
     sender: Person,
@@ -121,4 +117,4 @@ def score(
         name: value[None]
         for name, value in inputs(sender, recipient, sent_at).items()}
     feed['input_ids'] = np.array([TOKENIZER.encode(body).ids])
-    return float(_session().run(None, feed)[0][0])
+    return float(_SESSION.run(None, feed)[0][0])
