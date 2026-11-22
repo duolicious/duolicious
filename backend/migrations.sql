@@ -27,12 +27,6 @@ CREATE TABLE IF NOT EXISTS web_visitor_sign_up (
     signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
-
-ALTER TABLE person ADD COLUMN IF NOT EXISTS pre_automod_verification_level_id SMALLINT;
-
-ALTER TABLE inbox ADD COLUMN IF NOT EXISTS intro_score REAL;
-
 CREATE TABLE IF NOT EXISTS video_job (
     uuid TEXT PRIMARY KEY,
     person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
