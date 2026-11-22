@@ -56,6 +56,12 @@ const SORT_LABELS = {
   latest: 'Newest',
 };
 
+const UNTREATED_SORT_LABELS = {
+  ...SORT_LABELS,
+  match: 'Best Matches First',
+  latest: 'Latest First',
+};
+
 const HiddenIntrosBackButton = ({ position }: { position: 'left' | null }) => (
   <TopNavBarButton
     onPress={hideHiddenIntros}
@@ -143,6 +149,10 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
     showHidden,
     numHidden,
   } = useConversations();
+
+  const sortLabels = sortOrders.includes('intro')
+    ? SORT_LABELS
+    : UNTREATED_SORT_LABELS;
 
   const stats = useInboxStats();
 
@@ -305,7 +315,7 @@ const InboxList = ({ openPersonUuid, scrollbar }: {
               }}
             />
             <ButtonGroup
-              buttons={sortOrders.map((order) => SORT_LABELS[order])}
+              buttons={sortOrders.map((order) => sortLabels[order])}
               selectedIndex={sortByIndex}
               onPress={(i) => setInboxSettings({ sortBy: sortOrders[i] })}
               secondary={true}
