@@ -47,10 +47,19 @@ const getSection = (
   }
 };
 
-const getSortOrders = (): InboxOrder[] =>
-  Platform.OS === 'web' && (getSignedInUser()?.personId ?? 1) % 2 === 0
+const LAST_PERSON_ID_BEFORE_INTRO_TEST = 402440;
+
+const getSortOrders = (): InboxOrder[] => {
+  const personId = getSignedInUser()?.personId ?? 1;
+
+  return (
+    Platform.OS === 'web' &&
+    personId > LAST_PERSON_ID_BEFORE_INTRO_TEST &&
+    personId % 2 === 0
+  )
     ? ['intro', 'match', 'latest']
     : ['match', 'latest'];
+};
 
 /**
  * React hook that returns the list of `personUuid`s for the conversations
