@@ -108,6 +108,31 @@ rejects_n_above_fifty () {
   ! public_search '?n=51&o=0' || exit 1
 }
 
+balances_men_and_women () {
+  setup
+
+  ../util/create-user.sh user4 0
+  ../util/create-user.sh user5 0
+  ../util/create-user.sh user6 0
+  ../util/create-user.sh user7 0
+  q "update person set public_profile = true"
+
+  q "update person set gender_id = (select id from gender where name = 'Man') where name in ('user1', 'user2', 'user3', 'user4')"
+  q "update person set gender_id = (select id from gender where name = 'Woman') where name in ('user5', 'user6')"
+  q "update person set gender_id = (select id from gender where name = 'Non-binary') where name = 'user7'"
+
+  local names='map(.name) | join(" ")'
+
+  [[ "$(public_search '?n=10' | jq -r "$names")" = \
+    "user1 user2 user3 user4 user5 user6 user7" ]]
+
+  [[ "$(public_search '?n=10&balance_genders=true' | jq -r "$names")" = \
+    "user1 user5 user2 user6 user3 user7 user4" ]]
+
+  [[ "$(public_search '?n=2&o=2&balance_genders=true' | jq -r "$names")" = \
+    "user2 user6" ]]
+}
+
 returns_public_profiles
 excludes_non_public_profiles
 excludes_deactivated_and_shadow_banned
@@ -116,3 +141,4 @@ excludes_nsfw_photos
 pagination_limits_and_offsets
 defaults_to_first_page
 rejects_n_above_fifty
+balances_men_and_women
