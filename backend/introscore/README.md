@@ -69,6 +69,11 @@ PYTHONPATH=. python introscore/train.py LABELS
 prints the sort quality for their inboxes. Without it, the script trains on
 everything and overwrites `model.onnx`.
 
+`--evaluate` printed 0.697 for the labels behind the model in this repository.
+That figure is for comparing one training run with another. It's lower than
+the 0.713 above because it covers different inboxes, and only a sample of the
+intros in each.
+
 Training has three steps:
 
 1. It reads the labelled intros, and as many other intros picked at random,
