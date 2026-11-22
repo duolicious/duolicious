@@ -22,3 +22,19 @@ ALTER TABLE person ADD COLUMN IF NOT EXISTS marked_safe_at TIMESTAMP;
 ALTER TABLE person ADD COLUMN IF NOT EXISTS pre_automod_verification_level_id SMALLINT;
 
 ALTER TABLE inbox ADD COLUMN IF NOT EXISTS intro_score REAL;
+
+CREATE TABLE IF NOT EXISTS person_sign_up_platform (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    platform TEXT NOT NULL,
+
+    PRIMARY KEY (person_id)
+);
+
+CREATE TABLE IF NOT EXISTS platform_sign_up_count (
+    platform TEXT NOT NULL,
+    person_id_mod_64 SMALLINT NOT NULL,
+    day DATE NOT NULL,
+    count INT NOT NULL,
+
+    PRIMARY KEY (platform, person_id_mod_64, day)
+);

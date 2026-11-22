@@ -55,6 +55,7 @@ import { markFeedStale } from '../events/stale-feed';
 import { DefaultText } from '../components/default-text';
 import { LinkText } from '../components/link-text';
 import {
+  Platform,
   StyleSheet,
   View,
 } from 'react-native';
@@ -1425,7 +1426,8 @@ const createAccountOptionGroups: OptionGroup<OptionGroupInputs>[] = [
           if (typeof existingSessionToken !== 'string') return false;
 
           const response = await onboardingQueue.addTask(
-            async () => await japi('post', '/finish-onboarding')
+            async () => await japi(
+              'post', '/finish-onboarding', { platform: Platform.OS })
           );
 
           if (response.ok) {

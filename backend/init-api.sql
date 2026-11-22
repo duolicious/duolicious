@@ -485,6 +485,22 @@ CREATE TABLE IF NOT EXISTS ref_sign_up_count (
     PRIMARY KEY (ref, hour)
 );
 
+CREATE TABLE IF NOT EXISTS person_sign_up_platform (
+    person_id INT REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    platform TEXT NOT NULL,
+
+    PRIMARY KEY (person_id)
+);
+
+CREATE TABLE IF NOT EXISTS platform_sign_up_count (
+    platform TEXT NOT NULL,
+    person_id_mod_64 SMALLINT NOT NULL,
+    day DATE NOT NULL,
+    count INT NOT NULL,
+
+    PRIMARY KEY (platform, person_id_mod_64, day)
+);
+
 -- `width`, `height`, `crop_top` and `crop_left` describe how the square
 -- renditions (`900-{uuid}.jpg`, `450-{uuid}.jpg`) were cut out of
 -- `original-{uuid}.jpg`, so clients can animate between the two. All four are

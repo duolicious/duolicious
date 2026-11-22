@@ -68,7 +68,9 @@ jc PATCH /onboardee-info -d '{ "other_peoples_genders": ["Man", "Woman", "Other"
 [[ "$(q "select count(*) from duo_session where person_id is null")" -eq 1 ]]
 
 ! c GET /next-questions || exit 1
-response=$(c POST /finish-onboarding)
+response=$(jc POST /finish-onboarding -d '{ "platform": "web" }')
+[[ "$(q "select platform from person_sign_up_platform join person on person.id = person_id where email = 'mail@example.com'")" = web ]]
+[[ "$(q "select platform || ' ' || count || ' ' || (day = (select sign_up_time::date from person)) || ' ' || (person_id_mod_64 = (select id % 64 from person)) from platform_sign_up_count")" = "web 1 true true" ]]
 [[ "$(q "select ref from person_ref join person on person.id = person_id where email = 'mail@example.com'")" = reddit ]]
 [[ "$(q "select ref || ' ' || count || ' ' || (hour = date_trunc('hour', hour)) from ref_sign_up_count")" = "reddit 1 true" ]]
 [[ "$(jq -r .units <<< "$response")" = Metric ]]

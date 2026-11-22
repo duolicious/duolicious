@@ -3039,3 +3039,16 @@ FROM session_ref
 ON CONFLICT (ref, hour) DO UPDATE SET
     count = ref_sign_up_count.count + 1
 """
+
+Q_INSERT_PERSON_SIGN_UP_PLATFORM = """
+WITH inserted_person_sign_up_platform AS (
+    INSERT INTO person_sign_up_platform (person_id, platform)
+    VALUES (%(person_id)s, %(platform)s)
+)
+INSERT INTO platform_sign_up_count (platform, person_id_mod_64, day, count)
+SELECT %(platform)s, id %% 64, sign_up_time::DATE, 1
+FROM person
+WHERE id = %(person_id)s
+ON CONFLICT (platform, person_id_mod_64, day) DO UPDATE SET
+    count = platform_sign_up_count.count + 1
+"""

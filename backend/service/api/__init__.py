@@ -206,9 +206,10 @@ async def patch_onboardee_info(
 
 @app.post('/finish-onboarding')
 async def post_finish_onboarding(
+    req: t.PostFinishOnboarding | None = None,
     s: t.SessionInfo = Depends(session(expected_onboarding_status=False)),
 ) -> object:
-    return await person.post_finish_onboarding(s)
+    return await person.post_finish_onboarding(req, s)
 
 @app.get('/next-questions')
 async def get_next_questions(

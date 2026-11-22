@@ -467,6 +467,10 @@ class SocialClaims(BaseModel):
         return _normalize_email_input(value)
 
 
+class PostFinishOnboarding(BaseModel):
+    platform: Literal['web', 'ios', 'android']
+
+
 class PatchOnboardeeInfo(BaseModel):
     name: str | None = Field(
         default=None,
