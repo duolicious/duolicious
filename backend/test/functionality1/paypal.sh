@@ -230,6 +230,10 @@ expiry_revokes_gold_and_frees_the_person () {
   assert_eventually f user_has_gold user1
   assert_eventually 0 subscription 'count(*)'
 
+  echo 'The sign-up is still counted after the subscription lapses'
+
+  [[ "$(q "select count(*) from gold_subscription_start where provider = 'paypal' and provider_subscription_id = '$subscription_id' and person_id = (select id from person where email = 'user1@example.com')")" == 1 ]]
+
   [[ "$(q "select browse_invisibly from person where email = 'user1@example.com'")" == f ]]
 
   echo 'A lapsed subscription no longer blocks a new one'
@@ -237,6 +241,7 @@ expiry_revokes_gold_and_frees_the_person () {
   subscribe_and_approve P-QUARTER
 
   [[ "$(user_has_gold user1)" == t ]]
+  [[ "$(q "select count(*) from gold_subscription_start where provider = 'paypal'")" == 2 ]]
 
   echo 'Cancelling keeps gold for a billing cycle of the plan the subscription is on'
 

@@ -87,7 +87,11 @@ SELECT
     (SELECT array_agg(DISTINCT person_id) FROM deleted_person_club) AS evicted_person_ids
 """
 
+# Grants also log each subscription's first grant to gold_subscription_start,
+# which keeps the row after gold_subscription's is revoked or expires, so
+# experiments can count sign-ups rather than live subscriptions.
 Q_GRANT_GOLD = """
+WITH granted AS (
 INSERT INTO gold_subscription (
     provider,
     provider_subscription_id,
@@ -113,7 +117,27 @@ WHERE
 OR
     gold_subscription.expires_at < EXCLUDED.expires_at
 RETURNING
+    provider,
+    provider_subscription_id,
     person_id
+), logged AS (
+    INSERT INTO gold_subscription_start (
+        provider,
+        provider_subscription_id,
+        person_id
+    )
+    SELECT
+        provider,
+        provider_subscription_id,
+        person_id
+    FROM
+        granted
+    ON CONFLICT DO NOTHING
+)
+SELECT
+    person_id
+FROM
+    granted
 """
 
 Q_REVOKE_GOLD = """
