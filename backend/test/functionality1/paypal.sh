@@ -27,6 +27,7 @@ setup () {
 
   q "delete from person"
   q "delete from club"
+  q "delete from gold_subscription_start"
 
   ../util/create-user.sh user1 0 0
   ../util/create-user.sh user2 0 0
@@ -285,6 +286,10 @@ deleting_an_account_cancels_at_paypal () {
 
   [[ "$(subscription 'count(*)')" == "0" ]]
   [[ "$(paypal_mock_status "$subscription_id")" == 'CANCELLED' ]]
+
+  echo 'The sign-up is still counted after the account is deleted'
+
+  [[ "$(q "select count(*) from gold_subscription_start where provider = 'paypal' and provider_subscription_id = '$subscription_id'")" == "1" ]]
 
   echo 'A subscription PayPal already stopped does not block deletion'
 

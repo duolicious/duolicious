@@ -706,10 +706,13 @@ CREATE TABLE IF NOT EXISTS gold_subscription (
 -- One row per subscription, written when it is first granted and kept after
 -- its gold_subscription row is revoked or expires. Lets experiments count
 -- sign-ups rather than subscriptions that happen to be live right now.
+--
+-- person_id deliberately has no foreign key: a sign-up still counts after the
+-- person deletes their account, and experiment arms are derived from it.
 CREATE TABLE IF NOT EXISTS gold_subscription_start (
     provider gold_subscription_provider NOT NULL,
     provider_subscription_id TEXT NOT NULL,
-    person_id INT NOT NULL REFERENCES person(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    person_id INT NOT NULL,
     started_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (provider, provider_subscription_id)
