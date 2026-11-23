@@ -11,8 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LabelToIcon } from './util';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
-import { showSignUp } from '../modal/sign-up-modal';
-import { PUBLIC_TAB_NAMES } from './public-tabs';
+import { PUBLIC_TAB_NAMES, promptSignUpForTab } from './public-tabs';
 
 const Tab = ({ navigation, state, route, descriptors, index, numUnread }: {
   navigation: BottomTabBarProps['navigation']
@@ -58,7 +57,7 @@ const Tab = ({ navigation, state, route, descriptors, index, numUnread }: {
     // navigation.dispatch(StackActions.popToTop());
 
     if (isWebLoggedOut && !PUBLIC_TAB_NAMES.includes(route.name)) {
-      showSignUp(true);
+      promptSignUpForTab(route.name);
       return;
     }
 

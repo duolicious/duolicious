@@ -36,6 +36,10 @@ const prepare = async (
       return (hash >>> 0) / 4294967296;
     };
 
+    crypto.randomUUID = () => {
+      throw new Error('Screenshots show each experiment’s control');
+    };
+
     for (const [key, value] of Object.entries(storage)) {
       localStorage.setItem(key, value);
     }

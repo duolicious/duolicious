@@ -7,6 +7,7 @@ import { Logo16 } from './logo';
 import { isMobile, viewportPosition } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
 import { showSignUp } from './modal/sign-up-modal';
+import { experimentVariant } from '../api/experiments';
 import { useNumActiveUsers } from './welcome-screen';
 import { useBannerProspectName } from '../events/banner-prospect-name';
 import { useSignUpBanner } from '../events/sign-up-banner';
@@ -140,7 +141,9 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
                   textWrap: 'balance',
                 }}
               >
-                {'See members-only profiles by joining'}
+                {experimentVariant('sign-up-banner-copy', ['control', 'free']) === 'free'
+                  ? '100% free messaging and matching'
+                  : 'See members-only profiles by joining'}
               </DefaultText>
             }
           />

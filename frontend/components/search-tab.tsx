@@ -35,7 +35,8 @@ import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { getPublicSearchFilters } from '../events/public-search-filters';
-import { publicSearchExperimentParams } from '../api/experiments';
+import { experimentVariant, publicSearchExperimentParams } from '../api/experiments';
+import { DefaultText } from './default-text';
 import { genders } from '../data/option-groups';
 import {
   areSearchResultsRecent,
@@ -64,6 +65,23 @@ type SearchScreenProps = CompositeScreenProps<
 const styles = StyleSheet.create({
   safeAreaView: {
     flex: 1,
+  },
+  pitch: {
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 8,
+  },
+  pitchHeading: {
+    fontSize: 24,
+    fontWeight: '900',
+    textAlign: 'center',
+    textWrap: 'balance',
+  },
+  pitchBody: {
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    textWrap: 'balance',
   },
   listContainerStyle: {
     paddingTop: 0,
@@ -103,6 +121,18 @@ const SearchTab = () => {
 
 const ProfileCardMemo = memo(ProfileCard);
 
+const SearchPitch = () => (
+  <View style={styles.pitch}>
+    <DefaultText style={styles.pitchHeading}>
+      Touch grass? No. Touch hearts.
+    </DefaultText>
+    <DefaultText style={styles.pitchBody}>
+      Match with femcels, femboys, NEETs, gymcels, /lit/ pseudointellectuals,
+      and that one person who’s also weirdly into trains.
+    </DefaultText>
+  </View>
+);
+
 type PageItem = {
   prospect_person_id: number
   prospect_uuid: string
@@ -111,7 +141,7 @@ type PageItem = {
   profile_photo_blurhash: string
   name: string
   age: number
-  match_percentage: number
+  match_percentage: number | null
   person_messaged_prospect: boolean
   prospect_messaged_person: boolean
   verified: boolean
@@ -165,7 +195,12 @@ const fetchPageWithoutQueue = async (
     };
   }
 
-  return response.ok && response.json ? response.json : null;
+  const page = response.ok && response.json ? response.json : null;
+
+  return page && isPublic && !answers &&
+    experimentVariant('search-match-label', ['control', 'prompt']) === 'prompt'
+    ? page.map((item) => ({ ...item, match_percentage: null }))
+    : page;
 };
 
 const fetchPage = (
@@ -204,6 +239,8 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
 
   const selectedClub = useSearchClub();
   const hasClubRow = !isPublic;
+  const hasPitch = isPublic &&
+    experimentVariant('search-pitch', ['control', 'pitch']) === 'pitch';
 
   const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
 
@@ -270,8 +307,8 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     [selectedClub, isPublic]);
 
   const listHeaderComponent = useMemo(
-    () => hasClubRow ? <ClubRow /> : null,
-    [hasClubRow]);
+    () => hasClubRow ? <ClubRow /> : hasPitch ? <SearchPitch /> : null,
+    [hasClubRow, hasPitch]);
 
   const cardWidth = (width ?? 0) / numColumns;
 
