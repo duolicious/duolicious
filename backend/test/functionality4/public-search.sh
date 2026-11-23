@@ -127,7 +127,7 @@ shows_featured_photos_first () {
   add_photo () {
     q "
       insert into photo (person_id, position, uuid, blurhash, hash)
-      select id, position, uuid, 'blurhash-of-' || uuid, 'hash-of-' || uuid
+      select person.id, t.position, t.uuid, 'blurhash-of-' || t.uuid, 'hash-of-' || t.uuid
       from person, (values (1, 'first-photo-of-$1'), (2, '$2')) as t(position, uuid)
       where name = '$1'"
   }
