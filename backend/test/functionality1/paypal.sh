@@ -27,7 +27,7 @@ setup () {
 
   q "delete from person"
   q "delete from club"
-  q "delete from gold_subscription_start"
+  q "delete from gold_sign_up"
 
   ../util/create-user.sh user1 0 0
   ../util/create-user.sh user2 0 0
@@ -47,6 +47,10 @@ user_has_gold () {
 
 subscription () {
   q "select $1 from gold_subscription where provider = 'paypal'"
+}
+
+paypal_sign_ups () {
+  q "select count(*) from gold_sign_up where provider = 'paypal'"
 }
 
 profile_paypal () {
@@ -231,9 +235,9 @@ expiry_revokes_gold_and_frees_the_person () {
   assert_eventually f user_has_gold user1
   assert_eventually 0 subscription 'count(*)'
 
-  echo 'The sign-up is still counted after the subscription lapses'
+  echo 'The sign-up is still counted, under its paywall arm, after it lapses'
 
-  [[ "$(q "select count(*) from gold_subscription_start where provider = 'paypal' and provider_subscription_id = '$subscription_id' and person_id = (select id from person where email = 'user1@example.com')")" == 1 ]]
+  [[ "$(q "select paywall_arm from gold_sign_up where provider = 'paypal'")" == "$(q "select id % 6 from person where email = 'user1@example.com'")" ]]
 
   [[ "$(q "select browse_invisibly from person where email = 'user1@example.com'")" == f ]]
 
@@ -242,7 +246,7 @@ expiry_revokes_gold_and_frees_the_person () {
   subscribe_and_approve P-QUARTER
 
   [[ "$(user_has_gold user1)" == t ]]
-  [[ "$(q "select count(*) from gold_subscription_start where provider = 'paypal'")" == 2 ]]
+  [[ "$(paypal_sign_ups)" == 2 ]]
 
   echo 'Cancelling keeps gold for a billing cycle of the plan the subscription is on'
 
@@ -251,6 +255,10 @@ expiry_revokes_gold_and_frees_the_person () {
   jc POST /paypal/cancel
 
   [[ "$(subscription expires_at)" == "2099-04-30 00:00:00" ]]
+
+  echo 'Updating a live subscription is not another sign-up'
+
+  [[ "$(paypal_sign_ups)" == 2 ]]
 }
 
 deleting_an_account_cancels_at_paypal () {
@@ -289,7 +297,7 @@ deleting_an_account_cancels_at_paypal () {
 
   echo 'The sign-up is still counted after the account is deleted'
 
-  [[ "$(q "select count(*) from gold_subscription_start where provider = 'paypal' and provider_subscription_id = '$subscription_id'")" == "1" ]]
+  [[ "$(paypal_sign_ups)" == 1 ]]
 
   echo 'A subscription PayPal already stopped does not block deletion'
 

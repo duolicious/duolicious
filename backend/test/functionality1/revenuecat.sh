@@ -157,9 +157,6 @@ has_gold_is_set_by_webhook() {
   assert_eventually f has_gold "uuid = '$user2uuid'::uuid"
   assert_eventually 0 q "select count(*) from gold_subscription where person_id = (select id from person where uuid = '$user2uuid'::uuid)"
 
-  say "Expired subscriptions are still counted as sign-ups"
-  [[ "$(q "select count(*) from gold_subscription_start where provider = 'revenuecat' and person_id = (select id from person where uuid = '$user2uuid'::uuid)")" == 1 ]]
-
   say "Unknown/ignored events return 200 and perform no updates"
   pre1=$(has_gold "uuid = '$user1uuid'::uuid")
   pre2=$(has_gold "uuid = '$user2uuid'::uuid")

@@ -703,19 +703,13 @@ CREATE TABLE IF NOT EXISTS gold_subscription (
     UNIQUE (provider, provider_subscription_id)
 );
 
--- One row per subscription, written when it is first granted and kept after
--- its gold_subscription row is revoked or expires. Lets experiments count
--- sign-ups rather than subscriptions that happen to be live right now.
---
--- person_id deliberately has no foreign key: a sign-up still counts after the
--- person deletes their account, and experiment arms are derived from it.
-CREATE TABLE IF NOT EXISTS gold_subscription_start (
+-- One row each time someone goes from no gold to gold. Keeps only what
+-- paywall experiments need: nothing here identifies the person.
+CREATE TABLE IF NOT EXISTS gold_sign_up (
     provider gold_subscription_provider NOT NULL,
-    provider_subscription_id TEXT NOT NULL,
-    person_id INT NOT NULL,
-    started_at TIMESTAMP NOT NULL DEFAULT NOW(),
-
-    PRIMARY KEY (provider, provider_subscription_id)
+    -- person.id % 6, the arm armOf picks in point-of-sale-arms.tsx
+    paywall_arm SMALLINT NOT NULL,
+    signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS ref_payment (
@@ -956,9 +950,6 @@ ON person_spotify(attempted_at);
 
 CREATE INDEX IF NOT EXISTS idx__gold_subscription__expires_at
     ON gold_subscription(expires_at);
-
-CREATE INDEX IF NOT EXISTS idx__gold_subscription_start__person_id
-    ON gold_subscription_start(person_id);
 
 CREATE INDEX IF NOT EXISTS idx__banned_person__ip_address ON banned_person(ip_address);
 CREATE INDEX IF NOT EXISTS idx__banned_person__expires_at ON banned_person(expires_at);
