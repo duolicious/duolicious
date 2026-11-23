@@ -93,7 +93,10 @@ AND
     )
 """
 
-_POPULARITY = """
+Q_PUBLIC_SEARCH = _public_search(
+    match_percentage="50",
+    tail=_SEARCH_FILTERS + """
+ORDER BY
     (
         SELECT
             count(*)
@@ -103,38 +106,10 @@ _POPULARITY = """
             object_person_id = prospect.id
         AND
             created_at > now() - interval '30 days'
-    ) DESC
-"""
-
-
-def _order_by(rank: str, balance_genders: bool) -> str:
-    if not balance_genders:
-        return f"ORDER BY {rank}, prospect.id"
-
-    return f"""
-WINDOW
-    by_rank AS (ORDER BY {rank}, prospect.id),
-    by_gender AS (PARTITION BY prospect.gender_id ORDER BY {rank}, prospect.id)
-ORDER BY
-    CASE
-        WHEN prospect.gender_id IN (
-            SELECT id FROM gender WHERE name IN ('Man', 'Woman')
-        )
-        THEN row_number() OVER by_gender
-        ELSE row_number() OVER by_rank / 2.0
-    END,
-    {rank},
+    ) DESC,
     prospect.id
-"""
-
-
-Q_PUBLIC_SEARCH = {
-    balance_genders: _public_search(
-        match_percentage="50",
-        tail=_SEARCH_FILTERS + _order_by(_POPULARITY, balance_genders),
-    )
-    for balance_genders in (False, True)
-}
+""",
+)
 
 # How well a prospect matches the answers an unauthenticated user has given so
 # far
@@ -159,21 +134,18 @@ LIMIT
     %(n)s
 """
 
-Q_PUBLIC_SEARCH_WITH_ANSWERS = {
-    balance_genders: _public_search(
-        match_percentage=_ANSWERS_MATCH_PERCENTAGE,
-        tail=_SEARCH_FILTERS + _order_by(
-            f"{_ANSWERS_MATCH_PERCENTAGE} DESC",
-            balance_genders,
-        ) + """
+Q_PUBLIC_SEARCH_WITH_ANSWERS = _public_search(
+    match_percentage=_ANSWERS_MATCH_PERCENTAGE,
+    tail=_SEARCH_FILTERS + """
+ORDER BY
+    match_percentage DESC,
+    prospect.id
 LIMIT
     %(n)s
 OFFSET
     %(o)s
 """,
-    )
-    for balance_genders in (False, True)
-}
+)
 
 Q_PUBLIC_SIMILAR_PROFILES = _public_search(
     match_percentage="50",
