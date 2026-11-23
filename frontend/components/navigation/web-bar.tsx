@@ -14,7 +14,8 @@ import { useInboxStats } from '../../chat/application-layer/hooks/inbox-stats';
 import { WebBarFooter } from './web-bar-footer/web-bar-footer';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
-import { PUBLIC_TAB_NAMES, promptSignUpForTab } from './public-tabs';
+import { showSignUp } from '../modal/sign-up-modal';
+import { PUBLIC_TAB_NAMES } from './public-tabs';
 
 const Logo = () => {
   return (
@@ -101,7 +102,7 @@ const NavigationItems = ({state, navigation, descriptors}:
             key={route.key}
             onPress={() => {
               if (isWebLoggedOut && !PUBLIC_TAB_NAMES.includes(route.name)) {
-                promptSignUpForTab(route.name);
+                showSignUp(true);
                 return;
               }
 

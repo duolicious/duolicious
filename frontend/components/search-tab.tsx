@@ -68,8 +68,8 @@ const styles = StyleSheet.create({
   },
   pitch: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    gap: 8,
+    paddingVertical: 16,
+    gap: 4,
   },
   pitchHeading: {
     fontSize: 24,
@@ -127,8 +127,7 @@ const SearchPitch = () => (
       Touch grass? No. Touch hearts.
     </DefaultText>
     <DefaultText style={styles.pitchBody}>
-      Match with femcels, femboys, NEETs, gymcels, /lit/ pseudointellectuals,
-      and that one person who’s also weirdly into trains.
+      100% free messaging and matching because monetizing loneliness is cringe.
     </DefaultText>
   </View>
 );

@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { listen, notify, lastEvent } from './events';
 import type { ClubItem } from '../club/club';
+import { markWebVisitorAsMember } from '../api/experiments';
 
 // Public type used across the app
 type SignedInUser = {
@@ -27,6 +28,9 @@ const setSignedInUser = (
 ) => {
   const prev = getSignedInUser();
   const value = typeof next === 'function' ? (next as (p: SignedInUser | undefined) => SignedInUser | undefined)(prev) : next;
+  if (value) {
+    markWebVisitorAsMember();
+  }
   notify<SignedInUser | undefined>(EVENT_KEY, value);
 };
 

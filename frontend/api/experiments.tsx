@@ -13,6 +13,14 @@ const webVisitorId = ((): string | undefined => {
   }
 })();
 
+const markWebVisitorAsMember = (): void => {
+  try {
+    localStorage.setItem('web_visitor_is_member', 'true');
+  } catch {
+    return;
+  }
+};
+
 const hash = (s: string): number => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -30,6 +38,7 @@ const experimentVariant = <const V extends readonly [string, ...string[]]>(
   variants: V,
 ): V[number] => {
   if (webVisitorId === undefined) return variants[0];
+  if (localStorage.getItem('web_visitor_is_member')) return variants[0];
 
   const variant = variants[hash(`${webVisitorId}:${experiment}`) % variants.length];
 
@@ -52,6 +61,7 @@ const publicSearchExperimentParams = (): string =>
 
 export {
   webVisitorId,
+  markWebVisitorAsMember,
   experimentVariant,
   publicSearchExperimentParams,
 };
