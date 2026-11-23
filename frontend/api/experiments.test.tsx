@@ -57,26 +57,6 @@ test('visitors are split evenly and independently between experiments', () => {
   expect(sameGroup).toBeLessThan(120);
 });
 
-test('public search visitors are split evenly between every pair of variants', () => {
-  const visitors = new Map<string, number>();
-  for (let i = 0; i < 400; i++) {
-    localStorage.setItem('web_visitor_id', `visitor-${i}`);
-    const params = load().publicSearchExperimentParams();
-    visitors.set(params, (visitors.get(params) ?? 0) + 1);
-  }
-
-  expect([...visitors.keys()].sort()).toEqual([
-    '',
-    '&balance_genders=true',
-    '&balance_genders=true&featured=true',
-    '&featured=true',
-  ]);
-  for (const count of visitors.values()) {
-    expect(count).toBeGreaterThan(75);
-    expect(count).toBeLessThan(125);
-  }
-});
-
 test('an exposure is reported once per page load', () => {
   const { variantOf, japi, webVisitorId } = load();
   const variant = variantOf('hero-copy', ['control', 'short']);

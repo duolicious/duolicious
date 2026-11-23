@@ -188,7 +188,6 @@ async def get_public_search(q: t.PublicSearchQuery) -> object:
         gender,
         q.min_age,
         q.max_age,
-        q.balance_genders,
         q.featured,
     )
     if not isinstance(public_search, list):
@@ -224,7 +223,7 @@ async def _get_public_search_with_answers(
     gender: list[str] | None,
 ) -> object:
     async with api_tx('READ COMMITTED') as tx:
-        await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS[q.balance_genders], dict(
+        await tx.execute(Q_PUBLIC_SEARCH_WITH_ANSWERS, dict(
             searcher_personality=await _searcher_personality(tx, answers),
             gender=gender,
             min_age=q.min_age,
@@ -282,11 +281,10 @@ async def _get_public_search(
     gender: list[str] | None,
     min_age: int | None,
     max_age: int | None,
-    balance_genders: bool,
     featured: bool,
 ) -> Sequence[object]:
     async with api_tx('REPEATABLE READ') as tx:
-        await tx.execute(Q_PUBLIC_SEARCH[balance_genders], dict(
+        await tx.execute(Q_PUBLIC_SEARCH, dict(
             gender=gender,
             min_age=min_age,
             max_age=max_age,

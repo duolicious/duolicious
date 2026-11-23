@@ -386,7 +386,6 @@ class PublicSearchQuery(BaseModel):
     gender: Json[PublicGenders] | None = None
     min_age: int | None = Field(default=None, ge=18, le=99)
     max_age: int | None = Field(default=None, ge=18, le=99)
-    balance_genders: bool = False
     featured: bool = False
     n: int = Field(default=10, ge=0, le=50)
     o: int = Field(default=0, ge=0)
