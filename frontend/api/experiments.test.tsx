@@ -76,3 +76,14 @@ test('native apps always get the control and report nothing', () => {
   expect(variantOf('hero-copy', ['control', 'short'])).toBe('control');
   expect(japi).not.toHaveBeenCalled();
 });
+
+test('a browser that has signed in gets the control and reports nothing', () => {
+  for (let i = 0; i < 20; i++) {
+    localStorage.setItem('web_visitor_id', `visitor-${i}`);
+    const { variantOf, japi, markWebVisitorAsMember } = load();
+    markWebVisitorAsMember();
+
+    expect(variantOf('hero-copy', ['control', 'short'])).toBe('control');
+    expect(japi).not.toHaveBeenCalled();
+  }
+});

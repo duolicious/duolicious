@@ -7,6 +7,7 @@ import { WelcomeScreen } from '../welcome-screen';
 import { listen, notify, lastEvent } from '../../events/events';
 import { useSignedInUser } from '../../events/signed-in-user';
 import { isMobile } from '../../util/util';
+import { experimentVariant } from '../../api/experiments';
 
 const showSignUp = (isVisible: boolean, message?: string) => {
   if (isVisible) {
@@ -14,6 +15,11 @@ const showSignUp = (isVisible: boolean, message?: string) => {
   }
   notify<boolean>('show-sign-up', isVisible);
 };
+
+const joinButtonLabel = (): string =>
+  experimentVariant('join-button-label', ['control', 'free']) === 'free'
+    ? 'Join\xa0free'
+    : 'Join or\xa0sign\xa0in';
 
 const useShowSignUp = () => {
   const [isVisible, setIsVisible] = useState<boolean>(
@@ -91,6 +97,7 @@ const SignUpModal = () => {
 
 export {
   showSignUp,
+  joinButtonLabel,
   useShowSignUp,
   SignUpModal,
 };

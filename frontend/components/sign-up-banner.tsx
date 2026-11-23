@@ -6,7 +6,7 @@ import { DefaultText } from './default-text';
 import { Logo16 } from './logo';
 import { isMobile, viewportPosition } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
-import { showSignUp } from './modal/sign-up-modal';
+import { joinButtonLabel, showSignUp } from './modal/sign-up-modal';
 import { useNumActiveUsers } from './welcome-screen';
 import { useBannerProspectName } from '../events/banner-prospect-name';
 import { useSignUpBanner } from '../events/sign-up-banner';
@@ -45,7 +45,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   // Longer names blow out the button's width, so fall back to the default copy.
   const label = prospectName && prospectName.length <= 7
     ? `Message ${prospectName}`
-    : `Join or\xa0sign\xa0in`;
+    : joinButtonLabel();
 
   const signUpMessage = prospectName && prospectName.length <= 15
     ? `Join or sign in to message ${prospectName}`
