@@ -51,6 +51,7 @@ import {
   type SignedInUser,
 } from '../events/signed-in-user';
 import { joinButtonLabel, showSignUp } from './modal/sign-up-modal';
+import { experimentVariant } from '../api/experiments';
 import {
   cmToFeetInchesStr,
 } from '../units/units';
@@ -77,7 +78,10 @@ import {
   setPublicSearchFilters,
 } from '../events/public-search-filters';
 
-const MEMBERS_ONLY = 'Members only';
+const membersOnlyLabel = (): string =>
+  experimentVariant('members-only-label', ['control', 'free']) === 'free'
+    ? 'Join free'
+    : 'Members only';
 
 const promptSignUpToFilter = () =>
   showSignUp(true, 'Join or sign in to filter matches');
@@ -384,7 +388,7 @@ const SearchFilterList = ({
         key={i}
         setting={
           labelMembersOnly && !withPublicSubmit(og) ?
-          MEMBERS_ONLY :
+          membersOnlyLabel() :
           getCurrentValueAsLabel(og, signedInUser)
         }
         optionGroups={current.slice(i)}
@@ -921,7 +925,7 @@ const styles = StyleSheet.create({
 });
 
 export {
-  MEMBERS_ONLY,
+  membersOnlyLabel,
   QAndAFilterResults,
   SearchFilterList,
   SearchFilterScreen,
