@@ -139,7 +139,7 @@ shows_featured_photos_first () {
   local names='map(.name) | join(" ")'
 
   [[ "$(public_search '?n=10&featured=true' | jq -r "$names")" = \
-    "user4 user3 user1 user2 user6 user5 user7" ]]
+    "user4 user6 user3 user5 user1 user7 user2" ]]
 
   [[ "$(public_search '?n=10' | jq -r "$names")" = \
     "user1 user2 user3 user4 user5 user6 user7" ]]

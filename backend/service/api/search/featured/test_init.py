@@ -3,7 +3,7 @@ import unittest
 from service.api.search.featured import feature
 from serviceshared.database import Row
 
-MAN, WOMAN, NON_BINARY = 1, 2, 3
+MAN, WOMAN, NON_BINARY = 'Man', 'Woman', 'Non-binary'
 
 
 def row(person_id: int) -> Row:
@@ -14,9 +14,9 @@ def row(person_id: int) -> Row:
     )
 
 
-def person(gender_id: int, position: int | None = None) -> Row:
+def person(gender: str, position: int | None = None) -> Row:
     return dict(
-        gender_id=gender_id,
+        gender=gender,
         position=position,
         photo_uuid=position and f'featured-{position}',
         photo_blurhash=position and f'featured-blurhash-{position}',
@@ -39,7 +39,7 @@ class TestFeature(unittest.TestCase):
 
         self.assertEqual(self.ids(featured), [3, 2, 1, 4])
 
-    def test_each_gender_keeps_its_places(self) -> None:
+    def test_men_and_women_alternate_with_featured_people_first(self) -> None:
         people = {
             1: person(WOMAN),
             2: person(MAN),
@@ -51,6 +51,21 @@ class TestFeature(unittest.TestCase):
         featured = feature([row(1), row(2), row(3), row(4), row(5)], people)
 
         self.assertEqual(self.ids(featured), [4, 5, 3, 1, 2])
+
+    def test_other_genders_keep_roughly_their_place(self) -> None:
+        people = {
+            1: person(MAN),
+            2: person(MAN),
+            3: person(MAN),
+            4: person(MAN),
+            5: person(WOMAN),
+            6: person(WOMAN),
+            7: person(NON_BINARY),
+        }
+
+        featured = feature([row(i) for i in range(1, 8)], people)
+
+        self.assertEqual(self.ids(featured), [1, 5, 2, 6, 3, 7, 4])
 
     def test_featured_people_show_their_listed_photo(self) -> None:
         people = {1: person(MAN), 2: person(MAN, position=7)}
@@ -68,13 +83,6 @@ class TestFeature(unittest.TestCase):
                 row(1),
             ],
         )
-
-    def test_nobody_listed_keeps_the_order(self) -> None:
-        people = {1: person(WOMAN), 2: person(MAN), 3: person(MAN)}
-        rows = [row(1), row(2), row(3)]
-
-        self.assertEqual(feature(rows, people), rows)
-
 
 if __name__ == '__main__':
     unittest.main()
