@@ -50,7 +50,7 @@ subscription () {
 }
 
 paypal_sign_ups () {
-  q "select count(*) from gold_sign_up where provider = 'paypal'"
+  q "select count(*) from gold_sign_up"
 }
 
 profile_paypal () {
@@ -237,7 +237,7 @@ expiry_revokes_gold_and_frees_the_person () {
 
   echo 'The sign-up is still counted, under its paywall arm, after it lapses'
 
-  [[ "$(q "select paywall_arm from gold_sign_up where provider = 'paypal'")" == "$(q "select id % 6 from person where email = 'user1@example.com'")" ]]
+  [[ "$(q "select paywall_arm from gold_sign_up")" == "$(q "select id % 6 from person where email = 'user1@example.com'")" ]]
 
   [[ "$(q "select browse_invisibly from person where email = 'user1@example.com'")" == f ]]
 

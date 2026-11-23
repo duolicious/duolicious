@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS web_visitor_sign_up (
     signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- One row each time someone goes from no gold to gold. Keeps only what
--- paywall experiments need: nothing here identifies the person.
+-- One row each time someone goes from no gold to gold through the web
+-- paywall (PayPal). Keeps only what paywall experiments need: nothing here
+-- identifies the person.
 CREATE TABLE IF NOT EXISTS gold_sign_up (
-    provider gold_subscription_provider NOT NULL,
     -- person.id % 6, the arm armOf picks in point-of-sale-arms.tsx
     paywall_arm SMALLINT NOT NULL,
     signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
