@@ -708,8 +708,7 @@ CREATE TABLE IF NOT EXISTS gold_subscription (
 -- identifies the person.
 CREATE TABLE IF NOT EXISTS gold_sign_up (
     -- person.id % 6, the arm armOf picks in point-of-sale-arms.tsx
-    paywall_arm SMALLINT NOT NULL,
-    signed_up_at TIMESTAMP NOT NULL DEFAULT NOW()
+    paywall_arm SMALLINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS ref_payment (
