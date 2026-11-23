@@ -6,12 +6,16 @@ from service.api.search.featured.photos import FEATURED_PHOTO_UUIDS
 Q_FEATURED = """
 SELECT
     person.id,
-    person.gender_id,
+    gender.name AS gender,
     photo.uuid AS photo_uuid,
     photo.blurhash AS photo_blurhash,
     array_position(%(photo_uuids)s::TEXT[], photo.uuid) AS position
 FROM
     person
+JOIN
+    gender
+ON
+    gender.id = person.gender_id
 LEFT JOIN
     photo
 ON
@@ -21,6 +25,8 @@ AND
 WHERE
     person.id = ANY(%(person_ids)s::INT[])
 """
+
+_INTERLEAVED_GENDERS = ('Man', 'Woman')
 
 
 def _show_featured_photo(row: Row, person: Row) -> Row:
@@ -40,18 +46,26 @@ def feature(rows: list[Row], people: Mapping[int, Row]) -> list[Row]:
     def position(row: Row) -> float:
         return person(row)['position'] or float('inf')
 
-    by_gender = {
-        gender_id: iter(sorted(
-            (row for row in rows if person(row)['gender_id'] == gender_id),
-            key=position,
-        ))
-        for gender_id in {person(row)['gender_id'] for row in rows}
+    places = {
+        row['prospect_person_id']: place / 2
+        for place, row in enumerate(rows, start=1)
+    } | {
+        row['prospect_person_id']: place
+        for gender in _INTERLEAVED_GENDERS
+        for place, row in enumerate(
+            sorted(
+                (row for row in rows if person(row)['gender'] == gender),
+                key=position,
+            ),
+            start=1,
+        )
     }
 
     return [
-        _show_featured_photo(featured, person(featured))
-        for featured in (
-            next(by_gender[person(row)['gender_id']]) for row in rows
+        _show_featured_photo(row, person(row))
+        for row in sorted(
+            rows,
+            key=lambda row: places[row['prospect_person_id']],
         )
     ]
 

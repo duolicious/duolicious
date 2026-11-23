@@ -46,7 +46,7 @@ const experimentVariant = <const V extends readonly [string, ...string[]]>(
 };
 
 const publicSearchExperimentParams = (): string =>
-  experimentVariant('public-search-featured-photos', ['control', 'featured']) === 'featured'
+  experimentVariant('public-search-featured-interleaved', ['control', 'featured']) === 'featured'
     ? '&featured=true'
     : '';
 
