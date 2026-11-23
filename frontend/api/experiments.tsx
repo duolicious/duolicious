@@ -45,10 +45,14 @@ const experimentVariant = <const V extends readonly [string, ...string[]]>(
   return variant;
 };
 
-const publicSearchExperimentParams = (): string =>
+const publicSearchExperimentParams = (): string => [
   experimentVariant('public-search-gender-ratio', ['control', 'one-to-one']) === 'one-to-one'
     ? '&balance_genders=true'
-    : '';
+    : '',
+  experimentVariant('public-search-featured-photos', ['control', 'featured']) === 'featured'
+    ? '&featured=true'
+    : '',
+].join('');
 
 export {
   webVisitorId,

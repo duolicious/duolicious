@@ -108,7 +108,7 @@ rejects_n_above_fifty () {
   ! public_search '?n=51&o=0' || exit 1
 }
 
-balances_men_and_women () {
+setup_genders () {
   setup
 
   ../util/create-user.sh user4 0
@@ -120,6 +120,10 @@ balances_men_and_women () {
   q "update person set gender_id = (select id from gender where name = 'Man') where name in ('user1', 'user2', 'user3', 'user4')"
   q "update person set gender_id = (select id from gender where name = 'Woman') where name in ('user5', 'user6')"
   q "update person set gender_id = (select id from gender where name = 'Non-binary') where name = 'user7'"
+}
+
+balances_men_and_women () {
+  setup_genders
 
   local names='map(.name) | join(" ")'
 
@@ -133,6 +137,44 @@ balances_men_and_women () {
     "user2 user6" ]]
 }
 
+shows_featured_photos_first () {
+  setup_genders
+
+  local uuids=($(grep -o "[0-9a-f-]\{36\}" \
+    ../../service/api/search/featured/photos.py | head -n 3))
+
+  add_photo () {
+    q "
+      insert into photo (person_id, position, uuid, blurhash, hash)
+      select id, position, uuid, 'blurhash-of-' || uuid, 'hash-of-' || uuid
+      from person, (values (1, 'first-photo-of-$1'), (2, '$2')) as t(position, uuid)
+      where name = '$1'"
+  }
+
+  add_photo user4 "${uuids[0]}"
+  add_photo user3 "${uuids[1]}"
+  add_photo user6 "${uuids[2]}"
+
+  local names='map(.name) | join(" ")'
+
+  [[ "$(public_search '?n=10&featured=true' | jq -r "$names")" = \
+    "user4 user3 user1 user2 user6 user5 user7" ]]
+
+  [[ "$(public_search '?n=10&featured=true&balance_genders=true' | jq -r "$names")" = \
+    "user4 user6 user3 user5 user1 user7 user2" ]]
+
+  [[ "$(public_search '?n=10' | jq -r "$names")" = \
+    "user1 user2 user3 user4 user5 user6 user7" ]]
+
+  local photos='map(.profile_photo_uuid + " " + .profile_photo_blurhash) | join(" ")'
+
+  [[ "$(public_search '?n=1&featured=true' | jq -r "$photos")" = \
+    "${uuids[0]} blurhash-of-${uuids[0]}" ]]
+
+  [[ "$(public_search '?n=1&o=3' | jq -r "$photos")" = \
+    "first-photo-of-user4 blurhash-of-first-photo-of-user4" ]]
+}
+
 returns_public_profiles
 excludes_non_public_profiles
 excludes_deactivated_and_shadow_banned
@@ -142,3 +184,4 @@ pagination_limits_and_offsets
 defaults_to_first_page
 rejects_n_above_fifty
 balances_men_and_women
+shows_featured_photos_first
