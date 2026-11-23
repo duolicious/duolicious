@@ -703,6 +703,14 @@ CREATE TABLE IF NOT EXISTS gold_subscription (
     UNIQUE (provider, provider_subscription_id)
 );
 
+-- One row each time someone goes from no gold to gold through the web
+-- paywall (PayPal). Keeps only what paywall experiments need: nothing here
+-- identifies the person.
+CREATE TABLE IF NOT EXISTS gold_sign_up (
+    -- person.id % 6, the arm armOf picks in point-of-sale-arms.tsx
+    paywall_arm SMALLINT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS ref_payment (
     provider gold_subscription_provider NOT NULL,
     provider_payment_id TEXT NOT NULL,

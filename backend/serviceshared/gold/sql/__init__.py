@@ -87,7 +87,10 @@ SELECT
     (SELECT array_agg(DISTINCT person_id) FROM deleted_person_club) AS evicted_person_ids
 """
 
+# A PayPal grant that inserts a row (rather than renewing one) is a sign-up
+# through the web paywall, which is logged to gold_sign_up for experiments.
 Q_GRANT_GOLD = """
+WITH granted AS (
 INSERT INTO gold_subscription (
     provider,
     provider_subscription_id,
@@ -113,7 +116,24 @@ WHERE
 OR
     gold_subscription.expires_at < EXCLUDED.expires_at
 RETURNING
+    person_id,
+    provider,
+    xmax = 0 AS inserted
+), logged AS (
+    INSERT INTO gold_sign_up (paywall_arm)
+    SELECT
+        person_id %% 6
+    FROM
+        granted
+    WHERE
+        inserted
+    AND
+        provider = 'paypal'
+)
+SELECT
     person_id
+FROM
+    granted
 """
 
 Q_REVOKE_GOLD = """
