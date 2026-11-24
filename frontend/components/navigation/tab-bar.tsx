@@ -126,6 +126,8 @@ const Tab = ({ navigation, state, route, descriptors, index, numUnread }: {
   );
 };
 
+const TAB_BAR_HEIGHT = 50;
+
 const TabBar = ({state, descriptors, navigation}: {
   state: BottomTabBarProps['state']
   descriptors: BottomTabBarProps['descriptors']
@@ -143,7 +145,7 @@ const TabBar = ({state, descriptors, navigation}: {
       style={{
         justifyContent: 'center',
         alignItems: 'center',
-        height: 50 + insets.bottom,
+        height: TAB_BAR_HEIGHT + insets.bottom,
         paddingBottom: insets.bottom,
         width: '100%',
         overflow: 'visible',
@@ -175,5 +177,6 @@ const TabBar = ({state, descriptors, navigation}: {
 };
 
 export {
+  TAB_BAR_HEIGHT,
   TabBar,
 };
