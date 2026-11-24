@@ -35,7 +35,7 @@ import { useScrollbar } from './navigation/scroll-bar-hooks';
 import { useIsWebLoggedOut } from '../events/signed-in-user';
 import { encodedAnonymousAnswers } from '../events/anonymous-answers';
 import { getPublicSearchFilters } from '../events/public-search-filters';
-import { experimentVariant, publicSearchExperimentParams } from '../api/experiments';
+import { experimentVariant } from '../api/experiments';
 import { DefaultText } from './default-text';
 import { genders } from '../data/option-groups';
 import {
@@ -155,7 +155,7 @@ const publicSearchFilterParams = (): string => {
       `&gender=${encodeURIComponent(JSON.stringify(gender))}`,
     typeof age?.min_age === 'number' && `&min_age=${age.min_age}`,
     typeof age?.max_age === 'number' && `&max_age=${age.max_age}`,
-  ].filter(Boolean).join('') + publicSearchExperimentParams();
+  ].filter(Boolean).join('');
 };
 
 const fetchPageWithoutQueue = async (
