@@ -9,11 +9,6 @@ from serviceshared.database import Tx, api_tx, row_bool, row_int
 from serviceshared.util.coerce import integer
 from serviceshared.matching.personality import Q_QUESTION_SCORE_VECTORS
 from service.api.search.rediscache import redis_cache
-from service.api.search.featured import (
-    FEATURED_PHOTO_UUIDS,
-    Q_FEATURED,
-    feature,
-)
 from service.api.redisclient import make_redis_client
 from collections.abc import Sequence
 from typing import Literal
@@ -188,7 +183,6 @@ async def get_public_search(q: t.PublicSearchQuery) -> object:
         gender,
         q.min_age,
         q.max_age,
-        q.featured,
     )
     if not isinstance(public_search, list):
         raise RuntimeError('public search cache returned a non-list value')
@@ -281,24 +275,14 @@ async def _get_public_search(
     gender: list[str] | None,
     min_age: int | None,
     max_age: int | None,
-    featured: bool,
 ) -> Sequence[object]:
-    async with api_tx('REPEATABLE READ') as tx:
+    async with api_tx('READ COMMITTED') as tx:
         await tx.execute(Q_PUBLIC_SEARCH, dict(
             gender=gender,
             min_age=min_age,
             max_age=max_age,
         ))
-        rows = await tx.fetchall()
-
-        if not featured:
-            return rows
-
-        await tx.execute(Q_FEATURED, dict(
-            person_ids=[row['prospect_person_id'] for row in rows],
-            photo_uuids=FEATURED_PHOTO_UUIDS,
-        ))
-        return feature(rows, {row['id']: row for row in await tx.fetchall()})
+        return await tx.fetchall()
 
 
 async def get_feed_v2(s: t.SessionInfo, before: datetime) -> object:

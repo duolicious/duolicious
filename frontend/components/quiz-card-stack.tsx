@@ -41,7 +41,6 @@ import {
 } from '../events/anonymous-answers';
 import { saveAnswer, deleteAnswer } from '../api/answer';
 import { markSearchResultsStale } from '../events/stale-search-results';
-import { publicSearchExperimentParams } from '../api/experiments';
 
 // How many questions an unauthenticated web user may answer before we ask them
 // to sign up.
@@ -200,7 +199,7 @@ const fetchNBestProspects = async (
       'get',
       `/public-search?answers=${
         encodeURIComponent(JSON.stringify(answers))
-      }&n=${n}&o=0${publicSearchExperimentParams()}`,
+      }&n=${n}&o=0`,
     ) :
     rebuildsSearchCache ?
     await japi<SearchResult[]>('get', `/search?n=${n}`) :
