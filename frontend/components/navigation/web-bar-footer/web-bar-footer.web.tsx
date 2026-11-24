@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { AppStoreBadges } from '../../badges/app-store/app-store';
 import { LEGAL_LINKS } from '../../../constants/constants';
+import type { WebBarFooterProps } from './web-bar-footer';
 const twitterIcon = require('../../../assets/social/twitter-white.svg');
 const redditIcon = require('../../../assets/social/reddit-white.svg');
 const githubIcon = require('../../../assets/social/github-white.svg');
+
+const SOCIAL_LINKS = [
+  ['X', 'https://twitter.com/duoliciousapp', twitterIcon],
+  ['Reddit', 'https://www.reddit.com/r/duolicious', redditIcon],
+  ['GitHub', 'https://github.com/duolicious/duolicious', githubIcon],
+] as const;
 
 const SocialBadges = () => {
   return (
@@ -22,27 +29,23 @@ const SocialBadges = () => {
         marginBottom: 8,
       }}
     >
-      <li>
-        <a target="_blank" href="https://twitter.com/duoliciousapp">
-          <img src={twitterIcon.uri} style={{ height: '20px' }} />
-        </a>
-      </li>
-      <li>
-        <a target="_blank" href="https://www.reddit.com/r/duolicious">
-          <img src={redditIcon.uri} style={{ height: '20px' }} />
-        </a>
-      </li>
-      <li>
-        <a target="_blank" href="https://github.com/duolicious/duolicious">
-          <img src={githubIcon.uri} style={{ height: '20px' }} />
-        </a>
-      </li>
+      {SOCIAL_LINKS.map(([label, href, icon]) =>
+        <li key={href}>
+          <a target="_blank" href={href}>
+            <img alt={label} src={icon.uri} style={{ height: '20px' }} />
+          </a>
+        </li>
+      )}
     </ul>
   );
 };
 
-const LegalLinks = () => {
+const LegalLinks = ({ withSocialLinks }: { withSocialLinks: boolean }) => {
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
+
+  const links = withSocialLinks
+    ? [...LEGAL_LINKS, ...SOCIAL_LINKS]
+    : LEGAL_LINKS;
 
   return (
     <ul
@@ -59,7 +62,7 @@ const LegalLinks = () => {
         margin: '0',
       }}
     >
-      {LEGAL_LINKS.map(([label, href]) =>
+      {links.map(([label, href]) =>
         <li key={href}>
           <a
             target="_blank"
@@ -81,7 +84,10 @@ const LegalLinks = () => {
   );
 };
 
-const WebBarFooter = () => {
+const WebBarFooter = ({
+  socialAsLinks = false,
+  showStoreBadges = true,
+}: WebBarFooterProps) => {
   return (
     <div
       style={{
@@ -94,9 +100,9 @@ const WebBarFooter = () => {
         flexDirection: 'column',
       }}
     >
-      <AppStoreBadges/>
-      <SocialBadges/>
-      <LegalLinks/>
+      {showStoreBadges && <AppStoreBadges/>}
+      {!socialAsLinks && <SocialBadges/>}
+      <LegalLinks withSocialLinks={socialAsLinks}/>
     </div>
   );
 };

@@ -6,7 +6,17 @@ import { DefaultText } from './default-text';
 import { Logo16 } from './logo';
 import { isMobile, viewportPosition } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
-import { joinButtonLabel, showSignUp } from './modal/sign-up-modal';
+import {
+  JOIN_FREE_LABEL,
+  hasDesktopJoinCard,
+  hasMobileJoinBar,
+  joinButtonLabel,
+  showSignUp,
+} from './modal/sign-up-modal';
+import { ButtonWithCenteredText } from './button/centered-text';
+import { TAB_BAR_HEIGHT } from './navigation/tab-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { BannerTarget } from '../events/sign-up-banner';
 import { useNumActiveUsers } from './welcome-screen';
 import { useBannerProspectName } from '../events/banner-prospect-name';
 import { useSignUpBanner } from '../events/sign-up-banner';
@@ -19,6 +29,23 @@ import {
   hasRightPane,
 } from './navigation/web-layout';
 
+const useProspectPrompt = (prospectHandle: string | undefined) => {
+  const prospectName = useBannerProspectName(prospectHandle);
+
+  return {
+    // Longer names blow out the button's width, so fall back to the default copy.
+    messageLabel: prospectName && prospectName.length <= 7
+      ? `Message ${prospectName}`
+      : undefined,
+    signUpMessage: prospectName && prospectName.length <= 15
+      ? `Join or sign in to message ${prospectName}`
+      : undefined,
+    caption: prospectName && prospectName.length <= 15
+      ? `Join free to message ${prospectName}`
+      : undefined,
+  };
+};
+
 const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   prospectHandle?: string
   overContentColumn: boolean
@@ -27,7 +54,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   const { width: windowWidth } = useWindowDimensions();
   const numActiveUsers = useNumActiveUsers(undefined);
   const isNumActiveUsersInPane = useIsSignedOutCardShown();
-  const prospectName = useBannerProspectName(prospectHandle);
+  const { messageLabel, signUpMessage } = useProspectPrompt(prospectHandle);
   const [showNumActiveUsers, setShowNumActiveUsers] = useState(false);
   const [cardWidth, setCardWidth] = useState<number>();
 
@@ -42,14 +69,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
     return () => clearInterval(interval);
   }, []);
 
-  // Longer names blow out the button's width, so fall back to the default copy.
-  const label = prospectName && prospectName.length <= 7
-    ? `Message ${prospectName}`
-    : joinButtonLabel();
-
-  const signUpMessage = prospectName && prospectName.length <= 15
-    ? `Join or sign in to message ${prospectName}`
-    : undefined;
+  const label = messageLabel ?? joinButtonLabel();
 
   return (
     <View
@@ -182,11 +202,92 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
   );
 };
 
+const JoinBar = ({ target, prospectHandle }: {
+  target: BannerTarget
+  prospectHandle?: string
+}) => {
+  const { appTheme } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const numActiveUsers = useNumActiveUsers(undefined);
+  const { messageLabel, signUpMessage, caption } =
+    useProspectPrompt(prospectHandle);
+
+  const isAboveTabBar = target === 'search';
+
+  const numActiveUsersCaption = numActiveUsers === undefined
+    ? '\xa0'
+    : `${numActiveUsers.toLocaleString()} active members`;
+
+  return (
+    <View
+      style={{
+        position: viewportPosition(),
+        bottom: isAboveTabBar ? TAB_BAR_HEIGHT + insets.bottom : 0,
+        left: 0,
+        right: 0,
+        zIndex: 999,
+        alignItems: 'center',
+        paddingTop: 8,
+        paddingHorizontal: 16,
+        paddingBottom: isAboveTabBar ? 12 : 12 + insets.bottom,
+        backgroundColor: appTheme.primaryColor,
+        borderTopWidth: 1,
+        borderTopColor: appTheme.interactiveBorderColor,
+        borderBottomWidth: isAboveTabBar ? 1 : 0,
+        borderBottomColor: appTheme.interactiveBorderColor,
+      }}
+    >
+      <View style={{ width: '100%', maxWidth: COLUMN_MAX_WIDTH, gap: 6 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+        >
+          <Logo16 size={32} color={appTheme.brandColor} rectSize={0.3} />
+          <DefaultText
+            style={{ fontWeight: '600', fontSize: 14, flexShrink: 1 }}
+          >
+            {caption ?? numActiveUsersCaption}
+          </DefaultText>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <ButtonWithCenteredText
+            secondary={true}
+            onPress={() => showSignUp(true, signUpMessage)}
+            containerStyle={{ flex: 1, marginTop: 0, marginBottom: 0, height: 48 }}
+            textStyle={{ fontWeight: '700' }}
+          >
+            Sign in
+          </ButtonWithCenteredText>
+          <ButtonWithCenteredText
+            onPress={() => showSignUp(true, signUpMessage)}
+            containerStyle={{ flex: 1, marginTop: 0, marginBottom: 0, height: 48 }}
+            textStyle={{ fontWeight: '700' }}
+          >
+            {messageLabel ?? JOIN_FREE_LABEL}
+          </ButtonWithCenteredText>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const SignUpBanner = () => {
   const { target, prospectHandle } = useSignUpBanner();
 
   if (target === 'none') {
     return null;
+  }
+
+  if (target === 'search' && hasDesktopJoinCard()) {
+    return null;
+  }
+
+  if (hasMobileJoinBar()) {
+    return <JoinBar target={target} prospectHandle={prospectHandle} />;
   }
 
   return (
