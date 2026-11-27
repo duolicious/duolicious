@@ -22,6 +22,7 @@ const VerticalButtonGroup: React.FC<VerticalButtonGroupProps> = ({
 
   return (
     <View
+      role="radiogroup"
       style={[
         styles.baseContainer,
         containerStyle,
@@ -36,6 +37,9 @@ const VerticalButtonGroup: React.FC<VerticalButtonGroupProps> = ({
         return (
           <Pressable
             key={i}
+            role="radio"
+            aria-checked={isSelected}
+            disabled={disabled}
             onPress={() => onPress(i)}
             style={[
               styles.button,
