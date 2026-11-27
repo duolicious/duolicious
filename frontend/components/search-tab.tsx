@@ -238,8 +238,9 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
 
   const selectedClub = useSearchClub();
   const hasClubRow = !isPublic;
-  const hasPitch = isPublic &&
-    experimentVariant('search-pitch', ['control', 'pitch']) === 'pitch';
+  const hasPitch = isPublic && experimentVariant(
+    isMobile() ? 'search-pitch-mobile' : 'search-pitch-desktop',
+    ['control', 'pitch']) === 'pitch';
 
   const [isFiltersHintDismissed, setIsFiltersHintDismissed] = useState(true);
 
