@@ -111,6 +111,7 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
 
   return (
     <Pressable
+      role="button"
       style={{
         marginTop: 10,
         marginBottom: 10,
