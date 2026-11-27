@@ -22,6 +22,7 @@ const IconButton = ({
 
   return (
     <Pressable
+      role="button"
       aria-label={label}
       onPress={onPress}
       style={[{ padding }, style]}

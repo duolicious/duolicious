@@ -125,6 +125,7 @@ const HintBubble = ({
         </Svg>
       </View>
       <Pressable
+        role="button"
         onPress={onPress}
         style={{
           flexDirection: 'row',

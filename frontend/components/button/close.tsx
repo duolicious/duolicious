@@ -19,6 +19,7 @@ const Close = ({
 
   return (
     <IconButton
+      label="Close"
       onPress={onPress}
       style={style}
     >

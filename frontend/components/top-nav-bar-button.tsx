@@ -25,6 +25,7 @@ const TopNavBarButton = ({
   secondary,
   position,
   label,
+  accessibilityLabel,
   style,
   loading = false,
   overlayIconName,
@@ -34,6 +35,7 @@ const TopNavBarButton = ({
   secondary: boolean
   position: 'left' | 'right' | null
   label?: string,
+  accessibilityLabel?: string,
   style?: ViewStyle,
   loading?: boolean,
   overlayIconName?: ComponentProps<typeof Ionicons>['name'],
@@ -54,6 +56,8 @@ const TopNavBarButton = ({
 
   return (
     <Pressable
+      role="button"
+      aria-label={accessibilityLabel ?? label}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}

@@ -420,7 +420,7 @@ const DisplayNameAndAboutPerson = ({data}: {data: ProfileInfo}) => {
         }}
       />
       {!!nameSlug &&
-        <Pressable onPress={() => copyProfileLink(nameSlug)}>
+        <Pressable role="button" onPress={() => copyProfileLink(nameSlug)}>
           <DefaultText
             style={{
               fontSize: 14,

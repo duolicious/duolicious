@@ -585,7 +585,7 @@ const FacepileAvatar = ({
   const onPress = navigatesOnPress ? navigateToProfile : onRequestSpread;
 
   return (
-    <Pressable onPress={onPress} link={link}>
+    <Pressable aria-label="Profile photo" onPress={onPress} link={link}>
       <ImageBackground
         source={{ uri: `${IMAGES_URL}/450-${member.photo_uuid}.jpg` }}
         placeholder={{ blurhash: member.photo_blurhash }}
@@ -656,6 +656,7 @@ const ViewerFacepileAvatar = ({
       ]}
     >
       <Pressable
+        aria-label="Profile photo"
         onPress={onPress}
         style={styles.viewerFacepilePressable}
         link={link}

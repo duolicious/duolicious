@@ -312,7 +312,12 @@ const QuotePreview = ({ quote }: { quote: QuoteType | null }) => {
           backgroundColor="#eee"
         />
       </View>
-      <Pressable onPress={() => setQuote(null)} {...closeHoverProps}>
+      <Pressable
+        role="button"
+        aria-label="Remove quote"
+        onPress={() => setQuote(null)}
+        {...closeHoverProps}
+      >
         <HoverCircle visible={isCloseHovered} />
         <X
           strokeWidth={3}
@@ -419,7 +424,13 @@ const IconBar = ({
       </GestureDetector>
 
       {textHasContent && (
-        <Pressable onPress={handleSendPress} style={styles.sendPressable} {...hoverProps}>
+        <Pressable
+          role="button"
+          aria-label="Send"
+          onPress={handleSendPress}
+          style={styles.sendPressable}
+          {...hoverProps}
+        >
           <Animated.View
             entering={FadeIn}
             exiting={FadeOut}
@@ -834,7 +845,7 @@ const Input = ({
               onKeyPress={handleKeyPress}
               onFocus={onFocus}
             />
-            <Pressable onPress={onPressGif} hitSlop={10} {...gifHoverProps}>
+            <Pressable role="button" onPress={onPressGif} hitSlop={10} {...gifHoverProps}>
               <Animated.View
                 style={[
                   {

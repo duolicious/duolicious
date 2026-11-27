@@ -249,7 +249,7 @@ const ClubsPanel = () => {
               <DefaultText style={{ fontSize: 13, fontWeight: '700' }}>
                 {isManaging ? 'Your clubs' : 'Filter search by your clubs'}
               </DefaultText>
-              <Pressable onPress={() => setIsManaging(!isManaging)} hitSlop={10}>
+              <Pressable role="button" onPress={() => setIsManaging(!isManaging)} hitSlop={10}>
                 <DefaultText style={linkTextStyle}>
                   {isManaging ? 'Filter' : 'Manage'}
                 </DefaultText>
@@ -316,6 +316,7 @@ const ClubsPanel = () => {
             </Animated.View>
             {!q && clubs.length > MAX_COLLAPSED_CLUBS &&
               <Pressable
+                role="button"
                 onPress={toggleAll}
                 style={{
                   flexDirection: 'row',

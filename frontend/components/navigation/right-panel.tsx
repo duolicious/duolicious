@@ -103,6 +103,7 @@ const SponsoredRightPanelContent = () => {
         }}
       >
         <img
+          alt={partner.name}
           src={`${PARTNER_URL}/${partner.file}`}
           style={{
             width: '100%',

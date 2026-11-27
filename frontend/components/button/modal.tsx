@@ -31,6 +31,7 @@ const ModalButton = ({onPress, title, color}: {onPress?: () => void, title?: Rea
   };
 
   return <Pressable
+    role="button"
     style={styles.pressable}
     onPressIn={() => fade()}
     onPressOut={() => unfade()}

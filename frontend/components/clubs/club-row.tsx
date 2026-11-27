@@ -104,6 +104,8 @@ const Continuation = ({
 
   return (
     <Pressable
+      role="button"
+      aria-label={side === 'left' ? 'Scroll left' : 'Scroll right'}
       onPress={onPress}
       {...hoverProps}
       style={{
@@ -176,6 +178,7 @@ const ClubsButton = ({ rowRef }: { rowRef: RefObject<View | null> }) => {
 
   return (
     <AnimatedPressable
+      role="button"
       onPress={onPress}
       {...hoverProps}
       style={[

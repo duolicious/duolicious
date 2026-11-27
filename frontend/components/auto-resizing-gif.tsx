@@ -49,6 +49,7 @@ const AutoResizingGif = ({
   if (!image) {
     return (
       <Pressable
+        role={requirePress ? 'button' : undefined}
         disabled={!requirePress}
         onPress={() => setShouldLoad(true)}
         style={{

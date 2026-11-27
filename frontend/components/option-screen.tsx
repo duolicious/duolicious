@@ -1079,6 +1079,8 @@ const ColorPickerButton = ({
 
   return (
     <Pressable
+      role="button"
+      aria-label="Choose color"
       style={{
         backgroundColor: 'white',
         width: 55,

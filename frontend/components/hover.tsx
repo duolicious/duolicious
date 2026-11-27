@@ -133,10 +133,19 @@ const HoverCircle = ({ visible, inset = -8, insetX = inset, color }: {
   );
 };
 
-const RaisedChip = ({ borderColor, style, onPress, children }: {
+const RaisedChip = ({
+  borderColor,
+  style,
+  onPress,
+  role = 'button',
+  checked,
+  children,
+}: {
   borderColor: string
   style: ViewStyle
   onPress: (view: View) => void
+  role?: 'button' | 'checkbox'
+  checked?: boolean
   children: ReactNode
 }) => {
   const { hovered, hoverProps } = useHover();
@@ -147,6 +156,8 @@ const RaisedChip = ({ borderColor, style, onPress, children }: {
   return (
     <AnimatedPressable
       ref={ref}
+      role={role}
+      aria-checked={checked}
       onPress={() => ref.current && onPress(ref.current)}
       {...hoverProps}
       {...pressProps}

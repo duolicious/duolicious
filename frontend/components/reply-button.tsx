@@ -22,6 +22,7 @@ const ReplyButton = ({
   return (
     <View style={{ alignItems: 'flex-end' }} >
       <Pressable
+        role="button"
         style={{
           flexDirection: 'row',
           gap: 6,

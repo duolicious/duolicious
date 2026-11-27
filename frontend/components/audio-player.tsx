@@ -292,6 +292,8 @@ const AudioPlayer = (props: AudioPlayerProps) => {
       }}
     >
       <Pressable
+        role="button"
+        aria-label={playIcon === 'play' ? 'Play' : 'Pause'}
         style={{
           backgroundColor: playButtonColor,
           borderRadius: 999,
@@ -319,7 +321,7 @@ const AudioPlayer = (props: AudioPlayerProps) => {
       </Pressable>
 
       {onPressBody ?
-        <Pressable style={styles.body} onPress={onPressBody}>{body}</Pressable>
+        <Pressable role="button" style={styles.body} onPress={onPressBody}>{body}</Pressable>
       :
         <View style={styles.body}>{body}</View>
       }

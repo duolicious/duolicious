@@ -106,6 +106,8 @@ const GlobalBackButton = () => {
         ]}
         onPress={onPress}
         {...hoverProps}
+        role="button"
+        aria-label="Back"
       >
         <FontAwesomeIcon
           icon={faArrowLeft}

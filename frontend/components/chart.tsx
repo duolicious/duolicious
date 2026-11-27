@@ -193,6 +193,7 @@ const Chart = ({name1, percentage1, name2, percentage2, ...props}: {
       }, backgroundStyle]}
     >
       <Pressable
+        role="button"
         style={{
           padding: 10,
         }}

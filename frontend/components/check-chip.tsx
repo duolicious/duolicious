@@ -47,6 +47,8 @@ const CheckChip = ({label, ...props}: {
 
   return (
     <RaisedChip
+      role="checkbox"
+      checked={checked}
       borderColor="black"
       style={{
         paddingLeft: props.compact ? 12 : 20,

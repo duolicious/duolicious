@@ -12,7 +12,14 @@ const ReportFlag = ({ onPress, style }: {
   const { hovered, hoverProps } = useHover();
 
   return (
-    <Pressable hitSlop={20} onPress={onPress} style={style} {...hoverProps}>
+    <Pressable
+      role="button"
+      aria-label="Report"
+      hitSlop={20}
+      onPress={onPress}
+      style={style}
+      {...hoverProps}
+    >
       <HoverCircle visible={hovered} />
       <Flag
         stroke={hovered ? appTheme.secondaryColor : `${appTheme.secondaryColor}80`}

@@ -248,7 +248,7 @@ const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
   const { appTheme } = useAppTheme();
 
   return (
-    <Pressable onPress={promptSignUpToFilter}>
+    <Pressable role="button" onPress={promptSignUpToFilter}>
       <PanelHeading og={og}>
         <DefaultText style={{ color: appTheme.hintColor }}>{MEMBERS_ONLY}</DefaultText>
       </PanelHeading>

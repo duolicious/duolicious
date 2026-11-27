@@ -80,6 +80,7 @@ const IntrosItem = ({
 
   return (
     <Pressable
+      role="button"
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
@@ -164,6 +165,7 @@ const ChatsItem = ({
 
   return (
     <Pressable
+      role="button"
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
@@ -217,6 +219,7 @@ const HiddenIntrosItem = ({ count }: { count: number | null }) => {
 
   return (
     <Pressable
+      role="button"
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={showHiddenIntros}
