@@ -16,11 +16,6 @@ const showSignUp = (isVisible: boolean, message?: string) => {
   notify<boolean>('show-sign-up', isVisible);
 };
 
-const joinButtonLabel = (): string =>
-  experimentVariant('join-button-label', ['control', 'free']) === 'free'
-    ? 'Join\xa0free'
-    : 'Join or\xa0sign\xa0in';
-
 const JOIN_FREE_LABEL = 'Join\xa0free';
 
 const hasDesktopJoinCard = (): boolean =>
@@ -110,7 +105,6 @@ export {
   hasDesktopJoinCard,
   hasMobileJoinBar,
   showSignUp,
-  joinButtonLabel,
   useShowSignUp,
   SignUpModal,
 };

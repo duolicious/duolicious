@@ -403,7 +403,7 @@ const sizeForCardWidth = (cardWidth: number, min: number, max: number) =>
 const UserDetails = ({name, age, matchPercentage, verified, cardWidth, ...rest}: {
   name: string,
   age: number,
-  matchPercentage: number | null,
+  matchPercentage: number,
   verified: boolean,
   cardWidth: number,
   containerStyle?: ViewStyle,
@@ -457,9 +457,7 @@ const UserDetails = ({name, age, matchPercentage, verified, cardWidth, ...rest}:
           alignSelf: 'flex-start',
         }}
       >
-        {matchPercentage === null ?
-          'Do Q&A to match' :
-          `${matchPercentage}% Match`}
+        {matchPercentage}% Match
       </DefaultText>
     </View>
   );

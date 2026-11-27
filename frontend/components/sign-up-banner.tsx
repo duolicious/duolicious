@@ -10,7 +10,6 @@ import {
   JOIN_FREE_LABEL,
   hasDesktopJoinCard,
   hasMobileJoinBar,
-  joinButtonLabel,
   showSignUp,
 } from './modal/sign-up-modal';
 import { ButtonWithCenteredText } from './button/centered-text';
@@ -69,7 +68,7 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
     return () => clearInterval(interval);
   }, []);
 
-  const label = messageLabel ?? joinButtonLabel();
+  const label = messageLabel ?? 'Join or\xa0sign\xa0in';
 
   return (
     <View
