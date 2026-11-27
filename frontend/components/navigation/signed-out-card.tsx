@@ -3,7 +3,7 @@ import { Linking, StyleSheet, View } from 'react-native';
 import { DefaultText } from '../default-text';
 import { Logo16 } from '../logo';
 import { ButtonWithCenteredText } from '../button/centered-text';
-import { joinButtonLabel, showSignUp } from '../modal/sign-up-modal';
+import { showSignUp } from '../modal/sign-up-modal';
 import { useNumActiveUsers } from '../welcome-screen';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { SidePanelCard, SidePanelHeading } from './side-panel';
@@ -58,7 +58,7 @@ const SignedOutCard = () => {
           onPress={() => showSignUp(true)}
           containerStyle={styles.button}
         >
-          {joinButtonLabel()}
+          Join or sign in
         </ButtonWithCenteredText>
       </View>
     </SidePanelCard>

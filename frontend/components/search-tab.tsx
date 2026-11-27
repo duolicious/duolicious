@@ -140,7 +140,7 @@ type PageItem = {
   profile_photo_blurhash: string
   name: string
   age: number
-  match_percentage: number | null
+  match_percentage: number
   person_messaged_prospect: boolean
   prospect_messaged_person: boolean
   verified: boolean
@@ -194,12 +194,7 @@ const fetchPageWithoutQueue = async (
     };
   }
 
-  const page = response.ok && response.json ? response.json : null;
-
-  return page && isPublic && !answers &&
-    experimentVariant('search-match-label', ['control', 'prompt']) === 'prompt'
-    ? page.map((item) => ({ ...item, match_percentage: null }))
-    : page;
+  return response.ok && response.json ? response.json : null;
 };
 
 const fetchPage = (

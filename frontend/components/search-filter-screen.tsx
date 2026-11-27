@@ -50,7 +50,7 @@ import {
   useIsWebLoggedOut,
   type SignedInUser,
 } from '../events/signed-in-user';
-import { joinButtonLabel, showSignUp } from './modal/sign-up-modal';
+import { showSignUp } from './modal/sign-up-modal';
 import {
   cmToFeetInchesStr,
 } from '../units/units';
@@ -410,7 +410,7 @@ const SearchFilterList = ({
             onPress={promptSignUpToFilter}
             containerStyle={styles.joinButton}
           >
-            {joinButtonLabel()}
+            Join or sign in
           </ButtonWithCenteredText>
         </View>
       }
