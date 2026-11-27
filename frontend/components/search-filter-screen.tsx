@@ -832,6 +832,7 @@ const TwoWayFilterToggles = () => {
             <Toggle
               value={twoWay[f.key] ?? false}
               onValueChange={(v) => onToggle(f.key, v)}
+              label={f.label}
             />
           </View>
         );

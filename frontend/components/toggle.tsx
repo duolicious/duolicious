@@ -26,9 +26,11 @@ const DURATION = 150;
 const Toggle = ({
   value,
   onValueChange,
+  label,
 }: {
   value: boolean
   onValueChange: (next: boolean) => void
+  label?: string
 }) => {
   const { appThemeName } = useAppTheme();
   const { hovered, hoverProps } = useHover();
@@ -71,6 +73,7 @@ const Toggle = ({
         {...hoverProps}
         accessibilityRole="switch"
         accessibilityState={{ checked: value }}
+        accessibilityLabel={label}
         style={[
           {
             width: TRACK_WIDTH,
