@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Animated,
+  Platform,
   View,
 } from 'react-native';
 import { Pressable } from '../pressable';
@@ -77,6 +78,9 @@ const Tab = ({ navigation, state, route, descriptors, index, numUnread }: {
   return (
     <Pressable
       key={route.key}
+      role={Platform.OS === 'ios' ? 'button' : 'tab'}
+      aria-selected={isFocused}
+      aria-label={options.tabBarAccessibilityLabel}
       onPress={onPress}
       onPressIn={fadeIn}
       onPressOut={fadeOut}
@@ -86,9 +90,6 @@ const Tab = ({ navigation, state, route, descriptors, index, numUnread }: {
       }}
     >
       <Animated.View
-        accessibilityRole="button"
-        accessibilityState={isFocused ? { selected: true } : {}}
-        accessibilityLabel={options.tabBarAccessibilityLabel}
         testID={options.tabBarButtonTestID}
         style={{
           width: '100%',
@@ -152,6 +153,7 @@ const TabBar = ({state, descriptors, navigation}: {
       }}
     >
       <View
+        role="tablist"
         style={{
           flexDirection: 'row',
           height: '100%',

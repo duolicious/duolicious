@@ -70,6 +70,7 @@ const NavigationItems = ({state, navigation, descriptors, routes = state.routes}
 
   return (
     <View
+      role="tablist"
       style={{
         flex: 1,
       }}
@@ -105,6 +106,8 @@ const NavigationItems = ({state, navigation, descriptors, routes = state.routes}
         return (
           <Pressable
             key={route.key}
+            role="tab"
+            aria-selected={isFocused}
             onPress={() => {
               if (isWebLoggedOut && !PUBLIC_TAB_NAMES.includes(route.name)) {
                 showSignUp(true);
