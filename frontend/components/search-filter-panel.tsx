@@ -40,7 +40,7 @@ import {
   searchBasicsOptionGroups,
 } from '../data/option-groups';
 import {
-  membersOnlyLabel,
+  MEMBERS_ONLY,
   QAndAFilterResults,
   SearchFilterList,
   TwoWayFilterToggles,
@@ -250,7 +250,7 @@ const LockedSlider = ({ og }: { og: OptionGroup<OptionGroupInputs> }) => {
   return (
     <Pressable onPress={promptSignUpToFilter}>
       <PanelHeading og={og}>
-        <DefaultText style={{ color: appTheme.hintColor }}>{membersOnlyLabel()}</DefaultText>
+        <DefaultText style={{ color: appTheme.hintColor }}>{MEMBERS_ONLY}</DefaultText>
       </PanelHeading>
       <View style={[styles.slider, styles.lockedSlider]}>
         <View

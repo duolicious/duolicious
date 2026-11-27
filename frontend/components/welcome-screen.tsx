@@ -57,7 +57,6 @@ import { joinClub, selectSearchClub } from '../club/club';
 import { isMobile } from '../util/util';
 import { setOptionScreenPayload } from '../navigation/option-screen-store';
 import { showSignUp } from './modal/sign-up-modal';
-import { experimentVariant } from '../api/experiments';
 import { lastEvent, listen } from '../events/events';
 import { anonymousAnswers } from '../events/anonymous-answers';
 
@@ -785,23 +784,6 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
     signInWith(pending.provider, async () => pending.result, pending.context);
   }, []);
 
-  const hasReassurance = experimentVariant(
-    'sign-up-modal-reassurance', ['control', 'reassurance']) === 'reassurance';
-  const isSocialFirst = experimentVariant(
-    'sign-up-modal-order', ['control', 'social-first']) === 'social-first';
-
-  const emailButton = (
-    <PrimaryAuthButton
-      onPress={onPressUseEmail}
-      loading={false}
-      icon={<Ionicons name="mail-outline" size={22} color="#000000" />}
-      backgroundColor="#ffffff"
-      textColor="#000000"
-    >
-      Use email
-    </PrimaryAuthButton>
-  );
-
   return (
     <SafeAreaView
       style={{
@@ -852,31 +834,26 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
             alignSelf: 'center',
           }}
         >
-          <View style={{ marginBottom: inModal ? 40 : 20, gap: 10 }}>
-            <DefaultText
-              style={{
-                color: 'white',
-                textAlign: 'center',
-                fontSize: inModal ? 36 : 20,
-                fontWeight: inModal ? 900 : 700,
-              }}
-            >
-              {inModal && signUpMessage ? signUpMessage : 'Join or sign in'}
-            </DefaultText>
-            {hasReassurance &&
-              <DefaultText
-                style={{
-                  color: 'white',
-                  textAlign: 'center',
-                  fontSize: 18,
-                  fontWeight: 600,
-                }}
-              >
-                Free. Takes about a minute.
-              </DefaultText>
-            }
-          </View>
-          {!isSocialFirst && emailButton}
+          <DefaultText
+            style={{
+              color: 'white',
+              textAlign: 'center',
+              marginBottom: inModal ? 40 : 20,
+              fontSize: inModal ? 36 : 20,
+              fontWeight: inModal ? 900 : 700,
+            }}
+          >
+            {inModal && signUpMessage ? signUpMessage : 'Join or sign in'}
+          </DefaultText>
+          <PrimaryAuthButton
+            onPress={onPressUseEmail}
+            loading={false}
+            icon={<Ionicons name="mail-outline" size={22} color="#000000" />}
+            backgroundColor="#ffffff"
+            textColor="#000000"
+          >
+            Use email
+          </PrimaryAuthButton>
           <PrimaryAuthButton
             onPress={() => googleSignIn.ready &&
               signInWith('google', googleSignIn.promptForIdToken)}
@@ -909,7 +886,6 @@ const WelcomeScreen_ = ({navigation, route}: NativeStackScreenProps<WelcomeParam
           >
             Continue with Discord
           </PrimaryAuthButton>
-          {isSocialFirst && emailButton}
           <DefaultText
             style={{
               alignSelf: 'center',
