@@ -289,6 +289,7 @@ const GifPickerModal: React.FC = () => {
       ListFooterComponent={loadingMoreIndicator}
       showsVerticalScrollIndicator={false}
       renderScrollComponent={SheetScrollView}
+      keyboardShouldPersistTaps="handled"
     />
   );
 

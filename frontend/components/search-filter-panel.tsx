@@ -471,6 +471,7 @@ const SearchFilterPanel = () => {
       {[undefined, ...path].map((levelTitle, i) =>
         <ScrollView
           key={levelTitle ?? ''}
+          keyboardShouldPersistTaps="handled"
           style={[
             levelTitle === undefined ? styles.fitScroll : styles.fullScroll,
             i < path.length && styles.hidden,

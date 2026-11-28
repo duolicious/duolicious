@@ -124,7 +124,10 @@ const ManualEntry = ({ value, onChange, onPressAutomatic, color }: {
               zIndex: 999,
             }}
           >
-            <ScrollView showsVerticalScrollIndicator={!loading}>
+            <ScrollView
+              showsVerticalScrollIndicator={!loading}
+              keyboardShouldPersistTaps="handled"
+            >
               {loading &&
                 <LogoActivityIndicator
                   size="large"
