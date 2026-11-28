@@ -95,6 +95,8 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
 
   return (
     <Animated.View
+      role="radiogroup"
+      aria-hidden={disabled}
       style={[
         styles.baseContainer,
         secondary ? styles.secondaryContainer : styles.primaryContainer,
@@ -117,6 +119,9 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({
         return (
           <Pressable
             key={i}
+            role="radio"
+            aria-checked={isSelected}
+            disabled={disabled}
             onPress={() => startTransition(async () => {
               setShownIndex(i);
               await delay(DURATION);

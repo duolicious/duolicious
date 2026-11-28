@@ -144,6 +144,8 @@ const PlanCard = ({
 
   return (
     <Pressable
+      role="radio"
+      aria-checked={isSelected}
       onPress={onPress}
       style={{ flex: 1, zIndex: trial ? 2 : 1 }}
     >
@@ -332,6 +334,7 @@ const OfferingCard = ({
       <ScrollView>
         <arm.Above active={active} setActive={setActive} compact={compact} />
         <View
+          role="radiogroup"
           style={{
             marginTop: arm.plansMarginTop(compact),
             height: arm.hasSlimPlans ? undefined : (compact ? 120 : 144),
