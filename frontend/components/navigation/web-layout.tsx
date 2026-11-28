@@ -31,7 +31,6 @@ export {
   CONTENT_COLUMN_STYLE,
   LEFT_PANE_STYLE,
   RIGHT_PANE_STYLE,
-  hasRightPane,
   useHasRightPane,
   useWindowWidthCheck,
 };
