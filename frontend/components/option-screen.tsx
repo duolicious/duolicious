@@ -257,7 +257,11 @@ const Slider = forwardRef((props: InputProps<OptionGroupSlider>, ref) => {
           }}
         >
           <DefaultText>{toggle.label}</DefaultText>
-          <Toggle value={toggleValue} onValueChange={onToggle} />
+          <Toggle
+            value={toggleValue}
+            onValueChange={onToggle}
+            label={toggle.label}
+          />
         </View>
       }
       {props.showSkipButton &&

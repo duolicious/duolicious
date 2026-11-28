@@ -211,6 +211,7 @@ const PanelSlider = ({ og, input, isBasic }: {
           <Toggle
             value={slider.toggle.currentValue ?? false}
             onValueChange={slider.toggle.submit}
+            label={slider.toggle.label}
           />
         </View>
       }

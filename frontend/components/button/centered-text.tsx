@@ -41,6 +41,7 @@ type ButtonWithCenteredTextProps = {
   fontSize?: number
   loading?: boolean
   growOnHover?: boolean
+  accessibilityLabel?: string
 };
 
 const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
@@ -60,6 +61,7 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
     fontSize,
     loading = false,
     growOnHover = false,
+    accessibilityLabel,
   } = props;
 
   const { appTheme } = useAppTheme();
@@ -122,6 +124,7 @@ const ButtonWithCenteredText = (props: ButtonWithCenteredTextProps) => {
       onPressOut={() => isEnabledRef.current && unfade()}
       onPress={() => isEnabledRef.current && !loading && onPress?.()}
       {...hoverProps}
+      aria-label={accessibilityLabel}
     >
       <Animated.View
         style={[{
