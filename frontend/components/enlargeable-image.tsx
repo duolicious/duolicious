@@ -141,6 +141,7 @@ const EnlargeablePhoto = memo(({
   return (
     <Pressable
       ref={ref}
+      aria-label={isVerified ? 'Verified photo' : 'Photo'}
       disabled={!photoUuid}
       onPress={internalOnPress}
       link={photoUuid ? { href: `/gallery/${photoUuid}` } : undefined}

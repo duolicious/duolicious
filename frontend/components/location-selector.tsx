@@ -50,6 +50,7 @@ const LinkText = ({ onPress, color, children }: {
   children: string
 }) => (
   <Pressable
+    role="button"
     onPress={onPress}
     style={{ alignSelf: 'center', padding: 10, zIndex: -1, elevation: -1 }}
   >
@@ -134,6 +135,7 @@ const ManualEntry = ({ value, onChange, onPressAutomatic, color }: {
               }
               {!loading && items?.map((item) =>
                 <Pressable
+                  role="button"
                   key={item}
                   onPress={() => {
                     setDisplayResults(false);

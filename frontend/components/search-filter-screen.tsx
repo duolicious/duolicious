@@ -532,6 +532,7 @@ const SearchFilterScreen_ = ({navigation}: NativeStackScreenProps<SearchFilterPa
         <TopNavBarButton
           onPress={goBack}
           iconName="arrow-back"
+          accessibilityLabel="Back"
           position="left"
           secondary={true}
         />

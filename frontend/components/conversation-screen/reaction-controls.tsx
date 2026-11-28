@@ -65,6 +65,7 @@ const ReactionBar = ({
     >
       {QUICK_REACTIONS.map((emoji) => (
         <Pressable
+          role="button"
           key={emoji}
           onPress={() => onPick(emoji)}
           style={{
@@ -82,6 +83,7 @@ const ReactionBar = ({
         </Pressable>
       ))}
       <Pressable
+        role="button"
         onPress={onOpenPicker}
         aria-label="More reactions"
         style={{
@@ -255,6 +257,7 @@ const ReactionChip = ({
   const { appTheme } = useAppTheme();
   return (
     <Pressable
+      role={onPress ? 'button' : undefined}
       onPress={onPress}
       style={[
         {

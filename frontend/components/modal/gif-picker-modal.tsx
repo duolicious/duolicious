@@ -67,7 +67,7 @@ const RenderGifItem = ({
 }) => {
   return (
     <View style={styles.gifItemContainer}>
-      <Pressable onPress={() => onPress(gifUrl)}>
+      <Pressable role="button" aria-label="GIF" onPress={() => onPress(gifUrl)}>
         <AutoResizingGif
           priority={priority}
           uri={previewUrl}

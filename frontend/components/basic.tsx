@@ -102,6 +102,7 @@ const Basic = ({children, ...rest}: {
       ]}
     >
       <Pressable
+        role={onPress ? 'button' : undefined}
         ref={ref}
         disabled={!onPress}
         onPressIn={() => setPressed(true)}

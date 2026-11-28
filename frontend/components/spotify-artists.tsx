@@ -62,6 +62,7 @@ const SpotifyArtist = ({
   textStyle?: TextStyle,
 }) => (
   <Pressable
+    role="link"
     onPress={() => Linking.openURL(
       `https://open.spotify.com/artist/${artist.spotify_id}`
     )}

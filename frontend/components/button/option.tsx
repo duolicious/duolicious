@@ -85,6 +85,7 @@ const ButtonForOption = (props: ButtonForOptionProps) => {
 
   return (
     <Pressable
+      role="button"
       style={{
         marginTop: 5,
         marginBottom: 5,

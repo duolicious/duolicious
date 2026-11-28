@@ -148,6 +148,7 @@ const Perk = ({
   onPress?: () => void
 }) =>
   <Pressable
+    role={onPress ? 'button' : undefined}
     disabled={!onPress}
     onPress={onPress}
     style={{

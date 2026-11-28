@@ -228,6 +228,7 @@ const ShareButton = ({personUuid, backgroundColor}: {
 
   return (
     <AnimatedPressable
+      role="button"
       onPress={onPress}
       accessibilityLabel="Copy profile link"
       style={[
@@ -256,10 +257,12 @@ const FloatingProfileInteractionButton = ({
   children,
   onPress,
   backgroundColor,
+  label,
 }: {
   children: ReactNode,
   onPress: () => void,
   backgroundColor: string,
+  label: string,
 }) => {
   const { appTheme } = useAppTheme();
 
@@ -293,6 +296,8 @@ const FloatingProfileInteractionButton = ({
   return (
     <Pressable
       ref={ref}
+      role="button"
+      aria-label={label}
       style={{
         borderRadius: 999,
         zIndex: 999,
@@ -347,6 +352,7 @@ const FloatingSkipButton = ({personUuid}: {
     <FloatingProfileInteractionButton
       onPress={onPress}
       backgroundColor={appTheme.primaryColor}
+      label={isSkipped ? 'Undo skip' : 'Skip'}
     >
       {isPosting &&
         <LogoActivityIndicator size="medium" color={appTheme.brandColor} />
@@ -401,6 +407,7 @@ const FloatingSendIntroButton = ({
     <FloatingProfileInteractionButton
       onPress={onPress}
       backgroundColor={appTheme.brandColor}
+      label={quote ? 'Reply' : 'Message'}
     >
       {personUuid !== undefined && name !== undefined &&
         <FontAwesomeIcon
@@ -445,6 +452,7 @@ const AnonymousSignInCta = ({navigation, name}: {
       pointerEvents="box-none"
     >
       <Pressable
+        role="button"
         onPress={onPress}
         style={{
           backgroundColor: appTheme.brandColor,
@@ -550,6 +558,7 @@ const BlockButton = ({name, personUuid, backgroundColor}: {
 
   return (
     <AnimatedPressable
+      role="button"
       onPress={onPress}
       style={[
         profilePillButtonStyle(surface, pressed, hovered),

@@ -71,6 +71,7 @@ const EmojiRow = memo(({
     <View style={{ flexDirection: 'row' }}>
       {emojis.map((emoji) =>
         <Pressable
+          role="button"
           key={emoji.id}
           onPress={() => onPick(emoji.native)}
           style={{

@@ -218,7 +218,7 @@ const Menu = ({
         maxWidth: 350,
       }}
     >
-      <Pressable style={pressableStyle} onPress={isLoading ? undefined : onPressSkip}>
+      <Pressable role="button" style={pressableStyle} onPress={isLoading ? undefined : onPressSkip}>
         {isSkipped &&
           <View style={iconContainerStyle}>
             <RotateCcw
@@ -255,7 +255,7 @@ const Menu = ({
         </View>
       </Pressable>
       {!isSkipped &&
-        <Pressable style={pressableStyle} onPress={isLoading ? undefined : onPressReport}>
+        <Pressable role="button" style={pressableStyle} onPress={isLoading ? undefined : onPressReport}>
           <View style={iconContainerStyle}>
             <Flag
               style={iconStyle}
@@ -353,6 +353,7 @@ const ConversationScreenNavBar = ({
       <TopNavBarButton
         onPress={() => navigation.goBack()}
         iconName="arrow-back"
+        accessibilityLabel="Back"
         position="left"
         secondary={true}
       />
@@ -432,6 +433,7 @@ const ConversationScreenNavBar = ({
         <TopNavBarButton
           onPress={toggleMenu}
           iconName="ellipsis-vertical"
+          accessibilityLabel="More options"
           position="right"
           secondary={true}
         />
@@ -1128,6 +1130,7 @@ const ConversationScreen = ({navigation, route}: NativeStackScreenProps<RootPara
               <TopNavBarButton
                 onPress={() => navigation.goBack()}
                 iconName="arrow-back"
+                accessibilityLabel="Back"
                 position="left"
                 secondary={true}
               />

@@ -150,6 +150,7 @@ const SignUpBannerCard = ({ prospectHandle }: {
           />
           <View style={{ flex: 1 }}>
             <Pressable
+              role="button"
               onPress={() => showSignUp(true, signUpMessage)}
               style={{
                 backgroundColor: appTheme.brandColor,

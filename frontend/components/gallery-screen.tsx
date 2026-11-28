@@ -214,6 +214,8 @@ const PagerChevron = ({
       pointerEvents={enabled ? 'auto' : 'none'}
     >
       <Pressable
+        role="button"
+        aria-label={direction === -1 ? 'Previous photo' : 'Next photo'}
         style={[
           styles.chevronButton,
           hovered ? styles.chevronHovered : null,

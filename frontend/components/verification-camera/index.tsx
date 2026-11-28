@@ -155,7 +155,7 @@ const VerificationCamera = () => {
 
           {permission?.granted &&
             <View style={styles.buttonContainer}>
-              <Pressable style={styles.shutterOuter} onPress={handleTakePhoto}>
+              <Pressable role="button" aria-label="Take photo" style={styles.shutterOuter} onPress={handleTakePhoto}>
                 <View style={styles.shutterInner} />
               </Pressable>
             </View>

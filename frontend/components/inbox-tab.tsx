@@ -54,6 +54,7 @@ const HiddenIntrosBackButton = ({ position }: { position: 'left' | null }) => (
   <TopNavBarButton
     onPress={hideHiddenIntros}
     iconName="arrow-back"
+    accessibilityLabel="Back"
     position={position}
     secondary={true}
   />
