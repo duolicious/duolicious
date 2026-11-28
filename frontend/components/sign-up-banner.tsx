@@ -8,7 +8,6 @@ import { isMobile, viewportPosition } from '../util/util';
 import { useAppTheme } from '../app-theme/app-theme';
 import {
   JOIN_FREE_LABEL,
-  hasDesktopJoinCard,
   hasMobileJoinBar,
   showSignUp,
 } from './modal/sign-up-modal';
@@ -21,12 +20,6 @@ import { useBannerProspectName } from '../events/banner-prospect-name';
 import { useSignUpBanner } from '../events/sign-up-banner';
 import { useIsSignedOutCardShown } from './navigation/signed-out-card';
 import { COLUMN_MAX_WIDTH } from '../constants/constants';
-import {
-  CONTENT_COLUMN_STYLE,
-  LEFT_PANE_STYLE,
-  RIGHT_PANE_STYLE,
-  hasRightPane,
-} from './navigation/web-layout';
 
 const useProspectPrompt = (prospectHandle: string | undefined) => {
   const prospectName = useBannerProspectName(prospectHandle);
@@ -45,9 +38,8 @@ const useProspectPrompt = (prospectHandle: string | undefined) => {
   };
 };
 
-const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
+const SignUpBannerCard = ({ prospectHandle }: {
   prospectHandle?: string
-  overContentColumn: boolean
 }) => {
   const { appTheme } = useAppTheme();
   const { width: windowWidth } = useWindowDimensions();
@@ -84,21 +76,14 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
       }}
       pointerEvents="box-none"
     >
-      {overContentColumn &&
-        <View style={LEFT_PANE_STYLE} pointerEvents="none"/>
-      }
-
       <View
-        style={[
-          overContentColumn ?
-            CONTENT_COLUMN_STYLE :
-            { width: '100%', maxWidth: COLUMN_MAX_WIDTH },
-          {
-            height: '100%',
-            alignItems: 'center',
-            paddingHorizontal: 3,
-          },
-        ]}
+        style={{
+          width: '100%',
+          maxWidth: COLUMN_MAX_WIDTH,
+          height: '100%',
+          alignItems: 'center',
+          paddingHorizontal: 3,
+        }}
         pointerEvents="box-none"
       >
         <View
@@ -193,10 +178,6 @@ const SignUpBannerCard = ({ prospectHandle, overContentColumn }: {
           </View>
         </View>
       </View>
-
-      {overContentColumn && hasRightPane(windowWidth) &&
-        <View style={RIGHT_PANE_STYLE} pointerEvents="none"/>
-      }
     </View>
   );
 };
@@ -281,7 +262,7 @@ const SignUpBanner = () => {
     return null;
   }
 
-  if (target === 'search' && hasDesktopJoinCard()) {
+  if (target === 'search' && !isMobile()) {
     return null;
   }
 
@@ -289,12 +270,7 @@ const SignUpBanner = () => {
     return <JoinBar target={target} prospectHandle={prospectHandle} />;
   }
 
-  return (
-    <SignUpBannerCard
-      prospectHandle={prospectHandle}
-      overContentColumn={target === 'search' && !isMobile()}
-    />
-  );
+  return <SignUpBannerCard prospectHandle={prospectHandle} />;
 };
 
 export {

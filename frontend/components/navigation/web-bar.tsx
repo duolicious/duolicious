@@ -16,7 +16,7 @@ import { useInboxStats } from '../../chat/application-layer/hooks/inbox-stats';
 import { WebBarFooter } from './web-bar-footer/web-bar-footer';
 import { useAppTheme } from '../../app-theme/app-theme';
 import { useIsWebLoggedOut } from '../../events/signed-in-user';
-import { hasDesktopJoinCard, showSignUp } from '../modal/sign-up-modal';
+import { showSignUp } from '../modal/sign-up-modal';
 import { JoinCard } from './join-card';
 import { PUBLIC_TAB_NAMES } from './public-tabs';
 
@@ -248,7 +248,6 @@ const RailWithJoinCard = ({state, navigation, descriptors}: NavigationProps) => 
 const WebBar = ({state, navigation, tabBarStyle, descriptors}: WebBarProps) => {
   const { appThemeName } = useAppTheme();
   const isWebLoggedOut = useIsWebLoggedOut();
-  const hasJoinCard = isWebLoggedOut && hasDesktopJoinCard();
 
   return (
     <ScrollView
@@ -264,19 +263,19 @@ const WebBar = ({state, navigation, tabBarStyle, descriptors}: WebBarProps) => {
           alignItems: 'flex-end',
           paddingHorizontal: 12,
         },
-        hasJoinCard ? { flexGrow: 1 } : { flex: 1 },
+        isWebLoggedOut ? { flexGrow: 1 } : { flex: 1 },
         tabBarStyle,
       ]}
       showsVerticalScrollIndicator={false}
     >
-      {hasJoinCard &&
+      {isWebLoggedOut &&
         <RailWithJoinCard
           state={state}
           navigation={navigation}
           descriptors={descriptors}
         />
       }
-      {!hasJoinCard &&
+      {!isWebLoggedOut &&
         <View
           style={{
             flex: 1,

@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { prepare, snap } from './stable-page';
+import { joinLabel, prepare, snap } from './stable-page';
 
 const SIGN_UP_TIME = Date.UTC(2026, 5, 1, 12);
 
@@ -77,7 +77,7 @@ const signUp = async (
 test('new users can sign up', async ({ page }) => {
   await prepare(page, SIGN_UP_TIME);
   await page.goto('/');
-  await tap(page, 'Join or sign in');
+  await tap(page, joinLabel());
   await signUp(page, (name) => snap(page, name));
 
   await tap(page, 'Profile');
@@ -106,7 +106,7 @@ test('mistyped one-time passwords can be corrected', async ({ page }) => {
 
   await prepare(page, SIGN_UP_TIME);
   await page.goto('/');
-  await tap(page, 'Join or sign in');
+  await tap(page, joinLabel());
   await requestCode(page);
 
   const boxes = page.locator('input[inputmode="numeric"]');

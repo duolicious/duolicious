@@ -18,10 +18,6 @@ const showSignUp = (isVisible: boolean, message?: string) => {
 
 const JOIN_FREE_LABEL = 'Join\xa0free';
 
-const hasDesktopJoinCard = (): boolean =>
-  !isMobile() &&
-  experimentVariant('desktop-join-card', ['control', 'card']) === 'card';
-
 const hasMobileJoinBar = (): boolean =>
   isMobile() &&
   experimentVariant('mobile-join-bar', ['control', 'bar']) === 'bar';
@@ -102,7 +98,6 @@ const SignUpModal = () => {
 
 export {
   JOIN_FREE_LABEL,
-  hasDesktopJoinCard,
   hasMobileJoinBar,
   showSignUp,
   useShowSignUp,
