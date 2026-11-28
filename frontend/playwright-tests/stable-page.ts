@@ -1,4 +1,7 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
+
+const joinLabel = (): string =>
+  test.info().project.name.endsWith('desktop') ? 'Join free' : 'Join or sign in';
 
 const prepare = async (
   page: Page,
@@ -72,6 +75,7 @@ const snap = async (page: Page, name: string) => {
 };
 
 export {
+  joinLabel,
   prepare,
   snap,
 };

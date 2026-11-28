@@ -1,7 +1,7 @@
 import { test as base, expect, Page } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { SEED_FILE, Seed, api, signIn, viewer } from './backend';
-import { prepare, snap } from './stable-page';
+import { joinLabel, prepare, snap } from './stable-page';
 
 const readSeed = (): Seed => JSON.parse(readFileSync(SEED_FILE, 'utf8'));
 
@@ -45,14 +45,12 @@ const signInPage = async (page: Page, seed: Seed, theme: string) => {
   return session;
 };
 
-test('signed-out screens', async ({ page }, { project }) => {
-  const joinLabel = project.name === 'desktop' ? 'Join free' : 'Join or sign in';
-
+test('signed-out screens', async ({ page }) => {
   await prepare(page, readSeed().time);
 
-  await visit(page, '/', joinLabel, 'signed-out-search');
+  await visit(page, '/', joinLabel(), 'signed-out-search');
 
-  await tap(page, joinLabel);
+  await tap(page, joinLabel());
   await shown(page, 'Use email');
   await snap(page, 'join-or-sign-in');
 
