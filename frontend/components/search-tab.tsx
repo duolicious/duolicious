@@ -247,9 +247,15 @@ const SearchScreen_ = ({navigation}: SearchScreenProps) => {
     }
   }, []);
 
+  const maxColumns = isPublic && !isMobile()
+    ? { control: 4, three: 3, five: 5 }[experimentVariant(
+        'search-columns-desktop', ['control', 'three', 'five'])]
+    : 4;
+
   const numColumns = isMobile() || width === null
     ? 2
-    : _.clamp(Math.floor(width / minCardWidth), 2, 4);
+    : _.clamp(
+        Math.floor(width * maxColumns / (4 * minCardWidth)), 2, maxColumns);
 
   useEffect(() => {
     (async () => {
