@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Gesture, GestureDetector, PanGesture } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, LegacyPanGesture } from 'react-native-gesture-handler';
 import { useAppTheme } from '../app-theme/app-theme';
 import { grabCursor, hoverTransition, useHover } from './hover';
 import { DefaultText } from './default-text';
@@ -183,7 +183,7 @@ const Slider = ({
 };
 
 const SliderThumb = ({ gesture, left, hollow, isDragging }: {
-  gesture: PanGesture
+  gesture: LegacyPanGesture
   left: number
   hollow: boolean
   isDragging: boolean
